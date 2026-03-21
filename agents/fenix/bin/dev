@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+ENV["PORT"] ||= ENV["AGENT_FENIX_PORT"] if ENV["AGENT_FENIX_PORT"]
+exec "./bin/rails", "server", *ARGV

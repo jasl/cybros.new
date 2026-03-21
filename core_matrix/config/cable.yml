@@ -1,0 +1,19 @@
+development:
+  # Use Solid Cable in development so broadcasts from background jobs (Solid Queue) reach the web process.
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: "0.1.seconds"
+  message_retention: "86400.seconds"
+
+test:
+  adapter: test
+
+production:
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: "0.1.seconds"
+  message_retention: "86400.seconds"
