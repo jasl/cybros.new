@@ -1,0 +1,4 @@
+job: cd core_matrix && env RUBY_DEBUG_OPEN=true bin/jobs
+js: cd core_matrix && bun run build --watch
+css: cd core_matrix && bun run build:css --watch
+agent_fenix: cd agents/fenix && env PORT=$AGENT_FENIX_PORT bin/dev

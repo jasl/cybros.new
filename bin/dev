@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../lib/monorepo_dev_environment"
+
+ROOT = File.expand_path("..", __dir__)
+CORE_MATRIX_ROOT = File.join(ROOT, "core_matrix")
+CORE_MATRIX_RAILS = File.join(CORE_MATRIX_ROOT, "bin/rails")
+PROCFILE = File.join(ROOT, "Procfile.dev")
+
+MonorepoDevEnvironment.defaults.each do |key, value|
+  ENV[key] = value
+end
+
+VERBOSE = ARGV.include?("--verbose") || ARGV.include?("-v") || ENV["VERBOSE"]
+RAILS_ARGS = ARGV - %w[--verbose -v]
+
+Process.exec(ENV, CORE_MATRIX_RAILS, "server", *RAILS_ARGS, chdir: CORE_MATRIX_ROOT) unless File.exist?(PROCFILE)
+
+Signal.trap("INT") { }
+
+if system(*%w[gem list --no-installed --exact --silent foreman])
+  puts "Installing foreman..."
+  system(*%w[gem install foreman])
+end
+
+begin
+  in_r, in_w = IO.pipe
+  foreman_pid = Process.spawn(
+    ENV,
+    *%W[foreman start -f #{PROCFILE} -m all=1 --env /dev/null],
+    chdir: ROOT,
+    in: in_r,
+    out: (VERBOSE ? STDOUT : "/dev/null"),
+    err: (VERBOSE ? STDOUT : "/dev/null"),
+    pgroup: true
+  )
+  foreman_pgid = Process.getpgid(foreman_pid)
+  pid = Process.spawn(ENV, CORE_MATRIX_RAILS, "server", *RAILS_ARGS, chdir: CORE_MATRIX_ROOT)
+
+  Process.wait(pid)
+  pid = nil
+ensure
+  if foreman_pgid
+    Process.kill("INT", -foreman_pgid)
+    Process.wait(-foreman_pgid)
+  end
+  begin
+    Process.kill("KILL", pid) if pid
+  rescue Errno::ESRCH
+  end
+  in_w&.close
+  in_r&.close
+end
