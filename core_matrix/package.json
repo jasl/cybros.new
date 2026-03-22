@@ -4,7 +4,7 @@
   "scripts": {
     "build": "bun bun.config.js",
     "build:css": "bunx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css",
-    "lint:js": "bunx eslint app/javascript test/js --max-warnings=0"
+    "lint:js": "bunx eslint app/javascript test/js --max-warnings=0 --no-error-on-unmatched-pattern"
   },
   "dependencies": {
     "@hotwired/stimulus": "^3.2.2",
