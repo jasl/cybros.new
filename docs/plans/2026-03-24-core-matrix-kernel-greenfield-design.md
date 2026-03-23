@@ -25,6 +25,16 @@ The platform must support:
 
 The implementation should start fresh. The current `core_matrix` code should be treated as archived prototype material, not as the migration base.
 
+The current delivery phase is backend-first:
+
+- domain models
+- application services
+- machine-to-machine contract boundaries required for agent enrollment and health flows
+- unit and integration tests
+- manual real-environment validation
+
+Human-facing UI should be tracked separately as a follow-up document and should not expand the current phase scope.
+
 ## Product Definition
 
 Core Matrix is a general-purpose agent kernel in the same sense that a JVM is a general-purpose program runtime. It hosts shared infrastructure that many agent programs can rely on, while leaving business behavior to the agent programs themselves.
@@ -36,9 +46,12 @@ The product assumptions are:
 - single installation, not multi-tenant SaaS
 - trust boundary is the installation, not a zero-trust enterprise environment
 - expected deployments are personal, family, or small-team environments with baseline trust
+- expected deployment modes include local development, bare-metal advanced-user installs, and bundled docker-compose style distribution
+- v1 commonly colocates the agent runtime and code execution environment inside the same trusted environment; this reduces complexity but is not a hard security boundary
 - users may deploy separate installations when they need stronger isolation
 - Core Matrix is the user-facing product surface
 - agents operate behind the scenes through a stable machine-to-machine contract
+- agent implementations are protocol-facing and language-agnostic from the kernel's perspective
 
 ## Kernel Versus Agent Responsibilities
 
@@ -119,6 +132,11 @@ Responsibilities:
 - invitation-based user join flow
 - admin role assignment and revocation
 
+Admin safety rule:
+
+- the installation must always retain at least one active admin user
+- revoking the last active admin is forbidden
+
 Naming note:
 
 - use `Installation`, not `Account`
@@ -145,6 +163,12 @@ Responsibilities:
 - store machine credentials and rotation metadata
 - store health and heartbeat state
 - negotiate runtime identity, supported methods, capability snapshots, and config schemas
+
+Kernel rule:
+
+- Core Matrix does not couple agent identity to implementation language, repository layout, or deployment toolchain
+- prompt, skill, code, and behavior changes on a user-owned agent are modeled as deployment evolution behind the same logical agent identity when appropriate
+- using one agent to build, modify, or deploy another agent is a normal workload, not a special-case aggregate
 
 ### 3. User Agent Surface
 
@@ -174,20 +198,33 @@ Primary objects:
 - `ConversationBranch` or equivalent tree edges
 - `Turn`
 - `Message`
+- `ConversationMessageVisibility`
+- `MessageAttachment`
+- `ConversationImport`
+- `ConversationSummarySegment`
 - `WorkflowRun`
 - `WorkflowNode`
+- `WorkflowNodeEvent`
 - `WorkflowArtifact`
 - `ProcessRun`
 - `SubagentRun`
 - `ApprovalRequest`
+- `ExecutionLease`
 - execution telemetry facts
 
 Responsibilities:
 
 - maintain conversation tree navigation
 - preserve an append-only transcript
+- preserve immutable message variants with selected input and output pointers
+- support queued turns and pre-side-effect input steering
+- materialize reusable attachments and attachment ancestry
+- project eligible attachments into runtime manifests and model input blocks according to the turn's pinned capability snapshot
+- model read-only imports for branch prefixes, merge summaries, and quoted context
+- support compaction through summary segments instead of transcript rewrites
 - materialize per-turn workflows
-- run tools, processes, approvals, and subagents
+- run tools, processes, approvals, subagents, and explicit process-control resources
+- preserve live execution event streams, timeout semantics, stop semantics, and lease ownership
 - pin each turn to a specific deployment and runtime snapshot
 
 ### 5. Provider Governance And Usage
@@ -355,6 +392,7 @@ Installation bootstrap rule:
 
 - if bundled `agents/fenix` is available in the chosen deployment mode, it should be automatically registered and bound to the first admin user
 - that binding should create an immediately usable default workspace
+- bundled-agent bootstrap must close both halves of the graph: first reconcile the logical agent, execution environment, and deployment rows, then create the first-admin binding and default workspace
 
 ## Workspace Model
 
@@ -391,6 +429,35 @@ Runtime pinning rules:
 - each executing turn must pin to one specific deployment and snapshot set
 - deployment drift must fail safe, not silently continue on a new runtime
 
+Conversation kinds in v1 are:
+
+- `root`: the primary conversation timeline in a workspace
+- `branch`: a divergent timeline created from a historical message
+- `thread`: a side timeline under a parent conversation for parallel work without rewriting the parent history
+- `checkpoint`: a saved snapshot conversation created from a historical message for later revisit or recovery
+
+Kind rules:
+
+- `root` has no parent
+- `branch`, `thread`, and `checkpoint` require a parent conversation
+- `branch` and `checkpoint` require a historical message anchor
+- `thread` may carry an anchor message for provenance, but it does not imply transcript cloning
+- `checkpoint` is intended as a savepoint, not the default redirected working timeline
+
+Conversation lifecycle state is orthogonal to kind.
+
+Lifecycle states in v1 are:
+
+- `active`
+- `archived`
+
+Lifecycle rules:
+
+- any conversation kind may be archived and later unarchived
+- archiving does not mutate transcript history, imports, summaries, or workflow artifacts
+- archived conversations are excluded from default active listings
+- archived conversations do not accept new turns, queue operations, or workflow restarts until unarchived
+
 ## Transcript And Workflow Model
 
 The current transcript and workflow direction remains valid in principle and should be reused conceptually:
@@ -403,6 +470,183 @@ The current transcript and workflow direction remains valid in principle and sho
 This is the part of the current prototype worth keeping as design knowledge.
 
 It should be rebuilt under the correct upper-layer aggregates rather than migrated in place.
+
+## Required Conversation Runtime Capability Baseline
+
+The new design must continue to support the important runtime capabilities that were captured in the earlier conversation-runtime plans. Those older documents are no longer the aggregate-root truth, but their runtime feature coverage should not be lost.
+
+The required baseline is:
+
+- branch from historical messages without copying transcript history
+- reusable attachments with origin references and materialization into new turns
+- append-only input and output variants for edit, retry, rerun, and swipe-style selection
+- mutable visibility overlays for soft delete and context exclusion without mutating historical message rows
+- explicit import rows for `branch_prefix`, `merge_summary`, and `quoted_context`
+- explicit summary-segment rows for context compaction and replacement
+- queued turns and steer-current-input behavior until the first side-effecting node commits
+- one active workflow per conversation at a time in v1
+- workflow node event streams for live output, status transitions, and audit-friendly replay
+- explicit execution lease and heartbeat ownership for workflow-bound active resources
+- explicit process-run modes for bounded turn commands and long-lived background services
+
+These capabilities are not optional polish. They are part of the runtime baseline that the greenfield model should preserve while moving the upper ownership model to the correct roots.
+
+## Attachment Access And Model Context
+
+`MessageAttachment` is a kernel-owned conversation resource first and a prompt-projection candidate second.
+
+The model should separate three layers:
+
+- stored attachment rows on immutable submitted messages
+- frozen attachment manifests on turns or workflows
+- capability-gated model input blocks derived from those manifests
+
+Rules:
+
+- attachments belong to submitted message rows and are never only a client-local concept once sent
+- v1 does not introduce independent attachment-level visibility overlays; attachments inherit visibility and context inclusion from their parent message plus branch or checkpoint selection rules
+- reusable attachment references must create new logical attachment rows with origin pointers rather than mutating or re-parenting the historical source row
+- turn creation or workflow creation must freeze the eligible attachment manifest for the selected input path so later history edits, visibility changes, or capability refreshes do not silently reinterpret what the running workflow saw
+- the frozen attachment manifest should carry stable attachment identity, source message identity, filename, media type, byte size, origin reference, and prepared runtime reference when one exists
+- context assembly should derive two sibling projections from the frozen manifest:
+  - a runtime attachment manifest for agent and tool side access inside the execution environment
+  - model input blocks for modalities supported by the pinned provider or model capability snapshot
+- provider or model capability gating must use the capability metadata pinned onto the executing turn, not only the latest global catalog view
+- unsupported attachments may remain available as runtime resources, but the kernel must never serialize them as if the model saw them
+- if prompt projection is skipped, downgraded, or preparation fails, the workflow trace should record that explicitly through a node event or equivalent diagnostic artifact
+- hidden or context-excluded messages must also exclude their attachments from branch, checkpoint, export, runtime manifest, and model input results
+- provider-specific transport encoding of model-visible attachments belongs to the kernel execution adapter layer, not to ad hoc agent-specific payload shaping
+- backtrack prefill may help a client rehydrate reusable attachment references, but server-side execution only uses submitted and materialized attachment rows
+- prepared runtime refs such as workspace files, imported handles, or staged proxies are execution artifacts and may be regenerated from the frozen manifest without changing the canonical attachment row
+
+## Process Resource Model
+
+`ProcessRun` is a first-class runtime resource and should not be treated as an opaque tool side effect.
+
+Required ownership shape:
+
+- every `ProcessRun` belongs to one `WorkflowNode`
+- every `ProcessRun` belongs to one `ExecutionEnvironment`
+- every `ProcessRun` should also redundantly store `turn_id` and `conversation_id` for efficient filtering, audit queries, and operational inspection
+- user-visible agent process runs should record the originating message context through `origin_message_id` or an equivalent direct message reference
+
+Kinds in v1 are:
+
+- `turn_command`: short-lived command with bounded timeout
+- `background_service`: long-lived managed process without a bounded timeout
+
+Rules:
+
+- `turn_command` and `background_service` are different lifecycle classes, not just labels
+- `turn_command` is expected to terminate and report a terminal status
+- `background_service` may remain active across multiple later workflow steps until explicitly stopped, lost, or retired
+- stdout, stderr, status transitions, and similar user-visible process output should be emitted as `WorkflowNodeEvent` records or an equivalent event stream, not packed into mutable `ProcessRun` text columns
+- process output is part of the agent's intermediate execution trace, not part of the user-authored transcript
+
+## Client Draft Versus Conversation Override
+
+Unsent composer draft state is not a kernel concern in v1.
+
+Rules:
+
+- client-local draft content, draft attachments, and in-progress form state may live entirely in the frontend or client
+- Core Matrix does not persist unsent draft text as a first-class server-side aggregate in v1
+- branching APIs may still return seed payloads for the client to prefill a new composer, but that payload is ephemeral unless the user submits it
+- conversation-level execution settings are different from draft state and must remain server-persisted
+
+The important boundary is:
+
+- draft is UX state
+- conversation override is execution state
+
+## Conversation Override Model
+
+Conversation-level overrides must be persisted because they affect real execution.
+
+Persist on `Conversation` or its close equivalent:
+
+- `override_payload`
+- `override_last_schema_fingerprint`
+- `override_reconciliation_report`
+- `override_updated_at`
+
+Rules:
+
+- override payload is validated against the current deployment conversation-override schema
+- override payload is best-effort reconciled when the deployment schema changes
+- resolved override values are frozen onto the executing turn or workflow snapshot
+- override persistence is independent from any client-local draft UX
+
+## Conversation Mutation Invariants
+
+The kernel must preserve timeline consistency with explicit mutation rules.
+
+Required invariants:
+
+- rewriting operations are tail-only within one conversation timeline
+- rewriting operations include edit, retry that replaces selected input or output, rerun that changes the selected output path, and swipe selection when the selected variant affects future prompt context
+- editing a previously submitted historical user message is modeled as backtrack-prefill plus rollback or fork semantics, not as in-place mutation of a persisted transcript row
+- soft delete and context exclusion may target non-tail messages through overlay rows
+- fork-point messages are protected from rewriting and protected from soft delete
+- regenerating or rerunning from a non-tail historical point must create a branch or equivalent divergent child timeline instead of mutating in place
+- hidden messages must not leak into branch, checkpoint, export, or context assembly results unless a future explicit admin-only diagnostic mode is introduced
+
+The product should expose these rules through shared action-policy objects or equivalent model hooks so that service code, APIs, and UI surfaces all enforce the same legality checks. The old `NodeBody` policy hook style is a valid design reference for this idea, even though the new aggregate model is different.
+
+## Conversation Variant Operations
+
+The runtime must distinguish four related but different mutation families.
+
+### 1. Input edit
+
+- unsent draft editing is client-local and out of scope for the kernel
+- submitted input editing is only directly supported on the selected tail user input of the active conversation timeline
+- tail input edit creates a new input variant, moves the turn's selected-input pointer, and invalidates or rebuilds dependent selected output and workflow state for that turn
+- non-tail input edit is never an in-place mutation; it resolves through backtrack-prefill plus either rollback-to-turn or branch creation
+
+### 2. Output retry
+
+- retry is for failed, interrupted, timed-out, or otherwise unfinished assistant output
+- retry reuses the currently selected input path and creates a new output variant in the same turn or version set
+- retry must reject when an equivalent retry is already queued or when policy says the failed output is not retryable
+
+### 3. Output rerun
+
+- rerun is for a finished assistant output whose generation path should be executed again
+- rerunning the selected tail output may replace the selected output path in place by creating a fresh output variant and rebuilding downstream workflow state
+- rerunning a non-tail finished output must branch first, then rerun inside the branch
+
+### 4. Output variant selection
+
+- swipe or select-output-variant only changes the selected output pointer among finished variants from the same version set
+- selecting a different output variant is tail-only in the current timeline when that selection would affect future prompt context
+- selecting a non-tail variant in the current timeline is blocked; the user must branch and choose the variant in the branch
+
+Shared rules:
+
+- these operations never mutate historical message rows in place
+- fork-point protection still applies
+- queued or in-flight variants cannot become the selected variant
+- action-policy checks should expose legality and reason codes consistently across services and UI
+
+## During-Generation Input Policy
+
+Conversation runtime behavior must define what happens when new human input arrives while work is already queued or running.
+
+Supported policy modes in v1 are:
+
+- `reject`: refuse the new input while active work exists
+- `restart`: request stop on active work, clear queued follow-up work, and restart from the newest input
+- `queue`: allow the running work to continue, but make sure newly queued follow-up work reflects the newest tail state
+
+Required semantics:
+
+- active work means a queued or running turn or workflow that can still produce transcript-affecting output
+- `reject` returns a user-visible locked or invalid-state error without mutating transcript state
+- `restart` creates an explicit cancel or stop boundary so partial stale output cannot later commit as the selected result
+- `queue` must carry an expected-tail guard on queued work so stale queued work is canceled or skipped if the conversation tail changes before execution
+- steering may mutate the active input only before the first transcript-affecting side effect is committed; after that boundary, the same user intent becomes queued follow-up or restart behavior rather than in-place mutation of already-sent work
+- stale queued work must fail safe rather than silently committing output against the wrong tail
 
 ## Agent Registration Protocol
 
@@ -576,6 +820,20 @@ Recovery semantics:
 
 This balances user experience with runtime safety.
 
+Explicit recovery actions after drift:
+
+- `manual_resume` means the user accepts continuation on a specific healthy deployment, the kernel records that decision, pins the new deployment snapshot, and resumes the paused workflow only if compatibility checks pass
+- `manual_retry` means the user abandons the paused execution path, preserves it as historical state, and starts a fresh workflow from the last stable selected input on a chosen healthy deployment
+- both actions must be auditable and must never be triggered silently
+
+Compatibility for `manual_resume` should mean at minimum:
+
+- the chosen deployment belongs to the same logical `AgentInstallation`
+- required protocol methods and capability families for the paused workflow are still available
+- any workflow-pinned config or override requirements can still be resolved safely
+
+If those checks fail, `manual_resume` must be rejected and only `manual_retry` may proceed.
+
 ## Provider Catalog
 
 Provider and model catalogs should remain configuration-backed.
@@ -586,6 +844,7 @@ The catalog should describe:
 - model references
 - protocol and transport
 - capabilities
+- input modality flags for at least image, audio, video, and generic file or document handling when the provider exposes them
 - context window metadata
 - request defaults
 - display metadata
@@ -700,7 +959,7 @@ Conversation sharing should be modeled as a live read-only projection.
 - publication slug or access token
 - visibility mode
 - published and revoked timestamps
-- access audit hooks
+- explicit access-audit hook surface, preferably a `PublicationAccessEvent` or equivalent first-class record
 
 Publication modes may include:
 
@@ -752,6 +1011,29 @@ Admins may manage:
 Admins may not directly browse another user's personal workspaces or conversations in v1.
 
 If a break-glass mechanism is ever added, it should be a new explicit object and audit flow, not an implicit admin privilege.
+
+## Validation And Delivery Rules
+
+The greenfield backend phase must be validated in three layers:
+
+- unit tests for model rules, service invariants, query objects, and value transformations
+- integration tests for cross-aggregate flows such as bootstrap, invitation join, agent enrollment, runtime pinning, branching, publication, and outage recovery
+- manual real-environment validation using `bin/dev` before the phase is declared complete
+
+Manual validation should be treated as a tracked deliverable, not as ad hoc developer memory.
+
+Rules:
+
+- keep a maintained manual checklist document with reproducible commands and expected outcomes for complex flows
+- include pairing and machine-to-machine registration flows in that checklist
+- record any manual-only prerequisites needed to run the validation
+- if a flow cannot be exercised manually in the real environment, treat that as an implementation gap
+
+Current phase boundary:
+
+- no human-facing setup wizard or application UI implementation in this phase
+- minimal machine-facing contract endpoints are allowed when they are required to exercise enrollment, registration, health, or recovery behavior in a real environment
+- deferred UI work should be tracked in a dedicated follow-up document rather than folded into the backend baseline
 
 ## Deferred Topics
 
@@ -818,6 +1100,8 @@ When implementation begins, follow these guardrails:
 5. rebuild conversation runtime only after the upper ownership and connectivity layers exist
 6. require contract tests for every agent protocol boundary before production code grows
 7. treat historical snapshots as first-class data, not optional metadata
+8. require unit tests, integration tests, and a maintained manual validation checklist as first-class deliverables
+9. require a final `bin/dev` smoke pass for the major backend flows before calling the phase complete
 
 ## Final Decision
 
