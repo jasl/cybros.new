@@ -78,7 +78,7 @@ module RecordBuilders
         runtime_kind: "codex_like",
         tool_policy_mode: "default",
         default_timeout_s: 300,
-        config: {}
+        config: {},
       }.merge(attributes)
     )
   end
@@ -86,13 +86,13 @@ module RecordBuilders
   def build_root_conversation(agent:, attributes: {})
     conversation = Conversation.create!(
       {
-        agent: agent,
+        agent:,
         title: "Root",
         status: "active",
         depth: 0,
         branch_position: 0,
         children_count: 0,
-        metadata: {}
+        metadata: {},
       }.merge(attributes)
     )
     conversation.update_column(:root_conversation_id, conversation.id)
@@ -107,11 +107,11 @@ module RecordBuilders
   def build_turn(conversation:, attributes: {})
     ConversationTurn.create!(
       {
-        conversation: conversation,
+        conversation:,
         sequence: conversation.turns.maximum(:sequence).to_i + 1,
         trigger_kind: "user",
         status: "draft",
-        metadata: {}
+        metadata: {},
       }.merge(attributes)
     )
   end
@@ -119,7 +119,7 @@ module RecordBuilders
   def build_message(conversation:, turn:, attributes: {})
     ConversationMessage.create!(
       {
-        conversation: conversation,
+        conversation:,
         conversation_turn: turn,
         role: "user",
         slot: "turn_input",
@@ -127,7 +127,7 @@ module RecordBuilders
         content_markdown: "hello",
         structured_content: {},
         metadata: {},
-        usage_payload: {}
+        usage_payload: {},
       }.merge(attributes)
     )
   end
@@ -323,7 +323,7 @@ end
 class CreateConversationMessageVisibilities < ActiveRecord::Migration[8.2]
   def change
     create_table :conversation_message_visibilities do |t|
-      t.references :conversation_message, null: false, foreign_key: true
+      t.references :conversation_message, null: false, foreign_key: true, index: false
       t.datetime :deleted_at
       t.datetime :context_excluded_at
       t.datetime :hidden_at
@@ -436,7 +436,7 @@ class CreateTurnWorkflows < ActiveRecord::Migration[8.2]
   def change
     create_table :turn_workflows do |t|
       t.string :public_id, null: false
-      t.references :conversation_turn, null: false, foreign_key: true
+      t.references :conversation_turn, null: false, foreign_key: true, index: false
       t.string :status, null: false
       t.string :planner_mode, null: false
       t.bigint :next_ordinal, null: false, default: 1
@@ -717,7 +717,7 @@ end
 class CreateConversationDrafts < ActiveRecord::Migration[8.2]
   def change
     create_table :conversation_drafts do |t|
-      t.references :conversation, null: false, foreign_key: true
+      t.references :conversation, null: false, foreign_key: true, index: false
       t.text :content_markdown
       t.references :selected_agent, foreign_key: { to_table: :agents }
       t.string :permission_mode
@@ -860,13 +860,14 @@ These are the recommended first-pass models. They follow Rails conventions and k
 class Agent < ApplicationRecord
   include HasPublicId
 
-  STATUSES = %w[active archived].freeze
+  STATUSES = %w[active archived].index_with(&:itself).freeze
 
   has_many :conversations, dependent: :restrict_with_exception
   has_many :conversation_drafts, foreign_key: :selected_agent_id, dependent: :nullify
 
-  validates :name, :status, :runtime_kind, :tool_policy_mode, presence: true
-  validates :status, inclusion: { in: STATUSES }
+  enum :status, STATUSES, validate: true
+
+  validates :name, :runtime_kind, :tool_policy_mode, presence: true
 end
 ```
 
@@ -876,7 +877,7 @@ end
 class Conversation < ApplicationRecord
   include HasPublicId
 
-  STATUSES = %w[active archived closed].freeze
+  STATUSES = %w[active archived closed].index_with(&:itself).freeze
 
   belongs_to :agent
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
@@ -887,15 +888,24 @@ class Conversation < ApplicationRecord
   belongs_to :latest_message, class_name: "ConversationMessage", optional: true
   belongs_to :managed_by_subagent_run, class_name: "SubagentRun", optional: true
 
-  has_many :child_conversations, class_name: "Conversation", foreign_key: :parent_conversation_id, dependent: :restrict_with_exception, inverse_of: :parent_conversation
+  has_many :child_conversations,
+           class_name: "Conversation",
+           foreign_key: :parent_conversation_id,
+           dependent: :restrict_with_exception,
+           inverse_of: :parent_conversation
   has_many :turns, class_name: "ConversationTurn", dependent: :destroy
   has_many :messages, through: :turns
-  has_many :imports, class_name: "ConversationImport", foreign_key: :target_conversation_id, dependent: :destroy, inverse_of: :target_conversation
+  has_many :imports,
+           class_name: "ConversationImport",
+           foreign_key: :target_conversation_id,
+           dependent: :destroy,
+           inverse_of: :target_conversation
   has_many :summary_segments, class_name: "ConversationSummarySegment", dependent: :destroy
   has_one :draft, class_name: "ConversationDraft", dependent: :destroy
 
-  validates :title, :status, presence: true
-  validates :status, inclusion: { in: STATUSES }
+  enum :status, STATUSES, validate: true
+
+  validates :title, presence: true
   validates :depth, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :branch_position, :children_count, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
@@ -930,8 +940,8 @@ end
 class ConversationTurn < ApplicationRecord
   include HasPublicId
 
-  TRIGGER_KINDS = %w[user system automation subagent_callback merge].freeze
-  STATUSES = %w[draft queued running awaiting_approval finished errored stopped].freeze
+  TRIGGER_KINDS = %w[user system automation subagent_callback merge].index_with(&:itself).freeze
+  STATUSES = %w[draft queued running awaiting_approval finished errored stopped].index_with(&:itself).freeze
 
   belongs_to :conversation
   belongs_to :blocked_by_turn, class_name: "ConversationTurn", optional: true
@@ -941,9 +951,10 @@ class ConversationTurn < ApplicationRecord
   has_many :messages, class_name: "ConversationMessage", dependent: :destroy
   has_one :workflow, class_name: "TurnWorkflow", dependent: :destroy
 
+  enum :trigger_kind, TRIGGER_KINDS, validate: true, prefix: :trigger_kind
+  enum :status, STATUSES, validate: true
+
   validates :sequence, presence: true, uniqueness: { scope: :conversation_id }
-  validates :trigger_kind, presence: true, inclusion: { in: TRIGGER_KINDS }
-  validates :status, presence: true, inclusion: { in: STATUSES }
   validates :queue_position, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
 
   scope :ordered, -> { order(:sequence, :id) }
@@ -958,9 +969,9 @@ end
 class ConversationMessage < ApplicationRecord
   include HasPublicId
 
-  ROLES = %w[system developer user assistant character summary].freeze
-  SLOTS = %w[turn_input turn_output import_summary note].freeze
-  VARIANT_KINDS = %w[canonical rerun retry edit swipe imported].freeze
+  ROLES = %w[system developer user assistant character summary].index_with(&:itself).freeze
+  SLOTS = %w[turn_input turn_output import_summary note].index_with(&:itself).freeze
+  VARIANT_KINDS = %w[canonical rerun retry edit swipe imported].index_with(&:itself).freeze
 
   belongs_to :conversation
   belongs_to :conversation_turn
@@ -969,9 +980,9 @@ class ConversationMessage < ApplicationRecord
   has_one :visibility, class_name: "ConversationMessageVisibility", dependent: :destroy
   has_many :attachments, class_name: "MessageAttachment", dependent: :destroy
 
-  validates :role, presence: true, inclusion: { in: ROLES }
-  validates :slot, presence: true, inclusion: { in: SLOTS }
-  validates :variant_kind, presence: true, inclusion: { in: VARIANT_KINDS }
+  enum :role, ROLES, validate: true
+  enum :slot, SLOTS, validate: true
+  enum :variant_kind, VARIANT_KINDS, validate: true
 
   scope :chronological, -> { order(:created_at, :id) }
 end
@@ -993,8 +1004,8 @@ end
 
 ```ruby
 class MessageAttachment < ApplicationRecord
-  KINDS = %w[file image screenshot artifact].freeze
-  PREPARATION_STATUSES = %w[pending prepared failed].freeze
+  KINDS = %w[file image screenshot artifact].index_with(&:itself).freeze
+  PREPARATION_STATUSES = %w[pending prepared failed].index_with(&:itself).freeze
 
   belongs_to :conversation
   belongs_to :conversation_message
@@ -1004,9 +1015,10 @@ class MessageAttachment < ApplicationRecord
 
   has_one_attached :file
 
+  enum :kind, KINDS, validate: true
+  enum :preparation_status, PREPARATION_STATUSES, validate: true
+
   validates :position, presence: true, numericality: { only_integer: true, greater_than: 0 }
-  validates :kind, presence: true, inclusion: { in: KINDS }
-  validates :preparation_status, presence: true, inclusion: { in: PREPARATION_STATUSES }
   validate :file_must_be_attached
 
   private
@@ -1021,16 +1033,17 @@ end
 
 ```ruby
 class ConversationImport < ApplicationRecord
-  KINDS = %w[branch_prefix merge_summary quoted_context].freeze
-  MODES = %w[messages_only summary_only messages_plus_summary].freeze
+  KINDS = %w[branch_prefix merge_summary quoted_context].index_with(&:itself).freeze
+  MODES = %w[messages_only summary_only messages_plus_summary].index_with(&:itself).freeze
 
   belongs_to :target_conversation, class_name: "Conversation"
   belongs_to :source_conversation, class_name: "Conversation"
   belongs_to :source_message, class_name: "ConversationMessage", optional: true
   belongs_to :summary_message, class_name: "ConversationMessage", optional: true
 
-  validates :kind, presence: true, inclusion: { in: KINDS }
-  validates :mode, presence: true, inclusion: { in: MODES }
+  enum :kind, KINDS, validate: true
+  enum :mode, MODES, validate: true
+
   validates :position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 end
 ```
@@ -1039,15 +1052,16 @@ end
 
 ```ruby
 class ConversationSummarySegment < ApplicationRecord
-  KINDS = %w[auto_compaction manual_summary merge_summary].freeze
-  STATUSES = %w[active superseded].freeze
+  KINDS = %w[auto_compaction manual_summary merge_summary].index_with(&:itself).freeze
+  STATUSES = %w[active superseded].index_with(&:itself).freeze
 
   belongs_to :conversation
   belongs_to :summary_message, class_name: "ConversationMessage"
   belongs_to :replaces_segment, class_name: "ConversationSummarySegment", optional: true
 
-  validates :kind, presence: true, inclusion: { in: KINDS }
-  validates :status, presence: true, inclusion: { in: STATUSES }
+  enum :kind, KINDS, validate: true
+  enum :status, STATUSES, validate: true
+
   validates :start_turn_sequence, :end_turn_sequence, presence: true
 end
 ```
@@ -1058,8 +1072,8 @@ end
 class TurnWorkflow < ApplicationRecord
   include HasPublicId
 
-  STATUSES = %w[draft running awaiting_approval finished failed rejected stopped].freeze
-  PLANNER_MODES = %w[serial_loop].freeze
+  STATUSES = %w[draft running awaiting_approval finished failed rejected stopped].index_with(&:itself).freeze
+  PLANNER_MODES = %w[serial_loop].index_with(&:itself).freeze
 
   belongs_to :conversation_turn
   belongs_to :terminal_node, class_name: "WorkflowNode", optional: true
@@ -1067,8 +1081,9 @@ class TurnWorkflow < ApplicationRecord
   has_many :nodes, class_name: "WorkflowNode", dependent: :destroy
   has_many :edges, class_name: "WorkflowEdge", dependent: :destroy
 
-  validates :status, presence: true, inclusion: { in: STATUSES }
-  validates :planner_mode, presence: true, inclusion: { in: PLANNER_MODES }
+  enum :status, STATUSES, validate: true
+  enum :planner_mode, PLANNER_MODES, validate: true
+
   validates :conversation_turn_id, uniqueness: true
 end
 ```
@@ -1079,22 +1094,51 @@ end
 class WorkflowNode < ApplicationRecord
   include HasPublicId
 
-  NODE_TYPES = %w[model_step tool_call command_exec subagent_run join approval_gate finalize summary].freeze
-  STATES = %w[ready blocked running awaiting_approval finished failed rejected skipped canceled timed_out].freeze
+  NODE_TYPES = %w[
+    model_step
+    tool_call
+    command_exec
+    subagent_run
+    join
+    approval_gate
+    finalize
+    summary
+  ].index_with(&:itself).freeze
+  STATES = %w[
+    ready
+    blocked
+    running
+    awaiting_approval
+    finished
+    failed
+    rejected
+    skipped
+    canceled
+    timed_out
+  ].index_with(&:itself).freeze
 
   belongs_to :turn_workflow
 
-  has_many :incoming_edges, class_name: "WorkflowEdge", foreign_key: :to_node_id, dependent: :destroy, inverse_of: :to_node
-  has_many :outgoing_edges, class_name: "WorkflowEdge", foreign_key: :from_node_id, dependent: :destroy, inverse_of: :from_node
+  has_many :incoming_edges,
+           class_name: "WorkflowEdge",
+           foreign_key: :to_node_id,
+           dependent: :destroy,
+           inverse_of: :to_node
+  has_many :outgoing_edges,
+           class_name: "WorkflowEdge",
+           foreign_key: :from_node_id,
+           dependent: :destroy,
+           inverse_of: :from_node
   has_many :events, class_name: "WorkflowNodeEvent", dependent: :destroy
   has_many :artifacts, class_name: "WorkflowArtifact", dependent: :destroy
   has_many :subagent_runs, dependent: :destroy
   has_many :process_runs, dependent: :destroy
   has_many :approval_requests, dependent: :destroy
 
+  enum :node_type, NODE_TYPES, validate: true, prefix: :node_type
+  enum :state, STATES, validate: true
+
   validates :ordinal, presence: true, uniqueness: { scope: :turn_workflow_id }
-  validates :node_type, presence: true, inclusion: { in: NODE_TYPES }
-  validates :state, presence: true, inclusion: { in: STATES }
   validates :attempt, numericality: { only_integer: true, greater_than: 0 }
 end
 ```
@@ -1104,8 +1148,8 @@ end
 ```ruby
 class WorkflowEdge < ApplicationRecord
   belongs_to :turn_workflow
-  belongs_to :from_node, class_name: "WorkflowNode"
-  belongs_to :to_node, class_name: "WorkflowNode"
+  belongs_to :from_node, class_name: "WorkflowNode", inverse_of: :outgoing_edges
+  belongs_to :to_node, class_name: "WorkflowNode", inverse_of: :incoming_edges
 
   validates :from_node_id, uniqueness: { scope: :to_node_id }
   validate :nodes_must_belong_to_turn_workflow
@@ -1133,12 +1177,20 @@ end
 
 ```ruby
 class WorkflowNodeEvent < ApplicationRecord
-  KINDS = %w[status_changed activity output_delta approval_requested approval_resolved diagnostic resource_linked].freeze
+  KINDS = %w[
+    status_changed
+    activity
+    output_delta
+    approval_requested
+    approval_resolved
+    diagnostic
+    resource_linked
+  ].index_with(&:itself).freeze
 
   belongs_to :turn_workflow
   belongs_to :workflow_node
 
-  validates :kind, presence: true, inclusion: { in: KINDS }
+  enum :kind, KINDS, validate: true
 end
 ```
 
@@ -1146,16 +1198,25 @@ end
 
 ```ruby
 class WorkflowArtifact < ApplicationRecord
-  KINDS = %w[tool_result file_ref image_ref patch structured_result join_result assistant_output_candidate log_ref].freeze
-  STORAGE_MODES = %w[inline_json active_storage foreign_reference external_url].freeze
+  KINDS = %w[
+    tool_result
+    file_ref
+    image_ref
+    patch
+    structured_result
+    join_result
+    assistant_output_candidate
+    log_ref
+  ].index_with(&:itself).freeze
+  STORAGE_MODES = %w[inline_json active_storage foreign_reference external_url].index_with(&:itself).freeze
 
   belongs_to :turn_workflow
   belongs_to :workflow_node
 
   has_one_attached :file
 
-  validates :kind, presence: true, inclusion: { in: KINDS }
-  validates :storage_mode, presence: true, inclusion: { in: STORAGE_MODES }
+  enum :kind, KINDS, validate: true
+  enum :storage_mode, STORAGE_MODES, validate: true
 end
 ```
 
@@ -1165,8 +1226,8 @@ end
 class SubagentRun < ApplicationRecord
   include HasPublicId
 
-  STATUSES = %w[starting running waiting succeeded failed killed timed_out lost closed].freeze
-  MANAGEMENT_MODES = %w[managed read_only_external].freeze
+  STATUSES = %w[starting running waiting succeeded failed killed timed_out lost closed].index_with(&:itself).freeze
+  MANAGEMENT_MODES = %w[managed read_only_external].index_with(&:itself).freeze
 
   belongs_to :workflow_node
   belongs_to :turn_workflow
@@ -1175,8 +1236,8 @@ class SubagentRun < ApplicationRecord
   belongs_to :child_conversation, class_name: "Conversation", optional: true
   belongs_to :result_artifact, class_name: "WorkflowArtifact", optional: true
 
-  validates :status, presence: true, inclusion: { in: STATUSES }
-  validates :management_mode, presence: true, inclusion: { in: MANAGEMENT_MODES }
+  enum :status, STATUSES, validate: true
+  enum :management_mode, MANAGEMENT_MODES, validate: true
 end
 ```
 
@@ -1186,9 +1247,9 @@ end
 class ProcessRun < ApplicationRecord
   include HasPublicId
 
-  KINDS = %w[turn_command background_service].freeze
-  STATUSES = %w[starting running succeeded failed killed timed_out lost closed].freeze
-  STARTED_BY_TYPES = %w[agent user].freeze
+  KINDS = %w[turn_command background_service].index_with(&:itself).freeze
+  STATUSES = %w[starting running succeeded failed killed timed_out lost closed].index_with(&:itself).freeze
+  STARTED_BY_TYPES = %w[agent user].index_with(&:itself).freeze
 
   belongs_to :workflow_node
   belongs_to :turn_workflow
@@ -1196,9 +1257,10 @@ class ProcessRun < ApplicationRecord
   belongs_to :conversation
   belongs_to :log_artifact, class_name: "WorkflowArtifact", optional: true
 
-  validates :kind, presence: true, inclusion: { in: KINDS }
-  validates :status, presence: true, inclusion: { in: STATUSES }
-  validates :started_by_type, presence: true, inclusion: { in: STARTED_BY_TYPES }
+  enum :kind, KINDS, validate: true
+  enum :status, STATUSES, validate: true
+  enum :started_by_type, STARTED_BY_TYPES, validate: true
+
   validates :command, presence: true
 
   validate :kind_specific_constraints
@@ -1206,8 +1268,8 @@ class ProcessRun < ApplicationRecord
   private
 
   def kind_specific_constraints
-    if kind == "turn_command"
-      errors.add(:timeout_s, "must be present for turn commands") if timeout_s.blank?
+    if kind == "turn_command" && timeout_s.blank?
+      errors.add(:timeout_s, "must be present for turn commands")
     end
 
     if kind == "background_service" && timeout_s.present?
@@ -1221,14 +1283,14 @@ end
 
 ```ruby
 class ApprovalRequest < ApplicationRecord
-  SCOPES = %w[tool_call command_exec subagent message_edit external_write].freeze
-  STATUSES = %w[pending approved denied expired canceled].freeze
+  SCOPES = %w[tool_call command_exec subagent message_edit external_write].index_with(&:itself).freeze
+  STATUSES = %w[pending approved denied expired canceled].index_with(&:itself).freeze
 
   belongs_to :workflow_node
   belongs_to :turn_workflow
 
-  validates :scope, presence: true, inclusion: { in: SCOPES }
-  validates :status, presence: true, inclusion: { in: STATUSES }
+  enum :scope, SCOPES, validate: true
+  enum :status, STATUSES, validate: true
 end
 ```
 
@@ -1236,12 +1298,20 @@ end
 
 ```ruby
 class ExecutionLease < ApplicationRecord
-  STATUSES = %w[active released expired].freeze
+  STATUSES = %w[active released expired].index_with(&:itself).freeze
 
-  validates :subject_type, :subject_id, :holder_type, :holder_id, :execution_request_key, :status, :lease_expires_at, :heartbeat_at, presence: true
-  validates :status, inclusion: { in: STATUSES }
+  enum :status, STATUSES, validate: true
+
+  validates :subject_type,
+            :subject_id,
+            :holder_type,
+            :holder_id,
+            :execution_request_key,
+            :lease_expires_at,
+            :heartbeat_at,
+            presence: true
   validates :slots, numericality: { only_integer: true, greater_than: 0 }
-  validates :execution_request_key, uniqueness: { scope: [:subject_type, :subject_id] }
+  validates :execution_request_key, uniqueness: { scope: %i[subject_type subject_id] }
 end
 ```
 
@@ -1260,12 +1330,13 @@ end
 
 ```ruby
 class ToolPermissionGrant < ApplicationRecord
-  STATUSES = %w[active revoked expired].freeze
-  SCOPE_KINDS = %w[exact_call prefix_rule tool_family conversation_local workspace_local].freeze
+  STATUSES = %w[active revoked expired].index_with(&:itself).freeze
+  SCOPE_KINDS = %w[exact_call prefix_rule tool_family conversation_local workspace_local].index_with(&:itself).freeze
 
-  validates :subject_type, :subject_id, :tool_name, :scope_kind, :status, presence: true
-  validates :scope_kind, inclusion: { in: SCOPE_KINDS }
-  validates :status, inclusion: { in: STATUSES }
+  enum :scope_kind, SCOPE_KINDS, validate: true
+  enum :status, STATUSES, validate: true
+
+  validates :subject_type, :subject_id, :tool_name, presence: true
 end
 ```
 
@@ -1273,16 +1344,17 @@ end
 
 ```ruby
 class WorkspaceDocument < ApplicationRecord
-  SCOPES = %w[conversation_local tree_shared agent_local global].freeze
-  STATUSES = %w[active archived].freeze
+  SCOPES = %w[conversation_local tree_shared agent_local global].index_with(&:itself).freeze
+  STATUSES = %w[active archived].index_with(&:itself).freeze
 
   belongs_to :conversation, optional: true
   belongs_to :latest_revision, class_name: "WorkspaceDocumentRevision", optional: true
 
   has_many :revisions, class_name: "WorkspaceDocumentRevision", dependent: :destroy
 
-  validates :conversation_scope, presence: true, inclusion: { in: SCOPES }
-  validates :status, presence: true, inclusion: { in: STATUSES }
+  enum :conversation_scope, SCOPES, validate: true
+  enum :status, STATUSES, validate: true
+
   validates :path, presence: true
 end
 ```
@@ -1291,13 +1363,14 @@ end
 
 ```ruby
 class WorkspaceDocumentRevision < ApplicationRecord
-  SOURCE_KINDS = %w[manual memory_tool subagent_result system].freeze
+  SOURCE_KINDS = %w[manual memory_tool subagent_result system].index_with(&:itself).freeze
 
   belongs_to :workspace_document
   belongs_to :workflow_artifact, optional: true
 
+  enum :source_kind, SOURCE_KINDS, validate: true
+
   validates :body_markdown, presence: true
-  validates :source_kind, presence: true, inclusion: { in: SOURCE_KINDS }
 end
 ```
 
@@ -1305,15 +1378,16 @@ end
 
 ```ruby
 class ToolCallFact < ApplicationRecord
-  EXECUTION_SCOPES = %w[parent subagent].freeze
+  EXECUTION_SCOPES = %w[parent subagent].index_with(&:itself).freeze
 
   belongs_to :conversation
   belongs_to :conversation_turn
   belongs_to :turn_workflow
   belongs_to :workflow_node
 
-  validates :tool_name, :execution_scope, :result_status, presence: true
-  validates :execution_scope, inclusion: { in: EXECUTION_SCOPES }
+  enum :execution_scope, EXECUTION_SCOPES, validate: true
+
+  validates :tool_name, :result_status, presence: true
   validates :model_attempts, :tool_executions, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 end
 ```
@@ -1385,10 +1459,22 @@ class ConversationTest < ActiveSupport::TestCase
   test "managed_read_only? reflects managed subagent ownership" do
     agent = build_agent
     conversation = build_root_conversation(agent: agent)
+    turn = build_turn(conversation: conversation)
+    workflow = TurnWorkflow.create!(conversation_turn: turn, status: "draft", planner_mode: "serial_loop", metadata: {})
+    node = WorkflowNode.create!(turn_workflow: workflow, ordinal: 1, node_type: "subagent_run", state: "ready", metadata: {})
+    subagent_run = SubagentRun.create!(
+      workflow_node: node,
+      turn_workflow: workflow,
+      conversation_turn: turn,
+      conversation: conversation,
+      status: "starting",
+      management_mode: "managed",
+      metadata: {}
+    )
 
     refute conversation.managed_read_only?
 
-    conversation.update_column(:managed_by_subagent_run_id, 123)
+    conversation.update!(managed_by_subagent_run: subagent_run)
     assert conversation.reload.managed_read_only?
   end
 

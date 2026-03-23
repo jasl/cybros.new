@@ -74,7 +74,7 @@ These choices are now intentionally fixed so implementation can proceed without 
 - support only `all_required` and `best_effort` join policies in v1
 - support only serial planner loops at the decision layer
 - forbid nested subagent spawn in v1
-- keep background services first-class, but ship only start/list/stop/reconcile in v1
+- keep background services first-class; in the broader v1 design they stop at start/list/stop/reconcile, but the current backend-foundation slice implements only `Processes::Start` and defers the rest
 - do not ship a user-facing transcript merge UI in v1; keep `merge_summary` imports internal/admin driven first
 
 ## Transaction And Lock Boundaries
@@ -1483,6 +1483,10 @@ When the backend foundation is complete, move to [CoreMatrix Agent UI And Runtim
 - realtime event delivery choices
 
 ## Suggested Rails Application Services
+
+The lists below describe the broader backend service surface for the design.
+
+For the current `core_matrix` backend-foundation slice, use the implementation plan and bootstrap document as the execution boundary. Services not included there remain intentionally deferred even if they appear in this catalog.
 
 ### Conversation Tree / Transcript
 

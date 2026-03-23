@@ -47,7 +47,7 @@ These are fixed defaults for the first build. They reduce ambiguity and lower im
 - allow only one open approval request per workflow node at a time
 - ship only `all_required` and `best_effort` join policies in v1
 - forbid nested subagent spawn in v1
-- ship background services in v1, but only with start/list/stop/reconcile
+- keep background services first-class; in the broader v1 design they stop at start/list/stop/reconcile, but the current backend-foundation slice implements only `Processes::Start` and defers the rest
 - do not ship a user-facing transcript merge UI in v1
 - prefer archive/close over hard destroy for conversation records
 
@@ -88,7 +88,19 @@ Expected baseline before starting the domain implementation:
 - existing Solid Queue / Cache / Cable setup remains in place but is not expanded in this slice
 - the implementation stops before controller, channel, view, or JavaScript work
 
-## Target Directory Structure
+## Longer-Term Target Directory Structure
+
+This tree is the longer-term backend shape, not the minimum file list for the current foundation slice.
+
+The current backend implementation plan in `core_matrix` requires:
+
+- all model files listed above
+- the service test inventory from the backend blueprint
+- `Conversations::TreeQuery`
+- `Conversations::BreadcrumbQuery`
+- `Conversations::SubtreeQuery`
+
+Do not treat every additional service or query path below as a current-phase blocker.
 
 ```text
 app/
@@ -181,6 +193,27 @@ test/
   queries/
   support/
 ```
+
+For this backend-foundation round, defer these backend extensions until a later focused pass:
+
+- `Conversations::AddImport`
+- `Turns::FinalizeOutput`
+- `Turns::AdoptOutputVariant`
+- `Workflows::NodeClaimer`
+- `Workflows::NodeRunner`
+- `Workflows::ContextAssembler`
+- `Subagents::Poll`
+- `Subagents::Wait`
+- `Subagents::Interrupt`
+- `Subagents::Close`
+- `Processes::Stop`
+- `Processes::Reconcile`
+- `Approvals::Request`
+- `Leases::Heartbeat`
+- `Leases::Release`
+- `Drafts::UpdateConversationDraft`
+- `Permissions::GrantFromApproval`
+- `Permissions::ResolveEffectiveToolPolicy`
 
 ## Generation Order
 
@@ -691,7 +724,7 @@ class ConversationTurn < ApplicationRecord
     automation: "automation",
     subagent_callback: "subagent_callback",
     merge: "merge"
-  }, validate: true
+  }, validate: true, prefix: :trigger_kind
 
   enum :status, {
     draft: "draft",
@@ -827,7 +860,7 @@ class WorkflowNode < ApplicationRecord
     approval_gate: "approval_gate",
     finalize: "finalize",
     summary: "summary"
-  }, validate: true
+  }, validate: true, prefix: :node_type
 
   enum :state, {
     ready: "ready",
