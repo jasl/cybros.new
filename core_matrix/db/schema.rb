@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090039) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -486,6 +486,40 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090039) do
     t.index ["installation_id"], name: "index_provider_policies_on_installation_id"
   end
 
+  create_table "publication_access_events", force: :cascade do |t|
+    t.string "access_via", null: false
+    t.datetime "accessed_at", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "publication_id", null: false
+    t.jsonb "request_metadata", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "viewer_user_id"
+    t.index ["installation_id"], name: "index_publication_access_events_on_installation_id"
+    t.index ["publication_id", "accessed_at"], name: "idx_publication_access_events_publication_accessed_at"
+    t.index ["publication_id"], name: "index_publication_access_events_on_publication_id"
+    t.index ["viewer_user_id"], name: "index_publication_access_events_on_viewer_user_id"
+  end
+
+  create_table "publications", force: :cascade do |t|
+    t.string "access_token_digest", null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "owner_user_id", null: false
+    t.datetime "published_at"
+    t.datetime "revoked_at"
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.string "visibility_mode", default: "disabled", null: false
+    t.index ["access_token_digest"], name: "index_publications_on_access_token_digest", unique: true
+    t.index ["conversation_id"], name: "idx_publications_conversation_unique", unique: true
+    t.index ["conversation_id"], name: "index_publications_on_conversation_id"
+    t.index ["installation_id"], name: "index_publications_on_installation_id"
+    t.index ["owner_user_id"], name: "index_publications_on_owner_user_id"
+    t.index ["slug"], name: "index_publications_on_slug", unique: true
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
@@ -818,6 +852,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090039) do
   add_foreign_key "provider_credentials", "installations"
   add_foreign_key "provider_entitlements", "installations"
   add_foreign_key "provider_policies", "installations"
+  add_foreign_key "publication_access_events", "installations"
+  add_foreign_key "publication_access_events", "publications"
+  add_foreign_key "publication_access_events", "users", column: "viewer_user_id"
+  add_foreign_key "publications", "conversations"
+  add_foreign_key "publications", "installations"
+  add_foreign_key "publications", "users", column: "owner_user_id"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
   add_foreign_key "subagent_runs", "installations"
