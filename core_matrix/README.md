@@ -1,6 +1,9 @@
 # Core Matrix
 
 `core_matrix` is being rebuilt as the backend kernel substrate for Core Matrix.
+This implementation batch is backend-only. Human-facing UI, Turbo, Stimulus,
+browser delivery, and other interactive product surfaces stay deferred to the
+follow-up UI plan.
 
 Current authoritative project documents:
 
@@ -9,6 +12,7 @@ Current authoritative project documents:
 - Active implementation plan: `../docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 - Deferred UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+- Behavior notes for landed backend modules: `docs/behavior/`
 
 Current scope for this phase:
 

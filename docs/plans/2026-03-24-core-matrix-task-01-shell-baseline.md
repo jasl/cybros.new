@@ -19,6 +19,7 @@ Load this file as the detailed execution unit for Task 01. Treat the milestone f
 - Verify: `core_matrix/db/schema.rb`
 - Verify: `core_matrix/app/models/application_record.rb`
 - Verify: `core_matrix/config/routes.rb`
+- Create: `core_matrix/docs/behavior/shell-baseline.md`
 - Create: `core_matrix/test/support/.keep`
 - Create: `core_matrix/test/services/.keep`
 - Create: `core_matrix/test/queries/.keep`
@@ -31,6 +32,8 @@ Load this file as the detailed execution unit for Task 01. Treat the milestone f
 
 - Update `core_matrix/README.md` to point at the greenfield design doc, UI follow-up doc, and manual validation checklist.
 - State explicitly that human-facing UI is out of scope for this phase.
+- Add `core_matrix/docs/behavior/shell-baseline.md` describing the shell
+  baseline, validation contract, and phase boundary for this execution unit.
 
 **Step 2: Verify the shell baseline**
 
@@ -61,13 +64,14 @@ Expected:
 **Step 4: Commit**
 
 ```bash
-git -C .. add core_matrix/README.md core_matrix/test/support/.keep core_matrix/test/services/.keep core_matrix/test/queries/.keep core_matrix/test/integration/.keep core_matrix/test/requests/.keep core_matrix/script/manual/.keep
+git -C .. add core_matrix/README.md core_matrix/docs/behavior/shell-baseline.md core_matrix/test/support/.keep core_matrix/test/services/.keep core_matrix/test/queries/.keep core_matrix/test/integration/.keep core_matrix/test/requests/.keep core_matrix/script/manual/.keep docs/plans/2026-03-24-core-matrix-task-01-shell-baseline.md
 git -C .. commit -m "chore: reset core matrix backend shell baseline"
 ```
 
 ## Stop Point
 
-Stop after the backend shell baseline, empty directories, and baseline validation commands are in place.
+Stop after the backend shell baseline, behavior doc, empty directories, and
+baseline validation commands are in place.
 
 Do not implement these items in this task:
 
