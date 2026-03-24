@@ -49,6 +49,7 @@ Use these reference projects as non-authoritative comparison points during imple
 - `references/original/references/openclaw`
 - `references/original/references/codex`
 - `references/original/references/bub`
+- `references/original/references/dify`
 - `references/original/references/Risuai`
 - `references/original/references/OpenAlice`
 - `references/original/references/accomplish`
@@ -80,7 +81,7 @@ The topical design notes `docs/design/2026-03-24-core-matrix-model-role-resoluti
 - For every execution unit, perform at least two full review passes against the active task document plus the greenfield design; if any gap is found, fix it, rerun the relevant tests, and repeat until both passes are clean.
 - For every execution unit, update the relevant behavior docs in the owning product docs tree and include them in the self-review loop.
 - At the end of every milestone, review the landed code against Ruby and Rails best practices: layered boundaries, service and query placement, Active Record associations and validations, callback restraint, naming consistency, and test clarity.
-- Commit after each finished task.
+- Use one phase-scoped implementation branch for the active batch, for example `codex/phase1`, and commit after each finished task on that branch instead of creating a separate branch per task.
 
 ## Execution Gates
 
