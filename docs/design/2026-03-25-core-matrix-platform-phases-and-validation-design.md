@@ -226,9 +226,12 @@ Core Matrix owns:
 Agent programs may own:
 
 - domain behavior
+- prompt building and model-input composition
+- context compaction, summarization, and tool-result projection strategies
 - experimental tool implementations
 - memory, knowledge, fetch, search, and other unstable capability
   implementations
+- execution-time lifecycle hooks and token-estimation helpers
 - skills, skill loaders, and skill installers
 - composer completions and other client-facing affordances
 

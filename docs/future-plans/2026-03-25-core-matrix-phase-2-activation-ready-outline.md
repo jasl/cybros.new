@@ -24,6 +24,7 @@ Before Phase 2 moves into `docs/plans`, refresh this outline against:
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md)
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Task Group 1: Re-Run The Structural Gate And Freeze Phase 2 Scope
 
@@ -52,14 +53,18 @@ shape without a root-model rewrite.
 - Modify: `core_matrix/app/services/workflows/context_assembler.rb`
 - Modify: `core_matrix/app/services/workflows/scheduler.rb`
 - Likely create: `core_matrix/app/services/workflows/execute_run.rb`
+- Likely create: `core_matrix/app/services/provider_execution/*`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
 - Modify: `core_matrix/app/services/turns/start_automation_turn.rb`
 - Modify: `core_matrix/app/models/workflow_run.rb`
+- Modify: `core_matrix/vendor/simple_inference/lib/simple_inference/*`
+- Test: `core_matrix/vendor/simple_inference/test/*`
 - Test: `core_matrix/test/services/workflows/*`
 - Test: `core_matrix/test/integration/*`
 
 **Verification:**
 
+- `cd core_matrix/vendor/simple_inference && bundle exec rake`
 - `cd core_matrix && bin/rails test test/services/workflows`
 - `cd core_matrix && bin/rails test test/integration`
 
@@ -74,6 +79,7 @@ forking into separate execution models.
 - Modify: `core_matrix/app/services/agent_deployments/handshake.rb`
 - Modify: `core_matrix/app/services/agent_deployments/reconcile_config.rb`
 - Modify: `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
+- Likely create: `core_matrix/app/services/mcp/*`
 - Likely create or expand: `core_matrix/app/models/` for tool-governance
   objects
 - Likely create or expand: `core_matrix/app/services/` for tool binding and
@@ -155,7 +161,7 @@ release rotation.
   - one same-installation rotation across upgrade
   - one same-installation rotation across downgrade
 
-## Task Group 7: Build The Minimal Fenix Runtime Surface
+## Task Group 7: Build The Fenix Runtime Surface And Retain Execution Hooks
 
 **Purpose:** Give `Fenix` enough runtime behavior to participate in Phase 2 as a
 real agent program.
@@ -167,6 +173,7 @@ real agent program.
 - Likely create: `agents/fenix/app/controllers/*` for machine-facing runtime
   endpoints
 - Likely create: `agents/fenix/app/services/fenix/runtime/*`
+- Likely create: `agents/fenix/app/services/fenix/runtime_surface/*`
 - Likely create: `agents/fenix/app/services/fenix/tools/*`
 - Likely create: `agents/fenix/test/integration/*`
 - Likely create: `agents/fenix/test/services/*`
@@ -176,6 +183,8 @@ real agent program.
 - `cd agents/fenix && bin/rails test`
 - manual registration and pairing from a real `Fenix` runtime into
   `Core Matrix`
+- one real code-driven or mixed code-plus-LLM execution path that exercises the
+  retained runtime-stage hook family
 
 ## Task Group 8: Add Fenix Skills Compatibility And Operational Skills
 
@@ -227,9 +236,11 @@ evidence.
 - same-installation upgrade rotation
 - same-installation downgrade rotation
 - tool call
+- Streamable HTTP MCP-backed tool call
 - subagent path
 - human-interaction path
 - recovery path
+- code-driven or mixed code-plus-LLM runtime-stage-hook path
 - built-in deployment skill path
 - third-party skill install-and-use path
 
@@ -252,5 +263,6 @@ Do not promote this outline into `docs/plans` until:
 
 - the activation checklist passes cleanly
 - real provider credentials are ready
+- the retained execution-budget and runtime-hook boundary is still accepted
 - the chosen `Fenix` runtime shape is concrete
 - the third-party skill validation source is confirmed

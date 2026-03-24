@@ -115,12 +115,31 @@ the active docs:
 Also confirm alignment with the focused `Fenix` design and research notes:
 
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
 - [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
 
 If terminology drift is found, correct the design docs before activation.
 
-## Gate 5: Fenix Validation Target Is Concrete
+## Gate 5: Execution Runtime Boundary Is Explicit
+
+Confirm the promoted Phase 2 plan is explicit about the runtime boundary that
+replaces the old prompt-builder-centric architecture.
+
+At minimum, the plan must say all of the following:
+
+- prompt building remains agent-program-owned
+- execution-time budget hints are retained for agent-program customization
+- token and message estimation remain available through a small helper surface
+- the retained runtime-stage hook family is explicit or is replaced by an
+  equally clear successor contract
+- `simple_inference` remains the shared provider-execution substrate unless a
+  concrete protocol gap justifies a focused extension
+
+If the promoted plan still hand-waves these concerns as "the agent runtime will
+figure it out", Phase 2 is not ready.
+
+## Gate 6: Fenix Validation Target Is Concrete
 
 Do not activate Phase 2 with a vague promise to "test it later".
 
@@ -149,7 +168,7 @@ Each slice must name:
 
 If these slices are not concrete, Phase 2 is not ready.
 
-## Gate 6: Real-Environment Validation Prerequisites
+## Gate 7: Real-Environment Validation Prerequisites
 
 Confirm the real validation environment is ready before planning starts.
 
@@ -160,6 +179,8 @@ Required prerequisites:
 - at least one real provider path is available to `core_matrix`
 - at least one external capability path is available for tool validation
   through MCP or an agent-program-exposed tool surface
+- at least one real Streamable HTTP MCP path is available if MCP is the chosen
+  external capability proof for Phase 2
 - the bundled `Fenix` runtime can be started and connected
 - an independently started external `Fenix` runtime can be enrolled and paired
 - a same-installation second `Fenix` deployment path exists for cutover testing
@@ -170,7 +191,7 @@ Required prerequisites:
 If any of these are missing, either fix the environment first or explicitly
 hold Phase 2.
 
-## Gate 7: Capability-Governance Readiness
+## Gate 8: Capability-Governance Readiness
 
 Confirm the activation plan has a clear target for unified capability
 governance.
@@ -186,11 +207,13 @@ At minimum, the next execution plan must explicitly cover:
 - whitelist-only policy
 - reserved-prefix handling
 - availability and supervision state
+- session-aware Streamable HTTP MCP transport handling when MCP is one of the
+  governed capability sources
 
 If the promoted plan still talks about a "minimal bridge" without naming these
 objects or policies, rewrite it before activation.
 
-## Gate 8: Conversation Feature-Policy Readiness
+## Gate 9: Conversation Feature-Policy Readiness
 
 Confirm the next execution plan treats feature gating as kernel execution
 behavior, not UI configuration.
@@ -210,7 +233,7 @@ Initial features that must be accounted for:
 - `conversation_branching`
 - `conversation_archival`
 
-## Gate 9: Manual Checklist Readiness
+## Gate 10: Manual Checklist Readiness
 
 Before activation, define how the manual checklist will change.
 
@@ -219,11 +242,13 @@ Required outcome:
 - a planned update path for `docs/checklists`
 - explicit real-environment scenarios for tools, subagents, human interaction,
   recovery, external pairing, deployment rotation, and skills
+- explicit real-environment scenarios for Streamable HTTP MCP and one retained
+  runtime-stage-hook path
 - a rule that no Phase 2 claim is complete without matching checklist evidence
 
 If the checklist delta is still fuzzy, Phase 2 is not ready.
 
-## Gate 10: Promotion Output Is Defined
+## Gate 11: Promotion Output Is Defined
 
 Before promoting Phase 2 into `docs/plans`, confirm exactly what will be
 created.
@@ -243,6 +268,8 @@ Do not activate Phase 2 if any of the following are true:
 
 - Phase 1 still has unresolved structural-gate concerns
 - the next-phase scope has expanded into Web UI or triggers
+- the execution-runtime boundary around budgets, hooks, and prompt ownership is
+  still fuzzy
 - Fenix validation slices are still vague
 - real provider or capability validation paths are unavailable
 - the codebase shape materially differs from the assumptions in the initial

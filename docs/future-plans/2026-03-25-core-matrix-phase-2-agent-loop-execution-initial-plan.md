@@ -28,6 +28,7 @@ Before promotion, run:
 
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
+- [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Preconditions
 
@@ -72,15 +73,23 @@ Phase 2 must make them drive a real run.
 
 - turn intake into executable workflow progression
 - real provider invocation under workflow control
+- provider execution routed through `simple_inference` or a focused extension of
+  it rather than through ad hoc HTTP client code
 - result ingestion back into workflow state and events
 - terminal, waiting, failure, and retry transitions
+- preserve execution-time budget hints such as context-window, reserved-output,
+  and request-correlation guidance without moving prompt building into the
+  kernel
 
 **Likely code areas to revisit:**
 
 - `core_matrix/app/services/workflows/`
+- likely create `core_matrix/app/services/provider_execution/`
 - `core_matrix/app/models/workflow_run.rb`
 - `core_matrix/app/models/workflow_node*.rb`
 - `core_matrix/app/services/turns/`
+- `core_matrix/vendor/simple_inference/lib/simple_inference/`
+- `core_matrix/vendor/simple_inference/test/`
 - `core_matrix/test/services/workflows/`
 - `core_matrix/test/integration/`
 
@@ -93,7 +102,8 @@ tools fork into separate execution models.
 
 - finalize `ToolDefinition`, `ToolImplementation`, `ToolBinding`, and
   `ToolInvocation`
-- bind Streamable HTTP MCP into the same governance model
+- bind Streamable HTTP MCP into the same governance model through a
+  session-aware client transport
 - bind agent-program-exposed tools into the same governance model
 - keep invocation history and supervision consistent across all sources
 
@@ -102,6 +112,7 @@ tools fork into separate execution models.
 - replaceable versus whitelist-only versus reserved definitions
 - reserved-prefix handling
 - snapshotting of resolved bindings into execution history
+- session and transport-failure handling for Streamable HTTP MCP invocations
 
 ## Workstream 4: Add Conversation Feature Policy Enforcement
 
@@ -158,7 +169,30 @@ rotate across release changes.
 - if a changed `Fenix` release cannot boot, treat that as an agent-program
   release failure rather than a kernel recovery obligation
 
-## Workstream 7: Add Fenix Skills Compatibility And Operational Skills
+## Workstream 7: Build The Fenix Runtime Surface And Retain Execution Hooks
+
+**Problem:** `Fenix` must be a real agent program in Phase 2, not only a
+handshake target or skills shell.
+
+**Scope:**
+
+- build the minimal runtime endpoints and services `Fenix` needs to participate
+  in the loop as an external deployment
+- keep prompt building and context shaping on the agent-program side
+- preserve a stage-shaped runtime hook family equivalent to:
+  - `prepare_turn`
+  - `compact_context`
+  - `review_tool_call`
+  - `project_tool_result`
+  - `finalize_output`
+  - `handle_error`
+- preserve the helper family:
+  - `estimate_tokens`
+  - `estimate_messages`
+- prove at least one deterministic or mixed code-plus-LLM execution path, not
+  only a pure LLM path
+
+## Workstream 8: Add Fenix Skills Compatibility And Operational Skills
 
 **Problem:** `Fenix` needs a real skill surface both to match the reference
 product direction and to validate code-driven agent-program behavior.
@@ -184,7 +218,7 @@ product direction and to validate code-driven agent-program behavior.
 - skill installs should stage, validate, and promote instead of writing live
 - refreshed skills should become effective on the next top-level turn
 
-## Workstream 8: Fenix Validation And Manual Acceptance
+## Workstream 9: Fenix Validation And Manual Acceptance
 
 **Problem:** Phase 2 is not done until `Fenix` proves the loop in a real
 environment.
@@ -197,9 +231,12 @@ environment.
 - independent external `Fenix` pairing flow
 - same-installation deployment rotation flow
 - one explicit downgrade flow
+- one code-driven or mixed code-plus-LLM flow using the retained runtime-stage
+  hook surface
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call
+- at least one real Streamable HTTP MCP-backed tool call
 - at least one real subagent flow
 - at least one real human-interaction flow
 - at least one outage or drift recovery flow
@@ -221,6 +258,8 @@ Do not widen this phase into:
 - workspace-owned trigger and delivery infrastructure
 - IM, PWA, or desktop surfaces
 - extension and plugin packaging
+- kernel-owned prompt building
+- kernel-owned universal compaction or summarization
 - a `Fenix` self-update daemon or plugin marketplace
 
 ## Promotion Rule

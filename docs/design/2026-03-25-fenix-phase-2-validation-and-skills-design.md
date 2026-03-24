@@ -107,6 +107,42 @@ gates.
 `Core Matrix` does not need a kernel-level skill lifecycle, skill installer, or
 skill storage model in this phase.
 
+## Retained Runtime Customization Surface
+
+Removing prompt building from `Core Matrix` should not reduce `Fenix` to one
+opaque runtime callback.
+
+Phase 2 should preserve a small `Fenix` runtime surface that remains available
+for both code-driven and LLM-driven control paths.
+
+Recommended runtime-stage family:
+
+- `prepare_turn`
+- `compact_context`
+- `review_tool_call`
+- `project_tool_result`
+- `finalize_output`
+- `handle_error`
+
+Recommended helper family:
+
+- `estimate_tokens`
+- `estimate_messages`
+
+These stages and helpers belong on the agent-program side or in a future shared
+SDK layer. They are not a reason to move prompt building back into the kernel.
+
+The kernel should instead provide the stable execution context and budget hints
+that make these hooks useful:
+
+- execution snapshot identity and transcript context
+- model and capability context
+- context-window or reserved-output budgeting signals
+- stable invocation or request correlation ids
+
+That preserves customization power without reintroducing the older
+prompt-builder-centered architecture.
+
 ## Compatibility Target
 
 `Fenix` should be compatible with standard third-party Agent Skills.
@@ -207,5 +243,6 @@ This design does not require:
 ## Related Documents
 
 - [2026-03-25-core-matrix-platform-phases-and-validation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md)
+- [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
 - [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
