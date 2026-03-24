@@ -23,8 +23,9 @@ The implementation phase must keep this document updated. Each complex flow shou
 - drift-triggered manual resume and manual retry
 - user-agent binding and default workspace creation
 - provider catalog load, governance changes, and related audit rows
-- conversation root creation, branch creation, thread creation, checkpoint creation, archive and unarchive
+- conversation root creation, automation root creation, branch creation, thread creation, checkpoint creation, archive and unarchive
 - conversation interactive selector `auto | explicit candidate`, tail edit, rollback or fork editing, retry, rerun, swipe selection, queued turn handling, and runtime pinning
+- automation turn creation without a transcript-bearing user message, persisted turn-origin metadata, and read-only automation history inspection
 - attachments, imports, summary segments, visibility overlays, multimodal model access, and unsupported-capability fallback behavior
 - workflow scheduling, dynamic DAG expansion, fan-out or fan-in joins, structured wait-state transitions, role-local model fallback after entitlement exhaustion, explicit-candidate no-fallback failure, approvals, human form requests, human task requests, same-workflow human-interaction resumption, short-lived turn commands, long-lived background services, process output replay, subagent runs, lightweight swarm coordination metadata, canonical variable writes and promotions, and lease recovery
 - replaceable live projection streams for streaming text, progress, and status surfaces while preserving append-only event history

@@ -10,7 +10,7 @@ Use this phase document together with:
 
 This phase owns Tasks 7-10:
 
-- conversation tree, turn core, interactive selector state, variant selection, and archive lifecycle
+- conversation tree, automation and interactive purposes, turn core, interactive selector state, variant selection, and archive lifecycle
 - transcript support models for attachments, imports, summaries, and visibility
 - workflow core, context assembly, scheduling rules, and resolved model-selection snapshots
 - execution resources, event streams, human-interaction requests, canonical variables, and lease control
@@ -33,6 +33,7 @@ Apply the shared guardrails and phase-gate audits from the implementation-plan i
 - Create: `core_matrix/app/models/user_message.rb`
 - Create: `core_matrix/app/models/agent_message.rb`
 - Create: `core_matrix/app/services/conversations/create_root.rb`
+- Create: `core_matrix/app/services/conversations/create_automation_root.rb`
 - Create: `core_matrix/app/services/conversations/create_branch.rb`
 - Create: `core_matrix/app/services/conversations/create_thread.rb`
 - Create: `core_matrix/app/services/conversations/create_checkpoint.rb`
@@ -41,6 +42,7 @@ Apply the shared guardrails and phase-gate audits from the implementation-plan i
 - Create: `core_matrix/app/services/conversations/rollback_to_turn.rb`
 - Create: `core_matrix/app/services/conversations/update_override.rb`
 - Create: `core_matrix/app/services/turns/start_user_turn.rb`
+- Create: `core_matrix/app/services/turns/start_automation_turn.rb`
 - Create: `core_matrix/app/services/turns/edit_tail_input.rb`
 - Create: `core_matrix/app/services/turns/queue_follow_up.rb`
 - Create: `core_matrix/app/services/turns/retry_output.rb`
@@ -54,6 +56,7 @@ Apply the shared guardrails and phase-gate audits from the implementation-plan i
 - Create: `core_matrix/test/models/user_message_test.rb`
 - Create: `core_matrix/test/models/agent_message_test.rb`
 - Create: `core_matrix/test/services/conversations/create_root_test.rb`
+- Create: `core_matrix/test/services/conversations/create_automation_root_test.rb`
 - Create: `core_matrix/test/services/conversations/create_branch_test.rb`
 - Create: `core_matrix/test/services/conversations/create_thread_test.rb`
 - Create: `core_matrix/test/services/conversations/create_checkpoint_test.rb`
@@ -62,6 +65,7 @@ Apply the shared guardrails and phase-gate audits from the implementation-plan i
 - Create: `core_matrix/test/services/conversations/rollback_to_turn_test.rb`
 - Create: `core_matrix/test/services/conversations/update_override_test.rb`
 - Create: `core_matrix/test/services/turns/start_user_turn_test.rb`
+- Create: `core_matrix/test/services/turns/start_automation_turn_test.rb`
 - Create: `core_matrix/test/services/turns/edit_tail_input_test.rb`
 - Create: `core_matrix/test/services/turns/queue_follow_up_test.rb`
 - Create: `core_matrix/test/services/turns/retry_output_test.rb`
@@ -78,10 +82,13 @@ Cover at least:
 - closure-table integrity
 - conversation kind rules for `root`, `branch`, `thread`, and `checkpoint`
 - conversation lifecycle state rules for `active` and `archived`
+- conversation purpose rules for `interactive` and `automation`
 - conversation interactive selector modes `auto | explicit candidate`
 - `auto` normalizing to `role:main` for the interactive path
 - historical-anchor requirements for branch and checkpoint creation
+- branch, thread, and checkpoint creation rejecting automation-purpose conversations
 - turn sequence uniqueness within one conversation
+- structured turn origin metadata for `manual_user`, `automation_schedule`, and `automation_webhook`
 - queued versus active versus terminal turn states
 - message role, slot, and variant semantics
 - message STI restricted to transcript-bearing subclasses only
@@ -92,6 +99,8 @@ Cover at least:
 - backtrack or rollback semantics for historical user-message editing without row mutation
 - persisted conversation override payload and schema-fingerprint tracking
 - interactive selector persistence independent from deployment-level internal slots
+- automation conversations being root-only and rejecting ordinary user-turn entry paths
+- automation-origin turns being allowed to start without a submitted transcript-bearing `UserMessage`
 - steering blocked after the first side-effecting workflow node completes
 - runtime pinning columns on turns for deployment, capability snapshots, and resolved model-selection snapshots
 
@@ -100,11 +109,15 @@ Cover at least:
 `conversation_turn_flow_test.rb` should cover:
 
 - root conversation creation
+- automation root conversation creation with read-only, non-interactive purpose semantics
 - historical branch creation without transcript copying
 - thread and checkpoint creation with correct lineage
+- rejecting branch, thread, or checkpoint creation from an automation conversation
 - archiving and unarchiving a conversation without mutating transcript history
 - storing `auto` as the default interactive selector and allowing an explicit `provider_handle/model_ref` selector
 - persisting a conversation override and freezing it onto the created turn snapshot
+- starting an automation-origin turn without a transcript-bearing user message
+- rejecting ordinary user-turn creation against an automation conversation
 - editing the selected tail user input by creating a replacement input variant and resetting dependent output state
 - editing a historical user message through rollback or fork semantics rather than in-place mutation
 - active turn creation
@@ -120,7 +133,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/models/conversation_test.rb test/models/conversation_closure_test.rb test/models/turn_test.rb test/models/message_test.rb test/models/user_message_test.rb test/models/agent_message_test.rb test/services/conversations/create_root_test.rb test/services/conversations/create_branch_test.rb test/services/conversations/create_thread_test.rb test/services/conversations/create_checkpoint_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/services/conversations/rollback_to_turn_test.rb test/services/conversations/update_override_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/queue_follow_up_test.rb test/services/turns/retry_output_test.rb test/services/turns/rerun_output_test.rb test/services/turns/select_output_variant_test.rb test/services/turns/steer_current_input_test.rb test/integration/conversation_turn_flow_test.rb
+bin/rails test test/models/conversation_test.rb test/models/conversation_closure_test.rb test/models/turn_test.rb test/models/message_test.rb test/models/user_message_test.rb test/models/agent_message_test.rb test/services/conversations/create_root_test.rb test/services/conversations/create_automation_root_test.rb test/services/conversations/create_branch_test.rb test/services/conversations/create_thread_test.rb test/services/conversations/create_checkpoint_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/services/conversations/rollback_to_turn_test.rb test/services/conversations/update_override_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/start_automation_turn_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/queue_follow_up_test.rb test/services/turns/retry_output_test.rb test/services/turns/rerun_output_test.rb test/services/turns/select_output_variant_test.rb test/services/turns/steer_current_input_test.rb test/integration/conversation_turn_flow_test.rb
 ```
 
 Expected:
@@ -132,10 +145,15 @@ Expected:
 Rules:
 
 - no direct `conversation.agent_id` shortcut
-- conversation rows must carry kind, parent lineage, optional historical anchor, and persisted override payload
+- conversation rows must carry kind, purpose, parent lineage, optional historical anchor, and persisted override payload
 - conversation rows must also carry the user-visible interactive selector in `auto | explicit candidate` form
 - conversation lifecycle state must be modeled separately from kind
+- `interactive` and `automation` purpose must be modeled separately from kind and lifecycle
+- v1 automation conversations should be created as read-only `root` conversations and should reject ordinary user-turn entry services
+- branch, thread, and checkpoint creation services should reject automation-purpose conversations in v1
 - store selected input and output message pointers on the turn
+- turn rows must persist structured origin metadata including `origin_kind`, `origin_payload`, `source_ref_type`, `source_ref_id`, `idempotency_key`, and `external_event_key`
+- automation-origin turns may start without a transcript-bearing `UserMessage`
 - keep explicit version-set semantics for input and output variants
 - keep turn history append-only
 - do not add a server-side unsent composer draft model in v1
@@ -157,7 +175,7 @@ Run:
 ```bash
 cd core_matrix
 bin/rails db:migrate
-bin/rails test test/models/conversation_test.rb test/models/conversation_closure_test.rb test/models/turn_test.rb test/models/message_test.rb test/models/user_message_test.rb test/models/agent_message_test.rb test/services/conversations/create_root_test.rb test/services/conversations/create_branch_test.rb test/services/conversations/create_thread_test.rb test/services/conversations/create_checkpoint_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/services/conversations/rollback_to_turn_test.rb test/services/conversations/update_override_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/queue_follow_up_test.rb test/services/turns/retry_output_test.rb test/services/turns/rerun_output_test.rb test/services/turns/select_output_variant_test.rb test/services/turns/steer_current_input_test.rb test/integration/conversation_turn_flow_test.rb
+bin/rails test test/models/conversation_test.rb test/models/conversation_closure_test.rb test/models/turn_test.rb test/models/message_test.rb test/models/user_message_test.rb test/models/agent_message_test.rb test/services/conversations/create_root_test.rb test/services/conversations/create_automation_root_test.rb test/services/conversations/create_branch_test.rb test/services/conversations/create_thread_test.rb test/services/conversations/create_checkpoint_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/services/conversations/rollback_to_turn_test.rb test/services/conversations/update_override_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/start_automation_turn_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/queue_follow_up_test.rb test/services/turns/retry_output_test.rb test/services/turns/rerun_output_test.rb test/services/turns/select_output_variant_test.rb test/services/turns/steer_current_input_test.rb test/integration/conversation_turn_flow_test.rb
 ```
 
 Expected:
@@ -312,6 +330,7 @@ Cover at least:
 - execution-time entitlement reservation causing fallback only to the next candidate in the same role list
 - resolved model-selection snapshot fields on the executing turn or workflow
 - context assembly from base rules, active imports, transcript tail, selected workflow outputs, and eligible attachment manifests
+- context assembly for automation-origin turns without a transcript-bearing user input
 - execution-context identity fields for agent code, including `user_id`, `workspace_id`, `conversation_id`, and `turn_id`
 - during-generation policy semantics for `reject`, `restart`, and `queue`
 - expected-tail guards that skip or cancel stale queued work before execution
@@ -336,6 +355,7 @@ Cover at least:
 - falling through to the next candidate when entitlement reservation fails for the first role-based choice
 - rejecting implicit fallback when the selector is one explicit candidate
 - assembling context that includes imports, summary artifacts, and capability-gated attachment prompt blocks without walking a global graph
+- creating a workflow for an automation-origin turn whose trigger metadata seeds execution without a transcript-bearing user message
 - exposing the current `user_id`, `workspace_id`, `conversation_id`, and `turn_id` in the assembled execution context
 - proving unsupported attachments are omitted from model input projection while remaining available in the runtime attachment manifest
 - proving queued stale work is skipped after the conversation tail changes
@@ -369,6 +389,7 @@ Rules:
 - explicit candidate selection must fail immediately when unavailable instead of guessing another model
 - resolved model snapshots should retain selector source, normalized selector, resolved provider, resolved model, resolution reason, and fallback count
 - context assembly must not depend on a global conversation DAG
+- context assembly must tolerate automation-origin turns that begin from trigger metadata or workflow bootstrap state instead of a transcript-bearing user message
 - context assembly must freeze a canonical attachment manifest for the executing turn or workflow and derive both runtime and model-facing projections from it
 - attachment prompt projection must be capability-gated by pinned catalog metadata rather than the latest mutable catalog state
 - context assembly must record explicit diagnostic events when attachment preparation or prompt projection is skipped or degraded

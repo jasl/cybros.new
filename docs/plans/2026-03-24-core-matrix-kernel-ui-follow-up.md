@@ -16,6 +16,8 @@ This follow-up document is the holding area for that deferred UI surface.
 - password login, session management, and invitation acceptance pages
 - admin UI for users, invitations, provider governance, agent lifecycle, and audit browsing
 - user UI for agent bindings, workspaces, conversations, branching, publication controls, and runtime state
+- automation history and run-detail views for read-only automation conversations
+- automation trigger management surfaces for schedules and webhook-style external triggers
 - publication pages for internal-public and external-public read-only views
 - runtime feedback surfaces such as queued-turn state, approval prompts, process logs, and outage recovery affordances
 - client-local composer draft behavior, including branch-prefill seed handling and unsent attachment staging UX

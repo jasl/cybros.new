@@ -476,6 +476,25 @@ Lifecycle rules:
 - archived conversations are excluded from default active listings
 - archived conversations do not accept new turns, queue operations, or workflow restarts until unarchived
 
+Conversation purpose is also orthogonal to kind and lifecycle.
+
+Purposes in v1 are:
+
+- `interactive`
+- `automation`
+
+Purpose rules:
+
+- `interactive` is the default user-facing conversation purpose
+- `automation` is a non-interactive, read-only run-history purpose for non-manual execution such as future schedule or webhook triggers
+- v1 automation conversations are created as `root` conversations
+- v1 branch, thread, and checkpoint creation flows target interactive conversations only; automation conversations remain root-only and read-only
+- automation conversations are excluded from ordinary interactive conversation listings by default
+- automation conversations are viewable only through dedicated automation history or run-detail surfaces, and those surfaces are read-only
+- owner-facing inspection of automation conversations must not become a backdoor for normal chat participation
+- administrators do not gain personal-content visibility through automation conversation surfaces; the existing personal-content boundary still applies
+- if an automation run blocks on human interaction, the actionable surface is inbox, dashboard, or explicit recovery tooling rather than direct transcript reply on the automation conversation
+
 ## Transcript And Workflow Model
 
 The current transcript and workflow direction remains valid in principle and should be reused conceptually:
@@ -488,6 +507,33 @@ The current transcript and workflow direction remains valid in principle and sho
 This is the part of the current prototype worth keeping as design knowledge.
 
 It should be rebuilt under the correct upper-layer aggregates rather than migrated in place.
+
+## Turn Origin And Trigger Source
+
+`Turn` must persist structured execution origin metadata rather than inferring origin from transcript shape alone.
+
+Origin kinds in v1 should include at least:
+
+- `manual_user`
+- `automation_schedule`
+- `automation_webhook`
+
+Required origin fields:
+
+- `origin_kind`
+- `origin_payload`
+- `source_ref_type`
+- `source_ref_id`
+- `idempotency_key`
+- `external_event_key`
+
+Rules:
+
+- interactive turns usually originate from `manual_user`, but the origin is a first-class field rather than an implied default
+- automation-origin turns may start without a transcript-bearing `UserMessage`
+- automation-origin turns still belong to a normal `Conversation` and normal `WorkflowRun`; they do not create a second execution stack
+- audit, profiling, usage accounting, recovery, and future publication or diagnostics must be able to distinguish automation-origin turns from manual-user turns
+- the current kernel batch should establish automation-conversation and turn-origin semantics now, even though schedule parsing, webhook ingress, and trigger management remain follow-up scope
 
 ## Workflow Graph Semantics
 

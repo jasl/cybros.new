@@ -30,7 +30,7 @@ The topical design note `docs/plans/2026-03-24-core-matrix-model-role-resolution
 - Keep `Identity` and `User` separate.
 - Keep `AgentInstallation` and `AgentDeployment` separate.
 - Keep `Workspace` private and `Publication` read-only.
-- Preserve the required conversation runtime baseline: attachments, imports, summary segments, visibility overlays, queued turns, steer-before-side-effect, variant pointers, workflow event streams, leases, timeouts, background-service control, archive lifecycle, conversation events, human-interaction requests, and canonical variables.
+- Preserve the required conversation runtime baseline: attachments, imports, summary segments, visibility overlays, queued turns, steer-before-side-effect, variant pointers, workflow event streams, leases, timeouts, background-service control, archive lifecycle, automation conversation purpose, turn-origin metadata, conversation events, human-interaction requests, and canonical variables.
 - Keep the provider catalog config-backed. Do not build provider-model tables in SQL.
 - Route audited installation and runtime mutations through explicit services rather than ad hoc model saves.
 - Require both unit tests and integration tests for every major flow.
@@ -64,7 +64,7 @@ Execute the phase files in order:
 
 - **Phase 1**: Tasks 1-4. Build shell, identity, agent registry, bindings, private workspaces, and bundled default-agent bootstrap.
 - **Phase 2**: Tasks 5-6. Build provider catalog, governance, role-based model selection catalog, usage accounting, and profiling facts.
-- **Phase 3**: Tasks 7-10. Build conversation kinds, archive lifecycle, transcript controls, interactive selector state, workflow scheduling, resolved model snapshots, conversation events, human-interaction resources, canonical variables, and runtime resources.
+- **Phase 3**: Tasks 7-10. Build conversation kinds and purposes, archive lifecycle, transcript controls, interactive selector state, automation turn-origin semantics, workflow scheduling, resolved model snapshots, conversation events, human-interaction resources, canonical variables, and runtime resources.
 - **Phase 4**: Tasks 11-12. Build machine-facing protocol boundaries, recovery-time selector overrides, transcript and variable APIs, publication, seeds, and the final automated plus manual verification pass.
 
 ## Cross-Cutting Topic Placement
@@ -75,6 +75,12 @@ Treat model-role resolution as one cross-cutting topic that lands in these exact
 - **Phase 3 / Task 7**: persist the conversation interactive selector in `auto | explicit candidate` form and freeze resolved model-selection snapshots on turns.
 - **Phase 3 / Task 9**: implement selector normalization, role-local fallback, execution-time entitlement reservation, and resolved-model snapshotting.
 - **Phase 4 / Task 11**: expose the related machine-facing protocol surfaces and allow one-time selector overrides during explicit manual recovery without mutating durable config.
+
+Treat automation-trigger support as one split-scope topic that lands in these exact places:
+
+- **Phase 3 / Task 7**: define `automation` conversation purpose, read-only automation root-conversation semantics, and structured turn-origin fields for manual and future trigger-based execution.
+- **Phase 3 / Task 9**: ensure workflow creation and context assembly can run from automation-origin turns that do not start with a transcript-bearing user message.
+- **Follow-up only**: do not implement `AutomationTrigger`, schedule parsing, recurring trigger execution, webhook ingress, or trigger management surfaces in this backend kernel batch.
 
 ## Stop Point
 
@@ -89,5 +95,9 @@ Do not implement these items in this phase:
 - publication pages
 - human-facing Turbo or Stimulus work
 - Action Cable or browser realtime delivery
+- `AutomationTrigger` models or services
+- schedule parsing or recurring trigger runners
+- webhook ingress endpoints for external trigger dispatch
+- automation trigger management APIs or UI
 
-Those belong to `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`.
+Human-facing deferred surfaces belong to `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`. The non-UI automation-trigger items above remain deferred follow-up scope in this canonical implementation plan.

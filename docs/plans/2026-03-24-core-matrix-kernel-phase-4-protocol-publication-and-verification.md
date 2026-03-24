@@ -13,6 +13,8 @@ This phase owns Tasks 11-12:
 - agent protocol boundaries, runtime resource APIs, bootstrap, recovery, recovery-time selector overrides, and contract tests
 - publication, query objects, seeds, checklist updates, and final verification
 
+Do not widen this phase into schedule or webhook trigger implementation. The current batch stops at automation-conversation and turn-origin semantics; `AutomationTrigger`, recurring execution, and webhook ingress remain follow-up scope.
+
 Apply the shared guardrails and phase-gate audits from the implementation-plan index.
 
 ---
@@ -147,6 +149,7 @@ Rules:
 
 - no human-facing UI controllers
 - machine-facing controllers should be thin wrappers around services
+- machine-facing protocol work in this phase must not introduce schedule-trigger or webhook-ingress controllers
 - transcript listing must return the canonical visible transcript only and must support cursor pagination
 - variable APIs should expose explicit `get`, `mget`, `list`, and `resolve` semantics rather than ambiguous read verbs
 - machine-facing variable writes and promotions remain kernel-declared intent boundaries, not direct agent-owned database writes
