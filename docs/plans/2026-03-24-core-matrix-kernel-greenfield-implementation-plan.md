@@ -25,6 +25,13 @@ Do not use the deleted 2026-03-23 plan documents as implementation truth.
 
 Each execution-unit document narrows this source set. During implementation, load only the active execution-unit document and the companion documents it names.
 
+When Rails framework behavior, APIs, guides, generators, Active Record semantics, or test helpers matter, do not rely on memory. Look them up explicitly:
+
+1. prefer official Rails Guides through Context7 using an explicit Rails query such as `ruby on rails` and guide-oriented library IDs like `/websites/guides_rubyonrails` or versioned variants when available
+2. if Rails 8.2-specific material is missing or not yet indexed, fall back to the closest official guides for Rails 8.1 or 8.0
+3. for unpublished or ambiguous framework details, verify against the local Rails source and guide files under `references/original/references/rails`, especially `guides/source/` and the relevant framework component code
+4. when guide examples and source differ, treat source as the final authority and record the difference in task review notes
+
 ## Documentation Alignment Rule
 
 During implementation, keep code, tests, and plan documents aligned in the same checkpoint:
