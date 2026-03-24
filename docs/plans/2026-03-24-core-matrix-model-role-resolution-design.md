@@ -2,7 +2,16 @@
 
 ## Status
 
-Approved in chat on 2026-03-24. This document captures the model-role and fallback design that should later be merged into the main kernel design baseline.
+Approved in chat on 2026-03-24 and absorbed into the main kernel design and phase plans on the same day. Keep this document as focused rationale; use the kernel phase documents for the canonical execution order.
+
+## Execution Placement
+
+This topic is implemented through the main kernel phases rather than a separate execution plan:
+
+- **Phase 2 / Task 5**: provider catalog, role catalog, and `provider_handle/model_ref` validation
+- **Phase 3 / Task 7**: conversation interactive selector persistence and turn-level resolved-model snapshots
+- **Phase 3 / Task 9**: selector normalization, role-local fallback, reservation-time entitlement checks, and snapshot freezing
+- **Phase 4 / Task 11**: machine-facing transcript and variable boundaries plus one-time selector override during explicit manual recovery
 
 ## Context
 

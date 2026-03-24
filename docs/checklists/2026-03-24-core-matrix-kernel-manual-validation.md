@@ -19,15 +19,18 @@ The implementation phase must keep this document updated. Each complex flow shou
 - invitation creation and consumption
 - admin grant and revoke
 - bundled Fenix auto-registration and first-admin auto-binding when configured
-- agent enrollment, registration, handshake, heartbeat, and outage recovery
+- agent enrollment, registration, handshake, heartbeat, outage recovery, and deployment retirement
 - drift-triggered manual resume and manual retry
 - user-agent binding and default workspace creation
-- provider catalog load and governance changes
+- provider catalog load, governance changes, and related audit rows
 - conversation root creation, branch creation, thread creation, checkpoint creation, archive and unarchive
-- conversation tail edit, rollback or fork editing, retry, rerun, swipe selection, queued turn handling, and runtime pinning
+- conversation interactive selector `auto | explicit candidate`, tail edit, rollback or fork editing, retry, rerun, swipe selection, queued turn handling, and runtime pinning
 - attachments, imports, summary segments, visibility overlays, multimodal model access, and unsupported-capability fallback behavior
-- workflow scheduling, approvals, short-lived turn commands, long-lived background services, process output replay, subagent runs, and lease recovery
-- publication create, read-only projection, access logging, and revoke
+- workflow scheduling, role-local model fallback after entitlement exhaustion, explicit-candidate no-fallback failure, approvals, human form requests, human task requests, short-lived turn commands, long-lived background services, process output replay, subagent runs, canonical variable writes and promotions, and lease recovery
+- agent transcript cursor pagination and canonical variable API reads through machine-facing endpoints
+- machine credential rotation and revocation
+- one-time selector override during manual recovery
+- publication internal-public access, external-public access, read-only projection, access logging, and revoke
 
 ## Checklist Template
 

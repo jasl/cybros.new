@@ -21,6 +21,8 @@ Read these before each phase:
 
 Do not use the deleted 2026-03-23 plan documents as implementation truth.
 
+The topical design note `docs/plans/2026-03-24-core-matrix-model-role-resolution-design.md` may be used as rationale, but the phase documents below are the canonical execution order.
+
 ## Implementation Guardrails
 
 - Build root aggregates before conversation and workflow runtime tables.
@@ -28,10 +30,11 @@ Do not use the deleted 2026-03-23 plan documents as implementation truth.
 - Keep `Identity` and `User` separate.
 - Keep `AgentInstallation` and `AgentDeployment` separate.
 - Keep `Workspace` private and `Publication` read-only.
-- Preserve the required conversation runtime baseline: attachments, imports, summary segments, visibility overlays, queued turns, steer-before-side-effect, variant pointers, workflow event streams, leases, timeouts, background-service control, and archive lifecycle.
+- Preserve the required conversation runtime baseline: attachments, imports, summary segments, visibility overlays, queued turns, steer-before-side-effect, variant pointers, workflow event streams, leases, timeouts, background-service control, archive lifecycle, conversation events, human-interaction requests, and canonical variables.
 - Keep the provider catalog config-backed. Do not build provider-model tables in SQL.
+- Route audited installation and runtime mutations through explicit services rather than ad hoc model saves.
 - Require both unit tests and integration tests for every major flow.
-- Allow minimal machine-facing controllers and request tests only where needed for M2M runtime validation.
+- Allow minimal machine-facing controllers and request tests only where needed for M2M runtime validation, canonical transcript access, canonical variable access, or human-interaction intent submission.
 - Do not implement human-facing UI in this phase.
 - Keep the manual validation checklist updated as work lands.
 - Finish with a real `bin/dev` validation pass, not just automated tests.
@@ -60,9 +63,18 @@ Execute the phase files in order:
 ## Phase Summary
 
 - **Phase 1**: Tasks 1-4. Build shell, identity, agent registry, bindings, private workspaces, and bundled default-agent bootstrap.
-- **Phase 2**: Tasks 5-6. Build provider catalog, governance, usage accounting, and profiling facts.
-- **Phase 3**: Tasks 7-10. Build conversation kinds, archive lifecycle, transcript controls, workflow scheduling, and runtime resources.
-- **Phase 4**: Tasks 11-12. Build machine-facing protocol boundaries, recovery flows, publication, seeds, and the final automated plus manual verification pass.
+- **Phase 2**: Tasks 5-6. Build provider catalog, governance, role-based model selection catalog, usage accounting, and profiling facts.
+- **Phase 3**: Tasks 7-10. Build conversation kinds, archive lifecycle, transcript controls, interactive selector state, workflow scheduling, resolved model snapshots, conversation events, human-interaction resources, canonical variables, and runtime resources.
+- **Phase 4**: Tasks 11-12. Build machine-facing protocol boundaries, recovery-time selector overrides, transcript and variable APIs, publication, seeds, and the final automated plus manual verification pass.
+
+## Cross-Cutting Topic Placement
+
+Treat model-role resolution as one cross-cutting topic that lands in these exact places:
+
+- **Phase 2 / Task 5**: define and validate the config-backed role catalog, provider-qualified candidate lists, and governance prerequisites.
+- **Phase 3 / Task 7**: persist the conversation interactive selector in `auto | explicit candidate` form and freeze resolved model-selection snapshots on turns.
+- **Phase 3 / Task 9**: implement selector normalization, role-local fallback, execution-time entitlement reservation, and resolved-model snapshotting.
+- **Phase 4 / Task 11**: expose the related machine-facing protocol surfaces and allow one-time selector overrides during explicit manual recovery without mutating durable config.
 
 ## Stop Point
 

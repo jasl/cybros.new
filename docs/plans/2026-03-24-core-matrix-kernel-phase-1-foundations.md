@@ -216,9 +216,10 @@ Cover at least:
 - optional owner user when personal
 - `ExecutionEnvironment` kind and connection metadata
 - enrollment token lifecycle
-- deployment uniqueness by installation and active state
+- deployment uniqueness by `agent_installation` and active state
 - health state enum and heartbeat timestamps
 - capability snapshot immutability and versioning
+- audit rows for enrollment issuance and deployment registration
 
 **Step 2: Write a failing integration flow test**
 
@@ -228,6 +229,7 @@ Cover at least:
 - consuming it to create a deployment
 - rotating deployment state from pending to active
 - recording heartbeat and health metadata
+- writing audit rows for enrollment issuance and successful registration
 
 **Step 3: Run the targeted tests to confirm failure**
 
@@ -251,6 +253,8 @@ Include:
 - `agent_enrollments` with installation FK, agent installation FK, token digest, expires_at, consumed_at
 - `agent_deployments` with installation FK, agent installation FK, execution environment FK, machine credential digest, endpoint metadata, fingerprint, health fields, bootstrap state
 - `capability_snapshots` with deployment FK, version, payload JSON, schema snapshots, and default config snapshot
+- active deployment uniqueness scoped to `agent_installation_id`, not the top-level `Installation`
+- enrollment issuance and successful registration must create audit rows
 
 **Step 5: Run migrations and targeted tests**
 

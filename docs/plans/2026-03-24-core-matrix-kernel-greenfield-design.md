@@ -198,6 +198,7 @@ Primary objects:
 - `ConversationBranch` or equivalent tree edges
 - `Turn`
 - `Message`
+- `ConversationEvent`
 - `ConversationMessageVisibility`
 - `MessageAttachment`
 - `ConversationImport`
@@ -207,9 +208,11 @@ Primary objects:
 - `WorkflowNodeEvent`
 - `WorkflowArtifact`
 - `ProcessRun`
+- `HumanInteractionRequest`
 - `SubagentRun`
 - `ApprovalRequest`
 - `ExecutionLease`
+- `CanonicalVariable`
 - execution telemetry facts
 
 Responsibilities:
@@ -217,13 +220,15 @@ Responsibilities:
 - maintain conversation tree navigation
 - preserve an append-only transcript
 - preserve immutable message variants with selected input and output pointers
+- project non-transcript runtime state into visible conversation events without polluting transcript rows
 - support queued turns and pre-side-effect input steering
 - materialize reusable attachments and attachment ancestry
 - project eligible attachments into runtime manifests and model input blocks according to the turn's pinned capability snapshot
 - model read-only imports for branch prefixes, merge summaries, and quoted context
 - support compaction through summary segments instead of transcript rewrites
 - materialize per-turn workflows
-- run tools, processes, approvals, subagents, and explicit process-control resources
+- run tools, processes, human-interaction requests, approvals, subagents, and explicit process-control resources
+- store canonical variables at workspace and conversation scope with auditable version history
 - preserve live execution event streams, timeout semantics, stop semantics, and lease ownership
 - pin each turn to a specific deployment and runtime snapshot
 
@@ -352,7 +357,7 @@ V1 rule:
 
 - one deployment serves one logical agent
 - one agent installation may have historical deployments
-- only one deployment is active for a given installation at a time in v1
+- only one deployment is active for a given `AgentInstallation` at a time in v1
 
 ### ExecutionEnvironment
 
@@ -412,16 +417,27 @@ Design note:
 
 ## Conversation Model
 
-The runtime chain is:
+The runtime ownership chain is:
 
-`Workspace -> Conversation -> Turn -> Message -> WorkflowRun`
+`Workspace -> Conversation -> Turn`
+
+Turn-owned runtime resources are:
+
+- selected pointers to transcript-bearing `Message` variants
+- one `WorkflowRun`
+
+Conversation-owned presentation resources are:
+
+- transcript-bearing `Message` rows
+- non-transcript `ConversationEvent` rows
 
 Rules:
 
 - a workspace has many conversations
 - a conversation is branchable and tree-navigable
-- a turn owns one workflow run
-- a workflow run owns nodes, artifacts, approvals, processes, and subagent runs
+- a turn owns one workflow run plus selected input and output transcript pointers
+- a workflow run owns nodes, artifacts, human-interaction requests including approvals, processes, and subagent runs
+- a conversation may project visible runtime state through append-only `ConversationEvent` rows without changing transcript ownership
 
 Runtime pinning rules:
 
@@ -470,6 +486,20 @@ The current transcript and workflow direction remains valid in principle and sho
 This is the part of the current prototype worth keeping as design knowledge.
 
 It should be rebuilt under the correct upper-layer aggregates rather than migrated in place.
+
+## Transcript Messages Versus Conversation Events
+
+The model should keep transcript-bearing messages separate from other visible runtime projections.
+
+Rules:
+
+- `Message` is reserved for transcript-bearing turn input and output
+- v1 may use STI on `Message`, but only for transcript-bearing subclasses such as `UserMessage` and `AgentMessage`
+- non-transcript visible records such as human-interaction lifecycle updates, variable-promotion notices, and similar operational projections should use `ConversationEvent`, not `Message`
+- `ConversationEvent` is append-only, does not create a new turn, and does not participate in transcript edit, retry, rerun, swipe, or fork legality rules
+- `ConversationEvent` must carry deterministic live-projection ordering metadata, using a per-conversation projection sequence plus an optional turn anchor, so publication and future UI surfaces do not invent heterogeneous timeline order at render time
+- canonical transcript listing APIs return `Message` rows only by default
+- conversation pages or publication projections may render both transcript messages and visible conversation events, but they must preserve the semantic distinction
 
 ## Required Conversation Runtime Capability Baseline
 
@@ -543,6 +573,35 @@ Rules:
 - stdout, stderr, status transitions, and similar user-visible process output should be emitted as `WorkflowNodeEvent` records or an equivalent event stream, not packed into mutable `ProcessRun` text columns
 - process output is part of the agent's intermediate execution trace, not part of the user-authored transcript
 
+## Human Interaction Request Model
+
+Human-in-the-loop should be modeled as workflow-owned runtime resources, not as transcript messages.
+
+Use STI under a shared `HumanInteractionRequest` base in v1.
+
+Required subclasses:
+
+- `ApprovalRequest`
+- `HumanFormRequest`
+- `HumanTaskRequest`
+
+Shared rules:
+
+- every human interaction request belongs to one `WorkflowNode`
+- every human interaction request belongs to one `WorkflowRun`
+- every human interaction request should redundantly store `turn_id` and `conversation_id` for efficient querying and user-facing inbox or dashboard surfaces
+- `blocking` requests pause workflow progress until they resolve, cancel, or time out
+- creation and lifecycle transitions of user-visible requests should project append-only `ConversationEvent` rows
+- request outcomes write structured results back into workflow-local variable or node-output state before scheduling resumes
+- open requests, especially `HumanTaskRequest`, must be queryable without reconstructing transcript history
+
+Subclass rules:
+
+- `ApprovalRequest` remains the binary approve or deny gate
+- `HumanFormRequest` carries an input schema, defaults, and validated structured submission payload
+- `HumanTaskRequest` carries human-readable instructions plus optional structured completion evidence, notes, or payload
+- `HumanTaskRequest` is the default kernel primitive for future `human_use` style flows where the agent asks a person to complete an external action before continuation
+
 ## Client Draft Versus Conversation Override
 
 Unsent composer draft state is not a kernel concern in v1.
@@ -576,6 +635,41 @@ Rules:
 - override payload is best-effort reconciled when the deployment schema changes
 - resolved override values are frozen onto the executing turn or workflow snapshot
 - override persistence is independent from any client-local draft UX
+- the user-visible interactive model selector should support:
+  - `auto`
+  - one explicit `provider_handle/model_ref` candidate
+- `auto` means resolve through `role:main`
+- conversation-level model selection applies only to the reserved interactive execution path; internal agent slots remain deployment-level or agent-controlled unless their schema explicitly allows overrides
+
+## Canonical Variables
+
+The kernel should distinguish workflow-local variables from durable canonical variables.
+
+Rules:
+
+- workflow-local variables belong to one workflow execution path and are not durable cross-turn truth
+- canonical variables are kernel-owned durable state with auditable history
+- v1 canonical variable scopes are:
+  - `workspace`
+  - `conversation`
+- effective lookup precedence is `conversation > workspace`
+- conversation-scope values may intentionally diverge from workspace-scope values and may later be explicitly promoted to workspace scope
+- the latest accepted write becomes the current canonical value for a scope and key
+- a later accepted write supersedes the earlier current value without deleting history
+- when a user explicitly corrects a prior fact, the new accepted value should automatically supersede the previous current value
+- every canonical variable write should retain at least:
+  - scope
+  - key
+  - typed value payload
+  - writer identity
+  - source kind
+  - source conversation, turn, or workflow reference when present
+  - projection policy
+  - created or superseded timestamps
+- agent code may choose the target scope, but the kernel owns persistence, supersession, audit, and legality checks
+- ordinary variable writes may remain silent in the transcript
+- promotions, explicit corrections, or other user-significant changes may project `ConversationEvent` rows
+- do not make `user-agent` scope part of the v1 kernel contract, even though future agents may maintain richer private memory outside the kernel
 
 ## Conversation Mutation Invariants
 
@@ -691,6 +785,49 @@ The capability and schema handshake should return at least:
 - conversation override schema
 - default config payload
 
+## Agent Runtime Resource APIs
+
+The machine-facing contract should expose stable resource APIs for agent program code, not only health and registration endpoints.
+
+The runtime execution context sent to agents should include enough identity to let agent code reason about ownership safely, including at minimum:
+
+- `user_id`
+- `workspace_id`
+- `conversation_id`
+- `turn_id`
+- the selected deployment identity
+
+Required read APIs in v1:
+
+- `conversation.transcript.list`
+- `conversation.variables.get`
+- `conversation.variables.mget`
+- `conversation.variables.list`
+- `conversation.variables.resolve`
+- `workspace.variables.get`
+- `workspace.variables.mget`
+- `workspace.variables.list`
+
+Required mutation-intent APIs in v1:
+
+- `conversation.variables.write`
+- `workspace.variables.write`
+- `conversation.variables.promote`
+- `human_interactions.request`
+
+Read API rules:
+
+- `conversation.transcript.list` returns only the canonical visible transcript by default, not workflow-local intermediate state
+- transcript listing must use cursor pagination from the start
+- variable APIs may borrow Redis-style `get` and `mget` naming, but they resolve kernel-owned canonical values rather than a raw process-local cache
+- `conversation.variables.resolve` returns the effective merged view using `conversation > workspace` precedence
+- hidden transcript rows, hidden attachments, and non-transcript runtime internals must not leak through these read APIs by default
+
+Mutation-intent rules:
+
+- agents may maintain their own private databases or memory systems, but kernel-owned canonical variables and human-interaction requests must flow through kernel APIs if they should participate in audit, publication, or shared runtime behavior
+- these mutation APIs still declare intent; the kernel remains responsible for durable side effects, projection rows, and audit records
+
 ## Agent Configuration Model
 
 The agent deployment must store configuration and schema snapshots.
@@ -717,6 +854,21 @@ Rationale:
 - some settings, such as a primary conversation model, may be conversation-overridable
 - some settings, such as subagent model or special-purpose models, should remain deployment-level only
 
+Model-selection rules:
+
+- `main` is the reserved default role for top-level interactive generation
+- deployment config should expose one reserved slot name: `interactive`
+- `interactive` defaults to `role:main`
+- agent programs may define additional named model slots through deployment config schema
+- slot definitions should be able to carry at least:
+  - `selector`
+  - `allowed_selector_kinds`
+  - `user_visible`
+  - `conversation_overridable`
+  - `required_capabilities`
+- the kernel should not hardcode a long list of fixed internal slots such as `planner_role` or `research_role`
+- if an agent does not explicitly choose another selector, execution falls back to `interactive`, then to `role:main`
+
 ## Config Reconciliation
 
 Agent upgrades may change schema.
@@ -740,6 +892,88 @@ Recommended resolution order:
 2. persisted deployment config
 3. conversation override
 4. resolved per-turn snapshot
+
+## Model Role Catalog
+
+Model-role selection should be configuration-backed, deterministic, and provider-aware.
+
+Use ordered provider-qualified candidate lists in the form:
+
+`provider_handle/model_ref`
+
+Example:
+
+```yaml
+model_roles:
+  main:
+    - codex_subscription/gpt-5.4
+    - openai/gpt-5.3-chat-latest
+  coder:
+    - codex_subscription/gpt-5.4
+    - anthropic/claude-opus-4.1
+```
+
+Rules:
+
+- role names are stable kernel-facing identifiers
+- role contents are config, not code
+- the kernel may ship generic default roles such as `main`, `planner`, `researcher`, `speaker`, `coder`, `classifier`, and `archivist`
+- `main` is the only reserved default role
+- do not introduce a second canonical alias layer such as `gpt5` or `opus_top` in v1
+- fallback is only allowed inside the ordered candidate list of the currently selected role
+
+## Model Resolution Pipeline
+
+All runtime model requests should normalize to one of two selector forms:
+
+- `role:<role_name>`
+- `candidate:<provider_handle/model_ref>`
+
+Normalization rules:
+
+- conversation `auto` normalizes to `role:main`
+- conversation explicit selection normalizes to one exact `candidate:...`
+- agent-requested slots first resolve to their configured selector and then normalize
+
+Resolution rules:
+
+- a `role:*` selector expands to the ordered candidate list for that role
+- a `candidate:*` selector expands to a single-item candidate list
+- unknown roles and empty role lists are immediate errors
+- candidate filtering must check, in order:
+  - provider policy enablement
+  - credential or subscription availability
+  - required capability compatibility
+  - entitlement availability
+  - provider or model disable, deprecation, or retirement state
+- the first passing candidate becomes the provisional selection
+
+Execution-time reservation rules:
+
+- the kernel must perform an execution-time entitlement reservation or equivalent atomic availability check before committing the selected candidate
+- if reservation fails for a `role:*` selector, the kernel may try the next candidate in the same ordered role list
+- if reservation fails for a `candidate:*` selector, the execution fails immediately
+- v1 does not support implicit cross-role fallback
+- if a specialized role such as `coder` is exhausted, execution fails rather than silently switching to `main`
+
+Snapshot rules:
+
+- once a candidate is actually selected, freeze onto the turn or workflow snapshot at least:
+  - selector source
+  - normalized selector
+  - resolved role when applicable
+  - resolved provider handle
+  - resolved model ref
+  - resolution reason
+  - fallback count
+  - pinned capability snapshot reference
+  - pinned policy or entitlement snapshot references when needed
+
+Failure rules:
+
+- if no candidate can be selected, pause or fail explicitly
+- do not guess another role or unrelated model
+- administrators may repair availability by fixing provider access, adjusting role or slot config, changing policy, or retrying with a one-time recovery override
 
 ## Deployment Bootstrap
 
@@ -804,7 +1038,7 @@ Track on `AgentDeployment`:
 - `unavailability_reason`
 - `auto_resume_eligible`
 
-Recommended health states:
+Health states in v1 are:
 
 - `healthy`
 - `degraded`
@@ -834,6 +1068,16 @@ Compatibility for `manual_resume` should mean at minimum:
 
 If those checks fail, `manual_resume` must be rejected and only `manual_retry` may proceed.
 
+Recovery-time selector override rules:
+
+- `manual_resume` or `manual_retry` may accept a one-time selector override
+- that override may be either `role:*` or one explicit `candidate:*`
+- the override applies only to the current recovery action
+- it must not mutate the persisted conversation selector
+- it must not mutate deployment slot configuration
+- it must be frozen into the new execution snapshot
+- it must be auditable as a temporary recovery override rather than a durable configuration change
+
 ## Provider Catalog
 
 Provider and model catalogs should remain configuration-backed.
@@ -842,6 +1086,7 @@ The catalog should describe:
 
 - provider keys
 - model references
+- model-role candidate lists using `provider_handle/model_ref`
 - protocol and transport
 - capabilities
 - input modality flags for at least image, audio, video, and generic file or document handling when the provider exposes them
@@ -959,9 +1204,10 @@ Conversation sharing should be modeled as a live read-only projection.
 - publication slug or access token
 - visibility mode
 - published and revoked timestamps
-- explicit access-audit hook surface, preferably a `PublicationAccessEvent` or equivalent first-class record
+- explicit access-audit hook surface as a first-class `PublicationAccessEvent` record
+- authenticated viewer user when available, otherwise anonymous request metadata on the access event
 
-Publication modes may include:
+Publication modes in v1 are:
 
 - disabled
 - internal public
@@ -973,6 +1219,9 @@ Publication rules:
 - it does not share the same UI surface as the authoring experience
 - it follows the current canonical conversation state
 - it does not copy transcript data into a second source of truth
+- `internal public` means any authenticated `User` inside the same `Installation` may read the projection; anonymous requests fail closed and v1 does not add per-publication allowlists
+- `external public` means the projection may be read anonymously through the publication slug or token, while still recording access events
+- visibility changes are publication-lifecycle actions and must be auditable independently from read-side access events
 
 This is intentionally closer to a live public page than to a static export.
 
@@ -991,6 +1240,10 @@ At minimum, audit:
 - policy-sensitive tool or process execution
 - config reconciliation fallbacks
 - manual resume and retry decisions after drift or outage
+
+An audited mutation should cross an explicit service boundary rather than depending on ad hoc model saves.
+
+Policy-sensitive execution should be determined from explicit workflow-node or service metadata, not inferred from transcript text after the fact.
 
 Admins may inspect audit metadata, but that does not imply content access to personal conversations.
 
@@ -1054,7 +1307,6 @@ The major product decisions are now resolved. The remaining open items are imple
 - exact bootstrap artifact manifest format
 - exact health check intervals and outage thresholds
 - exact retention periods for detailed usage events
-- exact publication access control mechanics for internal-only visibility
 
 These belong in the implementation plan, not in another architecture reset.
 
