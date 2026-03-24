@@ -78,4 +78,29 @@ class TurnTest < ActiveSupport::TestCase
     assert terminal.completed?
     assert terminal.terminal?
   end
+
+  test "exposes resolved model selection snapshot helpers" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turn.new(
+      installation: context[:installation],
+      conversation: conversation,
+      agent_deployment: context[:agent_deployment],
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {
+        "normalized_selector" => "role:main",
+        "resolved_provider_handle" => "codex_subscription",
+        "resolved_model_ref" => "gpt-5.4",
+      }
+    )
+
+    assert_equal "role:main", turn.normalized_selector
+    assert_equal "codex_subscription", turn.resolved_provider_handle
+    assert_equal "gpt-5.4", turn.resolved_model_ref
+  end
 end

@@ -2,7 +2,7 @@ require "test_helper"
 
 class Workflows::CreateForTurnTest < ActiveSupport::TestCase
   test "creates one active workflow with a root node for the turn" do
-    context = create_workspace_context!
+    context = prepare_workflow_execution_context!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -25,10 +25,13 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal 1, workflow_run.workflow_nodes.count
     assert_equal "root", workflow_run.workflow_nodes.first.node_key
     assert_equal 0, workflow_run.workflow_nodes.first.ordinal
+    assert_equal "role:main", turn.reload.resolved_model_selection_snapshot["normalized_selector"]
+    assert_equal "codex_subscription", workflow_run.resolved_provider_handle
+    assert_equal "gpt-5.4", workflow_run.resolved_model_ref
   end
 
   test "rejects a second active workflow in the same conversation" do
-    context = create_workspace_context!
+    context = prepare_workflow_execution_context!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,

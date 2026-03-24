@@ -14,6 +14,12 @@ module Workflows
 
     def call
       ApplicationRecord.transaction do
+        resolved_model_selection_snapshot = Workflows::ResolveModelSelector.call(
+          turn: @turn,
+          selector_source: "conversation"
+        )
+        @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
+
         workflow_run = WorkflowRun.create!(
           installation: @turn.installation,
           conversation: @turn.conversation,

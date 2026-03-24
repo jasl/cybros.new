@@ -115,7 +115,7 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
   private
 
   def create_barrier_workflow!
-    context = create_workspace_context!
+    context = prepare_workflow_execution_context!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,

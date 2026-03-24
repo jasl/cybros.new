@@ -39,6 +39,22 @@ class Turn < ApplicationRecord
     completed? || failed? || canceled?
   end
 
+  def normalized_selector
+    resolved_model_selection_snapshot["normalized_selector"]
+  end
+
+  def resolved_provider_handle
+    resolved_model_selection_snapshot["resolved_provider_handle"]
+  end
+
+  def resolved_model_ref
+    resolved_model_selection_snapshot["resolved_model_ref"]
+  end
+
+  def resolved_role_name
+    resolved_model_selection_snapshot["resolved_role_name"]
+  end
+
   def tail_in_active_timeline?
     conversation.turns
       .where("sequence > ?", sequence)

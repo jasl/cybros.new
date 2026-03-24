@@ -92,4 +92,25 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert_not ready_with_stale_payload.valid?
     assert_includes ready_with_stale_payload.errors[:wait_reason_payload], "must be empty when workflow run is ready"
   end
+
+  test "delegates resolved model references to the turn snapshot" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Selector input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {
+        "normalized_selector" => "role:main",
+        "resolved_provider_handle" => "codex_subscription",
+        "resolved_model_ref" => "gpt-5.4",
+      }
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+
+    assert_equal "role:main", workflow_run.normalized_selector
+    assert_equal "codex_subscription", workflow_run.resolved_provider_handle
+    assert_equal "gpt-5.4", workflow_run.resolved_model_ref
+  end
 end

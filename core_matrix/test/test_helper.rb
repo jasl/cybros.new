@@ -165,6 +165,40 @@ module ActiveSupport
       }
     end
 
+    def prepare_workflow_execution_context!(
+      context,
+      codex_entitlement_active: true,
+      openai_entitlement_active: true,
+      codex_entitlement_metadata: {},
+      openai_entitlement_metadata: {}
+    )
+      capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+      context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+
+      ProviderEntitlement.create!(
+        installation: context[:installation],
+        provider_handle: "codex_subscription",
+        entitlement_key: "shared_window",
+        window_kind: "rolling_five_hours",
+        window_seconds: 5.hours.to_i,
+        quota_limit: 200_000,
+        active: codex_entitlement_active,
+        metadata: codex_entitlement_metadata
+      )
+      ProviderEntitlement.create!(
+        installation: context[:installation],
+        provider_handle: "openai",
+        entitlement_key: "shared_window",
+        window_kind: "rolling_five_hours",
+        window_seconds: 5.hours.to_i,
+        quota_limit: 200_000,
+        active: openai_entitlement_active,
+        metadata: openai_entitlement_metadata
+      )
+
+      context.merge(capability_snapshot: capability_snapshot)
+    end
+
     def bundled_agent_configuration(enabled: true, **attrs)
       {
         enabled: enabled,

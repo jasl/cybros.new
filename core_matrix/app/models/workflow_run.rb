@@ -29,6 +29,13 @@ class WorkflowRun < ApplicationRecord
   has_many :workflow_nodes, dependent: :restrict_with_exception
   has_many :workflow_edges, dependent: :restrict_with_exception
 
+  delegate :normalized_selector,
+    :resolved_provider_handle,
+    :resolved_model_ref,
+    :resolved_role_name,
+    to: :turn,
+    allow_nil: true
+
   validates :turn_id, uniqueness: true
   validate :wait_reason_payload_must_be_hash
   validate :conversation_installation_match
