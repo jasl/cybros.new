@@ -165,7 +165,7 @@ Use the milestone files as ordering indexes:
 
 1. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
 2. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
 4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 
 ## Task Group Index Documents
@@ -178,9 +178,9 @@ Use these task-group index files as grouping indexes, not as the detailed execut
 - `docs/finished-plans/2026-03-24-core-matrix-task-group-06-usage-accounting-and-profiling.md`
 - `docs/finished-plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md`
 - `docs/finished-plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md`
 - `docs/plans/2026-03-24-core-matrix-task-group-11-agent-protocol-and-recovery.md`
 - `docs/plans/2026-03-24-core-matrix-task-group-12-publication-and-final-verification.md`
 
@@ -200,16 +200,16 @@ Execute the task documents in this exact order:
 10. `docs/finished-plans/2026-03-24-core-matrix-task-07-1-conversation-structure.md`
 11. `docs/finished-plans/2026-03-24-core-matrix-task-07-2-turn-entry-and-override-state.md`
 12. `docs/finished-plans/2026-03-24-core-matrix-task-07-3-rewrite-and-variant-operations.md`
-13. `docs/plans/2026-03-24-core-matrix-task-08-1-visibility-and-attachments.md`
-14. `docs/plans/2026-03-24-core-matrix-task-08-2-imports-and-summary-segments.md`
-15. `docs/plans/2026-03-24-core-matrix-task-09-1-workflow-graph-foundations.md`
-16. `docs/plans/2026-03-24-core-matrix-task-09-2-scheduler-and-wait-states.md`
-17. `docs/plans/2026-03-24-core-matrix-task-09-3-model-selector-resolution.md`
-18. `docs/plans/2026-03-24-core-matrix-task-09-4-context-assembly-and-execution-snapshot.md`
-19. `docs/plans/2026-03-24-core-matrix-task-10-1-artifacts-events-and-process-runs.md`
-20. `docs/plans/2026-03-24-core-matrix-task-10-2-human-interactions-and-conversation-events.md`
-21. `docs/plans/2026-03-24-core-matrix-task-10-3-canonical-variables.md`
-22. `docs/plans/2026-03-24-core-matrix-task-10-4-subagents-and-leases.md`
+13. `docs/finished-plans/2026-03-24-core-matrix-task-08-1-visibility-and-attachments.md`
+14. `docs/finished-plans/2026-03-24-core-matrix-task-08-2-imports-and-summary-segments.md`
+15. `docs/finished-plans/2026-03-24-core-matrix-task-09-1-workflow-graph-foundations.md`
+16. `docs/finished-plans/2026-03-24-core-matrix-task-09-2-scheduler-and-wait-states.md`
+17. `docs/finished-plans/2026-03-24-core-matrix-task-09-3-model-selector-resolution.md`
+18. `docs/finished-plans/2026-03-24-core-matrix-task-09-4-context-assembly-and-execution-snapshot.md`
+19. `docs/finished-plans/2026-03-24-core-matrix-task-10-1-artifacts-events-and-process-runs.md`
+20. `docs/finished-plans/2026-03-24-core-matrix-task-10-2-human-interactions-and-conversation-events.md`
+21. `docs/finished-plans/2026-03-24-core-matrix-task-10-3-canonical-variables.md`
+22. `docs/finished-plans/2026-03-24-core-matrix-task-10-4-subagents-and-leases.md`
 23. `docs/plans/2026-03-24-core-matrix-task-11-1-registration-and-capability-handshake.md`
 24. `docs/plans/2026-03-24-core-matrix-task-11-2-runtime-resource-apis.md`
 25. `docs/plans/2026-03-24-core-matrix-task-11-3-deployment-credential-lifecycle.md`
