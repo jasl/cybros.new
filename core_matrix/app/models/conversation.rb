@@ -35,6 +35,7 @@ class Conversation < ApplicationRecord
   has_many :turns, dependent: :restrict_with_exception
   has_many :conversation_message_visibilities, dependent: :restrict_with_exception
   has_many :conversation_summary_segments, dependent: :restrict_with_exception
+  has_many :workflow_runs, dependent: :restrict_with_exception
   has_many :child_conversations,
     class_name: "Conversation",
     foreign_key: :parent_conversation_id,

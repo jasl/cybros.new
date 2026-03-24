@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090027) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090030) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -489,6 +489,51 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090027) do
     t.index ["installation_id"], name: "index_users_on_installation_id"
   end
 
+  create_table "workflow_edges", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "from_node_id", null: false
+    t.bigint "installation_id", null: false
+    t.integer "ordinal", null: false
+    t.bigint "to_node_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["from_node_id"], name: "index_workflow_edges_on_from_node_id"
+    t.index ["installation_id"], name: "index_workflow_edges_on_installation_id"
+    t.index ["to_node_id"], name: "index_workflow_edges_on_to_node_id"
+    t.index ["workflow_run_id", "from_node_id", "ordinal"], name: "idx_on_workflow_run_id_from_node_id_ordinal_2bc1936b9e", unique: true
+    t.index ["workflow_run_id", "from_node_id", "to_node_id"], name: "idx_on_workflow_run_id_from_node_id_to_node_id_54f159bded", unique: true
+    t.index ["workflow_run_id"], name: "index_workflow_edges_on_workflow_run_id"
+  end
+
+  create_table "workflow_nodes", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "decision_source", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "node_key", null: false
+    t.string "node_type", null: false
+    t.integer "ordinal", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["installation_id"], name: "index_workflow_nodes_on_installation_id"
+    t.index ["workflow_run_id", "node_key"], name: "index_workflow_nodes_on_workflow_run_id_and_node_key", unique: true
+    t.index ["workflow_run_id", "ordinal"], name: "index_workflow_nodes_on_workflow_run_id_and_ordinal", unique: true
+    t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
+  end
+
+  create_table "workflow_runs", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "active", null: false
+    t.bigint "turn_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id"
+    t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
+    t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"
+    t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
+  end
+
   create_table "workspaces", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
@@ -575,6 +620,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090027) do
   add_foreign_key "user_agent_bindings", "users"
   add_foreign_key "users", "identities"
   add_foreign_key "users", "installations"
+  add_foreign_key "workflow_edges", "installations"
+  add_foreign_key "workflow_edges", "workflow_nodes", column: "from_node_id"
+  add_foreign_key "workflow_edges", "workflow_nodes", column: "to_node_id"
+  add_foreign_key "workflow_edges", "workflow_runs"
+  add_foreign_key "workflow_nodes", "installations"
+  add_foreign_key "workflow_nodes", "workflow_runs"
+  add_foreign_key "workflow_runs", "conversations"
+  add_foreign_key "workflow_runs", "installations"
+  add_foreign_key "workflow_runs", "turns"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "user_agent_bindings"
   add_foreign_key "workspaces", "users"

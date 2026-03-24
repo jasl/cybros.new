@@ -77,6 +77,7 @@ Run:
 ```bash
 cd core_matrix
 bin/rails db:migrate
+bin/rails db:test:prepare
 bin/rails test test/models/workflow_run_test.rb test/models/workflow_node_test.rb test/models/workflow_edge_test.rb test/services/workflows/create_for_turn_test.rb test/services/workflows/mutate_test.rb test/integration/workflow_graph_flow_test.rb
 ```
 
@@ -100,3 +101,62 @@ Do not implement these items in this task:
 - scheduler runnable-node selection
 - model selector resolution
 - context assembly
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add workflow graph foundations` task
+    commit
+- actual landed scope:
+  - added `WorkflowRun`, `WorkflowNode`, and `WorkflowEdge` tables with foreign
+    keys, append-order indexes, one-workflow-per-turn enforcement, and one
+    active workflow per conversation enforcement
+  - added `WorkflowRun`, `WorkflowNode`, and `WorkflowEdge` models with
+    installation, conversation, turn, same-workflow, enum, metadata, and
+    no-self-loop validations
+  - added `Workflows::CreateForTurn` to create a turn-owned active workflow run
+    with one root node
+  - added `Workflows::Mutate` to append nodes and edges while rejecting cyclic
+    mutations and unknown node-key references
+  - updated `Conversation`, `Turn`, and shared test helpers with workflow-run
+    associations and workflow factory helpers
+  - added `core_matrix/docs/behavior/workflow-graph-foundations.md`
+  - added targeted model, service, and integration coverage for run uniqueness,
+    node decision sources and metadata, edge integrity, acyclic mutation, and
+    repeated graph expansion
+- plan alignment notes:
+  - the workflow graph landed as a turn-scoped durable DAG substrate, not as a
+    conversation-wide graph and not as a reusable template
+  - policy-sensitive execution markers are carried by explicit node metadata
+    rather than transcript inference
+  - mutation now queries persisted workflow rows directly so repeated mutation
+    against the same in-memory run object stays correct across calls
+- verification evidence:
+  - `cd core_matrix && bin/rails db:test:prepare && bin/rails test test/models/workflow_run_test.rb test/models/workflow_node_test.rb test/models/workflow_edge_test.rb test/services/workflows/create_for_turn_test.rb test/services/workflows/mutate_test.rb test/integration/workflow_graph_flow_test.rb`
+    passed with `9 runs, 38 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual-checklist delta was retained for this task because the landed
+    behavior is workflow substrate infrastructure covered by automated tests
+- retained findings:
+  - `t.references` creates indexes by default, so a separate unique index on the
+    same foreign-key column must be expressed either through the reference
+    itself or by disabling the default index first
+  - repeated workflow mutation must not rely on a cached Active Record
+    association from the caller's `workflow_run` instance; fresh database-scoped
+    queries are required to see earlier appended nodes and edges
+  - per-node edge ordinals need an explicit empty-collection rule so the first
+    edge from a node starts at `0` instead of `1`
+  - invalid edge endpoint references should be normalized into
+    `ActiveRecord::RecordInvalid` at the workflow service boundary instead of
+    leaking `KeyError`
+  - Dify was useful as a sanity check for run-versus-execution separation, but
+    it does not replace the local design requirement for durable turn-scoped DAG
+    structure
+- carry-forward notes:
+  - Task 09.2 should layer runnable-state and wait-state semantics onto these
+    durable graph rows instead of inventing a second workflow-structure store
+  - later runtime-resource tasks should remain subordinate to `WorkflowRun` and
+    reference workflow nodes by durable row identity rather than transient
+    scheduler memory

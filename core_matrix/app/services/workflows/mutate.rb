@@ -1,0 +1,116 @@
+module Workflows
+  class Mutate
+    def self.call(...)
+      new(...).call
+    end
+
+    def initialize(workflow_run:, nodes: [], edges: [])
+      @workflow_run = workflow_run
+      @nodes = Array(nodes)
+      @edges = Array(edges)
+    end
+
+    def call
+      ApplicationRecord.transaction do
+        node_lookup = workflow_nodes_scope.index_by(&:node_key)
+        append_nodes!(node_lookup)
+        append_edges!(node_lookup)
+        validate_acyclic!
+        @workflow_run
+      end
+    end
+
+    private
+
+    def append_nodes!(node_lookup)
+      next_ordinal = workflow_nodes_scope.maximum(:ordinal).to_i + 1
+
+      @nodes.each do |node_attributes|
+        node = WorkflowNode.create!(
+          installation: @workflow_run.installation,
+          workflow_run: @workflow_run,
+          ordinal: next_ordinal,
+          node_key: node_attributes.fetch(:node_key),
+          node_type: node_attributes.fetch(:node_type),
+          decision_source: node_attributes.fetch(:decision_source),
+          metadata: node_attributes.fetch(:metadata, {})
+        )
+        node_lookup[node.node_key] = node
+        next_ordinal += 1
+      end
+    end
+
+    def append_edges!(node_lookup)
+      grouped_ordinals = Hash.new do |hash, node_id|
+        existing_maximum = workflow_edges_scope.where(from_node_id: node_id).maximum(:ordinal)
+        hash[node_id] = existing_maximum.nil? ? 0 : existing_maximum + 1
+      end
+
+      @edges.each do |edge_attributes|
+        from_node = resolve_node!(node_lookup, edge_attributes.fetch(:from_node_key))
+        to_node = resolve_node!(node_lookup, edge_attributes.fetch(:to_node_key))
+
+        WorkflowEdge.create!(
+          installation: @workflow_run.installation,
+          workflow_run: @workflow_run,
+          from_node: from_node,
+          to_node: to_node,
+          ordinal: grouped_ordinals[from_node.id]
+        )
+        grouped_ordinals[from_node.id] += 1
+      end
+    end
+
+    def validate_acyclic!
+      adjacency = Hash.new { |hash, key| hash[key] = [] }
+
+      workflow_edges_scope.find_each do |edge|
+        adjacency[edge.from_node_id] << edge.to_node_id
+      end
+
+      visited = {}
+      visiting = {}
+
+      workflow_nodes_scope.pluck(:id).each do |node_id|
+        next if visited[node_id]
+        next unless cycle_from?(node_id, adjacency, visited, visiting)
+
+        raise_invalid!(@workflow_run, :base, "must remain acyclic after mutation")
+      end
+    end
+
+    def cycle_from?(node_id, adjacency, visited, visiting)
+      return true if visiting[node_id]
+      return false if visited[node_id]
+
+      visiting[node_id] = true
+
+      adjacency[node_id].each do |child_id|
+        return true if cycle_from?(child_id, adjacency, visited, visiting)
+      end
+
+      visiting.delete(node_id)
+      visited[node_id] = true
+      false
+    end
+
+    def raise_invalid!(record, attribute, message)
+      record.errors.add(attribute, message)
+      raise ActiveRecord::RecordInvalid, record
+    end
+
+    def resolve_node!(node_lookup, node_key)
+      node_lookup.fetch(node_key)
+    rescue KeyError
+      raise_invalid!(@workflow_run, :base, "references unknown workflow node key #{node_key}")
+    end
+
+    def workflow_nodes_scope
+      WorkflowNode.where(workflow_run: @workflow_run)
+    end
+
+    def workflow_edges_scope
+      WorkflowEdge.where(workflow_run: @workflow_run)
+    end
+  end
+end

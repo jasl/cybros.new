@@ -23,6 +23,7 @@ class Turn < ApplicationRecord
   belongs_to :selected_output_message, class_name: "Message", optional: true
 
   has_many :messages, dependent: :restrict_with_exception
+  has_one :workflow_run, dependent: :restrict_with_exception
 
   validates :sequence, uniqueness: { scope: :conversation_id }
   validates :pinned_deployment_fingerprint, presence: true
