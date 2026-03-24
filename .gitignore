@@ -1,4 +1,4 @@
-# === OS generated files ===
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -7,7 +7,7 @@
 ehthumbs.db
 Thumbs.db
 
-# === IDE and Editors ===
+# IDE and Editors
 .idea/
 .vscode/
 .cursor/
@@ -17,17 +17,20 @@ Thumbs.db
 *~
 .claude/settings.local.json
 
-# === Temp files ===
+# Ignore node_modules
+/node_modules
+
+# Temp files
 /tmp/
 
-# === Test files ===
+# Test files
 /coverage/
 
-# === MCP temp files ===
+# MCP temp files
 .playwright-mcp/
 
-# === Reference materials (never committed) ===
+# Reference materials (never committed)
 /references/
 
-# === Vibe coding memory ===
+# Vibe coding memory
 /memory/
