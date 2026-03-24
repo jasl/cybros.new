@@ -7,7 +7,7 @@ Use this index together with:
 1. `AGENTS.md`
 2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-phase-3-conversation-and-runtime.md`
-4. `docs/plans/2026-03-24-core-matrix-model-role-resolution-design.md`
+4. `docs/design/2026-03-24-core-matrix-model-role-resolution-design.md`
 
 This task group is split so graph structure, scheduler semantics, selector resolution, and context assembly can each be implemented against narrower runtime concerns.
 

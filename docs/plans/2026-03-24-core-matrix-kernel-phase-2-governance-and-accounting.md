@@ -3,9 +3,9 @@
 Use this phase index together with:
 
 1. `AGENTS.md`
-2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-design.md`
+2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
+4. `docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 This phase owns Tasks 05-06:

@@ -7,7 +7,7 @@ Use this index together with:
 1. `AGENTS.md`
 2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-phase-4-protocol-publication-and-verification.md`
-4. `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
+4. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 
 This task group is split so protocol enrollment, runtime-resource APIs, credential lifecycle, and recovery logic can each be implemented against a stable contract without loading the whole phase at once.
 

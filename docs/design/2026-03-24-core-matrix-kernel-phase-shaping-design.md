@@ -159,6 +159,7 @@ The kernel owns the loop and governance. External systems may own concrete capab
 
 Core Matrix should own:
 
+- all agent-loop progression and user-facing interaction mediation
 - when a tool call happens
 - which implementation is chosen
 - timeout, retry, approval, audit, and usage semantics

@@ -15,9 +15,9 @@
 Read these before each phase:
 
 1. `AGENTS.md`
-2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
+2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
+3. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
+4. `docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Do not use the deleted 2026-03-23 plan documents as implementation truth.
@@ -56,7 +56,7 @@ Use these reference projects as non-authoritative comparison points during imple
 
 Reference projects are for behavior, ergonomics, and failure-mode cross-checks only. They do not override the canonical design or task scope in this plan.
 
-The topical design notes `docs/plans/2026-03-24-core-matrix-model-role-resolution-design.md` and `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` may be used as rationale, but the phase indexes and task documents below are the canonical execution order.
+The topical design notes `docs/design/2026-03-24-core-matrix-model-role-resolution-design.md` and `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` may be used as rationale, but the phase indexes and task documents below are the canonical execution order.
 
 ## Implementation Guardrails
 
@@ -179,7 +179,7 @@ Treat automation-trigger support as one split-scope topic that lands in these ex
 
 Treat agent protocol and tool-surface consistency as one cross-cutting topic that lands in these exact places:
 
-- **Design baseline**: `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` defines naming rules, capability-snapshot structure, future invocation-envelope semantics, and the `kernel_primitive | agent_observation | effect_intent` tool taxonomy.
+- **Design baseline**: `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` defines naming rules, capability-snapshot structure, future invocation-envelope semantics, and the `kernel_primitive | agent_observation | effect_intent` tool taxonomy.
 - **Phase 4 / Task 11**: adopt stable `snake_case` logical operation IDs for the machine-facing contract, publish protocol methods separately from tool-catalog entries, and assert those rules in contract tests.
 - **Follow-up only**: do not widen this batch into generic agent-owned tool execution bridges, attachment-import bridges, connector adapter catalogs, or integration-specific tool executors unless a later plan explicitly pulls them into scope.
 
@@ -201,4 +201,4 @@ Do not implement these items in this phase:
 - webhook ingress endpoints for external trigger dispatch
 - automation trigger management APIs or UI
 
-Human-facing deferred surfaces belong to `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`. The non-UI automation-trigger items above remain deferred follow-up scope in this canonical implementation plan.
+Human-facing deferred surfaces belong to `docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`. The non-UI automation-trigger items above remain deferred follow-up scope in this canonical implementation plan.
