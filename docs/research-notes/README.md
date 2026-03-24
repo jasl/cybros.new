@@ -17,3 +17,5 @@ Use `references/` only as supporting material:
 Current notes:
 
 - [2026-03-24-core-matrix-structured-json-contracts-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-24-core-matrix-structured-json-contracts-research-note.md)
+- [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
+- [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)

@@ -112,6 +112,12 @@ the active docs:
 - `decision_source`
 - `composer completion`
 
+Also confirm alignment with the focused `Fenix` design and research notes:
+
+- [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
+- [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
+
 If terminology drift is found, correct the design docs before activation.
 
 ## Gate 5: Fenix Validation Target Is Concrete
@@ -123,6 +129,12 @@ Before activation, define the exact Fenix validation slices that must pass:
 - one default assistant conversation flow
 - one coding-assistant flow
 - one office-assistance flow
+- one independently paired external `Fenix` flow
+- one same-installation deployment rotation flow
+- one explicit downgrade flow
+- one built-in system skill that deploys another agent
+- one third-party skill-install-and-use flow, ideally using
+  [obra/superpowers](https://github.com/obra/superpowers)
 - one real tool-call flow
 - one real subagent flow
 - one real human-interaction flow
@@ -149,7 +161,11 @@ Required prerequisites:
 - at least one external capability path is available for tool validation
   through MCP or an agent-program-exposed tool surface
 - the bundled `Fenix` runtime can be started and connected
+- an independently started external `Fenix` runtime can be enrolled and paired
+- a same-installation second `Fenix` deployment path exists for cutover testing
 - a human operator path exists for manual human-interaction validation
+- a reachable third-party skill source exists for install-and-use validation,
+  ideally [obra/superpowers](https://github.com/obra/superpowers)
 
 If any of these are missing, either fix the environment first or explicitly
 hold Phase 2.
@@ -202,7 +218,7 @@ Required outcome:
 
 - a planned update path for `docs/checklists`
 - explicit real-environment scenarios for tools, subagents, human interaction,
-  and recovery
+  recovery, external pairing, deployment rotation, and skills
 - a rule that no Phase 2 claim is complete without matching checklist evidence
 
 If the checklist delta is still fuzzy, Phase 2 is not ready.

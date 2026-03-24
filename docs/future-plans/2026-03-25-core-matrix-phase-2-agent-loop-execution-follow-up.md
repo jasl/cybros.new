@@ -2,13 +2,19 @@
 
 ## Status
 
-Deferred future plan. This is the next intended phase after the current
-substrate batch completes.
+Deferred future plan for the next active phase after the completed substrate
+batch.
 
 ## Purpose
 
 Phase 2 proves that Core Matrix can run a real agent loop end to end under
 kernel authority.
+
+Related design and research:
+
+- [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
+- [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
 
 ## Success Criteria
 
@@ -19,6 +25,10 @@ kernel authority.
 - at least one subagent path works in a real run
 - at least one human-interaction path works in a real run
 - drift, outage, and recovery semantics are validated in a real run
+- bundled `Fenix`, independent external `Fenix`, and same-installation
+  deployment rotation are all validated in real runs
+- agent-program-owned skills are validated through one built-in system skill
+  path plus one third-party skill-install-and-use path
 - the phase passes automated tests plus real-environment manual validation under
   `bin/dev` with a real LLM API
 
@@ -38,12 +48,13 @@ kernel authority.
 
 It should prove:
 
-- general-assistant conversation flows
-- coding-assistant flows
-- everyday office-assistance flows
-- real tool use
-- real subagent behavior
-- human-interaction and recovery paths
+- bundled default assistant, coding-assistant, and office-assistance flows
+- one independently paired external `Fenix` runtime
+- one same-installation deployment rotation across release change
+- both upgrade and downgrade cutover treated as valid rotation inputs
+- one built-in system skill that deploys another agent
+- one third-party Agent Skills package installed and used successfully
+- real tool use, subagent behavior, human interaction, and recovery paths
 
 ## Out Of Scope
 
@@ -51,3 +62,4 @@ It should prove:
 - workspace-owned trigger infrastructure
 - IM, PWA, or desktop channels
 - extension and plugin packaging
+- in-place self-update or plugin-management ecosystems inside `Fenix`

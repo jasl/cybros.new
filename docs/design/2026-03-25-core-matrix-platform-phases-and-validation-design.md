@@ -229,6 +229,7 @@ Agent programs may own:
 - experimental tool implementations
 - memory, knowledge, fetch, search, and other unstable capability
   implementations
+- skills, skill loaders, and skill installers
 - composer completions and other client-facing affordances
 
 The kernel remains the final authority for durable side effects whether the
@@ -346,6 +347,8 @@ Fenix proves the real loop through:
 - coding-assistant behavior inspired by Codex-like workflows
 - everyday office-assistance behavior inspired by `accomplish` and `maxclaw`
 - tool use, subagents, human interaction, and recovery paths
+- external pairing plus same-installation deployment rotation
+- Agent Skills-compatible third-party skill use plus private system-skill flows
 
 ### Phase 3
 
@@ -367,6 +370,10 @@ programs, for example:
 - an `OpenAlice`-style product through a separate Alice-focused program
 
 The success criterion is a reusable kernel, not a universal agent shell.
+
+See the focused `Fenix` document for the concrete Phase 2 validation shape:
+
+- [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
 
 ## Document Lifecycle Rules
 
