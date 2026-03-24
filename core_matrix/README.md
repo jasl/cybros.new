@@ -1,24 +1,24 @@
-# README
+# Core Matrix
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+`core_matrix` is being rebuilt as the backend kernel substrate for Core Matrix.
 
-Things you may want to cover:
+Current authoritative project documents:
 
-* Ruby version
+- Greenfield design: `../docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
+- Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
+- Active implementation plan: `../docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+- Deferred UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
+- Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
-* System dependencies
+Current scope for this phase:
 
-* Configuration
+- backend models, services, protocol boundaries, tests, and manual backend validation
+- no human-facing UI, Turbo, Stimulus, or browser delivery work
 
-* Database creation
+Useful baseline commands:
 
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+```bash
+bin/rails db:version
+bin/rails test
+bin/rubocop app/models/application_record.rb
+```
