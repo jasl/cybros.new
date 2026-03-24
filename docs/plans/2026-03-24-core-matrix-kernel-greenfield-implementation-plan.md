@@ -16,12 +16,13 @@ Read these before each phase:
 
 1. `AGENTS.md`
 2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
-4. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+3. `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
+5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Do not use the deleted 2026-03-23 plan documents as implementation truth.
 
-The topical design note `docs/plans/2026-03-24-core-matrix-model-role-resolution-design.md` may be used as rationale, but the phase documents below are the canonical execution order.
+The topical design notes `docs/plans/2026-03-24-core-matrix-model-role-resolution-design.md` and `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` may be used as rationale, but the phase indexes and task documents below are the canonical execution order.
 
 ## Implementation Guardrails
 
@@ -51,14 +52,31 @@ At the end of each task, perform these audits before continuing:
 
 If any audit fails, fix it inside the same task before moving on.
 
-## Phase Documents
+## Phase Index Documents
 
-Execute the phase files in order:
+Use the phase files as ordering indexes:
 
 1. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
 2. `docs/plans/2026-03-24-core-matrix-kernel-phase-2-governance-and-accounting.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-phase-3-conversation-and-runtime.md`
 4. `docs/plans/2026-03-24-core-matrix-kernel-phase-4-protocol-publication-and-verification.md`
+
+## Task Execution Documents
+
+Execute the task documents in this exact order:
+
+1. `docs/plans/2026-03-24-core-matrix-task-01-shell-baseline.md`
+2. `docs/plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md`
+3. `docs/plans/2026-03-24-core-matrix-task-03-agent-registry-and-connectivity.md`
+4. `docs/plans/2026-03-24-core-matrix-task-04-bindings-workspaces-and-default-agent.md`
+5. `docs/plans/2026-03-24-core-matrix-task-05-provider-catalog-and-governance.md`
+6. `docs/plans/2026-03-24-core-matrix-task-06-usage-accounting-and-profiling.md`
+7. `docs/plans/2026-03-24-core-matrix-task-07-conversation-and-turn-foundations.md`
+8. `docs/plans/2026-03-24-core-matrix-task-08-transcript-support-models.md`
+9. `docs/plans/2026-03-24-core-matrix-task-09-workflow-core-and-scheduling.md`
+10. `docs/plans/2026-03-24-core-matrix-task-10-runtime-resources-and-lease-control.md`
+11. `docs/plans/2026-03-24-core-matrix-task-11-agent-protocol-and-recovery.md`
+12. `docs/plans/2026-03-24-core-matrix-task-12-publication-and-final-verification.md`
 
 ## Phase Summary
 
@@ -81,6 +99,12 @@ Treat automation-trigger support as one split-scope topic that lands in these ex
 - **Phase 3 / Task 7**: define `automation` conversation purpose, read-only automation root-conversation semantics, and structured turn-origin fields for manual and future trigger-based execution.
 - **Phase 3 / Task 9**: ensure workflow creation and context assembly can run from automation-origin turns that do not start with a transcript-bearing user message.
 - **Follow-up only**: do not implement `AutomationTrigger`, schedule parsing, recurring trigger execution, webhook ingress, or trigger management surfaces in this backend kernel batch.
+
+Treat agent protocol and tool-surface consistency as one cross-cutting topic that lands in these exact places:
+
+- **Design baseline**: `docs/plans/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` defines naming rules, capability-snapshot structure, future invocation-envelope semantics, and the `kernel_primitive | agent_observation | effect_intent` tool taxonomy.
+- **Phase 4 / Task 11**: adopt stable `snake_case` logical operation IDs for the machine-facing contract, publish protocol methods separately from tool-catalog entries, and assert those rules in contract tests.
+- **Follow-up only**: do not widen this batch into generic agent-owned tool execution bridges, attachment-import bridges, connector adapter catalogs, or integration-specific tool executors unless a later plan explicitly pulls them into scope.
 
 ## Stop Point
 

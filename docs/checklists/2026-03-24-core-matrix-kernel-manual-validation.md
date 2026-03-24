@@ -6,6 +6,11 @@ Living checklist for real-environment verification during the backend greenfield
 
 The implementation phase must keep this document updated. Each complex flow should end with exact commands, setup notes, and expected outcomes that can be reproduced later.
 
+Current-batch rule:
+
+- keep this checklist backend-reproducible through shell commands, HTTP requests, Rails console actions, and dummy runtime scripts
+- do not add browser-only or human-facing UI validation steps in the current backend greenfield batch
+
 ## Prerequisites
 
 - `cd core_matrix`
@@ -41,7 +46,7 @@ For each flow, keep:
 - goal
 - prerequisites
 - exact commands
-- exact endpoints or console actions
+- exact endpoints, shell requests, or Rails console actions
 - expected rows or state changes
 - expected logs or visible outcomes
 - cleanup steps

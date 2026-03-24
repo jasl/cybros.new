@@ -1,0 +1,127 @@
+# Core Matrix Task 02: Build Installation, Identity, User, Invitation, Session, And Audit Foundations
+
+Part of `Core Matrix Kernel Phase 1: Foundations`.
+
+Use this task document together with:
+
+1. `AGENTS.md`
+2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-design.md`
+3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
+5. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
+6. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+
+Load this file as the detailed execution unit for Task 02. Treat the phase file as the ordering index, not the full task body.
+
+---
+
+
+**Files:**
+- Create: `core_matrix/db/migrate/20260324090000_create_installations.rb`
+- Create: `core_matrix/db/migrate/20260324090001_create_identities.rb`
+- Create: `core_matrix/db/migrate/20260324090002_create_users.rb`
+- Create: `core_matrix/db/migrate/20260324090003_create_invitations.rb`
+- Create: `core_matrix/db/migrate/20260324090004_create_sessions.rb`
+- Create: `core_matrix/db/migrate/20260324090005_create_audit_logs.rb`
+- Create: `core_matrix/app/models/installation.rb`
+- Create: `core_matrix/app/models/identity.rb`
+- Create: `core_matrix/app/models/user.rb`
+- Create: `core_matrix/app/models/invitation.rb`
+- Create: `core_matrix/app/models/session.rb`
+- Create: `core_matrix/app/models/audit_log.rb`
+- Create: `core_matrix/app/services/installations/bootstrap_first_admin.rb`
+- Create: `core_matrix/app/services/invitations/consume.rb`
+- Create: `core_matrix/app/services/users/grant_admin.rb`
+- Create: `core_matrix/app/services/users/revoke_admin.rb`
+- Create: `core_matrix/test/models/installation_test.rb`
+- Create: `core_matrix/test/models/identity_test.rb`
+- Create: `core_matrix/test/models/user_test.rb`
+- Create: `core_matrix/test/models/invitation_test.rb`
+- Create: `core_matrix/test/models/session_test.rb`
+- Create: `core_matrix/test/models/audit_log_test.rb`
+- Create: `core_matrix/test/services/installations/bootstrap_first_admin_test.rb`
+- Create: `core_matrix/test/services/invitations/consume_test.rb`
+- Create: `core_matrix/test/services/users/grant_admin_test.rb`
+- Create: `core_matrix/test/services/users/revoke_admin_test.rb`
+- Create: `core_matrix/test/integration/installation_bootstrap_flow_test.rb`
+- Modify: `core_matrix/config/initializers/filter_parameter_logging.rb`
+- Modify: `core_matrix/test/test_helper.rb`
+
+**Step 1: Write failing unit tests for root aggregates**
+
+Cover at least:
+
+- single-row installation bootstrap assumptions
+- `Identity` email normalization and uniqueness
+- `Identity` password presence and authentication via `has_secure_password`
+- `User` admin role semantics
+- admin grant and revoke legality
+- forbidding revocation of the last active admin
+- invitation token uniqueness, expiration, and consumption
+- session token uniqueness, expiration, and revocation
+- audit log actor and subject shape
+
+**Step 2: Write a failing integration flow test**
+
+`installation_bootstrap_flow_test.rb` should cover:
+
+- creating the first installation, identity, and admin user
+- rejecting or safely no-oping a second bootstrap attempt
+- creating an invitation and consuming it for a second user
+- granting and revoking admin on a later user
+- audit rows written for bootstrap, invite consumption, and admin role changes
+
+**Step 3: Run the targeted tests to confirm failure**
+
+Run:
+
+```bash
+cd core_matrix
+bin/rails test test/models/installation_test.rb test/models/identity_test.rb test/models/user_test.rb test/models/invitation_test.rb test/models/session_test.rb test/models/audit_log_test.rb test/services/installations/bootstrap_first_admin_test.rb test/services/invitations/consume_test.rb test/services/users/grant_admin_test.rb test/services/users/revoke_admin_test.rb test/integration/installation_bootstrap_flow_test.rb
+```
+
+Expected:
+
+- failures for missing tables, models, and validations
+
+**Step 4: Write migrations and models**
+
+Include:
+
+- `installations` with name, bootstrap state, and global settings JSON
+- `identities` with email, password digest, auth metadata, and disable state
+- `users` with installation FK, identity FK, role state, display name, preferences JSON
+- `invitations` with installation FK, inviter FK, token digest, email, expires_at, consumed_at
+- `sessions` with identity FK, user FK, token digest, expires_at, revoked_at, metadata
+- `audit_logs` with installation FK, actor polymorphism, action, subject polymorphism, metadata JSON
+
+**Step 5: Implement minimal services**
+
+- use transactions for bootstrap and invitation consumption
+- implement explicit admin grant and revoke services with audit writes
+- block revocation of the last active admin user
+- keep orchestration in services, not callbacks
+- filter auth secrets in logs
+
+**Step 6: Run migrations and targeted tests**
+
+Run:
+
+```bash
+cd core_matrix
+bin/rails db:migrate
+bin/rails test test/models/installation_test.rb test/models/identity_test.rb test/models/user_test.rb test/models/invitation_test.rb test/models/session_test.rb test/models/audit_log_test.rb test/services/installations/bootstrap_first_admin_test.rb test/services/invitations/consume_test.rb test/services/users/grant_admin_test.rb test/services/users/revoke_admin_test.rb test/integration/installation_bootstrap_flow_test.rb
+```
+
+Expected:
+
+- migrations apply cleanly
+- targeted tests pass
+
+**Step 7: Commit**
+
+```bash
+git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/installations core_matrix/app/services/invitations core_matrix/app/services/users core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/test/test_helper.rb core_matrix/config/initializers/filter_parameter_logging.rb core_matrix/db/schema.rb
+git -C .. commit -m "feat: add installation identity foundations"
+```
+

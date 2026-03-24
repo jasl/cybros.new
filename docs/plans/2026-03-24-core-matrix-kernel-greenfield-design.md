@@ -162,7 +162,7 @@ Responsibilities:
 - support agent-driven registration
 - store machine credentials and rotation metadata
 - store health and heartbeat state
-- negotiate runtime identity, supported methods, capability snapshots, and config schemas
+- negotiate runtime identity, supported protocol methods, capability snapshots, and config schemas
 
 Kernel rule:
 
@@ -746,7 +746,7 @@ Rules:
 
 - override payload is validated against the current deployment conversation-override schema
 - override payload is best-effort reconciled when the deployment schema changes
-- resolved override values are frozen onto the executing turn or workflow snapshot
+- resolved override values are frozen onto the executing `Turn` as the canonical execution snapshot, with optional denormalized references on `WorkflowRun`
 - override persistence is independent from any client-local draft UX
 - the user-visible interactive model selector should support:
   - `auto`
@@ -877,26 +877,68 @@ This protocol is sufficient because:
 
 The runtime contract should include a capability handshake after machine authentication.
 
-Keep explicit lifecycle methods such as:
+Keep explicit protocol method IDs such as:
 
 - `initialize` or equivalent identity probe
-- `agent.describe`
-- `agent.health`
-- `agent.schemas.get`
-- `capabilities.handshake`
-- `capabilities.refresh`
+- `agent_describe`
+- `agent_health`
+- `agent_schemas_get`
+- `capabilities_handshake`
+- `capabilities_refresh`
 
 The capability and schema handshake should return at least:
 
 - deployment fingerprint
 - protocol version
 - agent SDK version
-- supported methods
+- protocol method list
 - agent capabilities version
-- tool or hook catalog snapshot
+- tool catalog snapshot
 - deployment config schema
 - conversation override schema
 - default config payload
+
+## Agent Protocol Naming And Tool Surface
+
+The public contract must distinguish three different identifier families:
+
+- protocol method IDs
+- model-visible tool names
+- transport-level HTTP routes
+
+Rules:
+
+- protocol method IDs use `snake_case`
+- model-visible tool names also use `snake_case`
+- dotted names such as `human_interactions.request` are not valid public tool names in the new contract
+- controller names and HTTP paths may remain resource-oriented, but they do not define the canonical public method ID
+- capability snapshots should publish protocol methods separately from tool catalog entries rather than mixing them into one overloaded list
+
+Capability snapshots should expose a stable `tool_catalog` structure. Each tool entry should carry at least:
+
+- `tool_name`
+- `tool_kind`
+- `implementation_source`
+- `implementation_ref`
+- `input_schema`
+- `result_schema`
+- `streaming_support`
+- `idempotency_policy`
+
+Recommended `tool_kind` values are:
+
+- `kernel_primitive`
+- `agent_observation`
+- `effect_intent`
+
+Authority rules:
+
+- `kernel_primitive` tools are kernel-owned and kernel-executed
+- `agent_observation` tools may be agent-owned and may execute inside the agent runtime, but they must return observation data only
+- `effect_intent` tools may be proposed by an agent-owned surface, but they must materialize into kernel workflow execution before any final side effect is committed
+- if a later generic tool-execution bridge is added, it should use a stable invocation envelope with explicit status, approval, retryability, and error semantics rather than ad hoc request shapes
+
+This contract boundary is part of the public API and must be stabilized now, even though many specific bridges, agent-owned tool executors, and connector adapters remain follow-up scope.
 
 ## Agent Runtime Resource APIs
 
@@ -910,30 +952,30 @@ The runtime execution context sent to agents should include enough identity to l
 - `turn_id`
 - the selected deployment identity
 
-Required read APIs in v1:
+Required read operation IDs in v1:
 
-- `conversation.transcript.list`
-- `conversation.variables.get`
-- `conversation.variables.mget`
-- `conversation.variables.list`
-- `conversation.variables.resolve`
-- `workspace.variables.get`
-- `workspace.variables.mget`
-- `workspace.variables.list`
+- `conversation_transcript_list`
+- `conversation_variables_get`
+- `conversation_variables_mget`
+- `conversation_variables_list`
+- `conversation_variables_resolve`
+- `workspace_variables_get`
+- `workspace_variables_mget`
+- `workspace_variables_list`
 
-Required mutation-intent APIs in v1:
+Required mutation-intent operation IDs in v1:
 
-- `conversation.variables.write`
-- `workspace.variables.write`
-- `conversation.variables.promote`
-- `human_interactions.request`
+- `conversation_variables_write`
+- `workspace_variables_write`
+- `conversation_variables_promote`
+- `human_interactions_request`
 
 Read API rules:
 
-- `conversation.transcript.list` returns only the canonical visible transcript by default, not workflow-local intermediate state
+- `conversation_transcript_list` returns only the canonical visible transcript by default, not workflow-local intermediate state
 - transcript listing must use cursor pagination from the start
 - variable APIs may borrow Redis-style `get` and `mget` naming, but they resolve kernel-owned canonical values rather than a raw process-local cache
-- `conversation.variables.resolve` returns the effective merged view using `conversation > workspace` precedence
+- `conversation_variables_resolve` returns the effective merged view using `conversation > workspace` precedence
 - hidden transcript rows, hidden attachments, and non-transcript runtime internals must not leak through these read APIs by default
 
 Mutation-intent rules:
@@ -997,7 +1039,7 @@ Rules:
 - log warnings and reconciliation details
 - do not fail deployment activation solely because of config incompatibility
 
-The resolved config for a given execution must be frozen onto the turn or workflow snapshot.
+The resolved config for a given execution must be frozen onto the executing `Turn` as the canonical execution snapshot, with optional denormalized references on `WorkflowRun`.
 
 Recommended resolution order:
 
@@ -1071,7 +1113,7 @@ Execution-time reservation rules:
 
 Snapshot rules:
 
-- once a candidate is actually selected, freeze onto the turn or workflow snapshot at least:
+- once a candidate is actually selected, freeze onto the executing `Turn` as the canonical runtime snapshot, with optional denormalized references on `WorkflowRun` when operational queries need them, at least:
   - selector source
   - normalized selector
   - resolved role when applicable
@@ -1393,6 +1435,8 @@ Rules:
 - keep a maintained manual checklist document with reproducible commands and expected outcomes for complex flows
 - include pairing and machine-to-machine registration flows in that checklist
 - record any manual-only prerequisites needed to run the validation
+- in the current backend-only batch, checklist flows must be reproducible through shell commands, HTTP requests, Rails console actions, or dummy runtime scripts rather than browser-only clicking
+- any validation flow that requires a human-facing UI surface belongs to the deferred UI follow-up, not to the backend completion gate
 - if a flow cannot be exercised manually in the real environment, treat that as an implementation gap
 
 Current phase boundary:
