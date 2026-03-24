@@ -50,3 +50,91 @@ For each flow, keep:
 - expected rows or state changes
 - expected logs or visible outcomes
 - cleanup steps
+
+## First-Admin Bootstrap
+
+- goal:
+  verify the backend bootstrap creates exactly one installation, one identity,
+  one admin user, and one bootstrap audit row
+- prerequisites:
+  - `cd core_matrix`
+  - `bin/rails db:migrate`
+  - development database can be reset for this flow
+- exact commands:
+
+```bash
+bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; result = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); puts({installation_count: Installation.count, identity_count: Identity.count, user_roles: User.order(:id).pluck(:role), audit_actions: AuditLog.order(:action).pluck(:action)}.to_json)'
+```
+
+- expected rows or state changes:
+  - one `installations` row with `bootstrap_state = "bootstrapped"`
+  - one `identities` row for `admin@example.com`
+  - one `users` row with `role = "admin"`
+  - one `audit_logs` row with `action = "installation.bootstrapped"`
+- expected logs or visible outcomes:
+  - JSON output reports `installation_count: 1`
+  - JSON output includes `user_roles: ["admin"]`
+  - JSON output includes `audit_actions: ["installation.bootstrapped"]`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```
+
+## Invitation Creation And Consumption
+
+- goal:
+  verify an invitation token can be issued once, consumed once, and produces a
+  new identity plus user with an audit row
+- prerequisites:
+  - run the first-admin bootstrap flow or start from an empty development
+    database
+- exact commands:
+
+```bash
+bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); invitation = Invitation.issue!(installation: bootstrap.installation, inviter: bootstrap.user, email: "member@example.com", expires_at: 2.days.from_now); result = Invitations::Consume.call(token: invitation.plaintext_token, password: "Password123!", password_confirmation: "Password123!", display_name: "Member User"); puts({user_count: User.count, consumed_at: result.invitation.reload.consumed_at.present?, invited_email: result.identity.email, audit_actions: AuditLog.order(:action).pluck(:action)}.to_json)'
+```
+
+- expected rows or state changes:
+  - invitation row has `consumed_at` set
+  - second identity exists for `member@example.com`
+  - second user exists with `role = "member"`
+  - `audit_logs` includes `invitation.consumed`
+- expected logs or visible outcomes:
+  - JSON output reports `user_count: 2`
+  - JSON output reports `consumed_at: true`
+  - JSON output reports `invited_email: "member@example.com"`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```
+
+## Admin Grant And Revoke
+
+- goal:
+  verify admin promotion and demotion write audit rows and preserve the
+  last-active-admin safety rule
+- prerequisites:
+  - run the invitation consumption flow or start from an empty development
+    database
+- exact commands:
+
+```bash
+bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); invitation = Invitation.issue!(installation: bootstrap.installation, inviter: bootstrap.user, email: "member@example.com", expires_at: 2.days.from_now); consume = Invitations::Consume.call(token: invitation.plaintext_token, password: "Password123!", password_confirmation: "Password123!", display_name: "Member User"); Users::GrantAdmin.call(user: consume.user, actor: bootstrap.user); Users::RevokeAdmin.call(user: consume.user, actor: bootstrap.user); begin Users::RevokeAdmin.call(user: bootstrap.user, actor: bootstrap.user); rescue => error; guard = error.class.name; end; puts({member_role: consume.user.reload.role, bootstrap_role: bootstrap.user.reload.role, guard_error: guard, audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
+```
+
+- expected rows or state changes:
+  - invited user role changes to `admin` and then back to `member`
+  - bootstrap user remains `admin`
+  - last-admin revoke is blocked
+  - `audit_logs` includes `user.admin_granted` and `user.admin_revoked`
+- expected logs or visible outcomes:
+  - JSON output reports `member_role: "member"`
+  - JSON output reports `bootstrap_role: "admin"`
+  - JSON output reports `guard_error: "Users::RevokeAdmin::LastAdminError"`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```

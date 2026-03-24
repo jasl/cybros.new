@@ -32,6 +32,7 @@ Load this file as the detailed execution unit for Task 02. Treat the milestone f
 - Create: `core_matrix/app/services/invitations/consume.rb`
 - Create: `core_matrix/app/services/users/grant_admin.rb`
 - Create: `core_matrix/app/services/users/revoke_admin.rb`
+- Create: `core_matrix/docs/behavior/installation-identity-and-audit-foundations.md`
 - Create: `core_matrix/test/models/installation_test.rb`
 - Create: `core_matrix/test/models/identity_test.rb`
 - Create: `core_matrix/test/models/user_test.rb`
@@ -45,6 +46,7 @@ Load this file as the detailed execution unit for Task 02. Treat the milestone f
 - Create: `core_matrix/test/integration/installation_bootstrap_flow_test.rb`
 - Modify: `core_matrix/config/initializers/filter_parameter_logging.rb`
 - Modify: `core_matrix/test/test_helper.rb`
+- Modify: `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 **Step 1: Write failing unit tests for root aggregates**
 
@@ -117,16 +119,26 @@ Expected:
 - migrations apply cleanly
 - targeted tests pass
 
-**Step 7: Commit**
+**Step 7: Update behavior and manual validation docs**
+
+- Add `core_matrix/docs/behavior/installation-identity-and-audit-foundations.md`
+  describing the installation, identity, user, invitation, session, and audit
+  foundations plus their service boundaries and failure modes.
+- Update `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+  with backend-reproducible shell steps for first-admin bootstrap, invitation
+  creation and consumption, and admin grant and revoke.
+
+**Step 8: Commit**
 
 ```bash
-git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/installations core_matrix/app/services/invitations core_matrix/app/services/users core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/test/test_helper.rb core_matrix/config/initializers/filter_parameter_logging.rb core_matrix/db/schema.rb
+git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/installations core_matrix/app/services/invitations core_matrix/app/services/users core_matrix/docs/behavior/installation-identity-and-audit-foundations.md core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/test/test_helper.rb core_matrix/config/initializers/filter_parameter_logging.rb core_matrix/db/schema.rb docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md docs/plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md
 git -C .. commit -m "feat: add installation identity foundations"
 ```
 
 ## Stop Point
 
-Stop after installation, identity, user, invitation, session, and audit foundations pass their tests.
+Stop after installation, identity, user, invitation, session, and audit
+foundations pass their tests and the behavior plus checklist docs are aligned.
 
 Do not implement these items in this task:
 
