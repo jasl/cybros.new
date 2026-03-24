@@ -42,8 +42,18 @@ class AgentDeployment < ApplicationRecord
     Digest::SHA256.hexdigest(machine_credential.to_s)
   end
 
+  def self.find_by_machine_credential(machine_credential)
+    return if machine_credential.blank?
+
+    find_by(machine_credential_digest: digest_machine_credential(machine_credential))
+  end
+
   def matches_machine_credential?(machine_credential)
     self.class.digest_machine_credential(machine_credential) == machine_credential_digest
+  end
+
+  def capability_snapshot_version
+    active_capability_snapshot&.version
   end
 
   private

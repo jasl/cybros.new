@@ -1,4 +1,5 @@
 require "active_support/testing/time_helpers"
+require "action_controller"
 require "digest"
 require "stringio"
 
@@ -101,16 +102,133 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: [{ "method_id" => "agent_health" }], tool_catalog: [{ "tool_name" => "shell_exec" }], config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
+    def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: nil, tool_catalog: nil, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
       CapabilitySnapshot.create!({
         agent_deployment: agent_deployment,
         version: version,
+        protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
+        tool_catalog: tool_catalog || default_tool_catalog("shell_exec"),
+        config_schema_snapshot: config_schema_snapshot,
+        conversation_override_schema_snapshot: conversation_override_schema_snapshot,
+        default_config_snapshot: default_config_snapshot,
+      }.merge(attrs))
+    end
+
+    def default_protocol_methods(*method_ids)
+      ids = method_ids.presence || %w[agent_health capabilities_handshake]
+
+      ids.map { |method_id| { "method_id" => method_id } }
+    end
+
+    def default_tool_catalog(*tool_names)
+      names = tool_names.presence || %w[shell_exec]
+
+      names.map do |tool_name|
+        {
+          "tool_name" => tool_name,
+          "tool_kind" => "kernel_primitive",
+          "implementation_source" => "kernel",
+          "implementation_ref" => "kernel/#{tool_name}",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        }
+      end
+    end
+
+    def default_config_schema_snapshot(include_selector_slots: false)
+      properties = {}
+
+      if include_selector_slots
+        properties["interactive"] = {
+          "type" => "object",
+          "properties" => {
+            "selector" => { "type" => "string" },
+          },
+        }
+        properties["model_slots"] = {
+          "type" => "object",
+          "additionalProperties" => {
+            "type" => "object",
+            "properties" => {
+              "selector" => { "type" => "string" },
+            },
+          },
+        }
+      end
+
+      {
+        "type" => "object",
+        "properties" => properties,
+      }
+    end
+
+    def default_default_config_snapshot(include_selector_slots: false)
+      return ({ "sandbox" => "workspace-write" }) unless include_selector_slots
+
+      {
+        "sandbox" => "workspace-write",
+        "interactive" => { "selector" => "role:main" },
+        "model_slots" => {
+          "research" => { "selector" => "role:researcher" },
+        },
+      }
+    end
+
+    def agent_api_headers(machine_credential)
+      {
+        "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(machine_credential),
+        "Content-Type" => "application/json",
+        "Accept" => "application/json",
+      }
+    end
+
+    def register_agent_runtime!(
+      installation: create_installation!,
+      actor: create_user!(installation: installation, role: "admin"),
+      agent_installation: create_agent_installation!(installation: installation),
+      execution_environment: create_execution_environment!(installation: installation),
+      protocol_methods: default_protocol_methods,
+      tool_catalog: default_tool_catalog,
+      config_schema_snapshot: default_config_schema_snapshot,
+      conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
+      default_config_snapshot: default_default_config_snapshot,
+      **attrs
+    )
+      enrollment = AgentEnrollments::Issue.call(
+        agent_installation: agent_installation,
+        actor: actor,
+        expires_at: 2.hours.from_now
+      )
+
+      result = AgentDeployments::Register.call(**{
+        enrollment_token: enrollment.plaintext_token,
+        execution_environment: execution_environment,
+        fingerprint: "runtime-#{next_test_sequence}",
+        endpoint_metadata: {
+          "transport" => "http",
+          "base_url" => "https://agents.example.test",
+        },
+        protocol_version: "2026-03-24",
+        sdk_version: "fenix-0.1.0",
         protocol_methods: protocol_methods,
         tool_catalog: tool_catalog,
         config_schema_snapshot: config_schema_snapshot,
         conversation_override_schema_snapshot: conversation_override_schema_snapshot,
         default_config_snapshot: default_config_snapshot,
       }.merge(attrs))
+
+      {
+        installation: installation,
+        actor: actor,
+        agent_installation: agent_installation,
+        execution_environment: execution_environment,
+        enrollment: enrollment,
+        deployment: result.deployment,
+        capability_snapshot: result.capability_snapshot,
+        machine_credential: result.machine_credential,
+      }
     end
 
     def create_user_agent_binding!(installation: create_installation!, user: create_user!(installation: installation), agent_installation: create_agent_installation!(installation: installation), preferences: {}, **attrs)
@@ -219,7 +337,16 @@ module ActiveSupport
           { "method_id" => "capabilities_handshake" },
         ],
         tool_catalog: [
-          { "tool_name" => "shell_exec", "tool_kind" => "builtin" },
+          {
+            "tool_name" => "shell_exec",
+            "tool_kind" => "kernel_primitive",
+            "implementation_source" => "kernel",
+            "implementation_ref" => "kernel/shell_exec",
+            "input_schema" => { "type" => "object", "properties" => {} },
+            "result_schema" => { "type" => "object", "properties" => {} },
+            "streaming_support" => false,
+            "idempotency_policy" => "best_effort",
+          },
         ],
         config_schema_snapshot: {
           "type" => "object",

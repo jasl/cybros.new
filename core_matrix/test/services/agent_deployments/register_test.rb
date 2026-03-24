@@ -30,7 +30,16 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
         { "method_id" => "capabilities_handshake" },
       ],
       tool_catalog: [
-        { "tool_name" => "shell_exec", "tool_kind" => "builtin" },
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "kernel_primitive",
+          "implementation_source" => "kernel",
+          "implementation_ref" => "kernel/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
       ],
       config_schema_snapshot: {
         "type" => "object",

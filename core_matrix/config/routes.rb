@@ -11,4 +11,11 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "home#index"
+
+  namespace :agent_api do
+    resources :registrations, only: :create
+    resources :heartbeats, only: :create
+    resource :health, only: :show, controller: :health
+    resource :capabilities, only: [:show, :create], controller: :capabilities
+  end
 end

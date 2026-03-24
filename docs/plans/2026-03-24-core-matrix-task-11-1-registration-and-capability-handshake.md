@@ -109,3 +109,47 @@ Do not implement these items in this task:
 - human-interaction APIs
 - machine-credential rotation or retirement
 - outage recovery flows
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add agent registration and handshake boundaries`
+    task commit
+- actual landed scope:
+  - added machine-facing `AgentAPI` controllers for registration, heartbeat,
+    health, capability refresh, and capability handshake
+  - added `AgentDeployments::Handshake` and
+    `AgentDeployments::ReconcileConfig` as the application-layer boundaries for
+    capability refresh and selector-bearing default retention
+  - extended `CapabilitySnapshot` to validate stable public
+    `protocol_methods` and `tool_catalog` contract families separately
+  - extended `AgentDeployment` with machine-credential digest lookup and active
+    capability-version access for authenticated protocol responses
+  - added request, service, and integration coverage for registration exchange,
+    machine-credential authentication, capability refresh, and handshake
+    reconciliation
+  - added
+    `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
+- plan alignment notes:
+  - controllers remain thin machine-facing wrappers around existing services;
+    no browser UI controller or schedule or webhook ingress was introduced
+  - public logical IDs stay in `snake_case`, and capability snapshots now
+    publish `protocol_methods` separately from `tool_catalog`
+  - handshake reconciliation remains best-effort and preserves
+    selector-bearing defaults only when the new schema still exposes those
+    keys
+- verification evidence:
+  - `cd core_matrix && bin/rails zeitwerk:check`
+    passed with `All is good!`
+  - `cd core_matrix && bin/rails test test/requests/agent_api/registrations_test.rb test/requests/agent_api/heartbeats_test.rb test/requests/agent_api/health_test.rb test/requests/agent_api/capabilities_test.rb test/services/agent_deployments/handshake_test.rb test/services/agent_deployments/reconcile_config_test.rb test/integration/agent_registration_contract_test.rb`
+    passed with `8 runs, 41 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - updated manual-validation examples to use the current `tool_catalog`
+    contract shape and `kernel_primitive` tool kind
+- retained findings:
+  - Rails autoloading for `app/controllers/agent_api` resolves to `AgentAPI`,
+    so the controller module namespace must use the acronym form
+  - `ActionController::API` needs explicit inclusion of HTTP token
+    authentication helpers for bearer-token machine credentials
