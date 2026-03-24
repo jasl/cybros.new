@@ -44,8 +44,8 @@ Run:
 
 ```bash
 cd core_matrix
-bundle exec rails db:version
-bundle exec rails test
+bin/rails db:version
+bin/rails test
 bin/rubocop app/models/application_record.rb
 ```
 

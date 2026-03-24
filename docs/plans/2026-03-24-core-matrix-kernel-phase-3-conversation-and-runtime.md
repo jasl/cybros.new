@@ -354,7 +354,7 @@ Rules:
 
 - workflow resources remain subordinate to the workflow
 - workflow nodes must persist explicit `decision_source` values and structured metadata needed by downstream execution, profiling, and audit services
-- model selection should resolve through one explicit service boundary such as `workflows/resolve_model_selector`
+- model selection must resolve through the explicit service boundary `workflows/resolve_model_selector`
 - model selectors must normalize to `role:*` or `candidate:*`
 - the reserved interactive path should fall back to `role:main`
 - fallback is only allowed inside the ordered candidate list of the selected role

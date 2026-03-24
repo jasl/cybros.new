@@ -97,7 +97,7 @@ Cover at least:
 - human interaction request creation through machine-facing APIs
 - handshake payload parsing and snapshot persistence
 - best-effort config reconciliation across schema changes
-- preserving deployment-level model slots and role-catalog references returned by capability or schema snapshots when applicable
+- preserving deployment-level model slots and role-catalog references whenever the capability or schema snapshot includes selector-bearing defaults or slots
 - machine credential rotation and revocation behavior
 - deployment retirement behavior
 - audit rows for bootstrap, config-reconciliation fallback, credential rotation, revocation, retirement, outage-state transitions, and manual recovery
