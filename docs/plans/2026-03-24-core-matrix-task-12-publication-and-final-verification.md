@@ -183,4 +183,4 @@ Do not implement these items in this phase:
 - human-facing Turbo or Stimulus work
 - Action Cable or browser realtime delivery
 
-Those belong to `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`.
+Human-facing deferred surfaces belong to `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`. Non-UI follow-up work such as `AutomationTrigger`, recurring execution, and webhook ingress remains outside this backend kernel batch even though it is not a UI topic.
