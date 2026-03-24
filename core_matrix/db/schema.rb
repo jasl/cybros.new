@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090018) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090020) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -127,6 +127,35 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090018) do
     t.integer "version", null: false
     t.index ["agent_deployment_id", "version"], name: "index_capability_snapshots_on_agent_deployment_id_and_version", unique: true
     t.index ["agent_deployment_id"], name: "index_capability_snapshots_on_agent_deployment_id"
+  end
+
+  create_table "conversation_closures", force: :cascade do |t|
+    t.bigint "ancestor_conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "depth", null: false
+    t.bigint "descendant_conversation_id", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ancestor_conversation_id"], name: "index_conversation_closures_on_ancestor_conversation_id"
+    t.index ["descendant_conversation_id"], name: "index_conversation_closures_on_descendant_conversation_id"
+    t.index ["installation_id", "ancestor_conversation_id", "descendant_conversation_id"], name: "idx_conversation_closures_installation_ancestor_descendant", unique: true
+    t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
+  end
+
+  create_table "conversations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "historical_anchor_message_id"
+    t.bigint "installation_id", null: false
+    t.string "kind", null: false
+    t.string "lifecycle_state", null: false
+    t.bigint "parent_conversation_id"
+    t.string "purpose", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["installation_id"], name: "index_conversations_on_installation_id"
+    t.index ["parent_conversation_id"], name: "index_conversations_on_parent_conversation_id"
+    t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
+    t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -375,6 +404,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090018) do
   add_foreign_key "agent_installations", "users", column: "owner_user_id"
   add_foreign_key "audit_logs", "installations"
   add_foreign_key "capability_snapshots", "agent_deployments"
+  add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
+  add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
+  add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
+  add_foreign_key "conversations", "installations"
+  add_foreign_key "conversations", "workspaces"
   add_foreign_key "execution_environments", "installations"
   add_foreign_key "execution_profile_facts", "installations"
   add_foreign_key "execution_profile_facts", "users"

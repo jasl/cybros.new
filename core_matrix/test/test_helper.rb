@@ -132,6 +132,30 @@ module ActiveSupport
       }.merge(attrs))
     end
 
+    def create_workspace_context!
+      installation = create_installation!
+      user = create_user!(installation: installation)
+      agent_installation = create_agent_installation!(installation: installation)
+      user_agent_binding = create_user_agent_binding!(
+        installation: installation,
+        user: user,
+        agent_installation: agent_installation
+      )
+      workspace = create_workspace!(
+        installation: installation,
+        user: user,
+        user_agent_binding: user_agent_binding
+      )
+
+      {
+        installation: installation,
+        user: user,
+        agent_installation: agent_installation,
+        user_agent_binding: user_agent_binding,
+        workspace: workspace,
+      }
+    end
+
     def bundled_agent_configuration(enabled: true, **attrs)
       {
         enabled: enabled,

@@ -111,3 +111,46 @@ Do not implement these items in this task:
 - interactive selector persistence
 - conversation override persistence
 - rollback, retry, rerun, or variant-selection behavior
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added `Conversation` and `ConversationClosure` tables and models
+  - added services for root, automation-root, branch, thread, checkpoint,
+    archive, and unarchive flows
+  - added `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
+  - added targeted model, service, and integration coverage for workspace
+    ownership, parent-workspace integrity, kind/purpose/lifecycle rules,
+    closure lineage, and automation root-only semantics
+- plan alignment notes:
+  - conversation ownership stayed rooted in workspace and did not introduce a
+    direct agent foreign key shortcut
+  - branch, thread, and checkpoint flows preserved lineage only and did not
+    pre-implement transcript cloning, turn rows, selector state, or variant
+    behavior
+  - automation conversations landed as root-only conversation history in v1
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/conversation_test.rb test/models/conversation_closure_test.rb test/services/conversations/create_root_test.rb test/services/conversations/create_automation_root_test.rb test/services/conversations/create_branch_test.rb test/services/conversations/create_thread_test.rb test/services/conversations/create_checkpoint_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/integration/conversation_structure_flow_test.rb`
+    passed with `16 runs, 72 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is an internal structural substrate covered by automated tests
+- retained findings:
+  - conversation kind, purpose, and lifecycle are clearer and safer when they
+    remain separate state axes instead of one overloaded status field
+  - closure-table lineage gives branch, thread, and checkpoint flows explicit
+    ancestry without forcing transcript duplication
+  - reference sanity check from
+    `references/original/references/openclaw` and
+    `references/original/references/dify`:
+    neither reference was treated as authoritative for lineage or automation
+    semantics in this task, so the local design doc remained the source of
+    truth
+- carry-forward notes:
+  - Task 07.2 should attach turns and turn-origin metadata onto these
+    conversations without weakening the workspace-rooted ownership model
+  - later transcript and variant work should treat conversation lineage as
+    already-established structure rather than re-encoding it through transcript
+    copies

@@ -1,0 +1,29 @@
+require "test_helper"
+
+class ConversationClosureTest < ActiveSupport::TestCase
+  test "stores unique ancestor descendant pairs with non negative depth" do
+    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: 101
+    )
+
+    duplicate = ConversationClosure.new(
+      installation: root.installation,
+      ancestor_conversation: root,
+      descendant_conversation: branch,
+      depth: 1
+    )
+    negative_depth = ConversationClosure.new(
+      installation: root.installation,
+      ancestor_conversation: root,
+      descendant_conversation: branch,
+      depth: -1
+    )
+
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:ancestor_conversation_id], "has already been taken"
+    assert_not negative_depth.valid?
+    assert_includes negative_depth.errors[:depth], "must be greater than or equal to 0"
+  end
+end
