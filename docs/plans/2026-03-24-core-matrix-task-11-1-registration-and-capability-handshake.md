@@ -1,16 +1,16 @@
 # Core Matrix Task 11.1: Add Registration And Capability Handshake Boundaries
 
-Part of `Core Matrix Kernel Phase 4: Protocol, Publication, And Verification`.
+Part of `Core Matrix Kernel Milestone 4: Protocol, Publication, And Verification`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-4-protocol-publication-and-verification.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 5. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 
-Load this file as the detailed execution unit for Task 11.1. Treat Task 11 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 11.1. Treat Task Group 11 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -67,7 +67,7 @@ Rules:
 
 - no human-facing UI controllers
 - machine-facing controllers must be thin wrappers around services
-- machine-facing protocol work in this subtask must not introduce schedule-trigger or webhook-ingress controllers
+- machine-facing protocol work in this task must not introduce schedule-trigger or webhook-ingress controllers
 - public logical operation IDs in this contract must use `snake_case`
 - capability snapshots must expose `protocol_methods` separately from `tool_catalog`
 - config reconciliation stays best-effort across schema changes and must not silently drop selector-bearing defaults or slot references
@@ -97,7 +97,7 @@ git -C .. commit -m "feat: add agent registration and handshake boundaries"
 
 Stop after registration, heartbeat, health, capability refresh, and handshake contract tests pass.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - transcript or variable APIs
 - human-interaction APIs

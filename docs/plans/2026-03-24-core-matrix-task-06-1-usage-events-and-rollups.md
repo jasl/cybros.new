@@ -1,15 +1,15 @@
 # Core Matrix Task 06.1: Add Usage Events And Rollups
 
-Part of `Core Matrix Kernel Phase 2: Governance And Accounting`.
+Part of `Core Matrix Kernel Milestone 2: Governance And Accounting`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-2-governance-and-accounting.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
 
-Load this file as the detailed execution unit for Task 06.1. Treat Task 06 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 06.1. Treat Task Group 06 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -53,7 +53,7 @@ Expected:
 
 Rules:
 
-- no hard dependency in this subtask on runtime-resource tables that are introduced later in Phase 3
+- no hard dependency in this task on runtime-resource tables that are introduced later in Milestone 3
 - preserve generic dimensions and nullable references so later runtime resources can attach without schema redesign
 - global hard-limit support is allowed, but do not add per-user enforced quotas here
 
@@ -82,7 +82,7 @@ git -C .. commit -m "feat: add provider usage events and rollups"
 
 Stop after usage events and rollups pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - execution profiling facts
 - read-side usage summary queries

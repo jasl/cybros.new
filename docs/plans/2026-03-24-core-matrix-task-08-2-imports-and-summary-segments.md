@@ -1,15 +1,15 @@
 # Core Matrix Task 08.2: Add Imports And Summary Segments
 
-Part of `Core Matrix Kernel Phase 3: Conversation And Runtime`.
+Part of `Core Matrix Kernel Milestone 3: Conversation And Runtime`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-3-conversation-and-runtime.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
 
-Load this file as the detailed execution unit for Task 08.2. Treat Task 08 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 08.2. Treat Task Group 08 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -87,7 +87,7 @@ git -C .. commit -m "feat: add transcript imports and summary segments"
 
 Stop after imports, summary segments, and compaction-boundary semantics pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - human-facing transcript compaction UI
 - publication rendering

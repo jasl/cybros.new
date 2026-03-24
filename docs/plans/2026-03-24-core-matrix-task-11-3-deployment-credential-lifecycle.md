@@ -1,16 +1,16 @@
 # Core Matrix Task 11.3: Add Deployment Credential Lifecycle Controls
 
-Part of `Core Matrix Kernel Phase 4: Protocol, Publication, And Verification`.
+Part of `Core Matrix Kernel Milestone 4: Protocol, Publication, And Verification`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-4-protocol-publication-and-verification.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
-Load this file as the detailed execution unit for Task 11.3. Treat Task 11 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 11.3. Treat Task Group 11 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -80,7 +80,7 @@ git -C .. commit -m "feat: add deployment credential lifecycle controls"
 
 Stop after rotation, revocation, and retirement pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - outage detection or recovery
 - transcript, variable, or publication APIs

@@ -1,15 +1,15 @@
 # Core Matrix Task 12.2: Add Read-Side Queries And Seed Baseline
 
-Part of `Core Matrix Kernel Phase 4: Protocol, Publication, And Verification`.
+Part of `Core Matrix Kernel Milestone 4: Protocol, Publication, And Verification`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-4-protocol-publication-and-verification.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 
-Load this file as the detailed execution unit for Task 12.2. Treat Task 12 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 12.2. Treat Task Group 12 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -84,7 +84,7 @@ git -C .. commit -m "feat: add read side queries and seed baseline"
 
 Stop after read-side queries and backend-safe seed updates pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - publication state mutations
 - checklist rewrites or manual validation execution

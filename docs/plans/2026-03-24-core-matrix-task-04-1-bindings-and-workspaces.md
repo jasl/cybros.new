@@ -1,15 +1,15 @@
 # Core Matrix Task 04.1: Build User Bindings And Private Workspaces
 
-Part of `Core Matrix Kernel Phase 1: Foundations`.
+Part of `Core Matrix Kernel Milestone 1: Foundations`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
 
-Load this file as the detailed execution unit for Task 04.1. Treat Task 04 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 04.1. Treat Task Group 04 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -59,7 +59,7 @@ Rules:
 - `Workspace` remains private and user-owned in v1
 - default-workspace uniqueness is per binding, not per installation
 - reuse services for ownership checks instead of ad hoc controller or model callbacks
-- do not add bundled runtime registration or first-admin bootstrap behavior in this subtask
+- do not add bundled runtime registration or first-admin bootstrap behavior in this task
 
 **Step 4: Run migrations and targeted tests**
 
@@ -86,7 +86,7 @@ git -C .. commit -m "feat: add user bindings and workspaces"
 
 Stop after bindings, workspaces, and default-workspace creation pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - bundled runtime registration
 - bundled first-admin auto-binding

@@ -1,16 +1,16 @@
 # Core Matrix Task 07.2: Build Turn Entry And Override State
 
-Part of `Core Matrix Kernel Phase 3: Conversation And Runtime`.
+Part of `Core Matrix Kernel Milestone 3: Conversation And Runtime`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-3-conversation-and-runtime.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
 5. `docs/design/2026-03-24-core-matrix-model-role-resolution-design.md`
 
-Load this file as the detailed execution unit for Task 07.2. Treat Task 07 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 07.2. Treat Task Group 07 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -71,7 +71,7 @@ Expected:
 Rules:
 
 - conversation rows must store the user-visible interactive selector in `auto | explicit candidate` form
-- do not resolve provider fallback or entitlement exhaustion behavior in this subtask; persist only the selector and the turn snapshot inputs needed by Task 09
+- do not resolve provider fallback or entitlement exhaustion behavior in this task; persist only the selector and the turn snapshot inputs needed by Task 09
 - store selected input and output message pointers on the turn
 - turn rows must persist structured origin metadata including `origin_kind`, `origin_payload`, `source_ref_type`, `source_ref_id`, `idempotency_key`, and `external_event_key`
 - automation-origin turns may start without a transcript-bearing `UserMessage`
@@ -105,7 +105,7 @@ git -C .. commit -m "feat: add turn entry and selector state"
 
 Stop after turn entry, selector persistence, override persistence, and queued-turn state pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - selector fallback resolution or entitlement reservation
 - rollback, historical edit, retry, rerun, or output-variant selection

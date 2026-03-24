@@ -67,6 +67,35 @@ Phase one explicitly stops short of:
 - heartbeat, cron, webhook, or other trigger runners
 - built-in memory, search, fetch, or knowledge subsystems
 
+## Phase 1 Structural Gate
+
+Before concluding substrate work, run a structural-gate review.
+
+Its purpose is not to pull all execution work into phase one. Its purpose is to catch the small set of gaps that would otherwise force a later rewrite of the kernel's database roots or core object model.
+
+Absorb a change into phase one when the review shows a need to adjust:
+
+- aggregate roots or foreign-key ownership for installation, user, agent installation, deployment, workspace, conversation, turn, workflow, runtime resource, or publication records
+- scheduler-visible state semantics for runnable, waiting, retryable, failed, timed-out, or terminal execution
+- durable invocation lineage required for provider or tool attempts, timeouts, failures, repairs, and audit links
+- the anchor point for external capability bindings, availability state, or endpoint supervision
+- snapshot, usage, and audit lineage required to explain historical execution without reinterpretation
+
+Do not pull a change into phase one when it is only about:
+
+- concrete provider adapters
+- concrete tool implementations
+- connector or delivery layers
+- trigger runners
+- plugin or extension packaging systems
+
+Decision rule:
+
+- if the issue requires a root-shape, ownership, or schema correction, fix it in the substrate
+- if it only affects concrete execution-layer implementation, defer it to later planning
+
+At this stage, destructive schema correction remains acceptable when the structural gate proves that the current shape is wrong.
+
 ## Phase 2 Positioning
 
 Phase two should be understood as:

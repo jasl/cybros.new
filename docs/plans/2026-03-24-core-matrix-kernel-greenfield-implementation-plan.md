@@ -1,6 +1,6 @@
 # Core Matrix Kernel Greenfield Implementation Plan
 
-> **Execution Note:** Work phase-by-phase and execution-unit-by-execution-unit, applying the shared phase-gate audits after every task or subtask before continuing. Treat an execution unit as complete only after its tests pass, two design-conformance review passes pass cleanly, and the most relevant reference implementations have been checked for behavioral sanity.
+> **Execution Note:** Work milestone-by-milestone and execution-unit-by-execution-unit, applying the shared execution-gate audits after every task before continuing. Treat an execution unit as complete only after its tests pass, two design-conformance review passes pass cleanly, and the most relevant reference implementations have been checked for behavioral sanity.
 
 **Goal:** Rebuild `core_matrix` from a clean backend baseline that matches the approved kernel design, including the preserved conversation runtime capabilities, automated coverage, and real-environment manual validation rules.
 
@@ -12,13 +12,14 @@
 
 ## Source Documents
 
-Read these before each phase:
+Read these before each milestone:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
-4. `docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
-5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+4. `docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
+5. `docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
+6. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Do not use the deleted 2026-03-23 plan documents as implementation truth.
 
@@ -56,7 +57,7 @@ Use these reference projects as non-authoritative comparison points during imple
 
 Reference projects are for behavior, ergonomics, and failure-mode cross-checks only. They do not override the canonical design or task scope in this plan.
 
-The topical design notes `docs/design/2026-03-24-core-matrix-model-role-resolution-design.md` and `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` may be used as rationale, but the phase indexes and task documents below are the canonical execution order.
+The topical design notes `docs/design/2026-03-24-core-matrix-model-role-resolution-design.md` and `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` may be used as rationale, but the milestone indexes and task documents below are the canonical execution order.
 
 ## Implementation Guardrails
 
@@ -78,17 +79,17 @@ The topical design notes `docs/design/2026-03-24-core-matrix-model-role-resoluti
 - For every execution unit, inspect the most relevant reference benchmark slices before implementation and again before final verification.
 - For every execution unit, perform at least two full review passes against the active task document plus the greenfield design; if any gap is found, fix it, rerun the relevant tests, and repeat until both passes are clean.
 - For every execution unit, update the relevant behavior docs in the owning product docs tree and include them in the self-review loop.
-- At the end of every phase, review the landed code against Ruby and Rails best practices: layered boundaries, service and query placement, Active Record associations and validations, callback restraint, naming consistency, and test clarity.
-- Commit after each finished task or subtask.
+- At the end of every milestone, review the landed code against Ruby and Rails best practices: layered boundaries, service and query placement, Active Record associations and validations, callback restraint, naming consistency, and test clarity.
+- Commit after each finished task.
 
-## Phase Gates
+## Execution Gates
 
-At the end of each task or subtask, perform these audits before continuing:
+At the end of each task, perform these audits before continuing:
 
 1. Missing-fields audit: check for missing columns, indexes, associations, validations, enums, snapshots, and foreign keys.
 2. Boundary audit: verify the task did not collapse `Identity` versus `User`, `AgentInstallation` versus `AgentDeployment`, `Workspace` versus `Publication`, or agent intent versus kernel side effects.
 3. Coverage audit: verify the task includes unit tests, at least one integration or request test when a real flow exists, and boundary or extreme-case assertions where applicable.
-4. Checklist audit: if the task introduced or changed a manually testable flow, update `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md` inside the same task once that flow is independently reproducible; if it is not independently reproducible yet, carry the checklist delta into the first later verification subtask that makes the full flow reproducible.
+4. Checklist audit: if the task introduced or changed a manually testable flow, update `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md` inside the same task once that flow is independently reproducible; if it is not independently reproducible yet, carry the checklist delta into the first later verification task that makes the full flow reproducible.
 5. Reference audit: compare the implemented behavior against the most relevant reference benchmarks; follow this plan when intentional differences exist and record the difference in the task review notes.
 6. Design-conformance audit: review the implementation against the active execution-unit document and the greenfield design twice, fixing every mismatch before continuing.
 7. Behavior-doc audit: update the owning product behavior docs and verify they match the task document, the code, and the tests.
@@ -96,34 +97,57 @@ At the end of each task or subtask, perform these audits before continuing:
 
 If any audit fails, fix it inside the same task before moving on.
 
-## Phase Index Documents
+## Substrate Structural Gate
 
-Use the phase files as ordering indexes:
+Treat the full task batch in this implementation plan as the current substrate delivery, even though it is executed through four internal implementation milestones.
 
-1. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
-2. `docs/plans/2026-03-24-core-matrix-kernel-phase-2-governance-and-accounting.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-phase-3-conversation-and-runtime.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-4-protocol-publication-and-verification.md`
+Run the structural-gate review in two situations:
 
-## Task Group Documents
+1. immediately when an active execution unit exposes a likely later database-root, ownership-shape, or runtime-ledger problem
+2. once more before declaring Task 12.3 and the whole substrate batch complete
 
-Some larger tasks are split into subtasks so implementation can load less context at one time and keep tighter acceptance boundaries.
+Structural-gate checklist:
 
-Use these task-group files as grouping indexes, not as the detailed execution bodies:
+1. Root-boundary audit: confirm installation, identity, user, agent installation, deployment, workspace, conversation, turn, workflow, runtime resource, and publication still have the right ownership roots and foreign-key directions for later loop execution.
+2. Invocation-lineage audit: confirm there is a durable home, or an explicitly reserved insertion point, for provider or tool invocation records, attempts, timeouts, failures, repairs, and audit linkage without re-rooting workflow history.
+3. External-capability supervision audit: confirm external implementation binding, endpoint availability, readiness, degradation, and retirement can be modeled without rewriting agent registry or workflow roots.
+4. State-model audit: confirm waiting, retryable, failed, timed-out, and terminal execution can be expressed by the workflow and runtime state model without hidden side tables or silent scheduler behavior.
+5. Snapshot-and-audit audit: confirm capability snapshots, selector resolution, execution snapshots, usage, and audit trails can explain historical behavior without reinterpreting current config.
+6. Bootstrap-neutrality audit: confirm bundled-agent bootstrap, provider catalog, and early machine-facing surfaces do not hardcode a single runtime source or block later external execution adapters.
 
-- `docs/plans/2026-03-24-core-matrix-task-05-provider-catalog-and-governance.md`
-- `docs/plans/2026-03-24-core-matrix-task-06-usage-accounting-and-profiling.md`
-- `docs/plans/2026-03-24-core-matrix-task-04-bindings-workspaces-and-default-agent.md`
-- `docs/plans/2026-03-24-core-matrix-task-07-conversation-and-turn-foundations.md`
-- `docs/plans/2026-03-24-core-matrix-task-08-transcript-support-models.md`
-- `docs/plans/2026-03-24-core-matrix-task-09-workflow-core-and-scheduling.md`
-- `docs/plans/2026-03-24-core-matrix-task-10-runtime-resources-and-lease-control.md`
-- `docs/plans/2026-03-24-core-matrix-task-11-agent-protocol-and-recovery.md`
-- `docs/plans/2026-03-24-core-matrix-task-12-publication-and-final-verification.md`
+Decision rule:
+
+- if a checklist item requires root-shape or schema changes, absorb it into the substrate before the later agent-loop-execution phase
+- if it only affects concrete adapters, implementations, or integrations, defer it
+
+## Milestone Index Documents
+
+Use the milestone files as ordering indexes:
+
+1. `docs/plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
+2. `docs/plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
+3. `docs/plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
+
+## Task Group Index Documents
+
+Some larger task groups split work into smaller tasks so implementation can load less context at one time and keep tighter acceptance boundaries.
+
+Use these task-group index files as grouping indexes, not as the detailed execution bodies:
+
+- `docs/plans/2026-03-24-core-matrix-task-group-05-provider-catalog-and-governance.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-06-usage-accounting-and-profiling.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-11-agent-protocol-and-recovery.md`
+- `docs/plans/2026-03-24-core-matrix-task-group-12-publication-and-final-verification.md`
 
 ## Execution Unit Documents
 
-Execute the task and subtask documents in this exact order:
+Execute the task documents in this exact order:
 
 1. `docs/plans/2026-03-24-core-matrix-task-01-shell-baseline.md`
 2. `docs/plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md`
@@ -155,37 +179,37 @@ Execute the task and subtask documents in this exact order:
 28. `docs/plans/2026-03-24-core-matrix-task-12-2-read-side-queries-and-seed-baseline.md`
 29. `docs/plans/2026-03-24-core-matrix-task-12-3-verification-and-manual-validation.md`
 
-## Phase Summary
+## Milestone Summary
 
-- **Phase 1**: Tasks 01-03 plus Task 04.1-04.2. Build shell, identity, agent registry, bindings, private workspaces, and bundled default-agent bootstrap.
-- **Phase 2**: Tasks 05.1-06.2. Build provider catalog, governance, role-based model selection catalog, usage accounting, and profiling facts.
-- **Phase 3**: Tasks 07.1-10.4. Build conversation kinds and purposes, archive lifecycle, transcript controls, interactive selector state, automation turn-origin semantics, workflow scheduling, resolved model snapshots, conversation events, human-interaction resources, canonical variables, and runtime resources.
-- **Phase 4**: Tasks 11.1-11.4 plus Tasks 12.1-12.3. Build machine-facing protocol boundaries, recovery-time selector overrides, transcript and variable APIs, publication, seeds, and the final automated plus manual verification pass.
+- **Milestone 1**: Tasks 01-03 plus Task 04.1-04.2. Build shell, identity, agent registry, bindings, private workspaces, and bundled default-agent bootstrap.
+- **Milestone 2**: Tasks 05.1-06.2. Build provider catalog, governance, role-based model selection catalog, usage accounting, and profiling facts.
+- **Milestone 3**: Tasks 07.1-10.4. Build conversation kinds and purposes, archive lifecycle, transcript controls, interactive selector state, automation turn-origin semantics, workflow scheduling, resolved model snapshots, conversation events, human-interaction resources, canonical variables, and runtime resources.
+- **Milestone 4**: Tasks 11.1-11.4 plus Tasks 12.1-12.3. Build machine-facing protocol boundaries, recovery-time selector overrides, transcript and variable APIs, publication, seeds, and the final automated plus manual verification pass.
 
 ## Cross-Cutting Topic Placement
 
 Treat model-role resolution as one cross-cutting topic that lands in these exact places:
 
-- **Phase 2 / Task 5**: define and validate the config-backed role catalog, provider-qualified candidate lists, and governance prerequisites.
-- **Phase 3 / Task 7**: persist the conversation interactive selector in `auto | explicit candidate` form and freeze resolved model-selection snapshots on turns.
-- **Phase 3 / Task 9**: implement selector normalization, role-local fallback, execution-time entitlement reservation, and resolved-model snapshotting.
-- **Phase 4 / Task 11**: expose the related machine-facing protocol surfaces and allow one-time selector overrides during explicit manual recovery without mutating durable config.
+- **Milestone 2 / Task Group 05**: define and validate the config-backed role catalog, provider-qualified candidate lists, and governance prerequisites.
+- **Milestone 3 / Task Group 07**: persist the conversation interactive selector in `auto | explicit candidate` form and freeze resolved model-selection snapshots on turns.
+- **Milestone 3 / Task Group 09**: implement selector normalization, role-local fallback, execution-time entitlement reservation, and resolved-model snapshotting.
+- **Milestone 4 / Task Group 11**: expose the related machine-facing protocol surfaces and allow one-time selector overrides during explicit manual recovery without mutating durable config.
 
 Treat automation-trigger support as one split-scope topic that lands in these exact places:
 
-- **Phase 3 / Task 7**: define `automation` conversation purpose, read-only automation root-conversation semantics, and structured turn-origin fields for manual and future trigger-based execution.
-- **Phase 3 / Task 9**: ensure workflow creation and context assembly can run from automation-origin turns that do not start with a transcript-bearing user message.
+- **Milestone 3 / Task Group 07**: define `automation` conversation purpose, read-only automation root-conversation semantics, and structured turn-origin fields for manual and future trigger-based execution.
+- **Milestone 3 / Task Group 09**: ensure workflow creation and context assembly can run from automation-origin turns that do not start with a transcript-bearing user message.
 - **Follow-up only**: do not implement `AutomationTrigger`, schedule parsing, recurring trigger execution, webhook ingress, or trigger management surfaces in this backend kernel batch.
 
 Treat agent protocol and tool-surface consistency as one cross-cutting topic that lands in these exact places:
 
 - **Design baseline**: `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md` defines naming rules, capability-snapshot structure, future invocation-envelope semantics, and the `kernel_primitive | agent_observation | effect_intent` tool taxonomy.
-- **Phase 4 / Task 11**: adopt stable `snake_case` logical operation IDs for the machine-facing contract, publish protocol methods separately from tool-catalog entries, and assert those rules in contract tests.
+- **Milestone 4 / Task Group 11**: adopt stable `snake_case` logical operation IDs for the machine-facing contract, publish protocol methods separately from tool-catalog entries, and assert those rules in contract tests.
 - **Follow-up only**: do not widen this batch into generic agent-owned tool execution bridges, attachment-import bridges, connector adapter catalogs, or integration-specific tool executors unless a later plan explicitly pulls them into scope.
 
 ## Stop Point
 
-Stop after Phase 4.
+Stop after Milestone 4. This completes the current substrate implementation plan.
 
 Do not implement these items in this phase:
 

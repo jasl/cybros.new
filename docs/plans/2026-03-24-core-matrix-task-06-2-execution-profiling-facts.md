@@ -1,15 +1,15 @@
 # Core Matrix Task 06.2: Add Execution Profiling Facts
 
-Part of `Core Matrix Kernel Phase 2: Governance And Accounting`.
+Part of `Core Matrix Kernel Milestone 2: Governance And Accounting`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-2-governance-and-accounting.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
 
-Load this file as the detailed execution unit for Task 06.2. Treat Task 06 and the phase file as ordering indexes, not as the full task body.
+Load this file as the detailed execution unit for Task 06.2. Treat Task Group 06 and the milestone file as ordering indexes, not as the full task body.
 
 ---
 
@@ -76,8 +76,8 @@ git -C .. commit -m "feat: add execution profiling facts"
 
 Stop after execution profiling facts pass their tests.
 
-Do not implement these items in this subtask:
+Do not implement these items in this task:
 
 - provider usage rollups
 - runtime read-side summary queries
-- runtime-resource tables from Phase 3
+- runtime-resource tables from Milestone 3

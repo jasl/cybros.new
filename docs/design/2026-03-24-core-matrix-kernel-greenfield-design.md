@@ -106,6 +106,8 @@ Core Matrix may provide adapter points for external services such as knowledge s
 5. Freeze runtime snapshots for history; never reinterpret history from current config.
 6. Require the kernel to materialize and execute all side effects that affect user resources, system state, or external systems.
 7. Prefer best-effort forward compatibility for agent config schema evolution.
+8. If later execution work exposes a wrong database root, ownership boundary, or runtime-ledger shape, correct that shape in the substrate rather than layering around it in a later phase.
+9. Keep experimental capability implementations outside the kernel until their substrate contract is proven.
 
 ## Normalized Domain Boundaries
 

@@ -1,15 +1,15 @@
 # Core Matrix Task 03: Build Agent Registry And Connectivity Foundations
 
-Part of `Core Matrix Kernel Phase 1: Foundations`.
+Part of `Core Matrix Kernel Milestone 1: Foundations`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
+4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
 
-Load this file as the detailed execution unit for Task 03. Treat the phase file as the ordering index, not the full task body.
+Load this file as the detailed execution unit for Task 03. Treat the milestone file as the ordering index, not the full task body.
 
 ---
 
