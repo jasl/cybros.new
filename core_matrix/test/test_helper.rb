@@ -231,6 +231,18 @@ module ActiveSupport
       }
     end
 
+    def register_machine_api_for_context!(
+      context,
+      actor: create_user!(installation: context[:installation], role: "admin")
+    )
+      register_agent_runtime!(
+        installation: context[:installation],
+        actor: actor,
+        agent_installation: context[:agent_installation],
+        execution_environment: context[:execution_environment]
+      )
+    end
+
     def create_user_agent_binding!(installation: create_installation!, user: create_user!(installation: installation), agent_installation: create_agent_installation!(installation: installation), preferences: {}, **attrs)
       UserAgentBinding.create!({
         installation: installation,

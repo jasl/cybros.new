@@ -17,5 +17,23 @@ Rails.application.routes.draw do
     resources :heartbeats, only: :create
     resource :health, only: :show, controller: :health
     resource :capabilities, only: [:show, :create], controller: :capabilities
+    resources :conversation_transcripts, only: :index
+    resources :conversation_variables, only: :index do
+      collection do
+        get "get", action: :show_value
+        post "mget", action: :bulk_show
+        get "resolve"
+        post "write"
+        post "promote"
+      end
+    end
+    resources :workspace_variables, only: :index do
+      collection do
+        get "get", action: :show_value
+        post "mget", action: :bulk_show
+        post "write"
+      end
+    end
+    resources :human_interactions, only: :create
   end
 end

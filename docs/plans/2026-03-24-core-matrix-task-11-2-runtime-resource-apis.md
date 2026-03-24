@@ -112,3 +112,48 @@ Do not implement these items in this task:
 - machine-credential rotation or revocation
 - bootstrap, outage handling, or recovery
 - publication read models
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add runtime resource apis`
+    task commit
+- actual landed scope:
+  - added machine-facing transcript, conversation-variable, workspace-variable,
+    and human-interaction controllers under `AgentAPI`
+  - added read-side query objects for canonical transcript pagination and
+    conversation or workspace variable `get`, `mget`, `list`, and `resolve`
+    semantics
+  - kept variable writes and promotions on top of existing kernel-owned
+    `Variables::Write` and `Variables::PromoteToWorkspace` services
+  - kept machine-facing human interaction creation on top of the existing
+    `HumanInteractions::Request` service so workflow wait-state and
+    conversation-event projection rules remain centralized
+  - added request, query, and integration coverage for transcript pagination,
+    variable read semantics, variable mutation-intent boundaries, and
+    human-interaction creation
+  - added `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
+- plan alignment notes:
+  - transcript reads return only the canonical visible transcript projection
+    and use cursor pagination from the first implementation
+  - conversation variable read endpoints stay distinct from workspace read
+    endpoints, and `resolve` is the only merged-view operation
+  - machine-facing mutation endpoints remain kernel-owned intent boundaries
+    rather than direct agent-owned persistence writes
+  - public runtime-resource method IDs stay in `snake_case`, while HTTP route
+    names remain transport details only
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/requests/agent_api/conversation_transcripts_test.rb test/requests/agent_api/conversation_variables_test.rb test/requests/agent_api/workspace_variables_test.rb test/requests/agent_api/human_interactions_test.rb test/queries/conversation_transcripts/list_query_test.rb test/queries/conversation_variables/get_query_test.rb test/queries/conversation_variables/mget_query_test.rb test/queries/conversation_variables/list_query_test.rb test/queries/conversation_variables/resolve_query_test.rb test/queries/workspace_variables/get_query_test.rb test/queries/workspace_variables/mget_query_test.rb test/queries/workspace_variables/list_query_test.rb test/integration/agent_runtime_resource_api_test.rb`
+    passed with `15 runs, 83 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual-checklist delta was retained in this task; final manual runtime
+    validation stays bundled under Task 12.3
+- retained findings:
+  - installation-scoped resource lookup is the minimum safe boundary for these
+    machine APIs; accepting raw global IDs without installation scoping would
+    create cross-installation leakage risk
+  - explicit query objects kept transcript and canonical-variable semantics out
+    of controllers and made the new runtime API surface orthogonal to the
+    existing domain services
