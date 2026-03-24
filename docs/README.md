@@ -17,3 +17,9 @@
 - Keep not-yet-activated follow-up work in `docs/future-plans`.
 - Move a plan or milestone into `docs/finished-plans` only after implementation is complete and its required verification gates pass.
 - Move obsolete or replaced material into `docs/archived-plans` instead of mixing it with active execution documents.
+
+## Reference Handling
+
+- Treat `references/` and external repositories as supporting material, not as durable documentation.
+- When a design, plan, research note, or finished record uses a reference project for sanity checking, write the retained conclusion, tradeoff, or observed behavior directly into the local document.
+- If a local document keeps a reference path or upstream URL, it should be an index pointer only. The document should still remain understandable if that reference later moves, changes, or disappears.

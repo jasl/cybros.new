@@ -11,6 +11,12 @@ Use this task document together with:
 
 Load this file as the detailed execution unit for Task 07.3. Treat Task Group 07 and the milestone file as ordering indexes, not as the full task body.
 
+Reference capture for this task:
+
+- if this task consults `references/` or external implementations, record the consulted slice and the retained conclusion, invariant, or intentional difference in this task document or another local document updated by the same execution unit
+- when this task updates behavior docs, checklist docs, or other local docs, carry that conclusion into those docs instead of leaving only a bare reference path
+- keep reference paths as index pointers only; restate the relevant behavior locally so this task remains understandable if the reference later drifts
+
 ---
 
 **Files:**

@@ -11,6 +11,12 @@ Use this task document together with:
 
 Load this file as the detailed execution unit for Task 01. Treat the milestone file as the ordering index, not the full task body.
 
+Reference capture for this task:
+
+- if this task consults `references/` or external implementations, record the consulted slice and the retained conclusion, invariant, or intentional difference in this task document or another local document updated by the same execution unit
+- when this task updates behavior docs, checklist docs, or other local docs, carry that conclusion into those docs instead of leaving only a bare reference path
+- keep reference paths as index pointers only; restate the relevant behavior locally so this task remains understandable if the reference later drifts
+
 ---
 
 
@@ -78,3 +84,34 @@ Do not implement these items in this task:
 - domain models or migrations
 - machine-facing protocol endpoints
 - any human-facing UI
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24` in commit `0dd2f6a`
+- actual landed scope:
+  - updated `core_matrix/README.md` to point at the canonical design, active
+    implementation plan, deferred UI follow-up, manual checklist, and behavior
+    docs
+  - added `core_matrix/docs/behavior/shell-baseline.md` as the durable record
+    for backend-only scope and shell validation expectations
+  - verified the existing placeholder test and manual-script directories were
+    already sufficient for the baseline; no new `.keep` files were needed in
+    the landing commit
+- verification evidence:
+  - `cd core_matrix && bin/rails db:version` reported development schema
+    version `20260324090012`
+  - `cd core_matrix && bin/rubocop app/models/application_record.rb` passed
+    with no offenses during the `2026-03-24` doc-hardening rerun
+  - `cd core_matrix && bin/rails test` passed with
+    `40 runs, 188 assertions, 0 failures, 0 errors` during the same rerun
+- retained findings:
+  - no product-behavior conclusion from non-authoritative reference projects
+    was retained for this task
+  - the important lasting boundary is that phase 1 stays backend-only and keeps
+    human-facing UI out of scope
+- carry-forward notes:
+  - later tasks should continue recording durable backend behavior in
+    `core_matrix/docs/behavior/`
+  - shell-reproducible validation belongs in the checklist and manual scripts,
+    not in UI-only notes

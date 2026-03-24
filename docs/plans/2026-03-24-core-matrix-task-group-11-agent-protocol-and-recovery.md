@@ -32,3 +32,4 @@ Execution rules:
 - do not implement directly from this index
 - load only the active task document during implementation
 - apply the shared execution-gate audits after each task
+- if a child task consults `references/` or external implementations, write the retained conclusion into that task document and any local docs it updates; do not leave only a bare reference path behind

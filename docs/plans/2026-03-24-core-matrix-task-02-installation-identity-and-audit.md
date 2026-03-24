@@ -12,6 +12,12 @@ Use this task document together with:
 
 Load this file as the detailed execution unit for Task 02. Treat the milestone file as the ordering index, not the full task body.
 
+Reference capture for this task:
+
+- if this task consults `references/` or external implementations, record the consulted slice and the retained conclusion, invariant, or intentional difference in this task document or another local document updated by the same execution unit
+- when this task updates behavior docs, checklist docs, or other local docs, carry that conclusion into those docs instead of leaving only a bare reference path
+- keep reference paths as index pointers only; restate the relevant behavior locally so this task remains understandable if the reference later drifts
+
 ---
 
 
@@ -145,3 +151,39 @@ Do not implement these items in this task:
 - agent registry models
 - user bindings or workspaces
 - provider governance or runtime protocol work
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24` in commit `098508f`
+- actual landed scope:
+  - added migrations `20260324090000` through `20260324090005`
+  - added `Installation`, `Identity`, `User`, `Invitation`, `Session`, and
+    `AuditLog` plus the installation bootstrap, invitation consumption, admin
+    grant, and admin revoke services
+  - added `core_matrix/docs/behavior/installation-identity-and-audit-foundations.md`
+    and manual checklist flows for first-admin bootstrap, invitation
+    consumption, and admin grant or revoke
+- plan alignment notes:
+  - the task landed within its original domain boundary
+  - later Task 04.2 extended `Installations::BootstrapFirstAdmin` to optionally
+    compose bundled bootstrap after the installation bootstrap audit row; the
+    base installation, identity, user, invitation, session, and audit behavior
+    from this task remains authoritative when bundled bootstrap is disabled
+- verification evidence:
+  - the original acceptance gate for this task was the targeted test command in
+    Step 6
+  - the `2026-03-24` doc-hardening rerun included
+    `cd core_matrix && bin/rails test test/integration/installation_bootstrap_flow_test.rb`
+    inside the Milestone 1 integration spot-check, which passed
+  - the same rerun also passed `cd core_matrix && bin/rails test` with
+    `40 runs, 188 assertions, 0 failures, 0 errors`
+- retained findings:
+  - active-admin safety is defined by admin users whose linked identities remain
+    enabled, not by raw admin-row count
+  - no product-behavior conclusion from non-authoritative reference projects
+    was retained for this task
+- carry-forward notes:
+  - future work must preserve `Identity` versus `User` separation
+  - bootstrap, invitation, and admin-role side effects should continue to live
+    in explicit services rather than model callbacks

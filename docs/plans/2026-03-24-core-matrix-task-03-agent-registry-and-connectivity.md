@@ -11,6 +11,12 @@ Use this task document together with:
 
 Load this file as the detailed execution unit for Task 03. Treat the milestone file as the ordering index, not the full task body.
 
+Reference capture for this task:
+
+- if this task consults `references/` or external implementations, record the consulted slice and the retained conclusion, invariant, or intentional difference in this task document or another local document updated by the same execution unit
+- when this task updates behavior docs, checklist docs, or other local docs, carry that conclusion into those docs instead of leaving only a bare reference path
+- keep reference paths as index pointers only; restate the relevant behavior locally so this task remains understandable if the reference later drifts
+
 ---
 
 
@@ -25,9 +31,12 @@ Load this file as the detailed execution unit for Task 03. Treat the milestone f
 - Create: `core_matrix/app/models/agent_enrollment.rb`
 - Create: `core_matrix/app/models/agent_deployment.rb`
 - Create: `core_matrix/app/models/capability_snapshot.rb`
+- Modify: `core_matrix/app/models/installation.rb`
+- Modify: `core_matrix/app/models/user.rb`
 - Create: `core_matrix/app/services/agent_enrollments/issue.rb`
 - Create: `core_matrix/app/services/agent_deployments/register.rb`
 - Create: `core_matrix/app/services/agent_deployments/record_heartbeat.rb`
+- Create: `core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md`
 - Create: `core_matrix/test/models/agent_installation_test.rb`
 - Create: `core_matrix/test/models/execution_environment_test.rb`
 - Create: `core_matrix/test/models/agent_enrollment_test.rb`
@@ -37,6 +46,8 @@ Load this file as the detailed execution unit for Task 03. Treat the milestone f
 - Create: `core_matrix/test/services/agent_deployments/register_test.rb`
 - Create: `core_matrix/test/services/agent_deployments/record_heartbeat_test.rb`
 - Create: `core_matrix/test/integration/agent_registry_flow_test.rb`
+- Modify: `core_matrix/test/test_helper.rb`
+- Modify: `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 **Step 1: Write failing unit tests for agent registry models**
 
@@ -101,10 +112,19 @@ Expected:
 - migrations apply
 - targeted tests pass
 
-**Step 6: Commit**
+**Step 6: Update behavior and manual validation docs**
+
+- Add `core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md`
+  describing registry aggregate boundaries, snapshot rules, and heartbeat
+  lifecycle behavior.
+- Update `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+  with shell-reproducible steps for enrollment issuance, registration, and the
+  first healthy heartbeat.
+
+**Step 7: Commit**
 
 ```bash
-git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/agent_enrollments core_matrix/app/services/agent_deployments core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/db/schema.rb
+git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/agent_enrollments core_matrix/app/services/agent_deployments core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/test/test_helper.rb core_matrix/db/schema.rb docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md
 git -C .. commit -m "feat: add agent registry foundations"
 ```
 
@@ -117,3 +137,41 @@ Do not implement these items in this task:
 - user bindings or bundled bootstrap
 - provider catalog or governance
 - machine-facing controllers or recovery flows
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24` in commit `5c76965`
+- actual landed scope:
+  - added migrations `20260324090006` through `20260324090010`
+  - added logical agent installations, execution environments, enrollments,
+    deployments, capability snapshots, enrollment issuance, deployment
+    registration, and heartbeat recording
+  - updated parent associations on `Installation` and `User`, extended
+    `core_matrix/test/test_helper.rb`, added manual checklist flow coverage,
+    and added `core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md`
+- plan alignment notes:
+  - the file list above has been updated to match the real landed support-doc
+    and helper changes that were required to keep the task self-contained
+- verification evidence:
+  - the original acceptance gate for this task was the targeted test command in
+    Step 5
+  - the `2026-03-24` doc-hardening rerun included
+    `cd core_matrix && bin/rails test test/integration/agent_registry_flow_test.rb`
+    inside the Milestone 1 integration spot-check, which passed
+  - the same rerun also passed `cd core_matrix && bin/rails test` with
+    `40 runs, 188 assertions, 0 failures, 0 errors`
+- retained findings:
+  - active deployment uniqueness is scoped to `agent_installation_id`, not the
+    top-level installation
+  - a deployment stays `pending` until the first healthy heartbeat promotes it
+    to `active`
+  - capability snapshots are append-only historical records with an explicit
+    `active_capability_snapshot` pointer on the deployment
+  - no product-behavior conclusion from non-authoritative reference projects
+    was retained for this task
+- carry-forward notes:
+  - later protocol, recovery, and bootstrap work must continue to preserve
+    `AgentInstallation` versus `AgentDeployment` separation
+  - later capability changes should append or repoint snapshots instead of
+    mutating historical snapshot rows in place

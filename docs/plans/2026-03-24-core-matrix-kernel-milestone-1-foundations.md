@@ -31,5 +31,57 @@ Execution rules:
 - load only the active execution-unit document during implementation
 - treat this file as the milestone ordering index, not as the detailed task body
 - apply the shared guardrails and execution-gate audits from the implementation-plan index after every task
+- if a child task consults `references/` or external implementations, write the retained conclusion into that task document and any local docs it updates; do not leave only a bare reference path behind
 - if Tasks 01-04 reveal a likely later root-shape or schema problem, fix that shape in the substrate now rather than deferring it into later execution-layer work
 - keep the early registry and bundled-bootstrap work generic enough that later external execution adapters can attach without re-rooting the database model
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24` on branch `codex/phase1`
+- landing commits:
+  - Task 01: `0dd2f6a` `chore: reset core matrix backend shell baseline`
+  - Task 02: `098508f` `feat: add installation identity foundations`
+  - Task 03: `5c76965` `feat: add agent registry foundations`
+  - Task 04.1: `fe34078` `feat: add user bindings and workspaces`
+  - Task 04.2: `508ab0b` `feat: add bundled default agent bootstrap`
+- landed milestone scope:
+  - documented and re-anchored the backend-only shell baseline
+  - added installation, identity, user, invitation, session, and audit roots
+  - added logical agent installation, execution environment, enrollment,
+    deployment, capability snapshot, and heartbeat foundations
+  - added user-agent bindings, private workspaces, and idempotent default
+    workspace creation
+  - added opt-in bundled Fenix runtime reconciliation and first-admin auto-bind
+    composition through the same registry and binding abstractions
+- verification evidence:
+  - the `2026-03-24` doc-hardening rerun required ensuring the local
+    test database existed with `cd core_matrix && bin/rails db:create`
+  - `cd core_matrix && bin/rails db:test:prepare`
+  - `cd core_matrix && bin/rails test test/integration/installation_bootstrap_flow_test.rb test/integration/agent_registry_flow_test.rb test/integration/user_binding_workspace_flow_test.rb test/integration/bundled_default_agent_bootstrap_flow_test.rb`
+    passed with `4 runs, 34 assertions, 0 failures, 0 errors`
+  - `cd core_matrix && bin/rails db:version` reported development schema
+    version `20260324090012`
+  - `cd core_matrix && bin/rubocop app/models/application_record.rb` passed
+    with no offenses
+  - `cd core_matrix && bin/rails test` passed with
+    `40 runs, 188 assertions, 0 failures, 0 errors`
+  - `cd core_matrix && bin/brakeman --no-pager` reported `0` warnings
+  - `cd core_matrix && bin/bundler-audit` reported no vulnerabilities
+- retained findings:
+  - Milestone 1 did not retain any product-behavior conclusion from
+    non-authoritative reference applications; the design docs and local
+    behavior docs remained the authority
+  - the durable debugging anchors for this milestone are the behavior docs
+    under `core_matrix/docs/behavior/` plus the manual checklist flows for
+    bootstrap, enrollment, binding, workspace creation, and bundled bootstrap
+- carry-forward notes:
+  - later tasks must preserve `Identity` versus `User`,
+    `AgentInstallation` versus `AgentDeployment`, and `Workspace` as a
+    private user-owned aggregate
+  - later bootstrap or enablement work must compose
+    `Installations::BootstrapFirstAdmin`,
+    `UserAgentBindings::Enable`, and `Workspaces::CreateDefault` instead of
+    recreating those side effects ad hoc
+  - later protocol and recovery work must reuse capability snapshots as
+    append-only history instead of mutating runtime capability state in place

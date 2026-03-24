@@ -2,6 +2,11 @@
 
 These documents are the active execution plans for `core_matrix`.
 
+Plans should remain executable without reopening volatile references. If a task
+uses `references/` or an external implementation for a sanity check, capture
+the retained conclusion in the active plan record, the task document itself, or
+another local document updated during the same execution unit.
+
 Recommended entry points:
 
 - [2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md)

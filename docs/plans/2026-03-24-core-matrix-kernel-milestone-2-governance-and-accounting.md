@@ -29,3 +29,4 @@ Execution rules:
 - load only the active execution-unit document during implementation
 - treat this file as the milestone ordering index, not as the detailed task body
 - apply the shared guardrails and execution-gate audits from the implementation-plan index after every task
+- if a child task consults `references/` or external implementations, write the retained conclusion into that task document and any local docs it updates; do not leave only a bare reference path behind
