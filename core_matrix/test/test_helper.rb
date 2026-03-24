@@ -199,5 +199,20 @@ module ActiveSupport
         },
       }.merge(attrs)
     end
+
+    def attach_selected_output!(turn, content:, variant_index: 0)
+      message = AgentMessage.create!(
+        installation: turn.installation,
+        conversation: turn.conversation,
+        turn: turn,
+        role: "agent",
+        slot: "output",
+        variant_index: variant_index,
+        content: content
+      )
+
+      turn.update!(selected_output_message: message)
+      message
+    end
   end
 end

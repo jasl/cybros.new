@@ -1,0 +1,67 @@
+# Turn Rewrite And Variant Operations
+
+## Purpose
+
+Task 07.3 adds append-only rewrite and variant-selection behavior on top of the
+turn and message foundation from Task 07.2. These operations preserve timeline
+history while giving the kernel explicit legality checks for edit, retry, rerun,
+rollback, and output-variant selection.
+
+## Rewrite Behavior
+
+- `Conversations::RollbackToTurn` cancels later turns in the same conversation
+  so an earlier turn becomes the active tail again.
+- Rollback does not delete later turns or mutate their historical rows in
+  place.
+- `Turns::EditTailInput` is tail-only in the active timeline.
+- Tail input edit creates a new input variant row on the same turn, moves the
+  selected-input pointer, and clears the selected output pointer.
+- Historical input editing is not an in-place mutation path; the user must
+  first rollback or branch.
+
+## Output Variant Behavior
+
+- `Turns::RetryOutput` targets a failed or canceled selected output and creates
+  a new output variant in the same turn.
+- `Turns::RerunOutput` targets a completed output.
+- If the completed output is still the selected output on the selected tail
+  turn, rerun happens in place by creating a new output variant in the same
+  turn.
+- If the completed output is historical or otherwise no longer the selected
+  tail output, rerun auto-branches first and then replays inside the branch.
+- `Turns::SelectOutputVariant` only changes the selected output pointer; it
+  never mutates historical output rows in place.
+
+## Variant And Tail Rules
+
+- Selected input and output pointers remain explicit turn-owned state.
+- Variant rows remain append-only; services only add new variants and move
+  selected pointers.
+- Selecting a different output variant is only legal on a completed tail turn
+  in the current timeline.
+- Selecting a non-tail output variant in the current timeline is rejected.
+
+## Invariants
+
+- transcript history remains append-only
+- rewrite legality is evaluated against the current active timeline, not just
+  raw sequence order
+- non-selected historical output reruns branch instead of mutating the current
+  tail in place
+- rollback and edit preserve old variants as inspectable history
+
+## Failure Modes
+
+- editing a non-tail input without rollback or branch semantics is rejected
+- retrying a non-selected or completed output is rejected
+- rerunning a non-completed output is rejected
+- selecting an output variant on a non-tail or non-completed turn is rejected
+
+## Reference Sanity Check
+
+The retained conclusion from the local mutation-invariants design is narrow:
+rewrite legality must be explicit, tail-aware, and append-only.
+
+This task keeps that contract by implementing rollback, edit, retry, rerun, and
+variant selection as pointer moves plus new variant rows, never direct mutation
+of historical transcript rows.

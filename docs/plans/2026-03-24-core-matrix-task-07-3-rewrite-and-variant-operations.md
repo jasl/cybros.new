@@ -97,3 +97,43 @@ Do not implement these items in this task:
 - transcript support tables from Task 08
 - workflow scheduling or context assembly from Task 09
 - any human-facing history UI
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added `Conversations::RollbackToTurn`
+  - added `Turns::EditTailInput`, `RetryOutput`, `RerunOutput`, and
+    `SelectOutputVariant`
+  - extended `Turn` with active-timeline tail detection used by rewrite
+    legality checks
+  - added `core_matrix/docs/behavior/turn-rewrite-and-variant-operations.md`
+  - added targeted service and integration coverage for rollback, tail edit,
+    retry, rerun, and output-variant legality
+- plan alignment notes:
+  - transcript rows remained append-only; services only added new variants or
+    moved selected pointers
+  - historical input editing required rollback semantics instead of in-place row
+    mutation
+  - non-current completed output reruns auto-branched before replaying work
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/services/conversations/rollback_to_turn_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/retry_output_test.rb test/services/turns/rerun_output_test.rb test/services/turns/select_output_variant_test.rb test/integration/turn_history_rewrite_flow_test.rb`
+    passed with `9 runs, 30 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is legality and mutation-state infrastructure covered by automated
+    tests
+- retained findings:
+  - active-timeline tail detection needs to ignore later canceled turns so
+    rollback can legitimately restore an earlier turn as the editable tail
+  - rerun legality depends on both timeline position and whether the target
+    output is still the selected current variant
+  - append-only history is easier to preserve when rewrite services only add new
+    variant rows and move selected pointers
+- carry-forward notes:
+  - Task Group 08 transcript-support work should treat these variant rows as the
+    immutable transcript substrate, adding overlays and attachments around them
+    rather than changing rewrite semantics
+  - later workflow and UI work should reuse the same legality boundaries instead
+    of inventing separate history-mutation rules per surface

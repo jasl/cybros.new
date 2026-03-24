@@ -38,6 +38,13 @@ class Turn < ApplicationRecord
     completed? || failed? || canceled?
   end
 
+  def tail_in_active_timeline?
+    conversation.turns
+      .where("sequence > ?", sequence)
+      .where.not(lifecycle_state: "canceled")
+      .none?
+  end
+
   private
 
   def origin_payload_must_be_hash
