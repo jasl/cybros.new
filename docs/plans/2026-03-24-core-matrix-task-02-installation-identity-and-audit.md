@@ -8,8 +8,7 @@ Use this task document together with:
 2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 4. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
-5. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
-6. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Load this file as the detailed execution unit for Task 02. Treat the phase file as the ordering index, not the full task body.
 
@@ -125,3 +124,12 @@ git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/serv
 git -C .. commit -m "feat: add installation identity foundations"
 ```
 
+## Stop Point
+
+Stop after installation, identity, user, invitation, session, and audit foundations pass their tests.
+
+Do not implement these items in this task:
+
+- agent registry models
+- user bindings or workspaces
+- provider governance or runtime protocol work

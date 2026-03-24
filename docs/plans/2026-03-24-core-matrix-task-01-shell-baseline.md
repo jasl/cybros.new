@@ -8,8 +8,6 @@ Use this task document together with:
 2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 4. `docs/plans/2026-03-24-core-matrix-kernel-phase-1-foundations.md`
-5. `docs/plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
-6. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Load this file as the detailed execution unit for Task 01. Treat the phase file as the ordering index, not the full task body.
 
@@ -67,3 +65,12 @@ git -C .. add core_matrix/README.md core_matrix/test/support/.keep core_matrix/t
 git -C .. commit -m "chore: reset core matrix backend shell baseline"
 ```
 
+## Stop Point
+
+Stop after the backend shell baseline, empty directories, and baseline validation commands are in place.
+
+Do not implement these items in this task:
+
+- domain models or migrations
+- machine-facing protocol endpoints
+- any human-facing UI

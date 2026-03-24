@@ -564,6 +564,7 @@ Rules:
 - replaceable live-projection streams remain append-only in storage; live renderers collapse to the newest revision within one projection stream while replay, audit, and diagnostics may inspect the full revision chain
 - canonical transcript listing APIs return `Message` rows only by default
 - conversation pages or publication projections may render both transcript messages and visible conversation events, but they must preserve the semantic distinction
+- `WorkflowNodeEvent` is the workflow-local execution stream; `ConversationEvent` is the optional user-visible projection surface derived from runtime state when and only when that state should appear in the conversation timeline or publication view
 
 ## Required Conversation Runtime Capability Baseline
 
