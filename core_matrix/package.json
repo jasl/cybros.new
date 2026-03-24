@@ -12,16 +12,16 @@
     "@iconify-json/lucide": "^1.2.98",
     "@iconify/tailwind4": "^1.2.3",
     "@rails/request.js": "^0.0.13",
-    "@tailwindcss/cli": "^4.2.1",
+    "@tailwindcss/cli": "^4.2.2",
     "@tailwindcss/typography": "^0.5.19",
     "daisyui": "^5.5.19",
     "globals": "^17.4.0",
-    "marked": "^17.0.4",
-    "tailwindcss": "^4.2.1",
+    "marked": "^17.0.5",
+    "tailwindcss": "^4.2.2",
     "tailwindcss-motion": "^1.1.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.3"
+    "eslint": "^10.1.0"
   }
 }
