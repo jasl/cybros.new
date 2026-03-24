@@ -44,15 +44,17 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     assert_equal [message.id], checkpoint.transcript_projection_messages.map(&:id)
     assert_empty checkpoint.context_projection_attachments
 
-    Messages::UpdateVisibility.call(
-      conversation: root,
-      message: message,
-      hidden: true
-    )
+    assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: root,
+        message: message,
+        hidden: true
+      )
+    end
 
-    assert_empty root.transcript_projection_messages
-    assert_empty branch.transcript_projection_messages
-    assert_empty checkpoint.transcript_projection_messages
+    assert_equal [message.id], root.transcript_projection_messages.map(&:id)
+    assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
+    assert_equal [message.id], checkpoint.transcript_projection_messages.map(&:id)
     assert_empty checkpoint.context_projection_attachments
   end
 end

@@ -22,6 +22,7 @@ module Conversations
         )
 
         create_closures_for!(conversation)
+        create_branch_prefix_import_for!(conversation)
         conversation
       end
     end
@@ -43,6 +44,21 @@ module Conversations
         ancestor_conversation: conversation,
         descendant_conversation: conversation,
         depth: 0
+      )
+    end
+
+    def create_branch_prefix_import_for!(conversation)
+      anchor_message = Message.find_by(
+        id: @historical_anchor_message_id,
+        installation_id: @parent.installation_id
+      )
+      return if anchor_message.blank?
+
+      Conversations::AddImport.call(
+        conversation: conversation,
+        kind: "branch_prefix",
+        source_conversation: @parent,
+        source_message: anchor_message
       )
     end
   end

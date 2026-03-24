@@ -31,8 +31,10 @@ class Conversation < ApplicationRecord
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
 
   has_many :messages, dependent: :restrict_with_exception
+  has_many :conversation_imports, dependent: :restrict_with_exception
   has_many :turns, dependent: :restrict_with_exception
   has_many :conversation_message_visibilities, dependent: :restrict_with_exception
+  has_many :conversation_summary_segments, dependent: :restrict_with_exception
   has_many :child_conversations,
     class_name: "Conversation",
     foreign_key: :parent_conversation_id,

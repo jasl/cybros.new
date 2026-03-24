@@ -98,3 +98,58 @@ Do not implement these items in this task:
 - human-facing transcript compaction UI
 - publication rendering
 - workflow context assembly logic from Task 09
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- actual landed scope:
+  - added `ConversationImport` with `branch_prefix`, `merge_summary`, and
+    `quoted_context`
+  - added `ConversationSummarySegment` with explicit `superseded_by` replacement
+    links
+  - added `Conversations::AddImport` and
+    `ConversationSummaries::CreateSegment`
+  - extended `Conversations::CreateBranch` to materialize a `branch_prefix`
+    import when the anchor resolves to a real message row
+  - extended `Conversations::RollbackToTurn` to preserve retained compacted
+    history while dropping superseded post-rollback support state
+  - tightened fork-point protection across visibility overlays and in-place tail
+    rewrite operations
+  - added `core_matrix/docs/behavior/transcript-imports-and-summary-segments.md`
+    and aligned the existing rewrite and visibility behavior docs
+  - added targeted model, service, rollback, and integration coverage for
+    import kinds, summary supersession, compaction-boundary cleanup, branch
+    prefixes, and fork-point protection
+- plan alignment notes:
+  - branch conversations now carry historical prefix provenance by import row
+    instead of transcript-copy semantics
+  - summary replacement stayed append-only by using supersession pointers rather
+    than rewriting old summary rows
+  - rollback preserves earlier compacted history when it still describes the
+    retained prefix and only removes support state that depends on rolled-back
+    local turns
+  - fork-point protection was applied to both visibility overlays and in-place
+    tail rewrites so anchored history cannot drift after branching
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/conversation_import_test.rb test/models/conversation_summary_segment_test.rb test/services/conversations/add_import_test.rb test/services/conversation_summaries/create_segment_test.rb test/services/conversations/rollback_to_turn_test.rb test/integration/transcript_import_summary_flow_test.rb`
+    passed with `11 runs, 41 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no separate manual checklist delta was retained for this task because the
+    landed behavior is transcript-support infrastructure covered by automated
+    tests
+- retained findings:
+  - branch-prefix imports need to validate against both the branch parent and
+    the resolved anchor message; generic conversation references are not enough
+  - summary segments must be validated against transcript projection order
+    rather than raw message ids so branch-prefix history can participate without
+    transcript copying
+  - rollback cleanup must restore older summary segments from a superseded state
+    when the newer superseding segment falls behind the rollback boundary
+  - fork-point safety is cross-cutting; visibility overlays and rewrite
+    services both needed the same protection rule
+- carry-forward notes:
+  - Task 09 should consume these import and summary rows as transcript-support
+    inputs instead of rebuilding separate compaction metadata
+  - later publication and UI work should treat branch-prefix imports and active
+    summary segments as explicit support records, not as implied transcript text

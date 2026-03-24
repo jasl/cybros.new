@@ -20,11 +20,49 @@ module Conversations
             later_turn.update!(lifecycle_state: "canceled")
           end
 
+        prune_superseded_support_state!
         @turn
       end
     end
 
     private
+
+    def prune_superseded_support_state!
+      dropped_segments = @conversation.conversation_summary_segments
+        .includes(:end_message, :superseded_segments)
+        .select { |segment| superseded_after_rollback?(segment) }
+      dropped_segment_ids = dropped_segments.map(&:id)
+
+      if dropped_segment_ids.any?
+        @conversation.conversation_summary_segments
+          .where(superseded_by_id: dropped_segment_ids)
+          .update_all(superseded_by_id: nil)
+      end
+
+      ConversationImport.where(summary_segment_id: dropped_segment_ids).find_each(&:destroy!)
+
+      @conversation.conversation_imports
+        .includes(:source_message, summary_segment: :end_message)
+        .find_each do |conversation_import|
+          conversation_import.destroy! if drop_import_after_rollback?(conversation_import, dropped_segment_ids)
+        end
+
+      dropped_segments.each(&:destroy!)
+    end
+
+    def superseded_after_rollback?(segment)
+      return false unless segment.end_message.conversation_id == @conversation.id
+
+      segment.end_message.turn.sequence > @turn.sequence
+    end
+
+    def drop_import_after_rollback?(conversation_import, dropped_segment_ids)
+      return true if dropped_segment_ids.include?(conversation_import.summary_segment_id)
+      return false if conversation_import.source_message.blank?
+      return false unless conversation_import.source_message.conversation_id == @conversation.id
+
+      conversation_import.source_message.turn.sequence > @turn.sequence
+    end
 
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)

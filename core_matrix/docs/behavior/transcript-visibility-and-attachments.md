@@ -68,6 +68,8 @@ into descendant conversation support surfaces.
 
 - `Messages::UpdateVisibility` upserts one conversation-message overlay row.
 - Visibility updates never mutate or delete the historical `Message` row.
+- Fork-point messages cannot be hidden or excluded from context once a child
+  conversation depends on them.
 - If all overlay flags are cleared, `Messages::UpdateVisibility` removes the
   now-empty overlay row.
 - `Attachments::MaterializeRefs` clones file-bearing source attachment rows onto
@@ -83,6 +85,8 @@ into descendant conversation support surfaces.
   paths plus conversation-specific overlays
 - hidden or context-excluded messages cannot leak attachments into descendant
   support projections
+- fork-point transcript rows cannot be hidden or context-excluded after branch
+  or checkpoint anchoring
 
 ## Failure Modes
 

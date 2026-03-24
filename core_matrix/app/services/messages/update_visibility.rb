@@ -25,6 +25,12 @@ module Messages
         overlay.hidden = @hidden unless @hidden.nil?
         overlay.excluded_from_context = @excluded_from_context unless @excluded_from_context.nil?
 
+        if @conversation.id == @message.conversation_id &&
+            @message.fork_point? &&
+            (overlay.hidden? || overlay.excluded_from_context?)
+          raise_invalid!(@message, :base, "fork-point messages cannot be hidden or excluded from context")
+        end
+
         if !overlay.hidden? && !overlay.excluded_from_context?
           overlay.destroy! if overlay.persisted?
           next nil
@@ -33,6 +39,13 @@ module Messages
         overlay.save!
         overlay
       end
+    end
+
+    private
+
+    def raise_invalid!(record, attribute, message)
+      record.errors.add(attribute, message)
+      raise ActiveRecord::RecordInvalid, record
     end
   end
 end

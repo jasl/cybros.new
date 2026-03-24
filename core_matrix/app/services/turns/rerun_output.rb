@@ -13,6 +13,9 @@ module Turns
       turn = @message.turn
 
       raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
+      if turn.tail_in_active_timeline? && turn.selected_output_message_id == @message.id && @message.fork_point?
+        raise_invalid!(turn, :base, "cannot rewrite a fork-point output")
+      end
 
       if turn.tail_in_active_timeline? && turn.selected_output_message_id == @message.id
         return rerun_in_place(turn)

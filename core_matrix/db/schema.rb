@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090025) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090027) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -142,6 +142,23 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090025) do
     t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
   end
 
+  create_table "conversation_imports", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.string "kind", null: false
+    t.bigint "source_conversation_id"
+    t.bigint "source_message_id"
+    t.bigint "summary_segment_id"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "kind"], name: "index_conversation_imports_on_conversation_id_and_kind"
+    t.index ["conversation_id"], name: "index_conversation_imports_on_conversation_id"
+    t.index ["installation_id"], name: "index_conversation_imports_on_installation_id"
+    t.index ["source_conversation_id"], name: "index_conversation_imports_on_source_conversation_id"
+    t.index ["source_message_id"], name: "index_conversation_imports_on_source_message_id"
+    t.index ["summary_segment_id"], name: "index_conversation_imports_on_summary_segment_id"
+  end
+
   create_table "conversation_message_visibilities", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
@@ -154,6 +171,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090025) do
     t.index ["conversation_id"], name: "index_conversation_message_visibilities_on_conversation_id"
     t.index ["installation_id"], name: "index_conversation_message_visibilities_on_installation_id"
     t.index ["message_id"], name: "index_conversation_message_visibilities_on_message_id"
+  end
+
+  create_table "conversation_summary_segments", force: :cascade do |t|
+    t.text "content", null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "end_message_id", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "start_message_id", null: false
+    t.bigint "superseded_by_id"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "index_conversation_summary_segments_on_conversation_id"
+    t.index ["end_message_id"], name: "index_conversation_summary_segments_on_end_message_id"
+    t.index ["installation_id"], name: "index_conversation_summary_segments_on_installation_id"
+    t.index ["start_message_id"], name: "index_conversation_summary_segments_on_start_message_id"
+    t.index ["superseded_by_id"], name: "index_conversation_summary_segments_on_superseded_by_id"
   end
 
   create_table "conversations", force: :cascade do |t|
@@ -487,9 +520,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090025) do
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversation_imports", "conversation_summary_segments", column: "summary_segment_id"
+  add_foreign_key "conversation_imports", "conversations"
+  add_foreign_key "conversation_imports", "conversations", column: "source_conversation_id"
+  add_foreign_key "conversation_imports", "installations"
+  add_foreign_key "conversation_imports", "messages", column: "source_message_id"
   add_foreign_key "conversation_message_visibilities", "conversations"
   add_foreign_key "conversation_message_visibilities", "installations"
   add_foreign_key "conversation_message_visibilities", "messages"
+  add_foreign_key "conversation_summary_segments", "conversation_summary_segments", column: "superseded_by_id"
+  add_foreign_key "conversation_summary_segments", "conversations"
+  add_foreign_key "conversation_summary_segments", "installations"
+  add_foreign_key "conversation_summary_segments", "messages", column: "end_message_id"
+  add_foreign_key "conversation_summary_segments", "messages", column: "start_message_id"
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
   add_foreign_key "conversations", "installations"
   add_foreign_key "conversations", "workspaces"

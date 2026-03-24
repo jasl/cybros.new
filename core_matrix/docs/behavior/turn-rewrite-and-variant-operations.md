@@ -18,6 +18,8 @@ rollback, and output-variant selection.
   selected-input pointer, and clears the selected output pointer.
 - Historical input editing is not an in-place mutation path; the user must
   first rollback or branch.
+- Tail input edit is also blocked when the selected input message is already a
+  fork point for a child conversation.
 
 ## Output Variant Behavior
 
@@ -31,6 +33,9 @@ rollback, and output-variant selection.
   tail output, rerun auto-branches first and then replays inside the branch.
 - `Turns::SelectOutputVariant` only changes the selected output pointer; it
   never mutates historical output rows in place.
+- Retry, in-place rerun, and output-variant selection all reject fork-point
+  outputs because those operations would rewrite the active path after a child
+  conversation already anchored to it.
 
 ## Variant And Tail Rules
 
@@ -48,6 +53,7 @@ rollback, and output-variant selection.
   raw sequence order
 - non-selected historical output reruns branch instead of mutating the current
   tail in place
+- fork-point messages remain stable once a child conversation depends on them
 - rollback and edit preserve old variants as inspectable history
 
 ## Failure Modes

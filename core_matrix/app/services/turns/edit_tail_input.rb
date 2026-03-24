@@ -12,6 +12,7 @@ module Turns
     def call
       raise_invalid!(@turn, :base, "must target the selected tail input") unless @turn.tail_in_active_timeline?
       raise_invalid!(@turn, :selected_input_message, "must exist") if @turn.selected_input_message.blank?
+      raise_invalid!(@turn, :base, "cannot rewrite a fork-point input") if @turn.selected_input_message.fork_point?
 
       ApplicationRecord.transaction do
         message = UserMessage.create!(
