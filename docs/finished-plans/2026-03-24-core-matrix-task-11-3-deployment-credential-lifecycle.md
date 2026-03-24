@@ -6,8 +6,8 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Load this file as the detailed execution unit for Task 11.3. Treat Task Group 11 and the milestone file as ordering indexes, not as the full task body.
@@ -97,9 +97,7 @@ Do not implement these items in this task:
 - status:
   completed on `2026-03-25`
 - landing commit:
-  - included in the accompanying
-    `feat: add deployment credential lifecycle controls`
-    task commit
+  - `bac2a4e` `feat: add deployment credential lifecycle controls`
 - actual landed scope:
   - added `AgentDeployments::RotateMachineCredential`,
     `AgentDeployments::RevokeMachineCredential`, and

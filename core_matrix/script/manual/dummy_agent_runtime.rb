@@ -80,6 +80,7 @@ class DummyAgentRuntime
   def register_payload
     {
       "enrollment_token" => ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
+      "execution_environment_id" => Integer(ENV.fetch("CORE_MATRIX_EXECUTION_ENVIRONMENT_ID")),
       "fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
       "endpoint_metadata" => {
         "transport" => "http",
@@ -174,6 +175,7 @@ class DummyAgentRuntime
         CORE_MATRIX_BASE_URL
         CORE_MATRIX_RUNTIME_BASE_URL
         CORE_MATRIX_ENROLLMENT_TOKEN     # required for register
+        CORE_MATRIX_EXECUTION_ENVIRONMENT_ID
         CORE_MATRIX_MACHINE_CREDENTIAL   # required for heartbeat/capabilities/health
         CORE_MATRIX_FINGERPRINT
         CORE_MATRIX_PROTOCOL_VERSION
@@ -185,4 +187,4 @@ class DummyAgentRuntime
   end
 end
 
-DummyAgentRuntime.run(ARGV)
+DummyAgentRuntime.run(ARGV) if $PROGRAM_NAME == __FILE__

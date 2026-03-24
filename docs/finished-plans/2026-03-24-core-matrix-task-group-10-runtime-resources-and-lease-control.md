@@ -5,7 +5,7 @@ Part of `Core Matrix Kernel Milestone 3: Conversation And Runtime`.
 Use this task-group index together with:
 
 1. `AGENTS.md`
-2. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+2. `docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 3. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
 
 This task group is split so process resources, human interactions, canonical variables, and coordination control can each be implemented with a smaller runtime surface in view.

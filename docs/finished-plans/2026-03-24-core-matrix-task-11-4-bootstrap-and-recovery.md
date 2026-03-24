@@ -6,8 +6,8 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 5. `docs/design/2026-03-24-core-matrix-model-role-resolution-design.md`
 6. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
@@ -107,3 +107,46 @@ Do not implement these items in this task:
 - publication read models
 - schedule-trigger or webhook-ingress controllers
 - changes that mutate durable selector config during manual recovery
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - `0b11a4c` `feat: add deployment recovery and manual resume flows`
+- actual landed scope:
+  - added `AgentDeployments::Bootstrap`, `MarkUnavailable`, and
+    `AutoResumeWorkflows`
+  - added `Workflows::ManualResume` and `ManualRetry`
+  - added the manual dummy runtime used to exercise enrollment, heartbeat,
+    health, and recovery paths against a live server
+  - extended deployment, turn, and workflow-run state so paused recovery,
+    compatibility checks, and one-time selector overrides remain explicit
+  - updated the manual checklist for bootstrap, outage, manual resume, and
+    manual retry validation
+  - added
+    `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+- plan alignment notes:
+  - drift now blocks silent continuation and requires either explicit manual
+    resume or explicit manual retry
+  - one-time selector overrides apply only to the recovery action and do not
+    mutate durable conversation selector config or deployment slot defaults
+  - manual retry preserves the paused workflow run as historical state before
+    starting a fresh execution path
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/services/agent_deployments/bootstrap_test.rb test/services/agent_deployments/mark_unavailable_test.rb test/services/agent_deployments/auto_resume_workflows_test.rb test/services/workflows/manual_resume_test.rb test/services/workflows/manual_retry_test.rb test/integration/agent_recovery_flow_test.rb`
+    passed with `11 runs, 93 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - the final `2026-03-25` live rerun in Task 12.3 kept these recovery steps
+    and tightened the dummy runtime register flow to require
+    `CORE_MATRIX_EXECUTION_ENVIRONMENT_ID`
+- retained findings:
+  - auto-resume is only safe when the deployment fingerprint and capability
+    version still match the paused workflow expectations
+  - recovery override handling stays tractable when expressed as workflow-run
+    recovery input rather than a persistent configuration mutation
+- carry-forward notes:
+  - future operator-facing recovery surfaces should call these services instead
+    of embedding compatibility logic in controllers or UI code
+  - later external runtime adapters should preserve the same pause, drift, and
+    explicit-recovery semantics rather than inventing adapter-local state

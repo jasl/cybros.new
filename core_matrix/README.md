@@ -22,7 +22,7 @@ Current authoritative project documents:
 - Greenfield design: `../docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 - Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
-- Active implementation plan: `../docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+- Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 - Next-phase loop follow-up: `../docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-follow-up.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
@@ -53,6 +53,20 @@ claims real loop behavior, validation must include:
 - `bin/dev`
 - a real LLM API
 - manual flows from `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+
+## Manual Validation Baseline
+
+- Phase 1 backend manual validation was rerun on `2026-03-25` against
+  `bin/dev` and the checklist at
+  `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`.
+- The checklist now standardizes on a reusable
+  `core_matrix_reset_backend_state` helper built on
+  `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
+- `ruby script/manual/dummy_agent_runtime.rb register` now requires
+  `CORE_MATRIX_EXECUTION_ENVIRONMENT_ID` in addition to
+  `CORE_MATRIX_ENROLLMENT_TOKEN`.
+- Publication verification remains service-level in phase 1 because public
+  publication HTTP routes have not been introduced yet.
 
 ## Useful Commands
 

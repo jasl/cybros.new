@@ -6,8 +6,8 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 5. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 
 Load this file as the detailed execution unit for Task 11.1. Treat Task Group 11 and the milestone file as ordering indexes, not as the full task body.
@@ -115,8 +115,7 @@ Do not implement these items in this task:
 - status:
   completed on `2026-03-25`
 - landing commit:
-  - included in the accompanying `feat: add agent registration and handshake boundaries`
-    task commit
+  - `513c1e4` `feat: add agent registration and handshake boundaries`
 - actual landed scope:
   - added machine-facing `AgentAPI` controllers for registration, heartbeat,
     health, capability refresh, and capability handshake

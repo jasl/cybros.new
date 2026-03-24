@@ -6,8 +6,8 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 
 Load this file as the detailed execution unit for Task 12.1. Treat Task Group 12 and the milestone file as ordering indexes, not as the full task body.
 
@@ -104,3 +104,47 @@ Do not implement these items in this task:
 - user-facing publication pages
 - workspace or agent visibility queries
 - final automated or manual verification
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - `74c1e30` `feat: add publication and live projection`
+- actual landed scope:
+  - added `Publication` and `PublicationAccessEvent` with installation-rooted,
+    read-only publication state
+  - added `Publications::PublishLive`, `RecordAccess`, and `Revoke`
+  - added `Publications::LiveProjectionQuery` for canonical transcript plus
+    visible conversation-event projection without collapsing record types
+  - added model, service, query, and integration coverage for visibility,
+    anonymous external access, authenticated internal access, access logging,
+    revocation, and projection ordering
+  - added
+    `core_matrix/docs/behavior/publication-and-live-projection.md`
+- plan alignment notes:
+  - publication stays read-only and does not mutate conversation or workspace
+    ownership
+  - internal-public access remains installation-authenticated only, while
+    external-public access is limited to slug or token readers
+  - live projection preserves `ConversationEvent` versus transcript-message
+    type distinction and uses stored ordering metadata rather than renderer
+    guesses
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/publication_test.rb test/models/publication_access_event_test.rb test/services/publications/publish_live_test.rb test/services/publications/record_access_test.rb test/services/publications/revoke_test.rb test/queries/publications/live_projection_query_test.rb test/integration/publication_flow_test.rb`
+    passed with `9 runs, 58 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - full publication validation remained deferred to Task 12.3 so the manual
+    checklist could record the exact service-level access-log assertions used
+    in the final backend baseline
+- retained findings:
+  - publication projection queries need stable event ordering metadata from the
+    write side; renderer-local timestamp sorting is not sufficient
+  - keeping access logging behind an explicit service boundary made it possible
+    to validate internal-public and external-public reads without coupling
+    audit behavior to future HTTP route design
+- carry-forward notes:
+  - future publication HTTP surfaces should stay thin wrappers around these
+    query and service boundaries
+  - future UI work must preserve the current read-only publication contract
+    instead of treating publication as a second workspace or conversation owner

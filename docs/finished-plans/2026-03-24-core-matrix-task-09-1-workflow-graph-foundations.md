@@ -6,7 +6,7 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
-3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
 4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
 
 Load this file as the detailed execution unit for Task 09.1. Treat Task Group 09 and the milestone file as ordering indexes, not as the full task body.

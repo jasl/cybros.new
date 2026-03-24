@@ -12,10 +12,13 @@ of leaving only a volatile reference path behind.
 
 Current Phase 1 finished records:
 
+- Implementation records:
+  [2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md)
 - Milestones:
   [2026-03-24-core-matrix-kernel-milestone-1-foundations.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md),
   [2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md),
-  [2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md)
+  [2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md),
+  [2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md)
 - Task groups:
   [2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md),
   [2026-03-24-core-matrix-task-group-05-provider-catalog-and-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-05-provider-catalog-and-governance.md),
@@ -23,7 +26,9 @@ Current Phase 1 finished records:
   [2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md),
   [2026-03-24-core-matrix-task-group-08-transcript-support-models.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md),
   [2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md),
-  [2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md)
+  [2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md),
+  [2026-03-24-core-matrix-task-group-11-agent-protocol-and-recovery.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-11-agent-protocol-and-recovery.md),
+  [2026-03-24-core-matrix-task-group-12-publication-and-final-verification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-12-publication-and-final-verification.md)
 - Tasks:
   [2026-03-24-core-matrix-task-01-shell-baseline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-01-shell-baseline.md),
   [2026-03-24-core-matrix-task-02-installation-identity-and-audit.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md),
@@ -46,4 +51,11 @@ Current Phase 1 finished records:
   [2026-03-24-core-matrix-task-10-1-artifacts-events-and-process-runs.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-10-1-artifacts-events-and-process-runs.md),
   [2026-03-24-core-matrix-task-10-2-human-interactions-and-conversation-events.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-10-2-human-interactions-and-conversation-events.md),
   [2026-03-24-core-matrix-task-10-3-canonical-variables.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-10-3-canonical-variables.md),
-  [2026-03-24-core-matrix-task-10-4-subagents-and-leases.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-10-4-subagents-and-leases.md)
+  [2026-03-24-core-matrix-task-10-4-subagents-and-leases.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-10-4-subagents-and-leases.md),
+  [2026-03-24-core-matrix-task-11-1-registration-and-capability-handshake.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-11-1-registration-and-capability-handshake.md),
+  [2026-03-24-core-matrix-task-11-2-runtime-resource-apis.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-11-2-runtime-resource-apis.md),
+  [2026-03-24-core-matrix-task-11-3-deployment-credential-lifecycle.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-11-3-deployment-credential-lifecycle.md),
+  [2026-03-24-core-matrix-task-11-4-bootstrap-and-recovery.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-11-4-bootstrap-and-recovery.md),
+  [2026-03-24-core-matrix-task-12-1-publication-model-and-live-projection.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-12-1-publication-model-and-live-projection.md),
+  [2026-03-24-core-matrix-task-12-2-read-side-queries-and-seed-baseline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-12-2-read-side-queries-and-seed-baseline.md),
+  [2026-03-24-core-matrix-task-12-3-verification-and-manual-validation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-12-3-verification-and-manual-validation.md)

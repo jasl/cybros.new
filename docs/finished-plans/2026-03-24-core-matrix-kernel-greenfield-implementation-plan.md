@@ -166,7 +166,7 @@ Use the milestone files as ordering indexes:
 1. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
 2. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
 3. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 
 ## Task Group Index Documents
 
@@ -181,8 +181,8 @@ Use these task-group index files as grouping indexes, not as the detailed execut
 - `docs/finished-plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md`
 - `docs/finished-plans/2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md`
 - `docs/finished-plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-11-agent-protocol-and-recovery.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-12-publication-and-final-verification.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-11-agent-protocol-and-recovery.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-12-publication-and-final-verification.md`
 
 ## Execution Unit Documents
 
@@ -210,13 +210,13 @@ Execute the task documents in this exact order:
 20. `docs/finished-plans/2026-03-24-core-matrix-task-10-2-human-interactions-and-conversation-events.md`
 21. `docs/finished-plans/2026-03-24-core-matrix-task-10-3-canonical-variables.md`
 22. `docs/finished-plans/2026-03-24-core-matrix-task-10-4-subagents-and-leases.md`
-23. `docs/plans/2026-03-24-core-matrix-task-11-1-registration-and-capability-handshake.md`
-24. `docs/plans/2026-03-24-core-matrix-task-11-2-runtime-resource-apis.md`
-25. `docs/plans/2026-03-24-core-matrix-task-11-3-deployment-credential-lifecycle.md`
-26. `docs/plans/2026-03-24-core-matrix-task-11-4-bootstrap-and-recovery.md`
-27. `docs/plans/2026-03-24-core-matrix-task-12-1-publication-model-and-live-projection.md`
-28. `docs/plans/2026-03-24-core-matrix-task-12-2-read-side-queries-and-seed-baseline.md`
-29. `docs/plans/2026-03-24-core-matrix-task-12-3-verification-and-manual-validation.md`
+23. `docs/finished-plans/2026-03-24-core-matrix-task-11-1-registration-and-capability-handshake.md`
+24. `docs/finished-plans/2026-03-24-core-matrix-task-11-2-runtime-resource-apis.md`
+25. `docs/finished-plans/2026-03-24-core-matrix-task-11-3-deployment-credential-lifecycle.md`
+26. `docs/finished-plans/2026-03-24-core-matrix-task-11-4-bootstrap-and-recovery.md`
+27. `docs/finished-plans/2026-03-24-core-matrix-task-12-1-publication-model-and-live-projection.md`
+28. `docs/finished-plans/2026-03-24-core-matrix-task-12-2-read-side-queries-and-seed-baseline.md`
+29. `docs/finished-plans/2026-03-24-core-matrix-task-12-3-verification-and-manual-validation.md`
 
 ## Milestone Summary
 
@@ -265,3 +265,37 @@ Do not implement these items in this phase:
 - automation trigger management APIs or UI
 
 Human-facing deferred surfaces belong to `docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`. The non-UI automation-trigger items above remain deferred follow-up scope in this canonical implementation plan.
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- completed scope:
+  - Milestone 1 rebuilt the shell, installation, identity, audit, agent
+    registry, bindings, private workspaces, and bundled runtime bootstrap
+  - Milestone 2 rebuilt the provider catalog, governance, role catalog,
+    usage-event ledger, and execution profiling facts
+  - Milestone 3 rebuilt conversation structure, transcript support, workflow
+    execution, context assembly, human-interaction resources, canonical
+    variables, and lease-controlled runtime resources
+  - Milestone 4 rebuilt machine-facing protocol boundaries, recovery,
+    publication, read-side queries, backend-safe seeds, and the final
+    automated plus manual validation baseline
+- structural-gate result:
+  - the final substrate review did not identify a root-shape blocker that had
+    to be absorbed before phase 2
+  - deferred items remained adapter or surface follow-up work rather than
+    ownership-root rewrites
+- verification summary:
+  - every child task retains targeted acceptance evidence in its completion
+    record, and every milestone or task-group index now carries its own
+    completion summary
+  - final project verification passed with `243 runs, 1266 assertions, 0 failures, 0 errors, 0 skips`,
+    an empty-green system suite, clean JS lint, clean RuboCop, `Security Warnings: 0`,
+    `No vulnerabilities found`, and a clean `git diff --check`
+  - the `2026-03-25` manual backend rerun exercised the phase-1 checklist
+    against a live `bin/dev` environment and recorded the retained results in
+    local docs
+- archival notes:
+  - phase-1 execution history now lives under `docs/finished-plans`
+  - `docs/plans` is intentionally left for future active execution records
