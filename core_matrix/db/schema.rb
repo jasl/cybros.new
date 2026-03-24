@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090030) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -522,12 +522,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090030) do
   end
 
   create_table "workflow_runs", force: :cascade do |t|
+    t.string "blocking_resource_id"
+    t.string "blocking_resource_type"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
+    t.string "wait_reason_kind"
+    t.jsonb "wait_reason_payload", default: {}, null: false
+    t.string "wait_state", default: "ready", null: false
+    t.datetime "waiting_since_at"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"

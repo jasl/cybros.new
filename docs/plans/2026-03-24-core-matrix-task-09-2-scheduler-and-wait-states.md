@@ -20,6 +20,7 @@ Reference capture for this task:
 ---
 
 **Files:**
+- Create: `core_matrix/db/migrate/20260324090031_add_wait_state_to_workflow_runs.rb`
 - Create: `core_matrix/app/services/workflows/scheduler.rb`
 - Create: `core_matrix/test/services/workflows/scheduler_test.rb`
 - Create: `core_matrix/test/integration/workflow_scheduler_flow_test.rb`
@@ -45,6 +46,7 @@ Run:
 
 ```bash
 cd core_matrix
+bin/rails db:test:prepare
 bin/rails test test/models/workflow_run_test.rb test/services/turns/steer_current_input_test.rb test/services/workflows/scheduler_test.rb test/integration/workflow_scheduler_flow_test.rb
 ```
 
@@ -68,6 +70,7 @@ Run:
 
 ```bash
 cd core_matrix
+bin/rails db:test:prepare
 bin/rails test test/models/workflow_run_test.rb test/services/turns/steer_current_input_test.rb test/services/workflows/scheduler_test.rb test/integration/workflow_scheduler_flow_test.rb
 ```
 
@@ -78,7 +81,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add core_matrix/app/models/workflow_run.rb core_matrix/app/services/workflows/scheduler.rb core_matrix/app/services/turns/steer_current_input.rb core_matrix/test/models core_matrix/test/services core_matrix/test/integration
+git -C .. add core_matrix/db/migrate core_matrix/app/models/workflow_run.rb core_matrix/app/services/workflows/scheduler.rb core_matrix/app/services/turns/steer_current_input.rb core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/db/schema.rb
 git -C .. commit -m "feat: add workflow scheduler semantics"
 ```
 
@@ -91,3 +94,62 @@ Do not implement these items in this task:
 - model selector resolution
 - context assembly
 - workflow-node side-effect execution
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add workflow scheduler semantics` task
+    commit
+- actual landed scope:
+  - added `workflow_runs` wait-state columns for current blocking reason,
+    payload, timing, and blocking resource reference
+  - extended `WorkflowRun` with `ready | waiting` wait-state validation and
+    structured wait-reason validation
+  - added `Workflows::Scheduler` with side-effect-free runnable-node selection,
+    during-generation policy handling, and expected-tail guarding for queued
+    follow-up work
+  - extended `Turns::SteerCurrentInput` so post-side-effect steering delegates
+    to queue or restart policy handling instead of rewriting already-sent work
+  - added `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
+  - added targeted model, service, and integration coverage for barrier joins,
+    wait-state rules, `reject | restart | queue`, queued-turn tail guards, and
+    workflow-node boundary detection without stale association caches
+- plan alignment notes:
+  - runnable-node selection remains a pure scheduler decision and does not
+    execute workflow side effects
+  - wait-state data now describes only the current blocking condition, not the
+    historical pause timeline
+  - queued follow-up guards compare against the predecessor turn output rather
+    than the conversation's last transcript row because queued-turn input
+    already extends the visible tail
+- verification evidence:
+  - `cd core_matrix && bin/rails db:test:prepare && bin/rails test test/models/workflow_run_test.rb test/services/turns/steer_current_input_test.rb test/services/workflows/scheduler_test.rb test/integration/workflow_scheduler_flow_test.rb`
+    passed with `10 runs, 51 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual-checklist delta was retained for this task because the landed
+    behavior is workflow scheduler substrate and queue-guard infrastructure
+- retained findings:
+  - Task 09.2 needed a new additive migration for `workflow_runs`; the original
+    task file was corrected because persisted wait-state fields cannot land
+    without schema changes
+  - `db:test:prepare` must run after the migration for reliable isolated reruns
+    in this repo's Rails 8.2 test setup
+  - predecessor-turn selected output is the correct expected-tail guard anchor
+    for queued follow-up work; using the conversation's visible last transcript
+    row would be wrong because the queued input itself already advances the tail
+  - stale association caches can hide freshly persisted workflow-node
+    side-effect markers, so boundary detection must query the current database
+    scope directly
+  - Dify pause entities were useful as a sanity check for separating current
+    blocking state from historical pause history, but Core Matrix keeps that
+    history for later event-stream tasks rather than adding a second pause
+    aggregate now
+- carry-forward notes:
+  - Task 10 runtime-resource and event-stream work should project historical
+    wait transitions from workflow activity instead of overloading
+    `WorkflowRun.wait_reason_payload`
+  - later scheduler or executor work should consume `expected_tail_message_id`
+    and `during_generation_policy` as durable queued-turn guards instead of
+    inventing parallel queue metadata

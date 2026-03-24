@@ -22,4 +22,59 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     assert_equal ["Original input", "Revised input"],
       UserMessage.where(turn: turn).order(:variant_index).pluck(:content)
   end
+
+  test "queues follow up work after the first transcript side-effect boundary" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    create_workflow_run!(turn: turn)
+    output = attach_selected_output!(turn, content: "Streaming output")
+
+    queued = Turns::SteerCurrentInput.call(
+      turn: turn,
+      content: "Queued follow up",
+      policy_mode: "queue"
+    )
+
+    assert queued.queued?
+    assert_equal 2, queued.sequence
+    assert_equal "Original input", turn.reload.selected_input_message.content
+    assert_equal "Queued follow up", queued.selected_input_message.content
+    assert_equal output.id.to_s, queued.origin_payload["expected_tail_message_id"]
+  end
+
+  test "detects side-effect boundaries from freshly persisted workflow node metadata" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+
+    turn.workflow_run.workflow_nodes.load
+    create_workflow_node!(
+      workflow_run: workflow_run,
+      node_key: "first_side_effect",
+      metadata: { "transcript_side_effect_committed" => true }
+    )
+
+    queued = Turns::SteerCurrentInput.call(
+      turn: turn,
+      content: "Queued from node metadata",
+      policy_mode: "queue"
+    )
+
+    assert queued.queued?
+    assert_equal "Queued from node metadata", queued.selected_input_message.content
+  end
 end

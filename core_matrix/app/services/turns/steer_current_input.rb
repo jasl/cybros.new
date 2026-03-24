@@ -4,14 +4,21 @@ module Turns
       new(...).call
     end
 
-    def initialize(turn:, content:)
+    def initialize(turn:, content:, policy_mode: "queue")
       @turn = turn
       @content = content
+      @policy_mode = policy_mode
     end
 
     def call
       raise_invalid!(@turn, :lifecycle_state, "must be active to steer current input") unless @turn.active?
-      raise_invalid!(@turn, :selected_output_message, "must be blank before steering current input") if @turn.selected_output_message.present?
+      if side_effect_boundary_crossed?
+        return Workflows::Scheduler.apply_during_generation_policy(
+          turn: @turn,
+          content: @content,
+          policy_mode: @policy_mode
+        )
+      end
 
       ApplicationRecord.transaction do
         message = UserMessage.create!(
@@ -30,6 +37,19 @@ module Turns
     end
 
     private
+
+    def side_effect_boundary_crossed?
+      @turn.selected_output_message.present? || workflow_run_side_effect_nodes_exist?
+    end
+
+    def workflow_run_side_effect_nodes_exist?
+      workflow_run = @turn.workflow_run
+      return false if workflow_run.blank?
+
+      WorkflowNode.where(workflow_run: workflow_run).any? do |node|
+        node.metadata["transcript_side_effect_committed"]
+      end
+    end
 
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)

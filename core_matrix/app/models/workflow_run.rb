@@ -7,6 +7,20 @@ class WorkflowRun < ApplicationRecord
       canceled: "canceled",
     },
     validate: true
+  enum :wait_state,
+    {
+      ready: "ready",
+      waiting: "waiting",
+    },
+    validate: true
+  enum :wait_reason_kind,
+    {
+      human_interaction: "human_interaction",
+      agent_unavailable: "agent_unavailable",
+      manual_recovery_required: "manual_recovery_required",
+      policy_gate: "policy_gate",
+    },
+    validate: { allow_nil: true }
 
   belongs_to :installation
   belongs_to :conversation
@@ -16,10 +30,12 @@ class WorkflowRun < ApplicationRecord
   has_many :workflow_edges, dependent: :restrict_with_exception
 
   validates :turn_id, uniqueness: true
+  validate :wait_reason_payload_must_be_hash
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :turn_conversation_match
   validate :one_active_workflow_per_conversation
+  validate :wait_state_consistency
 
   private
 
@@ -54,5 +70,26 @@ class WorkflowRun < ApplicationRecord
     return unless existing_active
 
     errors.add(:conversation, "already has an active workflow")
+  end
+
+  def wait_reason_payload_must_be_hash
+    errors.add(:wait_reason_payload, "must be a hash") unless wait_reason_payload.is_a?(Hash)
+  end
+
+  def wait_state_consistency
+    if waiting?
+      errors.add(:wait_reason_kind, "must exist when workflow run is waiting") if wait_reason_kind.blank?
+      errors.add(:waiting_since_at, "must exist when workflow run is waiting") if waiting_since_at.blank?
+    else
+      errors.add(:wait_reason_payload, "must be empty when workflow run is ready") if wait_reason_payload.present?
+      errors.add(:wait_reason_kind, "must be blank when workflow run is ready") if wait_reason_kind.present?
+      errors.add(:waiting_since_at, "must be blank when workflow run is ready") if waiting_since_at.present?
+      errors.add(:blocking_resource_type, "must be blank when workflow run is ready") if blocking_resource_type.present?
+      errors.add(:blocking_resource_id, "must be blank when workflow run is ready") if blocking_resource_id.present?
+    end
+
+    if blocking_resource_type.present? ^ blocking_resource_id.present?
+      errors.add(:blocking_resource_id, "must be paired with blocking resource type")
+    end
   end
 end
