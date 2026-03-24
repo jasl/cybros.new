@@ -32,6 +32,15 @@ During implementation, keep code, tests, and plan documents aligned in the same 
 - if the issue changes approved architecture, product semantics, or business logic in a material way and cannot be resolved from the existing design, stop and escalate for discussion before continuing
 - do not leave known doc-code mismatches behind for a later cleanup pass
 
+## Behavior Documentation Rule
+
+During implementation, maintain module-level behavior documents as a durable factual source alongside plans and code:
+
+- write or update behavior docs for every implemented module or cohesive subsystem under the owning product docs tree, such as `core_matrix/docs/behavior/...` or `agents/fenix/docs/behavior/...`
+- behavior docs should describe observable behavior, invariants, inputs and outputs, side effects, lifecycle or state transitions, failure modes, and integration boundaries
+- treat behavior docs as factual review inputs, not as optional polish or a later documentation pass
+- an execution unit is not complete until the active task document, the behavior doc, the code, and the tests all agree
+
 ## Reference Benchmarks
 
 Use these reference projects as non-authoritative comparison points during implementation and validation:
@@ -58,6 +67,8 @@ The topical design notes `docs/plans/2026-03-24-core-matrix-model-role-resolutio
 - Keep `Workspace` private and `Publication` read-only.
 - Preserve the required conversation runtime baseline: attachments, imports, summary segments, visibility overlays, queued turns, steer-before-side-effect, variant pointers, workflow event streams, leases, timeouts, background-service control, archive lifecycle, automation conversation purpose, turn-origin metadata, conversation events, human-interaction requests, and canonical variables.
 - Keep the provider catalog config-backed. Do not build provider-model tables in SQL.
+- Fully reuse already-landed infrastructure when implementing later phases. If an existing abstraction is close but insufficient, refactor or extend it instead of building a parallel wheel.
+- Maintain orthogonality and consistency across naming, ownership boundaries, state models, protocols, and documentation.
 - Route audited installation and runtime mutations through explicit services rather than ad hoc model saves.
 - Require both unit tests and integration tests for every major flow.
 - Allow minimal machine-facing controllers and request tests only where needed for M2M runtime validation, canonical transcript access, canonical variable access, or human-interaction intent submission.
@@ -66,6 +77,7 @@ The topical design notes `docs/plans/2026-03-24-core-matrix-model-role-resolutio
 - Finish with a real `bin/dev` validation pass, not just automated tests.
 - For every execution unit, inspect the most relevant reference benchmark slices before implementation and again before final verification.
 - For every execution unit, perform at least two full review passes against the active task document plus the greenfield design; if any gap is found, fix it, rerun the relevant tests, and repeat until both passes are clean.
+- For every execution unit, update the relevant behavior docs in the owning product docs tree and include them in the self-review loop.
 - At the end of every phase, review the landed code against Ruby and Rails best practices: layered boundaries, service and query placement, Active Record associations and validations, callback restraint, naming consistency, and test clarity.
 - Commit after each finished task or subtask.
 
@@ -79,7 +91,8 @@ At the end of each task or subtask, perform these audits before continuing:
 4. Checklist audit: if the task introduced or changed a manually testable flow, update `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md` inside the same task once that flow is independently reproducible; if it is not independently reproducible yet, carry the checklist delta into the first later verification subtask that makes the full flow reproducible.
 5. Reference audit: compare the implemented behavior against the most relevant reference benchmarks; follow this plan when intentional differences exist and record the difference in the task review notes.
 6. Design-conformance audit: review the implementation against the active execution-unit document and the greenfield design twice, fixing every mismatch before continuing.
-7. Rails-quality audit: check that the implementation still uses thin controllers, explicit services and queries, clear model responsibilities, and Rails-native patterns instead of ad hoc framework invention.
+7. Behavior-doc audit: update the owning product behavior docs and verify they match the task document, the code, and the tests.
+8. Rails-quality audit: check that the implementation still uses thin controllers, explicit services and queries, clear model responsibilities, and Rails-native patterns instead of ad hoc framework invention.
 
 If any audit fails, fix it inside the same task before moving on.
 
