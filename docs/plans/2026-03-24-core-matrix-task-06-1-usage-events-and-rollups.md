@@ -93,3 +93,41 @@ Do not implement these items in this task:
 - execution profiling facts
 - read-side usage summary queries
 - runtime-resource-specific foreign-key coupling
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added `UsageEvent` and `UsageRollup` tables and models
+  - added `ProviderUsage::RecordEvent` and `ProviderUsage::ProjectRollups`
+  - added `core_matrix/docs/behavior/provider-usage-events-and-rollups.md`
+  - added targeted model, service, and integration coverage for dimensions,
+    token and media usage, bucket projection, and rollup uniqueness
+- plan alignment notes:
+  - the task kept runtime-resource coupling loose by using nullable generic
+    conversation, turn, and workflow node references instead of future hard
+    foreign keys
+  - rollups stayed derived and did not replace detailed usage events as the
+    truth source
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/usage_event_test.rb test/models/usage_rollup_test.rb test/services/provider_usage/record_event_test.rb test/services/provider_usage/project_rollups_test.rb test/integration/provider_usage_rollup_flow_test.rb`
+    passed with `7 runs, 29 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is an internal accounting substrate covered by automated tests
+- retained findings:
+  - rollup uniqueness is more robust with a `dimension_digest` than with a
+    huge unique index over nullable dimension columns
+  - usage events intentionally preserve provider and model strings as observed
+    runtime facts instead of revalidating them against the current catalog,
+    which helps preserve historical correctness when catalogs drift
+  - reference sanity check from
+    `references/original/references/openclaw/scripts/cron_usage_report.ts`:
+    reporting projections should read from detailed usage facts instead of
+    replacing them
+- carry-forward notes:
+  - Task 06.2 should keep execution profiling facts separate from provider
+    usage rows even when they later join for analysis
+  - later quota and entitlement work should consult rollups as projections but
+    keep detailed `UsageEvent` rows as the underlying truth source

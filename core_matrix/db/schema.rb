@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090015) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090017) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -230,6 +230,70 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090015) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "usage_events", force: :cascade do |t|
+    t.bigint "agent_deployment_id"
+    t.bigint "agent_installation_id"
+    t.bigint "conversation_id"
+    t.datetime "created_at", null: false
+    t.string "entitlement_window_key"
+    t.decimal "estimated_cost", precision: 12, scale: 6
+    t.integer "input_tokens"
+    t.bigint "installation_id", null: false
+    t.integer "latency_ms"
+    t.integer "media_units"
+    t.string "model_ref", null: false
+    t.datetime "occurred_at", null: false
+    t.string "operation_kind", null: false
+    t.integer "output_tokens"
+    t.string "provider_handle", null: false
+    t.boolean "success", null: false
+    t.bigint "turn_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.string "workflow_node_key"
+    t.bigint "workspace_id"
+    t.index ["agent_deployment_id"], name: "index_usage_events_on_agent_deployment_id"
+    t.index ["agent_installation_id"], name: "index_usage_events_on_agent_installation_id"
+    t.index ["installation_id", "occurred_at"], name: "index_usage_events_on_installation_id_and_occurred_at"
+    t.index ["installation_id"], name: "index_usage_events_on_installation_id"
+    t.index ["provider_handle", "model_ref"], name: "index_usage_events_on_provider_handle_and_model_ref"
+    t.index ["user_id"], name: "index_usage_events_on_user_id"
+    t.index ["workspace_id"], name: "index_usage_events_on_workspace_id"
+  end
+
+  create_table "usage_rollups", force: :cascade do |t|
+    t.bigint "agent_deployment_id"
+    t.bigint "agent_installation_id"
+    t.string "bucket_key", null: false
+    t.string "bucket_kind", null: false
+    t.bigint "conversation_id"
+    t.datetime "created_at", null: false
+    t.string "dimension_digest", null: false
+    t.decimal "estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
+    t.integer "event_count", default: 0, null: false
+    t.integer "failure_count", default: 0, null: false
+    t.integer "input_tokens_total", default: 0, null: false
+    t.bigint "installation_id", null: false
+    t.integer "media_units_total", default: 0, null: false
+    t.string "model_ref", null: false
+    t.string "operation_kind", null: false
+    t.integer "output_tokens_total", default: 0, null: false
+    t.string "provider_handle", null: false
+    t.integer "success_count", default: 0, null: false
+    t.integer "total_latency_ms", default: 0, null: false
+    t.bigint "turn_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.string "workflow_node_key"
+    t.bigint "workspace_id"
+    t.index ["agent_deployment_id"], name: "index_usage_rollups_on_agent_deployment_id"
+    t.index ["agent_installation_id"], name: "index_usage_rollups_on_agent_installation_id"
+    t.index ["installation_id", "bucket_kind", "bucket_key", "dimension_digest"], name: "idx_usage_rollups_installation_bucket_dimension", unique: true
+    t.index ["installation_id"], name: "index_usage_rollups_on_installation_id"
+    t.index ["user_id"], name: "index_usage_rollups_on_user_id"
+    t.index ["workspace_id"], name: "index_usage_rollups_on_workspace_id"
+  end
+
   create_table "user_agent_bindings", force: :cascade do |t|
     t.bigint "agent_installation_id", null: false
     t.datetime "created_at", null: false
@@ -293,6 +357,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090015) do
   add_foreign_key "provider_policies", "installations"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
+  add_foreign_key "usage_events", "agent_deployments"
+  add_foreign_key "usage_events", "agent_installations"
+  add_foreign_key "usage_events", "installations"
+  add_foreign_key "usage_events", "users"
+  add_foreign_key "usage_events", "workspaces"
+  add_foreign_key "usage_rollups", "agent_deployments"
+  add_foreign_key "usage_rollups", "agent_installations"
+  add_foreign_key "usage_rollups", "installations"
+  add_foreign_key "usage_rollups", "users"
+  add_foreign_key "usage_rollups", "workspaces"
   add_foreign_key "user_agent_bindings", "agent_installations"
   add_foreign_key "user_agent_bindings", "installations"
   add_foreign_key "user_agent_bindings", "users"
