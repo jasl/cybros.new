@@ -1,4 +1,5 @@
 require "active_support/testing/time_helpers"
+require "digest"
 
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
@@ -49,6 +50,65 @@ module ActiveSupport
         role: role,
         display_name: display_name,
         preferences: {},
+      }.merge(attrs))
+    end
+
+    def create_agent_installation!(installation: create_installation!, visibility: "global", owner_user: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", **attrs)
+      AgentInstallation.create!({
+        installation: installation,
+        visibility: visibility,
+        owner_user: owner_user,
+        key: key,
+        display_name: display_name,
+        lifecycle_state: lifecycle_state,
+      }.merge(attrs))
+    end
+
+    def create_execution_environment!(installation: create_installation!, kind: "local", connection_metadata: {}, lifecycle_state: "active", **attrs)
+      ExecutionEnvironment.create!({
+        installation: installation,
+        kind: kind,
+        connection_metadata: connection_metadata,
+        lifecycle_state: lifecycle_state,
+      }.merge(attrs))
+    end
+
+    def create_agent_enrollment!(installation: create_installation!, agent_installation: create_agent_installation!(installation: installation), expires_at: 1.hour.from_now, consumed_at: nil, **attrs)
+      AgentEnrollment.create!({
+        installation: installation,
+        agent_installation: agent_installation,
+        token_digest: ::Digest::SHA256.hexdigest("enrollment-#{next_test_sequence}"),
+        expires_at: expires_at,
+        consumed_at: consumed_at,
+      }.merge(attrs))
+    end
+
+    def create_agent_deployment!(installation: create_installation!, agent_installation: create_agent_installation!(installation: installation), execution_environment: create_execution_environment!(installation: installation), fingerprint: "fp-#{next_test_sequence}", endpoint_metadata: {}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", machine_credential_digest: ::Digest::SHA256.hexdigest("machine-#{next_test_sequence}"), health_status: "healthy", health_metadata: {}, bootstrap_state: "active", last_heartbeat_at: Time.current, **attrs)
+      AgentDeployment.create!({
+        installation: installation,
+        agent_installation: agent_installation,
+        execution_environment: execution_environment,
+        fingerprint: fingerprint,
+        endpoint_metadata: endpoint_metadata,
+        protocol_version: protocol_version,
+        sdk_version: sdk_version,
+        machine_credential_digest: machine_credential_digest,
+        health_status: health_status,
+        health_metadata: health_metadata,
+        bootstrap_state: bootstrap_state,
+        last_heartbeat_at: last_heartbeat_at,
+      }.merge(attrs))
+    end
+
+    def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: [{ "method_id" => "agent_health" }], tool_catalog: [{ "tool_name" => "shell_exec" }], config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
+      CapabilitySnapshot.create!({
+        agent_deployment: agent_deployment,
+        version: version,
+        protocol_methods: protocol_methods,
+        tool_catalog: tool_catalog,
+        config_schema_snapshot: config_schema_snapshot,
+        conversation_override_schema_snapshot: conversation_override_schema_snapshot,
+        default_config_snapshot: default_config_snapshot,
       }.merge(attrs))
     end
   end

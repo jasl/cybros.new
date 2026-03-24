@@ -5,6 +5,7 @@ class User < ApplicationRecord
   belongs_to :identity
 
   has_many :issued_invitations, class_name: "Invitation", foreign_key: :inviter_id, dependent: :restrict_with_exception, inverse_of: :inviter
+  has_many :owned_agent_installations, class_name: "AgentInstallation", foreign_key: :owner_user_id, dependent: :nullify, inverse_of: :owner_user
   has_many :sessions, dependent: :destroy
 
   validates :role, presence: true, inclusion: { in: ROLES }

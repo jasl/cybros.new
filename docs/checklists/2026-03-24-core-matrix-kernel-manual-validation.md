@@ -138,3 +138,36 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 ```bash
 bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
+
+## Agent Enrollment, Registration, And Heartbeat
+
+- goal:
+  verify enrollment issuance mints a one-time token, registration creates a
+  pending deployment plus capability snapshot, and the first healthy heartbeat
+  activates the deployment
+- prerequisites:
+  - `cd core_matrix`
+  - `bin/rails db:migrate`
+  - development database can be reset for this flow
+- exact commands:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "fenix", display_name: "Bundled Fenix", lifecycle_state: "active"); environment = ExecutionEnvironment.create!(installation: bootstrap.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, lifecycle_state: "active"); enrollment = AgentEnrollments::Issue.call(agent_installation: agent_installation, actor: bootstrap.user, expires_at: 2.hours.from_now); registration = AgentDeployments::Register.call(enrollment_token: enrollment.plaintext_token, execution_environment: environment, fingerprint: "fenix-machine-001", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "builtin"}], config_schema_snapshot: {"type" => "object", "properties" => {}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write"}); AgentDeployments::RecordHeartbeat.call(deployment: registration.deployment, health_status: "healthy", health_metadata: {"latency_ms" => 45}, auto_resume_eligible: true); puts({enrollment_consumed: registration.enrollment.reload.consumed_at.present?, deployment_state: registration.deployment.reload.bootstrap_state, health_status: registration.deployment.health_status, capability_versions: registration.deployment.capability_snapshots.order(:version).pluck(:version), audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
+```
+
+- expected rows or state changes:
+  - one `agent_enrollments` row exists and has `consumed_at` set
+  - one `agent_deployments` row exists with `bootstrap_state = "active"`
+  - one `capability_snapshots` row exists with `version = 1`
+  - `audit_logs` includes `agent_enrollment.issued` and
+    `agent_deployment.registered`
+- expected logs or visible outcomes:
+  - JSON output reports `enrollment_consumed: true`
+  - JSON output reports `deployment_state: "active"`
+  - JSON output reports `health_status: "healthy"`
+  - JSON output reports `capability_versions: [1]`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```

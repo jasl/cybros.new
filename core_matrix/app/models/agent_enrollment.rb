@@ -1,0 +1,67 @@
+require "digest"
+require "securerandom"
+
+class AgentEnrollment < ApplicationRecord
+  attr_reader :plaintext_token
+
+  belongs_to :installation
+  belongs_to :agent_installation
+
+  validates :token_digest, presence: true, uniqueness: true
+  validates :expires_at, presence: true
+  validate :agent_installation_installation_match
+
+  def self.issue!(installation:, agent_installation:, expires_at:)
+    token, digest = generate_unique_token_pair
+    enrollment = create!(
+      installation: installation,
+      agent_installation: agent_installation,
+      token_digest: digest,
+      expires_at: expires_at
+    )
+    enrollment.instance_variable_set(:@plaintext_token, token)
+    enrollment
+  end
+
+  def self.find_by_plaintext_token(token)
+    return if token.blank?
+
+    find_by(token_digest: digest_token(token))
+  end
+
+  def self.digest_token(token)
+    Digest::SHA256.hexdigest(token.to_s)
+  end
+
+  def matches_token?(token)
+    self.class.digest_token(token) == token_digest
+  end
+
+  def consumed? = consumed_at.present?
+
+  def expired? = expires_at <= Time.current
+
+  def active? = !consumed? && !expired?
+
+  def consume!
+    update!(consumed_at: Time.current)
+  end
+
+  private
+
+  def self.generate_unique_token_pair
+    loop do
+      token = SecureRandom.hex(32)
+      digest = digest_token(token)
+      return [token, digest] unless exists?(token_digest: digest)
+    end
+  end
+  private_class_method :generate_unique_token_pair
+
+  def agent_installation_installation_match
+    return if agent_installation.blank?
+    return if agent_installation.installation_id == installation_id
+
+    errors.add(:agent_installation, "must belong to the same installation")
+  end
+end

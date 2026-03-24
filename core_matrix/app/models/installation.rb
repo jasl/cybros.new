@@ -4,6 +4,10 @@ class Installation < ApplicationRecord
   has_many :users, dependent: :destroy
   has_many :invitations, dependent: :destroy
   has_many :audit_logs, dependent: :destroy
+  has_many :agent_installations, dependent: :destroy
+  has_many :execution_environments, dependent: :destroy
+  has_many :agent_enrollments, dependent: :destroy
+  has_many :agent_deployments, dependent: :destroy
 
   validates :name, presence: true
   validates :bootstrap_state, presence: true, inclusion: { in: BOOTSTRAP_STATES }
