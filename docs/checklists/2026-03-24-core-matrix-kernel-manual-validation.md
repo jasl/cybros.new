@@ -202,3 +202,41 @@ bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil)
 ```bash
 bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
+
+## Bundled Fenix Auto-Registration And First-Admin Auto-Binding
+
+- goal:
+  verify bundled bootstrap is opt-in, reconciles bundled runtime rows before
+  binding, and reuses the same logical and deployment rows on repeated
+  reconciliation
+- prerequisites:
+  - `cd core_matrix`
+  - `bin/rails db:migrate`
+  - development database can be reset for this flow
+- exact commands:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bundled_configuration = {enabled: true, agent_key: "fenix", display_name: "Bundled Fenix", visibility: "global", lifecycle_state: "active", environment_kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, fingerprint: "bundled-fenix-runtime", protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "builtin"}], config_schema_snapshot: {"type" => "object", "properties" => {}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write"}}; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin", bundled_agent_configuration: bundled_configuration); first_registry = Installations::RegisterBundledAgentRuntime.call(installation: bootstrap.installation, configuration: bundled_configuration); second_registry = Installations::RegisterBundledAgentRuntime.call(installation: bootstrap.installation, configuration: bundled_configuration); binding = UserAgentBinding.find_by!(user: bootstrap.user, agent_installation: first_registry.agent_installation); workspace = Workspace.find_by!(user_agent_binding: binding, is_default: true); puts({agent_installation_ids: [first_registry.agent_installation.id, second_registry.agent_installation.id], deployment_ids: [first_registry.deployment.id, second_registry.deployment.id], agent_count: AgentInstallation.count, deployment_count: AgentDeployment.count, snapshot_count: CapabilitySnapshot.count, binding_count: UserAgentBinding.count, workspace_count: Workspace.count, workspace_private: workspace.private_workspace?}.to_json)'
+```
+
+- expected rows or state changes:
+  - first-admin bootstrap creates one bundled `agent_installations` row with
+    key `fenix`
+  - one `execution_environments` row and one active `agent_deployments` row
+    exist for the bundled runtime
+  - one `user_agent_bindings` row and one default `workspaces` row exist for
+    the first admin
+  - repeated bundled runtime reconciliation does not duplicate logical or
+    deployment rows
+- expected logs or visible outcomes:
+  - JSON output reports identical `agent_installation_ids`
+  - JSON output reports identical `deployment_ids`
+  - JSON output reports `agent_count: 1`
+  - JSON output reports `deployment_count: 1`
+  - JSON output reports `snapshot_count: 1`
+  - JSON output reports `workspace_private: true`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```

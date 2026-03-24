@@ -8,12 +8,13 @@ module Installations
       new(...).call
     end
 
-    def initialize(name:, email:, password:, password_confirmation:, display_name:)
+    def initialize(name:, email:, password:, password_confirmation:, display_name:, bundled_agent_configuration: Rails.configuration.x.bundled_agent)
       @name = name
       @email = email
       @password = password
       @password_confirmation = password_confirmation
       @display_name = display_name
+      @bundled_agent_configuration = bundled_agent_configuration
     end
 
     def call
@@ -45,6 +46,11 @@ module Installations
           action: "installation.bootstrapped",
           subject: installation,
           metadata: {}
+        )
+        Installations::BootstrapBundledAgentBinding.call(
+          installation: installation,
+          user: user,
+          configuration: @bundled_agent_configuration
         )
 
         Result.new(installation: installation, identity: identity, user: user)

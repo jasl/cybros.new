@@ -131,5 +131,41 @@ module ActiveSupport
         is_default: is_default,
       }.merge(attrs))
     end
+
+    def bundled_agent_configuration(enabled: true, **attrs)
+      {
+        enabled: enabled,
+        agent_key: "fenix",
+        display_name: "Bundled Fenix",
+        visibility: "global",
+        lifecycle_state: "active",
+        environment_kind: "local",
+        connection_metadata: {
+          "transport" => "http",
+          "base_url" => "http://127.0.0.1:4100",
+        },
+        fingerprint: "bundled-fenix-runtime",
+        protocol_version: "2026-03-24",
+        sdk_version: "fenix-0.1.0",
+        protocol_methods: [
+          { "method_id" => "agent_health" },
+          { "method_id" => "capabilities_handshake" },
+        ],
+        tool_catalog: [
+          { "tool_name" => "shell_exec", "tool_kind" => "builtin" },
+        ],
+        config_schema_snapshot: {
+          "type" => "object",
+          "properties" => {},
+        },
+        conversation_override_schema_snapshot: {
+          "type" => "object",
+          "properties" => {},
+        },
+        default_config_snapshot: {
+          "sandbox" => "workspace-write",
+        },
+      }.merge(attrs)
+    end
   end
 end
