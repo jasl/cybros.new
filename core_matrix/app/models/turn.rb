@@ -55,6 +55,48 @@ class Turn < ApplicationRecord
     resolved_model_selection_snapshot["resolved_role_name"]
   end
 
+  def effective_config_snapshot
+    return resolved_config_snapshot["config"] if resolved_config_snapshot.key?("config")
+
+    resolved_config_snapshot
+  end
+
+  def execution_context
+    resolved_config_snapshot.fetch("execution_context", {})
+  end
+
+  def execution_identity
+    execution_context.fetch("identity", {})
+  end
+
+  def turn_origin_context
+    execution_context.fetch("turn_origin", {})
+  end
+
+  def context_messages
+    execution_context.fetch("context_messages", [])
+  end
+
+  def context_imports
+    execution_context.fetch("context_imports", [])
+  end
+
+  def attachment_manifest
+    execution_context.fetch("attachment_manifest", [])
+  end
+
+  def runtime_attachment_manifest
+    execution_context.fetch("runtime_attachment_manifest", [])
+  end
+
+  def model_input_attachments
+    execution_context.fetch("model_input_attachments", [])
+  end
+
+  def attachment_diagnostics
+    execution_context.fetch("attachment_diagnostics", [])
+  end
+
   def tail_in_active_timeline?
     conversation.turns
       .where("sequence > ?", sequence)

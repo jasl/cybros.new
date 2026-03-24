@@ -8,8 +8,14 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       conversation: conversation,
       content: "Input",
       agent_deployment: context[:agent_deployment],
-      resolved_config_snapshot: {},
+      resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
+    )
+    attachment = create_message_attachment!(
+      message: turn.selected_input_message,
+      filename: "brief.pdf",
+      content_type: "application/pdf",
+      body: "brief"
     )
 
     workflow_run = Workflows::CreateForTurn.call(
@@ -28,6 +34,11 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal "role:main", turn.reload.resolved_model_selection_snapshot["normalized_selector"]
     assert_equal "codex_subscription", workflow_run.resolved_provider_handle
     assert_equal "gpt-5.4", workflow_run.resolved_model_ref
+    assert_equal({ "temperature" => 0.2 }, turn.effective_config_snapshot)
+    assert_equal context[:user].id.to_s, turn.execution_identity["user_id"]
+    assert_equal context[:workspace].id.to_s, workflow_run.execution_identity["workspace_id"]
+    assert_equal [attachment.id.to_s], turn.runtime_attachment_manifest.map { |item| item.fetch("attachment_id") }
+    assert_equal [attachment.id.to_s], workflow_run.model_input_attachments.map { |item| item.fetch("attachment_id") }
   end
 
   test "rejects a second active workflow in the same conversation" do

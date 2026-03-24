@@ -19,6 +19,7 @@ module Workflows
           selector_source: "conversation"
         )
         @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
+        @turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: @turn))
 
         workflow_run = WorkflowRun.create!(
           installation: @turn.installation,

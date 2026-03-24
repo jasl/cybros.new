@@ -250,7 +250,7 @@ module ActiveSupport
       message
     end
 
-    def create_message_attachment!(message:, installation: message.installation, conversation: message.conversation, origin_attachment: nil, origin_message: origin_attachment&.origin_message || origin_attachment&.message, filename: "attachment-#{next_test_sequence}.txt", content_type: "text/plain", body: "attachment body", **attrs)
+    def create_message_attachment!(message:, installation: message.installation, conversation: message.conversation, origin_attachment: nil, origin_message: origin_attachment&.origin_message || origin_attachment&.message, filename: "attachment-#{next_test_sequence}.txt", content_type: "text/plain", body: "attachment body", identify: true, **attrs)
       attachment = MessageAttachment.new({
         installation: installation,
         conversation: conversation,
@@ -262,7 +262,8 @@ module ActiveSupport
       attachment.file.attach(
         io: StringIO.new(body),
         filename: filename,
-        content_type: content_type
+        content_type: content_type,
+        identify: identify
       )
       attachment.save!
       attachment

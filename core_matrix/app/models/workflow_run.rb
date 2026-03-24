@@ -33,6 +33,11 @@ class WorkflowRun < ApplicationRecord
     :resolved_provider_handle,
     :resolved_model_ref,
     :resolved_role_name,
+    :execution_identity,
+    :attachment_manifest,
+    :runtime_attachment_manifest,
+    :model_input_attachments,
+    :attachment_diagnostics,
     to: :turn,
     allow_nil: true
 

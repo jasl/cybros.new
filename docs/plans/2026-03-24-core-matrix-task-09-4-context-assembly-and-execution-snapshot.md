@@ -97,3 +97,62 @@ Do not implement these items in this task:
 - workflow-node side-effect execution
 - machine-facing protocol controllers
 - publication rendering
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add workflow context assembly` task
+    commit
+- actual landed scope:
+  - added `Workflows::ContextAssembler` to freeze wrapped execution snapshots on
+    `Turn.resolved_config_snapshot`
+  - extended `Turn` with helpers for effective config, execution identity,
+    origin context, context messages, imports, attachment manifest, runtime
+    attachment manifest, model input attachments, and attachment diagnostics
+  - extended `WorkflowRun` with delegated execution-identity and attachment
+    projection helpers sourced from the owning turn
+  - updated `Workflows::CreateForTurn` so selector resolution is followed by
+    context assembly before the workflow run row is created
+  - added targeted service and integration coverage for transcript-tail context
+    assembly, automation turns without selected input messages, local import and
+    summary inclusion, branch-ineligible attachment exclusion, runtime-only
+    unsupported attachments, and preserved execution identity
+  - added `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
+- plan alignment notes:
+  - context assembly remains bounded to the current conversation projection and
+    local import rows; it does not walk a global conversation DAG
+  - the canonical attachment store is now a frozen per-turn manifest, with
+    runtime and model-facing projections derived from it
+  - unsupported attachments remain available to runtime tooling but are not
+    serialized as if the model consumed them
+  - automation-origin turns now preserve trigger metadata in the execution
+    snapshot instead of assuming a user input message exists
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/turn_test.rb test/services/workflows/create_for_turn_test.rb test/services/workflows/context_assembler_test.rb test/integration/workflow_context_flow_test.rb`
+    passed with `9 runs, 56 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual-checklist delta was retained for this task because the landed
+    behavior is execution snapshot projection and attachment gating covered by
+    automated tests
+- retained findings:
+  - without a new schema surface, the cleanest v1 fit was to wrap
+    `resolved_config_snapshot` into `{ config, execution_context }` so config
+    state stays distinguishable from assembled runtime context
+  - branch eligibility and visibility rules were already encoded in
+    `Conversation#context_projection_messages`, so 09.4 could reuse that local
+    projection instead of inventing a second attachment-visibility algorithm
+  - context assembly needs explicit diagnostics for unsupported modalities even
+    when runtime tooling may still use the attachment
+  - Dify was useful as a sanity check for separating file prompt injection from
+    current workflow rendering, but Core Matrix keeps the stronger local rule
+    that a canonical attachment manifest is frozen before runtime and model
+    projections are derived
+- carry-forward notes:
+  - later runtime event-stream work should project `attachment_diagnostics` into
+    workflow-node or conversation-visible event rows without changing the frozen
+    execution snapshot
+  - future protocol-controller tasks should expose the same execution identity
+    and runtime attachment refs already frozen here, rather than recomputing
+    them ad hoc from live conversation state
