@@ -36,6 +36,7 @@ class Conversation < ApplicationRecord
   has_many :conversation_message_visibilities, dependent: :restrict_with_exception
   has_many :conversation_summary_segments, dependent: :restrict_with_exception
   has_many :conversation_events, dependent: :restrict_with_exception
+  has_many :canonical_variables, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :workflow_runs, dependent: :restrict_with_exception
   has_many :child_conversations,

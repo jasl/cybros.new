@@ -340,5 +340,24 @@ module ActiveSupport
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
       }.merge(context)
     end
+
+    def build_canonical_variable_context!
+      context = create_workspace_context!
+      conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+      turn = Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Canonical variable input",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+      workflow_run = create_workflow_run!(turn: turn)
+
+      {
+        conversation: conversation,
+        turn: turn,
+        workflow_run: workflow_run,
+      }.merge(context)
+    end
   end
 end

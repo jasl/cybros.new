@@ -90,3 +90,59 @@ Do not implement these items in this task:
 - machine-facing variable APIs
 - publication read models
 - any additional scope beyond `workspace` and `conversation`
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add canonical variable history` task
+    commit
+- actual landed scope:
+  - added `CanonicalVariable` as a durable history row with explicit scope,
+    typed payload, writer identity, source metadata, projection policy, and
+    supersession linkage
+  - added `Variables::Write` as the kernel-owned write boundary for current-row
+    supersession without history deletion
+  - added `Variables::PromoteToWorkspace` as the explicit conversation-to-
+    workspace promotion boundary
+  - added `CanonicalVariable.effective_for` for the v1
+    `conversation > workspace` precedence rule used by tests and follow-up work
+  - added targeted model, service, and integration coverage for scope legality,
+    supersession history retention, explicit promotion, and effective lookup
+  - added
+    `core_matrix/docs/behavior/canonical-variable-history-and-promotion.md`
+- plan alignment notes:
+  - canonical values remain restricted to `workspace` and `conversation` scope
+    in v1
+  - new accepted values supersede earlier current values instead of mutating or
+    deleting them in place
+  - promotion is explicit and creates a new workspace-scoped durable row; it
+    does not rewrite the conversation-scoped source row
+  - projection policy is now persisted on canonical writes without pre-
+    implementing the later read-model or projection API layer
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/canonical_variable_test.rb test/services/variables/write_test.rb test/services/variables/promote_to_workspace_test.rb test/integration/canonical_variable_flow_test.rb`
+    passed with `4 runs, 31 assertions, 0 failures, 0 errors`
+  - `cd core_matrix && bin/rails test test/services/variables test/services/human_interactions test/services/conversation_events test/services/processes test/services/workflows test/integration/canonical_variable_flow_test.rb test/integration/human_interaction_flow_test.rb test/integration/workflow_graph_flow_test.rb test/integration/workflow_scheduler_flow_test.rb test/integration/workflow_selector_flow_test.rb test/integration/workflow_context_flow_test.rb test/integration/runtime_process_flow_test.rb test/models/canonical_variable_test.rb test/models/human_interaction_request_test.rb test/models/approval_request_test.rb test/models/human_form_request_test.rb test/models/human_task_request_test.rb test/models/conversation_event_test.rb test/models/process_run_test.rb test/models/workflow_artifact_test.rb test/models/workflow_node_event_test.rb test/models/workflow_run_test.rb test/models/turn_test.rb`
+    passed with `50 runs, 291 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual-checklist delta was retained for this task because the landed
+    behavior is canonical history and supersession semantics covered by
+    automated tests
+- retained findings:
+  - supersession needed to be handled in the write service rather than through a
+    direct insert-then-update pattern because the partial current-value unique
+    indexes would otherwise reject concurrent current rows
+  - a simple `effective_for` helper was enough to preserve the design's
+    `conversation > workspace` precedence rule without prebuilding the later
+    machine-facing variable API
+  - Dify was useful only as a narrow sanity check for keeping conversation
+    variables in a distinct scope space; Core Matrix intentionally keeps the
+    stronger contract of explicit scope plus durable history
+- carry-forward notes:
+  - later variable APIs should resolve from the durable canonical store instead
+    of bypassing it with raw process-local caches
+  - future projection work may choose to emit `ConversationEvent` rows for
+    user-significant canonical changes based on the persisted `projection_policy`
+    rather than ad hoc caller behavior

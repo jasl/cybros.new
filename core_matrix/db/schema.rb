@@ -115,6 +115,37 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
     t.index ["subject_type", "subject_id"], name: "index_audit_logs_on_subject"
   end
 
+  create_table "canonical_variables", force: :cascade do |t|
+    t.bigint "conversation_id"
+    t.datetime "created_at", null: false
+    t.boolean "current", default: true, null: false
+    t.bigint "installation_id", null: false
+    t.string "key", null: false
+    t.string "projection_policy", default: "silent", null: false
+    t.string "scope", null: false
+    t.bigint "source_conversation_id"
+    t.string "source_kind", null: false
+    t.bigint "source_turn_id"
+    t.bigint "source_workflow_run_id"
+    t.datetime "superseded_at"
+    t.bigint "superseded_by_id"
+    t.jsonb "typed_value_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workspace_id", null: false
+    t.bigint "writer_id"
+    t.string "writer_type"
+    t.index ["conversation_id", "key"], name: "idx_canonical_variables_conversation_current", unique: true, where: "(((scope)::text = 'conversation'::text) AND (current = true))"
+    t.index ["conversation_id"], name: "index_canonical_variables_on_conversation_id"
+    t.index ["installation_id"], name: "index_canonical_variables_on_installation_id"
+    t.index ["source_conversation_id"], name: "index_canonical_variables_on_source_conversation_id"
+    t.index ["source_turn_id"], name: "index_canonical_variables_on_source_turn_id"
+    t.index ["source_workflow_run_id"], name: "index_canonical_variables_on_source_workflow_run_id"
+    t.index ["superseded_by_id"], name: "index_canonical_variables_on_superseded_by_id"
+    t.index ["workspace_id", "key"], name: "idx_canonical_variables_workspace_current", unique: true, where: "(((scope)::text = 'workspace'::text) AND (current = true))"
+    t.index ["workspace_id"], name: "index_canonical_variables_on_workspace_id"
+    t.index ["writer_type", "writer_id"], name: "idx_canonical_variables_writer"
+  end
+
   create_table "capability_snapshots", force: :cascade do |t|
     t.bigint "agent_deployment_id", null: false
     t.jsonb "config_schema_snapshot", default: {}, null: false
@@ -675,6 +706,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
   add_foreign_key "agent_installations", "installations"
   add_foreign_key "agent_installations", "users", column: "owner_user_id"
   add_foreign_key "audit_logs", "installations"
+  add_foreign_key "canonical_variables", "canonical_variables", column: "superseded_by_id"
+  add_foreign_key "canonical_variables", "conversations"
+  add_foreign_key "canonical_variables", "conversations", column: "source_conversation_id"
+  add_foreign_key "canonical_variables", "installations"
+  add_foreign_key "canonical_variables", "turns", column: "source_turn_id"
+  add_foreign_key "canonical_variables", "workflow_runs", column: "source_workflow_run_id"
+  add_foreign_key "canonical_variables", "workspaces"
   add_foreign_key "capability_snapshots", "agent_deployments"
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"

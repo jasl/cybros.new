@@ -5,6 +5,8 @@ class Workspace < ApplicationRecord
   belongs_to :user
   belongs_to :user_agent_binding
 
+  has_many :canonical_variables, dependent: :restrict_with_exception
+
   validates :name, presence: true
   validates :privacy, presence: true, inclusion: { in: PRIVACY_VALUES }
   validate :user_installation_match
