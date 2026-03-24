@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090012) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090015) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -173,6 +173,48 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090012) do
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
   end
 
+  create_table "provider_credentials", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "credential_kind", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "last_rotated_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "provider_handle", null: false
+    t.text "secret", null: false
+    t.datetime "updated_at", null: false
+    t.index ["installation_id", "provider_handle", "credential_kind"], name: "idx_provider_credentials_installation_provider_kind", unique: true
+    t.index ["installation_id"], name: "index_provider_credentials_on_installation_id"
+  end
+
+  create_table "provider_entitlements", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "entitlement_key", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "provider_handle", null: false
+    t.integer "quota_limit", null: false
+    t.datetime "updated_at", null: false
+    t.string "window_kind", null: false
+    t.integer "window_seconds"
+    t.index ["installation_id", "provider_handle", "entitlement_key"], name: "idx_provider_entitlements_installation_provider_key", unique: true
+    t.index ["installation_id"], name: "index_provider_entitlements_on_installation_id"
+  end
+
+  create_table "provider_policies", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.bigint "installation_id", null: false
+    t.integer "max_concurrent_requests"
+    t.string "provider_handle", null: false
+    t.jsonb "selection_defaults", default: {}, null: false
+    t.integer "throttle_limit"
+    t.integer "throttle_period_seconds"
+    t.datetime "updated_at", null: false
+    t.index ["installation_id", "provider_handle"], name: "index_provider_policies_on_installation_id_and_provider_handle", unique: true
+    t.index ["installation_id"], name: "index_provider_policies_on_installation_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
@@ -246,6 +288,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090012) do
   add_foreign_key "execution_environments", "installations"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
+  add_foreign_key "provider_credentials", "installations"
+  add_foreign_key "provider_entitlements", "installations"
+  add_foreign_key "provider_policies", "installations"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
   add_foreign_key "user_agent_bindings", "agent_installations"

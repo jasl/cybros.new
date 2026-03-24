@@ -101,3 +101,49 @@ Do not implement these items in this task:
 - provider usage events
 - execution profiling facts
 - runtime model selection logic
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added installation-scoped `ProviderCredential`,
+    `ProviderEntitlement`, and `ProviderPolicy` tables
+  - added audited upsert services for provider credentials, entitlements, and
+    policies
+  - anchored governance rows to Task 05.1 catalog provider handles instead of
+    introducing provider/model SQL catalog tables
+  - added `core_matrix/docs/behavior/provider-governance-models-and-services.md`
+  - added targeted model, service, and integration coverage for secrecy,
+    rolling-window entitlements, policy throttling, catalog-key validation, and
+    audit logging
+- plan alignment notes:
+  - the task stayed within governance-row scope and did not pre-implement usage
+    events, profiling facts, or execution-time selector logic
+  - secret material uses Rails Active Record Encryption, while provider
+    selection identity remains catalog-backed and explicit
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/provider_credential_test.rb test/models/provider_entitlement_test.rb test/models/provider_policy_test.rb test/services/provider_credentials/upsert_secret_test.rb test/services/provider_entitlements/upsert_test.rb test/services/provider_policies/upsert_test.rb test/integration/provider_governance_flow_test.rb`
+    passed with `13 runs, 52 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is an installation-governance data surface already covered by
+    automated tests
+- retained findings:
+  - provider governance facts belong in relational tables, but provider/model
+    catalog identity should stay config-backed and be referenced by key
+  - rolling five-hour entitlements are clearer when both the semantic
+    `window_kind` and the derived `window_seconds` are persisted explicitly
+  - reference sanity check from
+    `references/original/references/dify/api/services/entities/model_provider_entities.py`
+    and
+    `references/original/references/openclaw/src/node-host/runner.credentials.test.ts`:
+    keep volatile provider catalog metadata separate from secret-bearing
+    configuration state
+- carry-forward notes:
+  - Task 06.1 should treat entitlement rows as installation-governance facts
+    and build usage events and rollups around them instead of folding quota
+    state into the provider catalog
+  - later selector-resolution work should consult provider policy enablement,
+    credential availability, and entitlement availability without mutating the
+    catalog itself
