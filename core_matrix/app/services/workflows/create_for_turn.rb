@@ -4,19 +4,22 @@ module Workflows
       new(...).call
     end
 
-    def initialize(turn:, root_node_key:, root_node_type:, decision_source:, metadata:)
+    def initialize(turn:, root_node_key:, root_node_type:, decision_source:, metadata:, selector_source: "conversation", selector: nil)
       @turn = turn
       @root_node_key = root_node_key
       @root_node_type = root_node_type
       @decision_source = decision_source
       @metadata = metadata
+      @selector_source = selector_source
+      @selector = selector
     end
 
     def call
       ApplicationRecord.transaction do
         resolved_model_selection_snapshot = Workflows::ResolveModelSelector.call(
           turn: @turn,
-          selector_source: "conversation"
+          selector_source: @selector_source,
+          selector: @selector
         )
         @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
         @turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: @turn))

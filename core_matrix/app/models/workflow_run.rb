@@ -55,6 +55,16 @@ class WorkflowRun < ApplicationRecord
   validate :one_active_workflow_per_conversation
   validate :wait_state_consistency
 
+  def waiting_on_agent_unavailable?
+    waiting? && wait_reason_kind == "agent_unavailable"
+  end
+
+  def paused_agent_unavailable?
+    waiting? &&
+      wait_reason_kind == "manual_recovery_required" &&
+      wait_reason_payload["recovery_state"] == "paused_agent_unavailable"
+  end
+
   private
 
   def conversation_installation_match

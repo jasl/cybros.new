@@ -214,6 +214,64 @@ bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil)
 bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; ProviderEntitlement.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
 
+## Deployment Bootstrap And Recovery
+
+- goal:
+  verify the dummy runtime can register and heartbeat through the machine-facing
+  API, deployment bootstrap creates a system-owned workflow, transient outage
+  waits work, capability drift blocks auto-resume, and explicit retry starts a
+  fresh workflow without mutating durable selector config
+- prerequisites:
+  - `cd core_matrix`
+  - app server running locally at `http://127.0.0.1:3000`
+  - `ruby script/manual/dummy_agent_runtime.rb` available
+- exact commands:
+
+```bash
+export CORE_MATRIX_BASE_URL=http://127.0.0.1:3000
+export CORE_MATRIX_RUNTIME_BASE_URL=http://127.0.0.1:4100
+export STATE="$(bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; ProviderEntitlement.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "fenix", display_name: "Bundled Fenix", lifecycle_state: "active"); environment = ExecutionEnvironment.create!(installation: bootstrap.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => ENV.fetch("CORE_MATRIX_RUNTIME_BASE_URL", "http://127.0.0.1:4100")}, lifecycle_state: "active"); binding = UserAgentBindings::Enable.call(user: bootstrap.user, agent_installation: agent_installation).binding; workspace = binding.workspaces.find_by!(is_default: true); ProviderEntitlement.create!(installation: bootstrap.installation, provider_handle: "codex_subscription", entitlement_key: "shared_window", window_kind: "rolling_five_hours", window_seconds: 18000, quota_limit: 200000, active: true, metadata: {}); ProviderEntitlement.create!(installation: bootstrap.installation, provider_handle: "openai", entitlement_key: "shared_window", window_kind: "rolling_five_hours", window_seconds: 18000, quota_limit: 200000, active: true, metadata: {}); enrollment = AgentEnrollments::Issue.call(agent_installation: agent_installation, actor: bootstrap.user, expires_at: 2.hours.from_now); puts({workspace_id: workspace.id, agent_installation_id: agent_installation.id, execution_environment_id: environment.id, enrollment_token: enrollment.plaintext_token}.to_json)')"
+export CORE_MATRIX_ENROLLMENT_TOKEN="$(ruby -rjson -e 'puts JSON.parse(ARGV[0]).fetch("enrollment_token")' "$STATE")"
+export CORE_MATRIX_FINGERPRINT=manual-recovery-runtime
+REGISTERED="$(ruby script/manual/dummy_agent_runtime.rb register)"
+export CORE_MATRIX_MACHINE_CREDENTIAL="$(ruby -rjson -e 'puts JSON.parse(ARGV[0]).fetch("body").fetch("machine_credential")' "$REGISTERED")"
+ruby script/manual/dummy_agent_runtime.rb heartbeat
+ruby script/manual/dummy_agent_runtime.rb health
+bin/rails runner 'state = JSON.parse(ENV.fetch("STATE")); workspace = Workspace.find(state.fetch("workspace_id")); deployment = AgentDeployment.find_by!(fingerprint: ENV.fetch("CORE_MATRIX_FINGERPRINT")); bootstrap = AgentDeployments::Bootstrap.call(deployment: deployment, workspace: workspace, manifest_snapshot: {"seeded_skills" => ["shell_exec"]}); conversation = Conversations::CreateRoot.call(workspace: workspace); turn = Turns::StartUserTurn.call(conversation: conversation, content: "Recover this workflow", agent_deployment: deployment, resolved_config_snapshot: {}, resolved_model_selection_snapshot: {}); workflow_run = Workflows::CreateForTurn.call(turn: turn, root_node_key: "root", root_node_type: "turn_root", decision_source: "system", metadata: {}); AgentDeployments::MarkUnavailable.call(deployment: deployment, severity: "transient", reason: "heartbeat_missed", occurred_at: Time.current); drifted_snapshot = CapabilitySnapshot.create!(agent_deployment: deployment, version: deployment.capability_snapshots.maximum(:version).to_i + 1, protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}, {"method_id" => "conversation_transcript_list"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "kernel_primitive", "implementation_source" => "kernel", "implementation_ref" => "kernel/shell_exec", "input_schema" => {"type" => "object", "properties" => {}}, "result_schema" => {"type" => "object", "properties" => {}}, "streaming_support" => false, "idempotency_policy" => "best_effort"}, {"tool_name" => "workspace_variables_get", "tool_kind" => "agent_observation", "implementation_source" => "kernel", "implementation_ref" => "kernel/workspace_variables_get", "input_schema" => {"type" => "object", "properties" => {}}, "result_schema" => {"type" => "object", "properties" => {}}, "streaming_support" => false, "idempotency_policy" => "best_effort"}], config_schema_snapshot: {"type" => "object", "properties" => {"interactive" => {"type" => "object", "properties" => {"selector" => {"type" => "string"}}}}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write", "interactive" => {"selector" => "role:main"}}); deployment.update!(active_capability_snapshot: drifted_snapshot); AgentDeployments::RecordHeartbeat.call(deployment: deployment, health_status: "healthy", health_metadata: {}, auto_resume_eligible: true); auto_resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: deployment); deployment.update!(bootstrap_state: "superseded"); replacement_environment = ExecutionEnvironment.create!(installation: workspace.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4200"}, lifecycle_state: "active"); replacement = AgentDeployment.create!(installation: workspace.installation, agent_installation: deployment.agent_installation, execution_environment: replacement_environment, fingerprint: "manual-recovery-runtime-2", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4200"}, protocol_version: "2026-03-24", sdk_version: "dummy-runtime-0.1.1", machine_credential_digest: AgentDeployment.digest_machine_credential("replacement-runtime"), health_status: "healthy", health_metadata: {}, bootstrap_state: "active", auto_resume_eligible: true, last_heartbeat_at: Time.current); replacement_snapshot = CapabilitySnapshot.create!(agent_deployment: replacement, version: 1, protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}, {"method_id" => "conversation_transcript_list"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "kernel_primitive", "implementation_source" => "kernel", "implementation_ref" => "kernel/shell_exec", "input_schema" => {"type" => "object", "properties" => {}}, "result_schema" => {"type" => "object", "properties" => {}}, "streaming_support" => false, "idempotency_policy" => "best_effort"}, {"tool_name" => "workspace_variables_get", "tool_kind" => "agent_observation", "implementation_source" => "kernel", "implementation_ref" => "kernel/workspace_variables_get", "input_schema" => {"type" => "object", "properties" => {}}, "result_schema" => {"type" => "object", "properties" => {}}, "streaming_support" => false, "idempotency_policy" => "best_effort"}], config_schema_snapshot: {"type" => "object", "properties" => {"interactive" => {"type" => "object", "properties" => {"selector" => {"type" => "string"}}}}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write", "interactive" => {"selector" => "role:main"}}); replacement.update!(active_capability_snapshot: replacement_snapshot); retried = Workflows::ManualRetry.call(workflow_run: workflow_run.reload, deployment: replacement, actor: workspace.user, selector: "role:planner"); puts({bootstrap_node_keys: bootstrap.workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key), auto_resumed_ids: auto_resumed.map(&:id), paused_wait_reason: workflow_run.reload.wait_reason_kind, paused_recovery_state: workflow_run.wait_reason_payload["recovery_state"], retried_workflow_run_id: retried.id, retried_selector: retried.turn.normalized_selector, retried_provider: retried.turn.resolved_provider_handle, retried_model: retried.turn.resolved_model_ref, conversation_selector_mode: conversation.reload.interactive_selector_mode, audit_actions: AuditLog.order(:created_at).pluck(:action).last(4)}.to_json)'"
+```
+
+- expected rows or state changes:
+  - dummy runtime registration creates one pending deployment and returns one
+    machine credential
+  - heartbeat activates the deployment
+  - deployment bootstrap creates one automation conversation and one active
+    workflow with root node `deployment_bootstrap`
+  - transient outage moves the active workflow into `agent_unavailable`
+  - capability drift prevents auto-resume and escalates the workflow to
+    `manual_recovery_required`
+  - manual retry cancels the paused workflow and starts a fresh active workflow
+    on the replacement deployment
+  - conversation selector remains `auto`
+- expected logs or visible outcomes:
+  - `ruby script/manual/dummy_agent_runtime.rb register` reports
+    `status: 201`
+  - `ruby script/manual/dummy_agent_runtime.rb heartbeat` reports
+    `body.health_status: "healthy"`
+  - the final JSON output reports
+    `bootstrap_node_keys: ["deployment_bootstrap"]`
+  - the final JSON output reports `auto_resumed_ids: []`
+  - the final JSON output reports
+    `paused_wait_reason: "manual_recovery_required"`
+  - the final JSON output reports `retried_selector: "role:planner"`
+  - the final JSON output reports `retried_provider: "openai"`
+  - the final JSON output reports `conversation_selector_mode: "auto"`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; ProviderEntitlement.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+unset CORE_MATRIX_ENROLLMENT_TOKEN CORE_MATRIX_MACHINE_CREDENTIAL CORE_MATRIX_FINGERPRINT CORE_MATRIX_BASE_URL CORE_MATRIX_RUNTIME_BASE_URL STATE REGISTERED
+```
+
 ## User Binding And Default Workspace
 
 - goal:

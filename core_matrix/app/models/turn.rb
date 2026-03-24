@@ -13,6 +13,7 @@ class Turn < ApplicationRecord
       manual_user: "manual_user",
       automation_schedule: "automation_schedule",
       automation_webhook: "automation_webhook",
+      system_internal: "system_internal",
     },
     validate: true
 
@@ -55,6 +56,22 @@ class Turn < ApplicationRecord
 
   def resolved_role_name
     resolved_model_selection_snapshot["resolved_role_name"]
+  end
+
+  def pinned_capability_snapshot_id
+    resolved_model_selection_snapshot["capability_snapshot_id"]
+  end
+
+  def pinned_capability_snapshot
+    CapabilitySnapshot.find_by(id: pinned_capability_snapshot_id)
+  end
+
+  def pinned_capability_snapshot_version
+    pinned_capability_snapshot&.version
+  end
+
+  def recovery_selector
+    normalized_selector.presence || "role:main"
   end
 
   def effective_config_snapshot

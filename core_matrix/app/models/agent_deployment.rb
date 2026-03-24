@@ -56,6 +56,32 @@ class AgentDeployment < ApplicationRecord
     active_capability_snapshot&.version
   end
 
+  def eligible_for_auto_resume?
+    eligible_for_scheduling? && auto_resume_eligible?
+  end
+
+  def same_logical_agent?(other_deployment)
+    other_deployment.present? && agent_installation_id == other_deployment.agent_installation_id
+  end
+
+  def runtime_identity_matches?(turn)
+    turn.present? &&
+      fingerprint == turn.pinned_deployment_fingerprint &&
+      capability_snapshot_version == turn.pinned_capability_snapshot_version
+  end
+
+  def preserves_capability_contract?(turn)
+    paused_snapshot = turn&.pinned_capability_snapshot
+    return false if paused_snapshot.blank? || active_capability_snapshot.blank?
+
+    missing_method_ids = paused_snapshot.protocol_methods.map { |entry| entry["method_id"] } -
+      active_capability_snapshot.protocol_methods.map { |entry| entry["method_id"] }
+    missing_tool_names = paused_snapshot.tool_catalog.map { |entry| entry["tool_name"] } -
+      active_capability_snapshot.tool_catalog.map { |entry| entry["tool_name"] }
+
+    missing_method_ids.empty? && missing_tool_names.empty?
+  end
+
   def eligible_for_scheduling?
     active? &&
       healthy? &&

@@ -41,6 +41,7 @@ selector state without implementing selector resolution or fallback yet.
   - `manual_user`
   - `automation_schedule`
   - `automation_webhook`
+  - `system_internal`
 - Turn rows freeze:
   - pinned deployment fingerprint
   - resolved config snapshot
@@ -67,6 +68,9 @@ selector state without implementing selector resolution or fallback yet.
 - Ordinary user-turn entry rejects automation-purpose conversations.
 - `Turns::StartAutomationTurn` creates an active automation-origin turn without
   requiring a transcript-bearing `UserMessage`.
+- deployment bootstrap reuses `Turns::StartAutomationTurn` with
+  `origin_kind = "system_internal"` so system-owned recovery and bootstrap work
+  still uses the same durable turn substrate as other automation flows.
 - `Turns::QueueFollowUp` creates a queued manual-user turn only when the
   conversation already has active or queued work.
 - `Turns::SteerCurrentInput` creates a new selected input variant on the same
