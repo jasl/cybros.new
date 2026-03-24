@@ -7,7 +7,7 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
 
 Load this file as the detailed execution unit for Task 01. Treat the milestone file as the ordering index, not the full task body.
 
@@ -70,7 +70,7 @@ Expected:
 **Step 4: Commit**
 
 ```bash
-git -C .. add core_matrix/README.md core_matrix/docs/behavior/shell-baseline.md core_matrix/test/support/.keep core_matrix/test/services/.keep core_matrix/test/queries/.keep core_matrix/test/integration/.keep core_matrix/test/requests/.keep core_matrix/script/manual/.keep docs/plans/2026-03-24-core-matrix-task-01-shell-baseline.md
+git -C .. add core_matrix/README.md core_matrix/docs/behavior/shell-baseline.md core_matrix/test/support/.keep core_matrix/test/services/.keep core_matrix/test/queries/.keep core_matrix/test/integration/.keep core_matrix/test/requests/.keep core_matrix/script/manual/.keep docs/finished-plans/2026-03-24-core-matrix-task-01-shell-baseline.md
 git -C .. commit -m "chore: reset core matrix backend shell baseline"
 ```
 

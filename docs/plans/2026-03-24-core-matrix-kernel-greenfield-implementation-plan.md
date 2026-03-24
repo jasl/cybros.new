@@ -163,8 +163,8 @@ Decision rule:
 
 Use the milestone files as ordering indexes:
 
-1. `docs/plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
-2. `docs/plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
+1. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
+2. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-2-governance-and-accounting.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-milestone-3-conversation-and-runtime.md`
 4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-4-protocol-publication-and-verification.md`
 
@@ -174,10 +174,10 @@ Some larger task groups split work into smaller tasks so implementation can load
 
 Use these task-group index files as grouping indexes, not as the detailed execution bodies:
 
-- `docs/plans/2026-03-24-core-matrix-task-group-05-provider-catalog-and-governance.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-06-usage-accounting-and-profiling.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md`
-- `docs/plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-05-provider-catalog-and-governance.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-06-usage-accounting-and-profiling.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md`
+- `docs/finished-plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md`
 - `docs/plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md`
 - `docs/plans/2026-03-24-core-matrix-task-group-09-workflow-core-and-scheduling.md`
 - `docs/plans/2026-03-24-core-matrix-task-group-10-runtime-resources-and-lease-control.md`
@@ -188,18 +188,18 @@ Use these task-group index files as grouping indexes, not as the detailed execut
 
 Execute the task documents in this exact order:
 
-1. `docs/plans/2026-03-24-core-matrix-task-01-shell-baseline.md`
-2. `docs/plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md`
-3. `docs/plans/2026-03-24-core-matrix-task-03-agent-registry-and-connectivity.md`
-4. `docs/plans/2026-03-24-core-matrix-task-04-1-bindings-and-workspaces.md`
-5. `docs/plans/2026-03-24-core-matrix-task-04-2-bundled-default-agent-bootstrap.md`
-6. `docs/plans/2026-03-24-core-matrix-task-05-1-provider-catalog-config.md`
-7. `docs/plans/2026-03-24-core-matrix-task-05-2-provider-governance-models.md`
-8. `docs/plans/2026-03-24-core-matrix-task-06-1-usage-events-and-rollups.md`
-9. `docs/plans/2026-03-24-core-matrix-task-06-2-execution-profiling-facts.md`
-10. `docs/plans/2026-03-24-core-matrix-task-07-1-conversation-structure.md`
-11. `docs/plans/2026-03-24-core-matrix-task-07-2-turn-entry-and-override-state.md`
-12. `docs/plans/2026-03-24-core-matrix-task-07-3-rewrite-and-variant-operations.md`
+1. `docs/finished-plans/2026-03-24-core-matrix-task-01-shell-baseline.md`
+2. `docs/finished-plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md`
+3. `docs/finished-plans/2026-03-24-core-matrix-task-03-agent-registry-and-connectivity.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-task-04-1-bindings-and-workspaces.md`
+5. `docs/finished-plans/2026-03-24-core-matrix-task-04-2-bundled-default-agent-bootstrap.md`
+6. `docs/finished-plans/2026-03-24-core-matrix-task-05-1-provider-catalog-config.md`
+7. `docs/finished-plans/2026-03-24-core-matrix-task-05-2-provider-governance-models.md`
+8. `docs/finished-plans/2026-03-24-core-matrix-task-06-1-usage-events-and-rollups.md`
+9. `docs/finished-plans/2026-03-24-core-matrix-task-06-2-execution-profiling-facts.md`
+10. `docs/finished-plans/2026-03-24-core-matrix-task-07-1-conversation-structure.md`
+11. `docs/finished-plans/2026-03-24-core-matrix-task-07-2-turn-entry-and-override-state.md`
+12. `docs/finished-plans/2026-03-24-core-matrix-task-07-3-rewrite-and-variant-operations.md`
 13. `docs/plans/2026-03-24-core-matrix-task-08-1-visibility-and-attachments.md`
 14. `docs/plans/2026-03-24-core-matrix-task-08-2-imports-and-summary-segments.md`
 15. `docs/plans/2026-03-24-core-matrix-task-09-1-workflow-graph-foundations.md`

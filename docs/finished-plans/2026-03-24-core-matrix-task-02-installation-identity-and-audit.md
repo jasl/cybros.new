@@ -7,7 +7,7 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/plans/2026-03-24-core-matrix-kernel-greenfield-implementation-plan.md`
-4. `docs/plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
+4. `docs/finished-plans/2026-03-24-core-matrix-kernel-milestone-1-foundations.md`
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 
 Load this file as the detailed execution unit for Task 02. Treat the milestone file as the ordering index, not the full task body.
@@ -137,7 +137,7 @@ Expected:
 **Step 8: Commit**
 
 ```bash
-git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/installations core_matrix/app/services/invitations core_matrix/app/services/users core_matrix/docs/behavior/installation-identity-and-audit-foundations.md core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/test/test_helper.rb core_matrix/config/initializers/filter_parameter_logging.rb core_matrix/db/schema.rb docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md docs/plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md
+git -C .. add core_matrix/db/migrate core_matrix/app/models core_matrix/app/services/installations core_matrix/app/services/invitations core_matrix/app/services/users core_matrix/docs/behavior/installation-identity-and-audit-foundations.md core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/test/test_helper.rb core_matrix/config/initializers/filter_parameter_logging.rb core_matrix/db/schema.rb docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md docs/finished-plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md
 git -C .. commit -m "feat: add installation identity foundations"
 ```
 

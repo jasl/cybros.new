@@ -11,12 +11,12 @@ Use this milestone index together with:
 
 This milestone owns Tasks 01-03, Task Group 04, and its child tasks:
 
-- [Task 01: Re-Baseline The Rails Shell And Validation Scaffolding](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-01-shell-baseline.md)
-- [Task 02: Build Installation, Identity, User, Invitation, Session, And Audit Foundations](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md)
-- [Task 03: Build Agent Registry And Connectivity Foundations](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-03-agent-registry-and-connectivity.md)
-- [Task Group 04: Build User Bindings, Private Workspaces, And Bundled Default-Agent Bootstrap](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md)
-- [Task 04.1: Build User Bindings And Private Workspaces](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-04-1-bindings-and-workspaces.md)
-- [Task 04.2: Add Bundled Default-Agent Bootstrap](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-04-2-bundled-default-agent-bootstrap.md)
+- [Task 01: Re-Baseline The Rails Shell And Validation Scaffolding](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-01-shell-baseline.md)
+- [Task 02: Build Installation, Identity, User, Invitation, Session, And Audit Foundations](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-02-installation-identity-and-audit.md)
+- [Task 03: Build Agent Registry And Connectivity Foundations](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-03-agent-registry-and-connectivity.md)
+- [Task Group 04: Build User Bindings, Private Workspaces, And Bundled Default-Agent Bootstrap](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-04-bindings-workspaces-and-default-agent.md)
+- [Task 04.1: Build User Bindings And Private Workspaces](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-04-1-bindings-and-workspaces.md)
+- [Task 04.2: Add Bundled Default-Agent Bootstrap](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-04-2-bundled-default-agent-bootstrap.md)
 
 Milestone goals:
 

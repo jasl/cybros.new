@@ -10,10 +10,10 @@ Use this milestone index together with:
 
 This milestone owns Task Groups 07-10 and their child tasks:
 
-- [Task Group 07: Rebuild Conversation Tree, Turn Core, And Variant Selection](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md)
-- [Task 07.1: Build Conversation Structure](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-07-1-conversation-structure.md)
-- [Task 07.2: Build Turn Entry And Override State](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-07-2-turn-entry-and-override-state.md)
-- [Task 07.3: Build Rewrite And Variant Operations](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-07-3-rewrite-and-variant-operations.md)
+- [Task Group 07: Rebuild Conversation Tree, Turn Core, And Variant Selection](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-group-07-conversation-and-turn-foundations.md)
+- [Task 07.1: Build Conversation Structure](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-07-1-conversation-structure.md)
+- [Task 07.2: Build Turn Entry And Override State](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-07-2-turn-entry-and-override-state.md)
+- [Task 07.3: Build Rewrite And Variant Operations](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-task-07-3-rewrite-and-variant-operations.md)
 - [Task Group 08: Add Transcript Support Models For Attachments, Imports, Summaries, And Visibility](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-group-08-transcript-support-models.md)
 - [Task 08.1: Add Visibility And Attachments](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-08-1-visibility-and-attachments.md)
 - [Task 08.2: Add Imports And Summary Segments](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-24-core-matrix-task-08-2-imports-and-summary-segments.md)
