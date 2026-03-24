@@ -2,24 +2,37 @@
 
 ## Directories
 
-- [design](/Users/jasl/Workspaces/Ruby/cybros/docs/design/README.md): long-lived design baselines, protocol notes, and phase-shaping decisions
-- [plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md): executable phase, milestone, task-group, and task documents
-- [research-notes](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/README.md): technical investigations, library evaluations, and option analysis that should stay understandable without reopening external references
-- [finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md): completed execution plans and milestones that have passed their stage-level acceptance checks
-- [future-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/README.md): deferred follow-up and roadmap documents
-- [archived-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/README.md): superseded, withdrawn, or historical plan material kept only for traceability
+- [proposed-designs](/Users/jasl/Workspaces/Ruby/cybros/docs/proposed-designs/README.md): design drafts that are still under discussion
+- [proposed-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/proposed-plans/README.md): early plan drafts that are not ready for activation
+- [design](/Users/jasl/Workspaces/Ruby/cybros/docs/design/README.md): approved long-lived design baselines
+- [future-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/README.md): accepted later-phase work that is intentionally not active yet
+- [plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md): active execution documents only
+- [research-notes](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/README.md): technical investigations and retained conclusions
+- [finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md): completed plans that passed their verification gates
+- [archived-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/README.md): superseded or historical material kept for traceability
 - [checklists](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/README.md): manual validation and verification checklists
 
 ## Lifecycle
 
-- Keep active execution documents in `docs/plans`.
-- Keep technical investigations and library comparisons in `docs/research-notes`, and write the actual conclusions there instead of depending on `references/`.
-- Keep not-yet-activated follow-up work in `docs/future-plans`.
-- Move a plan or milestone into `docs/finished-plans` only after implementation is complete and its required verification gates pass.
-- Move obsolete or replaced material into `docs/archived-plans` instead of mixing it with active execution documents.
+Move work through the tree in this order:
+
+`docs/proposed-designs` -> `docs/proposed-plans` -> `docs/future-plans` ->
+`docs/plans` -> `docs/finished-plans` -> `docs/archived-plans`
+
+Rules:
+
+- keep approved design baselines in `docs/design`
+- keep future but accepted work in `docs/future-plans`
+- keep active execution documents in `docs/plans`
+- move completed execution material into `docs/finished-plans`
+- move replaced or obsolete material into `docs/archived-plans`
 
 ## Reference Handling
 
-- Treat `references/` and external repositories as supporting material, not as durable documentation.
-- When a design, plan, research note, or finished record uses a reference project for sanity checking, write the retained conclusion, tradeoff, or observed behavior directly into the local document.
-- If a local document keeps a reference path or upstream URL, it should be an index pointer only. The document should still remain understandable if that reference later moves, changes, or disappears.
+- Treat `references/` and external repositories as supporting material, not as
+  durable documentation.
+- When a design, plan, research note, or finished record uses a reference
+  project for sanity checking, write the retained conclusion, tradeoff, or
+  observed behavior directly into the local document.
+- If a local document keeps a reference path or upstream URL, it should remain
+  understandable even if the upstream material later moves or disappears.

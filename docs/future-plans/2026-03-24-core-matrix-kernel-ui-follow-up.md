@@ -1,35 +1,36 @@
-# Core Matrix Kernel UI Follow-Up
+# Core Matrix Phase 3 Web UI Productization Follow-Up
 
 ## Status
 
-Deferred follow-up scope. This document exists to keep human-facing UI work out of the current backend greenfield phase without losing the work queue.
+Deferred future plan. This document now represents `Phase 3`, the first
+user-facing Web product phase after the loop is proven.
 
 ## Purpose
 
-The current phase delivers backend models, services, machine-facing contract boundaries, automated tests, and manual backend validation. It does not deliver human-facing application UI.
+After `Phase 2` proves the real agent loop, `Phase 3` makes Core Matrix and
+Fenix usable as a real Web product without changing the kernel's execution
+authority.
 
-This follow-up document is the holding area for that deferred UI surface.
-
-## Deferred Human-Facing Surfaces
+## Scope
 
 - installation setup wizard for first-admin bootstrap
 - password login, session management, and invitation acceptance pages
-- admin UI for users, invitations, provider governance, agent lifecycle, and audit browsing
-- user UI for agent bindings, workspaces, conversations, branching, publication controls, and runtime state
-- automation history and run-detail views for read-only automation conversations
-- automation trigger management surfaces for schedules and webhook-style external triggers
-- publication pages for internal-public and external-public read-only views
-- runtime feedback surfaces such as queued-turn state, approval prompts, process logs, and outage recovery affordances
-- client-local composer draft behavior, including branch-prefill seed handling and unsent attachment staging UX
+- admin UI for users, invitations, provider governance, agent lifecycle, and
+  audit browsing
+- user UI for agent bindings, workspaces, conversations, branching, publication
+  controls, and runtime state
+- runtime feedback surfaces such as queued-turn state, approval prompts,
+  process logs, and outage recovery affordances
+- conversation feature-policy-aware UI behavior
+- agent-defined composer completions mounted into the Web product
 
-## Deferred Frontend And Delivery Work
+## Out Of Scope
 
-- controllers and HTML responses for the human-facing product
-- Turbo, Stimulus, or other frontend runtime decisions
-- realtime delivery choices for transcript and workflow events
-- view-model shaping and page-level query assembly
-- system tests for browser flows
+- workspace-owned trigger and delivery infrastructure
+- IM, PWA, or desktop channels
+- extension and plugin packaging
 
 ## Current Rule
 
-Do not pull items from this document into the backend implementation phase unless a later plan explicitly widens scope.
+Do not pull work from this document into the current substrate batch. This phase
+begins only after the real loop is already validated.
