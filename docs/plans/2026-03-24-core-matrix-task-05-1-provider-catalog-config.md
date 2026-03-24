@@ -92,3 +92,45 @@ Do not implement these items in this task:
 - provider credential tables
 - provider entitlement tables
 - provider policy tables
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added `core_matrix/config/providers/catalog.yml` as the config-backed
+    provider and role catalog baseline
+  - added `ProviderCatalog::Load` and `ProviderCatalog::Validate`
+  - added targeted service and integration tests for catalog loading,
+    validation, and boot-time availability
+  - added `core_matrix/docs/behavior/provider-catalog-config-and-validation.md`
+- plan alignment notes:
+  - the task stayed config-backed and did not introduce SQL tables or policy
+    rows ahead of Task 05.2
+  - ordered role candidates stayed in explicit `provider_handle/model_ref`
+    form, matching the role-resolution design
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/services/provider_catalog/load_test.rb test/services/provider_catalog/validate_test.rb test/integration/provider_catalog_boot_flow_test.rb`
+    passed with `6 runs, 26 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is a boot-time config surface already covered by targeted
+    automated tests
+- retained findings:
+  - Rails `config_for` is suitable here because the catalog can live under a
+    `shared:` root while still preserving a future path for environment
+    overlays if needed
+  - multimodal input capability flags stay explicit in config so later
+    attachment and context assembly code can gate behavior without provider
+    heuristics
+  - reference sanity check from
+    `references/original/references/openclaw/src/plugins/provider-catalog.ts`:
+    explicit provider-qualified identity is worth preserving, but Core Matrix
+    intentionally keeps the catalog as static YAML plus boot-time validation
+    instead of plugin discovery
+- carry-forward notes:
+  - Task 05.2 should treat this catalog as the read-side source of provider and
+    model identity while adding persisted credentials, entitlements, and
+    policies around it
+  - later selector-resolution work should preserve ordered role fallback inside
+    the selected role only and should not invent implicit cross-role fallback
