@@ -15,28 +15,21 @@ implementation phase.
 - Treat `references/` and external repositories as supporting material only.
   The reasoning that matters should live in this note.
 
-## Current `jsonb` Surface In `core_matrix`
+## Current `jsonb` Surface in `core_matrix`
 
 As of this note, the current JSON-backed fields fall into several distinct
 categories:
 
-- settings or preference placeholders:
-  - `Installation#global_settings`
-  - `User#preferences`
-  - `UserAgentBinding#preferences`
-- open-ended metadata:
-  - `Identity#auth_metadata`
-  - `Session#metadata`
-  - `AuditLog#metadata`
-  - `ExecutionEnvironment#connection_metadata`
-  - `AgentDeployment#endpoint_metadata`
-  - `AgentDeployment#health_metadata`
-- protocol and capability snapshots:
-  - `CapabilitySnapshot#protocol_methods`
-  - `CapabilitySnapshot#tool_catalog`
-  - `CapabilitySnapshot#config_schema_snapshot`
-  - `CapabilitySnapshot#conversation_override_schema_snapshot`
-  - `CapabilitySnapshot#default_config_snapshot`
+- settings or preference placeholders: `Installation#global_settings`,
+  `User#preferences`, `UserAgentBinding#preferences`
+- open-ended metadata: `Identity#auth_metadata`, `Session#metadata`,
+  `AuditLog#metadata`, `ExecutionEnvironment#connection_metadata`,
+  `AgentDeployment#endpoint_metadata`, `AgentDeployment#health_metadata`
+- protocol and capability snapshots: `CapabilitySnapshot#protocol_methods`,
+  `CapabilitySnapshot#tool_catalog`,
+  `CapabilitySnapshot#config_schema_snapshot`,
+  `CapabilitySnapshot#conversation_override_schema_snapshot`,
+  `CapabilitySnapshot#default_config_snapshot`
 
 Those categories should not be forced into one abstraction prematurely.
 Snapshot and transport metadata should stay flexible until the product proves a

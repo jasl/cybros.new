@@ -14,4 +14,6 @@ Use `references/` only as supporting material:
 - keep any local reference paths in a small index section
 - treat those paths as non-authoritative and potentially unstable over time
 
+Current notes:
+
 - [2026-03-24-core-matrix-structured-json-contracts-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-24-core-matrix-structured-json-contracts-research-note.md)
