@@ -91,3 +91,47 @@ Do not implement these items in this task:
 - outage detection or recovery
 - transcript, variable, or publication APIs
 - any human-facing admin interface
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying
+    `feat: add deployment credential lifecycle controls`
+    task commit
+- actual landed scope:
+  - added `AgentDeployments::RotateMachineCredential`,
+    `AgentDeployments::RevokeMachineCredential`, and
+    `AgentDeployments::Retire`
+  - extended `AgentDeployment` with explicit
+    `eligible_for_scheduling?` lifecycle gating
+  - connected workflow model-selector resolution to the deployment scheduling
+    eligibility gate so retired deployments are blocked from future scheduling
+  - added service and integration coverage for credential rotation, revocation,
+    retirement, and audit rows
+  - updated the manual validation checklist with a reproducible credential
+    lifecycle runner
+  - added
+    `core_matrix/docs/behavior/deployment-credential-lifecycle-controls.md`
+- plan alignment notes:
+  - credential rotation now issues a fresh secret and invalidates the prior
+    secret atomically
+  - credential revocation now makes the current credential unusable and moves
+    the deployment to an offline, non-auto-resumable state
+  - retirement now uses the existing deployment state model to mark the
+    deployment as `retired` and `superseded`, then blocks future scheduling
+    through the model-selector path
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/services/agent_deployments/rotate_machine_credential_test.rb test/services/agent_deployments/revoke_machine_credential_test.rb test/services/agent_deployments/retire_test.rb test/integration/machine_credential_lifecycle_test.rb`
+    passed with `4 runs, 28 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - added a manual validation section for rotation, revocation, and retirement
+    with JSON assertions for invalidated credentials, retired state, and
+    scheduling rejection
+- retained findings:
+  - scheduling eligibility needed an explicit deployment-level predicate;
+    leaving retirement as a passive status flag would not stop future workflow
+    scheduling on its own
+  - revocation became materially safer once it also moved the deployment to
+    `offline` and disabled auto-resume, rather than only replacing the digest

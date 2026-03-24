@@ -172,6 +172,48 @@ bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil)
 bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
 
+## Machine Credential Rotation, Revocation, And Retirement
+
+- goal:
+  verify machine credential rotation invalidates the previous secret,
+  revocation makes the rotated credential unusable, retirement marks the
+  deployment as retired, and future scheduling rejects the retired deployment
+- prerequisites:
+  - `cd core_matrix`
+  - `bin/rails db:migrate`
+  - development database can be reset for this flow
+- exact commands:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; ProviderEntitlement.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "fenix", display_name: "Bundled Fenix", lifecycle_state: "active"); environment = ExecutionEnvironment.create!(installation: bootstrap.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, lifecycle_state: "active"); active_deployment = AgentDeployment.create!(installation: bootstrap.installation, agent_installation: agent_installation, execution_environment: environment, fingerprint: "active-fenix-runtime", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", machine_credential_digest: Digest::SHA256.hexdigest("active-machine"), health_status: "healthy", health_metadata: {}, bootstrap_state: "active", last_heartbeat_at: Time.current); capability = CapabilitySnapshot.create!(agent_deployment: active_deployment, version: 1, protocol_methods: [{"method_id" => "agent_health"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "kernel_primitive", "implementation_source" => "kernel", "implementation_ref" => "kernel/shell_exec", "input_schema" => {"type" => "object", "properties" => {}}, "result_schema" => {"type" => "object", "properties" => {}}, "streaming_support" => false, "idempotency_policy" => "best_effort"}], config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}); active_deployment.update!(active_capability_snapshot: capability); ProviderEntitlement.create!(installation: bootstrap.installation, provider_handle: "codex_subscription", entitlement_key: "shared_window", window_kind: "rolling_five_hours", window_seconds: 18000, quota_limit: 200000, active: true, metadata: {}); ProviderEntitlement.create!(installation: bootstrap.installation, provider_handle: "openai", entitlement_key: "shared_window", window_kind: "rolling_five_hours", window_seconds: 18000, quota_limit: 200000, active: true, metadata: {}); registration_enrollment = AgentEnrollments::Issue.call(agent_installation: agent_installation, actor: bootstrap.user, expires_at: 2.hours.from_now); registration = AgentDeployments::Register.call(enrollment_token: registration_enrollment.plaintext_token, execution_environment: environment, fingerprint: "registered-fenix-runtime", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "kernel_primitive", "implementation_source" => "kernel", "implementation_ref" => "kernel/shell_exec", "input_schema" => {"type" => "object", "properties" => {}}, "result_schema" => {"type" => "object", "properties" => {}}, "streaming_support" => false, "idempotency_policy" => "best_effort"}], config_schema_snapshot: {"type" => "object", "properties" => {}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write"}); previous_credential = registration.machine_credential; rotated = AgentDeployments::RotateMachineCredential.call(deployment: registration.deployment, actor: bootstrap.user); AgentDeployments::RevokeMachineCredential.call(deployment: registration.deployment, actor: bootstrap.user); AgentDeployments::Retire.call(deployment: active_deployment, actor: bootstrap.user); binding = UserAgentBindings::Enable.call(user: bootstrap.user, agent_installation: agent_installation).binding; workspace = binding.workspaces.find_by!(is_default: true); conversation = Conversations::CreateRoot.call(workspace: workspace); turn = Turns::StartUserTurn.call(conversation: conversation, content: "Retry on retired deployment", agent_deployment: active_deployment.reload, resolved_config_snapshot: {}, resolved_model_selection_snapshot: {}); scheduling_error = begin Workflows::CreateForTurn.call(turn: turn, root_node_key: "root", root_node_type: "turn_root", decision_source: "system", metadata: {}); nil rescue ActiveRecord::RecordInvalid => error; error.record.errors[:resolved_model_selection_snapshot].join(", "); end; puts({rotation_invalidated_previous: AgentDeployment.find_by_machine_credential(previous_credential).nil?, revocation_invalidated_rotated: AgentDeployment.find_by_machine_credential(rotated.machine_credential).nil?, revoked_health_status: registration.deployment.reload.health_status, retired_health_status: active_deployment.reload.health_status, retired_bootstrap_state: active_deployment.bootstrap_state, scheduling_error: scheduling_error, audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
+```
+
+- expected rows or state changes:
+  - the rotated credential no longer authenticates the registered deployment
+  - the revoked credential no longer authenticates the registered deployment
+  - the registered deployment ends in `health_status = "offline"` after
+    revocation
+  - the active deployment ends in `health_status = "retired"` and
+    `bootstrap_state = "superseded"` after retirement
+  - a future workflow scheduling attempt on the retired deployment is rejected
+  - `audit_logs` includes
+    `agent_deployment.machine_credential_rotated`,
+    `agent_deployment.machine_credential_revoked`, and
+    `agent_deployment.retired`
+- expected logs or visible outcomes:
+  - JSON output reports `rotation_invalidated_previous: true`
+  - JSON output reports `revocation_invalidated_rotated: true`
+  - JSON output reports `revoked_health_status: "offline"`
+  - JSON output reports `retired_health_status: "retired"`
+  - JSON output reports `retired_bootstrap_state: "superseded"`
+  - JSON output reports
+    `scheduling_error: "agent deployment is not eligible for future scheduling"`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; ProviderEntitlement.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```
+
 ## User Binding And Default Workspace
 
 - goal:

@@ -56,6 +56,14 @@ class AgentDeployment < ApplicationRecord
     active_capability_snapshot&.version
   end
 
+  def eligible_for_scheduling?
+    active? &&
+      healthy? &&
+      agent_installation&.active? &&
+      execution_environment&.active? &&
+      active_capability_snapshot.present?
+  end
+
   private
 
   def endpoint_metadata_must_be_hash

@@ -14,6 +14,10 @@ module Workflows
       capability_snapshot_id = @turn.agent_deployment.active_capability_snapshot_id
       raise_unavailable!("requires an active capability snapshot") if capability_snapshot_id.blank?
 
+      unless @turn.agent_deployment.eligible_for_scheduling?
+        raise_unavailable!("agent deployment is not eligible for future scheduling")
+      end
+
       normalized_selector = normalize_selector
       resolved_role_name, candidates = expand_candidates(normalized_selector)
       fallback_count = 0
