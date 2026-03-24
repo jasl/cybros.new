@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090017) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090018) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -138,6 +138,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090017) do
     t.datetime "updated_at", null: false
     t.index ["installation_id", "kind"], name: "index_execution_environments_on_installation_id_and_kind"
     t.index ["installation_id"], name: "index_execution_environments_on_installation_id"
+  end
+
+  create_table "execution_profile_facts", force: :cascade do |t|
+    t.bigint "conversation_id"
+    t.integer "count_value"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.string "fact_key", null: false
+    t.string "fact_kind", null: false
+    t.bigint "human_interaction_request_id"
+    t.bigint "installation_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "occurred_at", null: false
+    t.bigint "process_run_id"
+    t.bigint "subagent_run_id"
+    t.boolean "success"
+    t.bigint "turn_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.string "workflow_node_key"
+    t.bigint "workspace_id"
+    t.index ["installation_id", "fact_kind", "fact_key"], name: "idx_execution_profile_facts_installation_kind_key"
+    t.index ["installation_id", "occurred_at"], name: "idx_on_installation_id_occurred_at_361e402309"
+    t.index ["installation_id"], name: "index_execution_profile_facts_on_installation_id"
+    t.index ["user_id"], name: "index_execution_profile_facts_on_user_id"
+    t.index ["workspace_id"], name: "index_execution_profile_facts_on_workspace_id"
   end
 
   create_table "identities", force: :cascade do |t|
@@ -350,6 +376,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090017) do
   add_foreign_key "audit_logs", "installations"
   add_foreign_key "capability_snapshots", "agent_deployments"
   add_foreign_key "execution_environments", "installations"
+  add_foreign_key "execution_profile_facts", "installations"
+  add_foreign_key "execution_profile_facts", "users"
+  add_foreign_key "execution_profile_facts", "workspaces"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "provider_credentials", "installations"

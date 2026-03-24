@@ -87,3 +87,43 @@ Do not implement these items in this task:
 - provider usage rollups
 - runtime read-side summary queries
 - runtime-resource tables from Milestone 3
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added the `execution_profile_facts` table and `ExecutionProfileFact` model
+  - added `ExecutionProfiling::RecordFact` as the explicit profiling write
+    boundary
+  - added `core_matrix/docs/behavior/execution-profiling-facts.md`
+  - added targeted model, service, and integration coverage for generic fact
+    kinds, future runtime references, cross-installation validation, and
+    separation from provider usage rows
+- plan alignment notes:
+  - profiling facts stayed separate from provider billing facts and did not
+    mutate `UsageEvent` or `UsageRollup`
+  - future runtime references were kept as loose nullable identifiers instead
+    of hard foreign keys so Milestone 3 runtime tables can attach later without
+    redesigning this schema
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/execution_profile_fact_test.rb test/services/execution_profiling/record_fact_test.rb test/integration/execution_profiling_flow_test.rb`
+    passed with `5 runs, 23 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is an internal telemetry substrate covered by automated tests
+- retained findings:
+  - provider usage accounting and execution telemetry should stay in separate
+    relational surfaces, even if later analysis joins them
+  - generic runtime identifiers are a better phase-1 fit than speculative
+    foreign keys to runtime tables that do not exist yet
+  - reference sanity check from
+    `references/original/references/openclaw/CHANGELOG.md`:
+    runtime lifecycle events and usage accounting evolve as separate concerns,
+    even when both feed later analysis
+- carry-forward notes:
+  - the first Milestone 3 runtime resource tables should attach to these loose
+    identifiers carefully and only convert them to hard foreign keys if the
+    write/read paths truly require that coupling
+  - later reporting can join execution-profile facts with usage rows, but
+    should preserve the storage separation introduced here
