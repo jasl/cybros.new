@@ -30,6 +30,8 @@ Reference capture for this task:
 - Create: `core_matrix/test/queries/workspaces/for_user_query_test.rb`
 - Create: `core_matrix/test/queries/provider_usage/window_usage_query_test.rb`
 - Create: `core_matrix/test/queries/execution_profiling/summary_query_test.rb`
+- Create: `core_matrix/test/integration/seed_baseline_test.rb`
+- Create: `core_matrix/docs/behavior/read-side-queries-and-seed-baseline.md`
 - Modify: `core_matrix/db/seeds.rb`
 - Modify: `core_matrix/README.md`
 
@@ -95,3 +97,67 @@ Do not implement these items in this task:
 - publication state mutations
 - checklist rewrites or manual validation execution
 - any human-facing page or dashboard
+
+## Completion Record
+
+- Status: completed
+- Completion date: 2026-03-25
+- Landing commit: pending
+
+### Landed Scope
+
+- Added read-side queries for:
+  - user-visible logical agent installation discovery
+  - open human-interaction inbox/dashboard projections
+  - user-private workspace listing
+  - rolling-window provider usage summaries
+  - execution profiling summaries
+- Added an integration regression test for the seed baseline so `db/seeds.rb`
+  is covered by an explicit idempotence check instead of only informal reruns.
+- Updated `db/seeds.rb` so it:
+  - always validates the provider catalog
+  - stays safe when no installation exists
+  - only reconciles the optional bundled runtime when an installation already
+    exists
+- Updated `core_matrix/README.md` to document the backend verification baseline
+  and the bounded seed behavior without implying human-facing UI.
+- Added `core_matrix/docs/behavior/read-side-queries-and-seed-baseline.md` as
+  the durable local behavior source for this task.
+
+### Verification Evidence
+
+- Targeted tests:
+  - `cd core_matrix && bin/rails test test/queries/agent_installations/visible_to_user_query_test.rb test/queries/human_interactions/open_for_user_query_test.rb test/queries/workspaces/for_user_query_test.rb test/queries/provider_usage/window_usage_query_test.rb test/queries/execution_profiling/summary_query_test.rb test/integration/seed_baseline_test.rb`
+- Seed baseline command:
+  - `cd core_matrix && env RAILS_ENV=test bin/rails db:seed:replant`
+- Autoload check:
+  - `cd core_matrix && bin/rails zeitwerk:check`
+- Full project baseline:
+  - `cd core_matrix && bin/brakeman --no-pager`
+  - `cd core_matrix && bin/bundler-audit`
+  - `cd core_matrix && bin/rubocop -f github`
+  - `cd core_matrix && bun run lint:js`
+  - `cd core_matrix && bin/rails db:test:prepare test`
+  - `cd core_matrix && bin/rails db:test:prepare test:system`
+  - `git -C .. diff --check`
+
+### Rails And Reference Findings
+
+- Local Rails query and model guidance remained sufficient for this task:
+  query objects stayed in `app/queries`, write-side behavior stayed in services,
+  and no callback or controller expansion was needed.
+- The retained conclusion from the consulted Dify human-input slice is narrow:
+  queryable human-input surfaces should stay anchored on durable request state
+  that resumes workflow execution, not transcript reconstruction.
+- The retained conclusion from the consulted OpenClaw usage slice is also
+  narrow: reporting surfaces should project aggregates over tracked usage facts
+  instead of introducing a separate reporting truth store.
+
+### Carry-Forward Notes
+
+- Future human-facing inbox or dashboard surfaces should compose these query
+  objects instead of rebuilding ownership or visibility filters ad hoc in
+  controllers.
+- Future seed expansions should keep the current guardrail: no demo
+  conversations, no sample users, and no business-agent assumptions beyond the
+  existing bundled-runtime reconciliation hook.

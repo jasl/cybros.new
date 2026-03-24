@@ -1,9 +1,16 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+catalog = ProviderCatalog::Load.call
+puts "Loaded provider catalog with #{catalog.providers.size} providers and #{catalog.model_roles.size} model roles."
+
+installation = Installation.order(:id).first
+
+if installation.present?
+  bundled_runtime = Installations::RegisterBundledAgentRuntime.call(installation: installation)
+
+  if bundled_runtime.present?
+    puts "Reconciled bundled agent runtime for installation ##{installation.id}."
+  else
+    puts "Bundled agent runtime is disabled; skipped runtime reconciliation."
+  end
+else
+  puts "No installation present; skipped bundled agent runtime reconciliation."
+end

@@ -57,10 +57,22 @@ claims real loop behavior, validation must include:
 ## Useful Commands
 
 ```bash
-bin/rails db:version
-bin/rails test
-bin/rubocop app/models/application_record.rb
+bin/rails db:seed
+bin/brakeman --no-pager
+bin/bundler-audit
+bin/rubocop -f github
+bun run lint:js
+bin/rails db:test:prepare test
+bin/rails db:test:prepare test:system
 ```
+
+## Seed Baseline
+
+- `db/seeds.rb` is backend-safe and idempotent.
+- Seeds validate the provider catalog on every run.
+- Seeds do not create demo users, conversations, or UI-facing sample data.
+- When an installation already exists, seeds may reconcile the optional bundled
+  runtime through the existing bundled bootstrap service path.
 
 ## Environment Notes
 
