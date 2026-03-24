@@ -5,6 +5,7 @@ class ExecutionEnvironment < ApplicationRecord
   belongs_to :installation
 
   has_many :agent_deployments, dependent: :restrict_with_exception
+  has_many :process_runs, dependent: :restrict_with_exception
 
   validate :connection_metadata_must_be_hash
 

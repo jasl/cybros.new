@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090034) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -314,6 +314,34 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
     t.index ["turn_id"], name: "index_messages_on_turn_id"
   end
 
+  create_table "process_runs", force: :cascade do |t|
+    t.string "command_line", null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "ended_at"
+    t.bigint "execution_environment_id", null: false
+    t.integer "exit_status"
+    t.bigint "installation_id", null: false
+    t.string "kind", null: false
+    t.string "lifecycle_state", default: "running", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.bigint "origin_message_id"
+    t.datetime "started_at", null: false
+    t.integer "timeout_seconds"
+    t.bigint "turn_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id", null: false
+    t.index ["conversation_id", "lifecycle_state"], name: "idx_process_runs_conversation_lifecycle"
+    t.index ["conversation_id"], name: "index_process_runs_on_conversation_id"
+    t.index ["execution_environment_id", "lifecycle_state"], name: "idx_process_runs_environment_lifecycle"
+    t.index ["execution_environment_id"], name: "index_process_runs_on_execution_environment_id"
+    t.index ["installation_id"], name: "index_process_runs_on_installation_id"
+    t.index ["origin_message_id"], name: "index_process_runs_on_origin_message_id"
+    t.index ["turn_id"], name: "index_process_runs_on_turn_id"
+    t.index ["workflow_node_id", "lifecycle_state"], name: "index_process_runs_on_workflow_node_id_and_lifecycle_state"
+    t.index ["workflow_node_id"], name: "index_process_runs_on_workflow_node_id"
+  end
+
   create_table "provider_credentials", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "credential_kind", null: false
@@ -489,6 +517,23 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
     t.index ["installation_id"], name: "index_users_on_installation_id"
   end
 
+  create_table "workflow_artifacts", force: :cascade do |t|
+    t.string "artifact_key", null: false
+    t.string "artifact_kind", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.string "storage_mode", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["installation_id"], name: "index_workflow_artifacts_on_installation_id"
+    t.index ["workflow_node_id", "artifact_kind"], name: "index_workflow_artifacts_on_workflow_node_id_and_artifact_kind"
+    t.index ["workflow_node_id"], name: "index_workflow_artifacts_on_workflow_node_id"
+    t.index ["workflow_run_id", "artifact_key"], name: "index_workflow_artifacts_on_workflow_run_id_and_artifact_key"
+    t.index ["workflow_run_id"], name: "index_workflow_artifacts_on_workflow_run_id"
+  end
+
   create_table "workflow_edges", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "from_node_id", null: false
@@ -503,6 +548,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
     t.index ["workflow_run_id", "from_node_id", "ordinal"], name: "idx_on_workflow_run_id_from_node_id_ordinal_2bc1936b9e", unique: true
     t.index ["workflow_run_id", "from_node_id", "to_node_id"], name: "idx_on_workflow_run_id_from_node_id_to_node_id_54f159bded", unique: true
     t.index ["workflow_run_id"], name: "index_workflow_edges_on_workflow_run_id"
+  end
+
+  create_table "workflow_node_events", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "event_kind", null: false
+    t.bigint "installation_id", null: false
+    t.integer "ordinal", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["installation_id"], name: "index_workflow_node_events_on_installation_id"
+    t.index ["workflow_node_id", "ordinal"], name: "index_workflow_node_events_on_workflow_node_id_and_ordinal", unique: true
+    t.index ["workflow_node_id"], name: "index_workflow_node_events_on_workflow_node_id"
+    t.index ["workflow_run_id", "event_kind"], name: "index_workflow_node_events_on_workflow_run_id_and_event_kind"
+    t.index ["workflow_run_id"], name: "index_workflow_node_events_on_workflow_run_id"
   end
 
   create_table "workflow_nodes", force: :cascade do |t|
@@ -601,6 +662,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
   add_foreign_key "messages", "conversations"
   add_foreign_key "messages", "installations"
   add_foreign_key "messages", "turns"
+  add_foreign_key "process_runs", "conversations"
+  add_foreign_key "process_runs", "execution_environments"
+  add_foreign_key "process_runs", "installations"
+  add_foreign_key "process_runs", "messages", column: "origin_message_id"
+  add_foreign_key "process_runs", "turns"
+  add_foreign_key "process_runs", "workflow_nodes"
   add_foreign_key "provider_credentials", "installations"
   add_foreign_key "provider_entitlements", "installations"
   add_foreign_key "provider_policies", "installations"
@@ -626,10 +693,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090031) do
   add_foreign_key "user_agent_bindings", "users"
   add_foreign_key "users", "identities"
   add_foreign_key "users", "installations"
+  add_foreign_key "workflow_artifacts", "installations"
+  add_foreign_key "workflow_artifacts", "workflow_nodes"
+  add_foreign_key "workflow_artifacts", "workflow_runs"
   add_foreign_key "workflow_edges", "installations"
   add_foreign_key "workflow_edges", "workflow_nodes", column: "from_node_id"
   add_foreign_key "workflow_edges", "workflow_nodes", column: "to_node_id"
   add_foreign_key "workflow_edges", "workflow_runs"
+  add_foreign_key "workflow_node_events", "installations"
+  add_foreign_key "workflow_node_events", "workflow_nodes"
+  add_foreign_key "workflow_node_events", "workflow_runs"
   add_foreign_key "workflow_nodes", "installations"
   add_foreign_key "workflow_nodes", "workflow_runs"
   add_foreign_key "workflow_runs", "conversations"

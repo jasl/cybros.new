@@ -28,6 +28,9 @@ class WorkflowRun < ApplicationRecord
 
   has_many :workflow_nodes, dependent: :restrict_with_exception
   has_many :workflow_edges, dependent: :restrict_with_exception
+  has_many :workflow_artifacts, dependent: :restrict_with_exception
+  has_many :workflow_node_events, dependent: :restrict_with_exception
+  has_many :process_runs, through: :workflow_nodes
 
   delegate :normalized_selector,
     :resolved_provider_handle,

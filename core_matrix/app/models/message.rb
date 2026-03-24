@@ -25,6 +25,11 @@ class Message < ApplicationRecord
     foreign_key: :source_message_id,
     dependent: :restrict_with_exception,
     inverse_of: :source_message
+  has_many :origin_process_runs,
+    class_name: "ProcessRun",
+    foreign_key: :origin_message_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :origin_message
 
   validates :content, presence: true
   validates :variant_index,

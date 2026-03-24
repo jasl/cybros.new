@@ -1,0 +1,57 @@
+require "test_helper"
+
+class WorkflowArtifactTest < ActiveSupport::TestCase
+  test "supports inline json and attached file storage modes" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Artifact input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    workflow_node = create_workflow_node!(workflow_run: workflow_run)
+
+    inline_artifact = WorkflowArtifact.new(
+      installation: context[:installation],
+      workflow_run: workflow_run,
+      workflow_node: workflow_node,
+      artifact_key: "summary",
+      artifact_kind: "terminal_summary",
+      storage_mode: "inline_json",
+      payload: { "summary" => "done" }
+    )
+    file_artifact = WorkflowArtifact.new(
+      installation: context[:installation],
+      workflow_run: workflow_run,
+      workflow_node: workflow_node,
+      artifact_key: "bundle",
+      artifact_kind: "archive",
+      storage_mode: "attached_file",
+      payload: {}
+    )
+    file_artifact.file.attach(
+      io: StringIO.new("artifact"),
+      filename: "artifact.txt",
+      content_type: "text/plain"
+    )
+
+    assert inline_artifact.valid?
+    assert file_artifact.valid?
+
+    missing_file_artifact = WorkflowArtifact.new(
+      installation: context[:installation],
+      workflow_run: workflow_run,
+      workflow_node: workflow_node,
+      artifact_key: "missing",
+      artifact_kind: "archive",
+      storage_mode: "attached_file",
+      payload: {}
+    )
+
+    assert_not missing_file_artifact.valid?
+    assert_includes missing_file_artifact.errors[:file], "must be attached for attached_file storage mode"
+  end
+end

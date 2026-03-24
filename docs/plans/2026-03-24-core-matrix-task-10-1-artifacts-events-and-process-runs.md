@@ -20,9 +20,9 @@ Reference capture for this task:
 ---
 
 **Files:**
-- Create: `core_matrix/db/migrate/20260324090031_create_workflow_artifacts.rb`
-- Create: `core_matrix/db/migrate/20260324090032_create_workflow_node_events.rb`
-- Create: `core_matrix/db/migrate/20260324090033_create_process_runs.rb`
+- Create: `core_matrix/db/migrate/20260324090032_create_workflow_artifacts.rb`
+- Create: `core_matrix/db/migrate/20260324090033_create_workflow_node_events.rb`
+- Create: `core_matrix/db/migrate/20260324090034_create_process_runs.rb`
 - Create: `core_matrix/app/models/workflow_artifact.rb`
 - Create: `core_matrix/app/models/workflow_node_event.rb`
 - Create: `core_matrix/app/models/process_run.rb`
@@ -106,3 +106,57 @@ Do not implement these items in this task:
 - canonical variables
 - subagent orchestration metadata
 - execution leases
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying `feat: add workflow runtime process resources`
+    task commit
+- actual landed scope:
+  - added workflow-owned `WorkflowArtifact`, `WorkflowNodeEvent`, and
+    `ProcessRun` models with installation and ownership consistency checks
+  - added file-backed and inline-json artifact storage modes through
+    `WorkflowArtifact`
+  - added append-only node-local event ordering for workflow execution replay
+  - added `Processes::Start` and `Processes::Stop` service boundaries for
+    process lifecycle materialization and termination
+  - added targeted model, service, and integration coverage for artifact
+    storage-mode validation, workflow-node event ordering, process kind and
+    timeout rules, origin-message retention, policy-sensitive audit creation,
+    and workflow-local status replay
+  - added
+    `core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md`
+- plan alignment notes:
+  - process resources are now first-class workflow-owned rows rather than
+    opaque tool side effects
+  - `ProcessRun` redundantly persists `conversation_id` and `turn_id` exactly
+    for operational filtering, while workflow-run ownership remains derived
+    through the owning node instead of introducing another denormalized column
+  - live process status is represented through append-only `WorkflowNodeEvent`
+    rows, not mutable transcript records or mutable process output columns
+  - policy-sensitive process execution now leaves an audit trace when the node
+    or service input marks the process as sensitive
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/workflow_artifact_test.rb test/models/workflow_node_event_test.rb test/models/process_run_test.rb test/services/processes/start_test.rb test/services/processes/stop_test.rb test/integration/runtime_process_flow_test.rb`
+    passed with `7 runs, 43 assertions, 0 failures, 0 errors`
+  - `cd core_matrix && bin/rails test test/services/processes test/services/workflows test/integration/workflow_graph_flow_test.rb test/integration/workflow_scheduler_flow_test.rb test/integration/workflow_selector_flow_test.rb test/integration/workflow_context_flow_test.rb test/integration/runtime_process_flow_test.rb test/models/turn_test.rb test/models/workflow_run_test.rb test/models/workflow_node_test.rb test/models/workflow_artifact_test.rb test/models/workflow_node_event_test.rb test/models/process_run_test.rb`
+    passed with `35 runs, 188 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual-checklist delta was retained for this task because the landed
+    runtime-resource behavior is covered by targeted automated tests
+- retained findings:
+  - `WorkflowNodeEvent` is sufficient as the workflow-local live replay surface
+    for process lifecycle in this task; `ConversationEvent` projection should
+    remain a later, explicit choice
+  - `ProcessRun` needed explicit ownership validation back to the workflow run's
+    turn and conversation so the redundant query columns cannot silently drift
+  - `WorkflowArtifact` needed an explicit storage-mode boundary so inline JSON
+    payloads and attached files do not blur into one loosely validated blob
+- carry-forward notes:
+  - Task 10.2 should project only intentionally user-visible runtime state from
+    `WorkflowNodeEvent` into `ConversationEvent`
+  - later runtime tasks should continue appending execution trace through
+    workflow-local events and artifacts instead of mutating transcript-bearing
+    `Message` rows
