@@ -23,6 +23,10 @@ Keep it in `docs/future-plans` until:
 When those conditions are true, rewrite this plan into `docs/plans` with exact
 task ordering and file paths.
 
+Before promotion, run:
+
+- [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
+
 ## Preconditions
 
 Before activation, confirm all of the following:
