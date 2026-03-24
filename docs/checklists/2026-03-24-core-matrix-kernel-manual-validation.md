@@ -26,7 +26,8 @@ The implementation phase must keep this document updated. Each complex flow shou
 - conversation root creation, branch creation, thread creation, checkpoint creation, archive and unarchive
 - conversation interactive selector `auto | explicit candidate`, tail edit, rollback or fork editing, retry, rerun, swipe selection, queued turn handling, and runtime pinning
 - attachments, imports, summary segments, visibility overlays, multimodal model access, and unsupported-capability fallback behavior
-- workflow scheduling, role-local model fallback after entitlement exhaustion, explicit-candidate no-fallback failure, approvals, human form requests, human task requests, short-lived turn commands, long-lived background services, process output replay, subagent runs, canonical variable writes and promotions, and lease recovery
+- workflow scheduling, dynamic DAG expansion, fan-out or fan-in joins, structured wait-state transitions, role-local model fallback after entitlement exhaustion, explicit-candidate no-fallback failure, approvals, human form requests, human task requests, same-workflow human-interaction resumption, short-lived turn commands, long-lived background services, process output replay, subagent runs, lightweight swarm coordination metadata, canonical variable writes and promotions, and lease recovery
+- replaceable live projection streams for streaming text, progress, and status surfaces while preserving append-only event history
 - agent transcript cursor pagination and canonical variable API reads through machine-facing endpoints
 - machine credential rotation and revocation
 - one-time selector override during manual recovery

@@ -437,6 +437,8 @@ Rules:
 - a conversation is branchable and tree-navigable
 - a turn owns one workflow run plus selected input and output transcript pointers
 - a workflow run owns nodes, artifacts, human-interaction requests including approvals, processes, and subagent runs
+- a workflow run is a turn-scoped dynamic DAG, not a fixed template and not a conversation-wide graph
+- workflow mutation may append nodes and edges at runtime, but the graph must remain acyclic at every step
 - a conversation may project visible runtime state through append-only `ConversationEvent` rows without changing transcript ownership
 
 Runtime pinning rules:
@@ -487,6 +489,20 @@ This is the part of the current prototype worth keeping as design knowledge.
 
 It should be rebuilt under the correct upper-layer aggregates rather than migrated in place.
 
+## Workflow Graph Semantics
+
+The workflow graph is the kernel's execution model for one turn.
+
+Rules:
+
+- the conversation tree and the workflow DAG are separate structures with different responsibilities
+- a conversation is not modeled as one global DAG
+- each turn owns one workflow DAG that may grow dynamically while the turn is active
+- workflow mutation may add nodes and edges after execution has started, but it must reject any mutation that would introduce a cycle
+- fan-out and fan-in are first-class scheduler patterns inside the turn-scoped DAG
+- barrier-style join nodes must not become runnable until all required predecessor branches have reached a terminal or otherwise satisfied state
+- swarm or multi-agent orchestration is expressed as DAG scheduling and node coordination, not as a separate top-level orchestration aggregate in v1
+
 ## Transcript Messages Versus Conversation Events
 
 The model should keep transcript-bearing messages separate from other visible runtime projections.
@@ -498,6 +514,8 @@ Rules:
 - non-transcript visible records such as human-interaction lifecycle updates, variable-promotion notices, and similar operational projections should use `ConversationEvent`, not `Message`
 - `ConversationEvent` is append-only, does not create a new turn, and does not participate in transcript edit, retry, rerun, swipe, or fork legality rules
 - `ConversationEvent` must carry deterministic live-projection ordering metadata, using a per-conversation projection sequence plus an optional turn anchor, so publication and future UI surfaces do not invent heterogeneous timeline order at render time
+- `ConversationEvent` may also participate in replaceable live-projection streams for streaming text, progress, and transient status surfaces
+- replaceable live-projection streams remain append-only in storage; live renderers collapse to the newest revision within one projection stream while replay, audit, and diagnostics may inspect the full revision chain
 - canonical transcript listing APIs return `Message` rows only by default
 - conversation pages or publication projections may render both transcript messages and visible conversation events, but they must preserve the semantic distinction
 
@@ -592,7 +610,10 @@ Shared rules:
 - every human interaction request should redundantly store `turn_id` and `conversation_id` for efficient querying and user-facing inbox or dashboard surfaces
 - `blocking` requests pause workflow progress until they resolve, cancel, or time out
 - creation and lifecycle transitions of user-visible requests should project append-only `ConversationEvent` rows
+- blocking-request lifecycle projections may use replaceable live-projection streams when a surface wants to update one visible card, banner, or status block in place without losing append-only history
 - request outcomes write structured results back into workflow-local variable or node-output state before scheduling resumes
+- resolving, submitting, or completing a blocking request resumes the same `WorkflowRun` on the same turn-scoped DAG by default
+- blocking human interaction resolution does not create a new `Turn` or a new `WorkflowRun` unless an explicit restart or `manual_retry` path is chosen
 - open requests, especially `HumanTaskRequest`, must be queryable without reconstructing transcript history
 
 Subclass rules:
@@ -601,6 +622,52 @@ Subclass rules:
 - `HumanFormRequest` carries an input schema, defaults, and validated structured submission payload
 - `HumanTaskRequest` carries human-readable instructions plus optional structured completion evidence, notes, or payload
 - `HumanTaskRequest` is the default kernel primitive for future `human_use` style flows where the agent asks a person to complete an external action before continuation
+
+## Subagent Orchestration Model
+
+`SubagentRun` is a workflow-owned runtime resource, not a second orchestration system.
+
+Rules:
+
+- every `SubagentRun` belongs to one `WorkflowNode` and one `WorkflowRun`
+- swarm or multi-agent behavior is expressed as dynamic DAG fan-out, fan-in, and join scheduling inside the parent turn's workflow
+- do not introduce a separate `SwarmRun` or `SwarmPlan` aggregate in v1
+- `SubagentRun` should retain lightweight coordination metadata for later orchestration growth, including at minimum:
+  - `parent_subagent_run_id` when the run descends from another subagent
+  - `depth`
+  - `batch_key`
+  - `coordination_key`
+  - `requested_role_or_slot`
+  - `terminal_summary_artifact_id` or equivalent final result artifact reference
+- subagent outputs flow back into workflow artifacts, node state, or node events rather than bypassing the workflow graph
+
+## Workflow Wait State
+
+`WorkflowRun` should expose a structured current wait state rather than relying on implicit paused-status inference.
+
+Track at least:
+
+- `wait_state`
+- `wait_reason_kind`
+- `wait_reason_payload`
+- `waiting_since_at`
+- `blocking_resource_type`
+- `blocking_resource_id`
+
+Reason kinds in v1 should include at least:
+
+- `human_interaction`
+- `agent_unavailable`
+- `manual_recovery_required`
+- `policy_gate`
+
+Rules:
+
+- the structured wait state describes the current blocking condition, not the whole historical timeline of pauses
+- historical wait-state transitions belong in `WorkflowNodeEvent`, `ConversationEvent`, and `AuditLog` as appropriate
+- blocking human-interaction requests, deployment outages, and explicit manual-recovery holds should all use the same structured wait-state mechanism
+- `manual_resume` clears or replaces the current wait state on the same workflow when compatibility checks pass
+- `manual_retry` creates a fresh workflow path and leaves the prior workflow's final wait state in history
 
 ## Client Draft Versus Conversation Override
 

@@ -298,10 +298,13 @@ Cover at least:
 
 - one active workflow per conversation in v1
 - one workflow per turn
+- workflow graph mutation appending nodes or edges at runtime while preserving acyclic shape
 - workflow node ordinal uniqueness
 - workflow node decision-source enum for `llm`, `agent_program`, `system`, and `user`
 - workflow node metadata carrying explicit policy-sensitive markers when needed for audit decisions
 - edge ordering and same-workflow integrity
+- scheduler fan-out and barrier-style fan-in join semantics inside one turn-scoped DAG
+- structured `WorkflowRun` wait-state fields for current blocking reason, payload, and blocking resource reference
 - selector normalization to `role:*` and `candidate:*`
 - the reserved interactive path falling back to `role:main` when no more specific selector is present
 - role-local fallback only within the current role's ordered candidate list
@@ -325,7 +328,9 @@ Cover at least:
 
 - creating a workflow for a turn
 - mutating nodes and edges
+- expanding the workflow graph after initial creation without replacing the run
 - ensuring only one active workflow exists for the conversation
+- proving a barrier or join node does not become runnable until all required predecessor branches complete
 - preserving workflow-node decision-source and policy metadata used later by execution and audit services
 - resolving `auto` to `role:main`, choosing the first available role candidate, and freezing the resolved provider or model on the execution snapshot
 - falling through to the next candidate when entitlement reservation fails for the first role-based choice
@@ -353,6 +358,8 @@ Expected:
 Rules:
 
 - workflow resources remain subordinate to the workflow
+- `WorkflowRun` is one turn-scoped dynamic DAG, not a fixed template and not a conversation-wide graph
+- workflow mutation may append nodes and edges at runtime but must reject any mutation that would introduce a cycle
 - workflow nodes must persist explicit `decision_source` values and structured metadata needed by downstream execution, profiling, and audit services
 - model selection must resolve through the explicit service boundary `workflows/resolve_model_selector`
 - model selectors must normalize to `role:*` or `candidate:*`
@@ -367,7 +374,9 @@ Rules:
 - context assembly must record explicit diagnostic events when attachment preparation or prompt projection is skipped or degraded
 - context assembly must draw from transcript-bearing messages and approved support rows, not from `ConversationEvent` projections by default
 - context assembly must expose stable ownership identity fields so agent code can reason about the current user, workspace, conversation, and turn without scraping transcript text
+- `WorkflowRun` must persist structured current wait-state fields for blocking reason, payload, blocking resource reference, and `waiting_since_at`
 - scheduler must enforce `reject`, `restart`, and `queue` semantics deterministically
+- scheduler must support fan-out, fan-in, and barrier-style joins within the same workflow run
 - queued work must fail safe when its expected-tail guard no longer matches
 - scheduler determines runnable work only; it does not execute side effects
 
@@ -467,10 +476,13 @@ Cover at least:
 - timeout forbidden for background services
 - `ConversationEvent` append-only projection rules and separation from transcript-bearing `Message` rows
 - `ConversationEvent` stable per-conversation ordering and optional turn anchoring for live projection
+- replaceable live-projection streams for streaming text, progress, or status surfaces while keeping append-only event history
 - `HumanInteractionRequest` STI legality and ownership by workflow node, turn, and conversation
 - approval scope and transition rules
 - form submission validation and timeout behavior
 - task-request completion semantics and queryable open state
+- blocking human-interaction resolution resuming the same workflow run on the same turn-scoped DAG by default
+- `SubagentRun` coordination metadata for parentage, depth, batch or coordination keys, requested role or slot, and final result artifact reference
 - canonical variable scope rules for `workspace` and `conversation`
 - canonical variable supersession history and explicit promotion from conversation to workspace
 - lease uniqueness, heartbeat freshness, and release semantics
@@ -486,11 +498,11 @@ Cover at least:
 - emitting stdout or stderr node events without mutating transcript rows
 - writing audit rows when a process run is flagged as policy-sensitive by workflow metadata
 - opening and resolving an approval gate
-- opening a blocking form request, submitting structured input, and resuming the workflow with workflow-local output state
+- opening a blocking form request, submitting structured input, and resuming the same workflow run with workflow-local output state
 - opening a human task request and recording a completion payload
-- projecting visible conversation events for blocking human interaction lifecycle changes without creating transcript `Message` rows and preserving stable projection order
+- projecting visible conversation events for blocking human interaction lifecycle changes without creating transcript `Message` rows, preserving stable projection order, and collapsing to the newest revision within one replaceable live-projection stream when requested
 - writing a conversation-scope canonical variable and promoting it to workspace scope with preserved history
-- spawning a subagent run
+- spawning multiple coordinated subagent runs under one workflow and recording lightweight coordination metadata without introducing a second orchestration aggregate
 - acquiring, heartbeating, and releasing an execution lease
 
 **Step 3: Run the targeted tests to confirm failure**
@@ -521,8 +533,12 @@ Rules:
 - `HumanInteractionRequest` is the workflow-owned source of truth for approvals, forms, and human-task pauses
 - `ConversationEvent` is append-only projection state and must not be reused as transcript-bearing `Message`
 - `ConversationEvent` must persist deterministic projection-order metadata plus an optional turn anchor so live projection queries can merge events consistently
+- `ConversationEvent` must also support replaceable live-projection streams through append-only revisions so one visible streaming or status surface can update in place without dropping history
 - blocking human interactions must pause workflow progress until they resolve, cancel, or time out
 - human-interaction outcomes must write structured results into workflow-local state before resumption
+- blocking human-interaction resolution must resume the same `WorkflowRun` on the same turn-scoped DAG by default and must not create a new `Turn` or `WorkflowRun` unless an explicit restart or retry path is chosen
+- `SubagentRun` remains a workflow-node-backed runtime resource; swarm or multi-agent behavior is expressed through workflow DAG fan-out or fan-in rather than a separate `SwarmRun` aggregate
+- `SubagentRun` must retain lightweight coordination metadata for parentage, depth, batching, coordination, requested role or slot, and terminal result artifact linkage
 - canonical variables must support only `workspace` and `conversation` scope in v1
 - canonical variable writes supersede prior current values without deleting history
 - conversation-scope canonical values may be explicitly promoted to workspace scope
