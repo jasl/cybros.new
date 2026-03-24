@@ -32,3 +32,21 @@ Execution rules:
 - load only the active task document during implementation
 - apply the shared execution-gate audits after each task
 - if a child task consults `references/` or external implementations, write the retained conclusion into that task document and any local docs it updates; do not leave only a bare reference path behind
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- completed tasks:
+  - Task 10.1 landed workflow artifacts, workflow node events, and process runs
+  - Task 10.2 landed human-interaction runtime resources and conversation-event
+    projection
+  - Task 10.3 landed canonical-variable history and explicit promotion
+  - Task 10.4 landed workflow-owned subagent coordination rows and execution
+    leases
+- verification carry-forward:
+  - each child task completed with targeted automated coverage plus broader
+    runtime-regression coverage before commit
+  - the task group now preserves the full Milestone 3 runtime-resource baseline
+    of processes, conversation events, human interactions, canonical
+    variables, subagent coordination, and lease ownership

@@ -21,6 +21,8 @@ class ProcessRun < ApplicationRecord
   belongs_to :turn
   belongs_to :origin_message, class_name: "Message", optional: true
 
+  has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
+
   before_validation :default_started_at, on: :create
 
   validates :command_line, presence: true

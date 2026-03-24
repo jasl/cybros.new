@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090039) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -275,6 +275,30 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
     t.index ["installation_id"], name: "index_execution_environments_on_installation_id"
   end
 
+  create_table "execution_leases", force: :cascade do |t|
+    t.datetime "acquired_at", null: false
+    t.datetime "created_at", null: false
+    t.integer "heartbeat_timeout_seconds", null: false
+    t.string "holder_key", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "last_heartbeat_at", null: false
+    t.bigint "leased_resource_id", null: false
+    t.string "leased_resource_type", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "release_reason"
+    t.datetime "released_at"
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["holder_key", "released_at"], name: "idx_execution_leases_holder_released"
+    t.index ["installation_id"], name: "index_execution_leases_on_installation_id"
+    t.index ["leased_resource_type", "leased_resource_id"], name: "idx_execution_leases_active_resource", unique: true, where: "(released_at IS NULL)"
+    t.index ["leased_resource_type", "leased_resource_id"], name: "idx_execution_leases_resource"
+    t.index ["workflow_node_id"], name: "index_execution_leases_on_workflow_node_id"
+    t.index ["workflow_run_id", "released_at"], name: "idx_execution_leases_run_released"
+    t.index ["workflow_run_id"], name: "index_execution_leases_on_workflow_run_id"
+  end
+
   create_table "execution_profile_facts", force: :cascade do |t|
     t.bigint "conversation_id"
     t.integer "count_value"
@@ -475,6 +499,33 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id", "expires_at"], name: "index_sessions_on_user_id_and_expires_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "subagent_runs", force: :cascade do |t|
+    t.string "batch_key"
+    t.string "coordination_key"
+    t.datetime "created_at", null: false
+    t.integer "depth", default: 0, null: false
+    t.string "failure_reason"
+    t.datetime "finished_at"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "running", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.bigint "parent_subagent_run_id"
+    t.string "requested_role_or_slot", null: false
+    t.datetime "started_at", null: false
+    t.bigint "terminal_summary_artifact_id"
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["installation_id"], name: "index_subagent_runs_on_installation_id"
+    t.index ["parent_subagent_run_id"], name: "index_subagent_runs_on_parent_subagent_run_id"
+    t.index ["terminal_summary_artifact_id"], name: "index_subagent_runs_on_terminal_summary_artifact_id"
+    t.index ["workflow_node_id", "created_at"], name: "idx_subagent_runs_node_created"
+    t.index ["workflow_node_id"], name: "index_subagent_runs_on_workflow_node_id"
+    t.index ["workflow_run_id", "batch_key"], name: "idx_subagent_runs_run_batch"
+    t.index ["workflow_run_id", "coordination_key"], name: "idx_subagent_runs_run_coordination"
+    t.index ["workflow_run_id"], name: "index_subagent_runs_on_workflow_run_id"
   end
 
   create_table "turns", force: :cascade do |t|
@@ -737,6 +788,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
   add_foreign_key "conversations", "installations"
   add_foreign_key "conversations", "workspaces"
   add_foreign_key "execution_environments", "installations"
+  add_foreign_key "execution_leases", "installations"
+  add_foreign_key "execution_leases", "workflow_nodes"
+  add_foreign_key "execution_leases", "workflow_runs"
   add_foreign_key "execution_profile_facts", "installations"
   add_foreign_key "execution_profile_facts", "users"
   add_foreign_key "execution_profile_facts", "workspaces"
@@ -766,6 +820,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
   add_foreign_key "provider_policies", "installations"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
+  add_foreign_key "subagent_runs", "installations"
+  add_foreign_key "subagent_runs", "subagent_runs", column: "parent_subagent_run_id"
+  add_foreign_key "subagent_runs", "workflow_artifacts", column: "terminal_summary_artifact_id"
+  add_foreign_key "subagent_runs", "workflow_nodes"
+  add_foreign_key "subagent_runs", "workflow_runs"
   add_foreign_key "turns", "agent_deployments"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "installations"

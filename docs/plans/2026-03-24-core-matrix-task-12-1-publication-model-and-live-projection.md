@@ -20,8 +20,8 @@ Reference capture for this task:
 ---
 
 **Files:**
-- Create: `core_matrix/db/migrate/20260324090039_create_publications.rb`
-- Create: `core_matrix/db/migrate/20260324090040_create_publication_access_events.rb`
+- Create: `core_matrix/db/migrate/20260324090040_create_publications.rb`
+- Create: `core_matrix/db/migrate/20260324090041_create_publication_access_events.rb`
 - Create: `core_matrix/app/models/publication.rb`
 - Create: `core_matrix/app/models/publication_access_event.rb`
 - Create: `core_matrix/app/services/publications/publish_live.rb`

@@ -359,5 +359,46 @@ module ActiveSupport
         workflow_run: workflow_run,
       }.merge(context)
     end
+
+    def build_subagent_context!(workflow_node_key: "subagent_fanout", workflow_node_type: "subagent_batch", workflow_node_metadata: {})
+      context = prepare_workflow_execution_context!(create_workspace_context!)
+      conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+      turn = Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Subagent coordination input",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+      workflow_run = Workflows::CreateForTurn.call(
+        turn: turn,
+        root_node_key: "root",
+        root_node_type: "turn_root",
+        decision_source: "system",
+        metadata: {}
+      )
+
+      Workflows::Mutate.call(
+        workflow_run: workflow_run,
+        nodes: [
+          {
+            node_key: workflow_node_key,
+            node_type: workflow_node_type,
+            decision_source: "agent_program",
+            metadata: workflow_node_metadata,
+          },
+        ],
+        edges: [
+          { from_node_key: "root", to_node_key: workflow_node_key },
+        ]
+      )
+
+      {
+        conversation: conversation,
+        turn: turn,
+        workflow_run: workflow_run.reload,
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
+      }.merge(context)
+    end
   end
 end

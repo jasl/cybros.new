@@ -11,6 +11,11 @@ class WorkflowArtifact < ApplicationRecord
   belongs_to :workflow_node
 
   has_one_attached :file
+  has_many :terminal_subagent_runs,
+    class_name: "SubagentRun",
+    foreign_key: :terminal_summary_artifact_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :terminal_summary_artifact
 
   validates :artifact_key, presence: true
   validates :artifact_kind, presence: true

@@ -32,6 +32,8 @@ class WorkflowRun < ApplicationRecord
   has_many :workflow_node_events, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :process_runs, through: :workflow_nodes
+  has_many :subagent_runs, dependent: :restrict_with_exception
+  has_many :execution_leases, dependent: :restrict_with_exception
 
   delegate :normalized_selector,
     :resolved_provider_handle,

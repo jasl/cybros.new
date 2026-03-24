@@ -48,3 +48,25 @@ Execution rules:
 - treat this file as the milestone ordering index, not as the detailed task body
 - apply the shared guardrails and execution-gate audits from the implementation-plan index after every task
 - if a child task consults `references/` or external implementations, write the retained conclusion into that task document and any local docs it updates; do not leave only a bare reference path behind
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- completed scope:
+  - Task Group 07 rebuilt conversation structure, turn core, rewrite, and
+    variant selection
+  - Task Group 08 rebuilt transcript support models for visibility,
+    attachments, imports, and summary segments
+  - Task Group 09 rebuilt workflow graph, scheduler, model-selector
+    resolution, and execution context assembly
+  - Task Group 10 rebuilt runtime resources for processes, human
+    interactions, conversation events, canonical variables, subagent
+    coordination, and lease control
+- verification carry-forward:
+  - child tasks completed with targeted tests, broader runtime-regression test
+    passes, and behavior-doc alignment before commit
+  - Milestone 3 now covers the required conversation-runtime baseline called
+    out in the greenfield design, including transcript support, wait states,
+    runtime event streams, human interaction resume, canonical variables, and
+    explicit lease ownership
