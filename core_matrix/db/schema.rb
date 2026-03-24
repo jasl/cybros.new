@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090034) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090037) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -142,6 +142,27 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090034) do
     t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
   end
 
+  create_table "conversation_events", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "event_kind", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.integer "projection_sequence", null: false
+    t.bigint "source_id"
+    t.string "source_type"
+    t.string "stream_key"
+    t.integer "stream_revision"
+    t.bigint "turn_id"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "projection_sequence"], name: "idx_conversation_events_projection_sequence", unique: true
+    t.index ["conversation_id", "stream_key", "stream_revision"], name: "idx_conversation_events_stream_revision", unique: true, where: "(stream_key IS NOT NULL)"
+    t.index ["conversation_id"], name: "index_conversation_events_on_conversation_id"
+    t.index ["installation_id"], name: "index_conversation_events_on_installation_id"
+    t.index ["source_type", "source_id"], name: "idx_conversation_events_source"
+    t.index ["turn_id"], name: "index_conversation_events_on_turn_id"
+  end
+
   create_table "conversation_imports", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
@@ -247,6 +268,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090034) do
     t.index ["installation_id"], name: "index_execution_profile_facts_on_installation_id"
     t.index ["user_id"], name: "index_execution_profile_facts_on_user_id"
     t.index ["workspace_id"], name: "index_execution_profile_facts_on_workspace_id"
+  end
+
+  create_table "human_interaction_requests", force: :cascade do |t|
+    t.boolean "blocking", default: true, null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "open", null: false
+    t.jsonb "request_payload", default: {}, null: false
+    t.string "resolution_kind"
+    t.datetime "resolved_at"
+    t.jsonb "result_payload", default: {}, null: false
+    t.bigint "turn_id", null: false
+    t.string "type", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id", null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["conversation_id", "lifecycle_state"], name: "idx_human_requests_conversation_lifecycle"
+    t.index ["conversation_id"], name: "index_human_interaction_requests_on_conversation_id"
+    t.index ["installation_id"], name: "index_human_interaction_requests_on_installation_id"
+    t.index ["turn_id"], name: "index_human_interaction_requests_on_turn_id"
+    t.index ["type", "lifecycle_state"], name: "idx_human_requests_type_lifecycle"
+    t.index ["workflow_node_id"], name: "index_human_interaction_requests_on_workflow_node_id"
+    t.index ["workflow_run_id", "lifecycle_state"], name: "idx_human_requests_workflow_lifecycle"
+    t.index ["workflow_run_id"], name: "index_human_interaction_requests_on_workflow_run_id"
   end
 
   create_table "identities", force: :cascade do |t|
@@ -632,6 +679,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090034) do
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversation_events", "conversations"
+  add_foreign_key "conversation_events", "installations"
+  add_foreign_key "conversation_events", "turns"
   add_foreign_key "conversation_imports", "conversation_summary_segments", column: "summary_segment_id"
   add_foreign_key "conversation_imports", "conversations"
   add_foreign_key "conversation_imports", "conversations", column: "source_conversation_id"
@@ -652,6 +702,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090034) do
   add_foreign_key "execution_profile_facts", "installations"
   add_foreign_key "execution_profile_facts", "users"
   add_foreign_key "execution_profile_facts", "workspaces"
+  add_foreign_key "human_interaction_requests", "conversations"
+  add_foreign_key "human_interaction_requests", "installations"
+  add_foreign_key "human_interaction_requests", "turns"
+  add_foreign_key "human_interaction_requests", "workflow_nodes"
+  add_foreign_key "human_interaction_requests", "workflow_runs"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "message_attachments", "conversations"

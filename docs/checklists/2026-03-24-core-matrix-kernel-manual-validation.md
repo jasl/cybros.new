@@ -240,3 +240,42 @@ bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil)
 ```bash
 bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
+
+## Human Interaction Pause And Resume
+
+- goal:
+  verify a blocking approval request pauses the existing workflow run, projects
+  append-only conversation events, and resumes the same workflow run after
+  approval without creating a new turn
+- prerequisites:
+  - `cd core_matrix`
+  - `bin/rails db:migrate`
+  - development database can be reset for this flow
+- exact commands:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "fenix", display_name: "Fenix", lifecycle_state: "active"); environment = ExecutionEnvironment.create!(installation: bootstrap.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, lifecycle_state: "active"); deployment = AgentDeployment.create!(installation: bootstrap.installation, agent_installation: agent_installation, execution_environment: environment, fingerprint: "fenix-machine-001", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", machine_credential_digest: Digest::SHA256.hexdigest("machine-001"), health_status: "healthy", health_metadata: {}, bootstrap_state: "active", last_heartbeat_at: Time.current); capability = CapabilitySnapshot.create!(agent_deployment: deployment, version: 1, protocol_methods: [{"method_id" => "agent_health"}], tool_catalog: [{"tool_name" => "shell_exec"}], config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}); deployment.update!(active_capability_snapshot: capability); ProviderEntitlement.create!(installation: bootstrap.installation, provider_handle: "codex_subscription", entitlement_key: "shared_window", window_kind: "rolling_five_hours", window_seconds: 18000, quota_limit: 200000, active: true, metadata: {}); ProviderEntitlement.create!(installation: bootstrap.installation, provider_handle: "openai", entitlement_key: "shared_window", window_kind: "rolling_five_hours", window_seconds: 18000, quota_limit: 200000, active: true, metadata: {}); binding = UserAgentBindings::Enable.call(user: bootstrap.user, agent_installation: agent_installation).binding; workspace = binding.workspaces.find_by!(is_default: true); conversation = Conversations::CreateRoot.call(workspace: workspace); turn = Turns::StartUserTurn.call(conversation: conversation, content: "Need approval", agent_deployment: deployment, resolved_config_snapshot: {}, resolved_model_selection_snapshot: {}); workflow_run = Workflows::CreateForTurn.call(turn: turn, root_node_key: "root", root_node_type: "turn_root", decision_source: "system", metadata: {}); Workflows::Mutate.call(workflow_run: workflow_run, nodes: [{node_key: "human_gate", node_type: "human_interaction", decision_source: "agent_program", metadata: {}}], edges: [{from_node_key: "root", to_node_key: "human_gate"}]); request = HumanInteractions::Request.call(request_type: "ApprovalRequest", workflow_node: workflow_run.reload.workflow_nodes.find_by!(node_key: "human_gate"), blocking: true, request_payload: {"approval_scope" => "publish"}); paused = workflow_run.reload; resolved = HumanInteractions::ResolveApproval.call(approval_request: request, decision: "approved", result_payload: {"comment" => "Ship it"}); puts({wait_before: paused.wait_state, blocking_resource_id: paused.blocking_resource_id, wait_after: resolved.workflow_run.reload.wait_state, same_workflow_run: resolved.workflow_run_id == workflow_run.id, conversation_event_kinds: ConversationEvent.where(conversation: conversation).order(:projection_sequence).pluck(:event_kind), live_projection_kinds: ConversationEvent.live_projection(conversation: conversation).map(&:event_kind), turn_count: conversation.turns.count}.to_json)'
+```
+
+- expected rows or state changes:
+  - one `human_interaction_requests` row exists with `type = "ApprovalRequest"`
+  - the request transitions from `lifecycle_state = "open"` to
+    `lifecycle_state = "resolved"`
+  - the existing `workflow_runs` row transitions from `wait_state = "waiting"`
+    back to `wait_state = "ready"`
+  - two append-only `conversation_events` rows exist for the request stream
+  - no additional turn is created during request resolution
+- expected logs or visible outcomes:
+  - JSON output reports `wait_before: "waiting"`
+  - JSON output reports `wait_after: "ready"`
+  - JSON output reports `same_workflow_run: true`
+  - JSON output reports
+    `conversation_event_kinds: ["human_interaction.opened", "human_interaction.resolved"]`
+  - JSON output reports
+    `live_projection_kinds: ["human_interaction.resolved"]`
+  - JSON output reports `turn_count: 1`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```

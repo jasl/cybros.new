@@ -23,6 +23,7 @@ class WorkflowNode < ApplicationRecord
     inverse_of: :to_node
   has_many :workflow_artifacts, dependent: :restrict_with_exception
   has_many :workflow_node_events, dependent: :restrict_with_exception
+  has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :process_runs, dependent: :restrict_with_exception
 
   validates :node_key, presence: true, uniqueness: { scope: :workflow_run_id }

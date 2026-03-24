@@ -116,3 +116,63 @@ Do not implement these items in this task:
 - canonical variable storage
 - subagent runtime resources
 - execution leases
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- landing commit:
+  - included in the accompanying
+    `feat: add human interactions and conversation events` task commit
+- actual landed scope:
+  - added `HumanInteractionRequest` STI with `ApprovalRequest`,
+    `HumanFormRequest`, and `HumanTaskRequest`
+  - added `ConversationEvent` as the append-only conversation-local projection
+    model with deterministic `projection_sequence`
+  - added replaceable live-projection streams through `stream_key` and
+    `stream_revision`
+  - added `HumanInteractions::Request`, `ResolveApproval`, `SubmitForm`, and
+    `CompleteTask` service boundaries on top of the existing workflow wait-state
+    mechanism
+  - added `ConversationEvents::Project` as the projection-sequence allocator
+    and event appender
+  - updated the manual checklist with a reproducible blocking-approval
+    pause-and-resume flow
+  - added
+    `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
+- plan alignment notes:
+  - blocking human interactions now pause and resume the same `WorkflowRun`
+    rather than creating a new turn or a new workflow run
+  - request outcome data is persisted on the workflow-owned request row before
+    wait-state clearance and scheduler resumption
+  - `ConversationEvent` remains distinct from transcript-bearing `Message`
+    rows and is used only as append-only projection state
+  - replaceable live streams now collapse at read time through
+    `ConversationEvent.live_projection` while the full append-only history stays
+    durable
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/human_interaction_request_test.rb test/models/approval_request_test.rb test/models/human_form_request_test.rb test/models/human_task_request_test.rb test/models/conversation_event_test.rb test/services/human_interactions/request_test.rb test/services/human_interactions/resolve_approval_test.rb test/services/human_interactions/submit_form_test.rb test/services/human_interactions/complete_task_test.rb test/services/conversation_events/project_test.rb test/integration/human_interaction_flow_test.rb`
+    passed with `12 runs, 77 assertions, 0 failures, 0 errors`
+  - `cd core_matrix && bin/rails test test/services/human_interactions test/services/conversation_events test/services/processes test/services/workflows test/integration/workflow_graph_flow_test.rb test/integration/workflow_scheduler_flow_test.rb test/integration/workflow_selector_flow_test.rb test/integration/workflow_context_flow_test.rb test/integration/runtime_process_flow_test.rb test/integration/human_interaction_flow_test.rb test/models/turn_test.rb test/models/workflow_run_test.rb test/models/workflow_node_test.rb test/models/workflow_artifact_test.rb test/models/workflow_node_event_test.rb test/models/process_run_test.rb test/models/human_interaction_request_test.rb test/models/approval_request_test.rb test/models/human_form_request_test.rb test/models/human_task_request_test.rb test/models/conversation_event_test.rb`
+    passed with `47 runs, 265 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - manual validation now includes a reproducible blocking-approval flow that
+    proves same-workflow pause and resume plus append-only conversation-event
+    history
+- retained findings:
+  - `ConversationEvent` should stay a projection-only model; it was not
+    necessary to add transcript pointers or transcript mutation semantics for
+    this task
+  - request result persistence on `HumanInteractionRequest` was sufficient for
+    the current “structured outcome before resume” requirement without
+    pre-implementing canonical variables
+  - a narrow Dify sanity check reinforced the same-workflow resume invariant,
+    but Core Matrix keeps a simpler v1 shape by using the workflow-run wait
+    state plus durable request outcome rows
+- carry-forward notes:
+  - Task 10.3 may read human-interaction outcomes when canonical-variable
+    promotion is introduced, but it should not replace the request row as the
+    runtime source of truth
+  - later publication and read-model work should compose transcript messages and
+    conversation events without collapsing the semantic distinction between the
+    two record types
