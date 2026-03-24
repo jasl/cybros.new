@@ -12,6 +12,9 @@ gem "pg", "~> 1.1"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 7.1"
 
+# Load local .env* files early enough for config/database.yml and app boot.
+gem "dotenv-rails"
+
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Bundle and transpile JavaScript [https://github.com/rails/jsbundling-rails]

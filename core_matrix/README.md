@@ -22,3 +22,10 @@ bin/rails db:version
 bin/rails test
 bin/rubocop app/models/application_record.rb
 ```
+
+Environment notes:
+
+- Host-side Rails commands load local `.env*` files via `dotenv-rails`, including bare-metal production boots.
+- Leave `RAILS_DB_URL_BASE` unset on macOS to use bare-metal PostgreSQL over the default Unix socket.
+- Set `RAILS_DB_URL_BASE=postgresql://postgres:postgres@127.0.0.1:5432` on Ubuntu when Rails runs on the host and PostgreSQL 18 runs in Docker with a published port.
+- Containerized services still use Docker Compose environment injection. In `compose.yaml.sample`, explicit service `environment` values override same-named values coming from `env_file`.
