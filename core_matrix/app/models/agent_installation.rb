@@ -7,6 +7,7 @@ class AgentInstallation < ApplicationRecord
 
   has_many :agent_enrollments, dependent: :restrict_with_exception
   has_many :agent_deployments, dependent: :restrict_with_exception
+  has_many :user_agent_bindings, dependent: :restrict_with_exception
 
   validates :key, presence: true, uniqueness: { scope: :installation_id }
   validates :display_name, presence: true

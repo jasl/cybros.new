@@ -111,5 +111,25 @@ module ActiveSupport
         default_config_snapshot: default_config_snapshot,
       }.merge(attrs))
     end
+
+    def create_user_agent_binding!(installation: create_installation!, user: create_user!(installation: installation), agent_installation: create_agent_installation!(installation: installation), preferences: {}, **attrs)
+      UserAgentBinding.create!({
+        installation: installation,
+        user: user,
+        agent_installation: agent_installation,
+        preferences: preferences,
+      }.merge(attrs))
+    end
+
+    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), user_agent_binding: create_user_agent_binding!(installation: installation, user: user), name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
+      Workspace.create!({
+        installation: installation,
+        user: user,
+        user_agent_binding: user_agent_binding,
+        name: name,
+        privacy: privacy,
+        is_default: is_default,
+      }.merge(attrs))
+    end
   end
 end

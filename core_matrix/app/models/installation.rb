@@ -8,6 +8,8 @@ class Installation < ApplicationRecord
   has_many :execution_environments, dependent: :destroy
   has_many :agent_enrollments, dependent: :destroy
   has_many :agent_deployments, dependent: :destroy
+  has_many :user_agent_bindings, dependent: :destroy
+  has_many :workspaces, dependent: :destroy
 
   validates :name, presence: true
   validates :bootstrap_state, presence: true, inclusion: { in: BOOTSTRAP_STATES }

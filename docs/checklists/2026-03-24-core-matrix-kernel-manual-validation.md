@@ -63,7 +63,7 @@ For each flow, keep:
 - exact commands:
 
 ```bash
-bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; result = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); puts({installation_count: Installation.count, identity_count: Identity.count, user_roles: User.order(:id).pluck(:role), audit_actions: AuditLog.order(:action).pluck(:action)}.to_json)'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; result = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); puts({installation_count: Installation.count, identity_count: Identity.count, user_roles: User.order(:id).pluck(:role), audit_actions: AuditLog.order(:action).pluck(:action)}.to_json)'
 ```
 
 - expected rows or state changes:
@@ -78,7 +78,7 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 - cleanup steps:
 
 ```bash
-bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
 
 ## Invitation Creation And Consumption
@@ -92,7 +92,7 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 - exact commands:
 
 ```bash
-bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); invitation = Invitation.issue!(installation: bootstrap.installation, inviter: bootstrap.user, email: "member@example.com", expires_at: 2.days.from_now); result = Invitations::Consume.call(token: invitation.plaintext_token, password: "Password123!", password_confirmation: "Password123!", display_name: "Member User"); puts({user_count: User.count, consumed_at: result.invitation.reload.consumed_at.present?, invited_email: result.identity.email, audit_actions: AuditLog.order(:action).pluck(:action)}.to_json)'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); invitation = Invitation.issue!(installation: bootstrap.installation, inviter: bootstrap.user, email: "member@example.com", expires_at: 2.days.from_now); result = Invitations::Consume.call(token: invitation.plaintext_token, password: "Password123!", password_confirmation: "Password123!", display_name: "Member User"); puts({user_count: User.count, consumed_at: result.invitation.reload.consumed_at.present?, invited_email: result.identity.email, audit_actions: AuditLog.order(:action).pluck(:action)}.to_json)'
 ```
 
 - expected rows or state changes:
@@ -107,7 +107,7 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 - cleanup steps:
 
 ```bash
-bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
 
 ## Admin Grant And Revoke
@@ -121,7 +121,7 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 - exact commands:
 
 ```bash
-bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); invitation = Invitation.issue!(installation: bootstrap.installation, inviter: bootstrap.user, email: "member@example.com", expires_at: 2.days.from_now); consume = Invitations::Consume.call(token: invitation.plaintext_token, password: "Password123!", password_confirmation: "Password123!", display_name: "Member User"); Users::GrantAdmin.call(user: consume.user, actor: bootstrap.user); Users::RevokeAdmin.call(user: consume.user, actor: bootstrap.user); begin Users::RevokeAdmin.call(user: bootstrap.user, actor: bootstrap.user); rescue => error; guard = error.class.name; end; puts({member_role: consume.user.reload.role, bootstrap_role: bootstrap.user.reload.role, guard_error: guard, audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); invitation = Invitation.issue!(installation: bootstrap.installation, inviter: bootstrap.user, email: "member@example.com", expires_at: 2.days.from_now); consume = Invitations::Consume.call(token: invitation.plaintext_token, password: "Password123!", password_confirmation: "Password123!", display_name: "Member User"); Users::GrantAdmin.call(user: consume.user, actor: bootstrap.user); Users::RevokeAdmin.call(user: consume.user, actor: bootstrap.user); begin Users::RevokeAdmin.call(user: bootstrap.user, actor: bootstrap.user); rescue => error; guard = error.class.name; end; puts({member_role: consume.user.reload.role, bootstrap_role: bootstrap.user.reload.role, guard_error: guard, audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
 ```
 
 - expected rows or state changes:
@@ -136,7 +136,7 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 - cleanup steps:
 
 ```bash
-bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```
 
 ## Agent Enrollment, Registration, And Heartbeat
@@ -152,7 +152,7 @@ bin/rails runner 'AuditLog.delete_all; Session.delete_all; Invitation.delete_all
 - exact commands:
 
 ```bash
-bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "fenix", display_name: "Bundled Fenix", lifecycle_state: "active"); environment = ExecutionEnvironment.create!(installation: bootstrap.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, lifecycle_state: "active"); enrollment = AgentEnrollments::Issue.call(agent_installation: agent_installation, actor: bootstrap.user, expires_at: 2.hours.from_now); registration = AgentDeployments::Register.call(enrollment_token: enrollment.plaintext_token, execution_environment: environment, fingerprint: "fenix-machine-001", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "builtin"}], config_schema_snapshot: {"type" => "object", "properties" => {}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write"}); AgentDeployments::RecordHeartbeat.call(deployment: registration.deployment, health_status: "healthy", health_metadata: {"latency_ms" => 45}, auto_resume_eligible: true); puts({enrollment_consumed: registration.enrollment.reload.consumed_at.present?, deployment_state: registration.deployment.reload.bootstrap_state, health_status: registration.deployment.health_status, capability_versions: registration.deployment.capability_snapshots.order(:version).pluck(:version), audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "fenix", display_name: "Bundled Fenix", lifecycle_state: "active"); environment = ExecutionEnvironment.create!(installation: bootstrap.installation, kind: "local", connection_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, lifecycle_state: "active"); enrollment = AgentEnrollments::Issue.call(agent_installation: agent_installation, actor: bootstrap.user, expires_at: 2.hours.from_now); registration = AgentDeployments::Register.call(enrollment_token: enrollment.plaintext_token, execution_environment: environment, fingerprint: "fenix-machine-001", endpoint_metadata: {"transport" => "http", "base_url" => "http://127.0.0.1:4100"}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", protocol_methods: [{"method_id" => "agent_health"}, {"method_id" => "capabilities_handshake"}], tool_catalog: [{"tool_name" => "shell_exec", "tool_kind" => "builtin"}], config_schema_snapshot: {"type" => "object", "properties" => {}}, conversation_override_schema_snapshot: {"type" => "object", "properties" => {}}, default_config_snapshot: {"sandbox" => "workspace-write"}); AgentDeployments::RecordHeartbeat.call(deployment: registration.deployment, health_status: "healthy", health_metadata: {"latency_ms" => 45}, auto_resume_eligible: true); puts({enrollment_consumed: registration.enrollment.reload.consumed_at.present?, deployment_state: registration.deployment.reload.bootstrap_state, health_status: registration.deployment.health_status, capability_versions: registration.deployment.capability_snapshots.order(:version).pluck(:version), audit_actions: AuditLog.order(:created_at).pluck(:action)}.to_json)'
 ```
 
 - expected rows or state changes:
@@ -169,5 +169,36 @@ bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil)
 - cleanup steps:
 
 ```bash
-bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
+```
+
+## User Binding And Default Workspace
+
+- goal:
+  verify enabling a shared agent creates one binding per user-agent pair and
+  one private default workspace per binding
+- prerequisites:
+  - `cd core_matrix`
+  - `bin/rails db:migrate`
+  - development database can be reset for this flow
+- exact commands:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all; bootstrap = Installations::BootstrapFirstAdmin.call(name: "Primary Installation", email: "admin@example.com", password: "Password123!", password_confirmation: "Password123!", display_name: "Primary Admin"); member_identity = Identity.create!(email: "member@example.com", password: "Password123!", password_confirmation: "Password123!", auth_metadata: {}); member = User.create!(installation: bootstrap.installation, identity: member_identity, role: "member", display_name: "Member User", preferences: {}); agent_installation = AgentInstallation.create!(installation: bootstrap.installation, visibility: "global", key: "shared-agent", display_name: "Shared Agent", lifecycle_state: "active"); first = UserAgentBindings::Enable.call(user: bootstrap.user, agent_installation: agent_installation); duplicate = UserAgentBindings::Enable.call(user: bootstrap.user, agent_installation: agent_installation); second = UserAgentBindings::Enable.call(user: member, agent_installation: agent_installation); puts({binding_count: UserAgentBinding.count, default_workspace_count: Workspace.where(is_default: true).count, duplicate_binding_reused: first.binding.id == duplicate.binding.id, workspace_users: Workspace.order(:id).pluck(:user_id), privacy_values: Workspace.order(:id).pluck(:privacy)}.to_json)'
+```
+
+- expected rows or state changes:
+  - one binding row exists for the admin user and shared agent pair
+  - repeated enable does not create a duplicate binding
+  - a second user gets a distinct binding and distinct default workspace
+  - all workspaces stay `privacy = "private"`
+- expected logs or visible outcomes:
+  - JSON output reports `binding_count: 2`
+  - JSON output reports `default_workspace_count: 2`
+  - JSON output reports `duplicate_binding_reused: true`
+  - JSON output reports `privacy_values: ["private", "private"]`
+- cleanup steps:
+
+```bash
+bin/rails runner 'AgentDeployment.update_all(active_capability_snapshot_id: nil); CapabilitySnapshot.delete_all; Workspace.delete_all; UserAgentBinding.delete_all; AgentDeployment.delete_all; AgentEnrollment.delete_all; ExecutionEnvironment.delete_all; AgentInstallation.delete_all; AuditLog.delete_all; Session.delete_all; Invitation.delete_all; User.delete_all; Identity.delete_all; Installation.delete_all'
 ```

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090010) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090012) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -188,6 +188,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090010) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "user_agent_bindings", force: :cascade do |t|
+    t.bigint "agent_installation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "preferences", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["agent_installation_id"], name: "index_user_agent_bindings_on_agent_installation_id"
+    t.index ["installation_id", "user_id"], name: "index_user_agent_bindings_on_installation_id_and_user_id"
+    t.index ["installation_id"], name: "index_user_agent_bindings_on_installation_id"
+    t.index ["user_id", "agent_installation_id"], name: "index_user_agent_bindings_on_user_id_and_agent_installation_id", unique: true
+    t.index ["user_id"], name: "index_user_agent_bindings_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "display_name", null: false
@@ -199,6 +213,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090010) do
     t.index ["identity_id"], name: "index_users_on_identity_id", unique: true
     t.index ["installation_id", "role"], name: "index_users_on_installation_id_and_role"
     t.index ["installation_id"], name: "index_users_on_installation_id"
+  end
+
+  create_table "workspaces", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.boolean "is_default", default: false, null: false
+    t.string "name", null: false
+    t.string "privacy", default: "private", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_agent_binding_id", null: false
+    t.bigint "user_id", null: false
+    t.index ["installation_id", "user_id"], name: "index_workspaces_on_installation_id_and_user_id"
+    t.index ["installation_id"], name: "index_workspaces_on_installation_id"
+    t.index ["user_agent_binding_id"], name: "index_workspaces_on_user_agent_binding_id"
+    t.index ["user_agent_binding_id"], name: "index_workspaces_on_user_agent_binding_id_default", unique: true, where: "is_default"
+    t.index ["user_id"], name: "index_workspaces_on_user_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -218,6 +248,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090010) do
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
+  add_foreign_key "user_agent_bindings", "agent_installations"
+  add_foreign_key "user_agent_bindings", "installations"
+  add_foreign_key "user_agent_bindings", "users"
   add_foreign_key "users", "identities"
   add_foreign_key "users", "installations"
+  add_foreign_key "workspaces", "installations"
+  add_foreign_key "workspaces", "user_agent_bindings"
+  add_foreign_key "workspaces", "users"
 end
