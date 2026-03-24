@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090023) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090025) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -142,6 +142,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090023) do
     t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
   end
 
+  create_table "conversation_message_visibilities", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.boolean "excluded_from_context", default: false, null: false
+    t.boolean "hidden", default: false, null: false
+    t.bigint "installation_id", null: false
+    t.bigint "message_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "message_id"], name: "idx_message_visibilities_conversation_message", unique: true
+    t.index ["conversation_id"], name: "index_conversation_message_visibilities_on_conversation_id"
+    t.index ["installation_id"], name: "index_conversation_message_visibilities_on_installation_id"
+    t.index ["message_id"], name: "index_conversation_message_visibilities_on_message_id"
+  end
+
   create_table "conversations", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "historical_anchor_message_id"
@@ -233,6 +247,21 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090023) do
     t.index ["installation_id"], name: "index_invitations_on_installation_id"
     t.index ["inviter_id"], name: "index_invitations_on_inviter_id"
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
+  end
+
+  create_table "message_attachments", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "message_id", null: false
+    t.bigint "origin_attachment_id"
+    t.bigint "origin_message_id"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "index_message_attachments_on_conversation_id"
+    t.index ["installation_id"], name: "index_message_attachments_on_installation_id"
+    t.index ["message_id"], name: "index_message_attachments_on_message_id"
+    t.index ["origin_attachment_id"], name: "index_message_attachments_on_origin_attachment_id"
+    t.index ["origin_message_id"], name: "index_message_attachments_on_origin_message_id"
   end
 
   create_table "messages", force: :cascade do |t|
@@ -458,6 +487,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090023) do
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversation_message_visibilities", "conversations"
+  add_foreign_key "conversation_message_visibilities", "installations"
+  add_foreign_key "conversation_message_visibilities", "messages"
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
   add_foreign_key "conversations", "installations"
   add_foreign_key "conversations", "workspaces"
@@ -467,6 +499,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090023) do
   add_foreign_key "execution_profile_facts", "workspaces"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
+  add_foreign_key "message_attachments", "conversations"
+  add_foreign_key "message_attachments", "installations"
+  add_foreign_key "message_attachments", "message_attachments", column: "origin_attachment_id"
+  add_foreign_key "message_attachments", "messages"
+  add_foreign_key "message_attachments", "messages", column: "origin_message_id"
   add_foreign_key "messages", "conversations"
   add_foreign_key "messages", "installations"
   add_foreign_key "messages", "turns"

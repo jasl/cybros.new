@@ -8,6 +8,9 @@ class Message < ApplicationRecord
   belongs_to :conversation
   belongs_to :turn
 
+  has_many :conversation_message_visibilities, dependent: :restrict_with_exception
+  has_many :message_attachments, dependent: :restrict_with_exception
+
   validates :content, presence: true
   validates :variant_index,
     numericality: { only_integer: true, greater_than_or_equal_to: 0 },

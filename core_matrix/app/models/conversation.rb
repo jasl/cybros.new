@@ -30,7 +30,9 @@ class Conversation < ApplicationRecord
   belongs_to :workspace
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
 
+  has_many :messages, dependent: :restrict_with_exception
   has_many :turns, dependent: :restrict_with_exception
+  has_many :conversation_message_visibilities, dependent: :restrict_with_exception
   has_many :child_conversations,
     class_name: "Conversation",
     foreign_key: :parent_conversation_id,
@@ -55,7 +57,69 @@ class Conversation < ApplicationRecord
   validate :override_reconciliation_report_must_be_hash
   validate :interactive_selector_rules
 
+  def transcript_projection_includes?(message)
+    base_transcript_projection_messages.any? { |candidate| candidate.id == message.id }
+  end
+
+  def transcript_projection_messages
+    base_transcript_projection_messages.reject { |message| hidden_in_projection?(message) }
+  end
+
+  def context_projection_messages
+    transcript_projection_messages.reject { |message| excluded_from_context_in_projection?(message) }
+  end
+
+  def context_projection_attachments
+    context_projection_messages.flat_map { |message| message.message_attachments.order(:id).to_a }
+  end
+
   private
+
+  def base_transcript_projection_messages
+    inherited_transcript_projection_messages + selected_messages_for_own_turns
+  end
+
+  def inherited_transcript_projection_messages
+    return [] if parent_conversation.blank?
+
+    inherited_messages = parent_conversation.send(:base_transcript_projection_messages)
+    return inherited_messages if thread?
+
+    anchor_index = inherited_messages.index { |message| message.id == historical_anchor_message_id }
+    anchor_index ? inherited_messages.first(anchor_index + 1) : []
+  end
+
+  def selected_messages_for_own_turns
+    turns.includes(:selected_input_message, :selected_output_message).order(:sequence).flat_map do |turn|
+      [turn.selected_input_message, turn.selected_output_message].compact
+    end
+  end
+
+  def hidden_in_projection?(message)
+    projection_conversation_chain_for(message)&.any? do |conversation|
+      ConversationMessageVisibility.exists?(conversation: conversation, message: message, hidden: true)
+    end
+  end
+
+  def excluded_from_context_in_projection?(message)
+    projection_conversation_chain_for(message)&.any? do |conversation|
+      ConversationMessageVisibility.exists?(conversation: conversation, message: message, excluded_from_context: true)
+    end
+  end
+
+  def projection_conversation_chain_for(message)
+    chain = []
+    current = self
+
+    while current.present?
+      chain << current
+      return chain if current.id == message.conversation_id
+
+      current = current.parent_conversation
+    end
+
+    nil
+  end
 
   def workspace_installation_match
     return if workspace.blank?

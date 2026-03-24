@@ -96,3 +96,50 @@ Do not implement these items in this task:
 - conversation imports
 - summary segments
 - rollback or compaction-boundary preservation rules
+
+## Completion Record
+
+- status:
+  completed on `2026-03-25`
+- actual landed scope:
+  - added `ConversationMessageVisibility` with hidden and context-exclusion
+    overlay states
+  - added `MessageAttachment` with `has_one_attached :file` and ancestry
+    pointers through `origin_attachment` and `origin_message`
+  - added `Messages::UpdateVisibility` and `Attachments::MaterializeRefs`
+  - extended `Conversation` with minimal transcript and context support
+    projections for root, thread, branch, and checkpoint lineage
+  - added `core_matrix/docs/behavior/transcript-visibility-and-attachments.md`
+  - added targeted model, service, and integration coverage for overlays,
+    ancestry, file presence, and descendant support projection behavior
+- plan alignment notes:
+  - transcript rows remained immutable; visibility changes landed as overlay
+    rows instead of message mutation
+  - attachment reuse created new logical rows with preserved source ancestry
+  - attachment support projection stayed derived from parent message visibility
+    and context inclusion, without a separate attachment overlay model
+  - branch and checkpoint support projections were kept intentionally minimal so
+    Task 09 can own full context assembly
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/conversation_message_visibility_test.rb test/models/message_attachment_test.rb test/services/messages/update_visibility_test.rb test/services/attachments/materialize_refs_test.rb test/integration/transcript_visibility_attachment_flow_test.rb`
+    passed with `9 runs, 61 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is kernel transcript-support infrastructure covered by automated
+    tests
+- retained findings:
+  - conversation-specific overlays need to validate against the conversation's
+    projected transcript path, not only the source message's native
+    conversation
+  - descendant attachment support can stay correct without a dedicated
+    attachment overlay model when support projections derive from
+    context-eligible parent messages
+  - branch and checkpoint transcript support can stay orthogonal to Task 09
+    context assembly by exposing only minimal projection helpers in
+    `Conversation`
+- carry-forward notes:
+  - Task 08.2 should treat these projection helpers and attachment ancestry
+    pointers as the substrate for imports and summary segments, not replace them
+  - Task 09 context assembly should derive execution snapshots from
+    `context_projection_messages` and `context_projection_attachments` rather
+    than rebuilding separate visibility rules

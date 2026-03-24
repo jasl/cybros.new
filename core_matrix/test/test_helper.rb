@@ -1,5 +1,6 @@
 require "active_support/testing/time_helpers"
 require "digest"
+require "stringio"
 
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
@@ -213,6 +214,24 @@ module ActiveSupport
 
       turn.update!(selected_output_message: message)
       message
+    end
+
+    def create_message_attachment!(message:, installation: message.installation, conversation: message.conversation, origin_attachment: nil, origin_message: origin_attachment&.origin_message || origin_attachment&.message, filename: "attachment-#{next_test_sequence}.txt", content_type: "text/plain", body: "attachment body", **attrs)
+      attachment = MessageAttachment.new({
+        installation: installation,
+        conversation: conversation,
+        message: message,
+        origin_attachment: origin_attachment,
+        origin_message: origin_message,
+      }.merge(attrs))
+
+      attachment.file.attach(
+        io: StringIO.new(body),
+        filename: filename,
+        content_type: content_type
+      )
+      attachment.save!
+      attachment
     end
   end
 end
