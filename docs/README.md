@@ -4,5 +4,14 @@
 
 - [design](/Users/jasl/Workspaces/Ruby/cybros/docs/design/README.md): long-lived design baselines, protocol notes, and phase-shaping decisions
 - [plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md): executable phase, milestone, task-group, and task documents
+- [finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md): completed execution plans and milestones that have passed their stage-level acceptance checks
 - [future-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/README.md): deferred follow-up and roadmap documents
+- [archived-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/README.md): superseded, withdrawn, or historical plan material kept only for traceability
 - [checklists](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/README.md): manual validation and verification checklists
+
+## Lifecycle
+
+- Keep active execution documents in `docs/plans`.
+- Keep not-yet-activated follow-up work in `docs/future-plans`.
+- Move a plan or milestone into `docs/finished-plans` only after implementation is complete and its required verification gates pass.
+- Move obsolete or replaced material into `docs/archived-plans` instead of mixing it with active execution documents.
