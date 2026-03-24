@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090020) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_090023) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -146,8 +146,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090020) do
     t.datetime "created_at", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
+    t.string "interactive_selector_mode", default: "auto", null: false
+    t.string "interactive_selector_model_ref"
+    t.string "interactive_selector_provider_handle"
     t.string "kind", null: false
     t.string "lifecycle_state", null: false
+    t.string "override_last_schema_fingerprint"
+    t.jsonb "override_payload", default: {}, null: false
+    t.jsonb "override_reconciliation_report", default: {}, null: false
+    t.datetime "override_updated_at"
     t.bigint "parent_conversation_id"
     t.string "purpose", null: false
     t.datetime "updated_at", null: false
@@ -228,6 +235,23 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090020) do
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
   end
 
+  create_table "messages", force: :cascade do |t|
+    t.text "content", null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.string "role", null: false
+    t.string "slot", null: false
+    t.bigint "turn_id", null: false
+    t.string "type", null: false
+    t.datetime "updated_at", null: false
+    t.integer "variant_index", default: 0, null: false
+    t.index ["conversation_id"], name: "index_messages_on_conversation_id"
+    t.index ["installation_id"], name: "index_messages_on_installation_id"
+    t.index ["turn_id", "slot", "variant_index"], name: "index_messages_on_turn_id_and_slot_and_variant_index", unique: true
+    t.index ["turn_id"], name: "index_messages_on_turn_id"
+  end
+
   create_table "provider_credentials", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "credential_kind", null: false
@@ -283,6 +307,33 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090020) do
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id", "expires_at"], name: "index_sessions_on_user_id_and_expires_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "turns", force: :cascade do |t|
+    t.bigint "agent_deployment_id", null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "external_event_key"
+    t.string "idempotency_key"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", null: false
+    t.string "origin_kind", null: false
+    t.jsonb "origin_payload", default: {}, null: false
+    t.string "pinned_deployment_fingerprint", null: false
+    t.jsonb "resolved_config_snapshot", default: {}, null: false
+    t.jsonb "resolved_model_selection_snapshot", default: {}, null: false
+    t.bigint "selected_input_message_id"
+    t.bigint "selected_output_message_id"
+    t.integer "sequence", null: false
+    t.string "source_ref_id"
+    t.string "source_ref_type"
+    t.datetime "updated_at", null: false
+    t.index ["agent_deployment_id"], name: "index_turns_on_agent_deployment_id"
+    t.index ["conversation_id", "sequence"], name: "index_turns_on_conversation_id_and_sequence", unique: true
+    t.index ["conversation_id"], name: "index_turns_on_conversation_id"
+    t.index ["installation_id"], name: "index_turns_on_installation_id"
+    t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
+    t.index ["selected_output_message_id"], name: "index_turns_on_selected_output_message_id"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -416,11 +467,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090020) do
   add_foreign_key "execution_profile_facts", "workspaces"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
+  add_foreign_key "messages", "conversations"
+  add_foreign_key "messages", "installations"
+  add_foreign_key "messages", "turns"
   add_foreign_key "provider_credentials", "installations"
   add_foreign_key "provider_entitlements", "installations"
   add_foreign_key "provider_policies", "installations"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
+  add_foreign_key "turns", "agent_deployments"
+  add_foreign_key "turns", "conversations"
+  add_foreign_key "turns", "installations"
+  add_foreign_key "turns", "messages", column: "selected_input_message_id"
+  add_foreign_key "turns", "messages", column: "selected_output_message_id"
   add_foreign_key "usage_events", "agent_deployments"
   add_foreign_key "usage_events", "agent_installations"
   add_foreign_key "usage_events", "installations"

@@ -116,3 +116,45 @@ Do not implement these items in this task:
 - selector fallback resolution or entitlement reservation
 - rollback, historical edit, retry, rerun, or output-variant selection
 - workflow-node-aware steering beyond the pre-execution state needed for this task
+
+## Completion Record
+
+- status:
+  completed on `2026-03-24`
+- actual landed scope:
+  - added `Turn`, `Message`, `UserMessage`, and `AgentMessage` persistence
+  - added conversation selector and override columns on `Conversation`
+  - added `Conversations::UpdateOverride`
+  - added `Turns::StartUserTurn`, `StartAutomationTurn`, `QueueFollowUp`, and
+    `SteerCurrentInput`
+  - added `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+  - added targeted model, service, and integration coverage for turn origin
+    metadata, selector persistence, override persistence, queued follow-up
+    semantics, selected transcript pointers, and transcript-bearing STI rules
+- plan alignment notes:
+  - the task persisted only conversation selector input and turn snapshot state;
+    it did not implement selector resolution, fallback, or entitlement
+    reservation
+  - automation-origin turns were allowed to start without a transcript-bearing
+    `UserMessage`, while ordinary user entry into automation conversations was
+    rejected
+  - queued follow-up behavior was bounded to conversations that already have
+    active or queued work
+- verification evidence:
+  - `cd core_matrix && bin/rails test test/models/turn_test.rb test/models/message_test.rb test/models/user_message_test.rb test/models/agent_message_test.rb test/services/conversations/update_override_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/start_automation_turn_test.rb test/services/turns/queue_follow_up_test.rb test/services/turns/steer_current_input_test.rb test/integration/turn_entry_flow_test.rb`
+    passed with `15 runs, 66 assertions, 0 failures, 0 errors`
+- checklist notes:
+  - no manual checklist delta was retained for this task because the landed
+    behavior is structural runtime state covered by automated tests
+- retained findings:
+  - conversation selector persistence is clearer when expressed as `auto` or
+    one explicit candidate, rather than prematurely storing normalized or
+    fallback-expanded forms
+  - selected input and output pointers belong on the turn as explicit runtime
+    state instead of being inferred from latest-message heuristics
+  - queued follow-up needs an active-work guard to avoid stranded queued turns
+- carry-forward notes:
+  - Task 07.3 should treat input and output variants as append-only rows and
+    reuse the selected-pointer structure introduced here
+  - Task 09.3 should consume the persisted selector and frozen turn snapshot
+    fields without mutating the conversation selector during resolution

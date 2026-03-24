@@ -19,11 +19,18 @@ class Conversation < ApplicationRecord
       archived: "archived",
     },
     validate: true
+  enum :interactive_selector_mode,
+    {
+      auto: "auto",
+      explicit_candidate: "explicit_candidate",
+    },
+    validate: true
 
   belongs_to :installation
   belongs_to :workspace
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
 
+  has_many :turns, dependent: :restrict_with_exception
   has_many :child_conversations,
     class_name: "Conversation",
     foreign_key: :parent_conversation_id,
@@ -44,6 +51,9 @@ class Conversation < ApplicationRecord
   validate :parent_lineage_rules
   validate :parent_workspace_match
   validate :automation_rules
+  validate :override_payload_must_be_hash
+  validate :override_reconciliation_report_must_be_hash
+  validate :interactive_selector_rules
 
   private
 
@@ -78,5 +88,40 @@ class Conversation < ApplicationRecord
     return if parent_conversation.workspace_id == workspace_id
 
     errors.add(:workspace, "must match the parent conversation workspace")
+  end
+
+  def override_payload_must_be_hash
+    errors.add(:override_payload, "must be a hash") unless override_payload.is_a?(Hash)
+  end
+
+  def override_reconciliation_report_must_be_hash
+    return if override_reconciliation_report.is_a?(Hash)
+
+    errors.add(:override_reconciliation_report, "must be a hash")
+  end
+
+  def interactive_selector_rules
+    return if interactive_selector_mode.blank?
+
+    if auto?
+      errors.add(:interactive_selector_provider_handle, "must be blank for auto selector mode") if interactive_selector_provider_handle.present?
+      errors.add(:interactive_selector_model_ref, "must be blank for auto selector mode") if interactive_selector_model_ref.present?
+      return
+    end
+
+    if interactive_selector_provider_handle.blank?
+      errors.add(:interactive_selector_provider_handle, "must exist for explicit candidate selector mode")
+    end
+    if interactive_selector_model_ref.blank?
+      errors.add(:interactive_selector_model_ref, "must exist for explicit candidate selector mode")
+    end
+    return if errors.any?
+
+    ProviderCatalog::Load.call.model(
+      interactive_selector_provider_handle,
+      interactive_selector_model_ref
+    )
+  rescue KeyError
+    errors.add(:interactive_selector_model_ref, "must exist in the provider catalog")
   end
 end

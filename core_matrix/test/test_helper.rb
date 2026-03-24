@@ -136,6 +136,12 @@ module ActiveSupport
       installation = create_installation!
       user = create_user!(installation: installation)
       agent_installation = create_agent_installation!(installation: installation)
+      execution_environment = create_execution_environment!(installation: installation)
+      agent_deployment = create_agent_deployment!(
+        installation: installation,
+        agent_installation: agent_installation,
+        execution_environment: execution_environment
+      )
       user_agent_binding = create_user_agent_binding!(
         installation: installation,
         user: user,
@@ -151,6 +157,8 @@ module ActiveSupport
         installation: installation,
         user: user,
         agent_installation: agent_installation,
+        execution_environment: execution_environment,
+        agent_deployment: agent_deployment,
         user_agent_binding: user_agent_binding,
         workspace: workspace,
       }
