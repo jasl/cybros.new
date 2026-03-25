@@ -27,6 +27,7 @@ Before Phase 2 moves into `docs/plans`, refresh this outline against:
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
+- [2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Task Group 1: Re-Run The Structural Gate And Freeze Phase 2 Scope
@@ -74,6 +75,8 @@ shape without a root-model rewrite.
 - stale-work guard coverage for `reject`, `restart`, or `queue` paths
 - coverage for authoritative provider-usage persistence plus post-run
   advisory-threshold evaluation
+- one workflow proof export path that shows yield, successor-agent-step
+  resumption, and non-transcript workflow materialization
 
 ## Task Group 3: Complete Unified Capability Governance
 
@@ -258,6 +261,8 @@ evidence.
 - external `Fenix` pairing
 - same-installation upgrade rotation
 - same-installation downgrade rotation
+- one workflow proof record plus raw Mermaid artifact package for the key
+  yield, wait, resume, and bounded-parallel scenarios
 - tool call
 - Streamable HTTP MCP-backed tool call
 - subagent path

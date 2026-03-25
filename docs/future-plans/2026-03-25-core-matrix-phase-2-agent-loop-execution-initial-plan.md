@@ -30,6 +30,7 @@ Before promotion, run:
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
 - [2026-03-25-core-matrix-phase-2-kernel-first-sequencing-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-kernel-first-sequencing-follow-up.md)
 - [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
+- [2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
@@ -113,6 +114,8 @@ Phase 2 must make them drive a real run.
 - allow redundant read-facing fields on `WorkflowNode` or related runtime
   resources when they make dashboard or conversation-adjacent queries simple,
   direct, and non-N+1
+- add workflow-level Mermaid export plus proof record generation as a formal
+  validation artifact rather than a debugging extra
 - support a bounded fast terminal path for short tasks through
   `execution_claim` followed by an immediate `execution_complete` or
   `execution_fail`, not through a separate claimless API
@@ -299,6 +302,8 @@ environment.
   mutation from ops-trackable or user-projectable workflow work
 - one proof that the chosen dashboard or workflow inspection read path works
   without N+1 traversal or graph-reconstruction SQL
+- one proof record plus raw Mermaid artifact package for the key yield, wait,
+  resume, and bounded-parallel scenarios
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call

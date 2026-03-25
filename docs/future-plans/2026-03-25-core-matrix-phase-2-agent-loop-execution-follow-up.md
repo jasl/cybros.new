@@ -14,6 +14,7 @@ Related design and research:
 
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
 - [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
+- [2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
@@ -82,7 +83,8 @@ Related design and research:
   N+1 traversal
 - persist batch request and batch outcome proof through workflow-owned events or
   artifacts
-- add workflow-level Mermaid proof export for real-environment validation
+- add workflow-level Mermaid proof export plus proof markdown artifacts for
+  real-environment validation
 
 ## Fenix Validation Slice
 
@@ -103,6 +105,7 @@ It should prove:
   - persistent compaction through workflow materialization
   - conversation title update as a best-effort terminal intent
   - bounded parallel subagent spawn under `wait_all`
+  - wait or resume behavior captured in proof artifacts
 
 ## Out Of Scope
 
