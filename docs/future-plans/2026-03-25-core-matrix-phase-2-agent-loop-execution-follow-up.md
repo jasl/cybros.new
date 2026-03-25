@@ -77,6 +77,9 @@ Related design and research:
 - freeze `WorkflowNode.presentation_policy` when kernel-governed intents
   materialize so later dashboard and conversation surfaces can filter nodes
   without re-deriving visibility from node kind
+- allow read-facing redundant fields on workflow-owned rows when they simplify
+  dashboard, conversation-adjacent, or operator-inspection queries and avoid
+  N+1 traversal
 - persist batch request and batch outcome proof through workflow-owned events or
   artifacts
 - add workflow-level Mermaid proof export for real-environment validation

@@ -110,6 +110,9 @@ Phase 2 must make them drive a real run.
 - freeze `WorkflowNode.presentation_policy` when kernel-governed intent
   materializes so future dashboard and conversation projections can filter
   nodes without guessing from node kind
+- allow redundant read-facing fields on `WorkflowNode` or related runtime
+  resources when they make dashboard or conversation-adjacent queries simple,
+  direct, and non-N+1
 - support a bounded fast terminal path for short tasks through
   `execution_claim` followed by an immediate `execution_complete` or
   `execution_fail`, not through a separate claimless API
@@ -125,6 +128,7 @@ Phase 2 must make them drive a real run.
 - likely create `core_matrix/app/models/agent_task_run.rb`
 - `core_matrix/app/models/workflow_run.rb`
 - `core_matrix/app/models/workflow_node*.rb`
+- likely create or extend `core_matrix/app/queries/` for workflow read paths
 - `core_matrix/app/services/turns/`
 - `core_matrix/vendor/simple_inference/lib/simple_inference/`
 - `core_matrix/vendor/simple_inference/test/`
@@ -293,6 +297,8 @@ environment.
 - one bounded parallel subagent stage under `wait_all`
 - one proof that `presentation_policy` distinguishes internal-only metadata
   mutation from ops-trackable or user-projectable workflow work
+- one proof that the chosen dashboard or workflow inspection read path works
+  without N+1 traversal or graph-reconstruction SQL
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call

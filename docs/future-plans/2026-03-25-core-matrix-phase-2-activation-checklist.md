@@ -168,6 +168,9 @@ At minimum, the plan must say all of the following:
 - materialized workflow nodes freeze a `presentation_policy` or equivalent field
   so later dashboard and conversation surfaces do not have to infer visibility
   from node kind alone
+- the promoted plan is explicit about how workflow inspection and
+  conversation-adjacent read paths avoid N+1 traversal and avoid relying on
+  fragile complex SQL
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.
@@ -195,6 +198,8 @@ Before activation, define the exact Fenix validation slices that must pass:
 - one bounded parallel subagent proof under `wait_all`
 - one proof that `presentation_policy` differentiates internal-only,
   ops-trackable, and user-projectable workflow work
+- one proof that workflow inspection or dashboard queries use a simple read path
+  with bounded eager loading or redundant fields instead of N+1 traversal
 - one outage or drift recovery flow
 
 Each slice must name:

@@ -247,6 +247,24 @@ Agent communication transport may vary by implementation. The public protocol
 should not be defined in ActionCable-specific, Rails-specific, or any other
 framework-specific terms.
 
+## Read-Side Efficiency
+
+Platform design should prefer explicit read paths over clever reconstruction.
+
+Rules:
+
+- hot-path dashboard, inbox, conversation-adjacent, and operator-inspection
+  reads should avoid N+1 traversal and avoid depending on fragile multi-join
+  SQL as their primary execution strategy
+- redundant read-facing fields are acceptable when they make kernel-owned
+  workflow and runtime resources directly queryable
+- query complexity should be pushed into stable query objects or projection
+  loaders rather than scattered controller or UI-driven SQL
+- when a future UI surface needs filtering, the kernel should prefer freezing a
+  read-relevant field such as `presentation_policy`, `conversation_id`, or
+  current state at materialization time instead of forcing the surface to infer
+  those facts by replaying workflow structure
+
 ## Execution Budget And Usage Signals
 
 Phase 2 should keep one consistent split between hard kernel budgets and

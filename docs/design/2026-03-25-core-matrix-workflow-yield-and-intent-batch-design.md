@@ -133,6 +133,42 @@ Rules:
 - `WorkflowNodeEvent` should inherit the node's presentation policy by default,
   though later projection code may still choose a narrower visible subset
 
+## Read-Path Efficiency And Redundant Fields
+
+Phase 2 should optimize workflow read paths deliberately instead of expecting
+dashboard or conversation surfaces to reconstruct everything through deep joins
+or N+1 query chains.
+
+Recommended rule:
+
+- redundant fields are acceptable when they make workflow inspection,
+  dashboard queries, and conversation-adjacent projection reads simpler and
+  safer
+
+Good candidates for redundant persistence on workflow-owned rows include:
+
+- `workspace_id`
+- `conversation_id`
+- `turn_id`
+- `intent_kind` or normalized node kind
+- `presentation_policy`
+- current execution state
+- blocking-resource summary refs when applicable
+
+Rules:
+
+- the kernel remains authoritative for the canonical relationship roots, but
+  read-facing redundant fields may be persisted for efficiency
+- write paths must keep redundant fields aligned transactionally when the node
+  materializes or transitions
+- hot-path reads for dashboard or conversation-adjacent inspection should not
+  depend on reconstructing workflow meaning through complex SQL over many joins
+- read paths should prefer explicit query objects or projection-oriented
+  loaders, with bounded eager loading instead of ad hoc N+1 traversal
+- later UI work should filter by frozen fields such as
+  `presentation_policy`, `conversation_id`, and current state rather than
+  reverse-engineering visibility by replaying the whole workflow graph
+
 ## Phase 2 Stage Semantics
 
 ### Dispatch Modes
