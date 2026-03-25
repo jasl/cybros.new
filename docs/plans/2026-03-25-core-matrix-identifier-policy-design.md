@@ -74,9 +74,9 @@ The first implementation batch should treat these tables as in-scope for
 - `workflow_nodes`
 - `publications`
 
-Tables such as `workflow_nodes` or `workflow_artifacts` may add `public_id`
-later if they become directly addressable from external APIs, audit UIs, or
-operator tooling, but they are not required for the initial adoption.
+Tables such as `workflow_artifacts` may add `public_id` later if they become
+directly addressable from external APIs, audit UIs, or operator tooling, but
+they are not required for the initial adoption.
 
 ### Explicit exclusions
 
