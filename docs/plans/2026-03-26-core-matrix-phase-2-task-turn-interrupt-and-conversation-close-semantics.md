@@ -46,6 +46,9 @@ This task should establish:
 - Likely create: `core_matrix/app/services/conversations/request_turn_interrupt.rb`
 - Likely create: `core_matrix/app/services/conversations/request_close.rb`
 - Likely create: `core_matrix/app/queries/conversations/close_summary_query.rb`
+- Likely create: `core_matrix/test/e2e/protocol/turn_interrupt_e2e_test.rb`
+- Likely create: `core_matrix/test/e2e/protocol/conversation_close_e2e_test.rb`
+- Likely create: `core_matrix/test/e2e/protocol/process_close_escalation_e2e_test.rb`
 - Modify: `core_matrix/app/services/conversations/archive.rb`
 - Modify: `core_matrix/app/services/conversations/request_deletion.rb`
 - Modify: `core_matrix/app/services/conversations/finalize_deletion.rb`
@@ -118,6 +121,11 @@ Cover at least:
 - ancestor purge remains blocked by descendant lineage
 - close-summary query reports mainline blockers, tail blockers, and dependency
   blockers distinctly
+- protocol-E2E coverage for `turn_interrupt`, close fences, and stale late
+  reports
+- protocol-E2E coverage for archive and delete close flows with degraded or
+  residual disposal outcomes
+- protocol-E2E coverage for graceful then forced `ProcessRun` termination
 
 ## Stop Point
 

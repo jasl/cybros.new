@@ -55,6 +55,10 @@ prove full provider execution breadth or conversation close behavior.
 - Likely create: `core_matrix/app/models/agent_control_mailbox_item.rb`
 - Likely create: `core_matrix/app/controllers/agent_api/control_controller.rb`
 - Likely create: `core_matrix/app/services/agent_control/*`
+- Likely create: `core_matrix/test/e2e/protocol/mailbox_delivery_e2e_test.rb`
+- Likely create: `core_matrix/test/support/fake_agent_runtime_harness.rb`
+- Likely create: `core_matrix/test/support/mailbox_scenario_builder.rb`
+- Likely create: `core_matrix/test/support/controllable_clock.rb`
 - Modify: `core_matrix/app/models/execution_lease.rb`
 - Modify: `core_matrix/app/models/agent_deployment.rb`
 - Modify: `core_matrix/config/routes.rb`
@@ -108,6 +112,11 @@ Cover at least:
 - `agent_poll` returning queued mailbox items
 - `WebSocket`-independent fallback behavior
 - resource close acknowledgement and terminal close outcomes
+- one protocol-E2E path proving equivalent mailbox envelopes through `poll` and
+  `WebSocket`
+- one protocol-E2E path proving `WebSocket` disconnect plus `poll` fallback
+- one protocol-E2E path proving response piggyback delivery of pending control
+  work
 
 ## Stop Point
 

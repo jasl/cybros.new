@@ -7,9 +7,10 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
 3. `docs/plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md`
-4. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
-5. `docs/reports/README.md`
-6. `docs/reports/phase-2/README.md`
+4. `docs/design/2026-03-26-core-matrix-phase-2-test-strategy-design.md`
+5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+6. `docs/reports/README.md`
+7. `docs/reports/phase-2/README.md`
 
 Load this file as the final acceptance execution unit for Phase 2. Treat the
 milestone and proof-export documents as ordering indexes, not as the full task
@@ -81,6 +82,17 @@ bin/rails db:test:prepare test
 Expected:
 
 - required automated verification passes
+
+Protocol-E2E expectation:
+
+- the Phase 2 automated suite must include protocol-E2E coverage for mailbox
+  delivery, transport fallback, turn interrupt, close orchestration, and
+  retryable step failure
+- existing Rails `test:system` coverage may continue as baseline regression
+  coverage, but it is not the place to introduce Phase 2 browser-facing UI E2E
+  infrastructure
+- browser-facing UI E2E is explicitly out of scope for Phase 2 and must not be
+  a completion dependency here
 
 **Step 3: Run the real-environment manual validation**
 
