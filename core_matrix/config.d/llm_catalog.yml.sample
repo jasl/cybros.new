@@ -1,0 +1,109 @@
+# Copy this file to `config.d/llm_catalog.yml` or `config.d/llm_catalog.<rails_env>.yml`
+# to override the base catalog shipped in `config/llm_catalog.yml`.
+#
+# Merge rules:
+# - Hashes deep-merge.
+# - Arrays replace the base value entirely.
+# - Secrets do not belong here; keep API keys in `.env` and persisted credentials.
+#
+# This sample demonstrates:
+# - enabling the shipped `local` provider
+# - overriding the shipped local model with a user-supplied deployment target
+# - adding an extra local model
+# - adding a new OpenRouter model
+# - removing shipped models from automatic role selection by replacing role lists
+# - adding a new role
+#
+# Current limitation:
+# - the catalog contract does not support model-level `enabled: false`
+# - to stop a model from being auto-selected, replace the relevant `model_roles`
+#   arrays and omit that model from the new ordered list
+
+providers:
+  local:
+    enabled: true
+    base_url: http://127.0.0.1:8000/v1
+    metadata:
+      provider_family: local
+      runtime_hint: user_override
+    models:
+      qwen3-14b:
+        display_name: Qwen3 14B (User Deployment)
+        api_model: Qwen/Qwen3-14B
+        tokenizer_hint: qwen3
+        context_window_tokens: 131072
+        max_output_tokens: 32768
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata:
+          provider_family: local
+          owner_supplied: true
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+      qwen3-32b:
+        display_name: Qwen3 32B (User Deployment)
+        api_model: Qwen/Qwen3-32B
+        tokenizer_hint: qwen3
+        context_window_tokens: 131072
+        max_output_tokens: 32768
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata:
+          provider_family: local
+          owner_supplied: true
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
+  openrouter:
+    models:
+      anthropic-claude-sonnet-4.5:
+        display_name: Claude Sonnet 4.5
+        api_model: anthropic/claude-sonnet-4.5
+        tokenizer_hint: claude-sonnet-4.5
+        context_window_tokens: 200000
+        max_output_tokens: 32000
+        context_soft_limit_ratio: 0.9
+        request_defaults: {}
+        metadata:
+          provider_family: openrouter
+          upstream_provider: anthropic
+          owner_supplied: true
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
+model_roles:
+  main:
+    - codex_subscription/gpt-5.4
+    - openrouter/anthropic-claude-sonnet-4.5
+    - local/qwen3-32b
+  planner:
+    - openrouter/anthropic-claude-sonnet-4.5
+    - openai/gpt-5.4
+  coder:
+    - codex_subscription/gpt-5.3-codex
+    - local/qwen3-32b
+    - openrouter/openai-gpt-5.3-codex
+  research:
+    - openrouter/anthropic-claude-sonnet-4.5
+    - openrouter/openai-gpt-5.4

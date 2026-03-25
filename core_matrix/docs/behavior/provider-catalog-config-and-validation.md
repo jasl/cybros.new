@@ -31,6 +31,9 @@ minimal directory into the shipped non-secret runtime catalog.
 - provider, model, and role entries merge by their stable keys
 - deletion is not supported through overrides; disabling a shipped provider
   should use `enabled: false`
+- model-level disable is not currently supported; to stop a shipped model from
+  automatic role selection, replace the relevant `model_roles` arrays and omit
+  that model from the new ordered list
 
 This shape keeps the repository-tracked base catalog inside Docker images while
 allowing operators to mount only `config.d`.
