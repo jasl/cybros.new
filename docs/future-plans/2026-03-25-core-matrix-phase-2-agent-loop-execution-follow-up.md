@@ -84,7 +84,8 @@ Related design and research:
 - persist batch request and batch outcome proof through workflow-owned events or
   artifacts
 - add workflow-level Mermaid proof export plus proof markdown artifacts for
-  real-environment validation
+  real-environment validation, with formal acceptance packages committed under
+  `docs/reports/phase-2/`
 
 ## Fenix Validation Slice
 

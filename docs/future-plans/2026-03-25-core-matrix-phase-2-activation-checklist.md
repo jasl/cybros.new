@@ -304,6 +304,8 @@ Required outcome:
   successor-agent-step scenarios
 - explicit proof-record markdown output that ties scenario metadata to the raw
   Mermaid artifact set
+- committed acceptance-proof packages under `docs/reports/phase-2/`, not only
+  temp exports
 - a rule that no Phase 2 claim is complete without matching checklist evidence
 
 If the checklist delta is still fuzzy, Phase 2 is not ready.

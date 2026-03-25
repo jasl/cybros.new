@@ -116,6 +116,8 @@ Phase 2 must make them drive a real run.
   direct, and non-N+1
 - add workflow-level Mermaid export plus proof record generation as a formal
   validation artifact rather than a debugging extra
+- treat committed proof packages under `docs/reports/phase-2/` as the formal
+  operator-facing acceptance evidence rather than relying on temp exports
 - support a bounded fast terminal path for short tasks through
   `execution_claim` followed by an immediate `execution_complete` or
   `execution_fail`, not through a separate claimless API
@@ -303,7 +305,8 @@ environment.
 - one proof that the chosen dashboard or workflow inspection read path works
   without N+1 traversal or graph-reconstruction SQL
 - one proof record plus raw Mermaid artifact package for the key yield, wait,
-  resume, and bounded-parallel scenarios
+  resume, and bounded-parallel scenarios, committed under
+  `docs/reports/phase-2/`
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call

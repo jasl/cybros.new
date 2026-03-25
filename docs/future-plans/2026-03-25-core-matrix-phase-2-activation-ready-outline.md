@@ -263,6 +263,7 @@ evidence.
 - same-installation downgrade rotation
 - one workflow proof record plus raw Mermaid artifact package for the key
   yield, wait, resume, and bounded-parallel scenarios
+- those acceptance-proof artifacts committed under `docs/reports/phase-2/`
 - tool call
 - Streamable HTTP MCP-backed tool call
 - subagent path
