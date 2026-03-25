@@ -7,7 +7,12 @@ uses `references/` or an external implementation for a sanity check, capture
 the retained conclusion in the active plan record, the task document itself, or
 another local document updated during the same execution unit.
 
-There are currently no active `core_matrix` execution plans in this directory.
+Current active `core_matrix` planning records:
+
+- Design:
+  [2026-03-25-core-matrix-phase-1-review-follow-ups-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md)
+- Execution plans:
+  [2026-03-25-core-matrix-phase-1-review-follow-ups.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md)
 
 Phase 1 records now live in
 [`docs/finished-plans`](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
