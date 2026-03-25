@@ -192,7 +192,7 @@ figure it out", Phase 2 is not ready.
 
 Do not activate Phase 2 with a vague promise to "test it later".
 
-Before activation, define the exact Fenix validation slices that must pass:
+Before activation, define the exact Fenix validation scenarios that must pass:
 
 - one default assistant conversation flow
 - one coding-assistant flow
@@ -215,14 +215,14 @@ Before activation, define the exact Fenix validation slices that must pass:
   with bounded eager loading or redundant fields instead of N+1 traversal
 - one outage or drift recovery flow
 
-Each slice must name:
+Each scenario must name:
 
 - the user-visible scenario
 - the expected kernel behavior
 - the expected agent-program behavior
 - the manual validation path
 
-If these slices are not concrete, Phase 2 is not ready.
+If these scenarios are not concrete, Phase 2 is not ready.
 
 ## Gate 7: Real-Environment Validation Prerequisites
 
@@ -351,7 +351,7 @@ Do not activate Phase 2 if any of the following are true:
   still fuzzy
 - the transport boundary between canonical HTTP and any optional WebSocket
   accelerator is still fuzzy
-- Fenix validation slices are still vague
+- Fenix validation scenarios are still vague
 - real provider or capability validation paths are unavailable
 - the codebase shape materially differs from the assumptions in the initial
   plan

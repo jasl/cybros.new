@@ -139,7 +139,7 @@ This means Phase 2 development may use:
 - provide one reproducible operator-facing export command through
   `core_matrix/script/manual/workflow_proof_export.rb`
 
-## Fenix Validation Slice
+## Fenix Validation Scope
 
 `agents/fenix` is the default validation program for this phase.
 

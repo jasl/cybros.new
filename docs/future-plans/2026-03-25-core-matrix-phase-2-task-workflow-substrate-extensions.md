@@ -11,14 +11,14 @@ Use this task document together with:
 5. `docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
 6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
 
-Load this file as the detailed execution unit for the new first kernel-owned
-Slice A inside Phase 2. Treat the milestone file, the task-group file, and the
+Load this file as the detailed execution unit for the workflow-substrate task
+inside Phase 2. Treat the milestone file, the task-group file, and the
 initial plan as ordering indexes, not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted slice and the retained conclusion, invariant, or intentional
+  consulted source section and the retained conclusion, invariant, or intentional
   difference in this task document or another local document updated by the
   same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,
@@ -87,7 +87,7 @@ Expected:
 
 Rules:
 
-- this slice exists to stabilize workflow-first execution before external claim
+- this task exists to stabilize workflow-first execution before external claim
   or provider work expands
 - breaking changes are allowed in Phase 2; this task does not need legacy-shape
   preservation, backfill, or migration-heavy compatibility work
@@ -124,7 +124,7 @@ bin/rails test test/models/workflow_node_test.rb test/models/workflow_node_event
 
 Expected:
 
-- targeted Slice A substrate tests pass
+- targeted workflow-substrate tests pass
 
 **Step 6: Commit**
 

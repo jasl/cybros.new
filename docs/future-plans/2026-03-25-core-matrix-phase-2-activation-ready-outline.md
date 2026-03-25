@@ -71,7 +71,7 @@ Before moving anything into `docs/plans`, confirm:
 - task order still matches the real codebase
 - task boundaries are still non-overlapping
 - proof export remains a required acceptance artifact
-- `Fenix` validation slices still cover bundled, external, rotation, skills,
+- `Fenix` validation scenarios still cover bundled, external, rotation, skills,
   tool use, subagents, human interaction, and MCP
 
 ## Final Promotion Check

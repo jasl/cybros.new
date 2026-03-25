@@ -11,14 +11,15 @@ Use this task document together with:
 5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
 6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
 
-Load this file as the detailed execution unit for Slice D inside Phase 2.
+Load this file as the detailed execution unit for the conversation
+feature-policy and stale-work task inside Phase 2.
 Treat the milestone, sequencing, and provider-execution documents as ordering
 indexes, not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted slice and the retained conclusion, invariant, or intentional
+  consulted source section and the retained conclusion, invariant, or intentional
   difference in this task document or another local document updated by the
   same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,
@@ -110,7 +111,7 @@ bin/rails test test/models/conversation_test.rb test/services/turns/feature_poli
 
 Expected:
 
-- targeted Slice D tests pass
+- targeted feature-policy and stale-work tests pass
 
 **Step 6: Commit**
 

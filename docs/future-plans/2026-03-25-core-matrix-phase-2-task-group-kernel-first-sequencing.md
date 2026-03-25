@@ -2,7 +2,7 @@
 
 ## Status
 
-Deferred focused task-group note for the earliest `Core Matrix` slices inside
+Deferred focused task-group note for the earliest `Core Matrix` tasks inside
 Phase 2.
 
 This document does not replace the full Phase 2 initial plan. It narrows one
@@ -34,7 +34,7 @@ The approved Phase 2 scope is already broad enough to sprawl:
 That is acceptable as a phase boundary, but it is not a safe implementation
 order.
 
-The first activation slices should prove the kernel can:
+The first activation tasks should prove the kernel can:
 
 - durably represent workflow-first yield, barrier, and successor metadata
 - own one durable claimed execution at a time
@@ -59,7 +59,7 @@ deployment rotation, and richer `Fenix` skill behavior.
 
 ## Recommended Early Sequence
 
-### Slice A: Workflow Substrate Extensions
+### Task 1: Workflow Substrate Extensions
 
 Primary outcome:
 
@@ -69,8 +69,8 @@ Primary outcome:
 - later read paths can rely on stable workflow ordering and projection metadata
   without reconstructing graph semantics ad hoc
 
-This slice should not yet expose external claim or provider execution surfaces.
-It exists to stabilize the workflow substrate that later slices consume.
+This task should not yet expose external claim or provider execution surfaces.
+It exists to stabilize the workflow substrate that later tasks consume.
 
 Likely areas:
 
@@ -85,7 +85,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md)
 
-### Slice B: Claimable Execution Resource And Contract Tests
+### Task 2: Claimable Execution Resource And Contract Tests
 
 Primary outcome:
 
@@ -95,7 +95,7 @@ Primary outcome:
 - single-owner lease acquisition, stale-lease rejection, duplicate terminal
   delivery, and fast-terminal behavior are all covered in tests
 
-This slice should not yet prove full provider execution. It should prove the
+This task should not yet prove full provider execution. It should prove the
 durable control surface.
 
 Likely areas:
@@ -110,7 +110,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md)
 
-### Slice C: Provider-Backed Turn Execution
+### Task 3: Provider-Backed Turn Execution
 
 Primary outcome:
 
@@ -121,7 +121,7 @@ Primary outcome:
 - authoritative provider usage is persisted and can drive later advisory
   compaction-threshold evaluation
 
-This slice should still stay narrow:
+This task should still stay narrow:
 
 - one provider-backed path
 - no broad tool matrix yet
@@ -139,7 +139,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md)
 
-### Slice D: Conversation Policy And Stale-Work Safety
+### Task 4: Conversation Policy And Stale-Work Safety
 
 Primary outcome:
 
@@ -149,7 +149,7 @@ Primary outcome:
 - older queued or superseded work can no longer commit transcript-affecting
   output as if it were current
 
-This slice closes the most dangerous correctness gap before real multi-turn
+This task closes the most dangerous correctness gap before real multi-turn
 validation expands.
 
 Likely areas:
@@ -165,7 +165,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
 
-### Slice E: Wait-State Handoff, Human Interaction, And Subagents
+### Task 5: Wait-State Handoff, Human Interaction, And Subagents
 
 Primary outcome:
 
@@ -175,7 +175,7 @@ Primary outcome:
   wait state rather than runtime-local pause state
 - resume and retry paths preserve lease and recovery semantics
 
-This slice proves the waiting model before external runtime product flows get
+This task proves the waiting model before external runtime product flows get
 more ambitious.
 
 Likely areas:
@@ -192,7 +192,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
 
-### Slice F: Base Capability Governance For Kernel And Agent Tools
+### Task 6: Base Capability Governance For Kernel And Agent Tools
 
 Primary outcome:
 
@@ -203,7 +203,7 @@ Primary outcome:
 - retries within one attempt keep the same binding unless recovery opens a new
   attempt
 
-This slice should prove the governance shape before MCP is added as another
+This task should prove the governance shape before MCP is added as another
 transport and failure mode.
 
 Likely areas:
@@ -218,7 +218,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
 
-### Slice G: Streamable HTTP MCP Under The Same Governance Model
+### Task 7: Streamable HTTP MCP Under The Same Governance Model
 
 Primary outcome:
 
@@ -245,24 +245,24 @@ Detailed execution unit:
 
 Recommended dependency boundaries:
 
-- `Fenix` runtime endpoints may begin once Slice B stabilizes the contract
-- real provider-backed `Fenix` loop validation should wait until Slice C
-- multi-turn and stale-work validation should wait until Slice D
-- real human-interaction and subagent `Fenix` flows should wait until Slice E
-- broader tool validation should wait until Slice F
-- MCP validation should wait until Slice G
+- `Fenix` runtime endpoints may begin once Task 2 stabilizes the contract
+- real provider-backed `Fenix` loop validation should wait until Task 3
+- multi-turn and stale-work validation should wait until Task 4
+- real human-interaction and subagent `Fenix` flows should wait until Task 5
+- broader tool validation should wait until Task 6
+- MCP validation should wait until Task 7
 
 ## Promotion Guidance
 
 When Phase 2 eventually moves into `docs/plans`, the first active plan should
 either:
 
-- use this slice order directly
+- use this task order directly
 - or explain exactly why a different order is now safer against the real
   post-phase-one codebase
 
 Do not activate Phase 2 with a plan that starts from MCP breadth, `Fenix`
-skills, or deployment rotation before the kernel slices above are explicit.
+skills, or deployment rotation before the kernel tasks above are explicit.
 
 ## Related Documents
 

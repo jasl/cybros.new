@@ -11,14 +11,15 @@ Use this task document together with:
 5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md`
 6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
 
-Load this file as the detailed execution unit for Slice G inside Phase 2.
+Load this file as the detailed execution unit for the Streamable HTTP MCP task
+inside Phase 2.
 Treat the milestone, sequencing, governance, and `Fenix` runtime documents as
 ordering indexes, not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted slice and the retained conclusion, invariant, or intentional
+  consulted source section and the retained conclusion, invariant, or intentional
   difference in this task document or another local document updated by the
   same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,
@@ -93,7 +94,7 @@ bin/rails test test/services/mcp test/integration/streamable_http_mcp_flow_test.
 
 Expected:
 
-- targeted Slice G tests pass
+- targeted MCP-governance tests pass
 
 **Step 6: Run one real MCP validation pass**
 

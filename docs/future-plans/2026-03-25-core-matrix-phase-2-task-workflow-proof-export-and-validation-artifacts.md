@@ -11,14 +11,14 @@ Use this task document together with:
 5. `docs/reports/README.md`
 6. `docs/reports/phase-2/README.md`
 
-Load this file as the detailed execution unit for the workflow-proof slice
-inside Phase 2. Treat the broader Phase 2 initial plan as the ordering index,
+Load this file as the detailed execution unit for the workflow-proof export
+task inside Phase 2. Treat the broader Phase 2 initial plan as the ordering index,
 not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted slice and the retained conclusion, invariant, or intentional
+  consulted source section and the retained conclusion, invariant, or intentional
   difference in this task document or another local document updated by the
   same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,

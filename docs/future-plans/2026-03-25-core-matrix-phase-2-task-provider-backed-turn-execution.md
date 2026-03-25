@@ -11,14 +11,15 @@ Use this task document together with:
 5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
 6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md`
 
-Load this file as the detailed execution unit for Slice C inside Phase 2.
+Load this file as the detailed execution unit for the provider-backed turn
+execution task inside Phase 2.
 Treat the milestone, sequencing, and execution-contract documents as ordering
 indexes, not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted slice and the retained conclusion, invariant, or intentional
+  consulted source section and the retained conclusion, invariant, or intentional
   difference in this task document or another local document updated by the
   same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,
@@ -113,7 +114,7 @@ bin/rails test test/services/workflows/execute_run_test.rb test/services/provide
 
 Expected:
 
-- targeted Slice C tests pass
+- targeted provider-backed execution tests pass
 
 **Step 6: Run one focused provider smoke in development**
 
