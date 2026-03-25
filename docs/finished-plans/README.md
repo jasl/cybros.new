@@ -15,6 +15,8 @@ Current Phase 1 finished records:
 - Follow-up records:
   [2026-03-25-core-matrix-identifier-policy-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-identifier-policy-design.md),
   [2026-03-25-core-matrix-identifier-policy.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-identifier-policy.md),
+  [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md),
+  [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md),
   [2026-03-25-core-matrix-phase-1-review-follow-ups-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md),
   [2026-03-25-core-matrix-phase-1-review-follow-ups.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md)
 

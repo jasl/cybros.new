@@ -13,8 +13,8 @@ the plan record does not become the only source of truth.
 
 Current active `core_matrix` planning records:
 
-- Design: [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md)
-- Execution plan: [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md)
+- None currently. Move the next approved execution entry point into this
+  directory when new work starts.
 
 Phase 1 records now live in
 [`docs/finished-plans`](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
