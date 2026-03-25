@@ -19,6 +19,8 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert turn.active?
     assert turn.manual_user?
     assert_equal 1, turn.sequence
+    assert_equal "User", turn.source_ref_type
+    assert_equal context[:user].public_id, turn.source_ref_id
     assert_equal context[:agent_deployment].fingerprint, turn.pinned_deployment_fingerprint
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
     assert_equal "role:main", turn.resolved_model_selection_snapshot.fetch("normalized_selector")

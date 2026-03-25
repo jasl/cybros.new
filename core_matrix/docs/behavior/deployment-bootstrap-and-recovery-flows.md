@@ -17,7 +17,7 @@ after runtime drift.
   automation turns
 - bootstrap turns use:
   - `source_ref_type = "AgentDeployment"`
-  - `source_ref_id = <deployment id>`
+  - `source_ref_id = <deployment public_id>`
 - bootstrap creates one root workflow node:
   - `node_key = "deployment_bootstrap"`
   - `node_type = "deployment_bootstrap"`

@@ -47,6 +47,9 @@ freezes a per-turn execution snapshot that preserves:
   internal `bigint` primary keys
 - `execution_context.turn_origin` preserves the current turn's origin kind,
   origin payload, and source reference metadata.
+- when `turn_origin.source_ref_type` points at an in-scope resource such as
+  `User` or `AgentDeployment`, `turn_origin.source_ref_id` is that resource's
+  public id rather than its internal row id
 - Automation-origin turns therefore assemble successfully even when they do not
   have a selected transcript-bearing input message.
 

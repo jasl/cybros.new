@@ -30,7 +30,7 @@ module Turns
           origin_kind: "manual_user",
           origin_payload: {},
           source_ref_type: "User",
-          source_ref_id: @conversation.workspace.user_id.to_s,
+          source_ref_id: @conversation.workspace.user.public_id,
           pinned_deployment_fingerprint: @agent_deployment.fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot

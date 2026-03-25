@@ -23,6 +23,8 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert queued.queued?
     assert queued.manual_user?
     assert_equal 2, queued.sequence
+    assert_equal "User", queued.source_ref_type
+    assert_equal context[:user].public_id, queued.source_ref_id
     assert_instance_of UserMessage, queued.selected_input_message
     assert_equal "Follow up input", queued.selected_input_message.content
   end

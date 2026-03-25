@@ -27,7 +27,7 @@ module AgentDeployments
             "bootstrap_manifest_snapshot" => @manifest_snapshot,
           },
           source_ref_type: "AgentDeployment",
-          source_ref_id: @deployment.id.to_s,
+          source_ref_id: @deployment.public_id,
           idempotency_key: "deployment-bootstrap-#{@deployment.id}-#{SecureRandom.hex(8)}",
           external_event_key: "deployment-bootstrap-#{@deployment.id}-#{SecureRandom.hex(8)}",
           agent_deployment: @deployment,

@@ -17,7 +17,7 @@ class AgentDeployments::BootstrapTest < ActiveSupport::TestCase
     assert result.turn.active?
     assert_equal "system_internal", result.turn.origin_kind
     assert_equal "AgentDeployment", result.turn.source_ref_type
-    assert_equal context[:agent_deployment].id.to_s, result.turn.source_ref_id
+    assert_equal context[:agent_deployment].public_id, result.turn.source_ref_id
     assert_equal context[:agent_deployment], result.turn.agent_deployment
     assert_equal context[:agent_deployment].fingerprint, result.turn.pinned_deployment_fingerprint
 

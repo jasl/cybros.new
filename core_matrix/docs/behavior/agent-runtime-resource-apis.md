@@ -104,6 +104,8 @@ request creation.
 
 - unknown workspace, conversation, turn, workflow run, or workflow node IDs are
   rejected before the endpoint reads or mutates state
+- raw internal bigint identifiers are not accepted as fallback resource lookups
+  at these boundaries and therefore fail as missing resources
 - transcript cursors that are not present in the visible projection are invalid
 - promotion rejects missing conversation-scoped current values
 - workflow-owned human interaction creation still inherits the existing service

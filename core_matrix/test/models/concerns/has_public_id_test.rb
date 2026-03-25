@@ -31,4 +31,12 @@ class HasPublicIdTest < ActiveSupport::TestCase
     assert record.public_id.present?
     assert_equal record, @model_class.find_by_public_id!(record.public_id)
   end
+
+  test "rejects duplicate public ids" do
+    record = @model_class.create!
+    duplicate = @model_class.new(public_id: record.public_id)
+
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:public_id], "has already been taken"
+  end
 end

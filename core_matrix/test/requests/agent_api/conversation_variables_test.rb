@@ -149,4 +149,37 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
     refute response_body.fetch("variable").key?("id")
     refute_includes response.body, %("#{conversation_variable.id}")
   end
+
+  test "write rejects raw bigint identifiers" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    post "/agent_api/conversation_variables/write",
+      params: {
+        workspace_id: context[:workspace].id,
+        conversation_id: context[:conversation].id,
+        key: "customer_name",
+        typed_value_payload: { type: "string", value: "Acme China" },
+        source_kind: "agent_runtime",
+      },
+      headers: agent_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+
+    post "/agent_api/conversation_variables/write",
+      params: {
+        workspace_id: context[:workspace].public_id,
+        conversation_id: context[:conversation].public_id,
+        key: "customer_name",
+        typed_value_payload: { type: "string", value: "Acme China" },
+        source_kind: "agent_runtime",
+        source_turn_id: context[:turn].id,
+        source_workflow_run_id: context[:workflow_run].id,
+      },
+      headers: agent_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
 end

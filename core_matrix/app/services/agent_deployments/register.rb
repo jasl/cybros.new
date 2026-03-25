@@ -2,6 +2,7 @@ module AgentDeployments
   class Register
     InvalidEnrollment = Class.new(StandardError)
     ExpiredEnrollment = Class.new(StandardError)
+    ExecutionEnvironmentMismatch = Class.new(StandardError)
 
     Result = Struct.new(:enrollment, :deployment, :capability_snapshot, :machine_credential, keyword_init: true)
 
@@ -82,7 +83,7 @@ module AgentDeployments
     def validate_execution_environment!(enrollment)
       return if @execution_environment.installation_id == enrollment.installation_id
 
-      raise ArgumentError, "execution environment must belong to the same installation"
+      raise ExecutionEnvironmentMismatch, "execution environment must belong to the same installation"
     end
   end
 end

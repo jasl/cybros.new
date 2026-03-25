@@ -70,12 +70,16 @@ selector state without implementing selector resolution or fallback yet.
 
 - `Turns::StartUserTurn` creates an active manual-user turn plus an initial
   selected `UserMessage`.
+- manual-user turns persist `source_ref_type = "User"` with the owning user's
+  `public_id` in `source_ref_id`
 - Ordinary user-turn entry rejects automation-purpose conversations.
 - `Turns::StartAutomationTurn` creates an active automation-origin turn without
   requiring a transcript-bearing `UserMessage`.
 - deployment bootstrap reuses `Turns::StartAutomationTurn` with
   `origin_kind = "system_internal"` so system-owned recovery and bootstrap work
   still uses the same durable turn substrate as other automation flows.
+- deployment bootstrap persists `source_ref_type = "AgentDeployment"` with the
+  deployment `public_id` in `source_ref_id`
 - `Turns::QueueFollowUp` creates a queued manual-user turn only when the
   conversation already has active or queued work.
 - `Turns::SteerCurrentInput` creates a new selected input variant on the same

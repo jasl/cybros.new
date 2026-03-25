@@ -107,6 +107,8 @@ capability refresh, and capability handshake with config reconciliation.
 
 - invalid, consumed, or expired enrollment tokens are rejected during
   registration
+- execution environments from another installation are rejected with a
+  controlled validation-style error rather than bubbling a server exception
 - fingerprint mismatches are rejected during capability handshake
 - machine-facing endpoints reject unknown deployment credentials before mutating
   deployment health or capability state

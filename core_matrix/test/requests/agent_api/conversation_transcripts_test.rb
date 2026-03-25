@@ -41,4 +41,26 @@ class AgentApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     assert_equal first_turn.public_id, response_body["items"].first.fetch("turn_id")
     refute_includes response.body, %("#{context[:conversation].id}")
   end
+
+  test "rejects raw bigint identifiers for conversation and cursor lookups" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    get "/agent_api/conversation_transcripts",
+      params: {
+        conversation_id: context[:conversation].id,
+      },
+      headers: agent_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
+
+    get "/agent_api/conversation_transcripts",
+      params: {
+        conversation_id: context[:conversation].public_id,
+        cursor: context[:turn].selected_input_message.id,
+      },
+      headers: agent_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
+  end
 end

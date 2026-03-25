@@ -457,6 +457,11 @@ git -C .. commit -m "feat: add public ids to runtime resources"
 - Modify: `core_matrix/app/controllers/agent_api/registrations_controller.rb`
 - Modify: `core_matrix/app/controllers/agent_api/health_controller.rb`
 - Modify: `core_matrix/app/controllers/agent_api/heartbeats_controller.rb`
+- Modify: `core_matrix/app/services/agent_deployments/register.rb`
+- Modify: `core_matrix/app/services/agent_deployments/bootstrap.rb`
+- Modify: `core_matrix/app/services/turns/start_user_turn.rb`
+- Modify: `core_matrix/app/services/turns/queue_follow_up.rb`
+- Modify: `core_matrix/app/services/workflows/context_assembler.rb`
 - Modify: `core_matrix/app/queries/conversation_transcripts/list_query.rb`
 - Modify: `core_matrix/test/requests/agent_api/conversation_transcripts_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/conversation_variables_test.rb`
@@ -465,6 +470,10 @@ git -C .. commit -m "feat: add public ids to runtime resources"
 - Modify: `core_matrix/test/requests/agent_api/registrations_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/health_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/heartbeats_test.rb`
+- Modify: `core_matrix/test/services/turns/start_user_turn_test.rb`
+- Modify: `core_matrix/test/services/turns/queue_follow_up_test.rb`
+- Modify: `core_matrix/test/services/agent_deployments/bootstrap_test.rb`
+- Modify: `core_matrix/test/services/workflows/context_assembler_test.rb`
 - Modify: `core_matrix/test/integration/agent_runtime_resource_api_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
 - Modify: `core_matrix/test/integration/canonical_variable_flow_test.rb`
@@ -511,6 +520,8 @@ Update controllers, queries, and serializers so:
 - public payloads emit `public_id`
 - field names may remain `*_id` where the protocol already depends on them
 - internal service wiring stays on `bigint` after the boundary lookup
+- runtime payload helpers and turn-origin source references also emit
+  `public_id` whenever they point at an in-scope external resource
 - canonical-variable payloads stop exposing raw variable row IDs because
   `canonical_variables` are out of scope for `public_id`
 
@@ -540,6 +551,11 @@ git -C .. commit -m "feat: expose public ids at resource boundaries"
 
 **Files:**
 - Create: `core_matrix/docs/behavior/identifier-policy.md`
+- Modify: `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
+- Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
+- Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
+- Modify: `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- Modify: `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
 - Modify: `AGENTS.md`
 - Modify: `docs/plans/README.md`
 
@@ -637,6 +653,14 @@ Expected:
 Update the plan file with a short completion note listing the exact commands
 that passed and any caveats discovered during the run.
 
+Completion note to record after verification:
+
+- public boundary lookups reject raw bigint IDs instead of accepting fallback
+  resolution
+- `turn_origin.source_ref_id` now carries `public_id` for in-scope resources
+- registration treats foreign execution environments as controlled
+  unprocessable-entity errors
+
 **Step 4: Re-open the design and behavior docs for a final review**
 
 Run:
@@ -657,3 +681,38 @@ Expected:
 git -C .. add docs/plans/2026-03-25-core-matrix-identifier-policy.md
 git -C .. commit -m "test: verify core matrix identifier policy rollout"
 ```
+
+### Verification Note (2026-03-25)
+
+The post-rollout review found and corrected three gaps after the original
+execution pass:
+
+- `turn_origin.source_ref_id` still leaked internal bigint IDs for manual-user
+  and deployment-bootstrap turns, so the turn producers now persist
+  `User.public_id` and `AgentDeployment.public_id` instead
+- registration now maps cross-installation execution-environment mismatches to
+  a controlled `422 unprocessable_entity` error through
+  `AgentDeployments::Register::ExecutionEnvironmentMismatch`
+- request coverage now proves raw bigint identifiers are rejected at the
+  machine-facing boundary instead of being accepted as fallback lookups
+
+Fresh verification completed with these exact commands:
+
+```bash
+cd core_matrix
+bin/rails test test/models/concerns/has_public_id_test.rb test/requests/agent_api/registrations_test.rb test/requests/agent_api/conversation_variables_test.rb test/requests/agent_api/human_interactions_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/queue_follow_up_test.rb test/services/agent_deployments/bootstrap_test.rb test/services/workflows/context_assembler_test.rb
+bin/rails test test/requests/agent_api/workspace_variables_test.rb test/requests/agent_api/conversation_transcripts_test.rb
+bin/brakeman --no-pager
+bin/bundler-audit
+bin/rubocop -f github
+bun run lint:js
+bin/rails db:test:prepare test
+bin/rails db:test:prepare test:system
+```
+
+Observed result:
+
+- every command above passed on the PostgreSQL 18 baseline
+- `bin/rails db:test:prepare test:system` still runs `0` system tests in the
+  current tree; this is an existing coverage gap, not a regression introduced
+  by the identifier-policy rollout

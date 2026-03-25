@@ -76,6 +76,8 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     assert_equal conversation.public_id, snapshot.dig("execution_context", "identity", "conversation_id")
     assert_equal current_turn.public_id, snapshot.dig("execution_context", "identity", "turn_id")
     assert_equal context[:agent_deployment].public_id, snapshot.dig("execution_context", "identity", "agent_deployment_id")
+    assert_equal "User", snapshot.dig("execution_context", "turn_origin", "source_ref_type")
+    assert_equal context[:user].public_id, snapshot.dig("execution_context", "turn_origin", "source_ref_id")
     assert_equal(
       [
         previous_turn.selected_input_message.public_id,

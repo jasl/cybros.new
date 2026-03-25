@@ -54,6 +54,8 @@ agent-facing boundaries:
 - machine-facing HTTP APIs use `public_id` for resource references
 - workflow execution snapshots and other agent-facing runtime payloads also use
   `public_id` for resource references
+- when `turn_origin.source_ref_type` points at an in-scope external resource,
+  `turn_origin.source_ref_id` must carry that resource's `public_id`
 - resources that do not have `public_id` must not leak raw internal row ids
   through agent-facing payloads
 

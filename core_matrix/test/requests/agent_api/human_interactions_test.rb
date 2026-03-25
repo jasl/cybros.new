@@ -29,4 +29,21 @@ class AgentApiHumanInteractionsTest < ActionDispatch::IntegrationTest
     assert_equal ["human_interaction.opened"], ConversationEvent.live_projection(conversation: context[:conversation]).map(&:event_kind)
     refute_includes response.body, %("#{context[:workflow_run].id}")
   end
+
+  test "rejects raw bigint workflow node ids" do
+    context = build_human_interaction_context!
+    registration = register_machine_api_for_context!(context)
+
+    post "/agent_api/human_interactions",
+      params: {
+        workflow_node_id: context[:workflow_node].id,
+        request_type: "ApprovalRequest",
+        blocking: true,
+        request_payload: { approval_scope: "publish" },
+      },
+      headers: agent_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
 end

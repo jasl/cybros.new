@@ -8,6 +8,7 @@ module AgentAPI
     rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
     rescue_from AgentDeployments::Register::InvalidEnrollment, with: :render_unprocessable_entity
     rescue_from AgentDeployments::Register::ExpiredEnrollment, with: :render_unprocessable_entity
+    rescue_from AgentDeployments::Register::ExecutionEnvironmentMismatch, with: :render_unprocessable_entity
     rescue_from AgentDeployments::Handshake::FingerprintMismatch, with: :render_unprocessable_entity
 
     private
