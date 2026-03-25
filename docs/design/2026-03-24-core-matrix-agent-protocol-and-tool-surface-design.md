@@ -227,6 +227,11 @@ Rules:
 - claim, heartbeat, progress, completion, and failure reporting must remain
   attributable to one authenticated deployment and one durable execution id
 
+See the focused execution-delivery contract note for the recommended shared
+envelope, method payloads, and claimable runtime resource shape:
+
+- [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
+
 ## Authority Rules
 
 Core Matrix remains a strong-kernel system.

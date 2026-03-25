@@ -25,6 +25,7 @@ Before Phase 2 moves into `docs/plans`, refresh this outline against:
 - [2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md)
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
+- [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Task Group 1: Re-Run The Structural Gate And Freeze Phase 2 Scope
@@ -55,6 +56,7 @@ shape without a root-model rewrite.
 - Modify: `core_matrix/app/services/workflows/scheduler.rb`
 - Likely create: `core_matrix/app/services/workflows/execute_run.rb`
 - Likely create: `core_matrix/app/services/provider_execution/*`
+- Likely create: `core_matrix/app/models/agent_task_run.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
 - Modify: `core_matrix/app/services/turns/start_automation_turn.rb`
 - Modify: `core_matrix/app/models/workflow_run.rb`
@@ -80,6 +82,7 @@ forking into separate execution models.
 - Modify: `core_matrix/app/services/agent_deployments/handshake.rb`
 - Modify: `core_matrix/app/services/agent_deployments/reconcile_config.rb`
 - Modify: `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
+- Likely create: `core_matrix/app/controllers/agent_api/executions_controller.rb`
 - Likely create: `core_matrix/app/services/mcp/*`
 - Likely create or expand: `core_matrix/app/models/` for tool-governance
   objects
@@ -92,6 +95,7 @@ forking into separate execution models.
 
 - `cd core_matrix && bin/rails test test/requests/agent_api`
 - `cd core_matrix && bin/rails test test/services/agent_deployments`
+- contract coverage for the `execution_*` method family
 
 ## Task Group 4: Enforce Conversation Feature Policy At Runtime
 

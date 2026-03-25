@@ -29,6 +29,7 @@ Before promotion, run:
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
+- [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Preconditions
@@ -85,11 +86,15 @@ Phase 2 must make them drive a real run.
   kernel
 - preserve heartbeat as the canonical liveness signal even if an optional
   WebSocket accelerator is later introduced
+- define one claimable agent-execution runtime resource plus the
+  `execution_claim / execution_lease_heartbeat / execution_progress /
+  execution_complete / execution_fail` method family
 
 **Likely code areas to revisit:**
 
 - `core_matrix/app/services/workflows/`
 - likely create `core_matrix/app/services/provider_execution/`
+- likely create `core_matrix/app/models/agent_task_run.rb`
 - `core_matrix/app/models/workflow_run.rb`
 - `core_matrix/app/models/workflow_node*.rb`
 - `core_matrix/app/services/turns/`
@@ -113,6 +118,8 @@ tools fork into separate execution models.
 - keep invocation history and supervision consistent across all sources
 - keep the public agent API transport-neutral even when Rails later uses
   ActionCable or another WebSocket implementation as an optional accelerator
+- define the shared envelope used by HTTP claim/report and any optional
+  accelerator notifications
 
 **Required policy work:**
 
