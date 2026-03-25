@@ -135,6 +135,10 @@ Likely areas:
 - `core_matrix/test/services/workflows/*`
 - `core_matrix/test/integration/*`
 
+Detailed execution unit:
+
+- [2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md)
+
 ### Slice D: Conversation Policy And Stale-Work Safety
 
 Primary outcome:
@@ -156,6 +160,10 @@ Likely areas:
 - `core_matrix/app/services/turns/*`
 - `core_matrix/test/services/turns/*`
 - `core_matrix/test/integration/*`
+
+Detailed execution unit:
+
+- [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
 
 ### Slice E: Wait-State Handoff, Human Interaction, And Subagents
 
@@ -180,6 +188,10 @@ Likely areas:
 - `core_matrix/test/services/subagents/*`
 - `core_matrix/test/services/leases/*`
 
+Detailed execution unit:
+
+- [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
+
 ### Slice F: Base Capability Governance For Kernel And Agent Tools
 
 Primary outcome:
@@ -202,6 +214,10 @@ Likely areas:
 - `core_matrix/test/requests/agent_api/*`
 - `core_matrix/test/services/agent_deployments/*`
 
+Detailed execution unit:
+
+- [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
+
 ### Slice G: Streamable HTTP MCP Under The Same Governance Model
 
 Primary outcome:
@@ -218,6 +234,10 @@ Likely areas:
 - `core_matrix/app/services/mcp/*`
 - `core_matrix/test/services/mcp/*`
 - `core_matrix/test/requests/agent_api/*`
+
+Detailed execution unit:
+
+- [2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md)
 
 ## Fenix Dependency Rules
 
@@ -249,6 +269,11 @@ skills, or deployment rotation before the kernel slices above are explicit.
 - [2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md)
 - [2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md)
 - [2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md)
+- [2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md)
+- [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
+- [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
+- [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
+- [2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md)
 - [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
 - [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
