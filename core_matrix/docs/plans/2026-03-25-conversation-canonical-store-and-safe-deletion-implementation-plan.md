@@ -8,14 +8,18 @@
 
 **Tech Stack:** Ruby on Rails 8.2, Active Record, PostgreSQL, Minitest, existing `AgentAPI` controllers, existing `Conversation` / `Turn` / `WorkflowRun` services.
 
+**Execution Policy:** This rollout allows destructive refactor. Prefer rewriting existing migration files over additive compatibility migrations when changing already-landed schema that is not yet production-bound. Reset development and test databases after schema-history edits, regenerate `db/schema.rb`, do not add backfills or compatibility aliases, and finish by updating behavior docs plus both plan docs so they exactly match the landed code.
+
 ---
 
 ### Task 1: Add the New Store Schema
 
 **Files:**
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260325110000_create_canonical_store_tables.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260325110500_add_conversation_deletion_fields.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260325111000_add_turn_and_workflow_cancellation_requests.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090019_create_conversations.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090021_create_turns.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090028_create_workflow_runs.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090036_create_canonical_variables.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090042_create_canonical_stores.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/canonical_store_snapshot_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/canonical_store_entry_test.rb`
@@ -46,16 +50,15 @@ Expected: FAIL because the models, tables, and constraints do not exist yet.
 
 **Step 3: Add the migrations**
 
-Implement tables and constraints for:
+Rewrite schema history for:
 
-- `canonical_stores`
-- `canonical_store_snapshots`
-- `canonical_store_entries`
-- `canonical_store_values`
-- `canonical_store_references`
 - `conversations.deletion_state`, `conversations.deleted_at`
 - `turns.cancellation_requested_at`, `turns.cancellation_reason_kind`
 - `workflow_runs.cancellation_requested_at`, `workflow_runs.cancellation_reason_kind`
+- workspace-only `canonical_variables`
+- new canonical-store tables in one consolidated migration:
+  `canonical_stores`, `canonical_store_snapshots`, `canonical_store_entries`,
+  `canonical_store_values`, `canonical_store_references`
 
 Schema requirements:
 
@@ -63,19 +66,29 @@ Schema requirements:
 - `canonical_store_references` unique index on `[:owner_type, :owner_id]`
 - check constraint on `octet_length(key) <= 128`
 - check constraint on `payload_bytesize <= 2_097_152`
+- remove conversation-scope uniqueness and storage assumptions from
+  `canonical_variables`
 
 **Step 4: Re-run the model tests**
 
-Run: `bin/rails test test/models/canonical_store_snapshot_test.rb test/models/canonical_store_entry_test.rb test/models/canonical_store_value_test.rb test/models/canonical_store_reference_test.rb`
+Run:
+
+```bash
+bin/rails db:drop db:create db:migrate
+bin/rails db:test:prepare
+bin/rails test test/models/canonical_store_snapshot_test.rb test/models/canonical_store_entry_test.rb test/models/canonical_store_value_test.rb test/models/canonical_store_reference_test.rb
+```
 
 Expected: PASS or fail only on missing model code, not missing tables.
 
 **Step 5: Commit**
 
 ```bash
-git add db/migrate/20260325110000_create_canonical_store_tables.rb \
-  db/migrate/20260325110500_add_conversation_deletion_fields.rb \
-  db/migrate/20260325111000_add_turn_and_workflow_cancellation_requests.rb \
+git add db/migrate/20260324090019_create_conversations.rb \
+  db/migrate/20260324090021_create_turns.rb \
+  db/migrate/20260324090028_create_workflow_runs.rb \
+  db/migrate/20260324090036_create_canonical_variables.rb \
+  db/migrate/20260324090042_create_canonical_stores.rb \
   db/schema.rb \
   test/models/canonical_store_snapshot_test.rb \
   test/models/canonical_store_entry_test.rb \
@@ -382,10 +395,10 @@ Expected: FAIL because routes and controller actions do not match the new API.
 Controller requirements:
 
 - route `get`, `mget`, `set`, `delete`, `exists`, `list_keys`, `resolve`, `promote`
-- keep temporary aliases for `write` and `list`
 - use public ids only
 - call the new `CanonicalStores` queries and services for conversation-local state
 - keep workspace behavior unchanged
+- remove legacy conversation `write` and `list` route names in the same change
 
 **Step 4: Re-run the request tests**
 
@@ -404,60 +417,68 @@ git add config/routes.rb \
 git commit -m "feat: switch conversation variable api to canonical store"
 ```
 
-### Task 7: Backfill And Promotion Integration
+### Task 7: Direct Promotion Integration And Legacy Path Removal
 
 **Files:**
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/canonical_stores/backfill_conversation.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/canonical_variable.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/variables/write.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/variables/promote_to_workspace.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/resolve_query.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/canonical_variable_flow_test.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/canonical_stores/backfill_conversation_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/variables/promote_to_workspace_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/resolve_query_test.rb`
 
-**Step 1: Write the failing backfill and promotion tests**
+**Step 1: Write the failing promotion and legacy-removal tests**
 
 ```ruby
-test "backfill creates empty root snapshot and populated compaction snapshot" do
-  conversation = conversations(:one)
-  backfill = CanonicalStores::BackfillConversation.call(conversation: conversation)
-  assert_equal "root", backfill.root_snapshot.snapshot_kind
-  assert_equal "compaction", backfill.reference.canonical_store_snapshot.snapshot_kind
+test "conversation-scope canonical variable writes are no longer accepted" do
+  context = build_canonical_variable_context!
+  assert_raises(ActiveRecord::RecordInvalid) do
+    Variables::Write.call(
+      scope: "conversation",
+      workspace: context[:workspace],
+      conversation: context[:conversation],
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" },
+      source_kind: "manual_user"
+    )
+  end
 end
 ```
 
-**Step 2: Run the backfill and resolve tests**
+**Step 2: Run the promotion and resolve tests**
 
-Run: `bin/rails test test/services/canonical_stores/backfill_conversation_test.rb test/services/variables/promote_to_workspace_test.rb test/queries/conversation_variables/resolve_query_test.rb test/integration/canonical_variable_flow_test.rb`
+Run: `bin/rails test test/services/variables/promote_to_workspace_test.rb test/queries/conversation_variables/resolve_query_test.rb test/integration/canonical_variable_flow_test.rb`
 
-Expected: FAIL because backfill and promotion still depend on legacy conversation-scoped `CanonicalVariable` rows.
+Expected: FAIL because promotion and resolve still depend on legacy conversation-scoped `CanonicalVariable` rows.
 
-**Step 3: Implement backfill and resolve integration**
+**Step 3: Implement direct-cutover promotion and legacy-path removal**
 
 Requirements:
 
-- backfill only current visible conversation-local keys
-- leave workspace-scoped `CanonicalVariable` behavior untouched
+- leave workspace-scoped `CanonicalVariable` behavior intact
+- `CanonicalVariable` becomes workspace-only in both schema assumptions and runtime validation
+- `Variables::Write` no longer accepts conversation scope
 - `conversation_variables_resolve` reads conversation-local state from the new store
 - `PromoteToWorkspace` reads current conversation-local values from the new store and writes workspace `CanonicalVariable` rows
 
 **Step 4: Re-run the targeted tests**
 
-Run: `bin/rails test test/services/canonical_stores/backfill_conversation_test.rb test/services/variables/promote_to_workspace_test.rb test/queries/conversation_variables/resolve_query_test.rb test/integration/canonical_variable_flow_test.rb`
+Run: `bin/rails test test/services/variables/promote_to_workspace_test.rb test/queries/conversation_variables/resolve_query_test.rb test/integration/canonical_variable_flow_test.rb`
 
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
-git add app/services/canonical_stores/backfill_conversation.rb \
+git add app/models/canonical_variable.rb \
+  app/services/variables/write.rb \
   app/services/variables/promote_to_workspace.rb \
   app/queries/conversation_variables/resolve_query.rb \
-  test/services/canonical_stores/backfill_conversation_test.rb \
   test/services/variables/promote_to_workspace_test.rb \
   test/queries/conversation_variables/resolve_query_test.rb \
   test/integration/canonical_variable_flow_test.rb
-git commit -m "feat: backfill and promote from canonical store"
+git commit -m "refactor: remove legacy conversation variable path"
 ```
 
 ### Task 8: Implement Safe Deletion Request And Finalization
@@ -584,43 +605,48 @@ git add app/services/canonical_stores/garbage_collect.rb \
 git commit -m "feat: garbage collect canonical store snapshots"
 ```
 
-### Task 10: Remove Legacy Conversation-Scoped Write Path And Run Full Verification
+### Task 10: Synchronize Docs And Run Final Verification
 
 **Files:**
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/canonical_variable.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/variables/write.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/canonical-variable-history-and-promotion.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md`
 
-**Step 1: Write or update the final regression tests**
+**Step 1: Re-read the landed code and write a doc-alignment checklist**
 
-Focus on:
+Checklist must cover:
 
-- no new conversation-scoped `CanonicalVariable` rows after cutover
-- `conversation_variables_*` request coverage
-- deletion with waiting workflow coverage
-- branch snapshot freeze coverage
+- public runtime method names
+- workspace-only `CanonicalVariable` responsibility
+- canonical-store snapshot semantics
+- deletion and unfinished-work behavior
+- schema rewrite policy versus what actually landed
 
-**Step 2: Run the focused regression suite**
+**Step 2: Update the behavior docs and both plan docs**
+
+Requirements:
+
+- remove stale compatibility or migration text
+- document the final public runtime methods
+- document the final deletion behavior
+- update the design doc if any locked detail changed during implementation
+- update this implementation plan if task ordering or content changed during execution
+
+**Step 3: Run the focused regression suite**
 
 Run: `bin/rails test test/requests/agent_api/conversation_variables_test.rb test/integration/conversation_canonical_store_branch_flow_test.rb test/integration/conversation_safe_deletion_flow_test.rb test/integration/canonical_variable_flow_test.rb`
 
 Expected: PASS.
-
-**Step 3: Remove or fence off the legacy conversation-scope write path**
-
-Implementation requirements:
-
-- workspace-scoped `CanonicalVariable` behavior stays
-- conversation-scoped reads and writes are no longer the primary runtime path
-- legacy conversation-scope code is either removed or guarded so it cannot be used by new runtime flows
 
 **Step 4: Run full project verification**
 
 Run:
 
 ```bash
+bin/rails db:drop db:create db:migrate
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
@@ -640,10 +666,11 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add app/models/canonical_variable.rb \
-  app/services/variables/write.rb \
-  docs/behavior/canonical-variable-history-and-promotion.md \
+git add docs/behavior/canonical-variable-history-and-promotion.md \
+  docs/behavior/agent-runtime-resource-apis.md \
   docs/behavior/conversation-structure-and-lineage.md \
-  docs/behavior/workflow-scheduler-and-wait-states.md
-git commit -m "refactor: retire legacy conversation variable path"
+  docs/behavior/workflow-scheduler-and-wait-states.md \
+  docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md \
+  docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md
+git commit -m "docs: align canonical store behavior and plans"
 ```

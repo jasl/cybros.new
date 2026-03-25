@@ -21,8 +21,8 @@ implementation ambiguity.
 - size limits and query-discipline rules driven by PostgreSQL behavior
 - safe deletion for conversations, including unfinished turns and workflow runs
 - garbage collection for unreachable store snapshots, entries, and values
-- migration of conversation-scoped reads and writes away from the current
-  `CanonicalVariable` conversation-scope shape
+- destructive rewrite of the current conversation-scoped canonical-variable
+  schema and runtime paths
 - a test matrix covering edge cases, extreme cases, and performance traps
 
 ### Out Of Scope
@@ -49,6 +49,11 @@ The following decisions are locked for implementation:
 - value payload size is capped at 2 MiB
 - list-style reads must not load all values by default
 - implementation must avoid N+1 queries
+- destructive refactor is allowed for this rollout
+- existing migrations may be rewritten directly for schema purity
+- development and test databases must be reset after schema-history edits
+- no compatibility aliases, dual writes, or backfills are allowed
+- implementation must finish with behavior docs, plan docs, and code in sync
 
 ## Current Baseline
 
@@ -86,12 +91,13 @@ garbage collection. Physical deletion happens only when dependencies permit it.
 ### Boundary Decisions
 
 - workspace-scoped canonical variables remain on the existing
-  `CanonicalVariable` model for now
+  `CanonicalVariable` model, but that model is rewritten to be workspace-only
 - conversation-local canonical state moves to new tables and services
 - `conversation_variables_resolve` continues to merge:
   conversation-local store state over workspace-scoped canonical variables
-- promotion to workspace keeps writing through the existing workspace
+- promotion to workspace keeps writing through the workspace
   `CanonicalVariable` path
+- no deprecated conversation-scope compatibility path survives the rollout
 
 ## Data Model
 
@@ -275,11 +281,7 @@ Notes:
   `conversation_variables_list_keys`
 - callers that need values for many keys must use `mget`
 - `resolve` continues to merge workspace values under conversation-local values
-- keep `conversation_variables_write` as a temporary alias to
-  `conversation_variables_set` during cutover
-- keep `conversation_variables_list` as a temporary alias to
-  `conversation_variables_list_keys` during cutover
-- migrate all internal callers in the same rollout before removing aliases
+- do not keep compatibility aliases for legacy method names
 
 ### Query Discipline
 
@@ -504,34 +506,33 @@ Do not use raw reference counts as the sole source of truth.
 - GC runs asynchronously after deletion finalization and may also run
   periodically for repair
 
-## API Compatibility And Migration
+## Schema Rewrite And Documentation Synchronization
 
-### Workspace Compatibility
+### Schema Rewrite Policy
 
-- keep existing workspace-variable APIs and storage unchanged
-- keep promotion writing into the workspace `CanonicalVariable` path
+- rewrite existing migrations directly when the final schema shape changes for
+  tables that are not yet production-bound
+- prefer one coherent schema history over additive compatibility migrations
+- after migration edits, reset development and test databases and re-export
+  `db/schema.rb`
+- schema load from scratch must produce the final desired shape with no
+  transitional artifacts
 
-### Conversation Compatibility
+### Direct Cutover Policy
 
-- migrate conversation-local reads and writes to the new store
-- backfill each live conversation into a store rooted at one empty root
-  snapshot plus one populated compaction snapshot
-- do not backfill superseded conversation-local history into the new store
-- keep legacy conversation-scope `CanonicalVariable` rows read-only during the
-  migration window
-- after cutover, new conversation-local writes must not create
-  conversation-scoped `CanonicalVariable` rows
+- switch conversation-local reads and writes directly to the new store
+- do not introduce backfill jobs
+- do not preserve conversation-scoped runtime access on `CanonicalVariable`
+- remove legacy conversation-scope write and read paths in the same rollout
+- keep workspace-scoped `CanonicalVariable` behavior intact
 
-### Backfill Rules
+### Documentation Synchronization Policy
 
-- create one empty `root` snapshot per store
-- create one `compaction` snapshot containing the current visible key set for
-  each live conversation
-- point the conversation reference at that compaction snapshot
-- backfill only current visible conversation-local keys
-- preserve exact current values
-- preserve missing and deleted keys by omission
-- verify counts per conversation before cutover
+- update behavior docs in the same implementation sequence as code changes
+- update this design document if landed implementation changes any locked detail
+- update the implementation plan if task order or task content changes during
+  execution
+- code, behavior docs, and both plan docs must match at the end of the rollout
 
 ## Failure Modes
 
@@ -624,15 +625,14 @@ The implementation is not complete unless the following tests exist.
 - GC deletes unreachable values after the last entry reference disappears
 - GC is idempotent across retries
 
-### Migration Tests
+### Schema Rewrite Tests
 
-- backfill creates one root snapshot per live conversation with current visible
-  keys only
-- backfill creates one empty root snapshot and one populated compaction
-  snapshot, not a populated root snapshot
-- backfill leaves workspace-scoped canonical variables untouched
-- cutover reads match pre-cutover reads for a representative conversation set
-- new conversation-local writes stop creating conversation-scoped
+- schema load from scratch creates the final canonical-store tables and
+  deletion fields with no transitional compatibility columns
+- workspace-scoped canonical variables still work after the schema rewrite
+- conversation-local runtime writes no longer create conversation-scoped
+  `CanonicalVariable` rows
+- conversation-local runtime reads no longer depend on conversation-scoped
   `CanonicalVariable` rows
 
 ## Implementation Sequence
@@ -640,28 +640,30 @@ The implementation is not complete unless the following tests exist.
 The implementation order is fixed to reduce risk and allow unattended
 execution.
 
-1. add new schema for store tables, deletion fields, and cancellation-request
-   fields
+1. rewrite schema history for store tables, deletion fields, and cancellation
+   fields; reset databases; re-export `db/schema.rb`
 2. implement model validations and schema-level check constraints
 3. implement store read-path queries for get, mget, and list_keys
 4. implement store write-path services for set, delete, and compaction
 5. integrate root conversation creation with initial store and snapshot
-6. integrate branch and checkpoint creation with snapshot-reference sharing
-7. switch conversation-local runtime APIs to the new store
-8. implement backfill and cutover from conversation-scoped `CanonicalVariable`
-   rows
+6. integrate branch, checkpoint, and thread creation with snapshot-reference
+   sharing
+7. switch conversation-local runtime APIs directly to the new store and remove
+   obsolete conversation-scope runtime paths
+8. implement promotion and resolve against the new direct-cutover store shape
 9. implement deletion request and active-work cancellation
 10. implement deletion finalization and tombstone-shell behavior
 11. implement store garbage collection
-12. run the full test matrix, then remove obsolete conversation-scope read and
-    write paths
+12. update behavior docs and both plan docs to match the landed code
+13. run the full test matrix on the rewritten schema
 
 This order is intentionally conservative:
 
+- schema purity before runtime cutover
 - store correctness before API cutover
-- API cutover before deletion finalization
+- direct API cutover before deletion finalization
 - deletion finalization before GC
-- GC after correctness is already proven
+- docs synchronization before the final verification pass
 
 ## Ambiguity Policy
 
@@ -680,6 +682,7 @@ require further discussion:
 - workspace-scope canonical variables stay on the existing model
 - deletion is logical first, physical later
 - mark-and-sweep is the GC authority
+- no compatibility layer survives the rollout
 
 ## Exit Criteria
 
@@ -687,8 +690,10 @@ This design is ready for implementation only when all of the following are
 true:
 
 - every required schema element and service boundary is named
+- schema rewrite rules are explicit
 - no public read path implicitly loads all values
 - unfinished-turn deletion behavior is fully specified
-- migration boundaries are explicit
+- compatibility removal is fully specified
 - the test matrix covers correctness, boundaries, and performance traps
+- the final rollout updates behavior docs and both plan docs together
 - no remaining section depends on an unstated product decision
