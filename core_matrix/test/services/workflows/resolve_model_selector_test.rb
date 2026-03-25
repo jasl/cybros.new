@@ -45,12 +45,12 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
 
     assert_equal "role:main", snapshot["normalized_selector"]
     assert_equal "openai", snapshot["resolved_provider_handle"]
-    assert_equal "gpt-5.3-chat-latest", snapshot["resolved_model_ref"]
+    assert_equal "gpt-5.4", snapshot["resolved_model_ref"]
     assert_equal 1, snapshot["fallback_count"]
     assert_equal "role_fallback_after_reservation", snapshot["resolution_reason"]
   end
 
-  test "role main can fall through missing credentials to the dev provider in test" do
+  test "role main fails when no real provider candidate is usable" do
     context = create_selector_context!(
       codex_credential_present: false,
       openai_credential_present: false,
@@ -66,16 +66,46 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    snapshot = Workflows::ResolveModelSelector.call(
-      turn: turn,
-      selector_source: "conversation"
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ResolveModelSelector.call(
+        turn: turn,
+        selector_source: "conversation"
+      )
+    end
+
+    assert_match(
+      /no candidate available for role:main/,
+      error.record.errors[:resolved_model_selection_snapshot].join(" ")
+    )
+  end
+
+  test "role mock resolves the dev provider without affecting role main ordering" do
+    context = create_selector_context!(
+      codex_credential_present: false,
+      openai_credential_present: false,
+      openrouter_credential_present: false,
+      dev_entitlement_active: true,
+      openrouter_entitlement_active: false
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Selector input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
     )
 
-    assert_equal "role:main", snapshot["normalized_selector"]
+    snapshot = Workflows::ResolveModelSelector.call(
+      turn: turn,
+      selector_source: "slot",
+      selector: "role:mock"
+    )
+
+    assert_equal "role:mock", snapshot["normalized_selector"]
+    assert_equal "mock", snapshot["resolved_role_name"]
     assert_equal "dev", snapshot["resolved_provider_handle"]
     assert_equal "mock-model", snapshot["resolved_model_ref"]
-    assert_equal 3, snapshot["fallback_count"]
-    assert_equal "role_fallback_after_filter", snapshot["resolution_reason"]
+    assert_equal 0, snapshot["fallback_count"]
   end
 
   test "explicit candidate selection rejects fallback to unrelated models" do

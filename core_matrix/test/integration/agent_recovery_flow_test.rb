@@ -60,7 +60,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     assert retried.active?
     assert_equal "role:planner", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
-    assert_equal "gpt-5.3-chat-latest", retried.turn.resolved_model_ref
+    assert_equal "gpt-5.4", retried.turn.resolved_model_ref
     assert_equal(
       %w[agent_deployment.degraded agent_deployment.paused_agent_unavailable workflow.manual_retried],
       AuditLog.where(installation: context[:installation]).order(:created_at).pluck(:action).last(3)

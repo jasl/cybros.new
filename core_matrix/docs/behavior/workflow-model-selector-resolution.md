@@ -37,6 +37,9 @@ This boundary does not assemble runtime input or attachment manifests. It only:
   - a conversation in `explicit_candidate` mode normalizes to its configured
     `candidate:<provider_handle/model_ref>`
   - otherwise resolution defaults to `role:main`
+- In the shipped catalog baseline, `role:main` contains only real-provider
+  candidates. The mock development provider remains opt-in through `role:mock`
+  or explicit `candidate:dev/...` selection.
 
 ## Candidate Expansion And Fallback
 

@@ -47,7 +47,8 @@ Provider handles remain stable config identifiers such as `openai`,
 `codex_subscription`, or `openrouter`.
 
 Model references remain provider-local identifiers such as
-`gpt-5.3-chat-latest`, `openai-gpt-5.4`, or `mock-model`.
+`gpt-5.3-chat-latest`, `openai-gpt-5.4`, `anthropic-claude-opus-4.6-nitro`, or
+`mock-model`.
 
 Role entries remain ordered candidate lists in `provider_handle/model_ref`
 form.
@@ -121,15 +122,19 @@ The repository-tracked base catalog ships provider families for:
 - `openai`
 - `openrouter`
 - `dev`
-- `ollama`
-- `llama_cpp`
+- `local`
 
-`dev` is enabled only in `development` and `test` so `role:main` can still end
-on a deterministic local fallback when credential-backed providers are not
-usable.
+`dev` is enabled only in `development` and `test` and remains dedicated to the
+shipped `mock_llm` development loop.
 
-`ollama` and `llama_cpp` remain present but disabled by default as local
-self-hosted examples.
+`local` remains present but disabled by default as the single shipped example
+for real self-hosted OpenAI-compatible inference services such as vLLM,
+Ollama, or llama.cpp running in OpenAI-compatible mode.
+
+`role:main` and the other real workload roles intentionally exclude the shipped
+mock provider. The catalog instead ships `role:mock` so development and manual
+testing can opt into `dev/mock-model` without changing the semantics of
+production-facing auto selection.
 
 ## Invariants
 

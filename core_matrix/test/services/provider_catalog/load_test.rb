@@ -1,30 +1,49 @@
 require "test_helper"
 
 class ProviderCatalog::LoadTest < ActiveSupport::TestCase
+  self.uses_real_provider_catalog = true
+
   test "defaults to the llm catalog path" do
     assert_equal Rails.root.join("config/llm_catalog.yml"), ProviderCatalog::Load::DEFAULT_PATH
   end
 
-  test "loads the shipped provider catalog and exposes provider models and role candidates" do
-    catalog = ProviderCatalog::Load.call
+  test "loads a fixture catalog and exposes provider models and role candidates" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
 
-    assert_equal %w[codex_subscription dev llama_cpp ollama openai openrouter], catalog.providers.keys.sort
-    assert_equal "api_key", catalog.provider("openai").fetch(:credential_kind)
-    assert_equal "api_key", catalog.provider("openrouter").fetch(:credential_kind)
-    assert_equal "oauth_codex", catalog.provider("codex_subscription").fetch(:credential_kind)
-    assert_equal %w[development test], catalog.provider("dev").fetch(:environments)
-    assert_equal "dev/mock-model", catalog.role_candidates("main").last
+      File.write(
+        File.join(dir, "config", "llm_catalog.yml"),
+        test_provider_catalog_definition.deep_stringify_keys.to_yaml
+      )
 
-    openai_model = catalog.model("openai", "gpt-5.3-chat-latest")
+      catalog = ProviderCatalog::Load.call(path: File.join(dir, "config", "llm_catalog.yml"))
 
-    assert_equal "GPT-5.3 Chat Latest", openai_model.fetch(:display_name)
-    assert_equal "gpt-5.3-chat-latest", openai_model.fetch(:api_model)
-    assert_equal "o200k_base", openai_model.fetch(:tokenizer_hint)
-    assert_equal 272_000, openai_model.fetch(:context_window_tokens)
-    assert_equal true, openai_model.dig(:capabilities, :multimodal_inputs, :image)
-    assert_equal false, openai_model.dig(:capabilities, :multimodal_inputs, :audio)
-    assert_equal false, openai_model.dig(:capabilities, :multimodal_inputs, :video)
-    assert_equal true, openai_model.dig(:capabilities, :multimodal_inputs, :file)
+      assert_equal %w[codex_subscription dev local openai openrouter], catalog.providers.keys.sort
+      assert_equal "api_key", catalog.provider("openai").fetch(:credential_kind)
+      assert_equal "api_key", catalog.provider("openrouter").fetch(:credential_kind)
+      assert_equal "oauth_codex", catalog.provider("codex_subscription").fetch(:credential_kind)
+      assert_equal %w[development test], catalog.provider("dev").fetch(:environments)
+      refute_includes catalog.role_candidates("main"), "dev/mock-model"
+      assert_equal ["dev/mock-model"], catalog.role_candidates("mock")
+      refute catalog.provider("local").fetch(:enabled)
+
+      openai_model = catalog.model("openai", "gpt-5.3-chat-latest")
+      codex_coding_model = catalog.model("codex_subscription", "gpt-5.3-codex")
+      local_model = catalog.model("local", "qwen3-14b")
+
+      assert_equal "GPT-5.3 Instant", openai_model.fetch(:display_name)
+      assert_equal "gpt-5.3-chat-latest", openai_model.fetch(:api_model)
+      assert_equal "o200k_base", openai_model.fetch(:tokenizer_hint)
+      assert_equal 128_000, openai_model.fetch(:context_window_tokens)
+      assert_equal 16_384, openai_model.fetch(:max_output_tokens)
+      assert_equal true, openai_model.dig(:capabilities, :multimodal_inputs, :image)
+      assert_equal false, openai_model.dig(:capabilities, :multimodal_inputs, :audio)
+      assert_equal false, openai_model.dig(:capabilities, :multimodal_inputs, :video)
+      assert_equal true, openai_model.dig(:capabilities, :multimodal_inputs, :file)
+      assert_equal "gpt-5.3-codex", codex_coding_model.fetch(:api_model)
+      assert_equal 131_072, local_model.fetch(:context_window_tokens)
+      assert_equal 32_768, local_model.fetch(:max_output_tokens)
+    end
   end
 
   test "merges config.d overrides in base then env order" do

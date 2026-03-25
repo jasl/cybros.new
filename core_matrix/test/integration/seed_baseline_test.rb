@@ -62,7 +62,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     assert ProviderEntitlement.find_by!(installation: installation, provider_handle: "openrouter").active?
   end
 
-  test "seeds leave role main usable with auto selector when only the dev baseline is present" do
+  test "seeds keep role mock usable when only the dev baseline is present" do
     context = create_workspace_context!
     capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
     context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
@@ -84,13 +84,45 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
     snapshot = Workflows::ResolveModelSelector.call(
       turn: turn,
-      selector_source: "conversation"
+      selector_source: "slot",
+      selector: "role:mock"
     )
 
     assert_equal "auto", conversation.reload.interactive_selector_mode
-    assert_equal "role:main", snapshot["normalized_selector"]
+    assert_equal "role:mock", snapshot["normalized_selector"]
     assert_equal "dev", snapshot["resolved_provider_handle"]
     assert_equal "mock-model", snapshot["resolved_model_ref"]
+  end
+
+  test "auto selector fails without a usable real provider even when the dev baseline is present" do
+    context = create_workspace_context!
+    capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+
+    with_bundled_agent(enabled: false) do
+      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil) do
+        load Rails.root.join("db/seeds.rb")
+      end
+    end
+
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Seed selector",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ResolveModelSelector.call(
+        turn: turn,
+        selector_source: "conversation"
+      )
+    end
+
+    assert_equal "auto", conversation.reload.interactive_selector_mode
+    assert_match(/no candidate available for role:main/, error.record.errors[:resolved_model_selection_snapshot].join(" "))
   end
 
   test "seeded real provider credentials plus seeded governance keep role main usable without changing auto selector mode" do

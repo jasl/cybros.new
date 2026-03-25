@@ -27,8 +27,9 @@ substrate, including the provider catalog follow-up.
   and approval resolution returns the same workflow run to `wait_state = "ready"`
   while preserving append-only conversation events.
 - `bin/rails db:seed` is part of the supported development setup path:
-  - in `development` and `test`, it should leave `role:main` usable through the
-    seeded `dev` provider even when no real-provider credential is configured
+  - in `development` and `test`, it should leave the shipped mock path usable
+    through `role:mock` or explicit `candidate:dev/...` selection even when no
+    real-provider credential is configured
   - when `OPENAI_API_KEY` or `OPENROUTER_API_KEY` is present, it should leave
     the corresponding real provider immediately usable without changing
     conversation selector mode away from `auto`

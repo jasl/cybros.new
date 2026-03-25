@@ -61,9 +61,9 @@ class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
     assert_equal "conversation", turn.reload.resolved_model_selection_snapshot["selector_source"]
     assert_equal "role:main", turn.resolved_model_selection_snapshot["normalized_selector"]
     assert_equal "openai", turn.resolved_model_selection_snapshot["resolved_provider_handle"]
-    assert_equal "gpt-5.3-chat-latest", turn.resolved_model_selection_snapshot["resolved_model_ref"]
+    assert_equal "gpt-5.4", turn.resolved_model_selection_snapshot["resolved_model_ref"]
     assert_equal 1, turn.resolved_model_selection_snapshot["fallback_count"]
     assert_equal "openai", workflow_run.resolved_provider_handle
-    assert_equal "gpt-5.3-chat-latest", workflow_run.resolved_model_ref
+    assert_equal "gpt-5.4", workflow_run.resolved_model_ref
   end
 end

@@ -106,7 +106,8 @@ inventing demo users or UI state.
 - Credential upserts are skipped when the existing credential already matches
   the intended secret and metadata.
 - With no real-provider credentials present, the seeded `dev` baseline keeps
-  `role:main` usable in `development` and `test`.
+  the shipped mock path usable in `development` and `test` through
+  `role:mock` or explicit `candidate:dev/...` selection.
 - With `OPENAI_API_KEY` or `OPENROUTER_API_KEY` present, those real providers
   can participate in `role:main` immediately without changing conversation
   selector mode away from `auto`.

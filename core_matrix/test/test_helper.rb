@@ -10,6 +10,8 @@ Dir[File.expand_path("support/**/*.rb", __dir__)].sort.each { |file| require fil
 
 module ActiveSupport
   class TestCase
+    class_attribute :uses_real_provider_catalog, default: false
+
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)
 
@@ -19,8 +21,270 @@ module ActiveSupport
     include ActiveSupport::Testing::TimeHelpers
     include ConcurrentAllocationHelpers
 
+    def run(...)
+      return super if self.class.uses_real_provider_catalog
+
+      with_stubbed_provider_catalog(build_test_provider_catalog) do
+        super
+      end
+    end
+
     # Add more helper methods to be used by all tests here...
     private
+
+    def with_stubbed_provider_catalog(catalog)
+      singleton = ProviderCatalog::Load.singleton_class
+      original_call = ProviderCatalog::Load.method(:call)
+
+      singleton.send(:define_method, :call) do |*args, **kwargs, &block|
+        catalog
+      end
+
+      yield
+    ensure
+      singleton.send(:define_method, :call, original_call)
+    end
+
+    def build_test_provider_catalog
+      validated = ProviderCatalog::Validate.call(test_provider_catalog_definition)
+
+      ProviderCatalog::Load::Catalog.new(
+        providers: validated.fetch(:providers),
+        model_roles: validated.fetch(:model_roles)
+      )
+    end
+
+    def test_provider_catalog_definition
+      {
+        version: 1,
+        providers: {
+          codex_subscription: test_provider_definition(
+            display_name: "Codex Subscription",
+            enabled: true,
+            environments: %w[development test production],
+            adapter_key: "codex_subscription_responses",
+            base_url: "https://api.openai.example.test/v1",
+            wire_api: "responses",
+            transport: "https",
+            responses_path: "/responses",
+            requires_credential: true,
+            credential_kind: "oauth_codex",
+            metadata: {
+              access_model: "bundled_subscription",
+              owner_scope: "installation",
+            },
+            models: {
+              "gpt-5.4" => test_model_definition(
+                display_name: "GPT-5.4",
+                api_model: "gpt-5.4",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 1_000_000,
+                max_output_tokens: 128_000
+              ),
+              "gpt-5.3-codex" => test_model_definition(
+                display_name: "GPT-5.3 Codex",
+                api_model: "gpt-5.3-codex",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 400_000,
+                max_output_tokens: 128_000,
+                request_defaults: { reasoning_effort: "medium" }
+              ),
+            }
+          ),
+          openai: test_provider_definition(
+            display_name: "OpenAI",
+            enabled: true,
+            environments: %w[development test production],
+            adapter_key: "openai_responses",
+            base_url: "https://api.openai.example.test/v1",
+            wire_api: "responses",
+            transport: "https",
+            responses_path: "/responses",
+            requires_credential: true,
+            credential_kind: "api_key",
+            metadata: {
+              api_family: "responses",
+              owner_scope: "installation",
+            },
+            models: {
+              "gpt-5.4" => test_model_definition(
+                display_name: "GPT-5.4",
+                api_model: "gpt-5.4",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 1_000_000,
+                max_output_tokens: 128_000
+              ),
+              "gpt-5.3-chat-latest" => test_model_definition(
+                display_name: "GPT-5.3 Instant",
+                api_model: "gpt-5.3-chat-latest",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 128_000,
+                max_output_tokens: 16_384
+              ),
+            }
+          ),
+          openrouter: test_provider_definition(
+            display_name: "OpenRouter",
+            enabled: true,
+            environments: %w[development test production],
+            adapter_key: "openrouter_chat_completions",
+            base_url: "https://openrouter.example.test/api/v1",
+            wire_api: "chat_completions",
+            transport: "https",
+            responses_path: "/chat/completions",
+            requires_credential: true,
+            credential_kind: "api_key",
+            metadata: {
+              provider_family: "openrouter",
+              owner_scope: "installation",
+            },
+            models: {
+              "openai-gpt-5.4" => test_model_definition(
+                display_name: "OpenAI GPT-5.4",
+                api_model: "openai/gpt-5.4",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 1_000_000,
+                max_output_tokens: 128_000,
+                multimodal_inputs: { image: false, audio: false, video: false, file: false }
+              ),
+              "openai-gpt-5.3-codex" => test_model_definition(
+                display_name: "GPT-5.3 Codex",
+                api_model: "openai/gpt-5.3-codex",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 400_000,
+                max_output_tokens: 128_000,
+                multimodal_inputs: { image: false, audio: false, video: false, file: false }
+              ),
+            }
+          ),
+          dev: test_provider_definition(
+            display_name: "Development Mock LLM",
+            enabled: true,
+            environments: %w[development test],
+            adapter_key: "mock_llm_chat_completions",
+            base_url: "http://127.0.0.1:3000/mock_llm/v1",
+            wire_api: "chat_completions",
+            transport: "http",
+            responses_path: "/chat/completions",
+            requires_credential: false,
+            credential_kind: "none",
+            metadata: {
+              provider_family: "mock",
+              owner_scope: "installation",
+            },
+            models: {
+              "mock-model" => test_model_definition(
+                display_name: "Mock Model",
+                api_model: "mock-model",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 128_000,
+                max_output_tokens: 16_384
+              ),
+              "vision-model" => test_model_definition(
+                display_name: "Vision Mock Model",
+                api_model: "vision-model",
+                tokenizer_hint: "o200k_base",
+                context_window_tokens: 128_000,
+                max_output_tokens: 16_384,
+                multimodal_inputs: { image: true, audio: false, video: false, file: true }
+              ),
+            }
+          ),
+          local: test_provider_definition(
+            display_name: "Local OpenAI-Compatible",
+            enabled: false,
+            environments: %w[development test production],
+            adapter_key: "local_openai_compatible_chat_completions",
+            base_url: "http://127.0.0.1:11434/v1",
+            wire_api: "chat_completions",
+            transport: "http",
+            responses_path: "/chat/completions",
+            requires_credential: false,
+            credential_kind: "none",
+            metadata: {
+              provider_family: "local",
+              owner_scope: "installation",
+            },
+            models: {
+              "qwen3-14b" => test_model_definition(
+                display_name: "Qwen3 14B",
+                api_model: "qwen3-14b",
+                tokenizer_hint: "qwen3",
+                context_window_tokens: 131_072,
+                max_output_tokens: 32_768,
+                capabilities: {
+                  text_output: true,
+                  tool_calls: true,
+                  structured_output: false,
+                  multimodal_inputs: { image: false, audio: false, video: false, file: false },
+                },
+              ),
+            }
+          ),
+        },
+        model_roles: {
+          main: [
+            "codex_subscription/gpt-5.4",
+            "openai/gpt-5.4",
+            "openrouter/openai-gpt-5.4",
+          ],
+          planner: [
+            "openai/gpt-5.4",
+          ],
+          coder: [
+            "codex_subscription/gpt-5.4",
+            "codex_subscription/gpt-5.3-codex",
+            "openai/gpt-5.4",
+            "openrouter/openai-gpt-5.3-codex",
+          ],
+          mock: [
+            "dev/mock-model",
+          ],
+        },
+      }
+    end
+
+    def test_provider_definition(display_name:, enabled:, environments:, adapter_key:, base_url:, wire_api:, transport:, responses_path:, requires_credential:, credential_kind:, metadata:, models:)
+      {
+        display_name: display_name,
+        enabled: enabled,
+        environments: environments,
+        adapter_key: adapter_key,
+        base_url: base_url,
+        headers: {},
+        wire_api: wire_api,
+        transport: transport,
+        responses_path: responses_path,
+        requires_credential: requires_credential,
+        credential_kind: credential_kind,
+        metadata: metadata,
+        models: models,
+      }
+    end
+
+    def test_model_definition(display_name:, api_model:, tokenizer_hint:, context_window_tokens:, max_output_tokens:, context_soft_limit_ratio: 0.8, request_defaults: {}, metadata: {}, capabilities: nil, multimodal_inputs: nil)
+      {
+        display_name: display_name,
+        api_model: api_model,
+        tokenizer_hint: tokenizer_hint,
+        context_window_tokens: context_window_tokens,
+        max_output_tokens: max_output_tokens,
+        context_soft_limit_ratio: context_soft_limit_ratio,
+        request_defaults: request_defaults,
+        metadata: metadata,
+        capabilities: capabilities || {
+          text_output: true,
+          tool_calls: true,
+          structured_output: true,
+          multimodal_inputs: multimodal_inputs || {
+            image: true,
+            audio: false,
+            video: false,
+            file: true,
+          },
+        },
+      }
+    end
 
     def next_test_sequence
       @next_test_sequence = (@next_test_sequence || 0) + 1

@@ -743,7 +743,7 @@ RUBY
   - `paused_recovery_state: "paused_agent_unavailable"`
   - `retried_selector: "role:planner"`
   - `retried_provider: "openai"`
-  - `retried_model: "gpt-5.3-chat-latest"`
+  - `retried_model: "gpt-5.4"`
   - `conversation_selector_mode: "auto"`
 - cleanup steps:
   - `core_matrix_reset_backend_state`
@@ -758,7 +758,8 @@ RUBY
 - prerequisites:
   - helper functions loaded
   - run `bin/rails db:seed` after reset; with no real-provider credentials the
-    shipped baseline now makes `role:main` resolve to `dev`
+    shipped baseline now keeps `role:mock` usable while `role:main` correctly
+    remains unavailable
   - the script below creates explicit `codex_subscription` and `openai`
     credentials so reservation and explicit-candidate checks stay deterministic
 - exact commands:
@@ -1091,8 +1092,10 @@ RUBY
   - `resumed_provider: "openai"`
   - `conversation_selector_mode: "auto"`
 - note:
-  - if you omit the manual credential rows above, `auto_provider` can validly
-    resolve to `dev` because the seeded baseline is now credential-aware
+  - if you omit the manual credential rows above, `auto_selector` should now
+    fail because `role:main` excludes the shipped mock provider; use
+    `role:mock` or explicit `candidate:dev/...` selection when you want to
+    validate the seeded mock path
 - cleanup steps:
   - `core_matrix_reset_backend_state`
 - last validated:
