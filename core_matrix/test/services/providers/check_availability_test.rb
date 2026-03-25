@@ -69,6 +69,27 @@ class Providers::CheckAvailabilityTest < ActiveSupport::TestCase
     assert_equal "shared_window", result.entitlement.entitlement_key
   end
 
+  test "returns model disabled when the model exists but is disabled" do
+    installation = create_installation!
+    create_provider_entitlement!(installation: installation, provider_handle: "openrouter")
+    create_provider_credential!(installation: installation, provider_handle: "openrouter", credential_kind: "api_key")
+
+    disabled_catalog_definition = test_provider_catalog_definition.deep_dup
+    disabled_catalog_definition[:providers][:openrouter][:models]["openai-gpt-5.4"][:enabled] = false
+    disabled_catalog = build_test_provider_catalog_from(disabled_catalog_definition)
+
+    result = Providers::CheckAvailability.call(
+      installation: installation,
+      provider_handle: "openrouter",
+      model_ref: "openai-gpt-5.4",
+      env: "test",
+      catalog: disabled_catalog
+    )
+
+    assert_equal false, result.usable?
+    assert_equal "model_disabled", result.reason_key
+  end
+
   private
 
   def create_provider_entitlement!(installation:, provider_handle:)

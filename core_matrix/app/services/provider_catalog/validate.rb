@@ -8,6 +8,15 @@ module ProviderCatalog
     ROLE_NAME_FORMAT = /\A[a-z0-9][a-z0-9_]*\z/
     REQUIRED_MULTIMODAL_INPUTS = %w[image audio video file].freeze
     REQUIRED_CAPABILITY_FLAGS = %w[text_output tool_calls structured_output].freeze
+    SUPPORTED_REQUEST_DEFAULTS = {
+      "reasoning_effort" => :string,
+      "temperature" => :non_negative_number,
+      "top_p" => :probability,
+      "top_k" => :non_negative_integer,
+      "min_p" => :probability,
+      "presence_penalty" => :number,
+      "repetition_penalty" => :positive_number,
+    }.freeze
 
     def self.call(...)
       new(...).call
@@ -65,17 +74,56 @@ module ProviderCatalog
         model_definition = normalize_hash(raw_model_definition, label: "#{provider_handle}/#{model_ref} definition")
 
         normalized[model_ref] = {
+          enabled: validate_model_enabled(model_definition["enabled"], "#{provider_handle}/#{model_ref} enabled"),
           display_name: validate_string!(model_definition["display_name"], "#{provider_handle}/#{model_ref} display_name"),
           api_model: validate_string!(model_definition["api_model"], "#{provider_handle}/#{model_ref} api_model"),
           tokenizer_hint: validate_string!(model_definition["tokenizer_hint"], "#{provider_handle}/#{model_ref} tokenizer_hint"),
           context_window_tokens: validate_integer!(model_definition["context_window_tokens"], "#{provider_handle}/#{model_ref} context_window_tokens"),
           max_output_tokens: validate_integer!(model_definition["max_output_tokens"], "#{provider_handle}/#{model_ref} max_output_tokens"),
           context_soft_limit_ratio: validate_ratio!(model_definition["context_soft_limit_ratio"], "#{provider_handle}/#{model_ref} context_soft_limit_ratio"),
-          request_defaults: normalize_hash(model_definition["request_defaults"], label: "#{provider_handle}/#{model_ref} request_defaults"),
+          request_defaults: validate_request_defaults(provider_handle, model_ref, model_definition["request_defaults"]),
           metadata: normalize_hash(model_definition["metadata"], label: "#{provider_handle}/#{model_ref} metadata").deep_symbolize_keys,
           capabilities: validate_capabilities(provider_handle, model_ref, model_definition["capabilities"]),
         }
       end
+    end
+
+    def validate_model_enabled(value, label)
+      return true if value.nil?
+
+      validate_boolean!(value, label)
+    end
+
+    def validate_request_defaults(provider_handle, model_ref, raw_request_defaults)
+      request_defaults = normalize_hash(raw_request_defaults, label: "#{provider_handle}/#{model_ref} request_defaults")
+      unknown_keys = request_defaults.keys - SUPPORTED_REQUEST_DEFAULTS.keys
+
+      if unknown_keys.any?
+        raise InvalidCatalog, "#{provider_handle}/#{model_ref} request_defaults contains unsupported keys: #{unknown_keys.join(", ")}"
+      end
+
+      request_defaults.each do |key, value|
+        label = "#{provider_handle}/#{model_ref} request_default #{key}"
+
+        case SUPPORTED_REQUEST_DEFAULTS.fetch(key)
+        when :string
+          validate_string!(value, label)
+        when :number
+          validate_number!(value, label)
+        when :positive_number
+          validate_positive_number!(value, label)
+        when :non_negative_number
+          validate_non_negative_number!(value, label)
+        when :non_negative_integer
+          validate_non_negative_integer!(value, label)
+        when :probability
+          validate_probability!(value, label)
+        else
+          raise InvalidCatalog, "#{provider_handle}/#{model_ref} request_default #{key} validation is unsupported"
+        end
+      end
+
+      request_defaults
     end
 
     def validate_capabilities(provider_handle, model_ref, raw_capabilities)
@@ -191,6 +239,36 @@ module ProviderCatalog
 
     def validate_ratio!(value, label)
       raise InvalidCatalog, "#{label} must be a number between 0 and 1" unless value.is_a?(Numeric) && value.positive? && value <= 1
+
+      value
+    end
+
+    def validate_number!(value, label)
+      raise InvalidCatalog, "#{label} must be a number" unless value.is_a?(Numeric)
+
+      value
+    end
+
+    def validate_positive_number!(value, label)
+      raise InvalidCatalog, "#{label} must be a positive number" unless value.is_a?(Numeric) && value.positive?
+
+      value
+    end
+
+    def validate_non_negative_number!(value, label)
+      raise InvalidCatalog, "#{label} must be a number greater than or equal to 0" unless value.is_a?(Numeric) && value >= 0
+
+      value
+    end
+
+    def validate_non_negative_integer!(value, label)
+      raise InvalidCatalog, "#{label} must be an integer greater than or equal to 0" unless value.is_a?(Integer) && value >= 0
+
+      value
+    end
+
+    def validate_probability!(value, label)
+      raise InvalidCatalog, "#{label} must be a number between 0 and 1 inclusive" unless value.is_a?(Numeric) && value >= 0 && value <= 1
 
       value
     end

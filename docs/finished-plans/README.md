@@ -18,7 +18,9 @@ Current Phase 1 finished records:
   [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md),
   [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md),
   [2026-03-25-core-matrix-phase-1-review-follow-ups-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md),
-  [2026-03-25-core-matrix-phase-1-review-follow-ups.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md)
+  [2026-03-25-core-matrix-phase-1-review-follow-ups.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md),
+  [2026-03-26-core-matrix-llm-catalog-phase1-followup-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-llm-catalog-phase1-followup-design.md),
+  [2026-03-26-core-matrix-llm-catalog-phase1-followup-implementation-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-llm-catalog-phase1-followup-implementation-plan.md)
 
 - Implementation records:
   [2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md)

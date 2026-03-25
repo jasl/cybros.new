@@ -1,6 +1,8 @@
 require "test_helper"
 
 class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
+  self.uses_real_provider_catalog = true
+
   test "rejects catalogs without a version" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
       ProviderCatalog::Validate.call(
@@ -131,6 +133,193 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
     assert_match(/api_model|tokenizer_hint/, error.message)
   end
 
+  test "accepts model enabled false and supported request defaults" do
+    catalog = ProviderCatalog::Validate.call(
+      version: 1,
+      providers: {
+        "openai" => valid_provider_definition(
+          models: {
+            "gpt-5.3-chat-latest" => valid_model_definition(
+              enabled: false,
+              request_defaults: {
+                reasoning_effort: "medium",
+                temperature: 1.0,
+                top_p: 0.95,
+                top_k: 20,
+                min_p: 0.0,
+                presence_penalty: 1.5,
+                repetition_penalty: 1.0,
+              }
+            ),
+          }
+        ),
+      },
+      model_roles: {
+        "main" => ["openai/gpt-5.3-chat-latest"],
+      }
+    )
+
+    model = catalog.fetch(:providers).fetch("openai").fetch(:models).fetch("gpt-5.3-chat-latest")
+
+    refute model.fetch(:enabled)
+    assert_equal(
+      {
+        "reasoning_effort" => "medium",
+        "temperature" => 1.0,
+        "top_p" => 0.95,
+        "top_k" => 20,
+        "min_p" => 0.0,
+        "presence_penalty" => 1.5,
+        "repetition_penalty" => 1.0,
+      },
+      model.fetch(:request_defaults)
+    )
+  end
+
+  test "accepts disabled models that remain referenced from model roles" do
+    catalog = ProviderCatalog::Validate.call(
+      version: 1,
+      providers: {
+        "openai" => valid_provider_definition(
+          models: {
+            "gpt-5.3-chat-latest" => valid_model_definition(enabled: false),
+          }
+        ),
+      },
+      model_roles: {
+        "main" => ["openai/gpt-5.3-chat-latest"],
+      }
+    )
+
+    refute catalog.fetch(:providers).fetch("openai").fetch(:models).fetch("gpt-5.3-chat-latest").fetch(:enabled)
+    assert_equal ["openai/gpt-5.3-chat-latest"], catalog.fetch(:model_roles).fetch("main")
+  end
+
+  test "defaults missing model enabled to true" do
+    catalog = ProviderCatalog::Validate.call(
+      version: 1,
+      providers: {
+        "openai" => valid_provider_definition(
+          models: {
+            "gpt-5.3-chat-latest" => valid_model_definition.except(:enabled),
+          }
+        ),
+      },
+      model_roles: {
+        "main" => ["openai/gpt-5.3-chat-latest"],
+      }
+    )
+
+    assert_equal true, catalog.fetch(:providers).fetch("openai").fetch(:models).fetch("gpt-5.3-chat-latest").fetch(:enabled)
+  end
+
+  test "rejects models with non boolean enabled" do
+    error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
+      ProviderCatalog::Validate.call(
+        version: 1,
+        providers: {
+          "openai" => valid_provider_definition(
+            models: {
+              "gpt-5.3-chat-latest" => valid_model_definition(enabled: "sometimes"),
+            }
+          ),
+        },
+        model_roles: {
+          "main" => ["openai/gpt-5.3-chat-latest"],
+        }
+      )
+    end
+
+    assert_includes error.message, "enabled"
+  end
+
+  test "rejects request defaults with unsupported keys" do
+    error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
+      ProviderCatalog::Validate.call(
+        version: 1,
+        providers: {
+          "openai" => valid_provider_definition(
+            models: {
+              "gpt-5.3-chat-latest" => valid_model_definition(
+                request_defaults: {
+                  temprature: 1.0,
+                }
+              ),
+            }
+          ),
+        },
+        model_roles: {
+          "main" => ["openai/gpt-5.3-chat-latest"],
+        }
+      )
+    end
+
+    assert_includes error.message, "request_defaults"
+    assert_includes error.message, "temprature"
+  end
+
+  test "rejects blank reasoning effort in request defaults" do
+    error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
+      ProviderCatalog::Validate.call(
+        version: 1,
+        providers: {
+          "openai" => valid_provider_definition(
+            models: {
+              "gpt-5.3-chat-latest" => valid_model_definition(
+                request_defaults: {
+                  reasoning_effort: "",
+                }
+              ),
+            }
+          ),
+        },
+        model_roles: {
+          "main" => ["openai/gpt-5.3-chat-latest"],
+        }
+      )
+    end
+
+    assert_includes error.message, "reasoning_effort"
+  end
+
+  test "rejects invalid numeric request defaults" do
+    {
+      "temperature" => -0.1,
+      "top_p_negative" => { key: "top_p", value: -0.1 },
+      "top_p_over_one" => { key: "top_p", value: 1.1 },
+      "top_k_float" => { key: "top_k", value: 1.5 },
+      "top_k_negative" => { key: "top_k", value: -1 },
+      "min_p_negative" => { key: "min_p", value: -0.1 },
+      "presence_penalty_string" => { key: "presence_penalty", value: "high" },
+      "repetition_penalty_zero" => { key: "repetition_penalty", value: 0 },
+    }.each_value do |entry|
+      key = entry.is_a?(Hash) ? entry.fetch(:key) : "temperature"
+      value = entry.is_a?(Hash) ? entry.fetch(:value) : entry
+
+      error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
+        ProviderCatalog::Validate.call(
+          version: 1,
+          providers: {
+            "openai" => valid_provider_definition(
+              models: {
+                "gpt-5.3-chat-latest" => valid_model_definition(
+                  request_defaults: {
+                    key => value,
+                  }
+                ),
+              }
+            ),
+          },
+          model_roles: {
+            "main" => ["openai/gpt-5.3-chat-latest"],
+          }
+        )
+      end
+
+      assert_includes error.message, key
+    end
+  end
+
   private
 
   def valid_provider_definition(display_name: "OpenAI", **attrs)
@@ -155,6 +344,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   def valid_model_definition(**attrs)
     {
+      enabled: true,
       display_name: "GPT-5.3 Chat Latest",
       api_model: "gpt-5.3-chat-latest",
       tokenizer_hint: "o200k_base",

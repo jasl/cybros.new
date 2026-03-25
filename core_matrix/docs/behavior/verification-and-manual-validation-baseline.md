@@ -36,8 +36,9 @@ substrate, including the provider catalog follow-up.
 - Selector validation in the manual checklist must cover all of:
   - conversation `auto`
   - availability filtering from missing credentials or environment gating
+  - role-local filtering from a disabled model
   - role-local fallback after reservation denial
-  - explicit candidate hard failure
+  - explicit candidate hard failure, including a disabled model
   - specialized-role exhaustion hard failure
   - one-time manual resume override
   - drift-triggered manual retry

@@ -59,7 +59,7 @@ catalog and selector design.
 
 ## Decision 1: Add `models.*.enabled`
 
-Each model definition gains one required boolean field:
+Each model definition gains one boolean field with a default:
 
 ```yaml
 providers:
@@ -71,8 +71,9 @@ providers:
 
 ### Semantics
 
+- omitted `enabled` normalizes to `true`, which keeps the common case concise
 - `enabled: true` means the model is catalog-visible and eligible for normal
-  availability evaluation.
+  availability evaluation
 - `enabled: false` means the model remains present in the catalog definition
   but is not usable, not selectable, and not UI-visible.
 - User overrides can disable a shipped model through deep merge:
@@ -196,9 +197,9 @@ copied into `Turn.resolved_config_snapshot` or any provider execution path.
 ### Validator Coverage
 
 - accept `enabled: true`
+- accept omitted `enabled` and normalize it to `true`
 - accept `enabled: false`
 - accept a disabled model that is still referenced from `model_roles`
-- reject missing `enabled`
 - reject non-boolean `enabled`
 - accept all supported `request_defaults` keys together
 - reject unknown `request_defaults` keys

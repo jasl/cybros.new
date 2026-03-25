@@ -20,9 +20,9 @@
 
 Add focused tests for:
 
+- defaulting omitted `enabled` to `true`
 - accepting `enabled: false` on a model
 - accepting a disabled model that is still referenced from `model_roles`
-- rejecting a model with missing `enabled`
 - rejecting a model with non-boolean `enabled`
 - accepting all supported `request_defaults` keys together
 - rejecting an unknown `request_defaults` key such as `temprature`
@@ -86,18 +86,19 @@ bin/rails test test/services/provider_catalog/validate_test.rb
 
 Expected:
 
-- failures for missing `enabled`
+- failures because omitted `enabled` still errors instead of defaulting to true
 - failures because unsupported `request_defaults` keys are not yet checked
 - failures because invalid numeric ranges still pass or produce the wrong error
 
 **Step 3: Implement the validator changes**
 
-Add `enabled` to normalized model output and introduce a dedicated
-`validate_request_defaults` helper. Keep the checks broad and portable:
+Add `enabled` to normalized model output with a default of `true` when omitted,
+and introduce a dedicated `validate_request_defaults` helper. Keep the checks
+broad and portable:
 
 ```ruby
 normalized[model_ref] = {
-  enabled: validate_boolean!(model_definition["enabled"], "#{provider_handle}/#{model_ref} enabled"),
+  enabled: validate_model_enabled(model_definition["enabled"], "#{provider_handle}/#{model_ref} enabled"),
   display_name: validate_string!(model_definition["display_name"], "#{provider_handle}/#{model_ref} display_name"),
   # ...
   request_defaults: validate_request_defaults(provider_handle, model_ref, model_definition["request_defaults"]),
@@ -183,13 +184,14 @@ bin/rails test test/integration/provider_catalog_boot_flow_test.rb
 
 Expected:
 
-- failure because shipped models do not yet declare `enabled`
+- failure because shipped models still require explicit `enabled` instead of
+  defaulting omitted values to true
 
 **Step 3: Update the shipped and test catalogs**
 
-Add `enabled: true` to every shipped model in `config/llm_catalog.yml`. Keep the
-new sampling knobs unset by default unless a model already has a legitimate
-existing default such as `reasoning_effort`.
+Remove redundant `enabled: true` entries from shipped models in
+`config/llm_catalog.yml`. Keep the new sampling knobs unset by default unless a
+model already has a legitimate existing default such as `reasoning_effort`.
 
 Update `test/test_helper.rb` so every stubbed model also carries
 `enabled: true` by default:

@@ -75,11 +75,12 @@ currently satisfies those declared requirements.
 - Applies the provider-availability checks in this order:
   1. provider exists in the catalog
   2. model exists under that provider
-  3. catalog `enabled` flag is true
-  4. current environment is included in the provider `environments`
-  5. installation policy has not disabled the provider
-  6. an active provider entitlement exists
-  7. a matching credential exists when `requires_credential: true`
+  3. model `enabled` flag is true
+  4. provider `enabled` flag is true
+  5. current environment is included in the provider `environments`
+  6. installation policy has not disabled the provider
+  7. an active provider entitlement exists
+  8. a matching credential exists when `requires_credential: true`
 
 ## Invariants
 
@@ -103,6 +104,7 @@ currently satisfies those declared requirements.
 - availability checks can reject candidates as:
   - `unknown_provider`
   - `unknown_model`
+  - `model_disabled`
   - `provider_disabled`
   - `environment_not_allowed`
   - `policy_disabled`

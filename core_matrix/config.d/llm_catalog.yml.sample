@@ -8,18 +8,40 @@
 #
 # This sample demonstrates:
 # - enabling the shipped `local` provider
+# - disabling one shipped model without deleting it from the catalog
 # - overriding the shipped local model with a user-supplied deployment target
 # - adding an extra local model
 # - adding a new OpenRouter model
 # - removing shipped models from automatic role selection by replacing role lists
 # - adding a new role
-#
-# Current limitation:
-# - the catalog contract does not support model-level `enabled: false`
-# - to stop a model from being auto-selected, replace the relevant `model_roles`
-#   arrays and omit that model from the new ordered list
 
 providers:
+  openrouter:
+    models:
+      openai-gpt-5.4-pro:
+        enabled: false
+      anthropic-claude-sonnet-4.5:
+        display_name: Claude Sonnet 4.5
+        api_model: anthropic/claude-sonnet-4.5
+        tokenizer_hint: claude-sonnet-4.5
+        context_window_tokens: 200000
+        max_output_tokens: 32000
+        context_soft_limit_ratio: 0.9
+        request_defaults: {}
+        metadata:
+          provider_family: openrouter
+          upstream_provider: anthropic
+          owner_supplied: true
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
   local:
     enabled: true
     base_url: http://127.0.0.1:8000/v1
@@ -34,7 +56,13 @@ providers:
         context_window_tokens: 131072
         max_output_tokens: 32768
         context_soft_limit_ratio: 0.8
-        request_defaults: {}
+        request_defaults:
+          temperature: 1.0
+          top_p: 0.95
+          top_k: 20
+          min_p: 0.0
+          presence_penalty: 1.5
+          repetition_penalty: 1.0
         metadata:
           provider_family: local
           owner_supplied: true
@@ -62,30 +90,6 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: false
-          multimodal_inputs:
-            image: false
-            audio: false
-            video: false
-            file: false
-
-  openrouter:
-    models:
-      anthropic-claude-sonnet-4.5:
-        display_name: Claude Sonnet 4.5
-        api_model: anthropic/claude-sonnet-4.5
-        tokenizer_hint: claude-sonnet-4.5
-        context_window_tokens: 200000
-        max_output_tokens: 32000
-        context_soft_limit_ratio: 0.9
-        request_defaults: {}
-        metadata:
-          provider_family: openrouter
-          upstream_provider: anthropic
-          owner_supplied: true
-        capabilities:
-          text_output: true
-          tool_calls: true
-          structured_output: true
           multimodal_inputs:
             image: false
             audio: false

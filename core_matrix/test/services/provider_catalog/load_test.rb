@@ -73,6 +73,7 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
               source: base
             models:
               gpt-5.3-chat-latest:
+                enabled: true
                 display_name: GPT-5.3 Chat Latest
                 api_model: gpt-5.3-chat-latest
                 tokenizer_hint: o200k_base
@@ -117,6 +118,96 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
       )
 
       assert_equal "config_d_env", catalog.provider("openai").dig(:metadata, :source)
+    end
+  end
+
+  test "deep merges model enabled and request defaults across config.d overrides" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      FileUtils.mkdir_p(File.join(dir, "config.d"))
+
+      File.write(File.join(dir, "config", "llm_catalog.yml"), <<~YAML)
+        version: 1
+        providers:
+          openai:
+            display_name: OpenAI
+            enabled: true
+            environments:
+              - development
+              - test
+              - production
+            adapter_key: openai_responses
+            base_url: https://api.openai.com/v1
+            headers: {}
+            wire_api: responses
+            transport: https
+            responses_path: /responses
+            requires_credential: true
+            credential_kind: api_key
+            metadata: {}
+            models:
+              gpt-5.4:
+                enabled: true
+                display_name: GPT-5.4
+                api_model: gpt-5.4
+                tokenizer_hint: o200k_base
+                context_window_tokens: 1000000
+                max_output_tokens: 128000
+                context_soft_limit_ratio: 0.9
+                request_defaults:
+                  reasoning_effort: high
+                metadata: {}
+                capabilities:
+                  text_output: true
+                  tool_calls: true
+                  structured_output: true
+                  multimodal_inputs:
+                    image: true
+                    audio: false
+                    video: false
+                    file: true
+        model_roles:
+          main:
+            - openai/gpt-5.4
+      YAML
+
+      File.write(File.join(dir, "config.d", "llm_catalog.yml"), <<~YAML)
+        providers:
+          openai:
+            models:
+              gpt-5.4:
+                enabled: false
+                request_defaults:
+                  temperature: 1.0
+                  top_p: 0.95
+      YAML
+
+      File.write(File.join(dir, "config.d", "llm_catalog.test.yml"), <<~YAML)
+        providers:
+          openai:
+            models:
+              gpt-5.4:
+                request_defaults:
+                  temperature: 0.8
+      YAML
+
+      catalog = ProviderCatalog::Load.call(
+        path: File.join(dir, "config", "llm_catalog.yml"),
+        override_dir: File.join(dir, "config.d"),
+        env: "test"
+      )
+
+      model = catalog.model("openai", "gpt-5.4")
+
+      refute model.fetch(:enabled)
+      assert_equal(
+        {
+          "reasoning_effort" => "high",
+          "temperature" => 0.8,
+          "top_p" => 0.95,
+        },
+        model.fetch(:request_defaults)
+      )
     end
   end
 

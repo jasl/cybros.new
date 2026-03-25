@@ -24,6 +24,7 @@ module Providers
 
       model = provider.fetch(:models)[@model_ref]
       return unavailable("unknown_model") if model.blank?
+      return unavailable("model_disabled") unless model.fetch(:enabled)
       return unavailable("provider_disabled") unless provider.fetch(:enabled)
       return unavailable("environment_not_allowed") unless provider.fetch(:environments).include?(@env)
       return unavailable("policy_disabled") if policy_disabled?

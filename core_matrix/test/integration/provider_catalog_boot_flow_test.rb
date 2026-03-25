@@ -8,5 +8,6 @@ class ProviderCatalogBootFlowTest < ActionDispatch::IntegrationTest
 
     assert catalog.providers.present?
     assert catalog.model_roles.present?
+    assert_equal true, catalog.model("openai", "gpt-5.4").fetch(:enabled)
   end
 end

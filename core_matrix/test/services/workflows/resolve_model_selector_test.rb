@@ -160,6 +160,63 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     assert_match(/missing_credential/, error.record.errors[:resolved_model_selection_snapshot].join(" "))
   end
 
+  test "explicit candidate selection fails immediately when the model is disabled" do
+    context = create_selector_context!(
+      openrouter_entitlement_active: true
+    )
+    disabled_catalog_definition = test_provider_catalog_definition.deep_dup
+    disabled_catalog_definition[:providers][:openrouter][:models]["openai-gpt-5.4"][:enabled] = false
+    disabled_catalog = build_test_provider_catalog_from(disabled_catalog_definition)
+
+    turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Selector input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    with_stubbed_provider_catalog(disabled_catalog) do
+      error = assert_raises(ActiveRecord::RecordInvalid) do
+        Workflows::ResolveModelSelector.call(
+          turn: turn,
+          selector_source: "slot",
+          selector: "candidate:openrouter/openai-gpt-5.4"
+        )
+      end
+
+      assert_match(/model_disabled/, error.record.errors[:resolved_model_selection_snapshot].join(" "))
+    end
+  end
+
+  test "role main skips disabled models and resolves the next candidate" do
+    context = create_selector_context!
+    disabled_catalog_definition = test_provider_catalog_definition.deep_dup
+    disabled_catalog_definition[:providers][:codex_subscription][:models]["gpt-5.4"][:enabled] = false
+    disabled_catalog = build_test_provider_catalog_from(disabled_catalog_definition)
+
+    turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Selector input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    with_stubbed_provider_catalog(disabled_catalog) do
+      snapshot = Workflows::ResolveModelSelector.call(
+        turn: turn,
+        selector_source: "conversation"
+      )
+
+      assert_equal "role:main", snapshot["normalized_selector"]
+      assert_equal "openai", snapshot["resolved_provider_handle"]
+      assert_equal "gpt-5.4", snapshot["resolved_model_ref"]
+      assert_equal 1, snapshot["fallback_count"]
+      assert_equal "role_fallback_after_filter", snapshot["resolution_reason"]
+    end
+  end
+
   test "specialized role exhaustion does not fall back to main" do
     context = create_selector_context!(
       openai_entitlement_active: false

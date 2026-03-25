@@ -46,7 +46,11 @@ module ActiveSupport
     end
 
     def build_test_provider_catalog
-      validated = ProviderCatalog::Validate.call(test_provider_catalog_definition)
+      build_test_provider_catalog_from(test_provider_catalog_definition)
+    end
+
+    def build_test_provider_catalog_from(definition)
+      validated = ProviderCatalog::Validate.call(definition)
 
       ProviderCatalog::Load::Catalog.new(
         providers: validated.fetch(:providers),
@@ -262,8 +266,9 @@ module ActiveSupport
       }
     end
 
-    def test_model_definition(display_name:, api_model:, tokenizer_hint:, context_window_tokens:, max_output_tokens:, context_soft_limit_ratio: 0.8, request_defaults: {}, metadata: {}, capabilities: nil, multimodal_inputs: nil)
+    def test_model_definition(display_name:, api_model:, tokenizer_hint:, context_window_tokens:, max_output_tokens:, enabled: true, context_soft_limit_ratio: 0.8, request_defaults: {}, metadata: {}, capabilities: nil, multimodal_inputs: nil)
       {
+        enabled: enabled,
         display_name: display_name,
         api_model: api_model,
         tokenizer_hint: tokenizer_hint,

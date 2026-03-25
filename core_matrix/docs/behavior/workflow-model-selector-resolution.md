@@ -52,6 +52,7 @@ This boundary does not assemble runtime input or attachment manifests. It only:
 - A candidate is usable only when:
   - the provider exists in the catalog
   - the model exists in that provider entry
+  - the model is catalog-enabled
   - the provider is catalog-enabled
   - the provider is visible in the current Rails environment
   - installation policy has not disabled the provider
@@ -62,6 +63,8 @@ This boundary does not assemble runtime input or attachment manifests. It only:
   reservation fails for that candidate even after availability succeeds.
 - Role-based fallback is allowed only to the next candidate inside the same
   role list.
+- Disabled models inside a role list are filtered through the same ordered
+  availability pass; they do not invalidate the role definition itself.
 - Explicit candidate selection never falls back to a different candidate.
 - Specialized roles do not implicitly fall back to `main`.
 
@@ -72,6 +75,7 @@ later UI-facing diagnostics:
 
 - `unknown_provider`
 - `unknown_model`
+- `model_disabled`
 - `provider_disabled`
 - `environment_not_allowed`
 - `policy_disabled`
@@ -114,6 +118,8 @@ error instead of silently trying unrelated models.
 - empty or exhausted role candidate lists reject resolution
 - explicit candidates fail immediately on availability rejection or reservation
   denial
+- disabled models inside a role list are skipped, but explicit disabled-model
+  selections fail immediately
 - role-based selections continue only to the next candidate in the same role
   list when availability or reservation checks fail
 - no resolution path guesses another role or unrelated model

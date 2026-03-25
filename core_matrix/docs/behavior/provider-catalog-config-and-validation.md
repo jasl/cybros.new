@@ -31,9 +31,9 @@ minimal directory into the shipped non-secret runtime catalog.
 - provider, model, and role entries merge by their stable keys
 - deletion is not supported through overrides; disabling a shipped provider
   should use `enabled: false`
-- model-level disable is not currently supported; to stop a shipped model from
-  automatic role selection, replace the relevant `model_roles` arrays and omit
-  that model from the new ordered list
+- disabling a shipped model should use `models.<model_ref>.enabled: false`
+- role lists may still reference disabled models; availability filtering skips
+  them at selection time instead of forcing delete-like catalog edits
 
 This shape keeps the repository-tracked base catalog inside Docker images while
 allowing operators to mount only `config.d`.
@@ -80,6 +80,7 @@ OAuth tokens remain in `ProviderCredential`.
 
 Each provider model preserves:
 
+- `enabled`
 - `display_name`
 - `api_model`
 - `tokenizer_hint`
@@ -89,6 +90,25 @@ Each provider model preserves:
 - `request_defaults`
 - `metadata`
 - explicit capability flags, including multimodal input support
+
+Model `enabled` defaults to `true` when omitted. Catalog authors only need to
+declare it explicitly when disabling a model or when they want that boolean to
+remain fully explicit in local overrides.
+
+`request_defaults` remains model-scoped catalog state in Phase 1. This follow-up
+validates and preserves the values, but does not yet wire them into actual
+provider request execution. Phase 2 will define the merge precedence between
+model defaults, agent defaults, conversation overrides, and turn overrides.
+
+Supported `request_defaults` keys are:
+
+- `reasoning_effort`
+- `temperature`
+- `top_p`
+- `top_k`
+- `min_p`
+- `presence_penalty`
+- `repetition_penalty`
 
 ## Capability Validation
 
@@ -114,6 +134,16 @@ from provider or model family.
   environment gating, transport metadata, and credential metadata
 - models must declare `api_model` and `tokenizer_hint` in addition to context,
   output, metadata, and capability fields
+- omitted model `enabled` normalizes to `true`
+- explicit model `enabled` values must be boolean
+- `request_defaults` must be a hash that uses only supported keys
+- `request_defaults` values must pass broad type and value-range checks:
+  - `reasoning_effort` must be a non-empty string
+  - `temperature` must be numeric and `>= 0`
+  - `top_p` and `min_p` must be numeric and between `0` and `1` inclusive
+  - `top_k` must be an integer and `>= 0`
+  - `presence_penalty` must be numeric
+  - `repetition_penalty` must be numeric and `> 0`
 - role catalogs must contain at least one candidate, preserve ordering, and
   point only at known provider-qualified models
 
@@ -155,6 +185,9 @@ production-facing auto selection.
 - unsupported or missing catalog version
 - invalid provider handles, model refs, or role names
 - non-hash headers, metadata, or request-default sections
+- non-boolean model `enabled` flags
+- unsupported request-default keys
+- invalid request-default types or broad ranges
 - missing or non-boolean capability flags
 - missing provider runtime fields or model tokenizer metadata
 - role entries that point at unknown provider/model candidates
