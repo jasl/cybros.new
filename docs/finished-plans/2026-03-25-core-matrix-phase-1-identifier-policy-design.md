@@ -1,4 +1,4 @@
-# Core Matrix Identifier Policy Design
+# Core Matrix Phase 1 Identifier Policy Design
 
 ## Status
 

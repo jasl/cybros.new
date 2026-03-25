@@ -1,4 +1,4 @@
-# LLM Catalog Phase 1 Follow-Up Design
+# Core Matrix Phase 1 LLM Catalog Follow-Up Design
 
 ## Purpose
 

@@ -482,7 +482,7 @@ git -C .. commit -m "fix: lock workflow and process ordinals"
 
 **Files:**
 - Modify: `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md`
-- Modify: `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md`
+- Modify: `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-implementation-plan.md`
 - Modify: `docs/plans/README.md`
 - Modify: `docs/finished-plans/README.md`
 
@@ -535,6 +535,6 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add docs/plans/README.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/README.md
+git -C .. add docs/plans/README.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-implementation-plan.md docs/finished-plans/README.md
 git -C .. commit -m "docs: archive phase 1 review follow-up plan"
 ```

@@ -1,4 +1,4 @@
-# Core Matrix Identifier Policy Implementation Plan
+# Core Matrix Phase 1 Identifier Policy Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -578,7 +578,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "public_id|uuidv7|PostgreSQL 18|external lookup|ordering" docs/finished-plans/2026-03-25-core-matrix-identifier-policy-design.md core_matrix/docs/behavior/identifier-policy.md AGENTS.md
+rg -n "public_id|uuidv7|PostgreSQL 18|external lookup|ordering" docs/finished-plans/2026-03-25-core-matrix-phase-1-identifier-policy-design.md core_matrix/docs/behavior/identifier-policy.md AGENTS.md
 ```
 
 Expected:
@@ -597,7 +597,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "public_id|uuidv7|PostgreSQL 18|external lookup|ordering" docs/finished-plans/2026-03-25-core-matrix-identifier-policy-design.md core_matrix/docs/behavior/identifier-policy.md AGENTS.md
+rg -n "public_id|uuidv7|PostgreSQL 18|external lookup|ordering" docs/finished-plans/2026-03-25-core-matrix-phase-1-identifier-policy-design.md core_matrix/docs/behavior/identifier-policy.md AGENTS.md
 ```
 
 Expected:
@@ -614,7 +614,7 @@ git -C .. commit -m "docs: record core matrix identifier policy"
 ### Task 9: Run The Full Core Matrix Verification Suite
 
 **Files:**
-- Modify: `docs/finished-plans/2026-03-25-core-matrix-identifier-policy.md`
+- Modify: `docs/finished-plans/2026-03-25-core-matrix-phase-1-identifier-policy-implementation-plan.md`
 
 **Step 1: Run targeted regression suites first**
 
@@ -667,7 +667,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-sed -n '1,240p' docs/finished-plans/2026-03-25-core-matrix-identifier-policy-design.md
+sed -n '1,240p' docs/finished-plans/2026-03-25-core-matrix-phase-1-identifier-policy-design.md
 sed -n '1,240p' core_matrix/docs/behavior/identifier-policy.md
 ```
 
@@ -678,7 +678,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add docs/finished-plans/2026-03-25-core-matrix-identifier-policy.md
+git -C .. add docs/finished-plans/2026-03-25-core-matrix-phase-1-identifier-policy-implementation-plan.md
 git -C .. commit -m "test: verify core matrix identifier policy rollout"
 ```
 

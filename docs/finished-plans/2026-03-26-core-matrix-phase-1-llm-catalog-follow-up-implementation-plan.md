@@ -1,4 +1,4 @@
-# LLM Catalog Phase 1 Follow-Up Implementation Plan
+# Core Matrix Phase 1 LLM Catalog Follow-Up Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
