@@ -54,6 +54,8 @@ The following decisions are locked for implementation:
 - development and test databases must be reset after schema-history edits
 - no compatibility aliases, dual writes, or backfills are allowed
 - implementation must finish with behavior docs, plan docs, and code in sync
+- implementation must remove dead code, dead tests, dead routes, and stale docs
+  created by the refactor
 
 ## Current Baseline
 
@@ -534,6 +536,16 @@ Do not use raw reference counts as the sole source of truth.
   execution
 - code, behavior docs, and both plan docs must match at the end of the rollout
 
+### Cleanup Policy
+
+- remove obsolete services, queries, controller actions, routes, tests, and
+  supporting code that no longer match the final architecture
+- remove stale behavior docs and plan text that describe removed paths
+- remove schema artifacts and validations that only existed for transitional
+  conversation-scope runtime behavior
+- the final repository state must not contain dead compatibility code or dead
+  documentation kept "just in case"
+
 ## Failure Modes
 
 - reject keys longer than 128 bytes
@@ -654,8 +666,9 @@ execution.
 9. implement deletion request and active-work cancellation
 10. implement deletion finalization and tombstone-shell behavior
 11. implement store garbage collection
-12. update behavior docs and both plan docs to match the landed code
-13. run the full test matrix on the rewritten schema
+12. remove dead compatibility code, dead tests, dead routes, and stale docs
+13. update behavior docs and both plan docs to match the landed code
+14. run the full test matrix on the rewritten schema
 
 This order is intentionally conservative:
 
@@ -663,7 +676,7 @@ This order is intentionally conservative:
 - store correctness before API cutover
 - direct API cutover before deletion finalization
 - deletion finalization before GC
-- docs synchronization before the final verification pass
+- cleanup and docs synchronization before the final verification pass
 
 ## Ambiguity Policy
 
@@ -695,5 +708,6 @@ true:
 - unfinished-turn deletion behavior is fully specified
 - compatibility removal is fully specified
 - the test matrix covers correctness, boundaries, and performance traps
+- dead code and stale docs removal is fully specified
 - the final rollout updates behavior docs and both plan docs together
 - no remaining section depends on an unstated product decision

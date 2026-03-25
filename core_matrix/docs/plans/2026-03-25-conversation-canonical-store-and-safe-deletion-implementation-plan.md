@@ -8,7 +8,7 @@
 
 **Tech Stack:** Ruby on Rails 8.2, Active Record, PostgreSQL, Minitest, existing `AgentAPI` controllers, existing `Conversation` / `Turn` / `WorkflowRun` services.
 
-**Execution Policy:** This rollout allows destructive refactor. Prefer rewriting existing migration files over additive compatibility migrations when changing already-landed schema that is not yet production-bound. Reset development and test databases after schema-history edits, regenerate `db/schema.rb`, do not add backfills or compatibility aliases, and finish by updating behavior docs plus both plan docs so they exactly match the landed code.
+**Execution Policy:** This rollout allows destructive refactor. Prefer rewriting existing migration files over additive compatibility migrations when changing already-landed schema that is not yet production-bound. Reset development and test databases after schema-history edits, regenerate `db/schema.rb`, do not add backfills or compatibility aliases, remove dead code and stale docs before the final verification pass, and finish by updating behavior docs plus both plan docs so they exactly match the landed code.
 
 ---
 
@@ -605,7 +605,68 @@ git add app/services/canonical_stores/garbage_collect.rb \
 git commit -m "feat: garbage collect canonical store snapshots"
 ```
 
-### Task 10: Synchronize Docs And Run Final Verification
+### Task 10: Remove Dead Code And Stale Docs
+
+**Files:**
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/agent_api/conversation_variables_controller.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/get_query.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/mget_query.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/list_query.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/resolve_query.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/variables/write.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/config/routes.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/conversation_variables_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/get_query_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/mget_query_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/list_query_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/resolve_query_test.rb`
+
+**Step 1: Audit the repository for obsolete conversation-scope runtime artifacts**
+
+Audit checklist:
+
+- dead controller actions
+- dead routes
+- dead query objects
+- dead tests
+- stale helper code
+- stale method names that survived direct cutover
+
+**Step 2: Remove the dead artifacts**
+
+Requirements:
+
+- no runtime path may still depend on removed conversation-scope
+  `CanonicalVariable` behavior
+- no route may expose removed legacy method names
+- no tests may assert deprecated behavior
+- keep workspace-variable code intact
+
+**Step 3: Run the focused cleanup regression suite**
+
+Run: `bin/rails test test/requests/agent_api/conversation_variables_test.rb test/queries/conversation_variables/get_query_test.rb test/queries/conversation_variables/mget_query_test.rb test/queries/conversation_variables/list_query_test.rb test/queries/conversation_variables/resolve_query_test.rb`
+
+Expected: PASS.
+
+**Step 4: Commit**
+
+```bash
+git add app/controllers/agent_api/conversation_variables_controller.rb \
+  app/queries/conversation_variables/get_query.rb \
+  app/queries/conversation_variables/mget_query.rb \
+  app/queries/conversation_variables/list_query.rb \
+  app/queries/conversation_variables/resolve_query.rb \
+  app/services/variables/write.rb \
+  config/routes.rb \
+  test/requests/agent_api/conversation_variables_test.rb \
+  test/queries/conversation_variables/get_query_test.rb \
+  test/queries/conversation_variables/mget_query_test.rb \
+  test/queries/conversation_variables/list_query_test.rb \
+  test/queries/conversation_variables/resolve_query_test.rb
+git commit -m "refactor: remove obsolete conversation variable artifacts"
+```
+
+### Task 11: Synchronize Docs And Run Final Verification
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/canonical-variable-history-and-promotion.md`
@@ -630,6 +691,7 @@ Checklist must cover:
 Requirements:
 
 - remove stale compatibility or migration text
+- remove stale documentation for deleted code paths and deleted routes
 - document the final public runtime methods
 - document the final deletion behavior
 - update the design doc if any locked detail changed during implementation
