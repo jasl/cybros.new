@@ -122,8 +122,9 @@ historical and bounded.
 
 #### 3. Append-only sequence and version allocation hardening
 
-- replace `MAX(...) + 1` allocators in append-only event, process, turn, and
-  workflow mutation paths with a concurrency-safe allocation strategy
+- replace `MAX(...) + 1` allocators in append-only event, process, turn,
+  workflow mutation, and capability snapshot version paths with a
+  concurrency-safe allocation strategy
 - acceptance must cover concurrent writers and prove the system does not fail
   with random `RecordNotUnique` exceptions during normal append traffic
 
@@ -159,7 +160,8 @@ historical and bounded.
 - projection batching changes need targeted behavioral coverage for root,
   thread, branch, and checkpoint projections plus context assembly consumers
 - concurrency hardening needs targeted tests around allocator behavior and
-  failure semantics under competing writers
+  failure semantics under competing writers, including deployment capability
+  version allocation
 - after Batch 2 implementation, rerun the normal `core_matrix` verification
   suite before closing the follow-up plan
 

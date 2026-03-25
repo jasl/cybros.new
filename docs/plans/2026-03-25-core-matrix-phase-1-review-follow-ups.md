@@ -305,12 +305,22 @@ git -C .. commit -m "perf: batch transcript visibility lookups"
 - Modify: `core_matrix/app/services/agent_deployments/handshake.rb`
 - Modify: `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`
 - Create: `core_matrix/test/services/append_only/conversation_and_turn_allocation_test.rb`
-- Modify: `core_matrix/test/services/agent_deployments/handshake_test.rb`
-- Modify: `core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
+- Test: `core_matrix/test/services/turns/start_user_turn_test.rb`
+- Test: `core_matrix/test/services/turns/start_automation_turn_test.rb`
+- Test: `core_matrix/test/services/turns/queue_follow_up_test.rb`
+- Test: `core_matrix/test/services/turns/steer_current_input_test.rb`
+- Test: `core_matrix/test/services/turns/edit_tail_input_test.rb`
+- Test: `core_matrix/test/services/turns/retry_output_test.rb`
+- Test: `core_matrix/test/services/turns/rerun_output_test.rb`
+- Test: `core_matrix/test/services/conversation_events/project_test.rb`
+- Test: `core_matrix/test/services/agent_deployments/handshake_test.rb`
+- Test: `core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
 
 **Step 1: Write the failing concurrent-allocation regressions**
 
 Create a dedicated concurrency test class with `self.use_transactional_tests = false` and helper methods that run two service calls against the same aggregate on separate connections.
+
+Because `core_matrix/test/test_helper.rb` globally enables parallel workers, keep these new concurrency files and their commands explicitly serial. Use `PARALLEL_WORKERS=1` for the Task 5 and Task 6 concurrency commands so framework-level parallelism does not interfere with the business-level race being tested.
 
 Cover at least:
 
@@ -335,7 +345,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/append_only/conversation_and_turn_allocation_test.rb test/services/agent_deployments/handshake_test.rb test/services/installations/register_bundled_agent_runtime_test.rb
+PARALLEL_WORKERS=1 bin/rails test test/services/append_only/conversation_and_turn_allocation_test.rb test/services/agent_deployments/handshake_test.rb test/services/installations/register_bundled_agent_runtime_test.rb
 ```
 
 Expected:
@@ -367,7 +377,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/append_only/conversation_and_turn_allocation_test.rb test/services/agent_deployments/handshake_test.rb test/services/installations/register_bundled_agent_runtime_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/edit_tail_input_test.rb test/services/conversation_events/project_test.rb
+PARALLEL_WORKERS=1 bin/rails test test/services/append_only/conversation_and_turn_allocation_test.rb test/services/agent_deployments/handshake_test.rb test/services/installations/register_bundled_agent_runtime_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/start_automation_turn_test.rb test/services/turns/queue_follow_up_test.rb test/services/turns/steer_current_input_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/retry_output_test.rb test/services/turns/rerun_output_test.rb test/services/conversation_events/project_test.rb
 ```
 
 Expected:
@@ -402,6 +412,8 @@ Use the same separate-connection helper to cover:
 - two concurrent `Workflows::Mutate.call` operations that append nodes and edges to the same `workflow_run`
 - concurrent status-event writers on the same `workflow_node` through `Processes::Start.call` and `Processes::Stop.call`
 
+Keep these commands serial for the same reason as Task 5: the concurrency signal must come from the application code under test, not from Rails test-worker fan-out.
+
 Regression shape:
 
 ```ruby
@@ -419,7 +431,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/append_only/workflow_and_process_allocation_test.rb test/services/workflows/mutate_test.rb test/services/processes/start_test.rb test/services/processes/stop_test.rb
+PARALLEL_WORKERS=1 bin/rails test test/services/append_only/workflow_and_process_allocation_test.rb test/services/workflows/mutate_test.rb test/services/processes/start_test.rb test/services/processes/stop_test.rb
 ```
 
 Expected:
@@ -451,7 +463,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/append_only/workflow_and_process_allocation_test.rb test/services/workflows/mutate_test.rb test/services/processes/start_test.rb test/services/processes/stop_test.rb test/integration/runtime_process_flow_test.rb test/integration/workflow_graph_flow_test.rb
+PARALLEL_WORKERS=1 bin/rails test test/services/append_only/workflow_and_process_allocation_test.rb test/services/workflows/mutate_test.rb test/services/processes/start_test.rb test/services/processes/stop_test.rb test/integration/runtime_process_flow_test.rb test/integration/workflow_graph_flow_test.rb
 ```
 
 Expected:
@@ -469,8 +481,10 @@ git -C .. commit -m "fix: lock workflow and process ordinals"
 ### Task 7: Run Full Verification And Close The Active Plan
 
 **Files:**
+- Modify: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md`
 - Modify: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md`
 - Modify: `docs/plans/README.md`
+- Move: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md` to `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md`
 - Move: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md` to `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md`
 - Modify: `docs/finished-plans/README.md`
 
@@ -502,9 +516,11 @@ Add a completion record summarizing:
 - final verification command output
 - any retained follow-up notes that remain intentionally deferred
 
+Mirror the closeout state in the approved design doc if it is being archived alongside the execution plan.
+
 **Step 3: Update the plan indexes**
 
-Move the completed execution plan into `docs/finished-plans` and update both index files so the active-plans directory no longer claims this work is open.
+Move both the completed execution plan and its approved design companion into `docs/finished-plans`, then update both index files so the active-plans directory no longer claims either record is open.
 
 **Step 4: Verify the documentation move**
 
@@ -521,6 +537,6 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add docs/plans/README.md docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/README.md
+git -C .. add docs/plans/README.md docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/README.md
 git -C .. commit -m "docs: archive phase 1 review follow-up plan"
 ```
