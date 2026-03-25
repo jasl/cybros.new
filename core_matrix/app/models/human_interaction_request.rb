@@ -1,4 +1,6 @@
 class HumanInteractionRequest < ApplicationRecord
+  include HasPublicId
+
   STI_TYPES = %w[ApprovalRequest HumanFormRequest HumanTaskRequest].freeze
   RESOLUTION_KINDS = %w[approved denied submitted completed canceled timed_out].freeze
 

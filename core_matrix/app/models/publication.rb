@@ -2,6 +2,8 @@ require "digest"
 require "securerandom"
 
 class Publication < ApplicationRecord
+  include HasPublicId
+
   attr_reader :plaintext_access_token
 
   enum :visibility_mode,

@@ -4,6 +4,7 @@ class CreatePublications < ActiveRecord::Migration[8.2]
       t.references :installation, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :owner_user, null: false, foreign_key: { to_table: :users }
+      t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :visibility_mode, null: false, default: "disabled"
       t.string :slug, null: false
       t.string :access_token_digest, null: false
@@ -16,5 +17,6 @@ class CreatePublications < ActiveRecord::Migration[8.2]
     add_index :publications, :conversation_id, unique: true, name: "idx_publications_conversation_unique"
     add_index :publications, :slug, unique: true
     add_index :publications, :access_token_digest, unique: true
+    add_index :publications, :public_id, unique: true
   end
 end

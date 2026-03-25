@@ -1,6 +1,21 @@
 require "test_helper"
 
 class WorkflowRunTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      content: "Workflow input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+
+    assert workflow_run.public_id.present?
+    assert_equal workflow_run, WorkflowRun.find_by_public_id!(workflow_run.public_id)
+  end
+
   test "enforces one workflow per turn and one active workflow per conversation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])

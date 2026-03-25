@@ -4,11 +4,13 @@ class CreateWorkflowRuns < ActiveRecord::Migration[8.2]
       t.references :installation, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true, index: { unique: true }
+      t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :lifecycle_state, null: false, default: "active"
 
       t.timestamps
     end
 
+    add_index :workflow_runs, :public_id, unique: true
     add_index :workflow_runs,
       :conversation_id,
       unique: true,

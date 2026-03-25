@@ -1,4 +1,6 @@
 class WorkflowRun < ApplicationRecord
+  include HasPublicId
+
   enum :lifecycle_state,
     {
       active: "active",

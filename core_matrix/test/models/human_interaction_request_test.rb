@@ -1,6 +1,24 @@
 require "test_helper"
 
 class HumanInteractionRequestTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    context = build_human_interaction_context!
+    request = ApprovalRequest.create!(
+      installation: context[:installation],
+      workflow_run: context[:workflow_run],
+      workflow_node: context[:workflow_node],
+      conversation: context[:conversation],
+      turn: context[:turn],
+      lifecycle_state: "open",
+      blocking: true,
+      request_payload: { "approval_scope" => "publish" },
+      result_payload: {}
+    )
+
+    assert request.public_id.present?
+    assert_equal request, HumanInteractionRequest.find_by_public_id!(request.public_id)
+  end
+
   test "requires a supported sti subtype and keeps workflow ownership aligned" do
     context = build_human_interaction_context!
 

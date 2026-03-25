@@ -1,4 +1,6 @@
 class WorkflowNode < ApplicationRecord
+  include HasPublicId
+
   enum :decision_source,
     {
       llm: "llm",

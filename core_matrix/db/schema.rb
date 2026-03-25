@@ -340,6 +340,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.datetime "expires_at"
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "open", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.jsonb "request_payload", default: {}, null: false
     t.string "resolution_kind"
     t.datetime "resolved_at"
@@ -352,6 +353,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["conversation_id", "lifecycle_state"], name: "idx_human_requests_conversation_lifecycle"
     t.index ["conversation_id"], name: "index_human_interaction_requests_on_conversation_id"
     t.index ["installation_id"], name: "index_human_interaction_requests_on_installation_id"
+    t.index ["public_id"], name: "index_human_interaction_requests_on_public_id", unique: true
     t.index ["turn_id"], name: "index_human_interaction_requests_on_turn_id"
     t.index ["type", "lifecycle_state"], name: "idx_human_requests_type_lifecycle"
     t.index ["workflow_node_id"], name: "index_human_interaction_requests_on_workflow_node_id"
@@ -521,6 +523,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
     t.bigint "owner_user_id", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "published_at"
     t.datetime "revoked_at"
     t.string "slug", null: false
@@ -531,6 +534,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["conversation_id"], name: "index_publications_on_conversation_id"
     t.index ["installation_id"], name: "index_publications_on_installation_id"
     t.index ["owner_user_id"], name: "index_publications_on_owner_user_id"
+    t.index ["public_id"], name: "index_publications_on_public_id", unique: true
     t.index ["slug"], name: "index_publications_on_slug", unique: true
   end
 
@@ -757,9 +761,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.string "node_key", null: false
     t.string "node_type", null: false
     t.integer "ordinal", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.bigint "workflow_run_id", null: false
     t.index ["installation_id"], name: "index_workflow_nodes_on_installation_id"
+    t.index ["public_id"], name: "index_workflow_nodes_on_public_id", unique: true
     t.index ["workflow_run_id", "node_key"], name: "index_workflow_nodes_on_workflow_run_id_and_node_key", unique: true
     t.index ["workflow_run_id", "ordinal"], name: "index_workflow_nodes_on_workflow_run_id_and_ordinal", unique: true
     t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
@@ -772,6 +778,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
     t.string "wait_reason_kind"
@@ -781,6 +788,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"
+    t.index ["public_id"], name: "index_workflow_runs_on_public_id", unique: true
     t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
   end
 
