@@ -111,10 +111,13 @@ Rules:
   Phase 2
 - long-running agent execution must not depend on one held HTTP request from
   `Core Matrix` into an agent program
+- deployment heartbeat remains the canonical liveness and health signal
 - an outbound WebSocket session may exist as an optional accelerator for
   notifications or wakeups
 - ActionCable, SolidCable, and AnyCable are Rails implementation options, not
   public protocol standards
+- WebSocket presence may accelerate detection or delivery, but it must not
+  replace heartbeat-based deployment health rules
 - if WebSocket is used, it must carry the platform's own message envelope
   rather than ActionCable-specific channel semantics
 

@@ -138,6 +138,8 @@ At minimum, the plan must say all of the following:
   concrete protocol gap justifies a focused extension
 - the public agent API remains transport-neutral even if Rails later uses
   ActionCable, SolidCable, or AnyCable internally
+- heartbeat remains the canonical liveness signal even if an optional WebSocket
+  accelerator exists
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.

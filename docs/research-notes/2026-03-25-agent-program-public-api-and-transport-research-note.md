@@ -20,6 +20,8 @@ local reference code changes later.
 - The public protocol should remain language- and framework-agnostic.
 - Short HTTP requests should remain the canonical transport for the public API
   in Phase 2.
+- deployment heartbeat should remain the canonical liveness signal for runtime
+  health
 - An outbound WebSocket connection may exist as an optional accelerator for
   notifications and wakeups, but it should not become the only execution path.
 - `ActionCable`, `SolidCable`, and `AnyCable` are implementation choices for
@@ -108,8 +110,25 @@ Rules:
 - the accelerator is additive, not canonical
 - all durable execution state must still survive without the WebSocket session
 - disconnect must degrade cleanly back to short HTTP polling
+- WebSocket presence may speed up connectivity detection, but it must not be
+  the only source of deployment health truth
 - the accelerator protocol must use the platform's own message envelope rather
   than leaking ActionCable-specific semantics
+
+## Connectivity And Liveness Model
+
+If `Core Matrix` cannot dial back into runtimes, liveness still needs a stable
+source of truth.
+
+Recommended split:
+
+- `heartbeat` remains the canonical deployment-health signal
+- optional WebSocket session state is only an accelerator-level presence hint
+- loss of WebSocket may trigger faster suspicion or wake fallback polling, but
+  it should not by itself replace heartbeat timeout rules
+- deployment health, outage transitions, and recovery eligibility should
+  continue to depend on durable heartbeat policy rather than transport-specific
+  connection state alone
 
 ## Why This Is Better Than A Pure ActionCable Protocol
 
@@ -148,6 +167,8 @@ toward:
 - durable machine credential issued after successful registration
 - optional accelerator-session identity separate from the durable deployment
   credential
+- heartbeat continues to authenticate and report health independently of any
+  optional accelerator session
 - no assumption that the kernel can ever directly reach the agent's local
   network address
 

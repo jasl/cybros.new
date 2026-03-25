@@ -83,6 +83,8 @@ Phase 2 must make them drive a real run.
 - preserve execution-time budget hints such as context-window, reserved-output,
   and request-correlation guidance without moving prompt building into the
   kernel
+- preserve heartbeat as the canonical liveness signal even if an optional
+  WebSocket accelerator is later introduced
 
 **Likely code areas to revisit:**
 

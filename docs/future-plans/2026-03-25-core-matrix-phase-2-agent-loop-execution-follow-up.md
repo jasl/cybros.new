@@ -54,6 +54,8 @@ Related design and research:
   execution
 - preserve execution-time budget and correlation hints for agent-program
   runtime customization
+- keep heartbeat as the canonical deployment-health signal even if a WebSocket
+  accelerator is added later
 - keep any WebSocket accelerator transport optional and implementation-specific
   rather than making it the canonical protocol
 - record invocation attempts, failures, retries, waits, and recovery outcomes
