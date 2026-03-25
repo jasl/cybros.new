@@ -33,7 +33,7 @@ class ConversationTranscripts::ListQueryTest < ActiveSupport::TestCase
       [first_turn.selected_input_message, second_turn.selected_input_message],
       first_page.messages
     )
-    assert_equal second_turn.selected_input_message.id.to_s, first_page.next_cursor
+    assert_equal second_turn.selected_input_message.public_id, first_page.next_cursor
 
     second_page = ConversationTranscripts::ListQuery.call(
       conversation: context[:conversation],
