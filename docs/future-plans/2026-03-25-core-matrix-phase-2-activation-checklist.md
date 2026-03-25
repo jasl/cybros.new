@@ -145,6 +145,12 @@ At minimum, the plan must say all of the following:
   rather than left as placeholders
 - the bounded fast terminal path for short tasks is explicit and does not
   invent a separate claimless execution API
+- stale-work protection, duplicate-report idempotency, and expired-lease
+  rejection are explicit rather than left to runtime convention
+- the wait-transition handoff from runtime execution into kernel wait state is
+  explicit rather than implied
+- competing `execution_claim` attempts inherit single-owner `ExecutionLease`
+  semantics rather than introducing a second ownership rule
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.
@@ -221,6 +227,8 @@ At minimum, the next execution plan must explicitly cover:
 - availability and supervision state
 - session-aware Streamable HTTP MCP transport handling when MCP is one of the
   governed capability sources
+- the exact freeze point for resolved bindings and the rule for re-binding only
+  on explicit new attempts or recovery-time decisions
 
 If the promoted plan still talks about a "minimal bridge" without naming these
 objects or policies, rewrite it before activation.
@@ -236,6 +244,8 @@ At minimum, the promoted plan must say how it will:
 - freeze feature-policy snapshots on running work
 - reject disabled kernel behaviors deterministically
 - prevent dead-end automation runs caused by disallowed human interaction
+- enforce during-generation input policy with safe stale-work rejection for
+  `reject`, `restart`, or `queue`
 
 Initial features that must be accounted for:
 
@@ -256,6 +266,8 @@ Required outcome:
   recovery, external pairing, deployment rotation, and skills
 - explicit real-environment scenarios for Streamable HTTP MCP and one retained
   runtime-stage-hook path
+- explicit real-environment scenarios for stale-work rejection and wait-state
+  handoff
 - a rule that no Phase 2 claim is complete without matching checklist evidence
 
 If the checklist delta is still fuzzy, Phase 2 is not ready.

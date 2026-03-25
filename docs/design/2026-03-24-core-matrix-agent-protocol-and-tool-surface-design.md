@@ -141,6 +141,21 @@ Rules:
 - `tool_catalog` describes model-visible or runtime-callable tools
 - the handshake must freeze enough metadata for history, audit, and recovery-time compatibility checks
 
+## Binding Freeze Boundary
+
+Capability handshake and per-execution binding are different moments.
+
+Rules:
+
+- deployment handshake advertises the live capability catalog and current
+  availability metadata
+- per-execution binding resolution freezes later, when `AgentTaskRun` is
+  created from the current execution snapshot
+- invocation rows must record the resolved `ToolBinding` or equivalent binding
+  ref, not just the logical `tool_name`
+- retries within one attempt keep the same binding unless an explicit recovery
+  policy opens a new attempt and records a new binding decision
+
 ## Tool Catalog Shape
 
 Each tool entry should carry at least:
@@ -225,6 +240,17 @@ Rules:
 - short tasks may use a bounded fast terminal path where `execution_claim` is
   immediately followed by `execution_complete` or `execution_fail` without
   intermediate progress or heartbeat
+- conversation-scoped execution must carry stale-work protection such as a tail
+  guard so restart or queue semantics cannot later commit output onto the wrong
+  conversation tail
+- wait transitions must stay kernel-owned; if runtime work blocks on human
+  input, subagent coordination, or another durable condition, the runtime must
+  request that wait through kernel-recognized payloads rather than inventing a
+  transport-local pause model
+- duplicate, out-of-order, expired-lease, or superseded-lease reports must fail
+  safe and must not silently mutate durable execution state
+- competing claim attempts must inherit `ExecutionLease` single-owner semantics
+  so one fresh holder wins and stale holders cannot silently reclaim ownership
 - the same durable execution path must remain valid when the optional WebSocket
   accelerator is unavailable
 - claim, heartbeat, progress, completion, and failure reporting must remain

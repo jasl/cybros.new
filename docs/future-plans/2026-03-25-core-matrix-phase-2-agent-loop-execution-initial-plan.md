@@ -81,6 +81,8 @@ Phase 2 must make them drive a real run.
   side whenever possible
 - result ingestion back into workflow state and events
 - terminal, waiting, failure, and retry transitions
+- carry forward during-generation input policy semantics including `reject`,
+  `restart`, `queue`, expected-tail guards, and safe stale-result rejection
 - preserve execution-time budget hints such as context-window, reserved-output,
   and request-correlation guidance without moving prompt building into the
   kernel
@@ -92,6 +94,10 @@ Phase 2 must make them drive a real run.
 - support a bounded fast terminal path for short tasks through
   `execution_claim` followed by an immediate `execution_complete` or
   `execution_fail`, not through a separate claimless API
+- define explicit stale-lease rejection, duplicate-report idempotency, and
+  progress ordering rules for the `execution_*` family
+- keep `execution_claim` aligned with `ExecutionLease` single-owner acquisition
+  semantics under competing claims
 
 **Likely code areas to revisit:**
 
@@ -123,6 +129,9 @@ tools fork into separate execution models.
   ActionCable or another WebSocket implementation as an optional accelerator
 - define the shared envelope used by HTTP claim/report and any optional
   accelerator notifications
+- freeze resolved tool bindings when `AgentTaskRun` is created from the current
+  execution snapshot, and reopen binding decisions only through explicit
+  recovery-time attempts
 
 **Required policy work:**
 
@@ -139,6 +148,7 @@ not just a design note.
 **Scope:**
 
 - persist the conversation feature policy
+- persist the per-conversation during-generation input policy
 - freeze feature snapshots on turn and workflow execution
 - reject disallowed kernel behaviors deterministically
 - prevent dead-end automation runs caused by impossible human-interaction
@@ -162,6 +172,8 @@ proven in real execution, not just table-backed.
 - one real `HumanFormRequest` or `HumanTaskRequest` path
 - one real `SubagentRun` path
 - correct wait-state and recovery handling for both
+- one explicit wait-transition handoff from runtime progress into a
+  kernel-owned workflow wait state
 - decision-source tracking for LLM-driven versus deterministic agent-program
   behavior
 
@@ -260,6 +272,8 @@ environment.
 - at least one real Streamable HTTP MCP-backed tool call
 - at least one real subagent flow
 - at least one real human-interaction flow
+- at least one stale-work scenario where new input supersedes or queues older
+  work and the older result is safely rejected
 - at least one outage or drift recovery flow
 
 **Required artifacts:**

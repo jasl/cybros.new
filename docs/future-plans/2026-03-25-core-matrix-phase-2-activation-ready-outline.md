@@ -70,6 +70,7 @@ shape without a root-model rewrite.
 - `cd core_matrix/vendor/simple_inference && bundle exec rake`
 - `cd core_matrix && bin/rails test test/services/workflows`
 - `cd core_matrix && bin/rails test test/integration`
+- stale-work guard coverage for `reject`, `restart`, or `queue` paths
 
 ## Task Group 3: Complete Unified Capability Governance
 
@@ -98,6 +99,10 @@ forking into separate execution models.
 - contract coverage for the `execution_*` method family
 - contract coverage for the bounded fast terminal path with no intermediate
   progress or heartbeat
+- contract coverage for stale-lease rejection, duplicate terminal delivery, and
+  out-of-order progress handling
+- contract coverage for competing claim attempts and single-owner lease
+  acquisition
 
 ## Task Group 4: Enforce Conversation Feature Policy At Runtime
 
@@ -141,6 +146,8 @@ placeholder.
 **Verification:**
 
 - `cd core_matrix && bin/rails test test/services/human_interactions test/services/subagents test/services/leases`
+- one test path for `wait_transition_requested` or equivalent canonical wait
+  handoff payload
 
 ## Task Group 6: Prove External Fenix Pairing And Deployment Rotation
 
@@ -254,6 +261,7 @@ evidence.
 - code-driven or mixed code-plus-LLM runtime-stage-hook path
 - built-in deployment skill path
 - third-party skill install-and-use path
+- stale-work rejection after new input supersedes older execution
 
 **Verification:**
 

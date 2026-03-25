@@ -37,6 +37,9 @@ Use this document to define:
   object.
 - The recommended internal runtime resource is a new workflow-owned
   `AgentTaskRun`, claimed via `ExecutionLease`.
+- deployment registration and bootstrap stay on the deployment handshake path in
+  Phase 2 rather than being forced into the same conversation-scoped execution
+  contract.
 
 ## Why A New Claimable Runtime Resource Is Worth It
 
@@ -94,7 +97,6 @@ Recommended task kinds for Phase 2:
 - `turn_step`
 - `agent_tool_call`
 - `subagent_step`
-- `deployment_bootstrap`
 
 Important boundary:
 
@@ -157,6 +159,13 @@ Fast-path rule:
 - this does not change the durable semantics: the runtime still receives a
   claimed execution with a real `lease_id`
 
+Lease-acquisition rule:
+
+- `execution_claim` must inherit `ExecutionLease` single-owner semantics
+- a fresh competing lease claim for the same execution must be rejected
+- a stale active lease may be replaced only through the normal stale-lease
+  acquisition path; the old holder must not be silently revived
+
 Each execution entry should include:
 
 - `execution_id`
@@ -165,7 +174,8 @@ Each execution entry should include:
 - `heartbeat_timeout_seconds`
 - `caller_context`
 - `capability_snapshot`
-- `feature_policy_snapshot`
+- optional `feature_policy_snapshot`
+- optional `tail_guard`
 - `budget_hints`
 - `input`
 
@@ -287,15 +297,18 @@ Fast-path rule:
 Every claimed execution should carry enough context for agent-side runtime
 decisions without moving prompt building into the kernel.
 
-Recommended `caller_context` minimum:
+Recommended `caller_context` minimum for all task kinds:
 
 - installation id
-- workspace id
-- conversation id
-- turn id
 - workflow run id
 - workflow node id
 - agent deployment id
+
+Additional minimum for conversation-scoped task kinds:
+
+- workspace id
+- conversation id
+- turn id
 
 Recommended `budget_hints` minimum:
 
@@ -303,6 +316,85 @@ Recommended `budget_hints` minimum:
 - reserved-output budget when known
 - timeout budget when known
 - correlation or request ids for provider attribution when known
+
+## Conversation Tail Guards And Stale Work
+
+Conversation-scoped executions need explicit stale-work protection.
+
+Recommended `tail_guard` minimum:
+
+- `conversation_id`
+- `expected_tail_message_id` or equivalent selected-tail ref
+- `during_generation_policy`
+- optional `selected_input_message_id`
+
+Rules:
+
+- `reject` means no new transcript-affecting execution should start while the
+  active guard remains valid
+- `restart` invalidates older guards and creates an explicit stop boundary so
+  older execution cannot later commit transcript-affecting output
+- `queue` creates a new execution with its own expected-tail guard; if the tail
+  changes again before that execution becomes authoritative, the queued work
+  must be skipped or rejected as stale
+- transcript-affecting `execution_progress`, `execution_complete`, and
+  `execution_fail` reports must be rejected or recorded as stale when their
+  guard has been superseded
+- stale reports may still be retained for diagnostics and audit, but they must
+  not mutate the selected transcript path or current workflow state as if they
+  were authoritative
+
+## Wait-State Handoff
+
+Waiting remains kernel-owned even when the runtime detects the need to pause.
+
+Recommended rule for blocking conditions:
+
+- when human interaction or another blocking resource is needed, the runtime
+  should first create or reference the kernel-owned blocking resource through
+  the appropriate protocol or tool surface
+- then the runtime should report `execution_progress` with a
+  `progress_kind` such as `wait_transition_requested`
+
+Recommended `wait_transition_requested` payload:
+
+- `wait_reason_kind`
+- `wait_reason_payload`
+- `blocking_resource_type`
+- `blocking_resource_id`
+
+Rules:
+
+- `wait_reason_kind` should align with workflow wait-state semantics such as
+  `human_interaction`, `agent_unavailable`, `manual_recovery_required`, or
+  `policy_gate`
+- the kernel must atomically decide whether the execution transitions into the
+  requested wait state
+- if the referenced blocking resource does not exist or is not compatible, the
+  kernel must reject the wait transition rather than silently pausing execution
+
+## Idempotency, Ordering, And Stale-Lease Rules
+
+The contract must fail safe under retries, duplicates, and network delays.
+
+Rules:
+
+- `message_id` is the protocol-level dedup key for one authenticated sender and
+  one logical report
+- repeated delivery of the same report with the same `message_id` must be
+  idempotent
+- a different terminal report for an execution that is already terminal must be
+  rejected as non-authoritative and retained only for diagnostics
+- `execution_progress.ordinal` should be monotonic per execution when supplied;
+  duplicate or older ordinals must not roll state backward
+- reports for an expired, superseded, or non-current `lease_id` must be
+  rejected with a structured stale-lease outcome and must not mutate durable
+  execution state
+- if a stale holder retries `execution_claim` after another holder has already
+  replaced its lease, the retry must observe the new ownership rather than
+  silently stealing the execution back
+- if recovery policy opens a new attempt after lease loss, that new attempt must
+  use a new lease and retain audit linkage to the superseded attempt
 
 ## WebSocket Accelerator
 

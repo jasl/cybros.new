@@ -224,6 +224,10 @@ The manual validation set for `Fenix` should include all of the following:
 - one built-in system skill that deploys another agent
 - install and use a third-party Agent Skills package from
   [obra/superpowers](https://github.com/obra/superpowers)
+- one wait-state handoff where `Fenix` requests a kernel-owned blocking
+  resource and the workflow later resumes cleanly
+- one stale-work scenario where newer input safely supersedes or queues older
+  execution without letting the older result become authoritative
 
 The built-in deployment skill should exist to prove that `Fenix` can use its
 own system-skill mechanism for an operational workflow, not just for passive

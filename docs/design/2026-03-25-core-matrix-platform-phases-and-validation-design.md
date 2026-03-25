@@ -209,6 +209,8 @@ Phase 2 is complete only when all of the following are true:
 - tool invocation works through the kernel's governed path
 - at least one subagent path works in a real run
 - at least one human-interaction path works in a real run
+- stale queued or superseded work cannot later commit transcript-affecting
+  output as if it were authoritative
 - drift and recovery behavior are verified in real runs
 - the done gate includes unit tests, integration tests, and manual
   `bin/dev + real LLM API` validation
@@ -250,6 +252,7 @@ Core Matrix should formalize per-conversation feature gating.
 Recommended fields:
 
 - `Conversation.enabled_feature_ids`
+- `Conversation.during_generation_input_policy`
 - `Turn.feature_policy_snapshot`
 - `WorkflowRun.feature_policy_snapshot`
 
@@ -258,6 +261,11 @@ Rules:
 - feature defaults depend on conversation purpose, trigger source, and channel
   shape
 - automation-triggered conversations disable `human_interaction` by default
+- conversations with transcript-affecting execution must also define a
+  during-generation input policy such as `reject`, `restart`, or `queue`
+- `queue` and `restart` paths must carry a tail guard or equivalent stale-work
+  protection so older queued or running work cannot later commit against the
+  wrong conversation tail
 - requests for disabled features return a structured policy rejection such as
   `feature_not_enabled`
 - the kernel must not create a blocking runtime resource for a disabled feature
@@ -280,6 +288,17 @@ The model should supervise at least:
 - kernel-owned tool surfaces
 - Streamable HTTP MCP capability implementations
 - agent-program-exposed tool implementations
+
+Binding-freeze rules:
+
+- deployment handshake advertises live capability metadata and availability, but
+  does not itself freeze the per-turn tool world
+- resolved bindings must freeze when `AgentTaskRun` is created from the current
+  execution snapshot
+- invocation rows must record both the logical tool definition and the resolved
+  implementation or binding actually used
+- retries inside one attempt keep the same resolved binding unless an explicit
+  repair or recovery policy opens a new attempt with a new binding decision
 
 ## Override, Whitelist, And Reserved Prefix Policy
 

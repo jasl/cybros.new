@@ -59,6 +59,13 @@ Related design and research:
 - keep any WebSocket accelerator transport optional and implementation-specific
   rather than making it the canonical protocol
 - record invocation attempts, failures, retries, waits, and recovery outcomes
+- enforce during-generation input policy with stale-work protection such as
+  expected-tail guards and safe stale-result rejection
+- freeze resolved capability bindings when `AgentTaskRun` is created from the
+  current execution snapshot, and retain binding lineage across retries or
+  recovery attempts
+- use an explicit wait-transition handoff from runtime execution into
+  kernel-owned workflow wait state
 
 ## Fenix Validation Slice
 
