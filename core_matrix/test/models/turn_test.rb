@@ -1,6 +1,20 @@
 require "test_helper"
 
 class TurnTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      content: "Hello",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert turn.public_id.present?
+    assert_equal turn, Turn.find_by_public_id!(turn.public_id)
+  end
+
   test "enforces unique sequence numbers within a conversation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])

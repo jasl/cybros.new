@@ -1,6 +1,21 @@
 require "test_helper"
 
 class MessageTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      content: "Hello",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    message = turn.selected_input_message
+
+    assert message.public_id.present?
+    assert_equal message, Message.find_by_public_id!(message.public_id)
+  end
+
   test "restricts STI persistence to transcript bearing subclasses" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(

@@ -1,4 +1,6 @@
 class Conversation < ApplicationRecord
+  include HasPublicId
+
   enum :kind,
     {
       root: "root",

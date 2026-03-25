@@ -1,4 +1,6 @@
 class Message < ApplicationRecord
+  include HasPublicId
+
   TRANSCRIPT_BEARING_TYPES = %w[UserMessage AgentMessage].freeze
 
   enum :role, { user: "user", agent: "agent" }, validate: true

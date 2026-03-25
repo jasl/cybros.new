@@ -1,4 +1,6 @@
 class Turn < ApplicationRecord
+  include HasPublicId
+
   enum :lifecycle_state,
     {
       queued: "queued",

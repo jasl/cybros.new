@@ -4,6 +4,7 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.references :installation, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :agent_deployment, null: false, foreign_key: true
+      t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.integer :sequence, null: false
       t.string :lifecycle_state, null: false
       t.string :origin_kind, null: false
@@ -22,6 +23,7 @@ class CreateTurns < ActiveRecord::Migration[8.2]
     end
 
     add_index :turns, [:conversation_id, :sequence], unique: true
+    add_index :turns, :public_id, unique: true
 
     change_table :conversations, bulk: true do |t|
       t.string :interactive_selector_mode, null: false, default: "auto"

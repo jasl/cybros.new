@@ -1,4 +1,6 @@
 class MessageAttachment < ApplicationRecord
+  include HasPublicId
+
   belongs_to :installation
   belongs_to :conversation
   belongs_to :message

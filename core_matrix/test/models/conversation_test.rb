@@ -1,6 +1,13 @@
 require "test_helper"
 
 class ConversationTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    conversation = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+
+    assert conversation.public_id.present?
+    assert_equal conversation, Conversation.find_by_public_id!(conversation.public_id)
+  end
+
   test "belongs to workspace and not directly to an agent installation" do
     assert_equal :belongs_to, Conversation.reflect_on_association(:workspace).macro
     assert_nil Conversation.reflect_on_association(:agent_installation)

@@ -259,11 +259,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.jsonb "override_reconciliation_report", default: {}, null: false
     t.datetime "override_updated_at"
     t.bigint "parent_conversation_id"
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "purpose", null: false
     t.datetime "updated_at", null: false
     t.bigint "workspace_id", null: false
     t.index ["installation_id"], name: "index_conversations_on_installation_id"
     t.index ["parent_conversation_id"], name: "index_conversations_on_parent_conversation_id"
+    t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
   end
@@ -399,12 +401,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.bigint "message_id", null: false
     t.bigint "origin_attachment_id"
     t.bigint "origin_message_id"
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.index ["conversation_id"], name: "index_message_attachments_on_conversation_id"
     t.index ["installation_id"], name: "index_message_attachments_on_installation_id"
     t.index ["message_id"], name: "index_message_attachments_on_message_id"
     t.index ["origin_attachment_id"], name: "index_message_attachments_on_origin_attachment_id"
     t.index ["origin_message_id"], name: "index_message_attachments_on_origin_message_id"
+    t.index ["public_id"], name: "index_message_attachments_on_public_id", unique: true
   end
 
   create_table "messages", force: :cascade do |t|
@@ -412,6 +416,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "role", null: false
     t.string "slot", null: false
     t.bigint "turn_id", null: false
@@ -420,6 +425,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.integer "variant_index", default: 0, null: false
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
     t.index ["installation_id"], name: "index_messages_on_installation_id"
+    t.index ["public_id"], name: "index_messages_on_public_id", unique: true
     t.index ["turn_id", "slot", "variant_index"], name: "index_messages_on_turn_id_and_slot_and_variant_index", unique: true
     t.index ["turn_id"], name: "index_messages_on_turn_id"
   end
@@ -583,6 +589,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.string "origin_kind", null: false
     t.jsonb "origin_payload", default: {}, null: false
     t.string "pinned_deployment_fingerprint", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.jsonb "resolved_config_snapshot", default: {}, null: false
     t.jsonb "resolved_model_selection_snapshot", default: {}, null: false
     t.bigint "selected_input_message_id"
@@ -595,6 +602,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["conversation_id", "sequence"], name: "index_turns_on_conversation_id_and_sequence", unique: true
     t.index ["conversation_id"], name: "index_turns_on_conversation_id"
     t.index ["installation_id"], name: "index_turns_on_installation_id"
+    t.index ["public_id"], name: "index_turns_on_public_id", unique: true
     t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
     t.index ["selected_output_message_id"], name: "index_turns_on_selected_output_message_id"
   end
