@@ -12,6 +12,12 @@ of leaving only a volatile reference path behind.
 
 Current Phase 1 finished records:
 
+- Follow-up records:
+  [2026-03-25-core-matrix-identifier-policy-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-identifier-policy-design.md),
+  [2026-03-25-core-matrix-identifier-policy.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-identifier-policy.md),
+  [2026-03-25-core-matrix-phase-1-review-follow-ups-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md),
+  [2026-03-25-core-matrix-phase-1-review-follow-ups.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md)
+
 - Implementation records:
   [2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md)
 - Milestones:
