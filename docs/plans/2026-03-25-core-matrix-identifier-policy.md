@@ -178,7 +178,7 @@ Add assertions that each approved root now generates a `public_id` and can be
 resolved by it:
 
 ```ruby
-user = users(:admin)
+user = create_user!(role: "admin")
 
 assert user.public_id.present?
 assert_equal user, User.find_by_public_id!(user.public_id)
@@ -250,7 +250,8 @@ Add tests that assert the registry resources generate `public_id` values and can
 be looked up through the shared concern:
 
 ```ruby
-deployment = agent_deployments(:bundled_default)
+installation = create_installation!
+deployment = create_agent_deployment!(installation: installation)
 
 assert deployment.public_id.present?
 assert_equal deployment, AgentDeployment.find_by_public_id!(deployment.public_id)
@@ -326,7 +327,22 @@ Add tests for each approved resource that assert:
 Example:
 
 ```ruby
-conversation = conversations(:root)
+context = create_workspace_context!
+conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+first_turn = Turns::StartUserTurn.call(
+  conversation: conversation,
+  content: "First",
+  agent_deployment: context[:agent_deployment],
+  resolved_config_snapshot: {},
+  resolved_model_selection_snapshot: {}
+)
+second_turn = Turns::StartUserTurn.call(
+  conversation: conversation,
+  content: "Second",
+  agent_deployment: context[:agent_deployment],
+  resolved_config_snapshot: {},
+  resolved_model_selection_snapshot: {}
+)
 
 assert conversation.public_id.present?
 assert_equal conversation, Conversation.find_by_public_id!(conversation.public_id)
@@ -460,6 +476,7 @@ git -C .. commit -m "feat: add public ids to runtime resources"
 - Modify: `core_matrix/test/requests/agent_api/heartbeats_test.rb`
 - Modify: `core_matrix/test/integration/agent_runtime_resource_api_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
+- Modify: `core_matrix/test/integration/canonical_variable_flow_test.rb`
 - Modify: `core_matrix/test/integration/human_interaction_flow_test.rb`
 
 **Step 1: Write the failing request and integration coverage**
@@ -471,6 +488,8 @@ identifier, add or update coverage so it:
 - keeps contract field names stable where appropriate, even if a field such as
   `conversation_id` now carries a UUID public identifier
 - does not serialize raw internal `id`
+- does not expose raw canonical-variable row IDs after `canonical_variables`
+  stay out of scope for `public_id`
 
 Representative expectation:
 
@@ -485,7 +504,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/requests/agent_api/conversation_transcripts_test.rb test/requests/agent_api/conversation_variables_test.rb test/requests/agent_api/workspace_variables_test.rb test/requests/agent_api/human_interactions_test.rb test/requests/agent_api/registrations_test.rb test/requests/agent_api/health_test.rb test/requests/agent_api/heartbeats_test.rb test/integration/agent_runtime_resource_api_test.rb test/integration/agent_registration_contract_test.rb test/integration/human_interaction_flow_test.rb
+bin/rails test test/requests/agent_api/conversation_transcripts_test.rb test/requests/agent_api/conversation_variables_test.rb test/requests/agent_api/workspace_variables_test.rb test/requests/agent_api/human_interactions_test.rb test/requests/agent_api/registrations_test.rb test/requests/agent_api/health_test.rb test/requests/agent_api/heartbeats_test.rb test/integration/agent_runtime_resource_api_test.rb test/integration/agent_registration_contract_test.rb test/integration/canonical_variable_flow_test.rb test/integration/human_interaction_flow_test.rb
 ```
 
 Expected:
@@ -512,7 +531,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/requests/agent_api/conversation_transcripts_test.rb test/requests/agent_api/conversation_variables_test.rb test/requests/agent_api/workspace_variables_test.rb test/requests/agent_api/human_interactions_test.rb test/requests/agent_api/registrations_test.rb test/requests/agent_api/health_test.rb test/requests/agent_api/heartbeats_test.rb test/integration/agent_runtime_resource_api_test.rb test/integration/agent_registration_contract_test.rb test/integration/human_interaction_flow_test.rb
+bin/rails test test/requests/agent_api/conversation_transcripts_test.rb test/requests/agent_api/conversation_variables_test.rb test/requests/agent_api/workspace_variables_test.rb test/requests/agent_api/human_interactions_test.rb test/requests/agent_api/registrations_test.rb test/requests/agent_api/health_test.rb test/requests/agent_api/heartbeats_test.rb test/integration/agent_runtime_resource_api_test.rb test/integration/agent_registration_contract_test.rb test/integration/canonical_variable_flow_test.rb test/integration/human_interaction_flow_test.rb
 ```
 
 Expected:
@@ -522,7 +541,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add core_matrix/app/controllers/agent_api/base_controller.rb core_matrix/app/controllers/agent_api/conversation_transcripts_controller.rb core_matrix/app/controllers/agent_api/conversation_variables_controller.rb core_matrix/app/controllers/agent_api/workspace_variables_controller.rb core_matrix/app/controllers/agent_api/human_interactions_controller.rb core_matrix/app/controllers/agent_api/registrations_controller.rb core_matrix/app/controllers/agent_api/health_controller.rb core_matrix/app/controllers/agent_api/heartbeats_controller.rb core_matrix/app/queries/conversation_transcripts/list_query.rb core_matrix/test/requests/agent_api/conversation_transcripts_test.rb core_matrix/test/requests/agent_api/conversation_variables_test.rb core_matrix/test/requests/agent_api/workspace_variables_test.rb core_matrix/test/requests/agent_api/human_interactions_test.rb core_matrix/test/requests/agent_api/registrations_test.rb core_matrix/test/requests/agent_api/health_test.rb core_matrix/test/requests/agent_api/heartbeats_test.rb core_matrix/test/integration/agent_runtime_resource_api_test.rb core_matrix/test/integration/agent_registration_contract_test.rb core_matrix/test/integration/human_interaction_flow_test.rb
+git -C .. add core_matrix/app/controllers/agent_api/base_controller.rb core_matrix/app/controllers/agent_api/conversation_transcripts_controller.rb core_matrix/app/controllers/agent_api/conversation_variables_controller.rb core_matrix/app/controllers/agent_api/workspace_variables_controller.rb core_matrix/app/controllers/agent_api/human_interactions_controller.rb core_matrix/app/controllers/agent_api/registrations_controller.rb core_matrix/app/controllers/agent_api/health_controller.rb core_matrix/app/controllers/agent_api/heartbeats_controller.rb core_matrix/app/queries/conversation_transcripts/list_query.rb core_matrix/test/requests/agent_api/conversation_transcripts_test.rb core_matrix/test/requests/agent_api/conversation_variables_test.rb core_matrix/test/requests/agent_api/workspace_variables_test.rb core_matrix/test/requests/agent_api/human_interactions_test.rb core_matrix/test/requests/agent_api/registrations_test.rb core_matrix/test/requests/agent_api/health_test.rb core_matrix/test/requests/agent_api/heartbeats_test.rb core_matrix/test/integration/agent_runtime_resource_api_test.rb core_matrix/test/integration/agent_registration_contract_test.rb core_matrix/test/integration/canonical_variable_flow_test.rb core_matrix/test/integration/human_interaction_flow_test.rb
 git -C .. commit -m "feat: expose public ids at resource boundaries"
 ```
 
