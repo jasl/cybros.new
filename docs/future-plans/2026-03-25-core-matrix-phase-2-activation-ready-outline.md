@@ -96,6 +96,8 @@ forking into separate execution models.
 - `cd core_matrix && bin/rails test test/requests/agent_api`
 - `cd core_matrix && bin/rails test test/services/agent_deployments`
 - contract coverage for the `execution_*` method family
+- contract coverage for the bounded fast terminal path with no intermediate
+  progress or heartbeat
 
 ## Task Group 4: Enforce Conversation Feature Policy At Runtime
 

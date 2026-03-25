@@ -89,6 +89,9 @@ Phase 2 must make them drive a real run.
 - define one claimable agent-execution runtime resource plus the
   `execution_claim / execution_lease_heartbeat / execution_progress /
   execution_complete / execution_fail` method family
+- support a bounded fast terminal path for short tasks through
+  `execution_claim` followed by an immediate `execution_complete` or
+  `execution_fail`, not through a separate claimless API
 
 **Likely code areas to revisit:**
 
@@ -252,6 +255,8 @@ environment.
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call
+- at least one fast terminal execution path with no intermediate progress or
+  heartbeat report
 - at least one real Streamable HTTP MCP-backed tool call
 - at least one real subagent flow
 - at least one real human-interaction flow

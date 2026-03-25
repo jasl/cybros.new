@@ -27,6 +27,8 @@ Use this document to define:
   - `execution_progress`
   - `execution_complete`
   - `execution_fail`
+- Phase 2 should support a bounded fast terminal path for short tasks without
+  introducing a second claimless protocol.
 - Optional WebSocket transport should reuse the same envelope family, but only
   for notification-style accelerator messages in Phase 2.
 - `heartbeat` remains the canonical deployment-health signal.
@@ -140,12 +142,20 @@ Recommended request payload:
 - `holder_key`
 - `limit`
 - `supported_task_kinds`
+- optional `wait_ms`
 - optional `known_accelerator_session_id`
 
 Recommended response payload:
 
 - `executions`
 - `next_poll_after_ms`
+
+Fast-path rule:
+
+- `execution_claim` may use a bounded `wait_ms` long-poll so a runtime can pick
+  up short work with one less round of idle polling
+- this does not change the durable semantics: the runtime still receives a
+  claimed execution with a real `lease_id`
 
 Each execution entry should include:
 
@@ -177,6 +187,12 @@ Recommended response payload:
 - `lease_state`
 - `continue`
 - `cancel_requested`
+
+Fast-path rule:
+
+- heartbeat is not required before the first terminal report if the runtime
+  completes or fails the execution before the initial heartbeat deadline
+- once the task crosses that budget, normal heartbeat rules apply
 
 ### `execution_progress`
 
@@ -232,6 +248,13 @@ Recommended response payload:
 - `accepted`
 - `workflow_state`
 
+Fast-path rule:
+
+- `execution_complete` may be the first and only report after `execution_claim`
+  for short tasks
+- this is the recommended latency optimization for simple agent-program work in
+  Phase 2
+
 ### `execution_fail`
 
 Purpose:
@@ -252,6 +275,12 @@ Recommended response payload:
 
 - `accepted`
 - optional `recovery_state`
+
+Fast-path rule:
+
+- `execution_fail` may also be the first and only report after
+  `execution_claim` for short failed tasks
+- retry and recovery semantics still stay kernel-owned
 
 ## Caller Context And Budget Hints
 
@@ -314,6 +343,7 @@ This design does not require Phase 2 to ship:
 
 - a full bidirectional RPC protocol over WebSocket
 - server-initiated execution callbacks into private agent networks
+- a separate claimless execution API that bypasses durable claim semantics
 - token streaming or transcript streaming as the canonical execution protocol
 - one runtime resource per prompt-building micro-step
 - replacement of deployment heartbeat with connection-presence rules

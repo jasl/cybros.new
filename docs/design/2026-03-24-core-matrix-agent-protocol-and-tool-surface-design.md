@@ -222,6 +222,9 @@ Rules:
 - `Core Matrix` remains the source of truth for execution state
 - the agent program claims executable work instead of receiving a blocking
   request from the kernel
+- short tasks may use a bounded fast terminal path where `execution_claim` is
+  immediately followed by `execution_complete` or `execution_fail` without
+  intermediate progress or heartbeat
 - the same durable execution path must remain valid when the optional WebSocket
   accelerator is unavailable
 - claim, heartbeat, progress, completion, and failure reporting must remain

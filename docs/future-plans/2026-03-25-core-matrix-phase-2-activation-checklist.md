@@ -143,6 +143,8 @@ At minimum, the plan must say all of the following:
   accelerator exists
 - the claimable execution object and `execution_*` method family are explicit
   rather than left as placeholders
+- the bounded fast terminal path for short tasks is explicit and does not
+  invent a separate claimless execution API
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.
