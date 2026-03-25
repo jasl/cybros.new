@@ -10,6 +10,9 @@ under kernel authority.
 
 Milestone C builds on Milestone A substrate and Milestone B provider execution.
 It should not rediscover provider logic inside the runtime protocol layer.
+It also owns the single reusable Protocol E2E harness for Phase 2 mailbox and
+close work; later tasks should extend that harness instead of creating a second
+end-to-end stack.
 
 ## Included Tasks
 
@@ -36,6 +39,8 @@ It should not rediscover provider logic inside the runtime protocol layer.
 - protocol-E2E infrastructure exists for runtime pairing and mailbox control
 - the initial protocol-E2E golden scenarios for mailbox delivery, transport
   fallback, turn interrupt, and close orchestration are in place
+- C3 and C4 extend the same protocol-E2E harness instead of replacing it with
+  runtime-specific one-off end-to-end tests
 - `turn_interrupt` is a tested kernel primitive
 - archive and delete reuse the close model without collapsing into one
   lifecycle state machine

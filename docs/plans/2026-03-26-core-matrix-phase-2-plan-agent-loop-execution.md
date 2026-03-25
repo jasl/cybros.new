@@ -27,6 +27,17 @@ Rules:
 - Phase 1 mock-LLM helpers and `core_matrix/vendor/simple_inference` may take
   breaking changes freely when that reduces Phase 2 implementation risk
 
+Frozen substrate assumptions for this phase:
+
+- `Conversation -> Turn -> WorkflowRun -> WorkflowNode` is the authoritative
+  execution root chain
+- `AgentInstallation -> AgentDeployment -> CapabilitySnapshot` remains the
+  authoritative runtime and capability lineage
+- Phase 2 work should extend those roots instead of introducing parallel pause,
+  close, delivery, or projection ledgers for the same facts
+- workflow wait, retry, and close control should reuse workflow-owned durable
+  state rather than inventing task-local shadow stores
+
 ## Related Design And Research
 
 - [2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md)
@@ -42,6 +53,21 @@ Rules:
 
 The current implementation focus should complete Milestones A through C before
 the later breadth and validation milestones.
+
+## Active Execution Order
+
+The active unattended execution batch for the current phase is:
+
+1. `Task A1`
+2. `Task A2`
+3. `Task B1`
+4. `Task C1`
+5. `Task C2`
+6. `Task C3`
+7. `Task C4`
+
+Later milestones remain explicitly out of the current execution batch until the
+Milestone A through C task set is complete and re-verified.
 
 ### Milestone A: Substrate Adjustments
 
@@ -87,6 +113,9 @@ stable.
 
 - mailbox-driven control works through `poll`, and through `WebSocket` when a
   realtime link is present
+- Protocol E2E harness and golden scenarios for mailbox, interrupt, and close
+  behavior are established in Milestone C and remain separate from later Web
+  UI end-to-end coverage
 - `turn_interrupt` is a tested kernel primitive and fences stale retry or
   stale completion correctly
 - archive and delete reuse the close model without collapsing into the same
@@ -109,6 +138,8 @@ stable.
 
 - keep the kernel authoritative over workflow progression, close fences,
   retries, and terminal state
+- keep the current root chain and runtime lineage authoritative instead of
+  layering replacement ledgers for the same lifecycle facts
 - make mailbox semantics canonical for control work
 - keep `poll` as a complete fallback control path even when `WebSocket` is the
   preferred realtime delivery path

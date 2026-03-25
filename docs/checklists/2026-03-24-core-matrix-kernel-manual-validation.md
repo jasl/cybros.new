@@ -30,6 +30,11 @@ Current-batch rule:
   requests, Rails runner actions, and `script/manual/dummy_agent_runtime.rb`
 - do not add browser-only or human-facing UI validation steps in the current
   backend greenfield batch
+- treat this checklist as the real-environment baseline that accompanies, but
+  does not replace, Milestone C `Protocol E2E` coverage
+- when focused Phase 2 provider validation needs a real provider credential,
+  run `bin/rails db:seed` so `.env`-backed provider credentials such as
+  `OPENROUTER_API_KEY` are materialized before manual checks
 
 ## Prerequisites
 

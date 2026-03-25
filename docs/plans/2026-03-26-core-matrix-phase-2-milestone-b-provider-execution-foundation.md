@@ -23,6 +23,8 @@ Validation baseline for this milestone:
 - use the Phase 1 mock LLM path for fast iteration
 - use `OPENROUTER_API_KEY` from `.env` plus `db:seed` to materialize one real
   provider credential for focused real-provider verification
+- keep provider execution rooted in the existing turn and workflow snapshot
+  chain rather than introducing a second provider-owned execution ledger
 
 ## Included Tasks
 
@@ -43,6 +45,8 @@ Validation baseline for this milestone:
   - `min_p`
   - `presence_penalty`
   - `repetition_penalty`
+- mock and real OpenRouter validation paths are both exercised for the first
+  provider-backed turn path
 - likely-model hints and advisory compaction thresholds remain distinct from
   provider-facing execution settings
 

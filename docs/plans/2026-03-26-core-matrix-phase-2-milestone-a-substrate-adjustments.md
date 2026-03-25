@@ -12,6 +12,8 @@ Milestone A is intentionally narrow:
 - freeze the active scope against the landed Phase 1 substrate
 - extend workflow-owned storage and projection metadata so later mailbox,
   close, retry, and proof work can target stable kernel structures
+- keep the current execution roots authoritative so later tasks do not invent
+  parallel state stores for workflow, runtime, or projection facts
 
 ## Included Tasks
 
@@ -28,6 +30,8 @@ Milestone A is intentionally narrow:
 - Phase 2 scope is frozen against the current codebase and docs
 - workflow-owned yield, barrier, successor, and presentation metadata exist in
   durable kernel structures
+- the current `Conversation -> Turn -> WorkflowRun -> WorkflowNode` execution
+  chain remains the frozen root shape for the rest of Milestone A through C
 - later tasks do not need to invent local shadow state for workflow control or
   projection
 - read-facing workflow projection metadata is sufficient for later proof export
@@ -39,4 +43,3 @@ Milestone A is intentionally narrow:
 - agent runtime pairing
 - mailbox delivery
 - conversation close orchestration
-
