@@ -14,6 +14,14 @@
 
 This is a future-phase initial plan, not an active execution plan.
 
+Phase 2 may take breaking changes freely:
+
+- no backward-compatibility work is required for pre-phase-two experimental
+  state
+- no backfill or legacy-shape migration is required by default
+- resetting the database is acceptable
+- regenerating `schema.rb` is acceptable
+
 Keep it in `docs/future-plans` until:
 
 - the completed phase-one substrate batch has been re-read against the current
@@ -29,6 +37,7 @@ Before promotion, run:
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
 - [2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md)
+- [2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md)
 - [2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md)
 - [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
 - [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
@@ -48,10 +57,12 @@ Before activation, confirm all of the following:
 3. `Fenix` is still the default bundled validation program for the next phase
 4. at least one independently started external `Fenix` deployment path remains
    available for pairing validation
-5. at least one real provider path and one real external capability path remain
-   available for manual validation
+5. at least one mock provider path, one real provider path, and one real
+   external capability path remain available for manual validation
 6. a third-party skill source is available for manual validation, ideally
    [obra/superpowers](https://github.com/obra/superpowers)
+7. `db:seed` can materialize the current real-provider credential baseline from
+   the available `.env` secrets, including the OpenRouter path when present
 
 ## Workstream 1: Re-run The Structural Gate Against The Real Substrate
 

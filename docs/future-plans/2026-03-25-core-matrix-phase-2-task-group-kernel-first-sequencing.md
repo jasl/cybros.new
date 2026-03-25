@@ -34,8 +34,9 @@ The approved Phase 2 scope is already broad enough to sprawl:
 That is acceptable as a phase boundary, but it is not a safe implementation
 order.
 
-The first activation slice should prove the kernel can:
+The first activation slices should prove the kernel can:
 
+- durably represent workflow-first yield, barrier, and successor metadata
 - own one durable claimed execution at a time
 - reject stale, duplicate, or superseded execution reports safely
 - keep newer conversation tail state authoritative
@@ -46,7 +47,7 @@ deployment rotation, and richer `Fenix` skill behavior.
 
 ## Sequencing Principles
 
-1. Land execution authority before capability breadth.
+1. Land workflow substrate before execution authority.
 2. Land stale-work and lease-safety rules before real external runtime
    validation.
 3. Land wait-state handoff before richer human-interaction or subagent product
@@ -58,7 +59,33 @@ deployment rotation, and richer `Fenix` skill behavior.
 
 ## Recommended Early Sequence
 
-### Slice A: Claimable Execution Resource And Contract Tests
+### Slice A: Workflow Substrate Extensions
+
+Primary outcome:
+
+- workflow-owned storage exists for yield markers, barrier summaries, accepted
+  durable intent, and audit-only rejected intent
+- `WorkflowNode.presentation_policy` is frozen at materialization
+- later read paths can rely on stable workflow ordering and projection metadata
+  without reconstructing graph semantics ad hoc
+
+This slice should not yet expose external claim or provider execution surfaces.
+It exists to stabilize the workflow substrate that later slices consume.
+
+Likely areas:
+
+- `core_matrix/app/models/workflow_*`
+- `core_matrix/app/services/workflows/*`
+- `core_matrix/app/queries/workflows/*`
+- `core_matrix/test/models/workflow_*`
+- `core_matrix/test/services/workflows/*`
+- `core_matrix/test/integration/*`
+
+Detailed execution unit:
+
+- [2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md)
+
+### Slice B: Claimable Execution Resource And Contract Tests
 
 Primary outcome:
 
@@ -83,7 +110,7 @@ Detailed execution unit:
 
 - [2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md)
 
-### Slice B: Provider-Backed Turn Execution
+### Slice C: Provider-Backed Turn Execution
 
 Primary outcome:
 
@@ -108,7 +135,7 @@ Likely areas:
 - `core_matrix/test/services/workflows/*`
 - `core_matrix/test/integration/*`
 
-### Slice C: Conversation Policy And Stale-Work Safety
+### Slice D: Conversation Policy And Stale-Work Safety
 
 Primary outcome:
 
@@ -130,7 +157,7 @@ Likely areas:
 - `core_matrix/test/services/turns/*`
 - `core_matrix/test/integration/*`
 
-### Slice D: Wait-State Handoff, Human Interaction, And Subagents
+### Slice E: Wait-State Handoff, Human Interaction, And Subagents
 
 Primary outcome:
 
@@ -153,7 +180,7 @@ Likely areas:
 - `core_matrix/test/services/subagents/*`
 - `core_matrix/test/services/leases/*`
 
-### Slice E: Base Capability Governance For Kernel And Agent Tools
+### Slice F: Base Capability Governance For Kernel And Agent Tools
 
 Primary outcome:
 
@@ -175,7 +202,7 @@ Likely areas:
 - `core_matrix/test/requests/agent_api/*`
 - `core_matrix/test/services/agent_deployments/*`
 
-### Slice F: Streamable HTTP MCP Under The Same Governance Model
+### Slice G: Streamable HTTP MCP Under The Same Governance Model
 
 Primary outcome:
 
@@ -198,11 +225,12 @@ Likely areas:
 
 Recommended dependency boundaries:
 
-- `Fenix` runtime endpoints may begin once Slice A stabilizes the contract
-- real provider-backed `Fenix` loop validation should wait until Slice B
-- multi-turn and stale-work validation should wait until Slice C
-- real human-interaction and subagent `Fenix` flows should wait until Slice D
-- broader tool and MCP validation should wait until Slice E and Slice F
+- `Fenix` runtime endpoints may begin once Slice B stabilizes the contract
+- real provider-backed `Fenix` loop validation should wait until Slice C
+- multi-turn and stale-work validation should wait until Slice D
+- real human-interaction and subagent `Fenix` flows should wait until Slice E
+- broader tool validation should wait until Slice F
+- MCP validation should wait until Slice G
 
 ## Promotion Guidance
 
@@ -219,6 +247,7 @@ skills, or deployment rotation before the kernel slices above are explicit.
 ## Related Documents
 
 - [2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md)
+- [2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md)
 - [2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md)
 - [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)

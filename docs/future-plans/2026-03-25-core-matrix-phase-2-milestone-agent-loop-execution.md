@@ -10,11 +10,26 @@ substrate batch.
 Phase 2 proves that Core Matrix can run a real agent loop end to end under
 kernel authority.
 
+## Phase 2 Change Policy
+
+Phase 2 should optimize for architectural correction, not compatibility.
+
+Rules:
+
+- breaking changes are allowed
+- no backward-compatibility work is required for pre-phase-two experimental
+  state
+- no data backfill or legacy-shape migration is required unless it directly
+  reduces current implementation risk
+- resetting the database is acceptable
+- regenerating `schema.rb` is acceptable
+
 Related design and research:
 
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
 - [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
 - [2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md)
+- [2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-substrate-extensions.md)
 - [2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md)
 - [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
@@ -41,6 +56,21 @@ Related design and research:
   path plus one third-party skill-install-and-use path
 - the phase passes automated tests plus real-environment manual validation under
   `bin/dev` with a real LLM API
+
+## Current Validation Baseline
+
+Phase 2 may assume the local development environment has both mock and real
+provider paths available:
+
+- a mock LLM path already exists for fast local contract and integration work
+- the strengthened provider or model catalog is already in place
+- `OPENROUTER_API_KEY` is available through `.env`, and `db:seed` can create
+  the matching credential record for real-provider validation
+
+This means Phase 2 development may use:
+
+- mock LLM execution for fast iteration
+- real provider execution for targeted manual and integration validation
 
 ## Core Matrix Work
 

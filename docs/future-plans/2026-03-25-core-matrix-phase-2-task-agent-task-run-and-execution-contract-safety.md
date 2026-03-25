@@ -11,7 +11,7 @@ Use this task document together with:
 5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
 6. `docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md`
 
-Load this file as the detailed execution unit for the first kernel-owned Slice A
+Load this file as the detailed execution unit for the second kernel-owned Slice B
 inside Phase 2. Treat the milestone file, the task-group file, and the initial
 plan as ordering indexes, not as the full task body.
 
@@ -96,6 +96,8 @@ Rules:
 - `Core Matrix` must not expose `WorkflowRun` directly as the claimable
   execution object
 - `AgentTaskRun` is the claimable runtime resource for Phase 2
+- breaking changes are allowed in Phase 2; no compatibility backfill, data
+  migration, or legacy-shape preservation is required for this task
 - `AgentTaskRun` stays workflow-owned and audit-friendly
 - lease ownership remains explicit through `ExecutionLease`
 - the model should support durable attempt and result state without forcing
@@ -155,7 +157,7 @@ bin/rails test test/models/agent_task_run_test.rb test/requests/agent_api/execut
 
 Expected:
 
-- targeted Slice A tests pass
+- targeted Slice B tests pass
 
 **Step 8: Commit**
 
