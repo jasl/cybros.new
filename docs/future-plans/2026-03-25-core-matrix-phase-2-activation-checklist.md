@@ -132,7 +132,14 @@ At minimum, the plan must say all of the following:
 
 - prompt building remains agent-program-owned
 - execution-time budget hints are retained for agent-program customization
+- hard budget lines and advisory thresholds are explicitly separated
 - token and message estimation remain available through a small helper surface
+- likely model or model-profile hints for agent-side estimation are explicit
+- authoritative usage capture from provider or supervised capability responses
+  is explicit
+- post-run model-context advisory threshold checks based on authoritative
+  provider usage are explicit and are not described as retroactive hard
+  failures
 - the retained runtime-stage hook family is explicit or is replaced by an
   equally clear successor contract
 - `simple_inference` remains the shared provider-execution substrate unless a
@@ -266,6 +273,10 @@ Required outcome:
   recovery, external pairing, deployment rotation, and skills
 - explicit real-environment scenarios for Streamable HTTP MCP and one retained
   runtime-stage-hook path
+- explicit real-environment scenarios for proactive agent-side compaction based
+  on local estimation and likely-model hints
+- explicit real-environment scenarios for post-run advisory threshold handling
+  based on authoritative provider usage
 - explicit real-environment scenarios for stale-work rejection and wait-state
   handoff
 - a rule that no Phase 2 claim is complete without matching checklist evidence

@@ -87,6 +87,13 @@ Phase 2 must make them drive a real run.
 - preserve execution-time budget hints such as context-window, reserved-output,
   and request-correlation guidance without moving prompt building into the
   kernel
+- expose the likely model or model-profile hint when known so the agent program
+  can run model-aware prompt sizing before provider execution
+- keep a clear split between hard kernel or provider ceilings and advisory
+  runtime hints such as recommended compaction thresholds
+- persist authoritative provider usage for post-run context-budget advice and
+  authoritative supervised-capability usage for accounting or audit rather than
+  relying only on estimates
 - preserve heartbeat as the canonical liveness signal even if an optional
   WebSocket accelerator is later introduced
 - define one claimable agent-execution runtime resource plus the
@@ -221,6 +228,10 @@ handshake target or skills shell.
 - preserve the helper family:
   - `estimate_tokens`
   - `estimate_messages`
+- allow `Fenix` to use likely-model hints plus local estimation to decide when
+  to call `compact_context` proactively before provider execution
+- preserve post-run authoritative usage visibility so later adaptive behavior
+  can rely on real usage facts instead of only preflight estimates
 - prove at least one deterministic or mixed code-plus-LLM execution path, not
   only a pure LLM path
 
@@ -270,6 +281,11 @@ environment.
 - at least one real tool call
 - at least one fast terminal execution path with no intermediate progress or
   heartbeat report
+- at least one path where `Fenix` uses local estimation and likely-model hints
+  to compact context proactively before the provider call
+- at least one path where authoritative post-run provider usage crosses an
+  advisory threshold and the kernel records or surfaces follow-up compaction
+  advice
 - at least one real Streamable HTTP MCP-backed tool call
 - at least one real subagent flow
 - at least one real human-interaction flow

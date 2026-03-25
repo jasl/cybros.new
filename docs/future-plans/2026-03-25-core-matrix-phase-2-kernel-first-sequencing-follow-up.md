@@ -86,6 +86,8 @@ Primary outcome:
   control
 - provider execution routes through `simple_inference`
 - result ingestion updates workflow state and audit-friendly execution records
+- authoritative provider usage is persisted and can drive later advisory
+  compaction-threshold evaluation
 
 This slice should still stay narrow:
 

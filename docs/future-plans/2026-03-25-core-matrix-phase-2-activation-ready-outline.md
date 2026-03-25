@@ -72,6 +72,8 @@ shape without a root-model rewrite.
 - `cd core_matrix && bin/rails test test/services/workflows`
 - `cd core_matrix && bin/rails test test/integration`
 - stale-work guard coverage for `reject`, `restart`, or `queue` paths
+- coverage for authoritative provider-usage persistence plus post-run
+  advisory-threshold evaluation
 
 ## Task Group 3: Complete Unified Capability Governance
 
@@ -204,6 +206,8 @@ real agent program.
   `Core Matrix`
 - one real code-driven or mixed code-plus-LLM execution path that exercises the
   retained runtime-stage hook family
+- one path where `Fenix` uses likely-model hints and local estimation to decide
+  proactive compaction before provider execution
 
 ## Task Group 8: Add Fenix Skills Compatibility And Operational Skills
 
@@ -258,6 +262,8 @@ evidence.
 - Streamable HTTP MCP-backed tool call
 - subagent path
 - human-interaction path
+- proactive compaction driven by agent-side estimation
+- advisory post-run threshold handling driven by authoritative provider usage
 - recovery path
 - code-driven or mixed code-plus-LLM runtime-stage-hook path
 - built-in deployment skill path

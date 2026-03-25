@@ -136,12 +136,27 @@ The kernel should instead provide the stable execution context and budget hints
 that make these hooks useful:
 
 - execution snapshot identity and transcript context
-- model and capability context
+- model context, including the most likely model or model-profile hint when
+  known
 - context-window or reserved-output budgeting signals
+- hard output-token ceilings when policy exposes them
+- advisory compaction-threshold hints
 - stable invocation or request correlation ids
+- authoritative post-run usage facts for accounting and later adaptive behavior
 
 That preserves customization power without reintroducing the older
 prompt-builder-centered architecture.
+
+Expected Phase 2 runtime split:
+
+- `Fenix` may estimate prompt size locally, decide a working budget, and call
+  `compact_context` proactively before provider execution
+- `Core Matrix` remains the fallback authority for hard ceilings and the keeper
+  of authoritative usage facts after the real provider or supervised capability
+  returns
+- advisory compaction signals based on authoritative post-run provider usage for
+  the model execution should feed later `Fenix` behavior, not retroactively
+  fail the completed turn
 
 ## Compatibility Target
 

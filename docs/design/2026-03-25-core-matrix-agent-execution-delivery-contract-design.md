@@ -265,6 +265,20 @@ Fast-path rule:
 - this is the recommended latency optimization for simple agent-program work in
   Phase 2
 
+Usage rules:
+
+- provider-returned usage is authoritative when `Core Matrix` owns the provider
+  call for this execution
+- structured usage returned by an external tool or MCP implementation is
+  authoritative for that invocation scope when no better kernel-side fact
+  exists
+- agent-side token estimates, prompt-size diagnostics, or projected usage may
+  be reported as supplementary diagnostics, but they must not overwrite an
+  authoritative provider or tool usage fact
+- post-run context-budget checks such as "recommended compaction threshold
+  crossed" should use authoritative provider usage for the relevant model
+  execution when available rather than a preflight estimate
+
 ### `execution_fail`
 
 Purpose:
@@ -312,8 +326,13 @@ Additional minimum for conversation-scoped task kinds:
 
 Recommended `budget_hints` minimum:
 
+- likely model ref or model-profile hint when known
 - context-window hint when known
 - reserved-output budget when known
+- hard output-token ceiling when policy or provider configuration makes one
+  explicit
+- advisory compaction threshold when the current provider or policy budget
+  exposes one
 - timeout budget when known
 - correlation or request ids for provider attribution when known
 

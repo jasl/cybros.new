@@ -13,6 +13,8 @@ useful even if `references/` changes later.
 - Do not restore prompt building as a `Core Matrix` kernel responsibility.
 - Preserve execution-time budget and context hints as a runtime contract for
   agent programs rather than as kernel-owned prompt assembly.
+- Split token-related controls into hard kernel or provider limits versus
+  advisory runtime hints.
 - Preserve a stage-shaped agent-program customization surface equivalent to the
   legacy lifecycle hooks:
   - `prepare_turn`
@@ -27,6 +29,8 @@ useful even if `references/` changes later.
 - Treat context compaction, summary generation, and tool-result projection as
   agent-program concerns in Phase 2 unless the kernel must enforce a policy
   boundary.
+- Treat provider- or tool-returned usage as the authoritative token-usage fact
+  when available; agent-side estimates remain advisory.
 - Use `core_matrix/vendor/simple_inference` as the shared provider-execution
   substrate for Phase 2 instead of building a second provider HTTP layer.
 - Implement Streamable HTTP MCP as a session-aware client transport in
@@ -41,6 +45,11 @@ Durable patterns worth keeping:
 
 - explicit context-window checks plus reserved-output-token budgeting before a
   model request is sent
+- soft-threshold-style context warnings that can recommend compaction without
+  forcing the kernel to own one universal compaction strategy
+- provider-returned usage facts persisted separately from advisory local
+  estimates so later accounting and context-budget advice can rely on the best
+  available ground truth
 - a small runtime-surface lifecycle rather than one monolithic "run the agent"
   callback
 - minimal helper injection for token and message estimation
@@ -67,7 +76,10 @@ programs or their SDK layer:
 
 - execution context assembled by the kernel
 - token and message estimation helpers
+- the most likely model or model-profile hint for the upcoming request
 - context-window and reserved-output budget hints
+- advisory compaction-threshold hints derived from the current provider or model
+  budget policy
 - stable request or invocation correlation IDs
 - stage-shaped hook entry points around turn preparation, compaction, tool
   review, tool-result projection, output finalization, and error handling
@@ -75,6 +87,20 @@ programs or their SDK layer:
 This contract should remain advisory. The kernel uses it to support
 customization and accounting, not to take prompt-building ownership back from
 the agent program.
+
+Recommended split:
+
+- `Core Matrix` owns hard budget lines such as provider or policy-enforced
+  output ceilings, timeout ceilings, and authoritative usage accounting
+- the agent program owns proactive estimation, preflight prompt sizing, and
+  voluntary `compact_context` behavior before a request is sent
+- after a provider response returns, `Core Matrix` may evaluate advisory
+  compaction-threshold crossings using the authoritative usage numbers it now
+  has, but this remains a hint or follow-up signal rather than a retroactive
+  execution failure
+- when the kernel knows the likely model or model profile before prompt
+  construction, it should expose that hint to the agent program so local
+  token-estimation strategy can adapt before the request is sent
 
 ## Stable Findings From SimpleInference
 

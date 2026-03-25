@@ -224,6 +224,8 @@ Core Matrix owns:
 - human interaction, waiting, retry, recovery, and audit semantics
 - capability governance and invocation supervision
 - feature gating and policy enforcement
+- authoritative usage accounting and hard execution-budget enforcement when the
+  kernel has those facts
 - transport-neutral public contract semantics for agent communication
 
 Agent programs may own:
@@ -244,6 +246,38 @@ agent behavior came from an LLM or deterministic code.
 Agent communication transport may vary by implementation. The public protocol
 should not be defined in ActionCable-specific, Rails-specific, or any other
 framework-specific terms.
+
+## Execution Budget And Usage Signals
+
+Phase 2 should keep one consistent split between hard kernel budgets and
+advisory runtime hints.
+
+`Core Matrix` owns:
+
+- hard provider or policy ceilings such as timeout and output-token limits when
+  those limits are known at the kernel boundary
+- authoritative usage accounting when usage is returned by the provider, MCP
+  transport, or another supervised capability
+- post-run evaluation of model-context advisory thresholds using authoritative
+  provider usage for the relevant model execution
+
+Agent programs own:
+
+- proactive prompt-size estimation before a request is sent
+- prompt-shaping decisions based on likely model or model-profile hints
+- voluntary context compaction or other preparation hooks when their own local
+  estimate says a working budget is likely to be crossed
+
+Rules:
+
+- likely model or model-profile hints may be exposed to the agent program even
+  though prompt building remains agent-owned
+- advisory thresholds such as `recommended_compaction_threshold` are not
+  retroactive hard failures
+- if authoritative provider usage from the finished model execution crosses an
+  advisory threshold, the kernel may record or surface that advice for later
+  runtime behavior, but it must not pretend the already-finished execution was
+  invalid
 
 ## Conversation Feature Policy
 

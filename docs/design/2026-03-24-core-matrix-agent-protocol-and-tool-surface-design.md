@@ -237,6 +237,9 @@ Rules:
 - `Core Matrix` remains the source of truth for execution state
 - the agent program claims executable work instead of receiving a blocking
   request from the kernel
+- claimed work should carry stable budget hints such as likely model or
+  model-profile context, reserved-output guidance, and any advisory compaction
+  threshold the kernel already knows
 - short tasks may use a bounded fast terminal path where `execution_claim` is
   immediately followed by `execution_complete` or `execution_fail` without
   intermediate progress or heartbeat
@@ -255,6 +258,8 @@ Rules:
   accelerator is unavailable
 - claim, heartbeat, progress, completion, and failure reporting must remain
   attributable to one authenticated deployment and one durable execution id
+- completion or failure reporting may carry usage facts, but authoritative
+  provider or supervised-capability usage must outrank agent-side estimates
 
 See the focused execution-delivery contract note for the recommended shared
 envelope, method payloads, and claimable runtime resource shape:
