@@ -28,3 +28,5 @@ intentionally not part of the active execution plan.
 - [2026-03-25-core-matrix-phase-5-trigger-and-delivery-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-5-trigger-and-delivery-follow-up.md)
 - [2026-03-25-core-matrix-phase-6-client-and-channel-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-6-client-and-channel-follow-up.md)
 - [2026-03-25-core-matrix-phase-7-extension-and-plugin-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-7-extension-and-plugin-follow-up.md)
+- [2026-03-25-conversation-canonical-store-and-safe-deletion-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md)
+- [2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md)

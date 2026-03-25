@@ -720,8 +720,8 @@ git commit -m "refactor: remove obsolete conversation variable artifacts"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/identifier-policy.md`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md`
 
 **Step 1: Re-read the landed code and write a doc-alignment checklist**
 
@@ -782,7 +782,7 @@ git add docs/behavior/canonical-variable-history-and-promotion.md \
   docs/behavior/conversation-structure-and-lineage.md \
   docs/behavior/workflow-scheduler-and-wait-states.md \
   docs/behavior/identifier-policy.md \
-  docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md \
-  docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md
+  ../docs/future-plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md \
+  ../docs/future-plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md
 git commit -m "docs: align canonical store behavior and plans"
 ```
