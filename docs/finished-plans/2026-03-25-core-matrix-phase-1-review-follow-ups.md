@@ -481,11 +481,9 @@ git -C .. commit -m "fix: lock workflow and process ordinals"
 ### Task 7: Run Full Verification And Close The Active Plan
 
 **Files:**
-- Modify: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md`
-- Modify: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md`
+- Modify: `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md`
+- Modify: `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md`
 - Modify: `docs/plans/README.md`
-- Move: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md` to `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md`
-- Move: `docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md` to `docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md`
 - Modify: `docs/finished-plans/README.md`
 
 **Step 1: Run the full `core_matrix` verification suite serially**
@@ -537,6 +535,6 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add docs/plans/README.md docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/README.md
+git -C .. add docs/plans/README.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md docs/finished-plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md docs/finished-plans/README.md
 git -C .. commit -m "docs: archive phase 1 review follow-up plan"
 ```
