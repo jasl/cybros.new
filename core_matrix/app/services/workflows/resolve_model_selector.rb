@@ -25,15 +25,23 @@ module Workflows
 
       candidates.each do |candidate_ref|
         provider_handle, model_ref = candidate_ref.split("/", 2)
-        entitlement = active_entitlement(provider_handle)
+        availability = Providers::CheckAvailability.call(
+          installation: @turn.installation,
+          provider_handle: provider_handle,
+          model_ref: model_ref,
+          env: Rails.env,
+          catalog: catalog
+        )
 
-        unless candidate_available?(provider_handle, model_ref, entitlement)
+        unless availability.usable?
           last_fallback_reason = "role_fallback_after_filter"
-          return raise_unavailable!("explicit candidate is unavailable") if explicit_candidate_selector?(normalized_selector)
+          return raise_unavailable!("explicit candidate is unavailable: #{availability.reason_key}") if explicit_candidate_selector?(normalized_selector)
 
           fallback_count += 1
           next
         end
+
+        entitlement = availability.entitlement
 
         if reservation_denied?(entitlement)
           last_fallback_reason = "role_fallback_after_reservation"
@@ -87,31 +95,6 @@ module Workflows
       [role_name, catalog.role_candidates(role_name)]
     rescue KeyError
       raise_unavailable!("unknown model role #{role_name}")
-    end
-
-    def candidate_available?(provider_handle, model_ref, entitlement)
-      policy_enabled?(provider_handle) &&
-        model_exists?(provider_handle, model_ref) &&
-        entitlement.present?
-    end
-
-    def policy_enabled?(provider_handle)
-      ProviderPolicy.find_by(installation: @turn.installation, provider_handle: provider_handle)&.enabled != false
-    end
-
-    def model_exists?(provider_handle, model_ref)
-      catalog.model(provider_handle, model_ref)
-      true
-    rescue KeyError
-      false
-    end
-
-    def active_entitlement(provider_handle)
-      ProviderEntitlement.where(
-        installation: @turn.installation,
-        provider_handle: provider_handle,
-        active: true
-      ).order(:id).first
     end
 
     def reservation_denied?(entitlement)

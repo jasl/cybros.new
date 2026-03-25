@@ -36,4 +36,13 @@ Rails.application.routes.draw do
     end
     resources :human_interactions, only: :create
   end
+
+  if Rails.env.development? || Rails.env.test?
+    namespace :mock_llm do
+      namespace :v1 do
+        post "chat/completions", to: "chat_completions#create"
+        get "models", to: "models#index"
+      end
+    end
+  end
 end

@@ -1,7 +1,7 @@
 require "test_helper"
 
 class SeedBaselineTest < ActiveSupport::TestCase
-  test "seeds validate the catalog and reconcile the bundled runtime without inventing user data" do
+  test "seeds validate the catalog reconcile the bundled runtime and create an idempotent dev baseline without inventing user data" do
     installation = create_installation!
     initial_installation_count = Installation.count
     initial_identity_count = Identity.count
@@ -17,8 +17,10 @@ class SeedBaselineTest < ActiveSupport::TestCase
     Rails.configuration.x.bundled_agent = bundled_agent_configuration(enabled: true)
 
     begin
-      load Rails.root.join("db/seeds.rb")
-      load Rails.root.join("db/seeds.rb")
+      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil) do
+        load Rails.root.join("db/seeds.rb")
+        load Rails.root.join("db/seeds.rb")
+      end
     ensure
       Rails.configuration.x.bundled_agent = original_configuration
     end
@@ -33,5 +35,102 @@ class SeedBaselineTest < ActiveSupport::TestCase
     assert_equal initial_user_count, User.count
     assert_equal initial_binding_count, UserAgentBinding.count
     assert_equal initial_workspace_count, Workspace.count
+    assert_equal 1, ProviderPolicy.where(installation: installation, provider_handle: "dev").count
+    assert_equal 1, ProviderEntitlement.where(installation: installation, provider_handle: "dev").count
+    assert ProviderPolicy.find_by!(installation: installation, provider_handle: "dev").enabled
+    assert ProviderEntitlement.find_by!(installation: installation, provider_handle: "dev").active?
+    assert_equal 1, AuditLog.where(installation: installation, action: "provider_policy.upserted").count
+    assert_equal 1, AuditLog.where(installation: installation, action: "provider_entitlement.upserted").count
+  end
+
+  test "seeds import openrouter credentials idempotently when the environment variable is present" do
+    installation = create_installation!
+
+    with_bundled_agent(enabled: false) do
+      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123") do
+        load Rails.root.join("db/seeds.rb")
+        load Rails.root.join("db/seeds.rb")
+      end
+    end
+
+    credential = ProviderCredential.find_by!(installation: installation, provider_handle: "openrouter", credential_kind: "api_key")
+
+    assert_equal "or-live-123", credential.secret
+    assert_equal 1, ProviderCredential.where(installation: installation, provider_handle: "openrouter").count
+    assert_equal 1, AuditLog.where(installation: installation, action: "provider_credential.upserted").count
+    assert ProviderPolicy.find_by!(installation: installation, provider_handle: "openrouter").enabled
+    assert ProviderEntitlement.find_by!(installation: installation, provider_handle: "openrouter").active?
+  end
+
+  test "seeds leave role main usable with auto selector when only the dev baseline is present" do
+    context = create_workspace_context!
+    capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+
+    with_bundled_agent(enabled: false) do
+      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil) do
+        load Rails.root.join("db/seeds.rb")
+      end
+    end
+
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Seed selector",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = Workflows::ResolveModelSelector.call(
+      turn: turn,
+      selector_source: "conversation"
+    )
+
+    assert_equal "auto", conversation.reload.interactive_selector_mode
+    assert_equal "role:main", snapshot["normalized_selector"]
+    assert_equal "dev", snapshot["resolved_provider_handle"]
+    assert_equal "mock-model", snapshot["resolved_model_ref"]
+  end
+
+  test "seeded real provider credentials plus seeded governance keep role main usable without changing auto selector mode" do
+    context = create_workspace_context!
+    capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+
+    with_bundled_agent(enabled: false) do
+      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123") do
+        load Rails.root.join("db/seeds.rb")
+      end
+    end
+
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Seed selector",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = Workflows::ResolveModelSelector.call(
+      turn: turn,
+      selector_source: "conversation"
+    )
+
+    assert_equal "auto", conversation.reload.interactive_selector_mode
+    assert_equal "role:main", snapshot["normalized_selector"]
+    assert_equal "openrouter", snapshot["resolved_provider_handle"]
+    assert_equal "openai-gpt-5.4", snapshot["resolved_model_ref"]
+  end
+
+  private
+
+  def with_bundled_agent(enabled:)
+    original_configuration = Rails.configuration.x.bundled_agent
+    Rails.configuration.x.bundled_agent = bundled_agent_configuration(enabled: enabled)
+    yield
+  ensure
+    Rails.configuration.x.bundled_agent = original_configuration
   end
 end

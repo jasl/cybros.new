@@ -26,6 +26,22 @@ class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
       active: true,
       metadata: {}
     )
+    ProviderCredential.create!(
+      installation: context[:installation],
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      secret: "secret-codex",
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: context[:installation],
+      provider_handle: "openai",
+      credential_kind: "api_key",
+      secret: "secret-openai",
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Selector input",

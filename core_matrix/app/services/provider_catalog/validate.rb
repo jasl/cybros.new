@@ -1,6 +1,7 @@
 module ProviderCatalog
   class Validate
     InvalidCatalog = Class.new(StandardError)
+    SUPPORTED_VERSIONS = [1].freeze
 
     PROVIDER_HANDLE_FORMAT = /\A[a-z0-9][a-z0-9_-]*\z/
     MODEL_REF_FORMAT = /\A[a-z0-9][a-z0-9._-]*\z/
@@ -18,6 +19,7 @@ module ProviderCatalog
     end
 
     def call
+      validate_version!(@catalog["version"])
       providers = validate_providers(@catalog["providers"])
       model_roles = validate_model_roles(@catalog["model_roles"], providers)
 
@@ -40,6 +42,16 @@ module ProviderCatalog
 
         normalized[provider_handle] = {
           display_name: validate_string!(provider_definition["display_name"], "provider #{provider_handle} display_name"),
+          enabled: validate_boolean!(provider_definition["enabled"], "provider #{provider_handle} enabled"),
+          environments: validate_string_array!(provider_definition["environments"], "provider #{provider_handle} environments"),
+          adapter_key: validate_string!(provider_definition["adapter_key"], "provider #{provider_handle} adapter_key"),
+          base_url: validate_string!(provider_definition["base_url"], "provider #{provider_handle} base_url"),
+          headers: normalize_hash(provider_definition["headers"], label: "provider #{provider_handle} headers"),
+          wire_api: validate_string!(provider_definition["wire_api"], "provider #{provider_handle} wire_api"),
+          transport: validate_string!(provider_definition["transport"], "provider #{provider_handle} transport"),
+          responses_path: optional_string(provider_definition["responses_path"], "provider #{provider_handle} responses_path"),
+          requires_credential: validate_boolean!(provider_definition["requires_credential"], "provider #{provider_handle} requires_credential"),
+          credential_kind: validate_string!(provider_definition["credential_kind"], "provider #{provider_handle} credential_kind"),
           metadata: normalize_hash(provider_definition["metadata"], label: "provider #{provider_handle} metadata").deep_symbolize_keys,
           models: validate_models(provider_handle, models),
         }
@@ -54,8 +66,12 @@ module ProviderCatalog
 
         normalized[model_ref] = {
           display_name: validate_string!(model_definition["display_name"], "#{provider_handle}/#{model_ref} display_name"),
+          api_model: validate_string!(model_definition["api_model"], "#{provider_handle}/#{model_ref} api_model"),
+          tokenizer_hint: validate_string!(model_definition["tokenizer_hint"], "#{provider_handle}/#{model_ref} tokenizer_hint"),
           context_window_tokens: validate_integer!(model_definition["context_window_tokens"], "#{provider_handle}/#{model_ref} context_window_tokens"),
           max_output_tokens: validate_integer!(model_definition["max_output_tokens"], "#{provider_handle}/#{model_ref} max_output_tokens"),
+          context_soft_limit_ratio: validate_ratio!(model_definition["context_soft_limit_ratio"], "#{provider_handle}/#{model_ref} context_soft_limit_ratio"),
+          request_defaults: normalize_hash(model_definition["request_defaults"], label: "#{provider_handle}/#{model_ref} request_defaults"),
           metadata: normalize_hash(model_definition["metadata"], label: "#{provider_handle}/#{model_ref} metadata").deep_symbolize_keys,
           capabilities: validate_capabilities(provider_handle, model_ref, model_definition["capabilities"]),
         }
@@ -124,6 +140,12 @@ module ProviderCatalog
       stringify_hash_keys(candidate)
     end
 
+    def validate_version!(value)
+      raise InvalidCatalog, "catalog version must be a supported integer" unless value.is_a?(Integer) && SUPPORTED_VERSIONS.include?(value)
+
+      value
+    end
+
     def stringify_hash_keys(value)
       case value
       when Hash
@@ -157,6 +179,26 @@ module ProviderCatalog
 
     def validate_boolean!(value, label)
       raise InvalidCatalog, "#{label} must be boolean" unless value == true || value == false
+
+      value
+    end
+
+    def validate_string_array!(value, label)
+      raise InvalidCatalog, "#{label} must be a non-empty array" unless value.is_a?(Array) && value.any?
+
+      value.map { |entry| validate_string!(entry, label) }
+    end
+
+    def validate_ratio!(value, label)
+      raise InvalidCatalog, "#{label} must be a number between 0 and 1" unless value.is_a?(Numeric) && value.positive? && value <= 1
+
+      value
+    end
+
+    def optional_string(value, label)
+      return nil if value.nil?
+
+      validate_string!(value, label)
     end
   end
 end

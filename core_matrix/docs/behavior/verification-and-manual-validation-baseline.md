@@ -2,8 +2,8 @@
 
 ## Scope
 
-This note captures the backend verification baseline that closed phase 1
-substrate work.
+This note captures the backend verification baseline for the current phase 1
+substrate, including the provider catalog follow-up.
 
 ## Current Behavior
 
@@ -26,10 +26,20 @@ substrate work.
   `wait_state = "waiting"` with a `HumanInteractionRequest` blocking resource,
   and approval resolution returns the same workflow run to `wait_state = "ready"`
   while preserving append-only conversation events.
+- `bin/rails db:seed` is part of the supported development setup path:
+  - in `development` and `test`, it should leave `role:main` usable through the
+    seeded `dev` provider even when no real-provider credential is configured
+  - when `OPENAI_API_KEY` or `OPENROUTER_API_KEY` is present, it should leave
+    the corresponding real provider immediately usable without changing
+    conversation selector mode away from `auto`
 - Selector validation in the manual checklist must cover all of:
-  conversation `auto`, role-local fallback after reservation denial, explicit
-  candidate hard failure, specialized-role exhaustion hard failure, one-time
-  manual resume override, and drift-triggered manual retry.
+  - conversation `auto`
+  - availability filtering from missing credentials or environment gating
+  - role-local fallback after reservation denial
+  - explicit candidate hard failure
+  - specialized-role exhaustion hard failure
+  - one-time manual resume override
+  - drift-triggered manual retry
 
 ## Validation Notes
 
@@ -37,7 +47,7 @@ substrate work.
   transcript pagination, canonical variable APIs, and machine-side
   human-interaction creation against `bin/dev`.
 - The same rerun exercised installation bootstrap, invitation consumption,
-  admin role changes, user binding, bundled runtime reconciliation, credential
-  lifecycle, recovery, selector resolution, conversation structure and rewrite
-  flows, human forms and tasks, open-request projection, and publication access
-  logging through Rails runner scripts.
+  admin role changes, user binding, bundled runtime reconciliation, provider
+  seed baseline, credential lifecycle, selector resolution, conversation
+  structure and rewrite flows, human forms and tasks, open-request projection,
+  and publication access logging through Rails runner scripts.

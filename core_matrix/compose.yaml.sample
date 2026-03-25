@@ -13,6 +13,8 @@ x-app: &default-app
   entrypoint: []
   volumes:
     - app-storage:/rails/storage
+    # Mount runtime config overrides without replacing the base config shipped in the image.
+    - ./config.d:/rails/config.d:ro
 
 services:
   db:

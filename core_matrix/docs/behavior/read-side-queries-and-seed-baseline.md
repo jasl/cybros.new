@@ -2,10 +2,9 @@
 
 ## Purpose
 
-Task 12.2 adds backend-facing read-side queries for the already-landed phase 1
-roots and a safe seed baseline for environments that need the catalog and the
-optional bundled runtime reconciled without inventing demo users or fake UI
-state.
+This note captures the backend-facing read-side queries for the phase 1 roots
+and the seed baseline used to make development and reset flows usable without
+inventing demo users or UI state.
 
 ## Agent Visibility Query
 
@@ -14,8 +13,8 @@ state.
 - Returns only `AgentInstallation` rows that are visible to one user inside the
   single installation.
 - Visibility remains distinct:
-  - `global` agent installations are visible to every user in the installation.
-  - `personal` agent installations are visible only to their `owner_user`.
+  - `global` agent installations are visible to every user in the installation
+  - `personal` agent installations are visible only to their `owner_user`
 - Retired logical agent rows are excluded from the default visible list.
 - Results are ordered with global agents first, then personal agents, with a
   stable secondary order by display name and id.
@@ -32,7 +31,7 @@ state.
   - interactive conversations
   - automation conversations
 - This preserves the design rule that blocked automation runs surface through
-  inbox or dashboard style tooling rather than direct transcript reply.
+  inbox or dashboard tooling rather than direct transcript reply.
 - Results are ordered by creation time and id for a stable actionable list.
 
 ## Workspace Listing Query
@@ -41,15 +40,15 @@ state.
 
 - Returns only private workspaces owned by one user inside the installation.
 - The query does not widen access for admins or other users.
-- Default workspaces are ordered first so a user-agent binding always presents
-  an immediately usable primary workspace before secondary ones.
+- Default workspaces are ordered first so a user-agent binding presents an
+  immediately usable primary workspace before secondary ones.
 
 ## Provider Usage Window Query
 
 ### `ProviderUsage::WindowUsageQuery`
 
 - Reads `UsageRollup` rows from the `rolling_window` bucket only.
-- Aggregates across dimension-specific rollup rows into provider/model/operation
+- Aggregates across dimension-specific rollup rows into provider-model-operation
   summaries for one explicit window key.
 - Summary entries expose:
   - event counts
@@ -86,32 +85,39 @@ state.
   - users
   - bindings
   - workspaces
-- When an installation already exists, seeds only reconcile the optional bundled
-  runtime through `Installations::RegisterBundledAgentRuntime`.
-- Seed execution remains idempotent; rerunning it reuses the same bundled
-  logical agent, environment, deployment, and capability snapshot when the
-  configuration has not changed.
+- When an installation already exists, seeds still reconcile the optional
+  bundled runtime through `Installations::RegisterBundledAgentRuntime`.
+- In environments where the shipped `dev` provider is visible, seeds create the
+  minimal governance baseline needed for `dev` to be usable:
+  - one enabled `ProviderPolicy`, only when no policy row exists for `dev`
+  - one active `ProviderEntitlement`, only when no entitlement row exists for
+    `dev`
+- Seeds optionally import real-provider credentials from:
+  - `OPENAI_API_KEY`
+  - `OPENROUTER_API_KEY`
+- When one of those environment variables is present, seeds:
+  - upsert the matching `ProviderCredential` through
+    `ProviderCredentials::UpsertSecret` with `actor: nil`
+  - create the provider's baseline policy and entitlement only when governance
+    rows for that provider do not already exist
+- Seeds never rewrite an existing provider policy or entitlement just to reapply
+  the baseline. This preserves manual operator disables and avoids unnecessary
+  audit churn.
+- Credential upserts are skipped when the existing credential already matches
+  the intended secret and metadata.
+- With no real-provider credentials present, the seeded `dev` baseline keeps
+  `role:main` usable in `development` and `test`.
+- With `OPENAI_API_KEY` or `OPENROUTER_API_KEY` present, those real providers
+  can participate in `role:main` immediately without changing conversation
+  selector mode away from `auto`.
 
 ## Failure Modes
 
-- Agent visibility queries exclude another user's personal agent installation.
+- Agent visibility queries exclude another user's personal agent installation
 - Human interaction inbox queries exclude resolved requests and requests owned
-  by another user's private workspace.
-- Workspace queries never cross the private workspace ownership boundary.
-- Rolling-window usage queries ignore hourly and daily rollups.
-- Execution profiling summaries ignore facts outside the requested time window.
+  by another user's private workspace
+- Workspace queries never cross the private workspace ownership boundary
+- Rolling-window usage queries ignore hourly and daily rollups
+- Execution profiling summaries ignore facts outside the requested time window
 - Seed execution with no installation present remains a safe no-op for runtime
-  reconciliation after validating the provider catalog.
-
-## Reference Sanity Check
-
-- The retained conclusion from the consulted Dify human-input service slice is
-  narrow: human-input submission and resume behavior stays anchored on durable
-  workflow-owned request state instead of transcript reconstruction. Core
-  Matrix keeps that same read-side stance by querying open
-  `HumanInteractionRequest` rows directly for inbox surfaces.
-- The retained conclusion from the consulted OpenClaw usage-type slice is also
-  narrow: usage reporting is most useful when it is exposed as explicit
-  aggregates over tracked usage facts. Core Matrix keeps detailed `UsageEvent`
-  and `UsageRollup` roots, then adds query objects that project reporting
-  summaries instead of inventing a parallel reporting store.
+  reconciliation after validating the provider catalog

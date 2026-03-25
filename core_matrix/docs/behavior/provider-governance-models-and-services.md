@@ -2,9 +2,13 @@
 
 ## Purpose
 
-Task 05.2 adds the installation-scoped provider governance records that sit on
-top of the config-backed provider catalog from Task 05.1. These rows store
-mutable installation facts only: credentials, entitlements, and policies.
+Provider governance rows remain the installation-scoped SQL layer that sits on
+top of the config-backed provider catalog. They store mutable installation
+facts only: credentials, entitlements, and policies.
+
+The catalog declares whether a provider requires credentials and which
+credential kind it expects. Governance rows answer whether this installation
+currently satisfies those declared requirements.
 
 ## Aggregate Responsibilities
 
@@ -33,6 +37,8 @@ mutable installation facts only: credentials, entitlements, and policies.
 - `ProviderPolicy` stores enablement, concurrency, throttling, and provider-side
   selection defaults for one provider handle inside one installation.
 - One installation keeps at most one policy row per provider handle.
+- `enabled = false` is the installation-scoped dynamic override for temporarily
+  disabling an otherwise catalog-visible provider.
 - Throttling remains explicit through paired limit and period fields instead of
   hidden rate-limit heuristics.
 
@@ -60,6 +66,21 @@ mutable installation facts only: credentials, entitlements, and policies.
   settings through one audited boundary.
 - Writes `provider_policy.upserted` audit rows.
 
+### `Providers::CheckAvailability`
+
+- Resolves one provider-qualified model against both the catalog and the
+  installation-scoped governance rows.
+- Returns whether the candidate is currently usable plus a structured
+  `reason_key` when it is not.
+- Applies the provider-availability checks in this order:
+  1. provider exists in the catalog
+  2. model exists under that provider
+  3. catalog `enabled` flag is true
+  4. current environment is included in the provider `environments`
+  5. installation policy has not disabled the provider
+  6. an active provider entitlement exists
+  7. a matching credential exists when `requires_credential: true`
+
 ## Invariants
 
 - provider governance rows stay installation-scoped and `global`; they are not
@@ -69,6 +90,8 @@ mutable installation facts only: credentials, entitlements, and policies.
 - catalog volatility stays in config; mutable installation facts stay in SQL
 - audited mutations flow through explicit services rather than ad hoc model
   saves in controllers or later runtime code
+- provider availability is derived from catalog visibility plus governance rows;
+  no single SQL row overrides the catalog schema itself
 
 ## Failure Modes
 
@@ -77,18 +100,11 @@ mutable installation facts only: credentials, entitlements, and policies.
 - incomplete throttling pairs are rejected
 - rolling five-hour entitlements with the wrong `window_seconds` are rejected
 - missing or malformed metadata or selection-default hashes are rejected
-
-## Reference Sanity Check
-
-The retained conclusion from the Dify and OpenClaw reference slices is
-structural, not implementation-specific:
-
-- provider catalog metadata and provider configuration state should stay
-  separated
-- secret-bearing credentials should not collapse into the same structure as
-  volatile provider/model catalog data
-
-Core Matrix intentionally keeps that separation with installation-scoped SQL
-governance rows plus a separate config-backed catalog, instead of adopting
-Dify's tenant-provider response shapes or OpenClaw's environment-secret
-resolution flow directly.
+- availability checks can reject candidates as:
+  - `unknown_provider`
+  - `unknown_model`
+  - `provider_disabled`
+  - `environment_not_allowed`
+  - `policy_disabled`
+  - `missing_entitlement`
+  - `missing_credential`

@@ -757,10 +757,15 @@ RUBY
   role exhaustion, and one-time manual resume override
 - prerequisites:
   - helper functions loaded
+  - run `bin/rails db:seed` after reset; with no real-provider credentials the
+    shipped baseline now makes `role:main` resolve to `dev`
+  - the script below creates explicit `codex_subscription` and `openai`
+    credentials so reservation and explicit-candidate checks stay deterministic
 - exact commands:
 
 ```bash
 core_matrix_reset_backend_state
+bin/rails db:seed
 
 bin/rails runner - <<'RUBY'
 bootstrap = Installations::BootstrapFirstAdmin.call(
@@ -879,6 +884,22 @@ ProviderEntitlement.create!(
   window_seconds: 5.hours.to_i,
   quota_limit: 200_000,
   active: true,
+  metadata: {}
+)
+ProviderCredential.create!(
+  installation: bootstrap.installation,
+  provider_handle: "codex_subscription",
+  credential_kind: "oauth_codex",
+  secret: "oauth-codex-seed",
+  last_rotated_at: Time.current,
+  metadata: {}
+)
+ProviderCredential.create!(
+  installation: bootstrap.installation,
+  provider_handle: "openai",
+  credential_kind: "api_key",
+  secret: "sk-openai-seed",
+  last_rotated_at: Time.current,
   metadata: {}
 )
 
@@ -1069,6 +1090,9 @@ RUBY
   - `resumed_selector: "role:planner"`
   - `resumed_provider: "openai"`
   - `conversation_selector_mode: "auto"`
+- note:
+  - if you omit the manual credential rows above, `auto_provider` can validly
+    resolve to `dev` because the seeded baseline is now credential-aware
 - cleanup steps:
   - `core_matrix_reset_backend_state`
 - last validated:

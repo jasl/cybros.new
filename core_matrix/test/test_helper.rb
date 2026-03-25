@@ -301,6 +301,8 @@ module ActiveSupport
       context,
       codex_entitlement_active: true,
       openai_entitlement_active: true,
+      codex_credential_present: true,
+      openai_credential_present: true,
       codex_entitlement_metadata: {},
       openai_entitlement_metadata: {}
     )
@@ -327,6 +329,28 @@ module ActiveSupport
         active: openai_entitlement_active,
         metadata: openai_entitlement_metadata
       )
+
+      if codex_credential_present
+        ProviderCredential.create!(
+          installation: context[:installation],
+          provider_handle: "codex_subscription",
+          credential_kind: "oauth_codex",
+          secret: "oauth-codex-#{next_test_sequence}",
+          last_rotated_at: Time.current,
+          metadata: {}
+        )
+      end
+
+      if openai_credential_present
+        ProviderCredential.create!(
+          installation: context[:installation],
+          provider_handle: "openai",
+          credential_kind: "api_key",
+          secret: "sk-openai-#{next_test_sequence}",
+          last_rotated_at: Time.current,
+          metadata: {}
+        )
+      end
 
       context.merge(capability_snapshot: capability_snapshot)
     end
