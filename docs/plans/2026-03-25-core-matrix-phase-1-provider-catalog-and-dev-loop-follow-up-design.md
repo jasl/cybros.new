@@ -271,6 +271,13 @@ Seed behavior should remain idempotent and should:
   present
 - ensure real providers with supplied credentials can become immediately usable
   by also seeding the minimal policy and entitlement rows they need
+- create default policy and entitlement rows only when they are absent; reruns
+  must not silently re-enable a provider that an installation operator disabled
+  intentionally through `ProviderPolicy`
+- preserve the existing governance service boundary by using the audited upsert
+  services with `actor: nil` rather than direct model writes in seeds
+- treat seed idempotence as "no logical row churn and no unnecessary audited
+  rewrites" when the intended baseline is already present
 
 The design intentionally does not introduce a second installation-level default
 model mechanism. Manual testing convenience should come from keeping
@@ -289,6 +296,8 @@ The implementation plan should cover at least:
 - request or integration coverage for the `mock_llm` controllers
 - seed tests proving idempotent creation of development and real-provider
   governance rows
+- behavior-doc and manual-checklist updates proving seed and selector guidance
+  remain accurate once credential-aware availability is introduced
 
 The standard `core_matrix` verification suite remains the final close-out gate.
 

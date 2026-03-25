@@ -22,43 +22,54 @@
 
 **Step 1: Write the failing loader regressions for the new path and override precedence**
 
-Add one test that fails unless the loader defaults to `config/llm_catalog.yml`, and one test that fails unless `config.d/llm_catalog.yml` plus `config.d/llm_catalog.test.yml` override the base file in order:
+Add one test that fails unless the loader defaults to `config/llm_catalog.yml`, and one test that fails unless `config.d/llm_catalog.yml` plus `config.d/llm_catalog.test.yml` override the base file in order.
+
+Keep this task isolated from the schema expansion in Task 2 by using only the
+currently supported minimal catalog shape in the fixture:
 
 ```ruby
 Dir.mktmpdir do |dir|
   FileUtils.mkdir_p(File.join(dir, "config.d"))
 
   File.write(File.join(dir, "llm_catalog.yml"), <<~YAML)
-    version: 1
     providers:
       openai:
         display_name: OpenAI
-        enabled: true
-        environments: [development, test, production]
-        adapter_key: openai
-        base_url: https://api.openai.com/v1
-        headers: {}
-        wire_api: chat_completions
-        transport: http
-        requires_credential: true
-        credential_kind: api_key
-        metadata: {}
-        models: {}
-    model_roles: {}
+        metadata:
+          source: base
+        models:
+          gpt-5.3-chat-latest:
+            display_name: GPT-5.3 Chat Latest
+            context_window_tokens: 272000
+            max_output_tokens: 128000
+            metadata:
+              release_channel: stable
+            capabilities:
+              text_output: true
+              tool_calls: true
+              structured_output: true
+              multimodal_inputs:
+                image: true
+                audio: false
+                video: false
+                file: true
+    model_roles:
+      main:
+        - openai/gpt-5.3-chat-latest
   YAML
 
   File.write(File.join(dir, "config.d", "llm_catalog.yml"), <<~YAML)
     providers:
       openai:
-        headers:
-          x-base-override: "1"
+        metadata:
+          source: config_d_base
   YAML
 
   File.write(File.join(dir, "config.d", "llm_catalog.test.yml"), <<~YAML)
     providers:
       openai:
-        headers:
-          x-env-override: "1"
+        metadata:
+          source: config_d_env
   YAML
 
   catalog = ProviderCatalog::Load.call(
@@ -67,7 +78,7 @@ Dir.mktmpdir do |dir|
     env: "test"
   )
 
-  assert_equal "1", catalog.provider("openai").dig(:headers, "x-env-override")
+  assert_equal "config_d_env", catalog.provider("openai").dig(:metadata, :source)
 end
 ```
 
@@ -92,7 +103,8 @@ Update `ProviderCatalog::Load` so it:
 
 - defaults to `Rails.root.join("config/llm_catalog.yml")`
 - reads optional override files from `Rails.root.join("config.d")`
-- merges `llm_catalog.yml` and `llm_catalog.<env>.yml` in the documented order
+- merges `config.d/llm_catalog.yml` and `config.d/llm_catalog.<env>.yml` in the
+  documented order
 - deep-merges hashes and replaces arrays wholesale
 - raises a descriptive `MissingCatalog` error for the new base path
 
@@ -397,6 +409,9 @@ git -C .. commit -m "feat: add mock llm development surface"
 - Modify: `core_matrix/db/seeds.rb`
 - Modify: `core_matrix/test/integration/seed_baseline_test.rb`
 - Modify: `core_matrix/test/integration/provider_governance_flow_test.rb`
+- Modify: `core_matrix/docs/behavior/read-side-queries-and-seed-baseline.md`
+- Modify: `core_matrix/docs/behavior/verification-and-manual-validation-baseline.md`
+- Modify: `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Create: `core_matrix/test/support/environment_overrides.rb`
 
 **Step 1: Write the failing seed-baseline regressions**
@@ -435,10 +450,30 @@ Expected:
 Update `db/seeds.rb` to:
 
 - keep bundled runtime reconciliation intact
-- upsert the `dev` provider's default enabled policy and active entitlement when an installation exists
+- create the `dev` provider's default enabled policy and active entitlement only
+  when the installation does not already have them
 - read `OPENAI_API_KEY` and `OPENROUTER_API_KEY`
-- upsert matching `ProviderCredential` rows through `ProviderCredentials::UpsertSecret`
-- ensure providers with seeded credentials also receive the minimal entitlement and enabled policy needed to be usable
+- create missing policy and entitlement rows through
+  `ProviderPolicies::Upsert` and `ProviderEntitlements::Upsert` with `actor: nil`
+- upsert matching `ProviderCredential` rows through
+  `ProviderCredentials::UpsertSecret` with `actor: nil`
+- ensure providers with seeded credentials also receive the minimal entitlement
+  and default-enabled policy needed to be usable, but only when those rows are
+  absent already
+- skip governance service calls when the existing row already matches the
+  intended baseline so rerunning seeds does not create unnecessary audit churn
+
+Update the seed and manual-validation docs so they stay accurate after the new
+credential-aware availability rules:
+
+- `core_matrix/docs/behavior/read-side-queries-and-seed-baseline.md` should
+  describe the seeded dev baseline and optional real-provider credential import
+- `core_matrix/docs/behavior/verification-and-manual-validation-baseline.md`
+  should note that selector validation now depends on credential-aware
+  availability
+- `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md` should
+  stop assuming `codex_subscription` always resolves first for `auto` and
+  should document whichever credential or `dev` setup the new baseline expects
 
 Add `test/support/environment_overrides.rb` so the environment-variable helper is reusable instead of reimplemented per test.
 
@@ -476,6 +511,6 @@ Expected:
 **Step 6: Commit**
 
 ```bash
-git -C .. add core_matrix/db/seeds.rb core_matrix/test/integration/seed_baseline_test.rb core_matrix/test/integration/provider_governance_flow_test.rb core_matrix/test/support/environment_overrides.rb
+git -C .. add core_matrix/db/seeds.rb core_matrix/test/integration/seed_baseline_test.rb core_matrix/test/integration/provider_governance_flow_test.rb core_matrix/docs/behavior/read-side-queries-and-seed-baseline.md core_matrix/docs/behavior/verification-and-manual-validation-baseline.md docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md core_matrix/test/support/environment_overrides.rb
 git -C .. commit -m "feat: seed provider dev loop baseline"
 ```
