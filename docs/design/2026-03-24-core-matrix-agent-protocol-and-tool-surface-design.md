@@ -29,10 +29,13 @@ Examples:
 
 - `initialize`
 - `agent_describe`
-- `agent_health`
+- `deployment_health_report`
 - `agent_schemas_get`
 - `capabilities_handshake`
 - `capabilities_refresh`
+- `agent_poll`
+- `execution_assignment`
+- `execution_started`
 - `conversation_transcript_list`
 - `conversation_variables_get`
 - `conversation_variables_mget`
@@ -107,17 +110,18 @@ Phase 2 should separate:
 
 Rules:
 
-- short HTTP requests are the canonical transport for the public agent API in
-  Phase 2
+- canonical control semantics are mailbox-shaped, not callback-shaped
+- `poll` and `WebSocket` are delivery transports for the same mailbox items
 - long-running agent execution must not depend on one held HTTP request from
   `Core Matrix` into an agent program
-- deployment heartbeat remains the canonical liveness and health signal
-- an outbound WebSocket session may exist as an optional accelerator for
-  notifications or wakeups
+- short HTTP requests remain the resource-plane transport for transcript,
+  variable, human-interaction, and registration APIs
+- `WebSocket` is preferred for low-latency control delivery, but `poll` must
+  remain a complete fallback path
 - ActionCable, SolidCable, and AnyCable are Rails implementation options, not
   public protocol standards
-- WebSocket presence may accelerate detection or delivery, but it must not
-  replace heartbeat-based deployment health rules
+- `WebSocket` disconnect is not, by itself, the same fact as deployment
+  unavailability
 - if WebSocket is used, it must carry the platform's own message envelope
   rather than ActionCable-specific channel semantics
 
@@ -226,23 +230,30 @@ should prefer durable delivery semantics over synchronous RPC.
 
 Recommended logical method families for follow-up work:
 
-- `execution_claim`
-- `execution_lease_heartbeat`
+- `agent_poll`
+- `execution_assignment`
+- `execution_started`
 - `execution_progress`
 - `execution_complete`
 - `execution_fail`
+- `execution_interrupted`
+- `resource_close_request`
+- `resource_close_acknowledged`
+- `resource_closed`
+- `resource_close_failed`
 
 Rules:
 
 - `Core Matrix` remains the source of truth for execution state
-- the agent program claims executable work instead of receiving a blocking
-  request from the kernel
+- the agent program receives durable mailbox items rather than blocking
+  callbacks from the kernel
 - claimed work should carry stable budget hints such as likely model or
   model-profile context, reserved-output guidance, and any advisory compaction
   threshold the kernel already knows
-- short tasks may use a bounded fast terminal path where `execution_claim` is
-  immediately followed by `execution_complete` or `execution_fail` without
-  intermediate progress or heartbeat
+- transport retries must be idempotent by `message_id`
+- delivery retries must not be conflated with execution-attempt retries
+- `turn_interrupt` and broader close flows must fence stale work so later retry
+  or completion cannot mutate superseded turn state
 - conversation-scoped execution must carry stale-work protection such as a tail
   guard so restart or queue semantics cannot later commit output onto the wrong
   conversation tail
@@ -252,19 +263,17 @@ Rules:
   transport-local pause model
 - duplicate, out-of-order, expired-lease, or superseded-lease reports must fail
   safe and must not silently mutate durable execution state
-- competing claim attempts must inherit `ExecutionLease` single-owner semantics
-  so one fresh holder wins and stale holders cannot silently reclaim ownership
-- the same durable execution path must remain valid when the optional WebSocket
-  accelerator is unavailable
-- claim, heartbeat, progress, completion, and failure reporting must remain
-  attributable to one authenticated deployment and one durable execution id
+- the same durable control path must remain valid when `WebSocket` is
+  unavailable
+- mailbox items and reports must remain attributable to one authenticated
+  deployment and one durable execution or resource identity
 - completion or failure reporting may carry usage facts, but authoritative
   provider or supervised-capability usage must outrank agent-side estimates
 
-See the focused execution-delivery contract note for the recommended shared
-envelope, method payloads, and claimable runtime resource shape:
+See the focused mailbox-control note for the recommended shared envelope,
+method payloads, turn-interrupt semantics, and close lifecycle:
 
-- [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
+- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 
 ## Authority Rules
 
@@ -304,7 +313,7 @@ The current backend kernel batch does not need to fully implement:
 - generic agent-owned tool execution bridges
 - attachment-import bridges for every runtime
 - connector-specific bridge adapters
-- optional WebSocket accelerator transports
+- transport-specific delivery optimizations beyond the shared mailbox envelope
 - schedule or webhook trigger runners
 - knowledge or long-term memory bridge implementations
 - MCP transport adapters beyond the contract-level reserved integration surface

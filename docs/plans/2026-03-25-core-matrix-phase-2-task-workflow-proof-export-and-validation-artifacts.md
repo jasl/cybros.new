@@ -6,8 +6,8 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md`
-3. `docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
-4. `docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md`
+3. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
 5. `docs/reports/README.md`
 6. `docs/reports/phase-2/README.md`
 

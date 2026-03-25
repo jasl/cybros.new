@@ -12,37 +12,30 @@ local reference code changes later.
 
 - `Core Matrix` should not depend on long synchronous RPC calls into agent
   programs for long-running work.
-- Canonical execution semantics should be durable `claim -> lease -> heartbeat
-  -> report`, not request-held RPC.
+- Canonical control semantics should be a durable mailbox model with leases and
+  deadlines.
 - `agent programs` should initiate outbound connections to `Core Matrix`; the
   kernel should not need to call back into runtimes behind NAT or home-network
   environments.
 - The public protocol should remain language- and framework-agnostic.
-- Short HTTP requests should remain the canonical transport for the public API
-  in Phase 2.
-- deployment heartbeat should remain the canonical liveness signal for runtime
-  health
-- An outbound WebSocket connection may exist as an optional accelerator for
-  notifications and wakeups, but it should not become the only execution path.
+- `poll` must remain a complete fallback path even when `WebSocket` is
+  unavailable.
+- `WebSocket` should be preferred for low-latency delivery and presence, but it
+  must not become the only execution path.
 - `ActionCable`, `SolidCable`, and `AnyCable` are implementation choices for
   the Rails side, not public protocol standards.
 
 ## Stable Findings From The Current Core Matrix Contract
 
-The current `Core Matrix` machine-facing contract is already strongest when it
-stays short and synchronous.
+The current `Core Matrix` machine-facing contract already separates stateless
+resource APIs from runtime coordination:
 
-Durable patterns already present in the local contract:
+- registration is a short request
+- transcript, variable, and human-interaction APIs are resource APIs
+- recovery, waiting, and lease semantics already live in durable kernel state
 
-- registration, heartbeat, health, and capability refresh are short request or
-  response operations
-- transcript, variable, and human-interaction APIs are runtime-resource reads
-  or mutation intents, not long-held sessions
-- recovery, waiting, and lease semantics are already modeled as durable kernel
-  state rather than as transport-local assumptions
-
-That makes the existing contract a good fit for a future durable
-lease-and-report execution model.
+That supports a mailbox-first control plane without moving resource APIs onto
+the persistent control session.
 
 ## Stable Findings From Old Claw RPC
 
@@ -79,56 +72,57 @@ ActionCable terms.
 
 ## Recommended Transport Split
 
-### Canonical Public API
+### Resource Plane
 
-Keep a transport-neutral, short-request public API for:
+Keep short HTTP APIs for:
 
-- registration and handshake
-- capability refresh
-- runtime resource reads and mutation intents
-- execution claim
-- lease heartbeat
-- progress report
-- completion report
-- failure report
+- registration and enrollment
+- transcript reads
+- conversation and workspace variable APIs
+- human-interaction APIs
+- artifact upload or download when needed
 
-The kernel should persist the durable execution state. Transport only moves
-claims and reports.
+### Control Plane
 
-### Optional WebSocket Accelerator
+Use a mailbox-shaped control plane for:
 
-An outbound WebSocket session from the agent program to `Core Matrix` may be
-used for low-latency hints such as:
-
-- `work_available`
-- `cancel_requested`
-- `refresh_capabilities_requested`
-- optional operator or recovery hints
+- execution delivery
+- execution progress and terminal reporting
+- close requests
+- capability refresh requests
+- recovery notices
 
 Rules:
 
-- the accelerator is additive, not canonical
-- all durable execution state must still survive without the WebSocket session
-- disconnect must degrade cleanly back to short HTTP polling
-- WebSocket presence may speed up connectivity detection, but it must not be
-  the only source of deployment health truth
-- the accelerator protocol must use the platform's own message envelope rather
-  than leaking ActionCable-specific semantics
+- `WebSocket` is the preferred low-latency transport for control-plane items
+- `agent_poll` must remain a complete fallback path
+- agent responses may piggyback pending mailbox items when helpful
+- the mailbox envelope must be the same across `WebSocket` and `poll`
+- the transport value comes from durable mailbox semantics, not from the
+  framework-specific session layer
 
 ## Connectivity And Liveness Model
 
-If `Core Matrix` cannot dial back into runtimes, liveness still needs a stable
-source of truth.
+If `Core Matrix` cannot dial back into runtimes, liveness should depend on
+recent control-plane activity rather than on one transport alone.
 
 Recommended split:
 
-- `heartbeat` remains the canonical deployment-health signal
-- optional WebSocket session state is only an accelerator-level presence hint
-- loss of WebSocket may trigger faster suspicion or wake fallback polling, but
-  it should not by itself replace heartbeat timeout rules
-- deployment health, outage transitions, and recovery eligibility should
-  continue to depend on durable heartbeat policy rather than transport-specific
-  connection state alone
+- `realtime_link_state`
+  - `connected`
+  - `disconnected`
+- `control_activity_state`
+  - `active`
+  - `stale`
+  - `offline`
+
+Rules:
+
+- `WebSocket` disconnect is a warning, not an immediate hard failure
+- successful poll, progress, terminal reports, and health reports all refresh
+  control activity
+- `offline` should mean "no recent control activity", not merely "no realtime
+  link"
 
 ## Why This Is Better Than A Pure ActionCable Protocol
 
@@ -141,9 +135,9 @@ coupling:
 - replacing ActionCable with `AnyCable` or another WebSocket stack later would
   become harder than it needs to be
 
-By contrast, a custom envelope over WebSocket keeps the future transport
-replaceable while still letting Rails use ActionCable today if it is the
-fastest implementation path.
+By contrast, a custom mailbox envelope over `WebSocket` and `poll` keeps the
+future transport replaceable while still letting Rails use ActionCable today if
+it is the fastest implementation path.
 
 ## Execution Consequences
 
@@ -153,9 +147,9 @@ This transport model reinforces another important Phase 2 rule:
   not as a short synchronous API
 - agent-owned memory assembly, preflight intent or risk triage, local small
   model checks, LLM calls, and agent-owned tool use all fit better inside a
-  claimed execution lease
-- `Core Matrix` should observe structured progress and results, not wait on a
-  single held request
+  mailbox-delivered execution
+- `Core Matrix` should observe structured progress, close acknowledgements, and
+  terminal outcomes, not wait on one held request
 
 ## Registration And Session Consequences
 
@@ -165,10 +159,9 @@ toward:
 - one-time enrollment token issued by `Core Matrix`
 - outbound registration or session bootstrap initiated by the agent
 - durable machine credential issued after successful registration
-- optional accelerator-session identity separate from the durable deployment
-  credential
-- heartbeat continues to authenticate and report health independently of any
-  optional accelerator session
+- optional session identity separate from the durable deployment credential
+- the deployment should remain usable through poll even when no realtime link
+  exists
 - no assumption that the kernel can ever directly reach the agent's local
   network address
 
@@ -176,12 +169,9 @@ toward:
 
 Re-open this note when one of these becomes true:
 
-- Phase 2 decides to require the WebSocket accelerator instead of keeping it
-  optional
+- Phase 2 decides to remove polling fallback or to require realtime presence
 - multiple non-Ruby agent programs need first-class client libraries
-- the platform wants server-to-agent push semantics that must survive polling
-  gaps without an active WebSocket
-- real scale pressure makes HTTP polling too wasteful even for single-tenant
+- real scale pressure makes durable polling too wasteful even for single-tenant
   deployments
 - ActionCable is no longer the likely Rails-side implementation option
 

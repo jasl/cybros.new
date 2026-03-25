@@ -7,9 +7,9 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 3. `docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
-4. `docs/future-plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
-6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+5. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+6. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
 
 Load this file as the detailed execution unit for the unified capability
 governance task inside Phase 2.

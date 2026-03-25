@@ -1,23 +1,26 @@
-# Core Matrix Phase 2 Task 02: Extend Workflow Substrate For Yield And Projection
+# Core Matrix Phase 2 Task: Extend Workflow Substrate For Yield And Projection
 
-Part of `Core Matrix Phase 2 Milestone 1: Kernel Execution Foundations`.
+Part of `Core Matrix Phase 2: Agent Loop Execution`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md`
 3. `docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-1-kernel-execution-foundations.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+5. `docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
+6. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
 
-Load this file as the detailed execution unit for Task 02. Treat the milestone
-file as the ordering index, not as the full task body.
+Load this file as the detailed execution unit for the workflow-substrate task
+inside Phase 2. Treat the milestone file, the task-group file, and the
+initial plan as ordering indexes, not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted source section and the retained conclusion, invariant, or
-  intentional difference in this task document or another local document
-  updated by the same execution unit
+  consulted source section and the retained conclusion, invariant, or intentional
+  difference in this task document or another local document updated by the
+  same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,
   carry that conclusion into those docs instead of leaving only a bare
   reference path
@@ -84,13 +87,19 @@ Expected:
 
 Rules:
 
-- breaking changes are allowed in Phase 2
+- this task exists to stabilize workflow-first execution before external claim
+  or provider work expands
+- breaking changes are allowed in Phase 2; this task does not need legacy-shape
+  preservation, backfill, or migration-heavy compatibility work
 - accepted kernel-governed intent must have durable workflow representation
 - rejected intent must remain auditable without pretending it became a durable
   mutation
 - `presentation_policy` must not be inferred later from node kind
 - read-facing redundant fields are allowed when they keep later read paths
   simple, stable, and non-N+1
+- the workflow substrate should carry the metadata that later `AgentTaskRun`,
+  proof export, and wait-state work need instead of forcing those later tasks
+  to invent their own local shadow state
 
 **Step 4: Update local behavior docs**
 
@@ -100,6 +109,9 @@ Document exact retained behavior for:
 - durable versus audit-only intent outcomes
 - frozen `presentation_policy`
 - ordering and projection metadata expected by later read paths
+
+Keep the workflow-first contract local in behavior docs instead of relying only
+on design notes.
 
 **Step 5: Run the targeted tests**
 
@@ -124,6 +136,13 @@ git -C .. commit -m "feat: extend workflow substrate for yield materialization"
 ## Stop Point
 
 Stop after the workflow substrate can durably represent yield, accepted intent,
-audit-only rejected intent, barrier summaries, and projection metadata.
+audit-only rejected intent, barrier summaries, and projection metadata through
+targeted tests.
 
-Do not implement provider execution, `AgentTaskRun`, or MCP in this task.
+Do not implement these items in this task:
+
+- provider-backed turn execution
+- `execution_*` request APIs
+- `AgentTaskRun`
+- MCP transport
+- workflow proof export rendering

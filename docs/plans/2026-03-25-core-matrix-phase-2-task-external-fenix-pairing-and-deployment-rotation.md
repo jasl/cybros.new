@@ -6,10 +6,10 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md`
-3. `docs/future-plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-4. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-agent-task-run-and-execution-contract-safety.md`
-5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
-6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
+3. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
+5. `docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
+6. `docs/plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
 
 Load this file as the detailed external-runtime validation unit for Phase 2.
 Treat the milestone and preceding contract/runtime documents as ordering
@@ -31,10 +31,10 @@ Reference capture for this task:
 
 **Files:**
 - Modify: `core_matrix/app/services/agent_deployments/register.rb`
-- Modify: `core_matrix/app/services/agent_deployments/record_heartbeat.rb`
 - Modify: `core_matrix/app/services/agent_deployments/bootstrap.rb`
 - Modify: `core_matrix/app/services/agent_deployments/mark_unavailable.rb`
 - Modify: `core_matrix/app/services/agent_deployments/auto_resume_workflows.rb`
+- Modify or replace: `core_matrix/app/services/agent_deployments/*`
 - Modify: `core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `core_matrix/app/services/workflows/manual_retry.rb`
 - Modify: `agents/fenix/README.md`
@@ -50,7 +50,8 @@ Reference capture for this task:
 Cover at least:
 
 - external `Fenix` enrollment and pairing
-- heartbeat and health handling without kernel-initiated callbacks
+- realtime-link, control-activity, and health handling without kernel-initiated
+  callbacks
 - same-installation deployment cutover
 - upgrade rotation
 - downgrade rotation
@@ -69,7 +70,7 @@ bin/rails test test/integration/external_runtime_pairing_test.rb
 
 Expected:
 
-- missing pairing, heartbeat, or rotation failures
+- missing pairing, availability, or rotation failures
 
 **Step 3: Implement external pairing and deployment rotation**
 
@@ -88,7 +89,7 @@ Rules:
 Document exact retained behavior for:
 
 - pairing flow
-- heartbeat and availability
+- realtime link, control activity, and health
 - deployment rotation across upgrade or downgrade
 - recovery expectations around release change
 

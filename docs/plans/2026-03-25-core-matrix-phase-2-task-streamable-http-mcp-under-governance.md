@@ -6,10 +6,10 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md`
-3. `docs/future-plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-4. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
-5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md`
-6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
+3. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+5. `docs/plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md`
+6. `docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
 
 Load this file as the detailed execution unit for the Streamable HTTP MCP task
 inside Phase 2.

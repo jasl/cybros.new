@@ -1,23 +1,26 @@
-# Core Matrix Phase 2 Task 04: Add Provider-Backed Turn Execution
+# Core Matrix Phase 2 Task: Add Provider-Backed Turn Execution
 
-Part of `Core Matrix Phase 2 Milestone 1: Kernel Execution Foundations`.
+Part of `Core Matrix Phase 2: Agent Loop Execution`.
 
 Use this task document together with:
 
 1. `AGENTS.md`
-2. `docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md`
+2. `docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`
 3. `docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-1-kernel-execution-foundations.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+5. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+6. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
 
-Load this file as the detailed execution unit for Task 04. Treat the milestone
-file as the ordering index, not as the full task body.
+Load this file as the detailed execution unit for the provider-backed turn
+execution task inside Phase 2. Treat the milestone, sequencing, and
+mailbox-contract documents as ordering indexes, not as the full task body.
 
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the
-  consulted source section and the retained conclusion, invariant, or
-  intentional difference in this task document or another local document
-  updated by the same execution unit
+  consulted source section and the retained conclusion, invariant, or intentional
+  difference in this task document or another local document updated by the
+  same execution unit
 - when this task updates behavior docs, checklist docs, or other local docs,
   carry that conclusion into those docs instead of leaving only a bare
   reference path
@@ -52,8 +55,11 @@ Cover at least:
 - one queued `AgentTaskRun` moving to running and then terminal
 - one provider-backed `turn_step` routed through `simple_inference`
 - authoritative provider usage persistence after completion
-- likely model or model-profile hint exposure
+- likely model or model-profile hint exposure to the agent-program-facing
+  execution payload
 - separation between hard provider ceilings and advisory runtime hints
+- one advisory compaction-threshold evaluation driven by real provider usage,
+  not estimates alone
 
 **Step 2: Run the targeted tests to confirm failure**
 
@@ -74,13 +80,18 @@ Expected:
 
 Rules:
 
+- breaking changes are allowed in Phase 2; do not preserve legacy loop shapes
 - keep prompt building and compaction agent-program-owned
 - use `simple_inference` as the shared provider substrate unless a focused
   protocol gap forces a local extension
-- one provider-backed path is enough for this task
-- persist authoritative provider usage and correlation data
-- expose likely-model hints when known
-- breaking changes are allowed in Phase 2
+- consume the mailbox-delivered execution surface rather than introducing a
+  second provider-specific control path
+- one provider-backed path is enough for this task; do not widen into tool,
+  archive, delete, or MCP breadth here
+- persist authoritative provider usage and correlation data for later
+  accounting and advisory logic
+- make likely-model hints available when known so the agent program can do
+  model-aware prompt sizing
 
 **Step 4: Update local behavior docs**
 
@@ -128,5 +139,11 @@ git -C .. commit -m "feat: add provider-backed turn execution"
 Stop after one provider-backed turn path executes under workflow control and
 persists authoritative usage.
 
-Do not implement conversation feature policy, human interaction, or MCP in this
-task.
+Do not implement these items in this task:
+
+- conversation feature policy enforcement
+- turn interrupt or conversation close orchestration
+- human interaction or subagents
+- broad tool governance
+- Streamable HTTP MCP
+- `Fenix` runtime work

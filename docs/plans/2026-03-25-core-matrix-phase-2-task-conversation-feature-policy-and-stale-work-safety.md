@@ -6,10 +6,11 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
-3. `docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md`
-4. `docs/future-plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-5. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
-6. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
+3. `docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+5. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+6. `docs/plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
+7. `docs/plans/2026-03-26-core-matrix-phase-2-task-turn-interrupt-and-conversation-close-semantics.md`
 
 Load this file as the detailed execution unit for the conversation
 feature-policy and stale-work task inside Phase 2.
@@ -47,6 +48,23 @@ Reference capture for this task:
 - Modify: `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 
+## Boundary
+
+This task owns:
+
+- conversation-level feature policy storage
+- feature-policy snapshots on active work
+- during-generation input policies such as `reject`, `restart`, and `queue`
+- stale-tail ownership checks when newer input or selector movement supersedes
+  older work
+
+This task does not own:
+
+- `turn_interrupt` fences
+- archive or delete close orchestration
+- `step_retry` gates
+- resource-close delivery
+
 **Step 1: Write failing model, service, and integration tests**
 
 Cover at least:
@@ -57,7 +75,7 @@ Cover at least:
 - automation-triggered conversation with `human_interaction` disabled
 - `reject`, `restart`, and `queue` semantics under new input
 - safe stale-result rejection when an older attempt no longer owns the current
-  tail
+  tail after a newer input or selector change
 
 **Step 2: Run the targeted tests to confirm failure**
 
@@ -82,6 +100,8 @@ Rules:
 - `reject`, `restart`, and `queue` must stay authoritative at the kernel level
 - older superseded work must not commit transcript-affecting output as if it
   were current
+- rely on the mailbox and interrupt model from the close-semantics task rather
+  than redefining close fences here
 
 Prove the initial feature set:
 
@@ -128,6 +148,9 @@ Do not implement these items in this task:
 
 - human-interaction wait handoff
 - subagent orchestration
+- `step_retry` workflow gates
+- turn interrupt fences
+- archive or delete close orchestration
 - broad tool governance
 - Streamable HTTP MCP
 - `Fenix` runtime or skills

@@ -41,8 +41,8 @@ Instead, release changes should be modeled as deployment rotation:
 
 - start a new `Fenix` process or container
 - register it as a new deployment with its own runtime identity
-- let `Core Matrix` supervise heartbeat, health, capability handshake, and
-  recovery eligibility
+- let `Core Matrix` supervise realtime link state, control activity, health,
+  capability handshake, and recovery eligibility
 - cut over future work or recovery-time work to the new deployment
 - retire or drain the old deployment
 
@@ -73,7 +73,7 @@ Phase 2 must also prove a separately started external `Fenix` deployment:
 
 - enrollment
 - registration
-- heartbeat and health
+- realtime link, control activity, and health
 - capability handshake
 - bootstrap
 - real loop execution

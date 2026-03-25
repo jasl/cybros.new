@@ -5,8 +5,8 @@ Part of `Core Matrix Phase 2: Agent Loop Execution`.
 Use this task document together with:
 
 1. `AGENTS.md`
-2. `docs/future-plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-3. `docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md`
+2. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+3. `docs/plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md`
 4. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 5. `docs/reports/README.md`
 6. `docs/reports/phase-2/README.md`
