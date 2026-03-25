@@ -52,6 +52,21 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert_equal "capability_snapshot_version_drift", workflow_run.wait_reason_payload["drift_reason"]
   end
 
+  test "ignores waiting workflows whose conversations are pending delete" do
+    context = build_waiting_recovery_context!
+    context[:conversation].update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: context[:agent_deployment],
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
+    )
+
+    assert_equal [], AgentDeployments::AutoResumeWorkflows.call(deployment: context[:agent_deployment])
+    assert context[:workflow_run].reload.waiting?
+  end
+
   private
 
   def build_waiting_recovery_context!

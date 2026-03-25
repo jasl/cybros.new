@@ -1,42 +1,22 @@
 module AgentAPI
   class ConversationVariablesController < BaseController
-    def index
+    def get
       workspace, conversation = workspace_and_conversation_from_params
-      variables = ConversationVariables::ListQuery.call(
-        workspace: workspace,
-        conversation: conversation
-      )
-
-      render json: {
-        method_id: "conversation_variables_list",
-        workspace_id: workspace.public_id,
-        conversation_id: conversation.public_id,
-        variables: variables.map { |variable| serialize_variable(variable) },
-      }
-    end
-
-    def show_value
-      workspace, conversation = workspace_and_conversation_from_params
-      variable = ConversationVariables::GetQuery.call(
-        workspace: workspace,
-        conversation: conversation,
-        key: params.fetch(:key)
-      )
+      variable = CanonicalStores::GetQuery.call(reference_owner: conversation, key: params.fetch(:key))
 
       render json: {
         method_id: "conversation_variables_get",
         workspace_id: workspace.public_id,
         conversation_id: conversation.public_id,
         key: params.fetch(:key),
-        variable: serialize_variable(variable),
+        variable: serialize_variable(variable, conversation: conversation),
       }
     end
 
-    def bulk_show
+    def mget
       workspace, conversation = workspace_and_conversation_from_payload
-      variables = ConversationVariables::MgetQuery.call(
-        workspace: workspace,
-        conversation: conversation,
+      variables = CanonicalStores::MultiGetQuery.call(
+        reference_owner: conversation,
         keys: request_payload.fetch("keys")
       )
 
@@ -44,7 +24,37 @@ module AgentAPI
         method_id: "conversation_variables_mget",
         workspace_id: workspace.public_id,
         conversation_id: conversation.public_id,
-        variables: variables.transform_values { |variable| serialize_variable(variable) },
+        variables: variables.transform_values { |variable| serialize_variable(variable, conversation: conversation) },
+      }
+    end
+
+    def exists
+      workspace, conversation = workspace_and_conversation_from_params
+      variable = CanonicalStores::GetQuery.call(reference_owner: conversation, key: params.fetch(:key))
+
+      render json: {
+        method_id: "conversation_variables_exists",
+        workspace_id: workspace.public_id,
+        conversation_id: conversation.public_id,
+        key: params.fetch(:key),
+        exists: variable.present?,
+      }
+    end
+
+    def list_keys
+      workspace, conversation = workspace_and_conversation_from_params
+      page = CanonicalStores::ListKeysQuery.call(
+        reference_owner: conversation,
+        cursor: params[:cursor],
+        limit: params[:limit]
+      )
+
+      render json: {
+        method_id: "conversation_variables_list_keys",
+        workspace_id: workspace.public_id,
+        conversation_id: conversation.public_id,
+        items: page.items.map { |item| serialize_variable_metadata(item, conversation: conversation) },
+        next_cursor: page.next_cursor,
       }
     end
 
@@ -59,42 +69,45 @@ module AgentAPI
         method_id: "conversation_variables_resolve",
         workspace_id: workspace.public_id,
         conversation_id: conversation.public_id,
-        variables: variables.transform_values { |variable| serialize_variable(variable) },
+        variables: variables.transform_values { |variable| serialize_variable(variable, conversation: conversation) },
       }
     end
 
-    def write
+    def set
       workspace, conversation = workspace_and_conversation_from_payload
-      variable = Variables::Write.call(
-        scope: "conversation",
-        workspace: workspace,
+      variable = CanonicalStores::Set.call(
         conversation: conversation,
         key: request_payload.fetch("key"),
-        typed_value_payload: request_payload.fetch("typed_value_payload"),
-        writer: current_deployment,
-        source_kind: request_payload.fetch("source_kind"),
-        source_turn: optional_turn(request_payload["source_turn_id"]),
-        source_workflow_run: optional_workflow_run(request_payload["source_workflow_run_id"]),
-        projection_policy: request_payload.fetch("projection_policy", "silent")
+        typed_value_payload: request_payload.fetch("typed_value_payload")
       )
 
       render json: {
-        method_id: "conversation_variables_write",
-        variable: serialize_variable(variable),
+        method_id: "conversation_variables_set",
+        variable: serialize_variable(variable, conversation: conversation),
       }, status: :created
+    end
+
+    def delete
+      workspace, conversation = workspace_and_conversation_from_payload
+      deleted = CanonicalStores::DeleteKey.call(
+        conversation: conversation,
+        key: request_payload.fetch("key")
+      )
+
+      render json: {
+        method_id: "conversation_variables_delete",
+        workspace_id: workspace.public_id,
+        conversation_id: conversation.public_id,
+        key: request_payload.fetch("key"),
+        deleted: deleted.nil? ? false : true,
+      }
     end
 
     def promote
       workspace, conversation = workspace_and_conversation_from_payload
-      conversation_variable = ConversationVariables::GetQuery.call(
-        workspace: workspace,
-        conversation: conversation,
-        key: request_payload.fetch("key")
-      )
-      raise ActiveRecord::RecordNotFound, "conversation variable is missing" if conversation_variable.blank?
-
       variable = Variables::PromoteToWorkspace.call(
-        conversation_variable: conversation_variable,
+        conversation: conversation,
+        key: request_payload.fetch("key"),
         writer: current_deployment
       )
 
@@ -116,18 +129,6 @@ module AgentAPI
       workspace = find_workspace!(request_payload.fetch("workspace_id"))
       conversation = find_conversation!(request_payload.fetch("conversation_id"), workspace: workspace)
       [workspace, conversation]
-    end
-
-    def optional_turn(turn_id)
-      return if turn_id.blank?
-
-      find_turn!(turn_id)
-    end
-
-    def optional_workflow_run(workflow_run_id)
-      return if workflow_run_id.blank?
-
-      find_workflow_run!(workflow_run_id)
     end
   end
 end

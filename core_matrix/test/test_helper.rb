@@ -789,6 +789,76 @@ module ActiveSupport
       }.merge(context)
     end
 
+    def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
+      Conversation.create!({
+        installation: installation,
+        workspace: workspace,
+        parent_conversation: parent_conversation,
+        kind: kind,
+        purpose: purpose,
+        lifecycle_state: lifecycle_state,
+        historical_anchor_message_id: historical_anchor_message_id,
+        interactive_selector_mode: interactive_selector_mode,
+        override_payload: override_payload,
+        override_reconciliation_report: override_reconciliation_report,
+        deletion_state: deletion_state,
+      }.merge(attrs))
+    end
+
+    def create_canonical_store!(workspace:, root_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
+      CanonicalStore.create!({
+        installation: installation,
+        workspace: workspace,
+        root_conversation: root_conversation,
+      }.merge(attrs))
+    end
+
+    def create_canonical_store_snapshot!(canonical_store:, snapshot_kind: "root", base_snapshot: nil, depth: 0, **attrs)
+      CanonicalStoreSnapshot.create!({
+        canonical_store: canonical_store,
+        snapshot_kind: snapshot_kind,
+        base_snapshot: base_snapshot,
+        depth: depth,
+      }.merge(attrs))
+    end
+
+    def create_canonical_store_value!(typed_value_payload:, **attrs)
+      CanonicalStoreValue.create!({
+        typed_value_payload: typed_value_payload,
+      }.merge(attrs))
+    end
+
+    def create_canonical_store_entry!(canonical_store_snapshot:, key:, entry_kind:, canonical_store_value: nil, value_type: nil, value_bytesize: nil, **attrs)
+      CanonicalStoreEntry.create!({
+        canonical_store_snapshot: canonical_store_snapshot,
+        key: key,
+        entry_kind: entry_kind,
+        canonical_store_value: canonical_store_value,
+        value_type: value_type,
+        value_bytesize: value_bytesize,
+      }.merge(attrs))
+    end
+
+    def create_canonical_store_reference!(canonical_store_snapshot:, owner:, **attrs)
+      CanonicalStoreReference.create!({
+        canonical_store_snapshot: canonical_store_snapshot,
+        owner: owner,
+      }.merge(attrs))
+    end
+
+    def build_canonical_store_context!
+      context = build_canonical_variable_context!
+      reference = context[:conversation].reload.canonical_store_reference
+      root_snapshot = reference.canonical_store_snapshot
+      store = root_snapshot.canonical_store
+
+      context.merge(
+        canonical_store: store,
+        canonical_store_snapshot: root_snapshot,
+        canonical_store_reference: reference,
+      )
+    end
+
     def build_subagent_context!(workflow_node_key: "subagent_fanout", workflow_node_type: "subagent_batch", workflow_node_metadata: {})
       context = prepare_workflow_execution_context!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
@@ -828,6 +898,30 @@ module ActiveSupport
         workflow_run: workflow_run.reload,
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
       }.merge(context)
+    end
+
+    def capture_sql_queries
+      queries = []
+      callback = lambda do |_name, _started, _finished, _unique_id, payload|
+        sql = payload[:sql]
+        next if sql.blank?
+        next if payload[:name] == "SCHEMA"
+        next if sql.match?(/\A(?:BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE SAVEPOINT)/)
+
+        queries << sql
+      end
+
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        yield
+      end
+
+      queries
+    end
+
+    def assert_sql_query_count(expected_count)
+      queries = capture_sql_queries { yield }
+
+      assert_equal expected_count, queries.size, "Expected #{expected_count} SQL queries, got #{queries.size}:\n#{queries.join("\n\n")}"
     end
   end
 end

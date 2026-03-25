@@ -39,6 +39,7 @@ module AgentAPI
       scope = {
         public_id: conversation_id,
         installation_id: current_deployment.installation_id,
+        deletion_state: "retained",
       }
       scope[:workspace_id] = workspace.id if workspace.present?
 
@@ -78,19 +79,44 @@ module AgentAPI
       }
     end
 
-    def serialize_variable(variable)
+    def serialize_variable(variable, conversation: nil, scope: nil)
       return if variable.blank?
 
+      if variable.is_a?(CanonicalVariable)
+        return {
+          "workspace_id" => variable.workspace.public_id,
+          "scope" => variable.scope,
+          "key" => variable.key,
+          "typed_value_payload" => variable.typed_value_payload,
+          "source_kind" => variable.source_kind,
+          "projection_policy" => variable.projection_policy,
+          "current" => variable.current,
+        }
+      end
+
+      raise ArgumentError, "conversation is required for conversation store serialization" if conversation.blank?
+
       {
-        "workspace_id" => variable.workspace.public_id,
-        "conversation_id" => variable.conversation&.public_id,
-        "scope" => variable.scope,
+        "workspace_id" => conversation.workspace.public_id,
+        "conversation_id" => conversation.public_id,
+        "scope" => scope || "conversation",
         "key" => variable.key,
-        "typed_value_payload" => variable.typed_value_payload,
-        "source_kind" => variable.source_kind,
-        "projection_policy" => variable.projection_policy,
-        "current" => variable.current,
-      }
+        "typed_value_payload" => variable.respond_to?(:typed_value_payload) ? variable.typed_value_payload : nil,
+        "value_type" => variable.respond_to?(:value_type) ? variable.value_type : nil,
+        "value_bytesize" => variable.respond_to?(:value_bytesize) ? variable.value_bytesize : nil,
+        "current" => true,
+      }.compact
+    end
+
+    def serialize_variable_metadata(metadata, conversation:)
+      {
+        "workspace_id" => conversation.workspace.public_id,
+        "conversation_id" => conversation.public_id,
+        "scope" => "conversation",
+        "key" => metadata.key,
+        "value_type" => metadata.value_type,
+        "value_bytesize" => metadata.value_bytesize,
+      }.compact
     end
 
     def serialize_human_interaction_request(request)

@@ -75,7 +75,7 @@ Relevant current files:
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/turn.rb`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/workflow_run.rb`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/create_branch.rb`
-- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/list_query.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/resolve_query.rb`
 
 ## Recommended Architecture
 
@@ -400,7 +400,7 @@ Required services:
 - `Conversations::RequestDeletion`
 - `Conversations::FinalizeDeletion`
 - `Conversations::PurgeDeleted`
-- `Conversations::CancelActiveWork`
+- `Conversations::QuiesceActiveWork`
 - `CanonicalStores::GarbageCollect`
 
 ### `Conversations::RequestDeletion`
@@ -414,15 +414,24 @@ This service must:
 - reject future branch, checkpoint, and thread creation
 - reject future conversation-local store writes
 - reject future recovery or resume actions for current work
+- revoke live publications and hide deleted conversations from default
+  agent-facing lookups immediately
 - cancel queued turns immediately
 - request cancellation for active turns and active workflow runs
-- cancel or close open human interaction requests that still block the workflow
+- cancel open human interaction requests so no deleted conversation stays
+  user-visible through the inbox
 
 The service must be idempotent.
+
+It uses `Conversations::QuiesceActiveWork` with
+`reason_kind = conversation_deleted`.
 
 ### Behavior For Unfinished Work
 
 - queued turns move directly to `canceled`
+- active turns and workflow runs are stamped with
+  `cancellation_requested_at` and
+  `cancellation_reason_kind = conversation_deleted`
 - active turns remain present until their workflow run reaches a terminal state
 - workflow runs with `wait_state = waiting` must not resume after deletion is
   requested
@@ -432,6 +441,8 @@ The service must be idempotent.
   toward `canceled` through the same cancellation-request path
 - active execution leases, subagent runs, and process runs must be released or
   terminated before final deletion
+- once active leases, processes, and subagents have been quiesced, the
+  workflow run and owning turn may move directly to `canceled`
 
 ### `Conversations::FinalizeDeletion`
 
@@ -441,8 +452,11 @@ This service may proceed only when all of the following are true:
 - no active turns remain
 - no active workflow runs remain
 - no active execution leases remain
-- no open blocking human interaction remains
+- no open human interaction remains
 - no active subagent or process execution remains
+
+If any of those conditions are still false, the landed implementation raises
+`ActiveRecord::RecordInvalid` instead of silently finalizing partial state.
 
 Then it must:
 
@@ -464,6 +478,55 @@ Then it must:
 - delete the tombstone-shell conversation row
 - delete any support rows that are now unreferenced solely because the shell is
   no longer needed
+
+Additional landed guard:
+
+- `PurgeDeleted` rejects corrupted `deleted` states that still have active
+  runtime work or a live `CanonicalStoreReference`
+- `PurgeDeleted(force: true)` may first quiesce the deleted conversation's own
+  runtime work with `conversation_deleted` reasons
+- `PurgeDeleted(force: true)` still requires prior finalization; it must not
+  remove the live `CanonicalStoreReference` on behalf of the caller
+- deleting a parent conversation does not cascade deletion into retained child
+  conversations
+- descendant lineage keeps the deleted ancestor as a tombstone shell until the
+  child lineage no longer depends on it
+
+### Archive And Turn-Entry State Rules
+
+These rules stay on the retained-lifecycle axis and are intentionally separate
+from safe deletion.
+
+- `Conversations::Archive` may proceed only when:
+  - `deletion_state = retained`
+  - `lifecycle_state = active`
+  - no queued turns remain
+  - no active turns remain
+  - no active workflow runs remain
+  - no active execution leases remain
+  - no open human interaction remains
+  - no active subagent or process execution remains
+- `Conversations::Archive(force: true)` may first quiesce the conversation's
+  own queued or active runtime work using
+  `reason_kind = conversation_archived`, then apply the same archive
+  transition
+- archived conversations are excluded from open human-interaction inbox queries
+- archived conversations reject opening new human interactions and reject late
+  resolution of still-open requests
+- human-interaction open and resolution paths must re-check lifecycle state
+  from fresh locked conversation/workflow/request rows so stale objects cannot
+  create or resolve requests after archive/delete wins the race
+- `Conversations::Unarchive` may proceed only when:
+  - `deletion_state = retained`
+  - `lifecycle_state = archived`
+- archiving a parent does not archive children automatically
+- `Conversation#active_turn_exists?(include_descendants: false)` is the
+  supported runtime-inspection query for local or descendant-aware active-turn
+  checks
+- turn-entry services (`StartUserTurn`, `StartAutomationTurn`,
+  `QueueFollowUp`) must re-check lifecycle and deletion state after acquiring
+  the conversation row lock so a concurrent archive or delete transition cannot
+  slip in a new turn
 
 ### Tombstone Shell Rule
 
@@ -551,8 +614,8 @@ Do not use raw reference counts as the sole source of truth.
 - reject keys longer than 128 bytes
 - reject values larger than 2 MiB
 - reject writes to `pending_delete` or `deleted` conversations
-- reject branch and checkpoint creation from `pending_delete` or `deleted`
-  conversations
+- reject branch, checkpoint, and thread creation from `pending_delete` or
+  `deleted` conversations
 - reject resume and recovery actions once deletion has been requested
 - reject tombstone entries with a value reference
 - reject set entries without a value reference
@@ -616,13 +679,14 @@ The implementation is not complete unless the following tests exist.
 - request deletion hides the conversation from default list queries
 - request deletion on an idle conversation moves directly toward finalization
 - request deletion cancels queued turns immediately
-- request deletion on a conversation with an active turn marks cancellation as
-  requested instead of purging immediately
+- request deletion on a conversation with an active turn stamps cancellation as
+  requested and then cancels the turn once the owning workflow run has been
+  driven to a terminal state
 - request deletion on a waiting human interaction cancels the blocking request
 - request deletion blocks new turn entry
 - request deletion blocks new canonical store writes
 - request deletion blocks branch, checkpoint, and thread creation
-- finalize deletion is a no-op while active work remains
+- finalize deletion rejects while active work remains
 - finalize deletion removes the conversation store reference once work is
   quiescent
 - deleted tombstone-shell conversations are not user-visible

@@ -46,16 +46,26 @@ agent-facing boundaries:
   internal `bigint` ids after boundary lookup
 - external boundaries must not accept mixed fallback logic that also resolves
   raw internal ids
+- agent-facing conversation lookup must also respect lifecycle visibility; a
+  deleted or pending-delete conversation is not a valid external lookup target
 - canonical-variable payloads must not expose canonical-variable row ids
   because `CanonicalVariable` is not an external resource
+- canonical-store rows, snapshot ids, entry ids, value ids, and reference ids
+  are internal-only and must never appear in external or agent-facing payloads
 
 ## Runtime Payload Rules
 
 - machine-facing HTTP APIs use `public_id` for resource references
 - workflow execution snapshots and other agent-facing runtime payloads also use
   `public_id` for resource references
+- deletion-sensitive runtime APIs continue to carry `workspace_id`,
+  `conversation_id`, `turn_id`, `workflow_run_id`, and `workflow_node_id` as
+  `public_id` values only
 - when `turn_origin.source_ref_type` points at an in-scope external resource,
   `turn_origin.source_ref_id` must carry that resource's `public_id`
+- turn-origin payloads and conversation-event payloads must also use
+  `public_id` whenever they embed resource identifiers such as message, turn,
+  or human-interaction references
 - resources that do not have `public_id` must not leak raw internal row ids
   through agent-facing payloads
 

@@ -43,4 +43,72 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       )
     end
   end
+
+  test "rejects pending delete conversations" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Blocked",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained for user turn entry"
+  end
+
+  test "rechecks active lifecycle state after acquiring the conversation lock" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    archive_during_lock!(conversation)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Blocked by archival",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active for user turn entry"
+    assert_equal 0, conversation.reload.turns.count
+  end
+
+  private
+
+  def archive_during_lock!(conversation)
+    injected = false
+
+    conversation.singleton_class.prepend(Module.new do
+      define_method(:lock!) do |*args, **kwargs|
+        unless injected
+          injected = true
+          pool = self.class.connection_pool
+          connection = pool.checkout
+
+          begin
+            updated_at = Time.current
+
+            connection.execute(<<~SQL.squish)
+              UPDATE conversations
+              SET lifecycle_state = 'archived',
+                  updated_at = #{connection.quote(updated_at)}
+              WHERE id = #{connection.quote(id)}
+            SQL
+          ensure
+            pool.checkin(connection)
+          end
+        end
+
+        super(*args, **kwargs)
+      end
+    end)
+  end
 end

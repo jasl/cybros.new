@@ -12,7 +12,7 @@ class HumanInteractionFlowTest < ActionDispatch::IntegrationTest
       request_payload: { "approval_scope" => "publish" }
     )
 
-    assert_equal [], Workflows::Scheduler.call(workflow_run: workflow_run)
+    assert_equal [], Workflows::Scheduler.call(workflow_run: workflow_run.reload)
 
     resolved = HumanInteractions::ResolveApproval.call(
       approval_request: request,

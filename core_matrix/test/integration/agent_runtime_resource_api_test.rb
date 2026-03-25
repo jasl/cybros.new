@@ -15,13 +15,12 @@ class AgentRuntimeResourceApiTest < ActionDispatch::IntegrationTest
       source_workflow_run: context[:workflow_run]
     )
 
-    post "/agent_api/conversation_variables/write",
+    post "/agent_api/conversation_variables/set",
       params: {
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
         key: "customer_name",
         typed_value_payload: { type: "string", value: "Acme China" },
-        source_kind: "agent_runtime",
       },
       headers: agent_api_headers(registration[:machine_credential]),
       as: :json

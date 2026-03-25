@@ -83,8 +83,8 @@ module Workflows
           queued_turn.update!(
             origin_payload: queued_turn.origin_payload.merge(
               "during_generation_policy" => @policy_mode,
-              "expected_tail_message_id" => @turn.selected_output_message_id&.to_s,
-              "queued_from_turn_id" => @turn.id
+              "expected_tail_message_id" => @turn.selected_output_message&.public_id,
+              "queued_from_turn_id" => @turn.public_id
             )
           )
 
@@ -97,11 +97,11 @@ module Workflows
               wait_reason_kind: "policy_gate",
               wait_reason_payload: {
                 "policy_mode" => "restart",
-                "queued_turn_id" => queued_turn.id,
+                "queued_turn_id" => queued_turn.public_id,
               },
               waiting_since_at: Time.current,
               blocking_resource_type: "Turn",
-              blocking_resource_id: queued_turn.id.to_s
+              blocking_resource_id: queued_turn.public_id
             )
           end
 
@@ -134,7 +134,7 @@ module Workflows
         return @turn if expected_tail_message_id.blank?
 
         predecessor_turn = @turn.conversation.turns.where("sequence < ?", @turn.sequence).order(sequence: :desc).first
-        current_predecessor_output_id = predecessor_turn&.selected_output_message_id&.to_s
+        current_predecessor_output_id = predecessor_turn&.selected_output_message&.public_id
         return @turn if current_predecessor_output_id == expected_tail_message_id
 
         @turn.update!(lifecycle_state: "canceled")

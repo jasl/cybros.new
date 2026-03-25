@@ -1,5 +1,7 @@
 module Conversations
   class CreateThread
+    include Conversations::RetentionGuard
+
     def self.call(...)
       new(...).call
     end
@@ -10,6 +12,8 @@ module Conversations
     end
 
     def call
+      ensure_conversation_retained!(@parent, message: "must be retained before threading")
+
       ApplicationRecord.transaction do
         conversation = Conversation.create!(
           installation: @parent.installation,
@@ -22,6 +26,7 @@ module Conversations
         )
 
         create_closures_for!(conversation)
+        create_canonical_store_reference_for!(conversation)
         conversation
       end
     end
@@ -43,6 +48,16 @@ module Conversations
         ancestor_conversation: conversation,
         descendant_conversation: conversation,
         depth: 0
+      )
+    end
+
+    def create_canonical_store_reference_for!(conversation)
+      parent_reference = @parent.canonical_store_reference ||
+        raise(ActiveRecord::RecordNotFound, "canonical store reference is missing")
+
+      CanonicalStoreReference.create!(
+        owner: conversation,
+        canonical_store_snapshot: parent_reference.canonical_store_snapshot
       )
     end
   end

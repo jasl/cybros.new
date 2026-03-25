@@ -1,5 +1,7 @@
 module Workflows
   class ManualRetry
+    include Conversations::RetentionGuard
+
     def self.call(...)
       new(...).call
     end
@@ -12,6 +14,7 @@ module Workflows
     end
 
     def call
+      ensure_conversation_retained!(@workflow_run.conversation, message: "must be retained before manual retry")
       validate_retry_state!
       validate_retry_target!
 

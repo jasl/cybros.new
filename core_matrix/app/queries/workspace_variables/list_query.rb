@@ -11,7 +11,6 @@ module WorkspaceVariables
     def call
       CanonicalVariable.where(
         workspace: @workspace,
-        conversation: nil,
         scope: "workspace",
         current: true
       ).order(:key, :created_at).to_a

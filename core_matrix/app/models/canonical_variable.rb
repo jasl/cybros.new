@@ -1,10 +1,9 @@
 class CanonicalVariable < ApplicationRecord
-  SCOPES = %w[workspace conversation].freeze
+  SCOPES = %w[workspace].freeze
   PROJECTION_POLICIES = %w[silent conversation_event].freeze
 
   belongs_to :installation
   belongs_to :workspace
-  belongs_to :conversation, optional: true
   belongs_to :writer, polymorphic: true, optional: true
   belongs_to :source_conversation, class_name: "Conversation", optional: true
   belongs_to :source_turn, class_name: "Turn", optional: true
@@ -17,8 +16,6 @@ class CanonicalVariable < ApplicationRecord
   validates :source_kind, presence: true
   validate :typed_value_payload_must_be_hash
   validate :workspace_installation_match
-  validate :conversation_installation_match
-  validate :conversation_workspace_match
   validate :writer_pairing
   validate :source_conversation_installation_match
   validate :source_turn_installation_match
@@ -28,18 +25,7 @@ class CanonicalVariable < ApplicationRecord
   validate :scope_rules
   validate :supersession_state
 
-  def self.effective_for(workspace:, key:, conversation: nil)
-    if conversation.present?
-      conversation_value = where(
-        workspace: workspace,
-        conversation: conversation,
-        scope: "conversation",
-        key: key,
-        current: true
-      ).order(created_at: :desc).first
-      return conversation_value if conversation_value.present?
-    end
-
+  def self.effective_for(workspace:, key:)
     where(
       workspace: workspace,
       scope: "workspace",
@@ -50,10 +36,6 @@ class CanonicalVariable < ApplicationRecord
 
   def workspace_scope?
     scope == "workspace"
-  end
-
-  def conversation_scope?
-    scope == "conversation"
   end
 
   def superseded?
@@ -71,20 +53,6 @@ class CanonicalVariable < ApplicationRecord
     return if workspace.installation_id == installation_id
 
     errors.add(:workspace, "must belong to the same installation")
-  end
-
-  def conversation_installation_match
-    return if conversation.blank?
-    return if conversation.installation_id == installation_id
-
-    errors.add(:conversation, "must belong to the same installation")
-  end
-
-  def conversation_workspace_match
-    return if conversation.blank? || workspace.blank?
-    return if conversation.workspace_id == workspace_id
-
-    errors.add(:conversation, "must belong to the same workspace")
   end
 
   def writer_pairing
@@ -130,12 +98,7 @@ class CanonicalVariable < ApplicationRecord
   end
 
   def scope_rules
-    if workspace_scope?
-      errors.add(:conversation, "must be blank for workspace scope") if conversation.present?
-      return
-    end
-
-    errors.add(:conversation, "must exist for conversation scope") if conversation.blank?
+    errors.add(:scope, "must be workspace") unless workspace_scope?
   end
 
   def supersession_state

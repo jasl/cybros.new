@@ -1,5 +1,7 @@
 module Turns
   class StartAutomationTurn
+    include Conversations::RetentionGuard
+
     def self.call(...)
       new(...).call
     end
@@ -18,10 +20,11 @@ module Turns
     end
 
     def call
-      raise_invalid!(@conversation, :purpose, "must be automation for automation turn entry") unless @conversation.automation?
-      raise_invalid!(@conversation, :lifecycle_state, "must be active for automation turn entry") unless @conversation.active?
-
       @conversation.with_lock do
+        raise_invalid!(@conversation, :purpose, "must be automation for automation turn entry") unless @conversation.automation?
+        raise_invalid!(@conversation, :lifecycle_state, "must be active for automation turn entry") unless @conversation.active?
+        ensure_conversation_retained!(@conversation, message: "must be retained for automation turn entry")
+
         Turn.create!(
           installation: @conversation.installation,
           conversation: @conversation,

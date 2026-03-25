@@ -1,5 +1,7 @@
 module Publications
   class PublishLive
+    include Conversations::RetentionGuard
+
     ALLOWED_VISIBILITY_MODES = %w[internal_public external_public].freeze
 
     def self.call(...)
@@ -15,6 +17,7 @@ module Publications
 
     def call
       raise ArgumentError, "visibility mode must publish the conversation" unless ALLOWED_VISIBILITY_MODES.include?(@visibility_mode)
+      ensure_conversation_retained!(@conversation, message: "must be retained before publishing")
 
       publication = Publication.find_or_initialize_by(conversation: @conversation)
       previously_active = publication.persisted? && publication.active?

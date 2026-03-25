@@ -46,7 +46,8 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     assert_equal 2, queued.sequence
     assert_equal "Original input", turn.reload.selected_input_message.content
     assert_equal "Queued follow up", queued.selected_input_message.content
-    assert_equal output.id.to_s, queued.origin_payload["expected_tail_message_id"]
+    assert_equal output.public_id, queued.origin_payload["expected_tail_message_id"]
+    assert_equal turn.public_id, queued.origin_payload["queued_from_turn_id"]
   end
 
   test "detects side-effect boundaries from freshly persisted workflow node metadata" do

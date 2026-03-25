@@ -24,6 +24,27 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
         .pluck(:ancestor_conversation_id, :descendant_conversation_id, :depth)
   end
 
+  test "copies the current snapshot reference without creating store rows" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    CanonicalStores::Set.call(
+      conversation: root,
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" }
+    )
+
+    assert_no_difference(["CanonicalStoreSnapshot.count", "CanonicalStoreEntry.count", "CanonicalStoreValue.count"]) do
+      @checkpoint = Conversations::CreateCheckpoint.call(
+        parent: root,
+        historical_anchor_message_id: 303
+      )
+    end
+
+    assert_equal root.canonical_store_reference.canonical_store_snapshot_id,
+      @checkpoint.canonical_store_reference.canonical_store_snapshot_id
+    refute_equal root.canonical_store_reference.id, @checkpoint.canonical_store_reference.id
+  end
+
   test "rejects automation conversations" do
     automation_root = Conversations::CreateAutomationRoot.call(
       workspace: create_workspace_context![:workspace]

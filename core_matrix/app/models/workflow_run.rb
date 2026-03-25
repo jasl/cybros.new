@@ -23,6 +23,12 @@ class WorkflowRun < ApplicationRecord
       policy_gate: "policy_gate",
     },
     validate: { allow_nil: true }
+  enum :cancellation_reason_kind,
+    {
+      conversation_deleted: "conversation_deleted",
+      conversation_archived: "conversation_archived",
+    },
+    validate: { allow_nil: true }
 
   belongs_to :installation
   belongs_to :conversation
@@ -56,6 +62,7 @@ class WorkflowRun < ApplicationRecord
   validate :turn_conversation_match
   validate :one_active_workflow_per_conversation
   validate :wait_state_consistency
+  validate :cancellation_request_pairing
 
   def waiting_on_agent_unavailable?
     waiting? && wait_reason_kind == "agent_unavailable"
@@ -120,6 +127,16 @@ class WorkflowRun < ApplicationRecord
 
     if blocking_resource_type.present? ^ blocking_resource_id.present?
       errors.add(:blocking_resource_id, "must be paired with blocking resource type")
+    end
+  end
+
+  def cancellation_request_pairing
+    if cancellation_reason_kind.present? && cancellation_requested_at.blank?
+      errors.add(:cancellation_requested_at, "must exist when cancellation reason is present")
+    end
+
+    if cancellation_reason_kind.blank? && cancellation_requested_at.present?
+      errors.add(:cancellation_reason_kind, "must exist when cancellation has been requested")
     end
   end
 end

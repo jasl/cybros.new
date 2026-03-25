@@ -48,4 +48,20 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
     assert_equal "internal_public", audit_log.metadata["previous_visibility_mode"]
     assert_equal "external_public", audit_log.metadata["visibility_mode"]
   end
+
+  test "rejects publishing a pending delete conversation" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Publications::PublishLive.call(
+        conversation: conversation,
+        actor: context[:user],
+        visibility_mode: "internal_public"
+      )
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained before publishing"
+  end
 end

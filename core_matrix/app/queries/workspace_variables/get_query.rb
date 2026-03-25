@@ -18,7 +18,6 @@ module WorkspaceVariables
     def relation
       CanonicalVariable.where(
         workspace: @workspace,
-        conversation: nil,
         scope: "workspace",
         current: true
       )

@@ -1,0 +1,89 @@
+require "test_helper"
+
+module CanonicalStores
+end
+
+class CanonicalStores::DeleteKeyTest < ActiveSupport::TestCase
+  test "writes a tombstone snapshot for an existing key" do
+    context = build_canonical_store_context!
+    CanonicalStores::Set.call(
+      conversation: context[:conversation],
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" }
+    )
+
+    assert_difference("CanonicalStoreSnapshot.count", +1) do
+      CanonicalStores::DeleteKey.call(conversation: context[:conversation], key: "tone")
+    end
+
+    assert_nil CanonicalStores::GetQuery.call(reference_owner: context[:conversation], key: "tone")
+    assert_equal "tombstone",
+      context[:conversation].reload.canonical_store_reference
+        .canonical_store_snapshot
+        .canonical_store_entries
+        .sole
+        .entry_kind
+  end
+
+  test "missing delete is a no-op" do
+    context = build_canonical_store_context!
+
+    assert_no_difference("CanonicalStoreSnapshot.count") do
+      CanonicalStores::DeleteKey.call(conversation: context[:conversation], key: "missing")
+    end
+  end
+
+  test "rechecks retained state after acquiring the conversation lock" do
+    context = build_canonical_store_context!
+    CanonicalStores::Set.call(
+      conversation: context[:conversation],
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" }
+    )
+    conversation = context[:conversation]
+    request_deletion_during_lock!(conversation)
+
+    assert_no_difference("CanonicalStoreSnapshot.count") do
+      error = assert_raises(ActiveRecord::RecordInvalid) do
+        CanonicalStores::DeleteKey.call(conversation: conversation, key: "tone")
+      end
+
+      assert_includes error.record.errors[:deletion_state], "must be retained for conversation-local writes"
+    end
+
+    assert_equal "direct",
+      CanonicalStores::GetQuery.call(reference_owner: conversation, key: "tone").typed_value_payload["value"]
+  end
+
+  private
+
+  def request_deletion_during_lock!(conversation)
+    injected = false
+
+    conversation.singleton_class.prepend(Module.new do
+      define_method(:lock!) do |*args, **kwargs|
+        unless injected
+          injected = true
+          pool = self.class.connection_pool
+          connection = pool.checkout
+
+          begin
+            deleted_at = Time.current
+
+            connection.execute(<<~SQL.squish)
+              UPDATE conversations
+              SET deletion_state = 'pending_delete',
+                  deleted_at = #{connection.quote(deleted_at)},
+                  updated_at = #{connection.quote(deleted_at)}
+              WHERE id = #{connection.quote(id)}
+            SQL
+          ensure
+            pool.checkin(connection)
+          end
+        end
+
+        super(*args, **kwargs)
+      end
+    end)
+  end
+end

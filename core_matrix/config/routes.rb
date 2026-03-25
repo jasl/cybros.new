@@ -18,12 +18,15 @@ Rails.application.routes.draw do
     resource :health, only: :show, controller: :health
     resource :capabilities, only: [:show, :create], controller: :capabilities
     resources :conversation_transcripts, only: :index
-    resources :conversation_variables, only: :index do
+    resources :conversation_variables, only: [] do
       collection do
-        get "get", action: :show_value
-        post "mget", action: :bulk_show
+        get "get"
+        post "mget"
+        get "exists"
+        get "list_keys"
         get "resolve"
-        post "write"
+        post "set"
+        post "delete"
         post "promote"
       end
     end

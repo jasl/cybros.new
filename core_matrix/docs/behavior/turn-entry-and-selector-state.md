@@ -86,6 +86,11 @@ selector state without implementing selector resolution or fallback yet.
   active turn and moves the turn's selected-input pointer.
 - Steering is limited to pre-output state in this task; if an output pointer is
   already selected, the in-place steering path is rejected.
+- user-turn entry, automation-turn entry, and queued follow-up all re-check the
+  conversation lifecycle and deletion state after acquiring the conversation
+  row lock
+- this prevents concurrent archive or deletion requests from opening new turn
+  work against a conversation that became non-active mid-flight
 
 ## Invariants
 
@@ -106,6 +111,9 @@ selector state without implementing selector resolution or fallback yet.
   rejected
 - ordinary user-turn entry into automation conversations is rejected
 - follow-up queueing without active work is rejected
+- archived conversations reject new user turns, automation turns, and queued
+  follow-up turns even if the archive transition wins a race after caller-side
+  prechecks
 
 ## Reference Sanity Check
 

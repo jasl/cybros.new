@@ -108,6 +108,29 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert_includes ready_with_stale_payload.errors[:wait_reason_payload], "must be empty when workflow run is ready"
   end
 
+  test "requires deletion cancellation fields to be paired" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Deletion input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    workflow_run = WorkflowRun.new(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: turn,
+      lifecycle_state: "active",
+      cancellation_reason_kind: "conversation_deleted"
+    )
+
+    assert workflow_run.invalid?
+    assert_includes workflow_run.errors[:cancellation_requested_at], "must exist when cancellation reason is present"
+  end
+
   test "delegates resolved model references to the turn snapshot" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])

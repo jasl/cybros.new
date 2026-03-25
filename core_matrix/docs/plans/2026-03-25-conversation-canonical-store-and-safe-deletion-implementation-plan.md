@@ -487,17 +487,28 @@ git commit -m "refactor: remove legacy conversation variable path"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/request_deletion.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/finalize_deletion.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/purge_deleted.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/cancel_active_work.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/quiesce_active_work.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/archive.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/unarchive.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/turns/start_user_turn.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/turns/start_automation_turn.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/turns/queue_follow_up.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/manual_resume.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/manual_retry.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_deployments/auto_resume_workflows.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/human_interactions/request.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/human_interactions/complete_task.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/human_interactions/submit_form.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/human_interactions/resolve_approval.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/publications/publish_live.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/publications/record_access.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/human_interactions/open_for_user_query.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/publications/live_projection_query.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/request_deletion_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/finalize_deletion_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/purge_deleted_test.rb`
+- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/archive_test.rb`
+- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/unarchive_test.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/conversation_safe_deletion_flow_test.rb`
 
 **Step 1: Write the failing deletion tests**
@@ -515,7 +526,7 @@ end
 
 **Step 2: Run the deletion tests**
 
-Run: `bin/rails test test/services/conversations/request_deletion_test.rb test/services/conversations/finalize_deletion_test.rb test/services/conversations/purge_deleted_test.rb test/integration/conversation_safe_deletion_flow_test.rb`
+Run: `bin/rails test test/services/conversations/request_deletion_test.rb test/services/conversations/finalize_deletion_test.rb test/services/conversations/purge_deleted_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/integration/conversation_safe_deletion_flow_test.rb`
 
 Expected: FAIL because the deletion services and guards do not exist.
 
@@ -526,13 +537,43 @@ Requirements:
 - `RequestDeletion` is idempotent
 - queued turns cancel immediately
 - active work receives a cancellation request and is not resumed
+- running process runs and subagent runs are stopped or canceled
+- active execution leases are force-released
+- live publications and open inbox-visible human interaction requests are hidden
+  immediately
 - human-interaction completion paths reject deleted or pending-delete conversations
+- human-interaction request creation rejects deleted or pending-delete conversations
 - `FinalizeDeletion` removes the canonical store reference only after work is quiescent
 - `PurgeDeleted` deletes the shell only when no dependency still requires it
+- `PurgeDeleted` rejects corrupted `deleted` states that still have active work
+  or a live canonical-store reference
+- `PurgeDeleted(force: true)` may quiesce corrupted deleted runtime work but
+  still requires prior finalization to have removed the live canonical-store
+  reference
+- deleting a parent conversation must not cancel active child turns or cascade
+  deletion into retained children
+- ancestor purge stays blocked while descendant lineage still requires the
+  tombstone shell
+- `Archive` requires a retained, active, quiescent conversation unless
+  `force: true` explicitly requests runtime quiescence first
+- `Unarchive` requires a retained, archived conversation
+- force archival uses `conversation_archived` cancellation or release reasons
+  across turns, workflows, human-interaction payloads, processes, and leases
+- archived conversations are excluded from open human-interaction inbox queries
+- archived conversations reject opening new human interactions and reject late
+  resolution of still-open requests
+- human-interaction open and resolution paths must re-check lifecycle state
+  from fresh locked conversation/workflow/request rows so stale objects cannot
+  create or resolve requests after archive/delete wins the race
+- `Conversation#active_turn_exists?(include_descendants: false)` provides the
+  UI-facing active-turn presence check without implicitly scanning descendants
+- `StartUserTurn`, `StartAutomationTurn`, and `QueueFollowUp` re-check
+  lifecycle and deletion state after acquiring the conversation row lock so
+  concurrent archive or delete transitions cannot create new turn work
 
 **Step 4: Re-run the deletion tests**
 
-Run: `bin/rails test test/services/conversations/request_deletion_test.rb test/services/conversations/finalize_deletion_test.rb test/services/conversations/purge_deleted_test.rb test/integration/conversation_safe_deletion_flow_test.rb`
+Run: `bin/rails test test/services/conversations/request_deletion_test.rb test/services/conversations/finalize_deletion_test.rb test/services/conversations/purge_deleted_test.rb test/services/conversations/archive_test.rb test/services/conversations/unarchive_test.rb test/integration/conversation_safe_deletion_flow_test.rb`
 
 Expected: PASS.
 
@@ -542,14 +583,21 @@ Expected: PASS.
 git add app/services/conversations/request_deletion.rb \
   app/services/conversations/finalize_deletion.rb \
   app/services/conversations/purge_deleted.rb \
-  app/services/conversations/cancel_active_work.rb \
+  app/services/conversations/quiesce_active_work.rb \
+  app/services/conversations/archive.rb \
+  app/services/conversations/unarchive.rb \
+  app/models/conversation.rb \
+  db/migrate/20260326100000_expand_conversation_archival_cancellation_reasons.rb \
   app/services/turns/start_user_turn.rb \
   app/services/turns/start_automation_turn.rb \
+  app/services/turns/queue_follow_up.rb \
   app/services/workflows/manual_resume.rb \
   app/services/agent_deployments/auto_resume_workflows.rb \
   app/services/human_interactions/complete_task.rb \
   app/services/human_interactions/submit_form.rb \
   app/services/human_interactions/resolve_approval.rb \
+  test/services/conversations/archive_test.rb \
+  test/services/conversations/unarchive_test.rb \
   test/services/conversations/request_deletion_test.rb \
   test/services/conversations/finalize_deletion_test.rb \
   test/services/conversations/purge_deleted_test.rb \
@@ -561,6 +609,7 @@ git commit -m "feat: add safe conversation deletion"
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/canonical_stores/garbage_collect.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/jobs/canonical_stores/garbage_collect_job.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/canonical_stores/garbage_collect_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/conversation_safe_deletion_flow_test.rb`
 
@@ -600,6 +649,7 @@ Expected: PASS.
 
 ```bash
 git add app/services/canonical_stores/garbage_collect.rb \
+  app/jobs/canonical_stores/garbage_collect_job.rb \
   test/services/canonical_stores/garbage_collect_test.rb \
   test/integration/conversation_safe_deletion_flow_test.rb
 git commit -m "feat: garbage collect canonical store snapshots"
@@ -609,16 +659,17 @@ git commit -m "feat: garbage collect canonical store snapshots"
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/agent_api/conversation_variables_controller.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/get_query.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/mget_query.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/list_query.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/get_query.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/mget_query.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/list_query.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/conversation_variables/resolve_query.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/variables/write.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/config/routes.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/conversation_variables_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/get_query_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/mget_query_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/list_query_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_runtime_resource_api_test.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/get_query_test.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/mget_query_test.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/list_query_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/queries/conversation_variables/resolve_query_test.rb`
 
 **Step 1: Audit the repository for obsolete conversation-scope runtime artifacts**
@@ -644,24 +695,19 @@ Requirements:
 
 **Step 3: Run the focused cleanup regression suite**
 
-Run: `bin/rails test test/requests/agent_api/conversation_variables_test.rb test/queries/conversation_variables/get_query_test.rb test/queries/conversation_variables/mget_query_test.rb test/queries/conversation_variables/list_query_test.rb test/queries/conversation_variables/resolve_query_test.rb`
+Run: `bin/rails test test/requests/agent_api/conversation_variables_test.rb test/integration/agent_runtime_resource_api_test.rb test/queries/conversation_variables/resolve_query_test.rb`
 
 Expected: PASS.
 
 **Step 4: Commit**
 
 ```bash
-git add app/controllers/agent_api/conversation_variables_controller.rb \
-  app/queries/conversation_variables/get_query.rb \
-  app/queries/conversation_variables/mget_query.rb \
-  app/queries/conversation_variables/list_query.rb \
-  app/queries/conversation_variables/resolve_query.rb \
+git add -A app/controllers/agent_api/conversation_variables_controller.rb \
+  app/queries/conversation_variables \
   app/services/variables/write.rb \
   config/routes.rb \
   test/requests/agent_api/conversation_variables_test.rb \
-  test/queries/conversation_variables/get_query_test.rb \
-  test/queries/conversation_variables/mget_query_test.rb \
-  test/queries/conversation_variables/list_query_test.rb \
+  test/integration/agent_runtime_resource_api_test.rb \
   test/queries/conversation_variables/resolve_query_test.rb
 git commit -m "refactor: remove obsolete conversation variable artifacts"
 ```
@@ -673,6 +719,7 @@ git commit -m "refactor: remove obsolete conversation variable artifacts"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/identifier-policy.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md`
 
@@ -713,6 +760,8 @@ bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
 bun run lint:js
+# If stale parallel test shards from earlier runs still exist, drop
+# `core_matrix_test_*` before the next command so Rails can recreate them.
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
 ```
@@ -732,6 +781,7 @@ git add docs/behavior/canonical-variable-history-and-promotion.md \
   docs/behavior/agent-runtime-resource-apis.md \
   docs/behavior/conversation-structure-and-lineage.md \
   docs/behavior/workflow-scheduler-and-wait-states.md \
+  docs/behavior/identifier-policy.md \
   docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-design.md \
   docs/plans/2026-03-25-conversation-canonical-store-and-safe-deletion-implementation-plan.md
 git commit -m "docs: align canonical store behavior and plans"

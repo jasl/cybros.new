@@ -38,6 +38,21 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_equal "candidate:openai/gpt-5.3-chat-latest", audit_log.metadata["temporary_selector_override"]
   end
 
+  test "rejects manual retry for pending delete conversations" do
+    context = build_paused_recovery_context!
+    context[:conversation].update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualRetry.call(
+        workflow_run: context[:workflow_run],
+        deployment: context[:agent_deployment],
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained before manual retry"
+  end
+
   private
 
   def build_paused_recovery_context!

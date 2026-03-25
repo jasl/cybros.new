@@ -2,126 +2,119 @@
 
 ## Purpose
 
-Task 09.2 adds the first deterministic scheduler layer on top of the durable
-workflow graph from Task 09.1.
+Core Matrix keeps one structured current wait state on `WorkflowRun` and now
+also defines how deletion interacts with waiting and active workflow work.
 
-This task does not execute node side effects. It only decides:
+## Workflow Wait State Shape
 
-- which workflow nodes are runnable
-- whether a workflow is currently blocked
-- how new human input is handled after the first transcript side-effect boundary
-- whether queued follow-up work is still valid against the predecessor turn tail
-
-## Workflow Run Wait State
-
-- `WorkflowRun` now persists a structured current wait state with:
+- `WorkflowRun` persists:
   - `wait_state`
   - `wait_reason_kind`
   - `wait_reason_payload`
   - `waiting_since_at`
   - `blocking_resource_type`
   - `blocking_resource_id`
-- Supported v1 wait states are:
+- supported wait states:
   - `ready`
   - `waiting`
-- Supported v1 wait reasons are:
+- supported wait reasons:
   - `human_interaction`
   - `agent_unavailable`
   - `manual_recovery_required`
   - `policy_gate`
-- `waiting` requires a reason kind and `waiting_since_at`.
-- `ready` must not retain stale wait reason, wait timestamp, blocking resource,
-  or reason payload fields.
-- `wait_reason_payload` is a structured hash describing the current blocking
-  condition only. It is not a historical pause ledger.
+- `waiting` requires a reason kind and `waiting_since_at`
+- `ready` must not retain stale wait fields or blocking-resource references
 
-## Runnable Node Selection
+## Scheduler Behavior
 
-- `Workflows::Scheduler.call` returns the workflow nodes that are currently
-  runnable and does not mutate workflow, node, or transcript state.
-- A workflow in `waiting` state produces no runnable nodes.
-- A node with no predecessors is runnable unless it is already listed as
-  satisfied.
-- A node with predecessors becomes runnable only when every predecessor node
-  key is present in the caller-supplied `satisfied_node_keys` set.
-- Fan-out therefore produces multiple runnable children once their common
-  predecessor is satisfied.
-- Barrier-style fan-in joins remain blocked until all required predecessor
-  branches are satisfied.
-
-## During-Generation Input Policy
-
-- `Workflows::Scheduler.apply_during_generation_policy` enforces the supported
-  v1 policies:
+- `Workflows::Scheduler.call` returns runnable workflow nodes and does not
+  mutate workflow state
+- workflows in `waiting` state expose no runnable nodes
+- `Workflows::Scheduler.apply_during_generation_policy` supports:
   - `reject`
   - `restart`
   - `queue`
-- `reject` raises `ActiveRecord::RecordInvalid` and leaves transcript state
-  unchanged.
-- `queue` cancels older queued follow-up turns in the same conversation, then
-  creates a fresh queued follow-up turn that carries:
-  - `during_generation_policy`
-  - `expected_tail_message_id`
-  - `queued_from_turn_id`
-- `restart` also replaces older queued follow-up work, but additionally moves
-  the current workflow run into `waiting` with `wait_reason_kind=policy_gate`
-  and a blocking-resource reference to the queued replacement turn.
+- queued follow-up turns record public-id based origin metadata:
+  - `expected_tail_message_id` uses the predecessor output message `public_id`
+  - `queued_from_turn_id` uses the predecessor turn `public_id`
+- queued follow-up turns are guarded by predecessor-tail drift checks before
+  execution
 
-## Expected-Tail Guard
+## Recovery Behavior
 
-- Queued follow-up turns are guarded against predecessor-tail drift before
-  execution.
-- The guard compares the queued turn's `expected_tail_message_id` against the
-  selected output of the immediately preceding turn in sequence order.
-- If that predecessor output no longer matches, the queued turn is canceled
-  instead of silently running against stale transcript state.
-- The guard therefore keys off the predecessor turn output, not the
-  conversation's last transcript row, because the queued turn's own selected
-  input message already extends the visible tail.
+- `AgentDeployments::MarkUnavailable` moves active workflows into a waiting
+  state when the pinned deployment becomes unavailable
+- `AgentDeployments::AutoResumeWorkflows` only resumes waiting
+  `agent_unavailable` workflows while the owning conversation remains retained
+- `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
+  boundaries for paused workflows and are rejected once deletion has been
+  requested
 
-## Steer Current Input
+## Archive Interaction
 
-- `Turns::SteerCurrentInput` still rewrites the current selected input in place
-  before the first transcript side-effect boundary.
-- After the boundary, it delegates to workflow scheduler policy handling rather
-  than mutating already-sent work in place.
-- Side-effect boundary detection now reads the current workflow-node scope from
-  the database instead of trusting a possibly cached `workflow_run.workflow_nodes`
-  association.
-- The boundary may therefore be detected either by:
-  - an already selected output message
-  - a persisted workflow node metadata marker such as
-    `transcript_side_effect_committed`
+- archive without force is only allowed once the conversation has no unfinished
+  runtime work
+- `Conversations::Archive(force: true)` quiesces the conversation's own queued
+  turns, active turns, active workflow runs, open human interactions, running
+  processes, running subagents, and active leases before transitioning to
+  `archived`
+- force archival uses `conversation_archived` as the cancellation or release
+  reason across turns, workflows, human-interaction payloads, process stop
+  metadata, and lease release reasons
+- once archived, the conversation no longer accepts new turn entry or queued
+  follow-up work
+
+## Safe Deletion Interaction
+
+- `Conversations::RequestDeletion` cancels queued turns immediately
+- open human interaction requests on the conversation are canceled
+- running process runs are stopped with reason `conversation_deleted`
+- running subagent runs are marked canceled
+- active execution leases are force-released with reason `conversation_deleted`
+- active workflow runs are marked with:
+  - `cancellation_requested_at`
+  - `cancellation_reason_kind = "conversation_deleted"`
+- once runtime work has been quiesced, active workflow runs and turns are moved
+  to `canceled`
+- `Conversations::FinalizeDeletion` rejects finalization while active turns,
+  active workflows, open human interactions, running processes,
+  running subagents, or active leases still remain
+- `Conversations::PurgeDeleted(force: true)` may quiesce corrupted deleted
+  runtime work with `conversation_deleted` reasons before retrying purge, but it
+  still requires final deletion to have removed the live canonical-store
+  reference first
+
+## Human Interaction Interaction
+
+- blocking human interaction requests still move workflows to
+  `wait_state = "waiting"`
+- human-interaction conversation-event payloads use the request `public_id`
+  rather than the internal row id
+- normal resolution paths resume the workflow to `ready`
+- open-for-user inbox queries return only requests that still belong to
+  `retained + active` conversations
+- open and resolve paths re-check conversation lifecycle state under lock
+  before mutating the request or workflow wait state
+- once a conversation is no longer retained or no longer active:
+  - opening a new human interaction is rejected
+  - late completion, form submission, and approval resolution are rejected
+  - deletion-driven cancellation projects `human_interaction.canceled`
+    conversation events
 
 ## Invariants
 
 - scheduler selection remains side-effect free
-- blocked workflows do not surface runnable nodes
-- queue and restart replace older queued follow-up work with the newest input
-- restart records current blocking state on the active workflow instead of
-  inventing a second pause store
-- queued work fails safe when predecessor tail state drifts
+- waiting workflows do not surface runnable nodes
+- restart and queue policies replace older queued follow-up work with the newest
+  input
+- deletion uses the existing workflow wait/cancel state rather than inventing
+  a second pause store
 
 ## Failure Modes
 
-- unsupported during-generation policy values are rejected
-- `reject` policy refuses new input without mutating transcript state
-- `restart` policy requires a workflow run so the blocking state can be
-  recorded
+- unsupported during-generation policies are rejected
+- `restart` requires a workflow run so the blocking state can be recorded
 - queued follow-up work is canceled when predecessor output drift invalidates
   the expected-tail guard
-- stale workflow-node association caches must not hide freshly persisted
-  side-effect boundary markers
-
-## Rails And Reference Findings
-
-- Local Rails enum source confirmed that `validate: { allow_nil: true }` is the
-  correct way to keep `wait_reason_kind` optional while the workflow is `ready`
-  but still validated when present.
-- Local Rails migration guides confirmed the additive `add_column` pattern used
-  to extend `workflow_runs` after Task 09.1 rather than rewriting the earlier
-  migration.
-- A narrow Dify sanity check showed Dify models pauses as dedicated pause
-  entities plus runtime-state snapshots. Core Matrix intentionally keeps a
-  single structured current wait state on `WorkflowRun` and leaves historical
-  pause transitions to later event-stream tasks, matching the local design.
+- manual recovery actions are rejected for non-retained conversations
+- final deletion is rejected while unfinished runtime work remains

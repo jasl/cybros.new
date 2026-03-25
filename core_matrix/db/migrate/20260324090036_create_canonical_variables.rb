@@ -3,8 +3,7 @@ class CreateCanonicalVariables < ActiveRecord::Migration[8.2]
     create_table :canonical_variables do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :workspace, null: false, foreign_key: true
-      t.references :conversation, foreign_key: true
-      t.string :scope, null: false
+      t.string :scope, null: false, default: "workspace"
       t.string :key, null: false
       t.jsonb :typed_value_payload, null: false, default: {}
       t.string :writer_type
@@ -27,10 +26,8 @@ class CreateCanonicalVariables < ActiveRecord::Migration[8.2]
       unique: true,
       where: "scope = 'workspace' AND current = true",
       name: "idx_canonical_variables_workspace_current"
-    add_index :canonical_variables,
-      [:conversation_id, :key],
-      unique: true,
-      where: "scope = 'conversation' AND current = true",
-      name: "idx_canonical_variables_conversation_current"
+    add_check_constraint :canonical_variables,
+      "(scope = 'workspace')",
+      name: "chk_canonical_variables_workspace_scope_only"
   end
 end

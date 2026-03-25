@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_26_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -119,14 +119,74 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["subject_type", "subject_id"], name: "index_audit_logs_on_subject"
   end
 
+  create_table "canonical_store_entries", force: :cascade do |t|
+    t.bigint "canonical_store_snapshot_id", null: false
+    t.bigint "canonical_store_value_id"
+    t.datetime "created_at", null: false
+    t.string "entry_kind", null: false
+    t.string "key", null: false
+    t.datetime "updated_at", null: false
+    t.integer "value_bytesize"
+    t.string "value_type"
+    t.index ["canonical_store_snapshot_id", "key"], name: "idx_canonical_store_entries_snapshot_key", unique: true
+    t.index ["canonical_store_snapshot_id"], name: "index_canonical_store_entries_on_canonical_store_snapshot_id"
+    t.index ["canonical_store_value_id"], name: "index_canonical_store_entries_on_canonical_store_value_id"
+    t.check_constraint "entry_kind::text = 'set'::text AND canonical_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND canonical_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_canonical_store_entries_value_shape"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_canonical_store_entries_kind"
+    t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_canonical_store_entries_key_bytes"
+  end
+
+  create_table "canonical_store_references", force: :cascade do |t|
+    t.bigint "canonical_store_snapshot_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "owner_id", null: false
+    t.string "owner_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["canonical_store_snapshot_id"], name: "idx_on_canonical_store_snapshot_id_6638a81780"
+    t.index ["owner_type", "owner_id"], name: "idx_canonical_store_references_owner", unique: true
+  end
+
+  create_table "canonical_store_snapshots", force: :cascade do |t|
+    t.bigint "base_snapshot_id"
+    t.bigint "canonical_store_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "depth", null: false
+    t.string "snapshot_kind", null: false
+    t.datetime "updated_at", null: false
+    t.index ["base_snapshot_id"], name: "index_canonical_store_snapshots_on_base_snapshot_id"
+    t.index ["canonical_store_id"], name: "index_canonical_store_snapshots_on_canonical_store_id"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_canonical_store_snapshots_kind"
+  end
+
+  create_table "canonical_store_values", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "payload_bytesize", null: false
+    t.string "payload_sha256", null: false
+    t.jsonb "typed_value_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["payload_sha256"], name: "index_canonical_store_values_on_payload_sha256"
+    t.check_constraint "payload_bytesize >= 0 AND payload_bytesize <= 2097152", name: "chk_canonical_store_values_payload_bytesize"
+  end
+
+  create_table "canonical_stores", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "root_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["installation_id"], name: "index_canonical_stores_on_installation_id"
+    t.index ["root_conversation_id"], name: "index_canonical_stores_on_root_conversation_id", unique: true
+    t.index ["workspace_id"], name: "index_canonical_stores_on_workspace_id"
+  end
+
   create_table "canonical_variables", force: :cascade do |t|
-    t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.boolean "current", default: true, null: false
     t.bigint "installation_id", null: false
     t.string "key", null: false
     t.string "projection_policy", default: "silent", null: false
-    t.string "scope", null: false
+    t.string "scope", default: "workspace", null: false
     t.bigint "source_conversation_id"
     t.string "source_kind", null: false
     t.bigint "source_turn_id"
@@ -138,8 +198,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.bigint "workspace_id", null: false
     t.bigint "writer_id"
     t.string "writer_type"
-    t.index ["conversation_id", "key"], name: "idx_canonical_variables_conversation_current", unique: true, where: "(((scope)::text = 'conversation'::text) AND (current = true))"
-    t.index ["conversation_id"], name: "index_canonical_variables_on_conversation_id"
     t.index ["installation_id"], name: "index_canonical_variables_on_installation_id"
     t.index ["source_conversation_id"], name: "index_canonical_variables_on_source_conversation_id"
     t.index ["source_turn_id"], name: "index_canonical_variables_on_source_turn_id"
@@ -148,6 +206,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["workspace_id", "key"], name: "idx_canonical_variables_workspace_current", unique: true, where: "(((scope)::text = 'workspace'::text) AND (current = true))"
     t.index ["workspace_id"], name: "index_canonical_variables_on_workspace_id"
     t.index ["writer_type", "writer_id"], name: "idx_canonical_variables_writer"
+    t.check_constraint "scope::text = 'workspace'::text", name: "chk_canonical_variables_workspace_scope_only"
   end
 
   create_table "capability_snapshots", force: :cascade do |t|
@@ -247,6 +306,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
 
   create_table "conversations", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
+    t.string "deletion_state", default: "retained", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
     t.string "interactive_selector_mode", default: "auto", null: false
@@ -268,6 +329,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -584,6 +647,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
 
   create_table "turns", force: :cascade do |t|
     t.bigint "agent_deployment_id", null: false
+    t.string "cancellation_reason_kind"
+    t.datetime "cancellation_requested_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.string "external_event_key"
@@ -609,6 +674,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["public_id"], name: "index_turns_on_public_id", unique: true
     t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
     t.index ["selected_output_message_id"], name: "index_turns_on_selected_output_message_id"
+    t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_turns_cancellation_pairing"
+    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying, 'conversation_archived'::character varying]::text[]))", name: "chk_turns_cancellation_reason_kind"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -774,6 +841,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
   create_table "workflow_runs", force: :cascade do |t|
     t.string "blocking_resource_id"
     t.string "blocking_resource_type"
+    t.string "cancellation_reason_kind"
+    t.datetime "cancellation_requested_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
@@ -790,6 +859,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"
     t.index ["public_id"], name: "index_workflow_runs_on_public_id", unique: true
     t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
+    t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
+    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying, 'conversation_archived'::character varying]::text[]))", name: "chk_workflow_runs_cancellation_reason_kind"
   end
 
   create_table "workspaces", force: :cascade do |t|
@@ -821,8 +892,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
   add_foreign_key "agent_installations", "installations"
   add_foreign_key "agent_installations", "users", column: "owner_user_id"
   add_foreign_key "audit_logs", "installations"
+  add_foreign_key "canonical_store_entries", "canonical_store_snapshots"
+  add_foreign_key "canonical_store_entries", "canonical_store_values"
+  add_foreign_key "canonical_store_references", "canonical_store_snapshots"
+  add_foreign_key "canonical_store_snapshots", "canonical_store_snapshots", column: "base_snapshot_id"
+  add_foreign_key "canonical_store_snapshots", "canonical_stores"
+  add_foreign_key "canonical_stores", "conversations", column: "root_conversation_id"
+  add_foreign_key "canonical_stores", "installations"
+  add_foreign_key "canonical_stores", "workspaces"
   add_foreign_key "canonical_variables", "canonical_variables", column: "superseded_by_id"
-  add_foreign_key "canonical_variables", "conversations"
   add_foreign_key "canonical_variables", "conversations", column: "source_conversation_id"
   add_foreign_key "canonical_variables", "installations"
   add_foreign_key "canonical_variables", "turns", column: "source_turn_id"

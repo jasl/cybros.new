@@ -41,6 +41,7 @@ module Publications
 
     def validate_publication_access!(publication)
       raise_invalid!(publication, :visibility_mode, "must be published for read-only access") unless publication.active?
+      raise_invalid!(publication, :conversation, "must be retained for read-only access") unless publication.conversation.retained?
 
       if publication.internal_public?
         raise_invalid!(publication, :viewer_user, "must exist for internal public access") if @viewer_user.blank?

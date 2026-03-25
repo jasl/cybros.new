@@ -21,6 +21,13 @@ class Conversation < ApplicationRecord
       archived: "archived",
     },
     validate: true
+  enum :deletion_state,
+    {
+      retained: "retained",
+      pending_delete: "pending_delete",
+      deleted: "deleted",
+    },
+    validate: true
   enum :interactive_selector_mode,
     {
       auto: "auto",
@@ -38,9 +45,14 @@ class Conversation < ApplicationRecord
   has_many :conversation_message_visibilities, dependent: :restrict_with_exception
   has_many :conversation_summary_segments, dependent: :restrict_with_exception
   has_many :conversation_events, dependent: :restrict_with_exception
-  has_many :canonical_variables, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :workflow_runs, dependent: :restrict_with_exception
+  has_one :publication, dependent: :restrict_with_exception
+  has_one :canonical_store_reference, as: :owner, dependent: :restrict_with_exception
+  has_one :root_canonical_store,
+    class_name: "CanonicalStore",
+    foreign_key: :root_conversation_id,
+    dependent: :restrict_with_exception
   has_many :child_conversations,
     class_name: "Conversation",
     foreign_key: :parent_conversation_id,
@@ -64,6 +76,7 @@ class Conversation < ApplicationRecord
   validate :override_payload_must_be_hash
   validate :override_reconciliation_report_must_be_hash
   validate :interactive_selector_rules
+  validate :deleted_at_consistency
 
   def transcript_projection_includes?(message)
     base_transcript_projection_messages.any? { |candidate| candidate.id == message.id }
@@ -88,6 +101,19 @@ class Conversation < ApplicationRecord
 
   def context_projection_attachments
     context_projection_messages.flat_map { |message| message.message_attachments.order(:id).to_a }
+  end
+
+  def deleting?
+    pending_delete? || deleted?
+  end
+
+  def active_turn_exists?(include_descendants: false)
+    return turns.where(lifecycle_state: "active").exists? unless include_descendants
+
+    Turn.where(
+      conversation_id: descendant_closures.select(:descendant_conversation_id),
+      lifecycle_state: "active"
+    ).exists?
   end
 
   private
@@ -227,5 +253,14 @@ class Conversation < ApplicationRecord
     )
   rescue KeyError
     errors.add(:interactive_selector_model_ref, "must exist in the provider catalog")
+  end
+
+  def deleted_at_consistency
+    if retained?
+      errors.add(:deleted_at, "must be blank while conversation is retained") if deleted_at.present?
+      return
+    end
+
+    errors.add(:deleted_at, "must exist once deletion is requested") if deleted_at.blank?
   end
 end

@@ -93,6 +93,27 @@ class TurnTest < ActiveSupport::TestCase
     assert terminal.terminal?
   end
 
+  test "requires cancellation reason and timestamp to be paired" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turn.new(
+      installation: context[:installation],
+      conversation: conversation,
+      agent_deployment: context[:agent_deployment],
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {},
+      cancellation_reason_kind: "conversation_deleted"
+    )
+
+    assert turn.invalid?
+    assert_includes turn.errors[:cancellation_requested_at], "must exist when cancellation reason is present"
+  end
+
   test "exposes resolved model selection snapshot helpers" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])

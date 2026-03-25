@@ -18,6 +18,12 @@ class Turn < ApplicationRecord
       system_internal: "system_internal",
     },
     validate: true
+  enum :cancellation_reason_kind,
+    {
+      conversation_deleted: "conversation_deleted",
+      conversation_archived: "conversation_archived",
+    },
+    validate: { allow_nil: true }
 
   belongs_to :installation
   belongs_to :conversation
@@ -39,6 +45,7 @@ class Turn < ApplicationRecord
   validate :agent_deployment_installation_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
+  validate :cancellation_request_pairing
 
   def terminal?
     completed? || failed? || canceled?
@@ -167,5 +174,15 @@ class Turn < ApplicationRecord
 
     errors.add(:selected_output_message, "must belong to the same turn") unless selected_output_message.turn_id == id
     errors.add(:selected_output_message, "must be an output message") unless selected_output_message.output?
+  end
+
+  def cancellation_request_pairing
+    if cancellation_reason_kind.present? && cancellation_requested_at.blank?
+      errors.add(:cancellation_requested_at, "must exist when cancellation reason is present")
+    end
+
+    if cancellation_reason_kind.blank? && cancellation_requested_at.present?
+      errors.add(:cancellation_reason_kind, "must exist when cancellation has been requested")
+    end
   end
 end

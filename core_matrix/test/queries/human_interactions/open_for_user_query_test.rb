@@ -47,6 +47,23 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
     assert_not_includes result, other_users_request
   end
 
+  test "excludes archived conversations even if an open request still exists" do
+    installation = create_installation!
+    user = create_user!(installation: installation, display_name: "Inbox Owner")
+    context = build_request_context(installation: installation, user: user)
+    request = HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:interactive][:workflow_node],
+      blocking: false,
+      request_payload: { "instructions" => "Optional archived follow-up" }
+    )
+    context[:interactive][:conversation].update!(lifecycle_state: "archived")
+
+    result = HumanInteractions::OpenForUserQuery.call(user: user)
+
+    assert_not_includes result, request
+  end
+
   private
 
   def build_request_context(installation:, user:)

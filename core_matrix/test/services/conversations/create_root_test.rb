@@ -11,8 +11,10 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert conversation.root?
     assert conversation.interactive?
     assert conversation.active?
+    assert conversation.retained?
     assert_nil conversation.parent_conversation
     assert_nil conversation.historical_anchor_message_id
+    assert_equal "root", conversation.canonical_store_reference.canonical_store_snapshot.snapshot_kind
     assert_equal [[conversation.id, conversation.id, 0]],
       ConversationClosure.where(descendant_conversation: conversation)
         .pluck(:ancestor_conversation_id, :descendant_conversation_id, :depth)

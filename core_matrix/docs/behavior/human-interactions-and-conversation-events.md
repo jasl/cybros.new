@@ -64,6 +64,9 @@ resources. It establishes:
   still the active blocking resource.
 - Expired open requests time out in place and also clear the same blocking wait
   state instead of silently staying open forever.
+- Human-interaction open and resolve paths lock the owning conversation and
+  workflow context before they re-check lifecycle state, so archive/delete
+  transitions cannot slip in a stale open or stale late-resolution write.
 
 ## Conversation Events
 
@@ -114,7 +117,8 @@ resources. It establishes:
 - open requests reject premature `resolution_kind`, `resolved_at`, or
   non-empty `result_payload`
 - form submission rejects missing required fields before request resolution
-- repeated approval resolution rejects non-open requests
+- repeated resolution from a stale request object still rejects non-open
+  requests after the fresh locked re-check
 - conversation events reject duplicate `projection_sequence` values inside one
   conversation
 - `stream_revision` must be paired with `stream_key`; neither field is treated

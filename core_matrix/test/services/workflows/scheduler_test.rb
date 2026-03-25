@@ -78,13 +78,15 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
 
     assert restart_turn.queued?
     assert_equal "restart", restart_turn.origin_payload["during_generation_policy"]
-    assert_equal output.id.to_s, restart_turn.origin_payload["expected_tail_message_id"]
+    assert_equal output.public_id, restart_turn.origin_payload["expected_tail_message_id"]
+    assert_equal turn.public_id, restart_turn.origin_payload["queued_from_turn_id"]
     assert stale_queued.reload.canceled?
     assert workflow_run.reload.waiting?
     assert_equal "policy_gate", workflow_run.wait_reason_kind
     assert_equal "restart", workflow_run.wait_reason_payload["policy_mode"]
+    assert_equal restart_turn.public_id, workflow_run.wait_reason_payload["queued_turn_id"]
     assert_equal "Turn", workflow_run.blocking_resource_type
-    assert_equal restart_turn.id.to_s, workflow_run.blocking_resource_id
+    assert_equal restart_turn.public_id, workflow_run.blocking_resource_id
     assert_not_nil workflow_run.waiting_since_at
   end
 

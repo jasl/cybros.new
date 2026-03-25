@@ -2,121 +2,103 @@
 
 ## Purpose
 
-Task 10.3 adds the kernel-owned durable canonical-variable store.
+Core Matrix now splits durable variable behavior into two explicit layers:
 
-This task does not expose machine-facing variable APIs or publication read
-models yet. It establishes:
+- `CanonicalVariable` stores workspace-scoped durable history only
+- conversation-local agent state lives in the snapshot-backed canonical store
 
-- durable canonical history rows
-- explicit `workspace` and `conversation` scope boundaries
-- supersession without history deletion
-- explicit promotion from conversation scope to workspace scope
+This document defines the landed boundary after the destructive refactor that
+removed conversation-scoped `CanonicalVariable` rows entirely.
 
-## Canonical Variable Shape
+## Workspace Canonical Variable Shape
 
-- `CanonicalVariable` is a durable history record, not an in-place mutable
+- `CanonicalVariable` is an append-only durable history record, not a mutable
   cache row.
-- Each row stores at least:
-  - scope
-  - key
+- Every row belongs to one installation and one workspace.
+- Every row stores:
+  - `scope`
+  - `key`
   - `typed_value_payload`
-  - writer identity when present
-  - source kind
-  - source conversation, turn, and workflow run references when present
-  - projection policy
-  - created and superseded timestamps
-- v1 only allows two scopes:
+  - optional writer identity
+  - `source_kind`
+  - optional source conversation, turn, and workflow run references
+  - `projection_policy`
+  - `current`
+  - supersession metadata
+- The landed implementation allows exactly one scope:
   - `workspace`
-  - `conversation`
 
-## Scope Rules
+## History And Supersession
 
-- Every canonical variable belongs to one installation and one workspace.
-- `workspace` scope must not carry a target `conversation_id`.
-- `conversation` scope must carry a target `conversation_id`.
-- Conversation-scoped values must belong to the same workspace as the canonical
-  variable row.
-- The model keeps scope legality explicit; v1 does not introduce any extra
-  per-user or per-agent scope.
-
-## Current Value And History
-
-- `current = true` marks the current accepted value for one scope and key.
-- A later accepted write supersedes the older current row instead of mutating
-  or deleting it.
+- `current = true` marks the active workspace value for one key.
+- A later accepted write supersedes the previous current row instead of
+  mutating or deleting it.
 - Superseded rows retain:
   - `current = false`
   - `superseded_at`
   - `superseded_by_id`
-- Partial unique indexes enforce that only one current row may exist for:
-  - one workspace-scope key inside one workspace
-  - one conversation-scope key inside one conversation
-- The write service handles supersession ordering explicitly so uniqueness and
-  retained history remain consistent in the same transaction.
+- A partial unique index enforces one current workspace value per
+  `workspace_id + key`.
+- `Variables::Write` owns the supersession transaction ordering so history and
+  uniqueness remain consistent in the same write.
+
+## Conversation-Local State Boundary
+
+- Conversation-local variables are no longer stored in `canonical_variables`.
+- They now live in the canonical store tables:
+  - `canonical_stores`
+  - `canonical_store_snapshots`
+  - `canonical_store_entries`
+  - `canonical_store_values`
+  - `canonical_store_references`
+- Conversation-local writes and deletes create immutable snapshot deltas.
+- Conversation-local reads resolve through the active
+  `CanonicalStoreReference`.
+- The conversation-local store is internal storage. Store rows, snapshot ids,
+  and value row ids never cross agent-facing boundaries.
 
 ## Effective Lookup
 
-- `CanonicalVariable.effective_for` implements the v1 precedence rule:
-  `conversation > workspace`.
-- If a current conversation-scoped row exists for the requested key, it wins.
-- Otherwise the current workspace-scoped row for that key becomes the effective
-  value.
-- This read helper is still model-local infrastructure, not the later
-  machine-facing resolve API.
+- `WorkspaceVariables::*` queries read current workspace-scoped
+  `CanonicalVariable` rows only.
+- `ConversationVariables::ResolveQuery` returns the effective merged view:
+  conversation-local canonical store values override workspace canonical
+  variables by key.
+- `CanonicalVariable.effective_for` is now workspace-only infrastructure and no
+  longer implements `conversation > workspace` lookup itself.
 
-## Write And Promotion Services
+## Write And Promotion Boundaries
 
-- `Variables::Write` is the kernel-owned write boundary.
-- Callers provide:
-  - target scope
-  - workspace and optional conversation target
-  - key
-  - typed value payload
-  - writer identity when present
-  - source metadata
-  - projection policy
-- The service finds the existing current value for the same scope and key,
-  supersedes it, and creates a new current row in one transaction.
-- `Variables::PromoteToWorkspace` is the explicit promotion boundary.
-- Promotion requires a current conversation-scoped canonical value.
-- Promotion writes a new workspace-scoped canonical row with:
+- `Variables::Write` accepts workspace scope only.
+- Passing `scope = "conversation"` now raises `ActiveRecord::RecordInvalid`.
+- `Variables::PromoteToWorkspace` reads the current conversation-local value
+  from the canonical store, then writes a new workspace-scoped
+  `CanonicalVariable` row.
+- Promotion preserves workspace history by superseding the prior current
+  workspace value rather than editing it in place.
+- Promotion carries forward:
   - the same key
   - the same typed value payload
-  - `source_kind = promotion`
-  - the source conversation carried forward
-- Promotion supersedes any prior current workspace-scoped value without
-  deleting its history.
-- Promotion does not delete or rewrite the originating conversation-scoped
-  current value.
+  - `source_kind = "promotion"`
+  - the source conversation reference
+- Promotion does not delete or mutate the originating conversation-local store
+  entry.
 
-## Projection Policy
+## Deletion Interaction
 
-- Task 10.3 persists `projection_policy` on canonical writes, but does not yet
-  expose read models or guaranteed conversation projection for every variable
-  mutation.
-- This keeps the write contract aligned with the design without prematurely
-  deciding which canonical-variable changes must always become
-  `ConversationEvent` rows.
+- Workspace canonical-variable history survives conversation deletion.
+- `source_conversation_id` remains an optional durable provenance reference.
+- Because of that provenance FK, a deleted conversation may need to remain as a
+  tombstone shell until no workspace canonical-variable history still points at
+  it.
+- Promotion is rejected once a conversation is no longer retained.
 
 ## Failure Modes
 
 - unsupported scope values are rejected
-- workspace-scope rows reject target conversations
-- conversation-scope rows reject missing target conversations
 - non-hash typed payloads are rejected
 - broken writer polymorphic pairings are rejected
 - superseded rows reject missing `superseded_at` or `superseded_by`
-- promotion rejects non-conversation or non-current source rows
-
-## Rails And Reference Findings
-
-- Local Rails validation guidance again fit this task's service-owned write
-  pattern: legality checks stay on the model, while multi-row supersession
-  sequencing lives in `Variables::Write`.
-- A narrow Dify sanity check showed Dify keeps conversation variables in a
-  distinct variable namespace instead of collapsing all variable spaces into one
-  undifferentiated key store. Core Matrix keeps the stronger kernel contract of
-  explicit scope values plus auditable supersession history and explicit
-  promotion between scopes.
-- No reference implementation was treated as authoritative for this task; the
-  landed contract is defined by the local design and tests.
+- workspace writes reject conversation-target arguments
+- promotion rejects missing conversation-local store values
+- promotion rejects `pending_delete` or `deleted` conversations

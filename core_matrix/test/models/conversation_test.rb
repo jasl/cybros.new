@@ -73,6 +73,27 @@ class ConversationTest < ActiveSupport::TestCase
     assert_includes automation_branch.errors[:kind], "must be root for automation conversations"
   end
 
+  test "supports deletion states and deletion timestamps" do
+    context = create_workspace_context!
+
+    pending_delete = Conversation.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      kind: "root",
+      purpose: "interactive",
+      lifecycle_state: "active",
+      deletion_state: "pending_delete",
+      deleted_at: Time.current
+    )
+    deleted_without_timestamp = pending_delete.dup
+    deleted_without_timestamp.deletion_state = "deleted"
+    deleted_without_timestamp.deleted_at = nil
+
+    assert pending_delete.valid?
+    assert deleted_without_timestamp.invalid?
+    assert_includes deleted_without_timestamp.errors[:deleted_at], "must exist once deletion is requested"
+  end
+
   test "requires child conversations to stay in the parent workspace" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(workspace: context[:workspace])
@@ -121,6 +142,24 @@ class ConversationTest < ActiveSupport::TestCase
     end
 
     assert_operator queries.size, :<=, 2
+  end
+
+  test "detects active turns locally and across descendants when requested" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    child = Conversations::CreateThread.call(parent: root)
+
+    Turns::StartUserTurn.call(
+      conversation: child,
+      content: "Child still running",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_not root.active_turn_exists?
+    assert root.active_turn_exists?(include_descendants: true)
+    assert child.active_turn_exists?
   end
 
   private

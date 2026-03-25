@@ -19,14 +19,16 @@ module Variables
     end
 
     def call
+      reject_unsupported_scope!
+      reject_conversation_target!
+
       ApplicationRecord.transaction do
         current_variable = current_scope_relation.lock.first
         prepare_supersession!(current_variable) if current_variable.present?
         variable = CanonicalVariable.create!(
           installation: @workspace.installation,
           workspace: @workspace,
-          conversation: scoped_conversation,
-          scope: @scope,
+          scope: "workspace",
           key: @key,
           typed_value_payload: @typed_value_payload,
           writer: @writer,
@@ -45,20 +47,13 @@ module Variables
 
     private
 
-    def scoped_conversation
-      @scope == "conversation" ? @conversation : nil
-    end
-
     def current_scope_relation
-      relation = CanonicalVariable.where(
+      CanonicalVariable.where(
         workspace: @workspace,
-        scope: @scope,
+        scope: "workspace",
         key: @key,
         current: true
       )
-      return relation.where(conversation: @conversation) if @scope == "conversation"
-
-      relation.where(conversation: nil)
     end
 
     def prepare_supersession!(current_variable)
@@ -74,6 +69,22 @@ module Variables
         superseded_by_id: replacement.id,
         updated_at: Time.current
       )
+    end
+
+    def reject_unsupported_scope!
+      return if @scope == "workspace"
+
+      record = CanonicalVariable.new(scope: @scope)
+      record.errors.add(:scope, "must be workspace")
+      raise ActiveRecord::RecordInvalid, record
+    end
+
+    def reject_conversation_target!
+      return if @conversation.blank?
+
+      record = CanonicalVariable.new(scope: "workspace")
+      record.errors.add(:conversation, "must be blank for workspace scope")
+      raise ActiveRecord::RecordInvalid, record
     end
   end
 end

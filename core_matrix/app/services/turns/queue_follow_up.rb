@@ -1,5 +1,7 @@
 module Turns
   class QueueFollowUp
+    include Conversations::RetentionGuard
+
     def self.call(...)
       new(...).call
     end
@@ -13,10 +15,11 @@ module Turns
     end
 
     def call
-      raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
-      raise_invalid!(@conversation, :lifecycle_state, "must be active for user turn entry") unless @conversation.active?
-
       @conversation.with_lock do
+        raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
+        raise_invalid!(@conversation, :lifecycle_state, "must be active for user turn entry") unless @conversation.active?
+        ensure_conversation_retained!(@conversation, message: "must be retained for follow up turn entry")
+
         unless @conversation.turns.where(lifecycle_state: %w[queued active]).exists?
           raise_invalid!(@conversation, :base, "must have active work before queueing follow up")
         end

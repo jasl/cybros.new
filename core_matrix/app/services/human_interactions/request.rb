@@ -1,5 +1,8 @@
 module HumanInteractions
   class Request
+    include Conversations::RetentionGuard
+    include HumanInteractions::LockedContext
+
     REQUEST_TYPES = {
       "ApprovalRequest" => ApprovalRequest,
       "HumanFormRequest" => HumanFormRequest,
@@ -22,15 +25,16 @@ module HumanInteractions
       klass = REQUEST_TYPES[@request_type]
       raise_invalid_type! if klass.blank?
 
-      ApplicationRecord.transaction do
-        workflow_run = @workflow_node.workflow_run
+      with_locked_workflow_context(@workflow_node.id) do |workflow_node, workflow_run, conversation|
+        ensure_conversation_retained!(conversation, message: "must be retained before opening human interaction")
+        raise_invalid!(conversation, :lifecycle_state, "must be active before opening human interaction") unless conversation.active?
         raise_invalid!(workflow_run, :wait_state, "must be ready before opening another blocking human interaction") if @blocking && workflow_run.waiting?
 
         request = klass.create!(
-          installation: @workflow_node.installation,
+          installation: workflow_node.installation,
           workflow_run: workflow_run,
-          workflow_node: @workflow_node,
-          conversation: workflow_run.conversation,
+          workflow_node: workflow_node,
+          conversation: conversation,
           turn: workflow_run.turn,
           lifecycle_state: "open",
           blocking: @blocking,
@@ -58,12 +62,12 @@ module HumanInteractions
         wait_state: "waiting",
         wait_reason_kind: "human_interaction",
         wait_reason_payload: {
-          "request_id" => request.id,
+          "request_id" => request.public_id,
           "request_type" => request.type,
         },
         waiting_since_at: Time.current,
         blocking_resource_type: "HumanInteractionRequest",
-        blocking_resource_id: request.id.to_s
+        blocking_resource_id: request.public_id
       )
     end
 
@@ -80,7 +84,7 @@ module HumanInteractions
 
     def event_payload(request)
       {
-        "request_id" => request.id,
+        "request_id" => request.public_id,
         "request_type" => request.type,
         "lifecycle_state" => request.lifecycle_state,
         "blocking" => request.blocking,

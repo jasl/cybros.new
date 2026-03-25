@@ -100,6 +100,21 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:resolved_model_selection_snapshot], "must remain resolvable for the recovery action"
   end
 
+  test "rejects manual resume for pending delete conversations" do
+    context = build_paused_recovery_context!
+    context[:conversation].update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualResume.call(
+        workflow_run: context[:workflow_run],
+        deployment: context[:agent_deployment],
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained before manual recovery"
+  end
+
   private
 
   def build_paused_recovery_context!

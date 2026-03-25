@@ -15,6 +15,8 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.string :external_event_key
       t.bigint :selected_input_message_id
       t.bigint :selected_output_message_id
+      t.datetime :cancellation_requested_at
+      t.string :cancellation_reason_kind
       t.string :pinned_deployment_fingerprint, null: false
       t.jsonb :resolved_config_snapshot, null: false, default: {}
       t.jsonb :resolved_model_selection_snapshot, null: false, default: {}
@@ -24,6 +26,12 @@ class CreateTurns < ActiveRecord::Migration[8.2]
 
     add_index :turns, [:conversation_id, :sequence], unique: true
     add_index :turns, :public_id, unique: true
+    add_check_constraint :turns,
+      "(cancellation_reason_kind IS NULL OR cancellation_reason_kind IN ('conversation_deleted', 'conversation_archived'))",
+      name: "chk_turns_cancellation_reason_kind"
+    add_check_constraint :turns,
+      "((cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL) OR (cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL))",
+      name: "chk_turns_cancellation_pairing"
 
     change_table :conversations, bulk: true do |t|
       t.string :interactive_selector_mode, null: false, default: "auto"

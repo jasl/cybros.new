@@ -25,6 +25,8 @@ module Conversations
           depth: 0
         )
 
+        CanonicalStores::BootstrapForConversation.call(conversation: conversation)
+
         conversation
       end
     end

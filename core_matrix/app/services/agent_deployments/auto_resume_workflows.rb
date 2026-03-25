@@ -26,9 +26,11 @@ module AgentDeployments
 
     def workflow_runs_scope
       WorkflowRun
+        .joins(:conversation)
         .includes(:turn)
         .joins(:turn)
         .where(lifecycle_state: "active", wait_state: "waiting", wait_reason_kind: "agent_unavailable")
+        .where(conversations: { deletion_state: "retained" })
         .where(turns: { agent_deployment_id: @deployment.id })
         .order(:id)
     end

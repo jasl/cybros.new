@@ -36,16 +36,10 @@ class WorkspaceVariables::ListQueryTest < ActiveSupport::TestCase
       source_turn: context[:turn],
       source_workflow_run: context[:workflow_run]
     )
-    Variables::Write.call(
-      scope: "conversation",
-      workspace: context[:workspace],
+    CanonicalStores::Set.call(
       conversation: context[:conversation],
       key: "conversation_only",
       typed_value_payload: { "type" => "string", "value" => "direct" },
-      writer: context[:user],
-      source_kind: "manual_user",
-      source_turn: context[:turn],
-      source_workflow_run: context[:workflow_run]
     )
 
     result = WorkspaceVariables::ListQuery.call(workspace: context[:workspace])

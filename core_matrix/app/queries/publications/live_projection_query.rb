@@ -12,6 +12,7 @@ module Publications
 
     def call
       raise ActiveRecord::RecordNotFound, "publication is not active" unless @publication.active?
+      raise ActiveRecord::RecordNotFound, "conversation is not retained" unless @publication.conversation.retained?
 
       live_entries
     end
