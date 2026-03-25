@@ -222,6 +222,7 @@ Core Matrix owns:
 - human interaction, waiting, retry, recovery, and audit semantics
 - capability governance and invocation supervision
 - feature gating and policy enforcement
+- transport-neutral public contract semantics for agent communication
 
 Agent programs may own:
 
@@ -237,6 +238,10 @@ Agent programs may own:
 
 The kernel remains the final authority for durable side effects whether the
 agent behavior came from an LLM or deterministic code.
+
+Agent communication transport may vary by implementation. The public protocol
+should not be defined in ActionCable-specific, Rails-specific, or any other
+framework-specific terms.
 
 ## Conversation Feature Policy
 

@@ -28,6 +28,7 @@ Before promotion, run:
 
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
+- [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Preconditions
@@ -75,6 +76,8 @@ Phase 2 must make them drive a real run.
 - real provider invocation under workflow control
 - provider execution routed through `simple_inference` or a focused extension of
   it rather than through ad hoc HTTP client code
+- keep the public agent-facing execution path outbound-only from the runtime
+  side whenever possible
 - result ingestion back into workflow state and events
 - terminal, waiting, failure, and retry transitions
 - preserve execution-time budget hints such as context-window, reserved-output,
@@ -106,6 +109,8 @@ tools fork into separate execution models.
   session-aware client transport
 - bind agent-program-exposed tools into the same governance model
 - keep invocation history and supervision consistent across all sources
+- keep the public agent API transport-neutral even when Rails later uses
+  ActionCable or another WebSocket implementation as an optional accelerator
 
 **Required policy work:**
 
@@ -168,6 +173,8 @@ rotate across release changes.
 - use deployment rotation instead
 - if a changed `Fenix` release cannot boot, treat that as an agent-program
   release failure rather than a kernel recovery obligation
+- do not require `Core Matrix` to dial back into the runtime as part of normal
+  pairing or execution delivery
 
 ## Workstream 7: Build The Fenix Runtime Surface And Retain Execution Hooks
 

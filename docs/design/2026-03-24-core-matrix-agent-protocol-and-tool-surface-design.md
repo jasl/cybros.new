@@ -95,6 +95,29 @@ The new Core Matrix contract should follow these rules consistently:
 5. Keep naming semantic and collision-resistant.
 6. Keep the same identifier stable across capability snapshots, audit records, telemetry facts, and contract tests.
 
+## Transport Boundary
+
+The public contract should remain transport-neutral.
+
+Phase 2 should separate:
+
+- logical method ids and envelopes
+- durable execution semantics
+- transport implementation details
+
+Rules:
+
+- short HTTP requests are the canonical transport for the public agent API in
+  Phase 2
+- long-running agent execution must not depend on one held HTTP request from
+  `Core Matrix` into an agent program
+- an outbound WebSocket session may exist as an optional accelerator for
+  notifications or wakeups
+- ActionCable, SolidCable, and AnyCable are Rails implementation options, not
+  public protocol standards
+- if WebSocket is used, it must carry the platform's own message envelope
+  rather than ActionCable-specific channel semantics
+
 ## Capability Snapshot Shape
 
 Capability snapshots should separate protocol metadata from tool-surface metadata.
@@ -178,6 +201,29 @@ Rules:
 - `effect_intent` invocations must not report durable side-effect success until the kernel has materialized the governed workflow node or equivalent execution resource
 - the current backend batch does not need to ship this bridge yet, but follow-up bridge work should inherit this envelope rather than inventing a new one
 
+## Durable Execution Delivery
+
+For agent-program-owned execution that may take non-trivial time, the platform
+should prefer durable delivery semantics over synchronous RPC.
+
+Recommended logical method families for follow-up work:
+
+- `execution_claim`
+- `execution_lease_heartbeat`
+- `execution_progress`
+- `execution_complete`
+- `execution_fail`
+
+Rules:
+
+- `Core Matrix` remains the source of truth for execution state
+- the agent program claims executable work instead of receiving a blocking
+  request from the kernel
+- the same durable execution path must remain valid when the optional WebSocket
+  accelerator is unavailable
+- claim, heartbeat, progress, completion, and failure reporting must remain
+  attributable to one authenticated deployment and one durable execution id
+
 ## Authority Rules
 
 Core Matrix remains a strong-kernel system.
@@ -216,6 +262,7 @@ The current backend kernel batch does not need to fully implement:
 - generic agent-owned tool execution bridges
 - attachment-import bridges for every runtime
 - connector-specific bridge adapters
+- optional WebSocket accelerator transports
 - schedule or webhook trigger runners
 - knowledge or long-term memory bridge implementations
 - MCP transport adapters beyond the contract-level reserved integration surface

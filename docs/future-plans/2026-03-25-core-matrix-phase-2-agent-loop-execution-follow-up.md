@@ -13,6 +13,7 @@ kernel authority.
 Related design and research:
 
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
 - [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
@@ -46,11 +47,15 @@ Related design and research:
   tool execution
 - add a session-aware Streamable HTTP MCP client path under the same capability
   governance and supervision model
+- keep the agent-program public API outbound-friendly so `Core Matrix` does not
+  need to call into runtimes behind NAT
 - formalize override, whitelist, and reserved-prefix rules
 - formalize conversation feature policy and freeze feature snapshots on running
   execution
 - preserve execution-time budget and correlation hints for agent-program
   runtime customization
+- keep any WebSocket accelerator transport optional and implementation-specific
+  rather than making it the canonical protocol
 - record invocation attempts, failures, retries, waits, and recovery outcomes
 
 ## Fenix Validation Slice

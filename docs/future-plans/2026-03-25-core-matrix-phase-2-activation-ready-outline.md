@@ -24,6 +24,7 @@ Before Phase 2 moves into `docs/plans`, refresh this outline against:
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md)
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 
 ## Task Group 1: Re-Run The Structural Gate And Freeze Phase 2 Scope
@@ -147,6 +148,8 @@ release rotation.
 - Modify: `core_matrix/app/services/agent_deployments/bootstrap.rb`
 - Modify: `core_matrix/app/services/agent_deployments/auto_resume_workflows.rb`
 - Modify: `core_matrix/app/services/agent_deployments/mark_unavailable.rb`
+- Likely create or expand: `core_matrix/app/controllers/agent_api/*` for
+  claim/report style execution delivery
 - Modify: `core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `core_matrix/app/services/workflows/manual_retry.rb`
 - Test: `core_matrix/test/services/agent_deployments/*`
@@ -158,8 +161,10 @@ release rotation.
 - real `bin/dev` validation with:
   - bundled `Fenix`
   - one independent external `Fenix`
-  - one same-installation rotation across upgrade
-  - one same-installation rotation across downgrade
+- one same-installation rotation across upgrade
+- one same-installation rotation across downgrade
+- no required kernel-initiated callback into the runtime during normal pairing
+  or execution delivery
 
 ## Task Group 7: Build The Fenix Runtime Surface And Retain Execution Hooks
 

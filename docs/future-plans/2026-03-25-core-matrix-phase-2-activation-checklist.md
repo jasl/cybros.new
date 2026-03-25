@@ -115,6 +115,7 @@ the active docs:
 Also confirm alignment with the focused `Fenix` design and research notes:
 
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
 - [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
@@ -135,6 +136,8 @@ At minimum, the plan must say all of the following:
   equally clear successor contract
 - `simple_inference` remains the shared provider-execution substrate unless a
   concrete protocol gap justifies a focused extension
+- the public agent API remains transport-neutral even if Rails later uses
+  ActionCable, SolidCable, or AnyCable internally
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.
@@ -184,6 +187,8 @@ Required prerequisites:
 - the bundled `Fenix` runtime can be started and connected
 - an independently started external `Fenix` runtime can be enrolled and paired
 - a same-installation second `Fenix` deployment path exists for cutover testing
+- the chosen pairing path does not require `Core Matrix` to reach a private
+  runtime network address directly
 - a human operator path exists for manual human-interaction validation
 - a reachable third-party skill source exists for install-and-use validation,
   ideally [obra/superpowers](https://github.com/obra/superpowers)
@@ -270,6 +275,8 @@ Do not activate Phase 2 if any of the following are true:
 - the next-phase scope has expanded into Web UI or triggers
 - the execution-runtime boundary around budgets, hooks, and prompt ownership is
   still fuzzy
+- the transport boundary between canonical HTTP and any optional WebSocket
+  accelerator is still fuzzy
 - Fenix validation slices are still vague
 - real provider or capability validation paths are unavailable
 - the codebase shape materially differs from the assumptions in the initial
