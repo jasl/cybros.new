@@ -13,8 +13,12 @@ the plan record does not become the only source of truth.
 
 Current active `core_matrix` planning records:
 
-- None currently. Move the next approved execution entry point into this
-  directory when new work starts.
+- [2026-03-25-core-matrix-phase-2-milestone-1-kernel-execution-foundations.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-milestone-1-kernel-execution-foundations.md)
+- [2026-03-25-core-matrix-phase-2-task-01-structural-gate-and-scope-freeze.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-01-structural-gate-and-scope-freeze.md)
+- [2026-03-25-core-matrix-phase-2-task-02-workflow-substrate-extensions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-02-workflow-substrate-extensions.md)
+- [2026-03-25-core-matrix-phase-2-task-03-agent-task-run-and-execution-contract-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-03-agent-task-run-and-execution-contract-safety.md)
+- [2026-03-25-core-matrix-phase-2-task-04-provider-backed-turn-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-04-provider-backed-turn-execution.md)
+- [2026-03-25-core-matrix-phase-2-task-05-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-05-conversation-feature-policy-and-stale-work-safety.md)
 
 Phase 1 records now live in
 [`docs/finished-plans`](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
