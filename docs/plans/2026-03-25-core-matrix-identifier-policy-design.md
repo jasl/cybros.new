@@ -22,6 +22,9 @@ substrate.
   boundary add `public_id :uuid`.
 - When `core_matrix` generates UUID-backed public identifiers, it uses
   PostgreSQL 18 `uuidv7()` rather than random UUID generation.
+- `public_id` presence is enforced by database constraints and defaults, not by
+  a model-level presence validation that would run before the database default
+  fires.
 - `public_id` is an opaque reference identifier, not a business ordering field;
   ordering remains anchored on explicit fields such as `created_at`,
   `sequence`, or other domain counters.

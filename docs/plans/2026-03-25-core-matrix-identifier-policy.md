@@ -81,8 +81,8 @@ git -C .. commit -m "chore: pin core matrix to postgres 18"
 **Step 1: Write the failing concern test**
 
 Create a small concern test that builds a temporary test table and a test-only
-model including `HasPublicId`, then proves the concern validates presence of
-`public_id` and exposes a common lookup helper:
+model including `HasPublicId`, then proves the database default populates
+`public_id` and the concern exposes a common lookup helper:
 
 ```ruby
 ActiveRecord::Base.with_connection do |connection|
@@ -120,7 +120,8 @@ Expected:
 
 Add a concern that:
 
-- validates presence and uniqueness of `public_id`
+- relies on the database to populate and enforce non-null `public_id`
+- defines uniqueness validation for persisted application-level safety
 - defines `find_by_public_id!`
 - does not override or obscure internal `id`
 
