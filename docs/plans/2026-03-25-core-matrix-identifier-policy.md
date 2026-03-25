@@ -18,67 +18,57 @@ Actions, Brakeman, Bundler Audit, RuboCop, Bun
 
 ---
 
-### Task 1: Pin PostgreSQL 18 In CI And Add A Baseline Database Check
+### Task 1: Pin PostgreSQL 18 In CI
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
-- Create: `core_matrix/test/integration/database_baseline_test.rb`
 
-**Step 1: Write the failing baseline test**
+**Step 1: Confirm the current CI service image is floating**
 
-Add an integration test that asserts the database exposes the expected major
-version and `uuidv7()` support:
+Open the `core_matrix` jobs in `.github/workflows/ci.yml` and confirm both test
+jobs still use the floating `postgres` image. Treat that as the failing
+baseline because the identifier policy requires an explicit PostgreSQL 18
+contract.
 
-```ruby
-test "database baseline exposes PostgreSQL 18 uuidv7 support" do
-  ActiveRecord::Base.with_connection do |connection|
-    version = connection.select_value("SHOW server_version_num").to_i
-    sample = connection.select_value("SELECT uuid_extract_version(uuidv7())").to_i
-
-    assert_operator version, :>=, 180000
-    assert_equal 7, sample
-  end
-end
-```
-
-**Step 2: Run the baseline test to verify failure**
+**Step 2: Pin the CI service image**
 
 Run:
 
 ```bash
-cd core_matrix
-bin/rails test test/integration/database_baseline_test.rb
+cd /Users/jasl/Workspaces/Ruby/cybros
+rg -n "image: postgres" .github/workflows/ci.yml
 ```
 
 Expected:
 
-- the test fails in CI or any local environment that is not explicitly on
-  PostgreSQL 18
-
-**Step 3: Pin the CI service image and keep the test green locally**
+- the workflow shows the floating image entries that need pinning
 
 Change the `core_matrix` GitHub Actions PostgreSQL services from `postgres` to
-`postgres:18`. Keep the test using `with_connection` so it stays compatible
-with current Rails connection-handling rules.
+`postgres:18`.
 
-**Step 4: Run the baseline test to verify it passes**
+**Step 3: Re-run the workflow grep to verify the pin**
 
 Run:
 
 ```bash
-cd core_matrix
-bin/rails test test/integration/database_baseline_test.rb
+cd /Users/jasl/Workspaces/Ruby/cybros
+rg -n "image: postgres(:18)?$" .github/workflows/ci.yml
 ```
 
 Expected:
 
-- the test passes locally and now enforces the same baseline CI is meant to
-  provide
+- the `core_matrix` jobs now point at `postgres:18`
+
+**Step 4: Let later migration-backed test tasks prove runtime support**
+
+Do not add a dedicated database-baseline test. If `uuidv7()` support or the
+PostgreSQL 18 contract is missing, the first migration reset and subsequent
+`db:test:prepare` steps in later tasks will fail immediately.
 
 **Step 5: Commit**
 
 ```bash
-git -C .. add .github/workflows/ci.yml core_matrix/test/integration/database_baseline_test.rb
+git -C .. add .github/workflows/ci.yml
 git -C .. commit -m "chore: pin core matrix to postgres 18"
 ```
 
