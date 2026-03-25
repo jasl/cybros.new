@@ -1,6 +1,20 @@
 require "test_helper"
 
 class WorkspaceTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    binding = create_user_agent_binding!(installation: installation, user: user)
+    workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      user_agent_binding: binding
+    )
+
+    assert workspace.public_id.present?
+    assert_equal workspace, Workspace.find_by_public_id!(workspace.public_id)
+  end
+
   test "stays private and user-owned" do
     installation = create_installation!
     user = create_user!(installation: installation)

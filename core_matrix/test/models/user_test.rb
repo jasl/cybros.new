@@ -1,6 +1,13 @@
 require "test_helper"
 
 class UserTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    user = create_user!(role: "admin")
+
+    assert user.public_id.present?
+    assert_equal user, User.find_by_public_id!(user.public_id)
+  end
+
   test "reflects member and admin role state" do
     user = create_user!(role: "member")
 

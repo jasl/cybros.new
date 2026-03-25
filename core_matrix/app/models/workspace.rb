@@ -1,4 +1,6 @@
 class Workspace < ApplicationRecord
+  include HasPublicId
+
   PRIVACY_VALUES = %w[private].freeze
 
   belongs_to :installation

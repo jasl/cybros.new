@@ -1,4 +1,6 @@
 class User < ApplicationRecord
+  include HasPublicId
+
   ROLES = %w[member admin].freeze
 
   belongs_to :installation

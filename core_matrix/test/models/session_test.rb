@@ -1,6 +1,19 @@
 require "test_helper"
 
 class SessionTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    user = create_user!
+    session = Session.issue_for!(
+      identity: user.identity,
+      user: user,
+      expires_at: 12.hours.from_now,
+      metadata: {}
+    )
+
+    assert session.public_id.present?
+    assert_equal session, Session.find_by_public_id!(session.public_id)
+  end
+
   test "issues unique session tokens and stores digests" do
     user = create_user!
 

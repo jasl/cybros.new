@@ -2,6 +2,8 @@ require "digest"
 require "securerandom"
 
 class Invitation < ApplicationRecord
+  include HasPublicId
+
   attr_reader :plaintext_token
 
   belongs_to :installation

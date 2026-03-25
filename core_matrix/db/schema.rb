@@ -376,11 +376,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.datetime "expires_at", null: false
     t.bigint "installation_id", null: false
     t.bigint "inviter_id", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_invitations_on_email"
     t.index ["installation_id"], name: "index_invitations_on_installation_id"
     t.index ["inviter_id"], name: "index_invitations_on_inviter_id"
+    t.index ["public_id"], name: "index_invitations_on_public_id", unique: true
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
   end
 
@@ -525,11 +527,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.datetime "expires_at", null: false
     t.bigint "identity_id", null: false
     t.jsonb "metadata", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "revoked_at"
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.index ["identity_id"], name: "index_sessions_on_identity_id"
+    t.index ["public_id"], name: "index_sessions_on_public_id", unique: true
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id", "expires_at"], name: "index_sessions_on_user_id_and_expires_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
@@ -673,11 +677,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.bigint "identity_id", null: false
     t.bigint "installation_id", null: false
     t.jsonb "preferences", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "role", default: "member", null: false
     t.datetime "updated_at", null: false
     t.index ["identity_id"], name: "index_users_on_identity_id", unique: true
     t.index ["installation_id", "role"], name: "index_users_on_installation_id_and_role"
     t.index ["installation_id"], name: "index_users_on_installation_id"
+    t.index ["public_id"], name: "index_users_on_public_id", unique: true
   end
 
   create_table "workflow_artifacts", force: :cascade do |t|
@@ -770,11 +776,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.boolean "is_default", default: false, null: false
     t.string "name", null: false
     t.string "privacy", default: "private", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_agent_binding_id", null: false
     t.bigint "user_id", null: false
     t.index ["installation_id", "user_id"], name: "index_workspaces_on_installation_id_and_user_id"
     t.index ["installation_id"], name: "index_workspaces_on_installation_id"
+    t.index ["public_id"], name: "index_workspaces_on_public_id", unique: true
     t.index ["user_agent_binding_id"], name: "index_workspaces_on_user_agent_binding_id"
     t.index ["user_agent_binding_id"], name: "index_workspaces_on_user_agent_binding_id_default", unique: true, where: "is_default"
     t.index ["user_id"], name: "index_workspaces_on_user_id"

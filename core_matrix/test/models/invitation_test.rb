@@ -1,6 +1,20 @@
 require "test_helper"
 
 class InvitationTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    installation = create_installation!
+    inviter = create_user!(installation: installation, role: "admin")
+    invitation = Invitation.issue!(
+      installation: installation,
+      inviter: inviter,
+      email: "invitee@example.com",
+      expires_at: 2.days.from_now
+    )
+
+    assert invitation.public_id.present?
+    assert_equal invitation, Invitation.find_by_public_id!(invitation.public_id)
+  end
+
   test "issues unique tokens and stores digests" do
     installation = create_installation!
     inviter = create_user!(installation: installation, role: "admin")
