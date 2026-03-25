@@ -75,9 +75,11 @@ class WorkflowContextFlowTest < ActionDispatch::IntegrationTest
       branch_turn.context_messages.map { |message| message.fetch("message_id") }
     )
     assert_equal %w[branch_prefix quoted_context], branch_turn.context_imports.map { |item| item.fetch("kind") }.sort
-    assert_equal [anchor_attachment.id.to_s, branch_attachment.id.to_s], branch_turn.attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
+    expected_attachment_ids = [anchor_attachment.id.to_s, branch_attachment.id.to_s].sort
+
+    assert_equal expected_attachment_ids, branch_turn.attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
     refute_includes branch_turn.attachment_manifest.map { |item| item.fetch("attachment_id") }, later_root_attachment.id.to_s
-    assert_equal [anchor_attachment.id.to_s, branch_attachment.id.to_s].sort, workflow_run.model_input_attachments.map { |item| item.fetch("attachment_id") }.sort
+    assert_equal expected_attachment_ids, workflow_run.model_input_attachments.map { |item| item.fetch("attachment_id") }.sort
     assert_equal "Anchor summary", branch_turn.context_imports.find { |item| item.fetch("kind") == "quoted_context" }.fetch("content")
   end
 end

@@ -1,5 +1,3 @@
-require "stringio"
-
 module Attachments
   class MaterializeRefs
     def self.call(...)
@@ -15,6 +13,7 @@ module Attachments
       ApplicationRecord.transaction do
         @refs.map do |ref|
           validate_ref!(ref)
+          duplicated_blob = duplicate_blob(ref)
 
           attachment = MessageAttachment.new(
             installation: @message.installation,
@@ -22,11 +21,7 @@ module Attachments
             message: @message,
             origin_attachment: ref
           )
-          attachment.file.attach(
-            io: StringIO.new(ref.file.download),
-            filename: ref.file.filename.to_s,
-            content_type: ref.file.content_type
-          )
+          attachment.file.attach(duplicated_blob)
           attachment.save!
           attachment
         end
@@ -34,6 +29,18 @@ module Attachments
     end
 
     private
+
+    def duplicate_blob(ref)
+      ref.file.blob.open do |source_io|
+        return ActiveStorage::Blob.create_and_upload!(
+          io: source_io,
+          filename: ref.file.filename.to_s,
+          content_type: ref.file.content_type,
+          metadata: ref.file.blob.metadata,
+          service_name: ref.file.blob.service_name
+        )
+      end
+    end
 
     def validate_ref!(ref)
       raise ArgumentError, "refs must be message attachments" unless ref.is_a?(MessageAttachment)

@@ -33,6 +33,9 @@ resources that later tasks build on:
 - Every event belongs to one installation, workflow run, and workflow node.
 - Events are ordered by a node-local `ordinal` that is unique per workflow
   node.
+- Node-event ordinal allocation is serialized at the workflow-node boundary so
+  concurrent runtime writers keep append-only event order without duplicate
+  ordinal races.
 - Task 10.1 keeps `event_kind` open-ended, but the first landed runtime path
   uses `status` events for process lifecycle replay.
 - `WorkflowNodeEvent` remains the kernel trace surface; later tasks may project

@@ -56,6 +56,9 @@ it is not a reusable template.
   node at ordinal `0`.
 - `Workflows::Mutate` appends nodes and edges to an existing workflow run
   without replacing the run row.
+- Node and edge ordinal allocation is serialized at the workflow-run boundary
+  so concurrent graph mutations keep append-only ordering without duplicate
+  ordinal failures.
 - Mutation uses database-scoped workflow queries instead of relying on a cached
   Active Record association on the caller's `workflow_run` instance. This keeps
   repeated mutations consistent even when the same in-memory run object is

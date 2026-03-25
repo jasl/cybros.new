@@ -129,9 +129,17 @@ Do not implement these items in this task:
     serialized as if the model consumed them
   - automation-origin turns now preserve trigger metadata in the execution
     snapshot instead of assuming a user input message exists
+- review corrections on `2026-03-25`:
+  - attachment-manifest assertions now validate set membership without implying
+    a semantic ordering contract on attachment ids
 - verification evidence:
   - `cd core_matrix && bin/rails test test/models/turn_test.rb test/services/workflows/create_for_turn_test.rb test/services/workflows/context_assembler_test.rb test/integration/workflow_context_flow_test.rb`
     passed with `9 runs, 56 assertions, 0 failures, 0 errors`
+  - review correction on `2026-03-25` reran
+    `cd core_matrix && PARALLEL_WORKERS=1 bin/rails test test/services/workflows/context_assembler_test.rb test/integration/workflow_context_flow_test.rb --seed 1234`
+    and
+    `cd core_matrix && PARALLEL_WORKERS=1 bin/rails test test/services/workflows/context_assembler_test.rb test/integration/workflow_context_flow_test.rb --seed 5678`
+    and both passed
 - checklist notes:
   - no manual-checklist delta was retained for this task because the landed
     behavior is execution snapshot projection and attachment gating covered by

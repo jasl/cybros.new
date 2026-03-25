@@ -20,7 +20,10 @@ module Turns
         )
       end
 
-      ApplicationRecord.transaction do
+      @turn.with_lock do
+        @turn.reload
+        raise_invalid!(@turn, :lifecycle_state, "must be active to steer current input") unless @turn.active?
+
         message = UserMessage.create!(
           installation: @turn.installation,
           conversation: @turn.conversation,

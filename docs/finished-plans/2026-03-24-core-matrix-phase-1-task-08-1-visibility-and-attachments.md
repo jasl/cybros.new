@@ -120,17 +120,20 @@ Do not implement these items in this task:
     and context inclusion, without a separate attachment overlay model
   - branch and checkpoint support projections were kept intentionally minimal so
     Task 09 can own full context assembly
+- review corrections on `2026-03-25`:
+  - descendant visibility overlays now reject fork-point anchors in all
+    dependent projections instead of only in the message's native conversation
 - verification evidence:
   - `cd core_matrix && bin/rails test test/models/conversation_message_visibility_test.rb test/models/message_attachment_test.rb test/services/messages/update_visibility_test.rb test/services/attachments/materialize_refs_test.rb test/integration/transcript_visibility_attachment_flow_test.rb`
     passed with `9 runs, 61 assertions, 0 failures, 0 errors`
+  - review correction on `2026-03-25` reran
+    `cd core_matrix && PARALLEL_WORKERS=1 bin/rails test test/services/messages/update_visibility_test.rb test/integration/transcript_visibility_attachment_flow_test.rb test/services/attachments/materialize_refs_test.rb`
+    and it passed
 - checklist notes:
   - no manual checklist delta was retained for this task because the landed
     behavior is kernel transcript-support infrastructure covered by automated
     tests
 - retained findings:
-  - conversation-specific overlays need to validate against the conversation's
-    projected transcript path, not only the source message's native
-    conversation
   - descendant attachment support can stay correct without a dedicated
     attachment overlay model when support projections derive from
     context-eligible parent messages

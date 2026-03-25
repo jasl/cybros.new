@@ -14,28 +14,35 @@ module Processes
       raise_invalid!(@process_run, :lifecycle_state, "must be running to stop") unless @process_run.running?
 
       ApplicationRecord.transaction do
-        @process_run.update!(
-          lifecycle_state: "stopped",
-          ended_at: Time.current,
-          exit_status: @exit_status,
-          metadata: @process_run.metadata.merge("stop_reason" => @reason)
-        )
+        @process_run.with_lock do
+          @process_run.reload
+          raise_invalid!(@process_run, :lifecycle_state, "must be running to stop") unless @process_run.running?
 
-        WorkflowNodeEvent.create!(
-          installation: @process_run.installation,
-          workflow_run: @process_run.workflow_run,
-          workflow_node: @process_run.workflow_node,
-          ordinal: next_event_ordinal,
-          event_kind: "status",
-          payload: {
-            "state" => "stopped",
-            "process_run_id" => @process_run.id,
-            "kind" => @process_run.kind,
-            "reason" => @reason,
-          }.tap { |payload| payload["exit_status"] = @exit_status if @exit_status.present? }
-        )
+          @process_run.workflow_node.with_lock do
+            @process_run.update!(
+              lifecycle_state: "stopped",
+              ended_at: Time.current,
+              exit_status: @exit_status,
+              metadata: @process_run.metadata.merge("stop_reason" => @reason)
+            )
 
-        @process_run
+            WorkflowNodeEvent.create!(
+              installation: @process_run.installation,
+              workflow_run: @process_run.workflow_run,
+              workflow_node: @process_run.workflow_node,
+              ordinal: next_event_ordinal,
+              event_kind: "status",
+              payload: {
+                "state" => "stopped",
+                "process_run_id" => @process_run.id,
+                "kind" => @process_run.kind,
+                "reason" => @reason,
+              }.tap { |payload| payload["exit_status"] = @exit_status if @exit_status.present? }
+            )
+
+            @process_run
+          end
+        end
       end
     end
 

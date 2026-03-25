@@ -131,9 +131,15 @@ Do not implement these items in this task:
     local turns
   - fork-point protection was applied to both visibility overlays and in-place
     tail rewrites so anchored history cannot drift after branching
+- review corrections on `2026-03-25`:
+  - visibility-overlay fork-point protection now rejects descendant branch and
+    checkpoint overlays that depend on the anchored transcript row
 - verification evidence:
   - `cd core_matrix && bin/rails test test/models/conversation_import_test.rb test/models/conversation_summary_segment_test.rb test/services/conversations/add_import_test.rb test/services/conversation_summaries/create_segment_test.rb test/services/conversations/rollback_to_turn_test.rb test/integration/transcript_import_summary_flow_test.rb`
     passed with `11 runs, 41 assertions, 0 failures, 0 errors`
+  - review correction on `2026-03-25` reran
+    `cd core_matrix && PARALLEL_WORKERS=1 bin/rails test test/integration/transcript_import_summary_flow_test.rb`
+    and it passed
 - checklist notes:
   - no separate manual checklist delta was retained for this task because the
     landed behavior is transcript-support infrastructure covered by automated

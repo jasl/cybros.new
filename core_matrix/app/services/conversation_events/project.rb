@@ -14,17 +14,19 @@ module ConversationEvents
     end
 
     def call
-      ConversationEvent.create!(
-        installation: @conversation.installation,
-        conversation: @conversation,
-        turn: @turn,
-        source: @source,
-        projection_sequence: next_projection_sequence,
-        event_kind: @event_kind,
-        stream_key: @stream_key,
-        stream_revision: next_stream_revision,
-        payload: @payload
-      )
+      @conversation.with_lock do
+        ConversationEvent.create!(
+          installation: @conversation.installation,
+          conversation: @conversation,
+          turn: @turn,
+          source: @source,
+          projection_sequence: next_projection_sequence,
+          event_kind: @event_kind,
+          stream_key: @stream_key,
+          stream_revision: next_stream_revision,
+          payload: @payload
+        )
+      end
     end
 
     private

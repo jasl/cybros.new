@@ -68,11 +68,20 @@ class Conversation < ApplicationRecord
   end
 
   def transcript_projection_messages
-    base_transcript_projection_messages.reject { |message| hidden_in_projection?(message) }
+    base_messages = base_transcript_projection_messages
+    overlay_lookup = visibility_overlay_lookup_for(base_messages)
+
+    base_messages.reject { |message| hidden_in_projection?(message, overlay_lookup) }
   end
 
   def context_projection_messages
-    transcript_projection_messages.reject { |message| excluded_from_context_in_projection?(message) }
+    base_messages = base_transcript_projection_messages
+    overlay_lookup = visibility_overlay_lookup_for(base_messages)
+
+    base_messages.reject do |message|
+      hidden_in_projection?(message, overlay_lookup) ||
+        excluded_from_context_in_projection?(message, overlay_lookup)
+    end
   end
 
   def context_projection_attachments
@@ -101,25 +110,48 @@ class Conversation < ApplicationRecord
     end
   end
 
-  def hidden_in_projection?(message)
-    projection_conversation_chain_for(message)&.any? do |conversation|
-      ConversationMessageVisibility.exists?(conversation: conversation, message: message, hidden: true)
+  def hidden_in_projection?(message, overlay_lookup)
+    projection_conversation_chain_ids_for(message)&.any? do |conversation_id|
+      overlay_lookup.dig(message.id, conversation_id)&.hidden?
     end
   end
 
-  def excluded_from_context_in_projection?(message)
-    projection_conversation_chain_for(message)&.any? do |conversation|
-      ConversationMessageVisibility.exists?(conversation: conversation, message: message, excluded_from_context: true)
+  def excluded_from_context_in_projection?(message, overlay_lookup)
+    projection_conversation_chain_ids_for(message)&.any? do |conversation_id|
+      overlay_lookup.dig(message.id, conversation_id)&.excluded_from_context?
     end
   end
 
-  def projection_conversation_chain_for(message)
-    chain = []
+  def visibility_overlay_lookup_for(messages)
+    return {} if messages.empty?
+
+    ConversationMessageVisibility.where(
+      conversation_id: projection_lineage_conversation_ids,
+      message_id: messages.map(&:id)
+    ).each_with_object(Hash.new { |hash, key| hash[key] = {} }) do |overlay, lookup|
+      lookup[overlay.message_id][overlay.conversation_id] = overlay
+    end
+  end
+
+  def projection_lineage_conversation_ids
+    ids = []
     current = self
 
     while current.present?
-      chain << current
-      return chain if current.id == message.conversation_id
+      ids << current.id
+      current = current.parent_conversation
+    end
+
+    ids
+  end
+
+  def projection_conversation_chain_ids_for(message)
+    chain_ids = []
+    current = self
+
+    while current.present?
+      chain_ids << current.id
+      return chain_ids if current.id == message.conversation_id
 
       current = current.parent_conversation
     end

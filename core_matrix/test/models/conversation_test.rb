@@ -88,4 +88,50 @@ class ConversationTest < ActiveSupport::TestCase
     assert_not child.valid?
     assert_includes child.errors[:workspace], "must match the parent conversation workspace"
   end
+
+  test "batches visibility lookups for descendant context projections" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    3.times do |index|
+      turn = Turns::StartUserTurn.call(
+        conversation: root,
+        content: "Root input #{index + 1}",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+      attach_selected_output!(turn, content: "Root output #{index + 1}")
+    end
+
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: root.turns.order(:sequence).last.selected_output_message_id
+    )
+
+    queries = capture_visibility_queries do
+      assert_equal 6, branch.context_projection_messages.size
+    end
+
+    assert_operator queries.size, :<=, 2
+  end
+
+  private
+
+  def capture_visibility_queries
+    queries = []
+    callback = lambda do |_name, _started, _finished, _unique_id, payload|
+      sql = payload[:sql]
+      next if sql.blank?
+      next unless sql.include?("\"conversation_message_visibilities\"")
+
+      queries << sql
+    end
+
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      yield
+    end
+
+    queries
+  end
 end

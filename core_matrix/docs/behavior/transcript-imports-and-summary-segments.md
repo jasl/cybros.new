@@ -62,7 +62,8 @@ state is removed.
 
 - Messages used as historical anchors for child conversations are fork points.
 - Fork-point transcript rows cannot be hidden or excluded from context through
-  visibility overlays.
+  visibility overlays in either the native conversation or any descendant
+  projection that depends on the anchor.
 - Tail rewrite operations that would mutate the current path at a fork point are
   rejected:
   - tail input edit
@@ -81,7 +82,7 @@ state is removed.
 - rollback drops only support rows that describe superseded post-rollback local
   state
 - fork-point transcript rows remain stable once a child conversation depends on
-  them
+  them, including against descendant visibility overlays
 
 ## Failure Modes
 

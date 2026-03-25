@@ -16,7 +16,7 @@ module Turns
       raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
       raise_invalid!(@conversation, :lifecycle_state, "must be active for user turn entry") unless @conversation.active?
 
-      ApplicationRecord.transaction do
+      @conversation.with_lock do
         turn = Turn.create!(
           installation: @conversation.installation,
           conversation: @conversation,

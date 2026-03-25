@@ -77,6 +77,9 @@ capability refresh, and capability handshake with config reconciliation.
   authenticated deployment fingerprint
 - handshake reuses an identical capability snapshot when one already exists on
   the deployment; otherwise it appends a new versioned snapshot
+- capability-snapshot version allocation is serialized at the deployment
+  boundary so concurrent handshakes either reuse the same snapshot or append
+  exactly one new version
 - handshake updates the deployment protocol version, SDK version, and active
   capability snapshot pointer in one transaction
 - `AgentDeployments::ReconcileConfig` keeps selector-bearing defaults from the

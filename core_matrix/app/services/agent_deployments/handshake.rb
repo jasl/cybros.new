@@ -30,18 +30,22 @@ module AgentDeployments
       )
 
       ApplicationRecord.transaction do
-        capability_snapshot = find_matching_snapshot(reconciliation.reconciled_config) || create_snapshot!(reconciliation.reconciled_config)
-        @deployment.update!(
-          protocol_version: @protocol_version,
-          sdk_version: @sdk_version,
-          active_capability_snapshot: capability_snapshot
-        )
+        @deployment.with_lock do
+          @deployment.reload
 
-        Result.new(
-          deployment: @deployment,
-          capability_snapshot: capability_snapshot,
-          reconciliation_report: reconciliation.report
-        )
+          capability_snapshot = find_matching_snapshot(reconciliation.reconciled_config) || create_snapshot!(reconciliation.reconciled_config)
+          @deployment.update!(
+            protocol_version: @protocol_version,
+            sdk_version: @sdk_version,
+            active_capability_snapshot: capability_snapshot
+          )
+
+          Result.new(
+            deployment: @deployment,
+            capability_snapshot: capability_snapshot,
+            reconciliation_report: reconciliation.report
+          )
+        end
       end
     end
 

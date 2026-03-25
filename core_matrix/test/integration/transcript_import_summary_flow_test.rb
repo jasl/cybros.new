@@ -36,6 +36,17 @@ class TranscriptImportSummaryFlowTest < ActionDispatch::IntegrationTest
       )
     end
 
+    branch_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: branch,
+        message: root_message,
+        excluded_from_context: true
+      )
+    end
+
+    assert_includes branch_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
+    assert_equal [root_message.id], branch.context_projection_messages.map(&:id)
+
     summary_segment = ConversationSummaries::CreateSegment.call(
       conversation: root,
       start_message: root_message,

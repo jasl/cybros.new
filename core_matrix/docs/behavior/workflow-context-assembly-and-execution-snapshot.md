@@ -82,6 +82,8 @@ freezes a per-turn execution snapshot that preserves:
   frozen manifest.
 - `model_input_attachments` is the model-facing projection derived from the
   same frozen manifest.
+- Attachment-manifest correctness is defined by membership and frozen metadata;
+  attachment ids are not themselves a semantic ordering boundary.
 - Hidden, context-excluded, or branch-ineligible messages never contribute
   attachments because attachment eligibility inherits from the parent message's
   context projection state.

@@ -25,8 +25,7 @@ module Messages
         overlay.hidden = @hidden unless @hidden.nil?
         overlay.excluded_from_context = @excluded_from_context unless @excluded_from_context.nil?
 
-        if @conversation.id == @message.conversation_id &&
-            @message.fork_point? &&
+        if @message.fork_point? &&
             (overlay.hidden? || overlay.excluded_from_context?)
           raise_invalid!(@message, :base, "fork-point messages cannot be hidden or excluded from context")
         end

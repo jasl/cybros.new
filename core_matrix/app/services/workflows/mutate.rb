@@ -12,11 +12,13 @@ module Workflows
 
     def call
       ApplicationRecord.transaction do
-        node_lookup = workflow_nodes_scope.index_by(&:node_key)
-        append_nodes!(node_lookup)
-        append_edges!(node_lookup)
-        validate_acyclic!
-        @workflow_run
+        @workflow_run.with_lock do
+          node_lookup = workflow_nodes_scope.index_by(&:node_key)
+          append_nodes!(node_lookup)
+          append_edges!(node_lookup)
+          validate_acyclic!
+          @workflow_run
+        end
       end
     end
 

@@ -84,8 +84,10 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
       snapshot.dig("execution_context", "context_messages").map { |message| message.fetch("message_id") }
     )
     assert_equal ["quoted_context"], snapshot.dig("execution_context", "context_imports").map { |item| item.fetch("kind") }
-    assert_equal [unsupported_audio.id.to_s, supported_file.id.to_s], snapshot.dig("execution_context", "attachment_manifest").map { |item| item.fetch("attachment_id") }.sort
-    assert_equal [unsupported_audio.id.to_s, supported_file.id.to_s], snapshot.dig("execution_context", "runtime_attachment_manifest").map { |item| item.fetch("attachment_id") }.sort
+    expected_attachment_ids = [unsupported_audio.id.to_s, supported_file.id.to_s].sort
+
+    assert_equal expected_attachment_ids, snapshot.dig("execution_context", "attachment_manifest").map { |item| item.fetch("attachment_id") }.sort
+    assert_equal expected_attachment_ids, snapshot.dig("execution_context", "runtime_attachment_manifest").map { |item| item.fetch("attachment_id") }.sort
     assert_equal [supported_file.id.to_s], snapshot.dig("execution_context", "model_input_attachments").map { |item| item.fetch("attachment_id") }
     assert_equal [unsupported_audio.id.to_s], snapshot.dig("execution_context", "attachment_diagnostics").map { |item| item.fetch("attachment_id") }
     assert_equal "unsupported_modality", snapshot.dig("execution_context", "attachment_diagnostics").first.fetch("reason")

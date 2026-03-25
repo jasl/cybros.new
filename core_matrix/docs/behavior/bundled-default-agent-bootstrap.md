@@ -15,6 +15,9 @@ existing binding and workspace services.
   `ExecutionEnvironment`, `AgentDeployment`, and `CapabilitySnapshot`.
 - Reuses existing logical and deployment rows instead of duplicating them on
   repeated calls.
+- Capability-snapshot version allocation is serialized at the deployment
+  boundary so concurrent bundled-runtime reconciliation reuses or appends one
+  versioned snapshot without duplicate-key races.
 - Does not create user bindings or workspaces.
 - Returns `nil` when bundled bootstrap is not enabled in configuration.
 

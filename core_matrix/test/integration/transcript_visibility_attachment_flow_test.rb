@@ -25,16 +25,19 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
     assert_equal [attachment.id], branch.context_projection_attachments.map(&:id)
 
-    Messages::UpdateVisibility.call(
-      conversation: branch,
-      message: message,
-      excluded_from_context: true
-    )
+    branch_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: branch,
+        message: message,
+        excluded_from_context: true
+      )
+    end
 
     assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
-    assert_empty branch.context_projection_messages
-    assert_empty branch.context_projection_attachments
+    assert_equal [message.id], branch.context_projection_messages.map(&:id)
+    assert_equal [attachment.id], branch.context_projection_attachments.map(&:id)
     assert_equal [attachment.id], root.context_projection_attachments.map(&:id)
+    assert_includes branch_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
 
     checkpoint = Conversations::CreateCheckpoint.call(
       parent: branch,
@@ -42,7 +45,15 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal [message.id], checkpoint.transcript_projection_messages.map(&:id)
-    assert_empty checkpoint.context_projection_attachments
+    assert_equal [attachment.id], checkpoint.context_projection_attachments.map(&:id)
+
+    checkpoint_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: checkpoint,
+        message: message,
+        hidden: true
+      )
+    end
 
     assert_raises(ActiveRecord::RecordInvalid) do
       Messages::UpdateVisibility.call(
@@ -55,6 +66,7 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     assert_equal [message.id], root.transcript_projection_messages.map(&:id)
     assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
     assert_equal [message.id], checkpoint.transcript_projection_messages.map(&:id)
-    assert_empty checkpoint.context_projection_attachments
+    assert_equal [attachment.id], checkpoint.context_projection_attachments.map(&:id)
+    assert_includes checkpoint_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
   end
 end

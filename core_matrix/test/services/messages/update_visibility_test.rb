@@ -59,4 +59,46 @@ class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:message], "must be present in the conversation transcript projection"
   end
+
+  test "rejects hiding or excluding fork-point anchors in descendant projections" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Anchored input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    message = turn.selected_input_message
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: message.id
+    )
+    checkpoint = Conversations::CreateCheckpoint.call(
+      parent: branch,
+      historical_anchor_message_id: message.id
+    )
+
+    branch_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: branch,
+        message: message,
+        excluded_from_context: true
+      )
+    end
+
+    checkpoint_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: checkpoint,
+        message: message,
+        hidden: true
+      )
+    end
+
+    assert_includes branch_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
+    assert_includes checkpoint_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
+    assert_empty branch.conversation_message_visibilities
+    assert_empty checkpoint.conversation_message_visibilities
+  end
 end

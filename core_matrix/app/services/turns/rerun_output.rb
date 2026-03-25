@@ -27,21 +27,29 @@ module Turns
     private
 
     def rerun_in_place(turn)
-      rerun_output = AgentMessage.create!(
-        installation: turn.installation,
-        conversation: turn.conversation,
-        turn: turn,
-        role: "agent",
-        slot: "output",
-        variant_index: turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
-        content: @content
-      )
+      turn.with_lock do
+        turn.reload
+        raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
+        raise_invalid!(turn, :selected_output_message, "must match the rerun target") unless turn.selected_output_message_id == @message.id
+        raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
+        raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
-      turn.update!(
-        selected_output_message: rerun_output,
-        lifecycle_state: "active"
-      )
-      turn
+        rerun_output = AgentMessage.create!(
+          installation: turn.installation,
+          conversation: turn.conversation,
+          turn: turn,
+          role: "agent",
+          slot: "output",
+          variant_index: turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
+          content: @content
+        )
+
+        turn.update!(
+          selected_output_message: rerun_output,
+          lifecycle_state: "active"
+        )
+        turn
+      end
     end
 
     def rerun_in_branch(turn)

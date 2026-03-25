@@ -107,23 +107,27 @@ module Installations
     end
 
     def reconcile_capability_snapshot!(deployment)
-      existing_snapshot = matching_capability_snapshot(deployment)
-      if existing_snapshot.present?
-        deployment.update!(active_capability_snapshot: existing_snapshot) if deployment.active_capability_snapshot != existing_snapshot
-        return existing_snapshot
-      end
+      deployment.with_lock do
+        deployment.reload
 
-      version = deployment.capability_snapshots.maximum(:version).to_i + 1
-      capability_snapshot = deployment.capability_snapshots.create!(
-        version: version,
-        protocol_methods: @configuration[:protocol_methods],
-        tool_catalog: @configuration[:tool_catalog],
-        config_schema_snapshot: @configuration[:config_schema_snapshot],
-        conversation_override_schema_snapshot: @configuration[:conversation_override_schema_snapshot],
-        default_config_snapshot: @configuration[:default_config_snapshot]
-      )
-      deployment.update!(active_capability_snapshot: capability_snapshot)
-      capability_snapshot
+        existing_snapshot = matching_capability_snapshot(deployment)
+        if existing_snapshot.present?
+          deployment.update!(active_capability_snapshot: existing_snapshot) if deployment.active_capability_snapshot != existing_snapshot
+          return existing_snapshot
+        end
+
+        version = deployment.capability_snapshots.maximum(:version).to_i + 1
+        capability_snapshot = deployment.capability_snapshots.create!(
+          version: version,
+          protocol_methods: @configuration[:protocol_methods],
+          tool_catalog: @configuration[:tool_catalog],
+          config_schema_snapshot: @configuration[:config_schema_snapshot],
+          conversation_override_schema_snapshot: @configuration[:conversation_override_schema_snapshot],
+          default_config_snapshot: @configuration[:default_config_snapshot]
+        )
+        deployment.update!(active_capability_snapshot: capability_snapshot)
+        capability_snapshot
+      end
     end
 
     def find_existing_deployment(agent_installation)

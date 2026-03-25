@@ -84,6 +84,9 @@ resources. It establishes:
   append-only ordering.
 - `ConversationEvents::Project` is the application-service boundary that
   assigns the next projection sequence.
+- Projection-sequence and stream-revision allocation are serialized at the
+  conversation boundary so concurrent event writers append deterministically
+  without surfacing uniqueness races.
 - Replaceable live-projection streams use:
   - `stream_key`
   - `stream_revision`

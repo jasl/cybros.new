@@ -6,6 +6,7 @@ require "stringio"
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+Dir[File.expand_path("support/**/*.rb", __dir__)].sort.each { |file| require file }
 
 module ActiveSupport
   class TestCase
@@ -16,6 +17,7 @@ module ActiveSupport
     fixtures :all
 
     include ActiveSupport::Testing::TimeHelpers
+    include ConcurrentAllocationHelpers
 
     # Add more helper methods to be used by all tests here...
     private
@@ -30,7 +32,7 @@ module ActiveSupport
 
     def create_installation!(**attrs)
       Installation.create!({
-        name: "Core Matrix",
+        name: "Core Matrix #{next_test_sequence}",
         bootstrap_state: "bootstrapped",
         global_settings: {},
       }.merge(attrs))

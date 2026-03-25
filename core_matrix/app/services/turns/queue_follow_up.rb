@@ -15,11 +15,12 @@ module Turns
     def call
       raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
       raise_invalid!(@conversation, :lifecycle_state, "must be active for user turn entry") unless @conversation.active?
-      unless @conversation.turns.where(lifecycle_state: %w[queued active]).exists?
-        raise_invalid!(@conversation, :base, "must have active work before queueing follow up")
-      end
 
-      ApplicationRecord.transaction do
+      @conversation.with_lock do
+        unless @conversation.turns.where(lifecycle_state: %w[queued active]).exists?
+          raise_invalid!(@conversation, :base, "must have active work before queueing follow up")
+        end
+
         turn = Turn.create!(
           installation: @conversation.installation,
           conversation: @conversation,

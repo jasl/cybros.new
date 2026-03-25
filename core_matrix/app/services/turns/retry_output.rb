@@ -12,11 +12,12 @@ module Turns
     def call
       turn = @message.turn
 
-      raise_invalid!(turn, :selected_output_message, "must match the retry target") unless turn.selected_output_message_id == @message.id
-      raise_invalid!(turn, :lifecycle_state, "must be failed or canceled to retry output") unless turn.failed? || turn.canceled?
-      raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.fork_point?
+      turn.with_lock do
+        turn.reload
+        raise_invalid!(turn, :selected_output_message, "must match the retry target") unless turn.selected_output_message_id == @message.id
+        raise_invalid!(turn, :lifecycle_state, "must be failed or canceled to retry output") unless turn.failed? || turn.canceled?
+        raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
-      ApplicationRecord.transaction do
         retry_output = AgentMessage.create!(
           installation: turn.installation,
           conversation: turn.conversation,

@@ -17,23 +17,25 @@ module Processes
 
     def call
       ApplicationRecord.transaction do
-        process_run = ProcessRun.create!(
-          installation: @workflow_node.installation,
-          workflow_node: @workflow_node,
-          execution_environment: @execution_environment,
-          conversation: @workflow_node.workflow_run.conversation,
-          turn: @workflow_node.workflow_run.turn,
-          origin_message: @origin_message,
-          kind: @kind,
-          lifecycle_state: "running",
-          command_line: @command_line,
-          timeout_seconds: @timeout_seconds,
-          metadata: @metadata
-        )
+        @workflow_node.with_lock do
+          process_run = ProcessRun.create!(
+            installation: @workflow_node.installation,
+            workflow_node: @workflow_node,
+            execution_environment: @execution_environment,
+            conversation: @workflow_node.workflow_run.conversation,
+            turn: @workflow_node.workflow_run.turn,
+            origin_message: @origin_message,
+            kind: @kind,
+            lifecycle_state: "running",
+            command_line: @command_line,
+            timeout_seconds: @timeout_seconds,
+            metadata: @metadata
+          )
 
-        append_status_event!(process_run: process_run, state: "running")
-        record_audit!(process_run) if policy_sensitive?
-        process_run
+          append_status_event!(process_run: process_run, state: "running")
+          record_audit!(process_run) if policy_sensitive?
+          process_run
+        end
       end
     end
 

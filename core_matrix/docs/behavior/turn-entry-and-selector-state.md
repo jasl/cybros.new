@@ -47,6 +47,9 @@ selector state without implementing selector resolution or fallback yet.
   - resolved config snapshot
   - resolved model-selection snapshot
 - Turn sequence is unique within one conversation.
+- Turn-sequence allocation is serialized at the conversation boundary so
+  concurrent turn writers keep a monotonic append-only order without leaking
+  duplicate-key races to callers.
 
 ## Message Behavior
 
@@ -58,6 +61,8 @@ selector state without implementing selector resolution or fallback yet.
 - `AgentMessage` is constrained to `role = agent` and `slot = output`.
 - Message variants are append-only within a turn and slot, keyed by
   `variant_index`.
+- Variant-index allocation is serialized at the turn boundary so concurrent
+  input or output rewrites keep unique append-only ordering within the slot.
 - Turn rows store explicit selected input and output pointers rather than
   inferring the active transcript path from the newest message row.
 

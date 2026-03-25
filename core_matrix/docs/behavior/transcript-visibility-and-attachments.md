@@ -36,6 +36,8 @@ into descendant conversation support surfaces.
 - Hidden overlays are inherited down the conversation lineage because descendant
   projections consult the full ancestor chain from the source message's native
   conversation to the target conversation.
+- Projection helpers batch the relevant overlay rows for the current lineage
+  path instead of issuing per-message overlay existence checks.
 - `Conversation#context_projection_messages` starts from the visible transcript
   projection and removes messages marked `excluded_from_context` anywhere along
   that lineage path.
@@ -58,6 +60,8 @@ into descendant conversation support surfaces.
 
 - Reusing a historical attachment creates a new logical `MessageAttachment`
   row instead of mutating or re-parenting the source row.
+- Attachment reuse streams the source blob into a new blob upload; it does not
+  need to buffer the full file body in Ruby memory before attach.
 - Materialized attachment rows keep:
   - `origin_attachment`
   - `origin_message`
@@ -68,8 +72,9 @@ into descendant conversation support surfaces.
 
 - `Messages::UpdateVisibility` upserts one conversation-message overlay row.
 - Visibility updates never mutate or delete the historical `Message` row.
-- Fork-point messages cannot be hidden or excluded from context once a child
-  conversation depends on them.
+- Fork-point messages cannot be hidden or excluded from context in any
+  conversation projection that depends on them, including descendant branch and
+  checkpoint projections.
 - If all overlay flags are cleared, `Messages::UpdateVisibility` removes the
   now-empty overlay row.
 - `Attachments::MaterializeRefs` clones file-bearing source attachment rows onto
@@ -86,7 +91,7 @@ into descendant conversation support surfaces.
 - hidden or context-excluded messages cannot leak attachments into descendant
   support projections
 - fork-point transcript rows cannot be hidden or context-excluded after branch
-  or checkpoint anchoring
+  or checkpoint anchoring, even from descendant overlays
 
 ## Failure Modes
 
