@@ -6,6 +6,19 @@ Task 03 establishes the machine-facing registry substrate for Core Matrix:
 logical agent installations, execution environments, one-time enrollment
 tokens, concrete deployments, capability snapshots, and heartbeat state.
 
+## Status
+
+This document records the current landed connectivity substrate.
+
+Phase 2 is expected to introduce mailbox-first control delivery,
+`poll + WebSocket + piggyback` transport parity, and distinct realtime-link
+versus control-activity facts. Until those tasks land, this document remains
+the source of truth for the current implementation.
+
+Planned replacement design:
+
+- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
+
 ## Aggregate Responsibilities
 
 ### AgentInstallation

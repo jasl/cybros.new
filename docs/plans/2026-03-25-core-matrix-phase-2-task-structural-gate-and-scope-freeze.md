@@ -7,13 +7,11 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 3. `docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
-6. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+5. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md`
 
 Load this file as the first Phase 2 execution unit. Treat the milestone,
-initial plan, and task-group documents as ordering indexes, not as the full
-task body.
+and phase-plan documents as ordering indexes, not as the full task body.
 
 Reference capture for this task:
 
@@ -30,9 +28,10 @@ Reference capture for this task:
 ---
 
 **Files:**
-- Modify: `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-- Modify: `docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
-- Modify: `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
 - Modify: `docs/plans/README.md`
 - Modify: `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Review: `core_matrix/docs/behavior/*.md`
@@ -65,8 +64,7 @@ Do not leave unresolved ambiguity in chat only.
 Refresh:
 
 - Phase 2 milestone wording
-- initial-plan ordering and task index
-- task-group sequencing if dependencies changed
+- milestone ordering and task index
 - manual-validation checklist prerequisites
 
 The refreshed docs should name the exact formal Phase 2 task set and its
@@ -88,7 +86,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md docs/plans/README.md docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md docs/plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md docs/plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md docs/plans/README.md docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md
 git commit -m "docs: freeze active phase 2 scope"
 ```
 

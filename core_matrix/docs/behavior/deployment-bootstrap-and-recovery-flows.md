@@ -8,6 +8,20 @@ work as durable workflow state, moves paused work through structured outage
 states, supports bounded auto-resume, and requires explicit manual decisions
 after runtime drift.
 
+## Status
+
+This document describes the current landed deployment-bootstrap and recovery
+behavior.
+
+Phase 2 keeps the recovery concepts but is expected to rework runtime
+connectivity and control around mailbox delivery, session presence, and
+durable close semantics. Until that lands, this document remains the source of
+truth for the current implementation.
+
+Planned replacement design:
+
+- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
+
 ## Deployment Bootstrap
 
 - `AgentDeployments::Bootstrap` materializes bootstrap as a normal automation

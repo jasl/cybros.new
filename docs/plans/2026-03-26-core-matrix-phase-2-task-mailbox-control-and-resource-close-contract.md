@@ -2,6 +2,14 @@
 
 Part of `Core Matrix Phase 2: Agent Loop Execution`.
 
+Use this task document together with:
+
+1. `AGENTS.md`
+2. `docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`
+3. `docs/design/2026-03-26-core-matrix-phase-2-test-strategy-design.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+5. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
+
 ## Purpose
 
 Land the mailbox-first control contract that replaces the older claim-first

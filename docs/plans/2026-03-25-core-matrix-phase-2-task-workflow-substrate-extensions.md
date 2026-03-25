@@ -7,13 +7,12 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md`
 3. `docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
-6. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+5. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md`
 
 Load this file as the detailed execution unit for the workflow-substrate task
-inside Phase 2. Treat the milestone file, the task-group file, and the
-initial plan as ordering indexes, not as the full task body.
+inside Phase 2. Treat the milestone file and the phase plan as ordering
+indexes, not as the full task body.
 
 Reference capture for this task:
 
@@ -87,8 +86,8 @@ Expected:
 
 Rules:
 
-- this task exists to stabilize workflow-first execution before external claim
-  or provider work expands
+- this task exists to stabilize workflow-first execution before external
+  runtime-control or provider work expands
 - breaking changes are allowed in Phase 2; this task does not need legacy-shape
   preservation, backfill, or migration-heavy compatibility work
 - accepted kernel-governed intent must have durable workflow representation

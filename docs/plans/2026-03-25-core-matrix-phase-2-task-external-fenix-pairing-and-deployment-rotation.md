@@ -6,10 +6,11 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md`
-3. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-4. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
-6. `docs/plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
+3. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
+5. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
+6. `docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
+7. `docs/plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
 
 Load this file as the detailed external-runtime validation unit for Phase 2.
 Treat the milestone and preceding contract/runtime documents as ordering

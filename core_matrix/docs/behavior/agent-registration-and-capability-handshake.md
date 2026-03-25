@@ -6,6 +6,19 @@ Task 11.1 adds the first machine-facing HTTP protocol boundary for Core Matrix:
 registration by enrollment token, authenticated heartbeat and health probes,
 capability refresh, and capability handshake with config reconciliation.
 
+## Status
+
+This document records the current landed registration and handshake substrate.
+
+Phase 2 is expected to replace the older heartbeat-led runtime-control
+direction with mailbox-driven control, split presence versus health, and
+optional realtime delivery. Until that lands, this document remains the source
+of truth for the current implementation.
+
+Planned replacement design:
+
+- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
+
 ## Controller Boundary
 
 - `AgentAPI::RegistrationsController` is the only unauthenticated machine-facing

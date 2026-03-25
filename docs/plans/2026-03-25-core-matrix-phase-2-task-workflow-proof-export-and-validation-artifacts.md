@@ -6,14 +6,13 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md`
-3. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md`
-5. `docs/reports/README.md`
-6. `docs/reports/phase-2/README.md`
+3. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+4. `docs/reports/README.md`
+5. `docs/reports/phase-2/README.md`
 
 Load this file as the detailed execution unit for the workflow-proof export
-task inside Phase 2. Treat the broader Phase 2 initial plan as the ordering index,
-not as the full task body.
+task inside Phase 2. Treat the broader Phase 2 plan as the ordering index, not
+as the full task body.
 
 Reference capture for this task:
 

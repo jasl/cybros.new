@@ -7,13 +7,12 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`
 3. `docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
-6. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+5. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md`
 
 Load this file as the detailed execution unit for the provider-backed turn
-execution task inside Phase 2. Treat the milestone, sequencing, and
-mailbox-contract documents as ordering indexes, not as the full task body.
+execution task inside Phase 2. Treat the milestone and phase-plan documents as
+ordering indexes, not as the full task body.
 
 Reference capture for this task:
 
@@ -35,7 +34,6 @@ Reference capture for this task:
 - Likely create or modify: `core_matrix/app/services/provider_execution/*`
 - Modify: `core_matrix/app/models/workflow_run.rb`
 - Modify: `core_matrix/app/models/workflow_node.rb`
-- Modify: `core_matrix/app/models/agent_task_run.rb`
 - Modify: `core_matrix/app/models/provider_usage_event.rb`
 - Modify: `core_matrix/app/models/execution_profile_fact.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
@@ -52,11 +50,12 @@ Reference capture for this task:
 
 Cover at least:
 
-- one queued `AgentTaskRun` moving to running and then terminal
+- one workflow-owned provider execution path moving from ready to terminal
 - one provider-backed `turn_step` routed through `simple_inference`
 - authoritative provider usage persistence after completion
-- likely model or model-profile hint exposure to the agent-program-facing
-  execution payload
+- likely model or model-profile hint exposure to the execution snapshot or
+  other reusable provider-execution context that later runtime pairing can
+  consume
 - resolved provider execution settings passthrough for catalog-backed sampling
   fields such as `temperature`, `top_p`, `top_k`, `min_p`,
   `presence_penalty`, and `repetition_penalty`
@@ -87,8 +86,8 @@ Rules:
 - keep prompt building and compaction agent-program-owned
 - use `simple_inference` as the shared provider substrate unless a focused
   protocol gap forces a local extension
-- consume the mailbox-delivered execution surface rather than introducing a
-  second provider-specific control path
+- implement one reusable provider-backed execution path that later mailbox
+  delivery can dispatch through; do not block this task on runtime pairing
 - one provider-backed path is enough for this task; do not widen into tool,
   archive, delete, or MCP breadth here
 - persist authoritative provider usage and correlation data for later
@@ -135,8 +134,11 @@ Expected:
 
 **Step 6: Run one focused provider smoke in development**
 
-Use the mock provider for fast reruns and one real provider path for a focused
-manual smoke if credentials are present.
+Use:
+
+- the mock provider path for fast reruns
+- one real OpenRouter-backed path after `db:seed` materializes the credential
+  from `OPENROUTER_API_KEY` in `.env`
 
 Expected:
 
@@ -146,14 +148,14 @@ Expected:
 **Step 7: Commit**
 
 ```bash
-git -C .. add core_matrix/app/services/workflows/create_for_turn.rb core_matrix/app/services/workflows/execute_run.rb core_matrix/app/services/provider_execution core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/app/models/agent_task_run.rb core_matrix/app/models/provider_usage_event.rb core_matrix/app/models/execution_profile_fact.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/vendor/simple_inference/lib/simple_inference core_matrix/vendor/simple_inference/test core_matrix/test/services/workflows/execute_run_test.rb core_matrix/test/services/provider_execution core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md core_matrix/docs/behavior/provider-usage-events-and-rollups.md core_matrix/docs/behavior/execution-profiling-facts.md
+git -C .. add core_matrix/app/services/workflows/create_for_turn.rb core_matrix/app/services/workflows/execute_run.rb core_matrix/app/services/provider_execution core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/app/models/provider_usage_event.rb core_matrix/app/models/execution_profile_fact.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/vendor/simple_inference/lib/simple_inference core_matrix/vendor/simple_inference/test core_matrix/test/services/workflows/execute_run_test.rb core_matrix/test/services/provider_execution core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md core_matrix/docs/behavior/provider-usage-events-and-rollups.md core_matrix/docs/behavior/execution-profiling-facts.md
 git -C .. commit -m "feat: add provider-backed turn execution"
 ```
 
 ## Stop Point
 
 Stop after one provider-backed turn path executes under workflow control and
-persists authoritative usage.
+persists authoritative usage through a reusable provider execution path.
 
 Do not implement these items in this task:
 

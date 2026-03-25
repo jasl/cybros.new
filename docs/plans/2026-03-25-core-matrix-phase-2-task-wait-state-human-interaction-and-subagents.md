@@ -6,11 +6,10 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md`
-3. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-task-group-kernel-first-sequencing.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md`
-6. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
-7. `docs/plans/2026-03-26-core-matrix-phase-2-task-turn-interrupt-and-conversation-close-semantics.md`
+3. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+4. `docs/plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md`
+5. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
+6. `docs/plans/2026-03-26-core-matrix-phase-2-task-turn-interrupt-and-conversation-close-semantics.md`
 
 Load this file as the detailed execution unit for the wait-state, human
 interaction, and subagents task inside Phase 2.

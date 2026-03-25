@@ -5,6 +5,19 @@
 Core Matrix keeps one structured current wait state on `WorkflowRun` and now
 also defines how deletion interacts with waiting and active workflow work.
 
+## Status
+
+This document records the current landed Phase 1 scheduler and wait-state
+behavior.
+
+Archive, delete, turn interrupt, step retry, and mailbox-close semantics are
+expected to change in Phase 2. Until those tasks land, this document remains
+the source of truth for the current implementation.
+
+Planned replacement design:
+
+- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
+
 ## Workflow Wait State Shape
 
 - `WorkflowRun` persists:

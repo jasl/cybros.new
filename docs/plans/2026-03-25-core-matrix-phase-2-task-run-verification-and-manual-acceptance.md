@@ -5,7 +5,7 @@ Part of `Core Matrix Phase 2: Agent Loop Execution`.
 Use this task document together with:
 
 1. `AGENTS.md`
-2. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+2. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 3. `docs/plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md`
 4. `docs/design/2026-03-26-core-matrix-phase-2-test-strategy-design.md`
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
@@ -13,8 +13,8 @@ Use this task document together with:
 7. `docs/reports/phase-2/README.md`
 
 Load this file as the final acceptance execution unit for Phase 2. Treat the
-milestone and proof-export documents as ordering indexes, not as the full task
-body.
+phase plan and proof-export documents as ordering indexes, not as the full
+task body.
 
 Reference capture for this task:
 

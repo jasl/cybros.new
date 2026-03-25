@@ -12,6 +12,17 @@ Core Matrix exposes machine-facing runtime resource APIs for:
 These endpoints are thin HTTP boundaries over authenticated lookups, query
 objects, and kernel-owned services.
 
+## Status
+
+This document describes the current landed HTTP resource plane only.
+
+It does not define the planned Phase 2 mailbox control plane. Transcript,
+variable, and human-interaction APIs remain short HTTP resource-style
+boundaries, while mailbox delivery, turn interrupt, and resource-close control
+are defined in:
+
+- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
+
 ## Authentication And Lookup Scope
 
 - all runtime-resource endpoints require machine credential authentication

@@ -7,7 +7,7 @@ Use this task document together with:
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md`
 3. `docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md`
-4. `docs/plans/2026-03-25-core-matrix-phase-2-milestone-agent-loop-execution.md`
+4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 5. `docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
 6. `docs/plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md`
 
