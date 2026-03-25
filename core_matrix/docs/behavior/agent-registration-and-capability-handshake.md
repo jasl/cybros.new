@@ -16,6 +16,16 @@ capability refresh, and capability handshake with config reconciliation.
 - These controllers stay machine-facing only; they do not introduce browser UI,
   schedule-trigger ingress, or webhook-trigger ingress.
 
+## Identifier Boundary
+
+- registration now resolves `execution_environment_id` by
+  `ExecutionEnvironment.public_id`
+- registration, health, and heartbeat payloads keep the existing field names
+  such as `deployment_id`, but those fields now carry public UUIDv7-backed
+  `public_id` values
+- internal deployment, installation, and environment relations still use
+  `bigint` after the HTTP boundary lookup
+
 ## Authentication Model
 
 - registration uses a one-time `AgentEnrollment` token and exchanges it for a
@@ -53,10 +63,14 @@ capability refresh, and capability handshake with config reconciliation.
 
 - registration returns deployment identity, bootstrap state, machine
   credential, and the initial capability snapshot
+- registration returns `deployment_id` and `agent_installation_id` as public
+  ids
 - heartbeat returns `method_id: "agent_health"` plus deployment health and the
   latest heartbeat timestamp
+- heartbeat returns `deployment_id` as a public id
 - health returns the same public `agent_health` method family plus deployment
   fingerprint, protocol version, SDK version, and active capability version
+- health returns `deployment_id` as a public id
 - capabilities refresh returns `method_id: "capabilities_refresh"` and the
   active capability snapshot payload
 - capabilities handshake returns `method_id: "capabilities_handshake"` and the

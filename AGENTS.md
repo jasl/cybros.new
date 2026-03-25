@@ -16,6 +16,10 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 
 - Run commands from the target project directory.
 - Keep changes scoped to the requested subproject whenever possible.
+- For `core_matrix`, do not expose internal `bigint` ids at external or
+  agent-facing boundaries; use `public_id` and see
+  `core_matrix/docs/behavior/identifier-policy.md` for the product-specific
+  rules.
 - If you touch shared root files such as `AGENTS.md`, `.editorconfig`, `.gitattributes`, `.gitignore`, or `.github/workflows/*`, assume all subprojects may be affected.
 - Ruby versions are managed per project, usually via `.ruby-version`, and this repo upgrades them in lockstep across projects.
 - When adding a new subproject in the future, give it its own local toolchain files and add an explicit job/path rule in the root CI workflow.

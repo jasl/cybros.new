@@ -7,6 +7,10 @@ uses `references/` or an external implementation for a sanity check, capture
 the retained conclusion in the active plan record, the task document itself, or
 another local document updated during the same execution unit.
 
+When an active plan changes durable product behavior, update the long-lived
+behavior docs in `core_matrix/docs/behavior` during the same execution unit so
+the plan record does not become the only source of truth.
+
 Current active `core_matrix` planning records:
 
 - Design: [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md)

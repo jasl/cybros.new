@@ -24,8 +24,8 @@ request creation.
 ## Authentication And Lookup Scope
 
 - all runtime-resource endpoints require machine credential authentication
-- authenticated lookups are scoped by the deployment installation, not by raw
-  global IDs
+- authenticated lookups are scoped by the deployment installation and resolve
+  resources by `public_id`, not by raw global `bigint` IDs
 - workspaces, conversations, turns, workflow runs, and workflow nodes are
   resolved through installation-scoped finders before any read or mutation is
   attempted
@@ -37,8 +37,8 @@ request creation.
 - transcript reads return only the canonical visible transcript projection
 - hidden transcript rows do not leak through this endpoint
 - cursor pagination is required from the start
-- the cursor is the last visible message ID from the previous page and only
-  resolves against the visible transcript projection
+- the cursor is the last visible message `public_id` from the previous page and
+  only resolves against the visible transcript projection
 
 ## Conversation Variable APIs
 
@@ -92,6 +92,11 @@ request creation.
 - runtime-resource method IDs remain stable `snake_case` protocol identifiers
 - route names stay resource-oriented and do not redefine the canonical public
   method IDs
+- existing field names such as `workspace_id`, `conversation_id`,
+  `workflow_run_id`, and `turn_id` stay stable while now carrying public ids
+- transcript items and human interaction payloads emit resource public ids
+- canonical-variable payloads do not expose canonical-variable row ids because
+  canonical-variable rows remain internal write-history records
 - capability snapshots still publish `protocol_methods` separately from
   `tool_catalog`; runtime-resource controllers do not collapse those families
 

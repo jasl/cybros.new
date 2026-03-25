@@ -43,6 +43,8 @@ freezes a per-turn execution snapshot that preserves:
   - `conversation_id`
   - `turn_id`
   - `agent_deployment_id`
+- these identity fields are public ids for the referenced resources, not raw
+  internal `bigint` primary keys
 - `execution_context.turn_origin` preserves the current turn's origin kind,
   origin payload, and source reference metadata.
 - Automation-origin turns therefore assemble successfully even when they do not
@@ -59,6 +61,10 @@ freezes a per-turn execution snapshot that preserves:
   context when they are present in the current transcript path.
 - `context_imports` are derived only from the current conversation's persisted
   `ConversationImport` rows.
+- where imports reference externally meaningful resources such as conversations
+  or messages, the snapshot emits those references as public ids
+- import rows that do not have their own `public_id` do not leak raw internal
+  row ids through the runtime snapshot
 - Superseded summary segments are skipped so the snapshot retains only current
   imported summary artifacts.
 - Non-transcript `ConversationEvent` rows do not enter canonical context
@@ -78,6 +84,8 @@ freezes a per-turn execution snapshot that preserves:
   - `byte_size`
   - `modality`
   - `runtime_ref`
+- attachment and message references inside these payloads are public ids for
+  the corresponding resources
 - `runtime_attachment_manifest` is a runtime-facing projection derived from the
   frozen manifest.
 - `model_input_attachments` is the model-facing projection derived from the
