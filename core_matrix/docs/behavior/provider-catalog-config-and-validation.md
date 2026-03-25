@@ -95,10 +95,19 @@ Model `enabled` defaults to `true` when omitted. Catalog authors only need to
 declare it explicitly when disabling a model or when they want that boolean to
 remain fully explicit in local overrides.
 
-`request_defaults` remains model-scoped catalog state in Phase 1. This follow-up
-validates and preserves the values, but does not yet wire them into actual
-provider request execution. Phase 2 will define the merge precedence between
-model defaults, agent defaults, conversation overrides, and turn overrides.
+`request_defaults` remains model-scoped catalog state in Phase 1. Phase 2 now
+wires those values into provider-backed request execution.
+
+For provider execution, merge precedence is:
+
+1. model catalog `request_defaults`
+2. the turn's effective resolved config snapshot
+
+The turn snapshot is already the resolved execution-config boundary after agent,
+conversation, and turn-level config resolution, so provider execution does not
+re-open older config layers directly. Provider request execution also filters
+these settings by the current wire API so non-provider config keys do not leak
+into outbound requests.
 
 Supported `request_defaults` keys are:
 

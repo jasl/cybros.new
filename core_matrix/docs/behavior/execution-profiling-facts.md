@@ -11,6 +11,7 @@ questions about how work executed, not how providers billed for it.
 - `ExecutionProfileFact` records one execution telemetry fact at a point in
   time.
 - Facts support generic profiling kinds for:
+  - provider requests
   - tool calls
   - subagent outcomes
   - approval wait intervals
@@ -30,6 +31,15 @@ questions about how work executed, not how providers billed for it.
   redesign in this phase.
 - `fact_key` keeps the concrete discriminator inside a generic fact kind, such
   as a tool identifier, subagent role, approval gate key, or process label.
+- provider-backed `turn_step` execution records `fact_kind = provider_request`
+  with:
+  - provider request correlation id
+  - provider/model identity
+  - wire API
+  - provider-facing execution settings actually sent to the request layer
+  - hard execution limits and advisory hints frozen from the turn snapshot
+  - post-run provider-usage evaluation, including whether the advisory
+    compaction threshold was crossed using authoritative provider usage
 - `count_value`, `duration_ms`, and `success` remain optional because different
   fact kinds project different telemetry shapes.
 - `metadata` stores structured detail for a fact and must remain a hash.
@@ -41,6 +51,9 @@ questions about how work executed, not how providers billed for it.
 - Recording a profiling fact creates an `ExecutionProfileFact` row only.
 - Recording a profiling fact does not create or mutate `UsageEvent` or
   `UsageRollup` rows.
+- `ProviderExecution::ExecuteTurnStep` records one profiling fact for each
+  provider-backed workflow `turn_step`, whether the request finishes
+  successfully or fails at the provider boundary.
 
 ## Invariants
 
@@ -48,6 +61,8 @@ questions about how work executed, not how providers billed for it.
   accounting
 - profiling facts may later join with usage data for analysis, but they are not
   modeled as provider billing rows
+- provider correlation ids, request settings, and advisory threshold evaluation
+  live in profiling facts rather than overloading `UsageEvent`
 - this task does not hard-couple to future runtime-resource tables from
   Milestone 3
 - cross-installation user and workspace references are rejected

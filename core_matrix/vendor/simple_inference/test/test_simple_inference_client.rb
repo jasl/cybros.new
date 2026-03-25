@@ -460,6 +460,51 @@ class TestSimpleInferenceClient < Minitest::Test
     assert_equal 200, result.response.status
   end
 
+  def test_chat_forwards_sampling_and_limit_parameters
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      attr_reader :last_request
+
+      def call(env)
+        @last_request = env
+        {
+          status: 200,
+          headers: { "content-type" => "application/json" },
+          body: JSON.generate(
+            {
+              choices: [
+                { message: { role: "assistant", content: "hi" }, finish_reason: "stop" },
+              ],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            }
+          ),
+        }
+      end
+    end.new
+
+    client = SimpleInference::Client.new(base_url: "http://example.com", adapter: adapter)
+    client.chat(
+      model: "foo",
+      messages: [{ role: "user", content: "hello" }],
+      temperature: 0.4,
+      top_p: 0.95,
+      top_k: 20,
+      min_p: 0.1,
+      presence_penalty: 0.6,
+      repetition_penalty: 1.1,
+      max_tokens: 24
+    )
+
+    body = JSON.parse(adapter.last_request[:body])
+
+    assert_equal 0.4, body["temperature"]
+    assert_equal 0.95, body["top_p"]
+    assert_equal 20, body["top_k"]
+    assert_equal 0.1, body["min_p"]
+    assert_equal 0.6, body["presence_penalty"]
+    assert_equal 1.1, body["repetition_penalty"]
+    assert_equal 24, body["max_tokens"]
+  end
+
   def test_chat_stream_is_enumerable_and_exposes_result
     adapter = Class.new(SimpleInference::HTTPAdapter) do
       def call_stream(_env)

@@ -1,6 +1,7 @@
 class ExecutionProfileFact < ApplicationRecord
   enum :fact_kind,
     {
+      provider_request: "provider_request",
       tool_call: "tool_call",
       subagent_outcome: "subagent_outcome",
       approval_wait: "approval_wait",

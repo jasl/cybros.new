@@ -97,6 +97,18 @@ class Turn < ApplicationRecord
     execution_context.fetch("identity", {})
   end
 
+  def model_context
+    execution_context.fetch("model_context", {})
+  end
+
+  def provider_execution
+    execution_context.fetch("provider_execution", {})
+  end
+
+  def budget_hints
+    execution_context.fetch("budget_hints", {})
+  end
+
   def turn_origin_context
     execution_context.fetch("turn_origin", {})
   end

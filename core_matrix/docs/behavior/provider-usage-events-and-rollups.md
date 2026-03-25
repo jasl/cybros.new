@@ -18,6 +18,19 @@ derived aggregation layer for reporting and future quota or entitlement checks.
 - Operation kinds cover token and non-token AI work, including text, image,
   video, embeddings, speech, transcription, and future media analysis.
 - Token counts and media-unit counts are both supported.
+- Phase 2 provider-backed `turn_step` execution records authoritative usage from
+  the provider response after the workflow step completes.
+- Successful provider-backed text generation records:
+  - `provider_handle`
+  - `model_ref`
+  - `operation_kind = text_generation`
+  - `conversation_id`
+  - `turn_id`
+  - `workflow_node_key`
+  - provider-returned input and output tokens when available
+  - observed end-to-end latency for the provider call
+- `UsageEvent#total_tokens` remains a convenience helper over the stored input
+  and output token columns; the durable truth stays in the row itself.
 
 ## Rollup Behavior
 
@@ -35,6 +48,9 @@ derived aggregation layer for reporting and future quota or entitlement checks.
 
 - `ProviderUsage::RecordEvent` creates one `UsageEvent` and immediately projects
   rollups in the same transaction.
+- `ProviderExecution::ExecuteTurnStep` uses `ProviderUsage::RecordEvent` as the
+  authoritative usage write boundary after a provider-backed `turn_step`
+  succeeds.
 - `ProviderUsage::ProjectRollups` always projects hourly and daily rollups.
 - A rolling-window rollup is projected only when the event carries an explicit
   `entitlement_window_key`.
@@ -49,6 +65,9 @@ derived aggregation layer for reporting and future quota or entitlement checks.
   tables that land later in Milestone 3
 - provider/model references are preserved on the event exactly as observed at
   runtime instead of being revalidated against the current live catalog
+- authoritative usage remains separate from execution telemetry and threshold
+  advice; correlation and advisory evaluation belong in execution facts, not in
+  usage rows
 
 ## Failure Modes
 

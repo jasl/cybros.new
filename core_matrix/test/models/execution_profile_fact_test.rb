@@ -29,6 +29,20 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
       occurred_at: Time.utc(2026, 3, 24, 12, 0, 0),
       metadata: {}
     )
+    provider_request = ExecutionProfileFact.create!(
+      installation: installation,
+      user: user,
+      workspace: workspace,
+      conversation_id: 101,
+      turn_id: 202,
+      workflow_node_key: "turn-step",
+      fact_kind: "provider_request",
+      fact_key: "turn_step",
+      duration_ms: 1_250,
+      success: true,
+      occurred_at: Time.utc(2026, 3, 24, 12, 2, 0),
+      metadata: { "provider_request_id" => "req-123" }
+    )
     subagent_outcome = ExecutionProfileFact.create!(
       installation: installation,
       fact_kind: "subagent_outcome",
@@ -58,6 +72,7 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
     )
 
     assert tool_call.tool_call?
+    assert provider_request.provider_request?
     assert subagent_outcome.subagent_outcome?
     assert approval_wait.approval_wait?
     assert process_failure.process_failure?

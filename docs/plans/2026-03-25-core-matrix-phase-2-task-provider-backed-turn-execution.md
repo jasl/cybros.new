@@ -34,7 +34,7 @@ Reference capture for this task:
 - Likely create or modify: `core_matrix/app/services/provider_execution/*`
 - Modify: `core_matrix/app/models/workflow_run.rb`
 - Modify: `core_matrix/app/models/workflow_node.rb`
-- Modify: `core_matrix/app/models/provider_usage_event.rb`
+- Modify: `core_matrix/app/models/usage_event.rb`
 - Modify: `core_matrix/app/models/execution_profile_fact.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
 - Modify: `core_matrix/vendor/simple_inference/lib/simple_inference/*`
@@ -84,6 +84,9 @@ Rules:
 
 - breaking changes are allowed in Phase 2; do not preserve legacy loop shapes
 - keep prompt building and compaction agent-program-owned
+- if a kernel-local execution helper is added for this task, keep it as a thin
+  caller that passes already-prepared provider messages into the reusable
+  provider-execution path instead of rebuilding a general prompt composer
 - use `simple_inference` as the shared provider substrate unless a focused
   protocol gap forces a local extension
 - implement one reusable provider-backed execution path that later mailbox
@@ -92,6 +95,8 @@ Rules:
   archive, delete, or MCP breadth here
 - persist authoritative provider usage and correlation data for later
   accounting and advisory logic
+- keep the existing `UsageEvent` + `UsageRollup` naming and event-truth model;
+  do not introduce a parallel `ProviderUsageEvent` wrapper for the same facts
 - make likely-model hints available when known so the agent program can do
   model-aware prompt sizing
 - resolved provider execution settings from the model catalog must be carried
@@ -148,7 +153,7 @@ Expected:
 **Step 7: Commit**
 
 ```bash
-git -C .. add core_matrix/app/services/workflows/create_for_turn.rb core_matrix/app/services/workflows/execute_run.rb core_matrix/app/services/provider_execution core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/app/models/provider_usage_event.rb core_matrix/app/models/execution_profile_fact.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/vendor/simple_inference/lib/simple_inference core_matrix/vendor/simple_inference/test core_matrix/test/services/workflows/execute_run_test.rb core_matrix/test/services/provider_execution core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md core_matrix/docs/behavior/provider-usage-events-and-rollups.md core_matrix/docs/behavior/execution-profiling-facts.md
+git -C .. add core_matrix/app/services/workflows/create_for_turn.rb core_matrix/app/services/workflows/execute_run.rb core_matrix/app/services/provider_execution core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/app/models/usage_event.rb core_matrix/app/models/execution_profile_fact.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/vendor/simple_inference/lib/simple_inference core_matrix/vendor/simple_inference/test core_matrix/test/services/workflows/execute_run_test.rb core_matrix/test/services/provider_execution core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md core_matrix/docs/behavior/provider-usage-events-and-rollups.md core_matrix/docs/behavior/execution-profiling-facts.md
 git -C .. commit -m "feat: add provider-backed turn execution"
 ```
 

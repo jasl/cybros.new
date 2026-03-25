@@ -17,6 +17,9 @@ module Workflows
         "config" => @turn.effective_config_snapshot,
         "execution_context" => {
           "identity" => execution_identity,
+          "model_context" => model_context,
+          "provider_execution" => provider_execution,
+          "budget_hints" => budget_hints,
           "turn_origin" => turn_origin,
           "context_messages" => context_messages,
           "context_imports" => context_imports,
@@ -37,6 +40,33 @@ module Workflows
         "conversation_id" => @turn.conversation.public_id,
         "turn_id" => @turn.public_id,
         "agent_deployment_id" => @turn.agent_deployment.public_id,
+      }
+    end
+
+    def model_context
+      request_context.slice(
+        "provider_handle",
+        "model_ref",
+        "api_model",
+        "wire_api",
+        "transport",
+        "tokenizer_hint",
+        "provider_metadata",
+        "model_metadata"
+      )
+    end
+
+    def provider_execution
+      {
+        "wire_api" => request_context.fetch("wire_api"),
+        "execution_settings" => request_context.fetch("execution_settings"),
+      }
+    end
+
+    def budget_hints
+      {
+        "hard_limits" => request_context.fetch("hard_limits"),
+        "advisory_hints" => request_context.fetch("advisory_hints"),
       }
     end
 
@@ -173,6 +203,10 @@ module Workflows
 
     def catalog
       @catalog ||= ProviderCatalog::Load.call
+    end
+
+    def request_context
+      @request_context ||= ProviderExecution::BuildRequestContext.call(turn: @turn, catalog: catalog)
     end
 
     def raise_invalid!(message)

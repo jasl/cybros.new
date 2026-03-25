@@ -31,6 +31,12 @@ class UsageEvent < ApplicationRecord
   validate :agent_installation_installation_match
   validate :agent_deployment_installation_match
 
+  def total_tokens
+    return nil if input_tokens.nil? && output_tokens.nil?
+
+    input_tokens.to_i + output_tokens.to_i
+  end
+
   private
 
   def user_installation_match

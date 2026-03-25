@@ -83,7 +83,9 @@ module ActiveSupport
                 api_model: "gpt-5.4",
                 tokenizer_hint: "o200k_base",
                 context_window_tokens: 1_000_000,
-                max_output_tokens: 128_000
+                max_output_tokens: 128_000,
+                context_soft_limit_ratio: 0.9,
+                request_defaults: { reasoning_effort: "high" }
               ),
               "gpt-5.3-codex" => test_model_definition(
                 display_name: "GPT-5.3 Codex",
@@ -116,7 +118,8 @@ module ActiveSupport
                 api_model: "gpt-5.4",
                 tokenizer_hint: "o200k_base",
                 context_window_tokens: 1_000_000,
-                max_output_tokens: 128_000
+                max_output_tokens: 128_000,
+                context_soft_limit_ratio: 0.9
               ),
               "gpt-5.3-chat-latest" => test_model_definition(
                 display_name: "GPT-5.3 Instant",
@@ -149,6 +152,7 @@ module ActiveSupport
                 tokenizer_hint: "o200k_base",
                 context_window_tokens: 1_000_000,
                 max_output_tokens: 128_000,
+                context_soft_limit_ratio: 0.9,
                 multimodal_inputs: { image: false, audio: false, video: false, file: false }
               ),
               "openai-gpt-5.3-codex" => test_model_definition(

@@ -76,6 +76,14 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     assert_equal conversation.public_id, snapshot.dig("execution_context", "identity", "conversation_id")
     assert_equal current_turn.public_id, snapshot.dig("execution_context", "identity", "turn_id")
     assert_equal context[:agent_deployment].public_id, snapshot.dig("execution_context", "identity", "agent_deployment_id")
+    assert_equal "codex_subscription", snapshot.dig("execution_context", "model_context", "provider_handle")
+    assert_equal "gpt-5.4", snapshot.dig("execution_context", "model_context", "model_ref")
+    assert_equal "gpt-5.4", snapshot.dig("execution_context", "model_context", "api_model")
+    assert_equal "responses", snapshot.dig("execution_context", "provider_execution", "wire_api")
+    assert_equal "high", snapshot.dig("execution_context", "provider_execution", "execution_settings", "reasoning_effort")
+    assert_equal 1_000_000, snapshot.dig("execution_context", "budget_hints", "hard_limits", "context_window_tokens")
+    assert_equal 128_000, snapshot.dig("execution_context", "budget_hints", "hard_limits", "max_output_tokens")
+    assert_equal 900_000, snapshot.dig("execution_context", "budget_hints", "advisory_hints", "recommended_compaction_threshold")
     assert_equal "User", snapshot.dig("execution_context", "turn_origin", "source_ref_type")
     assert_equal context[:user].public_id, snapshot.dig("execution_context", "turn_origin", "source_ref_id")
     assert_equal(
@@ -126,5 +134,7 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     assert_equal "automation_schedule", snapshot.dig("execution_context", "turn_origin", "origin_kind")
     assert_equal({ "cron" => "0 9 * * *" }, snapshot.dig("execution_context", "turn_origin", "origin_payload"))
     assert_equal context[:workspace].public_id, snapshot.dig("execution_context", "identity", "workspace_id")
+    assert_equal "codex_subscription", snapshot.dig("execution_context", "model_context", "provider_handle")
+    assert_equal "responses", snapshot.dig("execution_context", "provider_execution", "wire_api")
   end
 end

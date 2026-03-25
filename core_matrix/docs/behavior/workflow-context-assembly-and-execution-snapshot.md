@@ -3,6 +3,9 @@
 ## Purpose
 
 Task 09.4 adds the first context-assembly boundary for workflow execution.
+Task B1 extends that boundary so workflow-owned provider execution can reuse the
+same frozen turn snapshot without rebuilding provider-model metadata or budget
+hints at call sites.
 
 This task does not execute workflow nodes or speak the machine protocol. It
 freezes a per-turn execution snapshot that preserves:
@@ -26,6 +29,9 @@ freezes a per-turn execution snapshot that preserves:
 - `config` preserves the effective resolved configuration payload for the turn.
 - `execution_context` currently freezes:
   - `identity`
+  - `model_context`
+  - `provider_execution`
+  - `budget_hints`
   - `turn_origin`
   - `context_messages`
   - `context_imports`
@@ -52,6 +58,40 @@ freezes a per-turn execution snapshot that preserves:
   public id rather than its internal row id
 - Automation-origin turns therefore assemble successfully even when they do not
   have a selected transcript-bearing input message.
+
+## Model Context And Budget Hints
+
+- `execution_context.model_context` freezes provider-qualified model metadata
+  needed by later runtime pairing and local provider execution:
+  - `provider_handle`
+  - `model_ref`
+  - `api_model`
+  - `wire_api`
+  - `transport`
+  - `tokenizer_hint`
+  - string-keyed provider and model metadata
+- `execution_context.provider_execution` freezes provider-facing request settings
+  separately from transcript or attachment context:
+  - `wire_api`
+  - `execution_settings`
+- `execution_settings` are filtered to the current provider wire API instead of
+  blindly copying the whole resolved turn config payload.
+- For Phase 2 provider-backed execution, merge precedence is:
+  1. model catalog `request_defaults`
+  2. the turn's effective resolved config snapshot
+- This works because the turn snapshot is already the resolved execution config
+  boundary for agent, conversation, and turn-level settings.
+- `execution_context.budget_hints` keeps hard ceilings separate from advisory
+  runtime hints:
+  - `hard_limits.context_window_tokens`
+  - `hard_limits.max_output_tokens`
+  - `advisory_hints.recommended_compaction_threshold`
+- `recommended_compaction_threshold` is derived from
+  `context_window_tokens * context_soft_limit_ratio` and remains advisory only.
+- `Workflows::ExecuteRun` is intentionally a thin workflow-owned caller. It may
+  default to raw transcript messages for a local Phase 2 path, but the reusable
+  provider-execution boundary accepts already-prepared provider messages instead
+  of rebuilding a full prompt composer inside the kernel.
 
 ## Context Messages And Imports
 
@@ -117,6 +157,9 @@ freezes a per-turn execution snapshot that preserves:
 - `Turn` now exposes read helpers for:
   - `effective_config_snapshot`
   - `execution_identity`
+  - `model_context`
+  - `provider_execution`
+  - `budget_hints`
   - `turn_origin_context`
   - `context_messages`
   - `context_imports`
@@ -127,11 +170,15 @@ freezes a per-turn execution snapshot that preserves:
 - `WorkflowRun` delegates the execution-identity and attachment-projection
   helpers to its owning turn so operational queries do not need to reopen the
   raw JSON payload.
+- `WorkflowRun` also delegates `model_context`, `provider_execution`, and
+  `budget_hints` to the owning turn for the same reason.
 
 ## Failure Modes
 
 - context assembly rejects turns that do not yet have a resolved provider/model
   snapshot
+- provider execution settings do not leak unrelated resolved config keys such
+  as sandbox or other non-provider flags into the outbound provider request
 - unsupported attachment modalities are not serialized as if the model saw them
 - hidden, excluded, or branch-ineligible attachments do not leak into the
   frozen manifest
