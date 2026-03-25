@@ -247,9 +247,14 @@ Rules:
 - `Core Matrix` remains the source of truth for execution state
 - the agent program receives durable mailbox items rather than blocking
   callbacks from the kernel
-- claimed work should carry stable budget hints such as likely model or
-  model-profile context, reserved-output guidance, and any advisory compaction
-  threshold the kernel already knows
+- claimed work should carry stable execution hints such as:
+  - likely model or model-profile context
+  - resolved provider and model identifiers
+  - resolved provider-facing sampling defaults when known, such as
+    `temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty`, and
+    `repetition_penalty`
+  - reserved-output guidance
+  - any advisory compaction threshold the kernel already knows
 - transport retries must be idempotent by `message_id`
 - delivery retries must not be conflated with execution-attempt retries
 - `turn_interrupt` and broader close flows must fence stale work so later retry

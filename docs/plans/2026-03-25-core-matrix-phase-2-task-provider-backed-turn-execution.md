@@ -57,6 +57,9 @@ Cover at least:
 - authoritative provider usage persistence after completion
 - likely model or model-profile hint exposure to the agent-program-facing
   execution payload
+- resolved provider execution settings passthrough for catalog-backed sampling
+  fields such as `temperature`, `top_p`, `top_k`, `min_p`,
+  `presence_penalty`, and `repetition_penalty`
 - separation between hard provider ceilings and advisory runtime hints
 - one advisory compaction-threshold evaluation driven by real provider usage,
   not estimates alone
@@ -92,6 +95,17 @@ Rules:
   accounting and advisory logic
 - make likely-model hints available when known so the agent program can do
   model-aware prompt sizing
+- resolved provider execution settings from the model catalog must be carried
+  into the real API request path rather than stopping at selector resolution or
+  diagnostics only
+- treat these sampling fields as provider-facing execution settings, not as
+  advisory prompt-building hints:
+  - `temperature`
+  - `top_p`
+  - `top_k`
+  - `min_p`
+  - `presence_penalty`
+  - `repetition_penalty`
 
 **Step 4: Update local behavior docs**
 
@@ -99,6 +113,8 @@ Document exact retained behavior for:
 
 - provider-backed `turn_step` execution under workflow control
 - authoritative provider usage capture
+- resolved catalog-backed execution settings passthrough into provider API
+  requests
 - advisory threshold evaluation based on post-run real usage
 - hard-limit versus advisory-budget separation
 
