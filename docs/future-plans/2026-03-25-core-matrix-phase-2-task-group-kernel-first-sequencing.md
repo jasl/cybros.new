@@ -1,8 +1,9 @@
-# Core Matrix Phase 2 Kernel-First Sequencing Follow-Up
+# Core Matrix Phase 2 Task Group: Kernel-First Sequencing
 
 ## Status
 
-Deferred focused follow-up for the earliest `Core Matrix` slices inside Phase 2.
+Deferred focused task-group note for the earliest `Core Matrix` slices inside
+Phase 2.
 
 This document does not replace the full Phase 2 initial plan. It narrows one
 question only: in what order should the kernel-owned execution work land so the
@@ -214,6 +215,7 @@ skills, or deployment rotation before the kernel slices above are explicit.
 ## Related Documents
 
 - [2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-initial-plan.md)
+- [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
 - [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
 - [2026-03-25-core-matrix-platform-phases-and-validation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md)
