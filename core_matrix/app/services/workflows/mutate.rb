@@ -28,12 +28,18 @@ module Workflows
       next_ordinal = workflow_nodes_scope.maximum(:ordinal).to_i + 1
 
       @nodes.each do |node_attributes|
+        yielding_node = resolve_optional_node(node_lookup, node_attributes[:yielding_node_key])
         node = WorkflowNode.create!(
           installation: @workflow_run.installation,
           workflow_run: @workflow_run,
           ordinal: next_ordinal,
           node_key: node_attributes.fetch(:node_key),
           node_type: node_attributes.fetch(:node_type),
+          intent_kind: node_attributes[:intent_kind],
+          stage_index: node_attributes[:stage_index],
+          stage_position: node_attributes[:stage_position],
+          yielding_workflow_node: yielding_node,
+          presentation_policy: node_attributes.fetch(:presentation_policy, "internal_only"),
           decision_source: node_attributes.fetch(:decision_source),
           metadata: node_attributes.fetch(:metadata, {})
         )
@@ -105,6 +111,12 @@ module Workflows
       node_lookup.fetch(node_key)
     rescue KeyError
       raise_invalid!(@workflow_run, :base, "references unknown workflow node key #{node_key}")
+    end
+
+    def resolve_optional_node(node_lookup, node_key)
+      return if node_key.blank?
+
+      resolve_node!(node_lookup, node_key)
     end
 
     def workflow_nodes_scope

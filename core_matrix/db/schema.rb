@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_26_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -132,7 +132,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
     t.index ["canonical_store_snapshot_id"], name: "index_canonical_store_entries_on_canonical_store_snapshot_id"
     t.index ["canonical_store_value_id"], name: "index_canonical_store_entries_on_canonical_store_value_id"
     t.check_constraint "entry_kind::text = 'set'::text AND canonical_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND canonical_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_canonical_store_entries_value_shape"
-    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying, 'tombstone'::character varying]::text[])", name: "chk_canonical_store_entries_kind"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_canonical_store_entries_kind"
     t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_canonical_store_entries_key_bytes"
   end
 
@@ -155,8 +155,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
     t.datetime "updated_at", null: false
     t.index ["base_snapshot_id"], name: "index_canonical_store_snapshots_on_base_snapshot_id"
     t.index ["canonical_store_id"], name: "index_canonical_store_snapshots_on_canonical_store_id"
-    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying, 'compaction'::character varying]::text[])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
-    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying, 'write'::character varying, 'compaction'::character varying]::text[])", name: "chk_canonical_store_snapshots_kind"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_canonical_store_snapshots_kind"
   end
 
   create_table "canonical_store_values", force: :cascade do |t|
@@ -329,8 +329,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
-    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
-    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -675,7 +675,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
     t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
     t.index ["selected_output_message_id"], name: "index_turns_on_selected_output_message_id"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_turns_cancellation_pairing"
-    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying, 'conversation_archived'::character varying]::text[]))", name: "chk_turns_cancellation_reason_kind"
+    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text]))", name: "chk_turns_cancellation_reason_kind"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -774,18 +774,29 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
   create_table "workflow_artifacts", force: :cascade do |t|
     t.string "artifact_key", null: false
     t.string "artifact_kind", null: false
+    t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
     t.jsonb "payload", default: {}, null: false
+    t.string "presentation_policy"
     t.string "storage_mode", null: false
+    t.bigint "turn_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_node_id", null: false
+    t.string "workflow_node_key"
+    t.integer "workflow_node_ordinal"
     t.bigint "workflow_run_id", null: false
+    t.bigint "workspace_id"
+    t.index ["conversation_id", "workflow_node_ordinal", "artifact_kind"], name: "index_workflow_artifacts_on_conversation_node_ordinal_kind"
+    t.index ["conversation_id"], name: "index_workflow_artifacts_on_conversation_id"
     t.index ["installation_id"], name: "index_workflow_artifacts_on_installation_id"
+    t.index ["turn_id"], name: "index_workflow_artifacts_on_turn_id"
     t.index ["workflow_node_id", "artifact_kind"], name: "index_workflow_artifacts_on_workflow_node_id_and_artifact_kind"
     t.index ["workflow_node_id"], name: "index_workflow_artifacts_on_workflow_node_id"
     t.index ["workflow_run_id", "artifact_key"], name: "index_workflow_artifacts_on_workflow_run_id_and_artifact_key"
     t.index ["workflow_run_id"], name: "index_workflow_artifacts_on_workflow_run_id"
+    t.index ["workspace_id"], name: "index_workflow_artifacts_on_workspace_id"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_artifacts_presentation_policy"
   end
 
   create_table "workflow_edges", force: :cascade do |t|
@@ -805,37 +816,62 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
   end
 
   create_table "workflow_node_events", force: :cascade do |t|
+    t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.string "event_kind", null: false
     t.bigint "installation_id", null: false
     t.integer "ordinal", null: false
     t.jsonb "payload", default: {}, null: false
+    t.string "presentation_policy"
+    t.bigint "turn_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_node_id", null: false
+    t.string "workflow_node_key"
+    t.integer "workflow_node_ordinal"
     t.bigint "workflow_run_id", null: false
+    t.bigint "workspace_id"
+    t.index ["conversation_id", "workflow_node_ordinal", "ordinal"], name: "index_workflow_node_events_on_conversation_node_ordinal"
+    t.index ["conversation_id"], name: "index_workflow_node_events_on_conversation_id"
     t.index ["installation_id"], name: "index_workflow_node_events_on_installation_id"
+    t.index ["turn_id"], name: "index_workflow_node_events_on_turn_id"
     t.index ["workflow_node_id", "ordinal"], name: "index_workflow_node_events_on_workflow_node_id_and_ordinal", unique: true
     t.index ["workflow_node_id"], name: "index_workflow_node_events_on_workflow_node_id"
     t.index ["workflow_run_id", "event_kind"], name: "index_workflow_node_events_on_workflow_run_id_and_event_kind"
     t.index ["workflow_run_id"], name: "index_workflow_node_events_on_workflow_run_id"
+    t.index ["workspace_id"], name: "index_workflow_node_events_on_workspace_id"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_node_events_presentation_policy"
   end
 
   create_table "workflow_nodes", force: :cascade do |t|
+    t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.string "decision_source", null: false
     t.bigint "installation_id", null: false
+    t.string "intent_kind"
     t.jsonb "metadata", default: {}, null: false
     t.string "node_key", null: false
     t.string "node_type", null: false
     t.integer "ordinal", null: false
+    t.string "presentation_policy"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.integer "stage_index"
+    t.integer "stage_position"
+    t.bigint "turn_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_run_id", null: false
+    t.bigint "workspace_id"
+    t.bigint "yielding_workflow_node_id"
+    t.index ["conversation_id"], name: "index_workflow_nodes_on_conversation_id"
     t.index ["installation_id"], name: "index_workflow_nodes_on_installation_id"
     t.index ["public_id"], name: "index_workflow_nodes_on_public_id", unique: true
+    t.index ["turn_id"], name: "index_workflow_nodes_on_turn_id"
     t.index ["workflow_run_id", "node_key"], name: "index_workflow_nodes_on_workflow_run_id_and_node_key", unique: true
     t.index ["workflow_run_id", "ordinal"], name: "index_workflow_nodes_on_workflow_run_id_and_ordinal", unique: true
+    t.index ["workflow_run_id", "stage_index", "stage_position"], name: "index_workflow_nodes_on_run_stage_order"
     t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
+    t.index ["workspace_id"], name: "index_workflow_nodes_on_workspace_id"
+    t.index ["yielding_workflow_node_id"], name: "index_workflow_nodes_on_yielding_workflow_node_id"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_nodes_presentation_policy"
   end
 
   create_table "workflow_runs", force: :cascade do |t|
@@ -848,19 +884,24 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.jsonb "resume_metadata", default: {}, null: false
+    t.string "resume_policy"
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
     t.string "wait_reason_kind"
     t.jsonb "wait_reason_payload", default: {}, null: false
     t.string "wait_state", default: "ready", null: false
     t.datetime "waiting_since_at"
+    t.bigint "workspace_id"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"
     t.index ["public_id"], name: "index_workflow_runs_on_public_id", unique: true
     t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
+    t.index ["workspace_id"], name: "index_workflow_runs_on_workspace_id"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
-    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying, 'conversation_archived'::character varying]::text[]))", name: "chk_workflow_runs_cancellation_reason_kind"
+    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text]))", name: "chk_workflow_runs_cancellation_reason_kind"
+    t.check_constraint "resume_policy IS NULL OR resume_policy::text = 're_enter_agent'::text", name: "chk_workflow_runs_resume_policy"
   end
 
   create_table "workspaces", force: :cascade do |t|
@@ -993,21 +1034,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090042) do
   add_foreign_key "user_agent_bindings", "users"
   add_foreign_key "users", "identities"
   add_foreign_key "users", "installations"
+  add_foreign_key "workflow_artifacts", "conversations"
   add_foreign_key "workflow_artifacts", "installations"
+  add_foreign_key "workflow_artifacts", "turns"
   add_foreign_key "workflow_artifacts", "workflow_nodes"
   add_foreign_key "workflow_artifacts", "workflow_runs"
+  add_foreign_key "workflow_artifacts", "workspaces"
   add_foreign_key "workflow_edges", "installations"
   add_foreign_key "workflow_edges", "workflow_nodes", column: "from_node_id"
   add_foreign_key "workflow_edges", "workflow_nodes", column: "to_node_id"
   add_foreign_key "workflow_edges", "workflow_runs"
+  add_foreign_key "workflow_node_events", "conversations"
   add_foreign_key "workflow_node_events", "installations"
+  add_foreign_key "workflow_node_events", "turns"
   add_foreign_key "workflow_node_events", "workflow_nodes"
   add_foreign_key "workflow_node_events", "workflow_runs"
+  add_foreign_key "workflow_node_events", "workspaces"
+  add_foreign_key "workflow_nodes", "conversations"
   add_foreign_key "workflow_nodes", "installations"
+  add_foreign_key "workflow_nodes", "turns"
+  add_foreign_key "workflow_nodes", "workflow_nodes", column: "yielding_workflow_node_id"
   add_foreign_key "workflow_nodes", "workflow_runs"
+  add_foreign_key "workflow_nodes", "workspaces"
   add_foreign_key "workflow_runs", "conversations"
   add_foreign_key "workflow_runs", "installations"
   add_foreign_key "workflow_runs", "turns"
+  add_foreign_key "workflow_runs", "workspaces"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "user_agent_bindings"
   add_foreign_key "workspaces", "users"

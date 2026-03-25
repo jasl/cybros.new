@@ -17,6 +17,13 @@ resources that later tasks build on:
 
 - `WorkflowArtifact` belongs to exactly one installation, workflow run, and
   workflow node.
+- Artifacts redundantly persist:
+  - `workspace_id`
+  - `conversation_id`
+  - `turn_id`
+  - `workflow_node_key`
+  - `workflow_node_ordinal`
+  - `presentation_policy`
 - Artifacts use explicit storage modes rather than ad hoc payload shapes:
   - `inline_json`
   - `attached_file`
@@ -26,11 +33,22 @@ resources that later tasks build on:
   `has_one_attached :file` attachment.
 - Artifact ownership stays workflow-scoped: a node may emit an artifact, but
   the artifact remains queryable through the owning workflow run.
+- Phase 2 yield materialization currently uses:
+  - `intent_batch_manifest`
+  - `intent_batch_barrier`
+  as inline-json workflow artifacts on the yielding node.
 
 ## Workflow Node Events
 
 - `WorkflowNodeEvent` is the append-only workflow-local execution stream.
 - Every event belongs to one installation, workflow run, and workflow node.
+- Events redundantly persist:
+  - `workspace_id`
+  - `conversation_id`
+  - `turn_id`
+  - `workflow_node_key`
+  - `workflow_node_ordinal`
+  - `presentation_policy`
 - Events are ordered by a node-local `ordinal` that is unique per workflow
   node.
 - Node-event ordinal allocation is serialized at the workflow-node boundary so
@@ -41,6 +59,12 @@ resources that later tasks build on:
 - `WorkflowNodeEvent` remains the kernel trace surface; later tasks may project
   selected runtime state into `ConversationEvent` only when that state is
   intentionally user-visible.
+- Phase 2 yield materialization currently records:
+  - `yield_requested`
+  - `intent_rejected`
+  as yielding-node-local audit events.
+- Rejected intents remain visible through node-local events and proof output,
+  but they do not create false durable mutation nodes.
 
 ## Process Runs
 
@@ -104,6 +128,8 @@ resources that later tasks build on:
 
 - attached-file artifacts reject missing attachments
 - node events reject duplicate ordinals within the same workflow node
+- artifacts and node events reject projection metadata that disagrees with the
+  owning workflow node
 - process runs reject workflow-turn or workflow-conversation mismatches
 - process runs reject bounded timeouts on background services
 - process runs reject missing bounded timeouts on turn commands
@@ -122,3 +148,13 @@ resources that later tasks build on:
   the right durable boundary for file-backed workflow artifacts in this task.
 - No `references/` implementation was treated as authoritative for Task 10.1;
   the landed behavior is derived from the local design and plan documents.
+
+## Yield Materialization Notes
+
+- `Workflows::IntentBatchMaterialization` is the current workflow-first
+  materialization path for accepted and rejected intent batches.
+- Accepted intents append durable `WorkflowNode` rows and workflow edges from
+  the yielding node.
+- The yielding `WorkflowRun` stores the active `resume_policy` and successor
+  summary in `resume_metadata` so later wait-state and proof work can resume
+  from stable kernel-owned facts.

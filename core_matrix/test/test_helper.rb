@@ -703,22 +703,24 @@ module ActiveSupport
       attachment
     end
 
-    def create_workflow_run!(turn:, installation: turn.installation, conversation: turn.conversation, lifecycle_state: "active", **attrs)
+    def create_workflow_run!(turn:, installation: turn.installation, workspace: turn.conversation.workspace, conversation: turn.conversation, lifecycle_state: "active", **attrs)
       WorkflowRun.create!({
         installation: installation,
+        workspace: workspace,
         conversation: conversation,
         turn: turn,
         lifecycle_state: lifecycle_state,
       }.merge(attrs))
     end
 
-    def create_workflow_node!(workflow_run:, installation: workflow_run.installation, ordinal: workflow_run.workflow_nodes.maximum(:ordinal).to_i + 1, node_key: "node-#{next_test_sequence}", node_type: "generic", decision_source: "system", metadata: {}, **attrs)
+    def create_workflow_node!(workflow_run:, installation: workflow_run.installation, ordinal: workflow_run.workflow_nodes.maximum(:ordinal).to_i + 1, node_key: "node-#{next_test_sequence}", node_type: "generic", presentation_policy: "internal_only", decision_source: "system", metadata: {}, **attrs)
       WorkflowNode.create!({
         installation: installation,
         workflow_run: workflow_run,
         ordinal: ordinal,
         node_key: node_key,
         node_type: node_type,
+        presentation_policy: presentation_policy,
         decision_source: decision_source,
         metadata: metadata,
       }.merge(attrs))

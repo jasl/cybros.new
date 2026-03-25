@@ -75,6 +75,26 @@ inventing demo users or UI state.
   - success and failure counts
   - most recent occurrence time
 
+## Workflow Projection Query
+
+### `Workflows::ProjectionQuery`
+
+- Reads one workflow run as a proof- and inspection-friendly bundle.
+- Returns:
+  - ordered workflow nodes
+  - ordered workflow edges
+  - node-key-grouped workflow node events
+  - node-key-grouped workflow artifacts
+- Relies on frozen workflow-owned projection metadata such as:
+  - `workspace_id`
+  - `conversation_id`
+  - `turn_id`
+  - `workflow_node_key`
+  - `workflow_node_ordinal`
+  - `presentation_policy`
+- The query intentionally avoids graph-reconstruction SQL or node-by-node
+  follow-up queries for artifacts and events.
+
 ## Seed Baseline
 
 - `db/seeds.rb` always loads the provider catalog so environment setup fails

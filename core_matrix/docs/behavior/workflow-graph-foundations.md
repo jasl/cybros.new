@@ -13,9 +13,16 @@ it is not a reusable template.
 - A `Turn` owns exactly one `WorkflowRun`.
 - A `Conversation` may accumulate historical workflow runs over time, but v1
   allows only one `active` workflow run in a conversation at once.
-- `WorkflowRun` belongs to one installation, one conversation, and one turn.
+- `WorkflowRun` belongs to one installation, one workspace, one conversation,
+  and one turn.
 - Installation and conversation identity must stay aligned across the run and
   its owning turn.
+- `WorkflowRun` may now persist workflow-owned resume hints through:
+  - `resume_policy`
+  - `resume_metadata`
+- Phase 2 currently freezes `resume_policy = "re_enter_agent"` for
+  workflow-yield continuation. The run stores the last yielded node and
+  successor summary instead of auto-running a stale batch tail.
 - Supported v1 lifecycle states are:
   - `active`
   - `completed`
@@ -26,6 +33,10 @@ it is not a reusable template.
 
 - `WorkflowNode` rows belong to one workflow run and are ordered by an
   append-only `ordinal`.
+- Each node also redundantly persists:
+  - `workspace_id`
+  - `conversation_id`
+  - `turn_id`
 - Node ordinals are unique within a workflow run.
 - Node keys are unique within a workflow run and act as mutation-time lookup
   handles.
@@ -38,6 +49,20 @@ it is not a reusable template.
 - Policy-sensitive execution markers are carried explicitly in node metadata,
   for example `metadata["policy_sensitive"]`, rather than inferred later from
   transcript text.
+- `presentation_policy` is a frozen field on the node itself, not an inferred
+  view over `node_type`.
+- Supported Phase 2 presentation policies are:
+  - `internal_only`
+  - `ops_trackable`
+  - `user_projectable`
+- The same `node_type` may be materialized with different presentation
+  policies. Read paths must consume the frozen field instead of guessing from
+  node kind.
+- Yielded durable intent nodes may additionally persist:
+  - `intent_kind`
+  - `stage_index`
+  - `stage_position`
+  - `yielding_workflow_node_id`
 
 ## Workflow Edge Behavior
 
@@ -54,8 +79,17 @@ it is not a reusable template.
 
 - `Workflows::CreateForTurn` creates an `active` workflow run and seeds one root
   node at ordinal `0`.
+- Root nodes currently default to `presentation_policy = internal_only` unless
+  the caller chooses a narrower or broader policy explicitly at materialization
+  time.
 - `Workflows::Mutate` appends nodes and edges to an existing workflow run
   without replacing the run row.
+- `Workflows::Mutate` now also accepts workflow-yield node metadata such as:
+  - `presentation_policy`
+  - `intent_kind`
+  - `stage_index`
+  - `stage_position`
+  - `yielding_node_key`
 - Node and edge ordinal allocation is serialized at the workflow-run boundary
   so concurrent graph mutations keep append-only ordering without duplicate
   ordinal failures.
@@ -75,6 +109,8 @@ it is not a reusable template.
 - the workflow graph must remain acyclic after every mutation
 - explicit node metadata is the durable source for policy-sensitive execution
   markers
+- read-facing ownership and projection fields are frozen on workflow-owned rows
+  when they materialize, not reconstructed later by graph-only queries
 
 ## Failure Modes
 

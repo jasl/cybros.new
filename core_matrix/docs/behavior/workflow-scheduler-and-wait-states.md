@@ -27,6 +27,9 @@ Planned replacement design:
   - `waiting_since_at`
   - `blocking_resource_type`
   - `blocking_resource_id`
+- `WorkflowRun` also persists workflow-yield continuation hints through:
+  - `resume_policy`
+  - `resume_metadata`
 - supported wait states:
   - `ready`
   - `waiting`
@@ -43,6 +46,9 @@ Planned replacement design:
 - `Workflows::Scheduler.call` returns runnable workflow nodes and does not
   mutate workflow state
 - workflows in `waiting` state expose no runnable nodes
+- workflow ordering for scheduler and later proof export continues to use the
+  frozen node `ordinal`, while yielded intent nodes may also carry
+  `stage_index` and `stage_position` for stage-local inspection
 - `Workflows::Scheduler.apply_during_generation_policy` supports:
   - `reject`
   - `restart`
@@ -52,6 +58,17 @@ Planned replacement design:
   - `queued_from_turn_id` uses the predecessor turn `public_id`
 - queued follow-up turns are guarded by predecessor-tail drift checks before
   execution
+
+## Workflow Yield And Resume Substrate
+
+- `Workflows::IntentBatchMaterialization` records workflow-first yield facts on
+  the yielding node instead of mutating kernel state in place
+- accepted intents become durable workflow nodes
+- rejected intents remain audit-only node events
+- barrier summaries are stored as workflow artifacts on the yielding node
+- current Phase 2 resume policy is `re_enter_agent`; later continuation work
+  should create a successor agent step from `resume_metadata` rather than
+  continuing an old batch tail under a stale snapshot
 
 ## Recovery Behavior
 

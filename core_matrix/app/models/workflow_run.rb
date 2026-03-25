@@ -29,8 +29,14 @@ class WorkflowRun < ApplicationRecord
       conversation_archived: "conversation_archived",
     },
     validate: { allow_nil: true }
+  enum :resume_policy,
+    {
+      re_enter_agent: "re_enter_agent",
+    },
+    validate: { allow_nil: true }
 
   belongs_to :installation
+  belongs_to :workspace
   belongs_to :conversation
   belongs_to :turn
 
@@ -55,8 +61,14 @@ class WorkflowRun < ApplicationRecord
     to: :turn,
     allow_nil: true
 
+  before_validation :default_workspace_from_conversation
+
   validates :turn_id, uniqueness: true
   validate :wait_reason_payload_must_be_hash
+  validate :resume_metadata_must_be_hash
+  validate :workspace_installation_match
+  validate :workspace_conversation_match
+  validate :workspace_turn_match
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :turn_conversation_match
@@ -75,6 +87,31 @@ class WorkflowRun < ApplicationRecord
   end
 
   private
+
+  def default_workspace_from_conversation
+    self.workspace ||= conversation&.workspace
+  end
+
+  def workspace_installation_match
+    return if workspace.blank?
+    return if workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def workspace_conversation_match
+    return if workspace.blank? || conversation.blank?
+    return if conversation.workspace_id == workspace_id
+
+    errors.add(:workspace, "must match the conversation workspace")
+  end
+
+  def workspace_turn_match
+    return if workspace.blank? || turn.blank?
+    return if turn.conversation&.workspace_id == workspace_id
+
+    errors.add(:workspace, "must match the turn workspace")
+  end
 
   def conversation_installation_match
     return if conversation.blank?
@@ -111,6 +148,10 @@ class WorkflowRun < ApplicationRecord
 
   def wait_reason_payload_must_be_hash
     errors.add(:wait_reason_payload, "must be a hash") unless wait_reason_payload.is_a?(Hash)
+  end
+
+  def resume_metadata_must_be_hash
+    errors.add(:resume_metadata, "must be a hash") unless resume_metadata.is_a?(Hash)
   end
 
   def wait_state_consistency
