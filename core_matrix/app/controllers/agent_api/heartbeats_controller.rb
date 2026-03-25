@@ -11,7 +11,7 @@ module AgentAPI
 
       render json: {
         method_id: "agent_health",
-        deployment_id: deployment.id,
+        deployment_id: deployment.public_id,
         health_status: deployment.health_status,
         bootstrap_state: deployment.bootstrap_state,
         last_heartbeat_at: deployment.last_heartbeat_at&.iso8601,

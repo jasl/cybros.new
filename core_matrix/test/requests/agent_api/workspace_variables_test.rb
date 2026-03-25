@@ -27,7 +27,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
 
     get "/agent_api/workspace_variables/get",
       params: {
-        workspace_id: context[:workspace].id,
+        workspace_id: context[:workspace].public_id,
         key: "support_tier",
       },
       headers: agent_api_headers(registration[:machine_credential])
@@ -35,11 +35,13 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
     assert_response :success
     response_body = JSON.parse(response.body)
     assert_equal "workspace_variables_get", response_body["method_id"]
-    assert_equal support_tier.id, response_body.dig("variable", "id")
+    assert_equal context[:workspace].public_id, response_body["workspace_id"]
+    refute response_body.fetch("variable").key?("id")
+    assert_equal context[:workspace].public_id, response_body.dig("variable", "workspace_id")
 
     post "/agent_api/workspace_variables/mget",
       params: {
-        workspace_id: context[:workspace].id,
+        workspace_id: context[:workspace].public_id,
         keys: %w[support_tier region missing],
       },
       headers: agent_api_headers(registration[:machine_credential]),
@@ -48,20 +50,23 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
     assert_response :success
     response_body = JSON.parse(response.body)
     assert_equal "workspace_variables_mget", response_body["method_id"]
-    assert_equal support_tier.id, response_body.dig("variables", "support_tier", "id")
-    assert_equal region.id, response_body.dig("variables", "region", "id")
+    assert_equal context[:workspace].public_id, response_body["workspace_id"]
+    refute response_body.dig("variables", "support_tier").key?("id")
+    refute response_body.dig("variables", "region").key?("id")
     assert_nil response_body.dig("variables", "missing")
 
     get "/agent_api/workspace_variables",
       params: {
-        workspace_id: context[:workspace].id,
+        workspace_id: context[:workspace].public_id,
       },
       headers: agent_api_headers(registration[:machine_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
     assert_equal "workspace_variables_list", response_body["method_id"]
+    assert_equal context[:workspace].public_id, response_body["workspace_id"]
     assert_equal %w[region support_tier], response_body["variables"].map { |variable| variable.fetch("key") }
+    refute response_body["variables"].first.key?("id")
   end
 
   test "write endpoint materializes kernel owned workspace variables" do
@@ -70,10 +75,12 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
 
     post "/agent_api/workspace_variables/write",
       params: {
-        workspace_id: context[:workspace].id,
+        workspace_id: context[:workspace].public_id,
         key: "region",
         typed_value_payload: { type: "string", value: "cn" },
         source_kind: "agent_runtime",
+        source_turn_id: context[:turn].public_id,
+        source_workflow_run_id: context[:workflow_run].public_id,
       },
       headers: agent_api_headers(registration[:machine_credential]),
       as: :json
@@ -84,8 +91,12 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
     assert_equal "workspace_variables_write", response_body["method_id"]
     assert_equal "workspace", response_body.dig("variable", "scope")
     assert_equal "cn", response_body.dig("variable", "typed_value_payload", "value")
+    refute response_body.fetch("variable").key?("id")
 
-    variable = CanonicalVariable.find(response_body.dig("variable", "id"))
+    variable = CanonicalVariable.find_by!(scope: "workspace", key: "region", current: true)
     assert_equal registration[:deployment], variable.writer
+    assert_equal context[:turn], variable.source_turn
+    assert_equal context[:workflow_run], variable.source_workflow_run
+    refute_includes response.body, %("#{variable.id}")
   end
 end

@@ -5,7 +5,7 @@ module AgentAPI
     def create
       registration = AgentDeployments::Register.call(
         enrollment_token: request_payload.fetch("enrollment_token"),
-        execution_environment: ExecutionEnvironment.find(request_payload.fetch("execution_environment_id")),
+        execution_environment: ExecutionEnvironment.find_by_public_id!(request_payload.fetch("execution_environment_id")),
         fingerprint: request_payload.fetch("fingerprint"),
         endpoint_metadata: request_payload.fetch("endpoint_metadata", {}),
         protocol_version: request_payload.fetch("protocol_version"),
@@ -18,8 +18,8 @@ module AgentAPI
       )
 
       render json: {
-        deployment_id: registration.deployment.id,
-        agent_installation_id: registration.deployment.agent_installation_id,
+        deployment_id: registration.deployment.public_id,
+        agent_installation_id: registration.deployment.agent_installation.public_id,
         fingerprint: registration.deployment.fingerprint,
         bootstrap_state: registration.deployment.bootstrap_state,
         machine_credential: registration.machine_credential,

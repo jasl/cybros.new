@@ -24,7 +24,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal "role:planner", resumed.turn.normalized_selector
     assert_equal "openai", resumed.turn.resolved_provider_handle
     assert_equal "gpt-5.3-chat-latest", resumed.turn.resolved_model_ref
-    assert_equal replacement.id.to_s, resumed.execution_identity["agent_deployment_id"]
+    assert_equal replacement.public_id, resumed.execution_identity["agent_deployment_id"]
 
     conversation = context[:conversation].reload
     assert_equal "auto", conversation.interactive_selector_mode

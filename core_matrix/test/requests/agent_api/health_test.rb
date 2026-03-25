@@ -16,8 +16,10 @@ class AgentApiHealthTest < ActionDispatch::IntegrationTest
 
     response_body = JSON.parse(response.body)
     assert_equal "agent_health", response_body["method_id"]
+    assert_equal registration[:deployment].public_id, response_body["deployment_id"]
     assert_equal registration[:deployment].fingerprint, response_body["fingerprint"]
     assert_equal "healthy", response_body["health_status"]
     assert_equal registration[:capability_snapshot].version, response_body["agent_capabilities_version"]
+    refute_includes response.body, %("#{registration[:deployment].id}")
   end
 end

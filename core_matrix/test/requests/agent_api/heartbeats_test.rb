@@ -26,8 +26,10 @@ class AgentApiHeartbeatsTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
+    assert_equal registration[:deployment].public_id, response_body["deployment_id"]
     assert_equal "healthy", response_body["health_status"]
     assert_equal "active", response_body["bootstrap_state"]
     assert_equal "healthy", registration[:deployment].reload.health_status
+    refute_includes response.body, %("#{registration[:deployment].id}")
   end
 end

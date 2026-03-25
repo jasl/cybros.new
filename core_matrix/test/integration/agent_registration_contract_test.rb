@@ -15,7 +15,7 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     post "/agent_api/registrations",
       params: {
         enrollment_token: enrollment.plaintext_token,
-        execution_environment_id: execution_environment.id,
+        execution_environment_id: execution_environment.public_id,
         fingerprint: "fenix-machine-001",
         endpoint_metadata: {
           transport: "http",
@@ -39,6 +39,8 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     assert_response :success
     capability_body = JSON.parse(response.body)
 
+    assert_equal agent_installation.public_id, registration_body["agent_installation_id"]
+    assert_equal AgentDeployment.find_by_public_id!(registration_body.fetch("deployment_id")).public_id, registration_body["deployment_id"]
     assert capability_body["protocol_methods"].all? { |entry| entry.fetch("method_id").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| %w[kernel_primitive agent_observation effect_intent].include?(entry.fetch("tool_kind")) }

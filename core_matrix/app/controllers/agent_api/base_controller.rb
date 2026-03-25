@@ -29,14 +29,14 @@ module AgentAPI
 
     def find_workspace!(workspace_id)
       Workspace.find_by!(
-        id: workspace_id,
+        public_id: workspace_id,
         installation_id: current_deployment.installation_id
       )
     end
 
     def find_conversation!(conversation_id, workspace: nil)
       scope = {
-        id: conversation_id,
+        public_id: conversation_id,
         installation_id: current_deployment.installation_id,
       }
       scope[:workspace_id] = workspace.id if workspace.present?
@@ -46,30 +46,30 @@ module AgentAPI
 
     def find_turn!(turn_id)
       Turn.find_by!(
-        id: turn_id,
+        public_id: turn_id,
         installation_id: current_deployment.installation_id
       )
     end
 
     def find_workflow_run!(workflow_run_id)
       WorkflowRun.find_by!(
-        id: workflow_run_id,
+        public_id: workflow_run_id,
         installation_id: current_deployment.installation_id
       )
     end
 
     def find_workflow_node!(workflow_node_id)
       WorkflowNode.find_by!(
-        id: workflow_node_id,
+        public_id: workflow_node_id,
         installation_id: current_deployment.installation_id
       )
     end
 
     def serialize_message(message)
       {
-        "id" => message.id,
-        "conversation_id" => message.conversation_id,
-        "turn_id" => message.turn_id,
+        "id" => message.public_id,
+        "conversation_id" => message.conversation.public_id,
+        "turn_id" => message.turn.public_id,
         "role" => message.role,
         "slot" => message.slot,
         "variant_index" => message.variant_index,
@@ -81,9 +81,8 @@ module AgentAPI
       return if variable.blank?
 
       {
-        "id" => variable.id,
-        "workspace_id" => variable.workspace_id,
-        "conversation_id" => variable.conversation_id,
+        "workspace_id" => variable.workspace.public_id,
+        "conversation_id" => variable.conversation&.public_id,
         "scope" => variable.scope,
         "key" => variable.key,
         "typed_value_payload" => variable.typed_value_payload,
@@ -95,12 +94,12 @@ module AgentAPI
 
     def serialize_human_interaction_request(request)
       {
-        "request_id" => request.id,
+        "request_id" => request.public_id,
         "request_type" => request.type,
-        "workflow_run_id" => request.workflow_run_id,
-        "workflow_node_id" => request.workflow_node_id,
-        "conversation_id" => request.conversation_id,
-        "turn_id" => request.turn_id,
+        "workflow_run_id" => request.workflow_run.public_id,
+        "workflow_node_id" => request.workflow_node.public_id,
+        "conversation_id" => request.conversation.public_id,
+        "turn_id" => request.turn.public_id,
         "lifecycle_state" => request.lifecycle_state,
         "blocking" => request.blocking,
         "request_payload" => request.request_payload,

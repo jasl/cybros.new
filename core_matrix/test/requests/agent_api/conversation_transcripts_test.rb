@@ -24,7 +24,7 @@ class AgentApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
 
     get "/agent_api/conversation_transcripts",
       params: {
-        conversation_id: context[:conversation].id,
+        conversation_id: context[:conversation].public_id,
         limit: 2,
       },
       headers: agent_api_headers(registration[:machine_credential])
@@ -33,8 +33,12 @@ class AgentApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
 
     response_body = JSON.parse(response.body)
     assert_equal "conversation_transcript_list", response_body["method_id"]
-    assert_equal context[:conversation].id, response_body["conversation_id"]
+    assert_equal context[:conversation].public_id, response_body["conversation_id"]
     assert_equal %w[Canonical\ variable\ input Second\ question], response_body["items"].map { |item| item.fetch("content") }
-    assert_equal second_turn.selected_input_message.id.to_s, response_body["next_cursor"]
+    assert_equal first_turn.selected_input_message.public_id, response_body["items"].first.fetch("id")
+    assert_equal second_turn.selected_input_message.public_id, response_body["next_cursor"]
+    assert_equal context[:conversation].public_id, response_body["items"].first.fetch("conversation_id")
+    assert_equal first_turn.public_id, response_body["items"].first.fetch("turn_id")
+    refute_includes response.body, %("#{context[:conversation].id}")
   end
 end

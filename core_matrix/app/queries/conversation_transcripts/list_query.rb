@@ -23,7 +23,7 @@ module ConversationTranscripts
 
       Result.new(
         messages: page,
-        next_cursor: has_more ? page.last.id.to_s : nil
+        next_cursor: has_more ? page.last.public_id : nil
       )
     end
 
@@ -39,7 +39,7 @@ module ConversationTranscripts
     def cursor_start_index(messages)
       return 0 if @cursor.blank?
 
-      index = messages.index { |message| message.id.to_s == @cursor.to_s }
+      index = messages.index { |message| message.public_id == @cursor.to_s }
       raise ActiveRecord::RecordNotFound, "cursor is not present in the visible transcript" if index.nil?
 
       index + 1

@@ -71,27 +71,28 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     snapshot = Workflows::ContextAssembler.call(turn: current_turn)
 
     assert_equal({ "temperature" => 0.2 }, snapshot["config"])
-    assert_equal context[:user].id.to_s, snapshot.dig("execution_context", "identity", "user_id")
-    assert_equal context[:workspace].id.to_s, snapshot.dig("execution_context", "identity", "workspace_id")
-    assert_equal conversation.id.to_s, snapshot.dig("execution_context", "identity", "conversation_id")
-    assert_equal current_turn.id.to_s, snapshot.dig("execution_context", "identity", "turn_id")
+    assert_equal context[:user].public_id, snapshot.dig("execution_context", "identity", "user_id")
+    assert_equal context[:workspace].public_id, snapshot.dig("execution_context", "identity", "workspace_id")
+    assert_equal conversation.public_id, snapshot.dig("execution_context", "identity", "conversation_id")
+    assert_equal current_turn.public_id, snapshot.dig("execution_context", "identity", "turn_id")
+    assert_equal context[:agent_deployment].public_id, snapshot.dig("execution_context", "identity", "agent_deployment_id")
     assert_equal(
       [
-        previous_turn.selected_input_message.id.to_s,
-        previous_output.id.to_s,
-        current_turn.selected_input_message.id.to_s,
+        previous_turn.selected_input_message.public_id,
+        previous_output.public_id,
+        current_turn.selected_input_message.public_id,
       ],
       snapshot.dig("execution_context", "context_messages").map { |message| message.fetch("message_id") }
     )
     assert_equal ["quoted_context"], snapshot.dig("execution_context", "context_imports").map { |item| item.fetch("kind") }
-    expected_attachment_ids = [unsupported_audio.id.to_s, supported_file.id.to_s].sort
+    expected_attachment_ids = [unsupported_audio.public_id, supported_file.public_id].sort
 
     assert_equal expected_attachment_ids, snapshot.dig("execution_context", "attachment_manifest").map { |item| item.fetch("attachment_id") }.sort
     assert_equal expected_attachment_ids, snapshot.dig("execution_context", "runtime_attachment_manifest").map { |item| item.fetch("attachment_id") }.sort
-    assert_equal [supported_file.id.to_s], snapshot.dig("execution_context", "model_input_attachments").map { |item| item.fetch("attachment_id") }
-    assert_equal [unsupported_audio.id.to_s], snapshot.dig("execution_context", "attachment_diagnostics").map { |item| item.fetch("attachment_id") }
+    assert_equal [supported_file.public_id], snapshot.dig("execution_context", "model_input_attachments").map { |item| item.fetch("attachment_id") }
+    assert_equal [unsupported_audio.public_id], snapshot.dig("execution_context", "attachment_diagnostics").map { |item| item.fetch("attachment_id") }
     assert_equal "unsupported_modality", snapshot.dig("execution_context", "attachment_diagnostics").first.fetch("reason")
-    refute_includes snapshot.dig("execution_context", "attachment_manifest").map { |item| item.fetch("attachment_id") }, excluded_attachment.id.to_s
+    refute_includes snapshot.dig("execution_context", "attachment_manifest").map { |item| item.fetch("attachment_id") }, excluded_attachment.public_id
   end
 
   test "assembles automation turns without requiring a transcript-bearing input message" do
@@ -122,6 +123,6 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     assert_equal [], snapshot.dig("execution_context", "context_messages")
     assert_equal "automation_schedule", snapshot.dig("execution_context", "turn_origin", "origin_kind")
     assert_equal({ "cron" => "0 9 * * *" }, snapshot.dig("execution_context", "turn_origin", "origin_payload"))
-    assert_equal context[:workspace].id.to_s, snapshot.dig("execution_context", "identity", "workspace_id")
+    assert_equal context[:workspace].public_id, snapshot.dig("execution_context", "identity", "workspace_id")
   end
 end

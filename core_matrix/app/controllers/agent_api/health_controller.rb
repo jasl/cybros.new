@@ -3,7 +3,7 @@ module AgentAPI
     def show
       render json: {
         method_id: "agent_health",
-        deployment_id: current_deployment.id,
+        deployment_id: current_deployment.public_id,
         fingerprint: current_deployment.fingerprint,
         health_status: current_deployment.health_status,
         bootstrap_state: current_deployment.bootstrap_state,

@@ -10,7 +10,7 @@ module AgentAPI
 
       render json: {
         method_id: "conversation_transcript_list",
-        conversation_id: conversation.id,
+        conversation_id: conversation.public_id,
         items: result.messages.map { |message| serialize_message(message) },
         next_cursor: result.next_cursor,
       }.compact

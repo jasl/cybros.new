@@ -6,7 +6,7 @@ module AgentAPI
 
       render json: {
         method_id: "workspace_variables_list",
-        workspace_id: workspace.id,
+        workspace_id: workspace.public_id,
         variables: variables.map { |variable| serialize_variable(variable) },
       }
     end
@@ -20,7 +20,7 @@ module AgentAPI
 
       render json: {
         method_id: "workspace_variables_get",
-        workspace_id: workspace.id,
+        workspace_id: workspace.public_id,
         key: params.fetch(:key),
         variable: serialize_variable(variable),
       }
@@ -35,7 +35,7 @@ module AgentAPI
 
       render json: {
         method_id: "workspace_variables_mget",
-        workspace_id: workspace.id,
+        workspace_id: workspace.public_id,
         variables: variables.transform_values { |variable| serialize_variable(variable) },
       }
     end

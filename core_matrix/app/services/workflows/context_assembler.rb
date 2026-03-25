@@ -32,11 +32,11 @@ module Workflows
 
     def execution_identity
       {
-        "user_id" => @turn.conversation.workspace.user_id.to_s,
-        "workspace_id" => @turn.conversation.workspace_id.to_s,
-        "conversation_id" => @turn.conversation_id.to_s,
-        "turn_id" => @turn.id.to_s,
-        "agent_deployment_id" => @turn.agent_deployment_id.to_s,
+        "user_id" => @turn.conversation.workspace.user.public_id,
+        "workspace_id" => @turn.conversation.workspace.public_id,
+        "conversation_id" => @turn.conversation.public_id,
+        "turn_id" => @turn.public_id,
+        "agent_deployment_id" => @turn.agent_deployment.public_id,
       }
     end
 
@@ -54,9 +54,9 @@ module Workflows
         next unless message.is_a?(Message)
 
         {
-          "message_id" => message.id.to_s,
-          "conversation_id" => message.conversation_id.to_s,
-          "turn_id" => message.turn_id.to_s,
+          "message_id" => message.public_id,
+          "conversation_id" => message.conversation.public_id,
+          "turn_id" => message.turn.public_id,
           "role" => message.role,
           "slot" => message.slot,
           "content" => message.content,
@@ -72,11 +72,9 @@ module Workflows
           next if conversation_import.summary_segment&.superseded_by_id.present?
 
           {
-            "import_id" => conversation_import.id.to_s,
             "kind" => conversation_import.kind,
-            "source_conversation_id" => conversation_import.source_conversation_id&.to_s,
-            "source_message_id" => conversation_import.source_message_id&.to_s,
-            "summary_segment_id" => conversation_import.summary_segment_id&.to_s,
+            "source_conversation_id" => conversation_import.source_conversation&.public_id,
+            "source_message_id" => conversation_import.source_message&.public_id,
             "content" => imported_content(conversation_import),
           }.compact
         end
@@ -85,10 +83,10 @@ module Workflows
     def build_attachment_manifest
       visible_context_messages.flat_map { |message| message.message_attachments.order(:id).to_a }.map do |attachment|
         {
-          "attachment_id" => attachment.id.to_s,
-          "source_message_id" => attachment.message_id.to_s,
-          "origin_attachment_id" => attachment.origin_attachment_id&.to_s,
-          "origin_message_id" => attachment.origin_message_id&.to_s,
+          "attachment_id" => attachment.public_id,
+          "source_message_id" => attachment.message.public_id,
+          "origin_attachment_id" => attachment.origin_attachment&.public_id,
+          "origin_message_id" => attachment.origin_message&.public_id,
           "filename" => attachment.file.filename.to_s,
           "content_type" => attachment.file.blob.content_type,
           "byte_size" => attachment.file.blob.byte_size,
@@ -155,8 +153,7 @@ module Workflows
     def runtime_ref_for(attachment)
       {
         "kind" => "message_attachment",
-        "attachment_id" => attachment.id.to_s,
-        "blob_id" => attachment.file.blob.id.to_s,
+        "attachment_id" => attachment.public_id,
       }
     end
 
