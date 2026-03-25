@@ -1,6 +1,13 @@
 require "test_helper"
 
 class AgentDeploymentTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    agent_deployment = create_agent_deployment!
+
+    assert agent_deployment.public_id.present?
+    assert_equal agent_deployment, AgentDeployment.find_by_public_id!(agent_deployment.public_id)
+  end
+
   test "enforces one active deployment per agent installation and tracks health" do
     installation = create_installation!
     agent_installation = create_agent_installation!(installation: installation)

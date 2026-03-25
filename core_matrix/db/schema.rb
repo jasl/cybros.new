@@ -58,6 +58,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.datetime "last_heartbeat_at"
     t.string "machine_credential_digest", null: false
     t.string "protocol_version", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "sdk_version", null: false
     t.string "unavailability_reason"
     t.datetime "updated_at", null: false
@@ -68,6 +69,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.index ["installation_id", "fingerprint"], name: "index_agent_deployments_on_installation_id_and_fingerprint", unique: true
     t.index ["installation_id"], name: "index_agent_deployments_on_installation_id"
     t.index ["machine_credential_digest"], name: "index_agent_deployments_on_machine_credential_digest", unique: true
+    t.index ["public_id"], name: "index_agent_deployments_on_public_id", unique: true
   end
 
   create_table "agent_enrollments", force: :cascade do |t|
@@ -91,12 +93,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.string "key", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.bigint "owner_user_id"
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.string "visibility", default: "global", null: false
     t.index ["installation_id", "key"], name: "index_agent_installations_on_installation_id_and_key", unique: true
     t.index ["installation_id", "visibility"], name: "index_agent_installations_on_installation_id_and_visibility"
     t.index ["installation_id"], name: "index_agent_installations_on_installation_id"
     t.index ["owner_user_id"], name: "index_agent_installations_on_owner_user_id"
+    t.index ["public_id"], name: "index_agent_installations_on_public_id", unique: true
   end
 
   create_table "audit_logs", force: :cascade do |t|
@@ -270,9 +274,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_090041) do
     t.bigint "installation_id", null: false
     t.string "kind", default: "local", null: false
     t.string "lifecycle_state", default: "active", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.index ["installation_id", "kind"], name: "index_execution_environments_on_installation_id_and_kind"
     t.index ["installation_id"], name: "index_execution_environments_on_installation_id"
+    t.index ["public_id"], name: "index_execution_environments_on_public_id", unique: true
   end
 
   create_table "execution_leases", force: :cascade do |t|

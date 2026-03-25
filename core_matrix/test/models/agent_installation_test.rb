@@ -1,6 +1,13 @@
 require "test_helper"
 
 class AgentInstallationTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    agent_installation = create_agent_installation!
+
+    assert agent_installation.public_id.present?
+    assert_equal agent_installation, AgentInstallation.find_by_public_id!(agent_installation.public_id)
+  end
+
   test "supports global and personal visibility with ownership rules" do
     installation = create_installation!
     owner_user = create_user!(installation: installation)

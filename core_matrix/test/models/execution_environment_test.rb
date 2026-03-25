@@ -1,6 +1,13 @@
 require "test_helper"
 
 class ExecutionEnvironmentTest < ActiveSupport::TestCase
+  test "generates and resolves a public id" do
+    execution_environment = create_execution_environment!
+
+    assert execution_environment.public_id.present?
+    assert_equal execution_environment, ExecutionEnvironment.find_by_public_id!(execution_environment.public_id)
+  end
+
   test "tracks kind and connection metadata" do
     installation = create_installation!
     environment = create_execution_environment!(

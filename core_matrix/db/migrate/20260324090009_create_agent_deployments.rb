@@ -5,6 +5,7 @@ class CreateAgentDeployments < ActiveRecord::Migration[8.2]
       t.belongs_to :agent_installation, null: false, foreign_key: true
       t.belongs_to :execution_environment, null: false, foreign_key: true
       t.bigint :active_capability_snapshot_id
+      t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :fingerprint, null: false
       t.string :machine_credential_digest, null: false
       t.jsonb :endpoint_metadata, null: false, default: {}
@@ -24,6 +25,7 @@ class CreateAgentDeployments < ActiveRecord::Migration[8.2]
     add_index :agent_deployments, :active_capability_snapshot_id
     add_index :agent_deployments, :machine_credential_digest, unique: true
     add_index :agent_deployments, [:installation_id, :fingerprint], unique: true
+    add_index :agent_deployments, :public_id, unique: true
     add_index :agent_deployments, :agent_installation_id,
       unique: true,
       where: "bootstrap_state = 'active'",

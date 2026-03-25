@@ -2,6 +2,8 @@ require "digest"
 require "securerandom"
 
 class AgentDeployment < ApplicationRecord
+  include HasPublicId
+
   enum :health_status,
     {
       healthy: "healthy",

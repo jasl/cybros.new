@@ -1,4 +1,6 @@
 class ExecutionEnvironment < ApplicationRecord
+  include HasPublicId
+
   enum :kind, { local: "local", container: "container", remote: "remote" }, validate: true
   enum :lifecycle_state, { active: "active", retired: "retired" }, validate: true
 

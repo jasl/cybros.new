@@ -1,4 +1,6 @@
 class AgentInstallation < ApplicationRecord
+  include HasPublicId
+
   enum :visibility, { personal: "personal", global: "global" }, validate: true
   enum :lifecycle_state, { active: "active", retired: "retired" }, validate: true
 
