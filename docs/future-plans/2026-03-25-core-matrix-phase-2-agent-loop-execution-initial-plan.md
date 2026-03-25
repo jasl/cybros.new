@@ -107,6 +107,9 @@ Phase 2 must make them drive a real run.
   - `dispatch_mode = serial | parallel`
   - `completion_barrier = none | wait_all`
   - `resume_policy = re_enter_agent`
+- freeze `WorkflowNode.presentation_policy` when kernel-governed intent
+  materializes so future dashboard and conversation projections can filter
+  nodes without guessing from node kind
 - support a bounded fast terminal path for short tasks through
   `execution_claim` followed by an immediate `execution_complete` or
   `execution_fail`, not through a separate claimless API
@@ -288,6 +291,8 @@ environment.
   execution instead of an in-place mutation
 - one best-effort title-update intent that terminals without blocking workflow
 - one bounded parallel subagent stage under `wait_all`
+- one proof that `presentation_policy` distinguishes internal-only metadata
+  mutation from ops-trackable or user-projectable workflow work
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call

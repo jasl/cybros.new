@@ -165,6 +165,9 @@ At minimum, the plan must say all of the following:
   - `dispatch_mode = serial | parallel`
   - `completion_barrier = none | wait_all`
   - `resume_policy = re_enter_agent`
+- materialized workflow nodes freeze a `presentation_policy` or equivalent field
+  so later dashboard and conversation surfaces do not have to infer visibility
+  from node kind alone
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.
@@ -190,6 +193,8 @@ Before activation, define the exact Fenix validation slices that must pass:
 - one workflow-yield proof for persistent compaction
 - one non-blocking best-effort title-update proof
 - one bounded parallel subagent proof under `wait_all`
+- one proof that `presentation_policy` differentiates internal-only,
+  ops-trackable, and user-projectable workflow work
 - one outage or drift recovery flow
 
 Each slice must name:

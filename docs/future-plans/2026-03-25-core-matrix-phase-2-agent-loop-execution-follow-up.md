@@ -74,6 +74,9 @@ Related design and research:
   - `dispatch_mode = serial | parallel`
   - `completion_barrier = none | wait_all`
   - `resume_policy = re_enter_agent`
+- freeze `WorkflowNode.presentation_policy` when kernel-governed intents
+  materialize so later dashboard and conversation surfaces can filter nodes
+  without re-deriving visibility from node kind
 - persist batch request and batch outcome proof through workflow-owned events or
   artifacts
 - add workflow-level Mermaid proof export for real-environment validation

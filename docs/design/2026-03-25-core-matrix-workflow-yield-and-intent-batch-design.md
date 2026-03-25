@@ -32,6 +32,9 @@ Use this document to define:
   - `completion_barrier = wait_all`
 - Accepted intents materialize as `WorkflowNode` rows and, when needed,
   workflow-owned runtime resources.
+- Materialized workflow nodes should freeze a small presentation policy so later
+  dashboard and conversation surfaces do not have to reverse-engineer display
+  semantics from node kind alone.
 - Rejected intents remain workflow-visible through `WorkflowNodeEvent` and
   audit, but do not need their own mutation node.
 - Phase 2 resume policy should be `re_enter_agent`, not automatic continuation
@@ -96,6 +99,40 @@ Recommended intent fields:
 - `payload`
 - `idempotency_key`
 
+## Workflow Node Presentation Policy
+
+`WorkflowNode` should carry a frozen presentation policy so the kernel can
+support future filtering and projection surfaces without guessing from node
+kind.
+
+Recommended field:
+
+- `presentation_policy`
+
+Recommended Phase 2 values:
+
+- `internal_only`
+- `ops_trackable`
+- `user_projectable`
+
+Rules:
+
+- the policy freezes when the workflow node is materialized
+- `internal_only` means the node remains visible to workflow inspection and
+  audit but is not intended for dashboard tracking or conversation projection by
+  default
+- `ops_trackable` means the node is eligible for dashboard, run-inspection, or
+  operator progress surfaces, but does not automatically belong in the
+  conversation timeline
+- `user_projectable` means the node may project selected state into
+  `ConversationEvent` or another end-user-visible surface when the product wants
+  that projection
+- `user_projectable` does not mean the node itself becomes a transcript message;
+  transcript-bearing output still belongs to `Message`, while optional
+  user-visible operational projection belongs to `ConversationEvent`
+- `WorkflowNodeEvent` should inherit the node's presentation policy by default,
+  though later projection code may still choose a narrower visible subset
+
 ## Phase 2 Stage Semantics
 
 ### Dispatch Modes
@@ -133,14 +170,18 @@ Accepted intents should materialize as one of:
 Examples:
 
 - `conversation_title_update`
-  materializes one terminal workflow node
+  materializes one terminal workflow node with
+  `presentation_policy = internal_only`
 - `context_compaction_persist`
   materializes one workflow node and writes or supersedes
-  `ConversationSummarySegment`
+  `ConversationSummarySegment`, usually with
+  `presentation_policy = internal_only`
 - `human_interaction_request`
-  materializes one workflow node plus `HumanInteractionRequest`
+  materializes one workflow node plus `HumanInteractionRequest`, usually with
+  `presentation_policy = user_projectable`
 - `subagent_spawn`
-  materializes one workflow node plus `SubagentRun`
+  materializes one workflow node plus `SubagentRun`, usually with
+  `presentation_policy = ops_trackable`
 
 Rejected intents should:
 
