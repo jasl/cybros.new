@@ -9,6 +9,8 @@ another local document updated during the same execution unit.
 
 Current active `core_matrix` planning records:
 
+- Design: [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up-design.md)
+- Execution plan: [2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-provider-catalog-and-dev-loop-follow-up.md)
 - Design: [2026-03-25-core-matrix-phase-1-review-follow-ups-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups-design.md)
 - Design: [2026-03-25-core-matrix-identifier-policy-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-identifier-policy-design.md)
 - Execution plan: [2026-03-25-core-matrix-phase-1-review-follow-ups.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-1-review-follow-ups.md)
