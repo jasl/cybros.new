@@ -8,6 +8,7 @@ intentionally not part of the active execution plan.
 - [2026-03-25-core-matrix-phase-2-kernel-first-sequencing-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-kernel-first-sequencing-follow-up.md)
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
+- [2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md)
 - [2026-03-24-core-matrix-kernel-ui-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md)
 - [2026-03-25-core-matrix-phase-4-product-shape-exploration-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-4-product-shape-exploration-follow-up.md)
 - [2026-03-25-core-matrix-phase-5-trigger-and-delivery-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-5-trigger-and-delivery-follow-up.md)

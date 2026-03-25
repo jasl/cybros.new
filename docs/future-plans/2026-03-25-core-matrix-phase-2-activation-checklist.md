@@ -158,6 +158,13 @@ At minimum, the plan must say all of the following:
   explicit rather than implied
 - competing `execution_claim` attempts inherit single-owner `ExecutionLease`
   semantics rather than introducing a second ownership rule
+- accepted kernel-governed intentions are treated as workflow-yield boundaries
+  rather than as in-place mutation side effects
+- the Phase 2 intent-batch model is explicit about:
+  - ordered `stages[]`
+  - `dispatch_mode = serial | parallel`
+  - `completion_barrier = none | wait_all`
+  - `resume_policy = re_enter_agent`
 
 If the promoted plan still hand-waves these concerns as "the agent runtime will
 figure it out", Phase 2 is not ready.
@@ -180,6 +187,9 @@ Before activation, define the exact Fenix validation slices that must pass:
 - one real tool-call flow
 - one real subagent flow
 - one real human-interaction flow
+- one workflow-yield proof for persistent compaction
+- one non-blocking best-effort title-update proof
+- one bounded parallel subagent proof under `wait_all`
 - one outage or drift recovery flow
 
 Each slice must name:
@@ -279,6 +289,8 @@ Required outcome:
   based on authoritative provider usage
 - explicit real-environment scenarios for stale-work rejection and wait-state
   handoff
+- explicit workflow Mermaid proof artifacts for the key yield, wait, and
+  successor-agent-step scenarios
 - a rule that no Phase 2 claim is complete without matching checklist evidence
 
 If the checklist delta is still fuzzy, Phase 2 is not ready.

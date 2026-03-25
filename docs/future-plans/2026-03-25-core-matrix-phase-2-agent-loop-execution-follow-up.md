@@ -13,6 +13,7 @@ kernel authority.
 Related design and research:
 
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
+- [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
@@ -66,6 +67,16 @@ Related design and research:
   recovery attempts
 - use an explicit wait-transition handoff from runtime execution into
   kernel-owned workflow wait state
+- use workflow-first yield and resume for kernel-governed intentions rather
+  than allowing accepted agent intent to mutate durable state in place
+- support `IntentBatch` with ordered `stages[]`
+- limit Phase 2 stage semantics to:
+  - `dispatch_mode = serial | parallel`
+  - `completion_barrier = none | wait_all`
+  - `resume_policy = re_enter_agent`
+- persist batch request and batch outcome proof through workflow-owned events or
+  artifacts
+- add workflow-level Mermaid proof export for real-environment validation
 
 ## Fenix Validation Slice
 
@@ -82,6 +93,10 @@ It should prove:
 - one built-in system skill that deploys another agent
 - one third-party Agent Skills package installed and used successfully
 - real tool use, subagent behavior, human interaction, and recovery paths
+- workflow-yield scenarios that prove:
+  - persistent compaction through workflow materialization
+  - conversation title update as a best-effort terminal intent
+  - bounded parallel subagent spawn under `wait_all`
 
 ## Out Of Scope
 

@@ -29,6 +29,7 @@ Before promotion, run:
 - [2026-03-25-core-matrix-phase-2-activation-checklist.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-checklist.md)
 - [2026-03-25-core-matrix-phase-2-activation-ready-outline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-activation-ready-outline.md)
 - [2026-03-25-core-matrix-phase-2-kernel-first-sequencing-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-2-kernel-first-sequencing-follow-up.md)
+- [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
 - [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-agent-execution-delivery-contract-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-agent-execution-delivery-contract-design.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
@@ -99,6 +100,13 @@ Phase 2 must make them drive a real run.
 - define one claimable agent-execution runtime resource plus the
   `execution_claim / execution_lease_heartbeat / execution_progress /
   execution_complete / execution_fail` method family
+- treat accepted kernel-governed intent as workflow-yield boundaries rather
+  than letting the current `AgentTaskRun` continue under an in-place mutation
+- support `IntentBatch` as ordered `stages[]` with Phase 2-limited stage
+  semantics:
+  - `dispatch_mode = serial | parallel`
+  - `completion_barrier = none | wait_all`
+  - `resume_policy = re_enter_agent`
 - support a bounded fast terminal path for short tasks through
   `execution_claim` followed by an immediate `execution_complete` or
   `execution_fail`, not through a separate claimless API
@@ -276,6 +284,10 @@ environment.
 - one explicit downgrade flow
 - one code-driven or mixed code-plus-LLM flow using the retained runtime-stage
   hook surface
+- one workflow-yield path where persistent compaction materializes as workflow
+  execution instead of an in-place mutation
+- one best-effort title-update intent that terminals without blocking workflow
+- one bounded parallel subagent stage under `wait_all`
 - one built-in system-skill deployment flow
 - one third-party skill installation and usage flow
 - at least one real tool call
@@ -297,6 +309,8 @@ environment.
 
 - updated manual checklist under `docs/checklists/`
 - reproducible `bin/dev` validation steps
+- workflow-level Mermaid proof artifacts for the key Phase 2 yield, wait, and
+  recovery scenarios
 - clear notes on which flows are intentionally agent-program-defined rather than
   kernel-owned
 - clear notes on which skill behaviors are standard third-party compatible
