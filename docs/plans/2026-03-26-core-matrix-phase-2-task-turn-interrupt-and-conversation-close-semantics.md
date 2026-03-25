@@ -136,6 +136,9 @@ Cover at least:
   residual disposal outcomes
 - protocol-E2E coverage for graceful then forced `ProcessRun` termination
 
+This task should extend the Milestone C protocol-E2E harness created by the
+mailbox-control task rather than creating a second end-to-end path.
+
 ## Stop Point
 
 Stop after `turn_interrupt`, close orchestration, close-summary queries, and

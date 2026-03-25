@@ -126,6 +126,9 @@ Cover at least:
 - one protocol-E2E path proving response piggyback delivery of pending control
   work
 
+This task should establish the reusable protocol-E2E harness for Milestone C
+rather than adding one-off transport tests that later tasks would replace.
+
 ## Stop Point
 
 Stop after the mailbox contract, `AgentTaskRun`, and resource-close control

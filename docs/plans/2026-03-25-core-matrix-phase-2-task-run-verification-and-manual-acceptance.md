@@ -85,6 +85,8 @@ Expected:
 
 Protocol-E2E expectation:
 
+- Milestone C must already have landed the protocol-E2E harness and first
+  mailbox or close golden scenarios before this final task begins
 - the Phase 2 automated suite must include protocol-E2E coverage for mailbox
   delivery, transport fallback, turn interrupt, close orchestration, and
   retryable step failure

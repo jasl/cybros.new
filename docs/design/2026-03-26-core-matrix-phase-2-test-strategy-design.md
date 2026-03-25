@@ -105,6 +105,13 @@ Purpose:
 This layer should start a real `Core Matrix` app process and use a headless
 runtime harness instead of a browser.
 
+Milestone ownership:
+
+- Milestone C must establish the protocol-E2E harness, transport test paths,
+  and the first mailbox or close golden scenarios
+- later Phase 2 milestones should extend the same protocol-E2E suite rather
+  than creating parallel end-to-end infrastructure
+
 ### L3: Manual Real-Environment Validation
 
 Purpose:
@@ -209,11 +216,13 @@ At minimum, the protocol E2E suite should cover the following golden paths.
 
 The Phase 2 task set should obey these rules:
 
+- Protocol E2E is a Milestone C responsibility, not a final-acceptance-only
+  concern
 - mailbox and close work must add L0, L1, and L2 coverage together
 - provider-backed execution is not complete without protocol-E2E coverage for
-  delivery and late-report behavior
+  delivery and late-report behavior added onto the Milestone C harness
 - archive and delete work is not complete without protocol-E2E coverage for
-  stop, disposal, and residual cases
+  stop, disposal, and residual cases added onto the same harness
 - manual validation is milestone acceptance evidence, not a substitute for
   protocol E2E
 - browser UI assertions are out of scope for Phase 2

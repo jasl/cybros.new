@@ -33,6 +33,9 @@ It should not rediscover provider logic inside the runtime protocol layer.
 
 - mailbox control is durable and transport-neutral
 - `poll`, `WebSocket`, and response piggyback share one mailbox envelope
+- protocol-E2E infrastructure exists for runtime pairing and mailbox control
+- the initial protocol-E2E golden scenarios for mailbox delivery, transport
+  fallback, turn interrupt, and close orchestration are in place
 - `turn_interrupt` is a tested kernel primitive
 - archive and delete reuse the close model without collapsing into one
   lifecycle state machine
@@ -45,4 +48,3 @@ It should not rediscover provider logic inside the runtime protocol layer.
 - Streamable HTTP MCP breadth
 - skills installation breadth
 - final milestone acceptance
-
