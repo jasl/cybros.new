@@ -129,15 +129,20 @@ Phase 2 must make them drive a real run.
 **Likely code areas to revisit:**
 
 - `core_matrix/app/services/workflows/`
+- likely create `core_matrix/app/services/workflows/visualization/`
 - likely create `core_matrix/app/services/provider_execution/`
 - likely create `core_matrix/app/models/agent_task_run.rb`
 - `core_matrix/app/models/workflow_run.rb`
 - `core_matrix/app/models/workflow_node*.rb`
 - likely create or extend `core_matrix/app/queries/` for workflow read paths
+- likely create `core_matrix/app/queries/workflows/proof_export_query.rb`
+- likely create `core_matrix/script/manual/workflow_proof_export.rb`
 - `core_matrix/app/services/turns/`
 - `core_matrix/vendor/simple_inference/lib/simple_inference/`
 - `core_matrix/vendor/simple_inference/test/`
 - `core_matrix/test/services/workflows/`
+- likely create `core_matrix/test/queries/workflows/proof_export_query_test.rb`
+- likely create `core_matrix/test/services/workflows/visualization/*`
 - `core_matrix/test/integration/`
 
 ## Workstream 3: Complete Unified Capability Governance

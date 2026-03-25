@@ -86,6 +86,8 @@ Related design and research:
 - add workflow-level Mermaid proof export plus proof markdown artifacts for
   real-environment validation, with formal acceptance packages committed under
   `docs/reports/phase-2/`
+- provide one reproducible operator-facing export command through
+  `core_matrix/script/manual/workflow_proof_export.rb`
 
 ## Fenix Validation Slice
 

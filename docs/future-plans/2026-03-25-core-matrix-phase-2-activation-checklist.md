@@ -306,6 +306,8 @@ Required outcome:
   Mermaid artifact set
 - committed acceptance-proof packages under `docs/reports/phase-2/`, not only
   temp exports
+- one reproducible operator-facing export command path through
+  `core_matrix/script/manual/workflow_proof_export.rb`
 - a rule that no Phase 2 claim is complete without matching checklist evidence
 
 If the checklist delta is still fuzzy, Phase 2 is not ready.

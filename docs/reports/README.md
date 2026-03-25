@@ -16,6 +16,10 @@ Each package should usually contain:
 - `proof.md`
 - one or more `run-<workflow-run-id>.mmd` Mermaid files
 
+See also:
+
+- [phase-2/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/reports/phase-2/README.md)
+
 Temporary exports may still be generated under `tmp/`, but they do not count as
 formal acceptance evidence until the relevant artifact package is recorded
 here.

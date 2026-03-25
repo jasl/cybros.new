@@ -80,6 +80,37 @@ The exporter should avoid:
 - dumping every `WorkflowNodeEvent` as its own graph node
 - mixing workflow proof with UI projection rendering
 
+## Exporter Object Model
+
+Phase 2 should keep the exporter split into one read path and small rendering
+services instead of one database-heavy blob.
+
+Recommended shape:
+
+- `Workflows::ProofExportQuery`
+  - lives under `core_matrix/app/queries/workflows/`
+  - reads one `WorkflowRun` proof bundle with eager-loaded workflow rows and
+    selected event snippets
+- `Workflows::Visualization::MermaidExporter`
+  - lives under `core_matrix/app/services/workflows/visualization/`
+  - accepts the query result bundle and returns Mermaid text only
+- `Workflows::Visualization::ProofRecordRenderer`
+  - lives under `core_matrix/app/services/workflows/visualization/`
+  - accepts the same bundle plus operator-supplied scenario metadata and
+    returns `proof.md` content
+
+The query result should behave like an immutable proof bundle rather than a
+live Active Record graph. Minimum contents:
+
+- one workflow-run header
+- ordered workflow nodes
+- workflow edges
+- selected event snippets or summaries keyed by node
+- optional blocking-resource summaries for wait or resume scenarios
+
+This split keeps the read path testable, keeps Mermaid rendering deterministic,
+and avoids hiding SQL inside presentation code.
+
 ## Proof Record Shape
 
 Each proof record should include at least:
@@ -129,6 +160,41 @@ Recommended markdown shape:
 The proof record should stay short. Its job is to make the raw artifact set
 easy to review, not to duplicate the full transcript or runtime log.
 
+## Manual Export Entry Point
+
+Phase 2 should use the existing `script/manual/` convention for operator-facing
+validation helpers.
+
+Recommended entry point:
+
+- `core_matrix/script/manual/workflow_proof_export.rb`
+
+Recommended behavior:
+
+- accept one explicit `workflow_run_id`
+- accept one scenario slug or title
+- accept one output directory
+- write one Mermaid file for that workflow run
+- create `proof.md` when absent, or update it only through an explicit flag
+
+Recommended command shape:
+
+```bash
+cd core_matrix
+ruby script/manual/workflow_proof_export.rb export \
+  --workflow-run-id=<workflow_run_id> \
+  --scenario=<scenario_slug> \
+  --out=../docs/reports/phase-2/YYYY-MM-DD-<scenario-slug>
+```
+
+Recommended operational rules:
+
+- refuse to overwrite existing artifacts unless `--force` is passed
+- allow repeated runs against the same scenario directory by writing one
+  `run-<workflow-run-id>.mmd` file per workflow run
+- keep the command thin; query and rendering logic belong in application code,
+  not in the script itself
+
 ## Phase 2 Minimum Proof Scenarios
 
 The proof set should include at least:
@@ -166,6 +232,16 @@ The exporter should avoid:
 - per-node follow-up lookups for event summaries
 - graph reconstruction logic hidden in controller code
 
+Suggested Phase 2 query object names:
+
+- `Workflows::ProofExportQuery` for the core bundle loader
+- optional follow-up extraction helpers only if one query becomes unwieldy
+
+Suggested Phase 2 service names:
+
+- `Workflows::Visualization::MermaidExporter`
+- `Workflows::Visualization::ProofRecordRenderer`
+
 Reasonable read-facing fields to denormalize or cache on workflow-owned rows
 for this exporter include:
 
@@ -200,6 +276,8 @@ Naming guidance:
 - keep scenario slugs short and human-readable
 - use stable workflow-run identifiers in Mermaid file names
 - do not treat machine-only temp paths as formal acceptance evidence
+- prefer committed `proof.md` plus one-or-more `run-*.mmd` files over custom
+  binary formats or mixed log dumps
 
 ## Query-Efficiency Rules
 

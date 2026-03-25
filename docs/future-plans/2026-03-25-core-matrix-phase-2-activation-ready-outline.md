@@ -57,14 +57,19 @@ shape without a root-model rewrite.
 - Modify: `core_matrix/app/services/workflows/context_assembler.rb`
 - Modify: `core_matrix/app/services/workflows/scheduler.rb`
 - Likely create: `core_matrix/app/services/workflows/execute_run.rb`
+- Likely create: `core_matrix/app/services/workflows/visualization/*`
 - Likely create: `core_matrix/app/services/provider_execution/*`
 - Likely create: `core_matrix/app/models/agent_task_run.rb`
+- Likely create: `core_matrix/app/queries/workflows/proof_export_query.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
 - Modify: `core_matrix/app/services/turns/start_automation_turn.rb`
 - Modify: `core_matrix/app/models/workflow_run.rb`
+- Likely create: `core_matrix/script/manual/workflow_proof_export.rb`
 - Modify: `core_matrix/vendor/simple_inference/lib/simple_inference/*`
 - Test: `core_matrix/vendor/simple_inference/test/*`
 - Test: `core_matrix/test/services/workflows/*`
+- Likely create: `core_matrix/test/queries/workflows/proof_export_query_test.rb`
+- Likely create: `core_matrix/test/services/workflows/visualization/*`
 - Test: `core_matrix/test/integration/*`
 
 **Verification:**
@@ -77,6 +82,8 @@ shape without a root-model rewrite.
   advisory-threshold evaluation
 - one workflow proof export path that shows yield, successor-agent-step
   resumption, and non-transcript workflow materialization
+- one reproducible manual command path through
+  `script/manual/workflow_proof_export.rb`
 
 ## Task Group 3: Complete Unified Capability Governance
 
