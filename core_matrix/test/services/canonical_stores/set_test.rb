@@ -84,6 +84,21 @@ class CanonicalStores::SetTest < ActiveSupport::TestCase
     assert_nil CanonicalStores::GetQuery.call(reference_owner: conversation, key: "tone")
   end
 
+  test "rejects writes for archived conversations" do
+    context = build_canonical_store_context!
+    context[:conversation].update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      CanonicalStores::Set.call(
+        conversation: context[:conversation],
+        key: "tone",
+        typed_value_payload: { "type" => "string", "value" => "direct" }
+      )
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active for conversation-local writes"
+  end
+
   private
 
   def request_deletion_during_lock!(conversation)

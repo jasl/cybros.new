@@ -1,7 +1,5 @@
 module Turns
   class StartUserTurn
-    include Conversations::RetentionGuard
-
     def self.call(...)
       new(...).call
     end
@@ -16,9 +14,13 @@ module Turns
     def call
       @conversation.with_lock do
         raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
-        raise_invalid!(@conversation, :lifecycle_state, "must be active for user turn entry") unless @conversation.active?
-        ensure_conversation_retained!(@conversation, message: "must be retained for user turn entry")
-        ensure_conversation_not_closing!(@conversation, message: "must not accept new turn entry while close is in progress")
+        Conversations::ValidateMutableState.call(
+          conversation: @conversation,
+          record: @conversation,
+          retained_message: "must be retained for user turn entry",
+          active_message: "must be active for user turn entry",
+          closing_message: "must not accept new turn entry while close is in progress"
+        )
         agent_deployment = @conversation.agent_deployment
 
         turn = Turn.create!(

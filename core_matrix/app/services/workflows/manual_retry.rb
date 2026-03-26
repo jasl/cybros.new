@@ -1,7 +1,5 @@
 module Workflows
   class ManualRetry
-    include Conversations::RetentionGuard
-
     def self.call(...)
       new(...).call
     end
@@ -14,52 +12,59 @@ module Workflows
     end
 
     def call
-      ensure_conversation_retained!(@workflow_run.conversation, message: "must be retained before manual retry")
       validate_retry_state!
-      validate_retry_target!
-
-      root_node = @workflow_run.workflow_nodes.order(:ordinal).first
-      raise_invalid!(@workflow_run, :workflow_nodes, "must include a root node to retry") if root_node.blank?
 
       ApplicationRecord.transaction do
-        @workflow_run.update!(lifecycle_state: "canceled")
-        @workflow_run.turn.update!(lifecycle_state: "canceled")
-        Conversations::SwitchAgentDeployment.call(
+        Conversations::WithMutableStateLock.call(
           conversation: @workflow_run.conversation,
-          agent_deployment: @deployment
-        )
+          record: @workflow_run.conversation,
+          retained_message: "must be retained before manual retry",
+          active_message: "must be active before manual retry",
+          closing_message: "must not retry paused work while close is in progress"
+        ) do |conversation|
+          validate_retry_target!
+          root_node = @workflow_run.workflow_nodes.order(:ordinal).first
+          raise_invalid!(@workflow_run, :workflow_nodes, "must include a root node to retry") if root_node.blank?
 
-        retried_turn = Turns::StartUserTurn.call(
-          conversation: @workflow_run.conversation,
-          content: @workflow_run.turn.selected_input_message.content,
-          agent_deployment: @workflow_run.conversation.agent_deployment,
-          resolved_config_snapshot: {},
-          resolved_model_selection_snapshot: {}
-        )
-        retried_workflow_run = Workflows::CreateForTurn.call(
-          turn: retried_turn,
-          root_node_key: root_node.node_key,
-          root_node_type: root_node.node_type,
-          decision_source: root_node.decision_source,
-          metadata: root_node.metadata,
-          selector_source: "manual_recovery",
-          selector: @selector.presence || @workflow_run.turn.recovery_selector
-        )
+          @workflow_run.update!(lifecycle_state: "canceled")
+          @workflow_run.turn.update!(lifecycle_state: "canceled")
+          Conversations::SwitchAgentDeployment.call(
+            conversation: conversation,
+            agent_deployment: @deployment
+          )
 
-        AuditLog.record!(
-          installation: @workflow_run.installation,
-          action: "workflow.manual_retried",
-          actor: @actor,
-          subject: retried_workflow_run,
-          metadata: {
-            "paused_workflow_run_id" => @workflow_run.id,
-            "paused_turn_id" => @workflow_run.turn.id,
-            "deployment_id" => @deployment.id,
-            "temporary_selector_override" => @selector,
-          }.compact
-        )
+          retried_turn = Turns::StartUserTurn.call(
+            conversation: conversation,
+            content: @workflow_run.turn.selected_input_message.content,
+            agent_deployment: conversation.agent_deployment,
+            resolved_config_snapshot: {},
+            resolved_model_selection_snapshot: {}
+          )
+          retried_workflow_run = Workflows::CreateForTurn.call(
+            turn: retried_turn,
+            root_node_key: root_node.node_key,
+            root_node_type: root_node.node_type,
+            decision_source: root_node.decision_source,
+            metadata: root_node.metadata,
+            selector_source: "manual_recovery",
+            selector: @selector.presence || @workflow_run.turn.recovery_selector
+          )
 
-        retried_workflow_run
+          AuditLog.record!(
+            installation: @workflow_run.installation,
+            action: "workflow.manual_retried",
+            actor: @actor,
+            subject: retried_workflow_run,
+            metadata: {
+              "paused_workflow_run_id" => @workflow_run.id,
+              "paused_turn_id" => @workflow_run.turn.id,
+              "deployment_id" => @deployment.id,
+              "temporary_selector_override" => @selector,
+            }.compact
+          )
+
+          retried_workflow_run
+        end
       end
     end
 

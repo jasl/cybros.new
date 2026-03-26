@@ -1,7 +1,5 @@
 module CanonicalStores
   class Set
-    include Conversations::RetentionGuard
-
     MAX_SNAPSHOT_DEPTH = 32
 
     def self.call(...)
@@ -16,41 +14,48 @@ module CanonicalStores
 
     def call
       ApplicationRecord.transaction do
-        @conversation.lock!
-        ensure_conversation_retained!(@conversation, message: "must be retained for conversation-local writes")
-        reference = current_reference!
-        reference.lock!
+        Conversations::WithMutableStateLock.call(
+          conversation: @conversation,
+          record: @conversation,
+          retained_message: "must be retained for conversation-local writes",
+          active_message: "must be active for conversation-local writes",
+          closing_message: "must not mutate conversation state while close is in progress"
+        ) do |conversation|
+          @conversation = conversation
+          reference = current_reference!
+          reference.lock!
 
-        current_value = CanonicalStores::GetQuery.call(reference_owner: @conversation, key: @key)
-        return current_value if current_value&.typed_value_payload == @typed_value_payload
+          current_value = CanonicalStores::GetQuery.call(reference_owner: @conversation, key: @key)
+          return current_value if current_value&.typed_value_payload == @typed_value_payload
 
-        reference = compact_if_needed!(reference)
-        value = find_or_create_value!
-        current_snapshot = reference.canonical_store_snapshot
-        write_snapshot = CanonicalStoreSnapshot.create!(
-          canonical_store: current_snapshot.canonical_store,
-          base_snapshot: current_snapshot,
-          snapshot_kind: "write",
-          depth: current_snapshot.depth + 1
-        )
-        CanonicalStoreEntry.create!(
-          canonical_store_snapshot: write_snapshot,
-          key: @key,
-          entry_kind: "set",
-          canonical_store_value: value,
-          value_type: @typed_value_payload["type"],
-          value_bytesize: value.payload_bytesize
-        )
-        reference.update!(canonical_store_snapshot: write_snapshot)
+          reference = compact_if_needed!(reference)
+          value = find_or_create_value!
+          current_snapshot = reference.canonical_store_snapshot
+          write_snapshot = CanonicalStoreSnapshot.create!(
+            canonical_store: current_snapshot.canonical_store,
+            base_snapshot: current_snapshot,
+            snapshot_kind: "write",
+            depth: current_snapshot.depth + 1
+          )
+          CanonicalStoreEntry.create!(
+            canonical_store_snapshot: write_snapshot,
+            key: @key,
+            entry_kind: "set",
+            canonical_store_value: value,
+            value_type: @typed_value_payload["type"],
+            value_bytesize: value.payload_bytesize
+          )
+          reference.update!(canonical_store_snapshot: write_snapshot)
 
-        CanonicalStores::VisibleValue.new(
-          key: @key,
-          typed_value_payload: value.typed_value_payload,
-          value_type: @typed_value_payload["type"],
-          value_bytesize: value.payload_bytesize,
-          created_at: write_snapshot.created_at,
-          updated_at: write_snapshot.updated_at
-        )
+          CanonicalStores::VisibleValue.new(
+            key: @key,
+            typed_value_payload: value.typed_value_payload,
+            value_type: @typed_value_payload["type"],
+            value_bytesize: value.payload_bytesize,
+            created_at: write_snapshot.created_at,
+            updated_at: write_snapshot.updated_at
+          )
+        end
       end
     end
 

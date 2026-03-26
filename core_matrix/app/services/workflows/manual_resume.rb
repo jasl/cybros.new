@@ -1,7 +1,5 @@
 module Workflows
   class ManualResume
-    include Conversations::RetentionGuard
-
     def self.call(...)
       new(...).call
     end
@@ -14,43 +12,50 @@ module Workflows
     end
 
     def call
-      ensure_conversation_retained!(@workflow_run.conversation, message: "must be retained before manual recovery")
       validate_wait_state!
-      validate_compatible_deployment!
-
-      resolved_model_selection_snapshot = resolve_recovery_snapshot!
-      previous_deployment = @workflow_run.turn.agent_deployment
 
       ApplicationRecord.transaction do
-        Conversations::SwitchAgentDeployment.call(
+        Conversations::WithMutableStateLock.call(
           conversation: @workflow_run.conversation,
-          agent_deployment: @deployment
-        )
-        @workflow_run.turn.update!(
-          agent_deployment: @deployment,
-          pinned_deployment_fingerprint: @deployment.fingerprint,
-          resolved_model_selection_snapshot: resolved_model_selection_snapshot
-        )
-        @workflow_run.turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: @workflow_run.turn))
-        @workflow_run.update!(
-          AgentDeployments::UnavailablePauseState.resume_attributes(
-            workflow_run: @workflow_run
+          record: @workflow_run.conversation,
+          retained_message: "must be retained before manual recovery",
+          active_message: "must be active before manual recovery",
+          closing_message: "must not resume paused work while close is in progress"
+        ) do |conversation|
+          validate_compatible_deployment!
+          resolved_model_selection_snapshot = resolve_recovery_snapshot!
+          previous_deployment = @workflow_run.turn.agent_deployment
+
+          Conversations::SwitchAgentDeployment.call(
+            conversation: conversation,
+            agent_deployment: @deployment
           )
-        )
+          @workflow_run.turn.update!(
+            agent_deployment: @deployment,
+            pinned_deployment_fingerprint: @deployment.fingerprint,
+            resolved_model_selection_snapshot: resolved_model_selection_snapshot
+          )
+          @workflow_run.turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: @workflow_run.turn))
+          @workflow_run.update!(
+            AgentDeployments::UnavailablePauseState.resume_attributes(
+              workflow_run: @workflow_run
+            )
+          )
 
-        AuditLog.record!(
-          installation: @workflow_run.installation,
-          action: "workflow.manual_resumed",
-          actor: @actor,
-          subject: @workflow_run,
-          metadata: {
-            "previous_deployment_id" => previous_deployment.id,
-            "deployment_id" => @deployment.id,
-            "temporary_selector_override" => @selector,
-          }.compact
-        )
+          AuditLog.record!(
+            installation: @workflow_run.installation,
+            action: "workflow.manual_resumed",
+            actor: @actor,
+            subject: @workflow_run,
+            metadata: {
+              "previous_deployment_id" => previous_deployment.id,
+              "deployment_id" => @deployment.id,
+              "temporary_selector_override" => @selector,
+            }.compact
+          )
 
-        @workflow_run
+          @workflow_run
+        end
       end
     end
 

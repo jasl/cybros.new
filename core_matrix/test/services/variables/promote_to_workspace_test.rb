@@ -36,4 +36,24 @@ class Variables::PromoteToWorkspaceTest < ActiveSupport::TestCase
     assert workspace_variable.reload.superseded?
     assert_equal promoted, workspace_variable.superseded_by
   end
+
+  test "rejects promotion for archived conversations" do
+    context = build_canonical_variable_context!
+    CanonicalStores::Set.call(
+      conversation: context[:conversation],
+      key: "customer_name",
+      typed_value_payload: { "type" => "string", "value" => "Acme China" },
+    )
+    context[:conversation].update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Variables::PromoteToWorkspace.call(
+        conversation: context[:conversation],
+        key: "customer_name",
+        writer: context[:user]
+      )
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active before promotion"
+  end
 end

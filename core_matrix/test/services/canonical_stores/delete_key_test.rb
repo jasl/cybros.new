@@ -55,6 +55,29 @@ class CanonicalStores::DeleteKeyTest < ActiveSupport::TestCase
       CanonicalStores::GetQuery.call(reference_owner: conversation, key: "tone").typed_value_payload["value"]
   end
 
+  test "rejects deletes while close is in progress" do
+    context = build_canonical_store_context!
+    CanonicalStores::Set.call(
+      conversation: context[:conversation],
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" }
+    )
+    ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      CanonicalStores::DeleteKey.call(conversation: context[:conversation], key: "tone")
+    end
+
+    assert_includes error.record.errors[:base], "must not mutate conversation state while close is in progress"
+  end
+
   private
 
   def request_deletion_during_lock!(conversation)

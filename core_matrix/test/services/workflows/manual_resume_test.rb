@@ -120,6 +120,43 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:deletion_state], "must be retained before manual recovery"
   end
 
+  test "rejects manual resume for archived conversations" do
+    context = build_paused_recovery_context!
+    context[:conversation].update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualResume.call(
+        workflow_run: context[:workflow_run],
+        deployment: context[:agent_deployment],
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active before manual recovery"
+  end
+
+  test "rejects manual resume while close is in progress" do
+    context = build_paused_recovery_context!
+    ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualResume.call(
+        workflow_run: context[:workflow_run],
+        deployment: context[:agent_deployment],
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not resume paused work while close is in progress"
+  end
+
   test "rejects manual resume when the replacement deployment belongs to another execution environment" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(

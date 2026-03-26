@@ -1,7 +1,5 @@
 module Variables
   class PromoteToWorkspace
-    include Conversations::RetentionGuard
-
     def self.call(...)
       new(...).call
     end
@@ -13,19 +11,26 @@ module Variables
     end
 
     def call
-      ensure_conversation_retained!(@conversation, message: "must be retained before promotion")
-      visible_value = CanonicalStores::GetQuery.call(reference_owner: @conversation, key: @key)
-      raise ActiveRecord::RecordNotFound, "conversation variable is missing" if visible_value.blank?
+      Conversations::WithMutableStateLock.call(
+        conversation: @conversation,
+        record: @conversation,
+        retained_message: "must be retained before promotion",
+        active_message: "must be active before promotion",
+        closing_message: "must not mutate conversation state while close is in progress"
+      ) do |conversation|
+        visible_value = CanonicalStores::GetQuery.call(reference_owner: conversation, key: @key)
+        raise ActiveRecord::RecordNotFound, "conversation variable is missing" if visible_value.blank?
 
-      Variables::Write.call(
-        scope: "workspace",
-        workspace: @conversation.workspace,
-        key: @key,
-        typed_value_payload: visible_value.typed_value_payload,
-        writer: @writer,
-        source_kind: "promotion",
-        source_conversation: @conversation
-      )
+        Variables::Write.call(
+          scope: "workspace",
+          workspace: conversation.workspace,
+          key: @key,
+          typed_value_payload: visible_value.typed_value_payload,
+          writer: @writer,
+          source_kind: "promotion",
+          source_conversation: conversation
+        )
+      end
     end
   end
 end
