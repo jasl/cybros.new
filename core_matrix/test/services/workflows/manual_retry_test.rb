@@ -5,7 +5,8 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation]
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
     )
     actor = create_user!(installation: context[:installation], role: "admin")
 
@@ -24,12 +25,15 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_equal "candidate:openai/gpt-5.3-chat-latest", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.3-chat-latest", retried.turn.resolved_model_ref
+    assert_equal replacement.public_id, retried.turn.execution_identity["agent_deployment_id"]
+    assert_equal context[:execution_environment].public_id, retried.turn.execution_identity["execution_environment_id"]
     assert_equal ["root"], retried.workflow_nodes.order(:ordinal).pluck(:node_key)
 
     paused = context[:workflow_run].reload
     assert paused.canceled?
     assert paused.turn.reload.canceled?
     assert_equal context[:turn].selected_input_message.content, retried.turn.selected_input_message.content
+    assert_equal replacement, context[:conversation].reload.agent_deployment
 
     audit_log = AuditLog.find_by!(action: "workflow.manual_retried")
     assert_equal actor, audit_log.actor
@@ -51,6 +55,24 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors[:deletion_state], "must be retained before manual retry"
+  end
+
+  test "rejects manual retry when the replacement deployment belongs to another execution environment" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation]
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualRetry.call(
+        workflow_run: context[:workflow_run],
+        deployment: replacement,
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
   end
 
   private
@@ -86,16 +108,19 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context.merge(conversation: conversation, turn: turn.reload, workflow_run: workflow_run.reload)
   end
 
-  def create_compatible_replacement_deployment!(installation:, agent_installation:)
+  def create_compatible_replacement_deployment!(
+    installation:,
+    agent_installation:,
+    execution_environment: create_execution_environment!(installation: installation)
+  )
     agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(
       bootstrap_state: "superseded",
       updated_at: Time.current
     )
-    environment = create_execution_environment!(installation: installation)
     deployment = create_agent_deployment!(
       installation: installation,
       agent_installation: agent_installation,
-      execution_environment: environment,
+      execution_environment: execution_environment,
       fingerprint: "replacement-#{next_test_sequence}",
       health_status: "healthy",
       auto_resume_eligible: true

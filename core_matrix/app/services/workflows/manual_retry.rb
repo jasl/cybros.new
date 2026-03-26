@@ -24,11 +24,15 @@ module Workflows
       ApplicationRecord.transaction do
         @workflow_run.update!(lifecycle_state: "canceled")
         @workflow_run.turn.update!(lifecycle_state: "canceled")
+        Conversations::SwitchAgentDeployment.call(
+          conversation: @workflow_run.conversation,
+          agent_deployment: @deployment
+        )
 
         retried_turn = Turns::StartUserTurn.call(
           conversation: @workflow_run.conversation,
           content: @workflow_run.turn.selected_input_message.content,
-          agent_deployment: @deployment,
+          agent_deployment: @workflow_run.conversation.agent_deployment,
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {}
         )
@@ -68,13 +72,13 @@ module Workflows
     end
 
     def validate_retry_target!
-      raise_invalid!(@workflow_run.turn, :agent_deployment, "must belong to the same installation") unless same_installation?
       raise_invalid!(@workflow_run.turn, :agent_deployment, "must be eligible for scheduling to retry paused work") unless @deployment.eligible_for_scheduling?
       raise_invalid!(@workflow_run.turn, :selected_input_message, "must exist to retry paused work") if @workflow_run.turn.selected_input_message.blank?
-    end
-
-    def same_installation?
-      @deployment.installation_id == @workflow_run.installation_id
+      Conversations::ValidateAgentDeploymentTarget.call(
+        conversation: @workflow_run.conversation,
+        agent_deployment: @deployment,
+        record: @workflow_run.turn
+      )
     end
 
     def raise_invalid!(record, attribute, message)

@@ -50,7 +50,8 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
 
     replacement = create_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation]
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
     )
     retried = Workflows::ManualRetry.call(
       workflow_run: workflow_run.reload,
@@ -62,9 +63,13 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     assert workflow_run.reload.canceled?
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
     assert retried.active?
+    assert_equal replacement, conversation.reload.agent_deployment
+    assert_equal replacement, retried.turn.agent_deployment
     assert_equal "role:planner", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.4", retried.turn.resolved_model_ref
+    assert_equal replacement.public_id, retried.turn.execution_identity["agent_deployment_id"]
+    assert_equal context[:execution_environment].public_id, retried.turn.execution_identity["execution_environment_id"]
     assert_equal(
       %w[agent_deployment.degraded agent_deployment.paused_agent_unavailable workflow.manual_retried],
       AuditLog.where(installation: context[:installation]).order(:created_at).pluck(:action).last(3)
@@ -73,16 +78,19 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
 
   private
 
-  def create_replacement_deployment!(installation:, agent_installation:)
+  def create_replacement_deployment!(
+    installation:,
+    agent_installation:,
+    execution_environment: create_execution_environment!(installation: installation)
+  )
     agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(
       bootstrap_state: "superseded",
       updated_at: Time.current
     )
-    environment = create_execution_environment!(installation: installation)
     deployment = create_agent_deployment!(
       installation: installation,
       agent_installation: agent_installation,
-      execution_environment: environment,
+      execution_environment: execution_environment,
       fingerprint: "replacement-#{next_test_sequence}",
       health_status: "healthy",
       auto_resume_eligible: true
