@@ -12,6 +12,7 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal %w[execution_started execution_progress execution_complete],
       body.fetch("reports").map { |report| report.fetch("method_id") }
+    assert_equal ["agent"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
     assert_equal "completed", body.fetch("status")
     assert_equal "The calculator returned 4.", body.fetch("output")
   end
@@ -27,7 +28,21 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal %w[execution_started execution_fail],
       body.fetch("reports").map { |report| report.fetch("method_id") }
+    assert_equal ["agent"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
     assert_equal "failed", body.fetch("status")
     assert_equal "runtime_error", body.fetch("error").fetch("failure_kind")
+  end
+
+  test "runtime execution endpoint rejects non-agent runtime planes" do
+    post "/runtime/executions",
+      params: runtime_assignment_payload(runtime_plane: "environment"),
+      as: :json
+
+    assert_response :unprocessable_entity
+
+    body = JSON.parse(response.body)
+
+    assert_equal "failed", body.fetch("status")
+    assert_equal "unsupported_runtime_plane", body.fetch("error").fetch("failure_kind")
   end
 end

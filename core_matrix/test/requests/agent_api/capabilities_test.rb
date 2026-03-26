@@ -2,18 +2,57 @@ require "test_helper"
 
 class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
   test "capabilities refresh returns protocol methods and tool catalog as separate contract sections" do
-    registration = register_agent_runtime!
+    registration = register_agent_runtime!(
+      environment_tool_catalog: [
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "environment_runtime",
+          "implementation_source" => "execution_environment",
+          "implementation_ref" => "env/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ],
+      tool_catalog: [
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "agent_observation",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+        {
+          "tool_name" => "compact_context",
+          "tool_kind" => "agent_observation",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/compact_context",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ]
+    )
 
     get "/agent_api/capabilities", headers: agent_api_headers(registration[:machine_credential])
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
+    shell_entry = response_body.fetch("effective_tool_catalog").find { |entry| entry.fetch("tool_name") == "shell_exec" }
+
     assert_equal "capabilities_refresh", response_body["method_id"]
     assert_equal registration[:execution_environment].public_id, response_body["execution_environment_id"]
     assert_equal registration[:execution_environment].environment_fingerprint, response_body["environment_fingerprint"]
     assert_equal ["agent_health", "capabilities_handshake"], response_body["protocol_methods"].map { |entry| entry.fetch("method_id") }
-    assert_equal ["kernel_primitive"], response_body["tool_catalog"].map { |entry| entry.fetch("tool_kind") }
+    assert_equal ["shell_exec", "compact_context"], response_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["shell_exec"], response_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
   end
 
   test "capabilities handshake persists a new snapshot and preserves selector-bearing defaults" do

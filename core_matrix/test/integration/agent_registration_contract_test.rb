@@ -23,6 +23,18 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
         environment_capability_payload: {
           conversation_attachment_upload: false,
         },
+        environment_tool_catalog: [
+          {
+            tool_name: "shell_exec",
+            tool_kind: "environment_runtime",
+            implementation_source: "execution_environment",
+            implementation_ref: "env/shell_exec",
+            input_schema: { type: "object", properties: {} },
+            result_schema: { type: "object", properties: {} },
+            streaming_support: false,
+            idempotency_policy: "best_effort",
+          },
+        ],
         fingerprint: "fenix-release-0.1.0",
         endpoint_metadata: {
           transport: "http",
@@ -50,9 +62,12 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     assert_equal "fenix-host-a", registration_body["environment_fingerprint"]
     assert_equal AgentDeployment.find_by_public_id!(registration_body.fetch("deployment_id")).public_id, registration_body["deployment_id"]
     assert_equal registration_body["execution_environment_id"], capability_body["execution_environment_id"]
+    assert_equal ["shell_exec"], capability_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["shell_exec", "subagent_spawn"], capability_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert capability_body["protocol_methods"].all? { |entry| entry.fetch("method_id").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| %w[kernel_primitive agent_observation effect_intent].include?(entry.fetch("tool_kind")) }
+    assert capability_body["effective_tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
     refute_equal capability_body["protocol_methods"].map { |entry| entry.fetch("method_id") }.sort,
       capability_body["tool_catalog"].map { |entry| entry.fetch("tool_name") }.sort
   end

@@ -28,6 +28,18 @@ class CapabilitySnapshot < ApplicationRecord
     }.compact
   end
 
+  def as_agent_plane_payload
+    {
+      "runtime_plane" => "agent",
+      "agent_capabilities_version" => version,
+      "protocol_methods" => protocol_methods,
+      "tool_catalog" => tool_catalog,
+      "config_schema_snapshot" => config_schema_snapshot,
+      "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
+      "default_config_snapshot" => default_config_snapshot,
+    }
+  end
+
   def tool_named?(tool_name)
     tool_catalog.any? { |entry| entry["tool_name"] == tool_name }
   end

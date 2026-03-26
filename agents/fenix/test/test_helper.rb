@@ -13,12 +13,13 @@ module ActiveSupport
     # Add more helper methods to be used by all tests here...
     private
 
-    def runtime_assignment_payload(mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {})
+    def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {})
       {
         "item_id" => "mailbox-item-#{SecureRandom.uuid}",
         "message_id" => "kernel-assignment-#{SecureRandom.uuid}",
         "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
         "attempt_no" => 1,
+        "runtime_plane" => runtime_plane,
         "payload" => {
           "agent_task_run_id" => "task-#{SecureRandom.uuid}",
           "workflow_run_id" => "workflow-#{SecureRandom.uuid}",

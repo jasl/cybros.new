@@ -48,4 +48,55 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
 
     assert_equal true, contract.fetch("conversation_attachment_upload")
   end
+
+  test "conversation tool catalog prefers environment tools over agent tools with the same name" do
+    installation = create_installation!
+    environment = create_execution_environment!(
+      installation: installation,
+      tool_catalog: [
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "environment_runtime",
+          "implementation_source" => "execution_environment",
+          "implementation_ref" => "env/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ]
+    )
+    agent_installation = create_agent_installation!(installation: installation)
+    deployment = create_agent_deployment!(
+      installation: installation,
+      agent_installation: agent_installation,
+      execution_environment: environment
+    )
+    create_capability_snapshot!(
+      agent_deployment: deployment,
+      tool_catalog: [
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "agent_observation",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ]
+    ).tap do |snapshot|
+      deployment.update!(active_capability_snapshot: snapshot)
+    end
+
+    contract = RuntimeCapabilities::ComposeForConversation.call(
+      execution_environment: environment,
+      agent_deployment: deployment
+    )
+
+    shell_entry = contract.fetch("tool_catalog").find { |entry| entry.fetch("tool_name") == "shell_exec" }
+
+    assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
+  end
 end

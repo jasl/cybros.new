@@ -51,8 +51,19 @@ pairing:
 - SDK version
 - protocol methods
 - tool catalog
+- `agent_plane`
+- `environment_plane`
+- `effective_tool_catalog`
 - config schema snapshots
 - default config snapshot
+
+The current pairing contract models `Fenix` as one process serving both:
+
+- `AgentRuntime`
+- `ExecutionEnvironmentRuntime`
+
+That dual role is explicit in the manifest even though Phase 2 still ships it
+as one bundled runtime.
 
 `POST /runtime/executions` accepts one mailbox-shaped execution assignment and
 returns a deterministic report transcript for local validation:
@@ -61,6 +72,11 @@ returns a deterministic report transcript for local validation:
 - `execution_progress`
 - `execution_complete`
 - `execution_fail`
+
+The execution endpoint is the agent-plane surface only. If it receives
+environment-plane work, it fails fast with
+`failure_kind = "unsupported_runtime_plane"` instead of pretending both planes
+share one execution entry point.
 
 The current Phase 2 implementation keeps the runtime deterministic, but the
 surface is now sufficient for both bundled validation and external pairing into

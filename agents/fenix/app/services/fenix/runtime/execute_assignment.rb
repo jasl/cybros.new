@@ -14,6 +14,8 @@ module Fenix
       end
 
       def call
+        return fail_unsupported_runtime_plane unless @context.fetch("runtime_plane") == "agent"
+
         @collector.started!
 
         prepared = Fenix::Hooks::PrepareTurn.call(context: @context)
@@ -98,6 +100,22 @@ module Fenix
         else
           raise ArgumentError, "unsupported calculator operator #{operator}"
         end
+      end
+
+      def fail_unsupported_runtime_plane
+        failure_payload = {
+          "failure_kind" => "unsupported_runtime_plane",
+          "last_error_summary" => "agent execution received #{@context.fetch("runtime_plane")} plane work",
+          "retryable" => false,
+        }
+        @collector.fail!(terminal_payload: failure_payload)
+
+        Result.new(
+          status: "failed",
+          reports: @collector.reports,
+          trace: @trace,
+          error: failure_payload
+        )
       end
     end
   end

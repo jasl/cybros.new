@@ -15,7 +15,7 @@ module Fenix
         execution_fail
         resource_close_request
         resource_close_acknowledged
-        resource_close_closed
+        resource_closed
         resource_close_failed
       ].freeze
       TOOL_CATALOG = [
@@ -152,6 +152,9 @@ module Fenix
           "endpoint_metadata" => endpoint_metadata,
           "protocol_methods" => protocol_methods,
           "tool_catalog" => TOOL_CATALOG,
+          "agent_plane" => agent_plane,
+          "environment_plane" => environment_plane,
+          "effective_tool_catalog" => effective_tool_catalog,
           "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
           "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,
@@ -171,6 +174,42 @@ module Fenix
 
       def protocol_methods
         PROTOCOL_METHOD_IDS.map { |method_id| { "method_id" => method_id } }
+      end
+
+      def agent_plane
+        {
+          "runtime_plane" => "agent",
+          "protocol_methods" => protocol_methods,
+          "tool_catalog" => TOOL_CATALOG,
+          "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
+          "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
+          "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,
+        }
+      end
+
+      def environment_plane
+        {
+          "runtime_plane" => "environment",
+          "capability_payload" => ENVIRONMENT_CAPABILITY_PAYLOAD,
+          "tool_catalog" => ENVIRONMENT_TOOL_CATALOG,
+        }
+      end
+
+      def effective_tool_catalog
+        ordinary_entries = {}
+        ordinary_order = []
+
+        [ENVIRONMENT_TOOL_CATALOG, TOOL_CATALOG].each do |catalog|
+          catalog.each do |entry|
+            tool_name = entry.fetch("tool_name")
+            next if ordinary_entries.key?(tool_name)
+
+            ordinary_entries[tool_name] = entry
+            ordinary_order << tool_name
+          end
+        end
+
+        ordinary_order.map { |tool_name| ordinary_entries.fetch(tool_name) }
       end
 
       def environment_fingerprint

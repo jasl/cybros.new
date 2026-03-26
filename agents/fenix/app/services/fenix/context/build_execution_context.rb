@@ -17,6 +17,7 @@ module Fenix
           "message_id" => @mailbox_item.fetch("message_id"),
           "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
           "attempt_no" => @mailbox_item.fetch("attempt_no").to_i,
+          "runtime_plane" => @mailbox_item.fetch("runtime_plane", "agent"),
           "agent_task_run_id" => payload.fetch("agent_task_run_id"),
           "workflow_run_id" => payload.fetch("workflow_run_id"),
           "workflow_node_id" => payload.fetch("workflow_node_id"),

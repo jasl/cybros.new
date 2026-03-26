@@ -13,6 +13,9 @@ existing binding and workspace services.
 
 - Reconciles the packaged runtime into `AgentInstallation`,
   `ExecutionEnvironment`, `AgentDeployment`, and `CapabilitySnapshot`.
+- Treats `ExecutionEnvironment` as the stable owner aggregate and rotates
+  `AgentDeployment` on top of that environment when the bundled runtime
+  release changes.
 - Reuses existing logical and deployment rows instead of duplicating them on
   repeated calls.
 - Capability-snapshot version allocation is serialized at the deployment

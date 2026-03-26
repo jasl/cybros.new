@@ -71,6 +71,16 @@ Planned replacement design:
 - the contract payload includes tool metadata fields for implementation source,
   implementation reference, input schema, result schema, streaming support, and
   idempotency policy
+- capability refresh and handshake now also publish:
+  - `agent_plane`
+  - `environment_plane`
+  - `effective_tool_catalog`
+- `effective_tool_catalog` resolves ordinary tool-name conflicts in this order:
+  - `ExecutionEnvironment`
+  - `AgentDeployment`
+  - `Core Matrix`
+- reserved `core_matrix__*` system tools remain outside ordinary collision
+  resolution
 
 ### Endpoint Responses
 
@@ -88,6 +98,8 @@ Planned replacement design:
   active capability snapshot payload
 - capabilities handshake returns `method_id: "capabilities_handshake"` and the
   reconciled capability snapshot payload
+- both capability endpoints also return execution-environment identity and the
+  current environment capability payload and tool catalog
 
 ## Capability Snapshot Rules
 

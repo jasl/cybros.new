@@ -30,6 +30,10 @@ module AgentAPI
 
     def capability_payload(method_id:, reconciliation_report: nil, capability_snapshot: current_deployment.active_capability_snapshot)
       execution_environment = current_deployment.reload.execution_environment
+      effective_tool_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
+        execution_environment: execution_environment,
+        capability_snapshot: capability_snapshot
+      )
 
       capability_snapshot.as_contract_payload(
         method_id: method_id,
@@ -37,7 +41,11 @@ module AgentAPI
       ).merge(
         "execution_environment_id" => execution_environment.public_id,
         "environment_fingerprint" => execution_environment.environment_fingerprint,
-        "environment_capability_payload" => execution_environment.capability_payload
+        "environment_capability_payload" => execution_environment.capability_payload,
+        "environment_tool_catalog" => execution_environment.tool_catalog,
+        "agent_plane" => capability_snapshot.as_agent_plane_payload,
+        "environment_plane" => execution_environment.as_runtime_plane_payload,
+        "effective_tool_catalog" => effective_tool_catalog
       )
     end
   end
