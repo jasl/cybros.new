@@ -3,8 +3,8 @@
 ## Scope
 
 - Refresh date: `2026-03-27`
-- Refresh baseline: post-fix state after `fix: harden runtime binding and wait blocker contracts`
-  (`53253d5`)
+- Refresh baseline: post-fix state after `docs: describe conversation mutation contracts`
+  (`2e56996`)
 - In scope: Ruby code under `app/`, `lib/`, `config/`, `db/`, and `test/`
 - Out of scope: frontend work, compiled assets, and non-Ruby code
 - Review goals:
@@ -30,132 +30,126 @@
     - `app/services/turns`
     - `app/services/agent_control`
 - targeted follow-up areas:
-    - turn mutation helpers that still update selected input or output state
-    - rollback and timeline rewrite paths adjacent to the newly added rewrite
-      guard
-    - close and interrupt windows where a turn remains `active` but is already
-      fenced
-    - conversation-local selector or override writes that still update
-      conversation state without a retained/active/close fence
-    - conversation-local projection or support writes that still rely on the
-      legacy retained-only helper instead of an explicit mutation contract
+    - rollback and lineage paths after the shared mutation-contract cleanup
+    - turn rewrite helpers that now share the timeline contract but still carry
+      older append-only assumptions
+    - provenance-bearing fields that still accept raw `bigint` references
+      without transcript-membership validation
+    - active-resource ownership paths adjacent to turn-history mutation
+    - test suites that still encode permissive historical-anchor or rewrite
+      behavior from earlier phases
 
 ## Findings
 
 ### Must Fix
 
-1. `Turns::SteerCurrentInput` still bypasses retention, close-operation, and
-   interrupt fences on the no-side-effect rewrite path.
-   - Why it matters: once `Conversations::RequestTurnInterrupt` lands, the turn
-     can remain `active` while already fenced by
-     `cancellation_reason_kind = "turn_interrupted"`. During that window,
-     `SteerCurrentInput` can still append a new selected input variant because
-     it only checks `turn.active?`. For delete requests, the conversation is
-     already `pending_delete`; for archive/delete close requests, the
-     conversation may also already have an unfinished close operation. This lets
-     the user mutate a turn after the close fence that earlier rounds were
-     explicitly trying to make durable.
+1. `Conversations::RollbackToTurn` still tears down later history by changing
+   only `Turn.lifecycle_state`, without closing or canceling the later turns'
+   active workflow/runtime graph.
+   - Why it matters: rollback now passes the shared timeline-mutation fence, but
+     once it is allowed to run it only does
+     `later_turn.update!(lifecycle_state: "canceled")`. If any later turn owns
+     an active `WorkflowRun`, `AgentTaskRun`, `HumanInteractionRequest`,
+     `ProcessRun`, or `SubagentRun`, those resources remain live on a canceled
+     turn. That creates a split-brain runtime state where the visible timeline
+     says the turn is gone but scheduler, close, and mailbox logic can still see
+     active owned work.
    - Evidence:
-     - `app/services/turns/steer_current_input.rb:13-39`
-     - `app/services/workflows/scheduler.rb:71-109`
-     - `app/services/conversations/request_turn_interrupt.rb:41-60`
-     - `test/services/turns/steer_current_input_test.rb:4-92`
-   - Reasoning basis: `SteerCurrentInput` has no retained/active-conversation or
-     close-fence checks and no `turn_interrupted` check. The direct rewrite path
-     at lines 23-38 only re-validates `turn.active?` under lock, so a fenced
-     turn can still be edited until its lifecycle eventually flips to
-     `canceled`. The side-effect-boundary path eventually goes through
-     `QueueFollowUp`, which now blocks closing conversations, but the direct
-     input rewrite path does not. The current tests only cover happy paths.
-   - Recommended action: route `SteerCurrentInput` through the same shared
-     rewrite/retention fence used for turn-history mutation, or add a dedicated
-     shared guard for mutable current-turn input updates, and add negative tests
-     for `pending_delete`, archived/closing, and `turn_interrupted` turns.
+     - `app/services/conversations/rollback_to_turn.rb:15-31`
+     - `app/models/turn.rb:31-34`
+     - `app/models/workflow_run.rb:35-42`
+     - `app/services/conversations/request_turn_interrupt.rb:14-23`
+     - `test/services/conversations/rollback_to_turn_test.rb:4-131`
+   - Reasoning basis: rollback has no equivalent of `RequestTurnInterrupt` or
+     any other quiesce path for later turns. It never looks at later turns'
+     workflow runs or resources, and `WorkflowRun` has no validation that would
+     reject an `active` workflow run whose turn was just marked `canceled`.
+     Current tests only cover later turns with no owned runtime work.
+   - Recommended action: either reject rollback while later turns still own
+     active workflow/runtime resources, or route each later active turn through
+     the same interrupt/quiesce contract used by archive/delete before the turn
+     row is canceled.
 
-2. Remaining turn-history mutation helpers still bypass the shared rewrite
-   safety contract.
-   - Why it matters: the recent fix only hardened `RetryOutput` and
-     `RerunOutput`, but adjacent helpers can still mutate the active timeline or
-     prune transcript-support state without checking retained/active/closing or
-     interrupt fences. That means archived or superseded conversations can still
-     be rewritten through sibling APIs even after the output-specific path was
-     secured.
+2. Turn output variants still have no provenance link to the input variant that
+   produced them, which lets later rewrite flows pair an old output with a new
+   selected input.
+   - Why it matters: after `Turns::EditTailInput` appends a new input variant,
+     old output messages remain on the same turn. `Turns::SelectOutputVariant`
+     can later point the turn back at one of those older output rows, and
+     `Turns::RerunOutput` branch replay uses
+     `turn.selected_input_message.content` rather than the input that actually
+     produced the target output. That means transcript state and branch replay
+     can silently drift away from the historical output being selected or
+     rerun.
    - Evidence:
-     - `app/services/turns/edit_tail_input.rb:12-34`
-     - `app/services/turns/select_output_variant.rb:11-22`
-     - `app/services/conversations/rollback_to_turn.rb:12-25`
-     - `test/services/turns/edit_tail_input_test.rb:4-58`
-     - `test/services/turns/select_output_variant_test.rb:4-63`
-     - `test/services/conversations/rollback_to_turn_test.rb:4-101`
-   - Reasoning basis: `EditTailInput` only checks tail/fork-point shape before
-     appending a new selected input and clearing `selected_output_message`.
-     `SelectOutputVariant` only checks output-slot, completion, and tail shape
-     before changing the selected output pointer. `RollbackToTurn` cancels later
-     turns and prunes summary/import support state with no lifecycle or fence
-     checks at all. The targeted test suites all pass, but they cover only
-     happy-path timeline rules and contain no retained/archive/close/interrupt
-     negatives.
-   - Recommended action: extend the shared rewrite guard so all history-mutation
-     helpers that alter timeline selection or prune transcript-support state
-     must call it, then add negative tests for archived, pending-delete,
-     closing, and `turn_interrupted` cases across these services.
+     - `app/models/message.rb:8-46`
+     - `app/services/turns/edit_tail_input.rb:18-35`
+     - `app/services/turns/select_output_variant.rb:17-29`
+     - `app/services/turns/rerun_output.rb:60-82`
+     - `test/integration/turn_history_rewrite_flow_test.rb:46-54`
+   - Reasoning basis: `Message` belongs only to `turn`; there is no
+     `source_input_message_id`, input-variant index, or similar provenance
+     column. `EditTailInput` clears the selected output but keeps old outputs on
+     the turn, `SelectOutputVariant` can point back to any output variant on the
+     completed tail turn, and non-tail branch reruns copy the current selected
+     input content instead of the target output's original input context. The
+     existing integration test already performs edit-then-rerun on the same turn
+     but never asserts the branch input, so the drift stays invisible.
+   - Recommended action: persist output-to-input provenance on transcript rows
+     or turn-local variant state, and make output selection and branch rerun
+     validate or reconstruct against that provenance instead of the current turn
+     pointer.
 
-3. `Conversations::UpdateOverride` can still rewrite selector and override
-   state after archive or delete close fences because it bypasses the existing
-   retained/active/closing checks entirely.
-   - Why it matters: override payload and interactive-selector state are the
-     same conversation-local execution inputs that later turn entry and selector
-     resolution read. Right now `UpdateOverride` writes them directly on the
-     conversation row with no `retained`, `active`, or `closing` check and no
-     lock, so a user can still mutate those settings while the conversation is
-     being archived or deleted. That recreates the same “late mutation after a
-     close fence” class of bug that earlier rounds were already hardening away
-     from turn and workflow state.
+3. Child-conversation creation still accepts arbitrary
+   `historical_anchor_message_id` values without validating that the anchor is a
+   real parent transcript message.
+   - Why it matters: branch and checkpoint transcript projection depend on the
+     anchor to know how much parent history to inherit. Right now the model only
+     checks that the field is present, not that it points at a real message row
+     in the parent transcript. That allows durable lineage rows with bogus
+     provenance and silently truncated inherited transcript state.
    - Evidence:
-     - `app/services/conversations/update_override.rb:13-27`
-     - `docs/behavior/turn-entry-and-selector-state.md:18-24`
-     - `test/services/conversations/update_override_test.rb:3-48`
-   - Reasoning basis: `UpdateOverride` does a direct `@conversation.update!`
-     with no shared lifecycle contract around it. The current tests cover only
-     happy-path persistence and do not challenge `pending_delete`, archived, or
-     close-in-progress states.
-   - Recommended action: treat override persistence as a live conversation
-     mutation, fold it into the same shared conversation-mutation contract as
-     turn entry and human-interaction writes, and add negative tests for
-     `pending_delete`, archived, and closing conversations.
+     - `app/models/conversation.rb:152-155`
+     - `app/models/conversation.rb:243-251`
+     - `app/services/conversations/create_branch.rb:21-39`
+     - `app/services/conversations/create_checkpoint.rb:21-38`
+     - `test/services/conversations/create_branch_test.rb:4-27`
+     - `test/services/conversations/create_checkpoint_test.rb:4-27`
+     - `test/integration/conversation_structure_flow_test.rb:13-21`
+     - `docs/behavior/transcript-imports-and-summary-segments.md:18-28`
+   - Reasoning basis: `Conversation#inherited_transcript_projection_messages`
+     falls back to `[]` when the anchor cannot be found in the inherited
+     transcript, and `CreateBranch` only materializes a `branch_prefix` import
+     when `Message.find_by(id:, installation_id:)` succeeds. The model and
+     services therefore allow `101/202/303`-style raw ids that may not exist or
+     may not belong to the parent transcript. Existing service and integration
+     tests explicitly expect those arbitrary anchors to succeed.
+   - Recommended action: validate branch/checkpoint anchors, and optional thread
+     anchors when present, against the parent conversation's transcript
+     projection and reject invalid anchors instead of silently creating lineage
+     with broken provenance.
 
 ## Suggestions
 
-1. Lineage-creation services may deserve the same archive/close-policy review
-   as turn-entry and rewrite helpers.
+1. `Workflows::CreateForTurn` is currently behaving like an internal
+   second-stage writer rather than a confirmed mutation-boundary defect, but its
+   contract should stay explicit so future callers do not bypass the shared
+   turn-entry and recovery fences.
    - Evidence:
-     - `app/services/conversations/create_branch.rb:15-33`
-     - `app/services/conversations/create_thread.rb:15-28`
-     - `app/services/conversations/create_checkpoint.rb:15-28`
-     - `docs/behavior/conversation-structure-and-lineage.md:88-90`
-   - Why it matters: deletion is explicitly covered, but archive/close behavior
-     for branch/thread/checkpoint creation is still not spelled out the same way
-     the turn-entry contract is. I did not treat this as a confirmed defect
-     because the current behavior docs stop at non-retained parents, but it is a
-     likely future drift point.
-   - Suggested action: decide whether archived or closing parents should reject
-     lineage creation, then document and test that policy explicitly.
-
-2. The legacy `Conversations::RetentionGuard` now mixes two different product
-   contracts.
-   - Evidence:
-     - `app/services/conversations/retention_guard.rb:1-29`
-     - `app/services/canonical_stores/set.rb:1-58`
-     - `app/services/workflows/manual_resume.rb:1-103`
-     - `app/services/publications/publish_live.rb:1-66`
-   - Why it matters: some call sites need only `retained`, while others should
-     really require `retained + active + not_closing`. Reusing the same helper
-     across both semantics makes future drift likely even when no single call
-     site is obviously broken today.
-   - Suggested action: replace `RetentionGuard` with explicit shared contracts
-     for `retained-only`, `live conversation mutation`, and `turn timeline
-     mutation`, then migrate every remaining call site onto one of those
-     explicit choices.
+     - `app/services/workflows/create_for_turn.rb:15-42`
+     - `app/services/turns/start_user_turn.rb:13-50`
+     - `app/services/workflows/manual_retry.rb:34-50`
+   - Why it matters: the current app-level call paths enter through
+     `StartUserTurn`, `StartAutomationTurn`, or `ManualRetry`, so mutable-state
+     and runtime-binding checks happen before workflow creation. That makes
+     `CreateForTurn` a trusted materialization primitive today, not the source of
+     an active bug. The risk is architectural drift: a future caller may treat
+     it like a public entry point and skip those higher-level contracts.
+   - Suggested action: keep `CreateForTurn` documented and tested as an
+     internal-only second-stage writer, and make app-level tests continue to
+     assert that new workflow creation flows enter through fenced turn-entry or
+     recovery services instead of calling it directly from unfenced mutation
+     paths.
 
 ## Watch List
 
@@ -174,31 +168,25 @@
 ## Cross-check Summary
 
 - Global signal scan notes:
-  - the recent runtime-binding, rewrite, and blocker-id fixes are present and
-    the obvious sibling deployment paths (`AutoResumeWorkflows`,
-    `StartAutomationTurn`) were already folded into that batch
-  - the strongest remaining signal now comes from turn-mutation helpers that
-    still write transcript or timeline state but were not folded into the new
-    shared rewrite guard
-  - `SteerCurrentInput` is the highest-risk entry because it can run while a
-    fenced turn is still `active`
-  - a broader follow-up scan across conversation-local selector, visibility,
-    import, summary, lineage, and canonical-store services surfaced one more
-    confirmed unfenced writer: `Conversations::UpdateOverride`
-  - after that broader scan, no additional timeline/projection/lineage/settings
-    mutation services were found outside the final hardening scope for this
-    round
+  - the shared `retained-only`, `live-mutation`, and `timeline-mutation`
+    contracts are now present and the old `RetentionGuard` and
+    `ValidateRewriteTarget` helpers are gone
+  - no new unfenced live-mutation or timeline-mutation entry point showed up in
+    the latest pattern scan
+  - the strongest remaining signals moved one layer deeper:
+    - resource ownership gaps inside rollback
+    - missing provenance between input and output variants
+    - missing validation on historical-anchor identifiers
 - Reverse-pass confirmations:
-  - `bin/rails test test/services/turns/steer_current_input_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/select_output_variant_test.rb test/services/conversations/rollback_to_turn_test.rb`
+  - `bin/rails test test/services/conversations/create_branch_test.rb test/services/conversations/create_checkpoint_test.rb test/services/conversations/create_thread_test.rb test/services/conversations/rollback_to_turn_test.rb test/services/turns/rerun_output_test.rb test/services/turns/select_output_variant_test.rb test/integration/conversation_structure_flow_test.rb test/integration/turn_history_rewrite_flow_test.rb`
     currently passes as
-    `9 runs, 30 assertions, 0 failures, 0 errors, 0 skips`
-  - those passing tests confirm timeline-shape behavior only; they do not
-    challenge retained/archived/closing/`turn_interrupted` state
-  - the newly added `ValidateRewriteTarget` guard is only referenced from
-    `RetryOutput` and `RerunOutput`, which leaves adjacent history-mutation
-    helpers outside the shared contract
-  - `test/services/conversations/update_override_test.rb` currently covers only
-    happy-path persistence and does not challenge retained/archive/close state
+    `23 runs, 91 assertions, 0 failures, 0 errors, 0 skips`
+  - those passing tests confirm the current permissive behavior:
+    - arbitrary historical anchor ids are still accepted
+    - rollback only exercises later turns without active owned runtime work
+    - edit-then-rerun flow does not assert the rerun branch's selected input
+      against the historical output context
+    - output-variant selection is only exercised inside one input lineage
 
 ## Completeness Check
 
@@ -219,6 +207,6 @@
   - the current evidence-backed conclusions are written in this document
   - blocking defects are separated from suggestions and watch-list items
 - Residual limitations:
-  - this refresh used targeted Rails test suites, not the full project test
-    suite
-  - no `bin/dev` or live-runtime manual validation was performed in this round
+  - this refresh used targeted Rails test suites and code inspection, not the
+    full project test suite
+  - no live-runtime manual validation was performed in this round

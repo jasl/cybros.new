@@ -51,6 +51,11 @@ end-to-end stack.
 - [2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md)
 
+### Task C8 Follow-Up
+
+- [2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md)
+- [2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
@@ -71,6 +76,12 @@ end-to-end stack.
   retained-only, live-mutation, or turn timeline mutation
 - legacy retained-state helpers no longer survive as an alternate path for
   lifecycle checks
+- rollback supersession rejects live owned runtime instead of canceling it
+  blindly
+- transcript output variants carry explicit input provenance and selection stays
+  within one lineage
+- child-conversation historical anchors are validated against the parent
+  transcript projection instead of relying on permissive raw ids
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources
