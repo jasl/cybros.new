@@ -5,8 +5,6 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent_installation = create_agent_installation!(installation: installation, visibility: "global")
-    environment = create_execution_environment!(installation: installation, kind: "local")
-
     enrollment = AgentEnrollments::Issue.call(
       agent_installation: agent_installation,
       actor: actor,
@@ -15,8 +13,15 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
 
     registration = AgentDeployments::Register.call(
       enrollment_token: enrollment.plaintext_token,
-      execution_environment: environment,
-      fingerprint: "fenix-machine-001",
+      environment_fingerprint: "fenix-host-a",
+      environment_kind: "local",
+      environment_connection_metadata: {
+        "transport" => "http",
+        "base_url" => "http://127.0.0.1:4100",
+      },
+      environment_capability_payload: {},
+      environment_tool_catalog: [],
+      fingerprint: "fenix-release-0.1.0",
       endpoint_metadata: {
         "transport" => "http",
         "base_url" => "http://127.0.0.1:4100",
@@ -53,6 +58,7 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal "pending", registration.deployment.bootstrap_state
+    assert_equal "fenix-host-a", registration.execution_environment.environment_fingerprint
 
     travel_to Time.zone.parse("2026-03-24 12:00:00 UTC") do
       AgentDeployments::RecordHeartbeat.call(

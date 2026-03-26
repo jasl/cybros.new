@@ -8,17 +8,18 @@ module AgentAPI
     rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
     rescue_from AgentDeployments::Register::InvalidEnrollment, with: :render_unprocessable_entity
     rescue_from AgentDeployments::Register::ExpiredEnrollment, with: :render_unprocessable_entity
-    rescue_from AgentDeployments::Register::ExecutionEnvironmentMismatch, with: :render_unprocessable_entity
     rescue_from AgentDeployments::Handshake::FingerprintMismatch, with: :render_unprocessable_entity
+    rescue_from ExecutionEnvironments::Reconcile::MissingEnvironmentFingerprint, with: :render_unprocessable_entity
 
     private
 
-    attr_reader :current_deployment
+    attr_reader :current_deployment, :current_execution_environment
 
     def authenticate_deployment!
       @current_deployment = authenticate_with_http_token do |token, _options|
         AgentDeployment.find_by_machine_credential(token)
       end
+      @current_execution_environment = @current_deployment&.execution_environment
       return if @current_deployment.present?
 
       render json: { error: "machine credential is invalid" }, status: :unauthorized

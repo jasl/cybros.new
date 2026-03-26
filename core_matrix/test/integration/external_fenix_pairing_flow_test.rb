@@ -36,6 +36,7 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal "superseded", first[:deployment].reload.bootstrap_state
     assert_equal "active", upgrade[:deployment].reload.bootstrap_state
+    assert_equal first[:execution_environment].public_id, upgrade[:execution_environment].public_id
 
     downgrade = register_runtime!(
       installation: installation,
@@ -53,6 +54,7 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal "superseded", upgrade[:deployment].reload.bootstrap_state
     assert_equal "active", downgrade[:deployment].reload.bootstrap_state
+    assert_equal first[:execution_environment].public_id, downgrade[:execution_environment].public_id
   end
 
   test "manual retry can move paused work onto a rotated external fenix deployment" do
@@ -72,7 +74,11 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
       auto_resume_eligible: true
     )
 
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Retry after rotation",
@@ -109,13 +115,13 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
   private
 
   def register_runtime!(installation:, actor:, agent_installation:, sdk_version:, base_url:)
-    environment = create_execution_environment!(installation: installation)
     register_agent_runtime!(
       installation: installation,
       actor: actor,
       agent_installation: agent_installation,
-      execution_environment: environment,
+      environment_fingerprint: "fenix-host-a",
       sdk_version: sdk_version,
+      fingerprint: "fenix-release-#{sdk_version}",
       endpoint_metadata: {
         "transport" => "http",
         "base_url" => base_url,

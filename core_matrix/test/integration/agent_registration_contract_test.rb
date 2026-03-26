@@ -5,7 +5,6 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent_installation = create_agent_installation!(installation: installation)
-    execution_environment = create_execution_environment!(installation: installation)
     enrollment = AgentEnrollments::Issue.call(
       agent_installation: agent_installation,
       actor: actor,
@@ -15,8 +14,16 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     post "/agent_api/registrations",
       params: {
         enrollment_token: enrollment.plaintext_token,
-        execution_environment_id: execution_environment.public_id,
-        fingerprint: "fenix-machine-001",
+        environment_fingerprint: "fenix-host-a",
+        environment_kind: "local",
+        environment_connection_metadata: {
+          transport: "http",
+          base_url: "https://fenix.example.test",
+        },
+        environment_capability_payload: {
+          conversation_attachment_upload: false,
+        },
+        fingerprint: "fenix-release-0.1.0",
         endpoint_metadata: {
           transport: "http",
           base_url: "https://agents.example.test",
@@ -40,7 +47,9 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     capability_body = JSON.parse(response.body)
 
     assert_equal agent_installation.public_id, registration_body["agent_installation_id"]
+    assert_equal "fenix-host-a", registration_body["environment_fingerprint"]
     assert_equal AgentDeployment.find_by_public_id!(registration_body.fetch("deployment_id")).public_id, registration_body["deployment_id"]
+    assert_equal registration_body["execution_environment_id"], capability_body["execution_environment_id"]
     assert capability_body["protocol_methods"].all? { |entry| entry.fetch("method_id").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| %w[kernel_primitive agent_observation effect_intent].include?(entry.fetch("tool_kind")) }

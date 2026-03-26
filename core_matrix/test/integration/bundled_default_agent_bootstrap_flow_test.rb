@@ -22,8 +22,35 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
     workspace = Workspace.find_by!(user_agent_binding: binding, is_default: true)
 
     assert_equal AgentInstallation.find_by!(key: "fenix"), binding.agent_installation
+    assert_equal "bundled-fenix-environment", ExecutionEnvironment.first.environment_fingerprint
     assert_equal result.user, workspace.user
     assert_equal result.installation, workspace.installation
     assert workspace.private_workspace?
+  end
+
+  test "bundled runtime rotation keeps the same execution environment" do
+    installation = create_installation!
+
+    first = Installations::RegisterBundledAgentRuntime.call(
+      installation: installation,
+      configuration: bundled_agent_configuration(
+        enabled: true,
+        environment_fingerprint: "bundled-fenix-environment",
+        fingerprint: "bundled-fenix-release-0.1.0",
+        sdk_version: "fenix-0.1.0"
+      )
+    )
+    second = Installations::RegisterBundledAgentRuntime.call(
+      installation: installation,
+      configuration: bundled_agent_configuration(
+        enabled: true,
+        environment_fingerprint: "bundled-fenix-environment",
+        fingerprint: "bundled-fenix-release-0.2.0",
+        sdk_version: "fenix-0.2.0"
+      )
+    )
+
+    assert_equal first.execution_environment.public_id, second.execution_environment.public_id
+    refute_equal first.deployment.public_id, second.deployment.public_id
   end
 end

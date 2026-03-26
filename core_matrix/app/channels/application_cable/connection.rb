@@ -1,9 +1,10 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_deployment
+    identified_by :current_deployment, :current_execution_environment
 
     def connect
       self.current_deployment = find_verified_deployment
+      self.current_execution_environment = current_deployment.execution_environment
     end
 
     private

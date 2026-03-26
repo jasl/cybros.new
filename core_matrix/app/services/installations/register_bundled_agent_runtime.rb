@@ -7,7 +7,10 @@ module Installations
       visibility: "global",
       lifecycle_state: "active",
       environment_kind: "local",
+      environment_fingerprint: "bundled-fenix-environment",
       connection_metadata: {},
+      environment_capability_payload: {},
+      environment_tool_catalog: [],
       fingerprint: "bundled-fenix-runtime",
       protocol_version: "2026-03-24",
       sdk_version: "fenix-0.1.0",
@@ -73,19 +76,23 @@ module Installations
     end
 
     def reconcile_execution_environment!
-      execution_environment = ExecutionEnvironment.find_or_initialize_by(
+      execution_environment = ExecutionEnvironments::Reconcile.call(
         installation: @installation,
-        kind: @configuration[:environment_kind]
+        environment_fingerprint: @configuration[:environment_fingerprint],
+        kind: @configuration[:environment_kind],
+        connection_metadata: @configuration[:connection_metadata]
       )
-      execution_environment.update!(
-        connection_metadata: @configuration[:connection_metadata],
-        lifecycle_state: "active"
+      ExecutionEnvironments::RecordCapabilities.call(
+        execution_environment: execution_environment,
+        capability_payload: @configuration[:environment_capability_payload],
+        tool_catalog: @configuration[:environment_tool_catalog]
       )
       execution_environment
     end
 
     def reconcile_deployment!(agent_installation, execution_environment)
       deployment = find_existing_deployment(agent_installation) || AgentDeployment.new(installation: @installation)
+      supersede_previous_active_deployments!(deployment, agent_installation) if deployment.new_record?
       deployment.assign_attributes(
         agent_installation: agent_installation,
         execution_environment: execution_environment,
@@ -131,8 +138,19 @@ module Installations
     end
 
     def find_existing_deployment(agent_installation)
-      AgentDeployment.find_by(installation: @installation, fingerprint: @configuration[:fingerprint]) ||
-        AgentDeployment.find_by(agent_installation: agent_installation, bootstrap_state: "active")
+      AgentDeployment.find_by(
+        installation: @installation,
+        agent_installation: agent_installation,
+        fingerprint: @configuration[:fingerprint]
+      )
+    end
+
+    def supersede_previous_active_deployments!(deployment, agent_installation)
+      return unless deployment.new_record?
+
+      AgentDeployment
+        .where(agent_installation: agent_installation, bootstrap_state: "active")
+        .update_all(bootstrap_state: "superseded", updated_at: Time.current)
     end
 
     def bundled_machine_credential_digest

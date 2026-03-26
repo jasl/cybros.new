@@ -4,6 +4,8 @@ module AgentAPI
       render json: {
         method_id: "agent_health",
         deployment_id: current_deployment.public_id,
+        execution_environment_id: current_execution_environment.public_id,
+        environment_fingerprint: current_execution_environment.environment_fingerprint,
         fingerprint: current_deployment.fingerprint,
         health_status: current_deployment.health_status,
         bootstrap_state: current_deployment.bootstrap_state,

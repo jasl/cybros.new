@@ -150,10 +150,15 @@ git commit -m "refactor: make execution environments durable runtime owners"
 
 ```ruby
 test "registration rotates the deployment while reusing the same execution environment" do
-  first = register_agent_runtime!(fingerprint: "fenix-host-a", sdk_version: "fenix-0.1.0")
+  first = register_agent_runtime!(
+    environment_fingerprint: "fenix-host-a",
+    fingerprint: "fenix-release-0.1.0",
+    sdk_version: "fenix-0.1.0"
+  )
 
   second = register_agent_runtime!(
-    fingerprint: "fenix-host-a",
+    environment_fingerprint: "fenix-host-a",
+    fingerprint: "fenix-release-0.2.0",
     sdk_version: "fenix-0.2.0",
     reuse_enrollment: true
   )

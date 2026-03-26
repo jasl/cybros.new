@@ -8,7 +8,6 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent_installation = create_agent_installation!(installation: installation)
-    environment = create_execution_environment!(installation: installation, kind: "container")
     enrollment = AgentEnrollments::Issue.call(
       agent_installation: agent_installation,
       actor: actor,
@@ -17,8 +16,17 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
 
     result = AgentDeployments::Register.call(
       enrollment_token: enrollment.plaintext_token,
-      execution_environment: environment,
-      fingerprint: "fenix-machine-001",
+      environment_fingerprint: "fenix-host-a",
+      environment_kind: "container",
+      environment_connection_metadata: {
+        "transport" => "http",
+        "base_url" => "https://runtime.example.test",
+      },
+      environment_capability_payload: {
+        "conversation_attachment_upload" => false,
+      },
+      environment_tool_catalog: [],
+      fingerprint: "fenix-release-0.1.0",
       endpoint_metadata: {
         "transport" => "http",
         "base_url" => "https://agents.example.test",
@@ -56,6 +64,7 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
 
     assert result.enrollment.reload.consumed?
     assert_equal "pending", result.deployment.bootstrap_state
+    assert_equal result.execution_environment, result.deployment.execution_environment
     assert result.deployment.matches_machine_credential?(result.machine_credential)
     assert_equal result.capability_snapshot, result.deployment.active_capability_snapshot
 

@@ -10,6 +10,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
 
     response_body = JSON.parse(response.body)
     assert_equal "capabilities_refresh", response_body["method_id"]
+    assert_equal registration[:execution_environment].public_id, response_body["execution_environment_id"]
+    assert_equal registration[:execution_environment].environment_fingerprint, response_body["environment_fingerprint"]
     assert_equal ["agent_health", "capabilities_handshake"], response_body["protocol_methods"].map { |entry| entry.fetch("method_id") }
     assert_equal ["kernel_primitive"], response_body["tool_catalog"].map { |entry| entry.fetch("tool_kind") }
   end
@@ -25,6 +27,9 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
         fingerprint: registration[:deployment].fingerprint,
         protocol_version: "2026-03-25",
         sdk_version: "fenix-0.2.0",
+        environment_capability_payload: {
+          conversation_attachment_upload: false,
+        },
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "capabilities_refresh"),
         tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
         config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
@@ -41,8 +46,10 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
 
     response_body = JSON.parse(response.body)
     assert_equal 2, response_body["agent_capabilities_version"]
+    assert_equal false, response_body.dig("environment_capability_payload", "conversation_attachment_upload")
     assert_equal "role:researcher", response_body.dig("default_config_snapshot", "model_slots", "research", "selector")
     assert_equal ["agent_health", "capabilities_handshake", "capabilities_refresh"], response_body["protocol_methods"].map { |entry| entry.fetch("method_id") }
     assert_equal 2, registration[:deployment].reload.active_capability_snapshot.version
+    assert_equal false, registration[:deployment].reload.execution_environment.capability_payload["conversation_attachment_upload"]
   end
 end

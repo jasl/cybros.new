@@ -1,3 +1,5 @@
+require "socket"
+
 module Fenix
   module Runtime
     class PairingManifest
@@ -121,6 +123,11 @@ module Fenix
           "research" => { "selector" => "role:researcher" },
         },
       }.freeze
+      ENVIRONMENT_KIND = "local".freeze
+      ENVIRONMENT_CAPABILITY_PAYLOAD = {
+        "conversation_attachment_upload" => false,
+      }.freeze
+      ENVIRONMENT_TOOL_CATALOG = [].freeze
 
       def self.call(...)
         new(...).call
@@ -134,6 +141,12 @@ module Fenix
         {
           "agent_key" => "fenix",
           "display_name" => "Fenix",
+          "includes_execution_environment" => true,
+          "environment_kind" => ENVIRONMENT_KIND,
+          "environment_fingerprint" => environment_fingerprint,
+          "environment_connection_metadata" => endpoint_metadata,
+          "environment_capability_payload" => ENVIRONMENT_CAPABILITY_PAYLOAD,
+          "environment_tool_catalog" => ENVIRONMENT_TOOL_CATALOG,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "endpoint_metadata" => endpoint_metadata,
@@ -158,6 +171,10 @@ module Fenix
 
       def protocol_methods
         PROTOCOL_METHOD_IDS.map { |method_id| { "method_id" => method_id } }
+      end
+
+      def environment_fingerprint
+        "fenix:#{Socket.gethostname}"
       end
     end
   end
