@@ -3,8 +3,8 @@
 ## Scope
 
 - Refresh date: `2026-03-27`
-- Refresh baseline: post-fix state after `fix: harden turn interrupt fences`
-  (`7b3f7b6`)
+- Refresh baseline: post-fix state after `fix: harden runtime binding and wait blocker contracts`
+  (`53253d5`)
 - In scope: Ruby code under `app/`, `lib/`, `config/`, `db/`, and `test/`
 - Out of scope: frontend work, compiled assets, and non-Ruby code
 - Review goals:
@@ -21,105 +21,141 @@
   - large production files:
     - `app/services/agent_control/report.rb`
     - `app/models/conversation.rb`
-    - `app/services/provider_execution/execute_turn_step.rb`
-    - `app/services/workflows/context_assembler.rb`
-    - `app/services/installations/register_bundled_agent_runtime.rb`
+    - `app/services/workflows/scheduler.rb`
+    - `app/services/turns/steer_current_input.rb`
+    - `app/services/conversations/rollback_to_turn.rb`
   - high-yield namespaces by volume or signal density:
     - `app/services/conversations`
     - `app/services/workflows`
     - `app/services/turns`
-    - `app/services/agent_deployments`
     - `app/services/agent_control`
-  - targeted follow-up areas:
-    - recovery paths that rebind or restart workflow execution
-    - turn-entry services that accept `agent_deployment`
-    - wait-state blocker identifier semantics
-    - turn-history rewrite helpers that can mutate terminal turns
+- targeted follow-up areas:
+    - turn mutation helpers that still update selected input or output state
+    - rollback and timeline rewrite paths adjacent to the newly added rewrite
+      guard
+    - close and interrupt windows where a turn remains `active` but is already
+      fenced
+    - conversation-local selector or override writes that still update
+      conversation state without a retained/active/close fence
+    - conversation-local projection or support writes that still rely on the
+      legacy retained-only helper instead of an explicit mutation contract
 
 ## Findings
 
-Execution follow-up note:
-
-- later implementation work on this refresh also surfaced two sibling paths
-  that fit the same runtime-binding defect family:
-  - `AgentDeployments::AutoResumeWorkflows`
-  - `Turns::StartAutomationTurn`
-- they were folded into the same hardening batch rather than treated as
-  separate later cleanup
 ### Must Fix
 
-1. `Workflows::ManualRetry` can rebind a paused workflow to a deployment
-   outside the conversation's bound execution environment, and the current test
-   suite codifies that drift as valid.
-   - Why it matters: the retry path can create a new turn and workflow whose
-     execution identity pairs
-     `conversation.execution_environment.public_id` with an unrelated
-     `turn.agent_deployment.public_id`, while the conversation-level runtime
-     contract still remains bound to the original deployment. That breaks the
-     runtime-binding contract and can route recovered work through the wrong
-     environment boundary.
+1. `Turns::SteerCurrentInput` still bypasses retention, close-operation, and
+   interrupt fences on the no-side-effect rewrite path.
+   - Why it matters: once `Conversations::RequestTurnInterrupt` lands, the turn
+     can remain `active` while already fenced by
+     `cancellation_reason_kind = "turn_interrupted"`. During that window,
+     `SteerCurrentInput` can still append a new selected input variant because
+     it only checks `turn.active?`. For delete requests, the conversation is
+     already `pending_delete`; for archive/delete close requests, the
+     conversation may also already have an unfinished close operation. This lets
+     the user mutate a turn after the close fence that earlier rounds were
+     explicitly trying to make durable.
    - Evidence:
-     - `app/services/workflows/manual_retry.rb:16-43`
-     - `app/services/workflows/manual_retry.rb:70-73`
-     - `app/services/turns/start_user_turn.rb:17-50`
-     - `app/services/turns/queue_follow_up.rb:17-54`
-     - `app/models/turn.rb:29-49`
-     - `app/services/workflows/context_assembler.rb:37-45`
-     - `app/services/conversations/switch_agent_deployment.rb:14-38`
-     - `test/services/conversations/switch_agent_deployment_test.rb:28-52`
-     - `test/integration/agent_recovery_flow_test.rb:51-60`
-     - `test/integration/agent_recovery_flow_test.rb:76-99`
-   - Reasoning basis: `ManualRetry` validates only installation membership,
-     scheduling eligibility, and input presence, then passes the replacement
-     deployment straight into `Turns::StartUserTurn`. `Turn` only validates
-     installation matching, not execution-environment binding. `ContextAssembler`
-     then serializes the conversation's environment and the turn's deployment
-     side by side. The current integration recovery test explicitly builds the
-     replacement deployment in a fresh execution environment and expects the
-     retry to succeed, while `SwitchAgentDeployment` rejects the same
-     cross-environment move.
-   - Recommended action: make manual retry enforce the same environment guard as
-     `Conversations::SwitchAgentDeployment`, decide whether retry must also move
-     the conversation's active deployment to the replacement target, and add
-     negative tests for cross-environment retry targets in
-     `manual_retry_test.rb` and `agent_recovery_flow_test.rb`.
+     - `app/services/turns/steer_current_input.rb:13-39`
+     - `app/services/workflows/scheduler.rb:71-109`
+     - `app/services/conversations/request_turn_interrupt.rb:41-60`
+     - `test/services/turns/steer_current_input_test.rb:4-92`
+   - Reasoning basis: `SteerCurrentInput` has no retained/active-conversation or
+     close-fence checks and no `turn_interrupted` check. The direct rewrite path
+     at lines 23-38 only re-validates `turn.active?` under lock, so a fenced
+     turn can still be edited until its lifecycle eventually flips to
+     `canceled`. The side-effect-boundary path eventually goes through
+     `QueueFollowUp`, which now blocks closing conversations, but the direct
+     input rewrite path does not. The current tests only cover happy paths.
+   - Recommended action: route `SteerCurrentInput` through the same shared
+     rewrite/retention fence used for turn-history mutation, or add a dedicated
+     shared guard for mutable current-turn input updates, and add negative tests
+     for `pending_delete`, archived/closing, and `turn_interrupted` turns.
+
+2. Remaining turn-history mutation helpers still bypass the shared rewrite
+   safety contract.
+   - Why it matters: the recent fix only hardened `RetryOutput` and
+     `RerunOutput`, but adjacent helpers can still mutate the active timeline or
+     prune transcript-support state without checking retained/active/closing or
+     interrupt fences. That means archived or superseded conversations can still
+     be rewritten through sibling APIs even after the output-specific path was
+     secured.
+   - Evidence:
+     - `app/services/turns/edit_tail_input.rb:12-34`
+     - `app/services/turns/select_output_variant.rb:11-22`
+     - `app/services/conversations/rollback_to_turn.rb:12-25`
+     - `test/services/turns/edit_tail_input_test.rb:4-58`
+     - `test/services/turns/select_output_variant_test.rb:4-63`
+     - `test/services/conversations/rollback_to_turn_test.rb:4-101`
+   - Reasoning basis: `EditTailInput` only checks tail/fork-point shape before
+     appending a new selected input and clearing `selected_output_message`.
+     `SelectOutputVariant` only checks output-slot, completion, and tail shape
+     before changing the selected output pointer. `RollbackToTurn` cancels later
+     turns and prunes summary/import support state with no lifecycle or fence
+     checks at all. The targeted test suites all pass, but they cover only
+     happy-path timeline rules and contain no retained/archive/close/interrupt
+     negatives.
+   - Recommended action: extend the shared rewrite guard so all history-mutation
+     helpers that alter timeline selection or prune transcript-support state
+     must call it, then add negative tests for archived, pending-delete,
+     closing, and `turn_interrupted` cases across these services.
+
+3. `Conversations::UpdateOverride` can still rewrite selector and override
+   state after archive or delete close fences because it bypasses the existing
+   retained/active/closing checks entirely.
+   - Why it matters: override payload and interactive-selector state are the
+     same conversation-local execution inputs that later turn entry and selector
+     resolution read. Right now `UpdateOverride` writes them directly on the
+     conversation row with no `retained`, `active`, or `closing` check and no
+     lock, so a user can still mutate those settings while the conversation is
+     being archived or deleted. That recreates the same “late mutation after a
+     close fence” class of bug that earlier rounds were already hardening away
+     from turn and workflow state.
+   - Evidence:
+     - `app/services/conversations/update_override.rb:13-27`
+     - `docs/behavior/turn-entry-and-selector-state.md:18-24`
+     - `test/services/conversations/update_override_test.rb:3-48`
+   - Reasoning basis: `UpdateOverride` does a direct `@conversation.update!`
+     with no shared lifecycle contract around it. The current tests cover only
+     happy-path persistence and do not challenge `pending_delete`, archived, or
+     close-in-progress states.
+   - Recommended action: treat override persistence as a live conversation
+     mutation, fold it into the same shared conversation-mutation contract as
+     turn entry and human-interaction writes, and add negative tests for
+     `pending_delete`, archived, and closing conversations.
 
 ## Suggestions
 
-1. `WorkflowRun#blocking_resource_id` is still semantically inconsistent across
-   wait-state producers.
+1. Lineage-creation services may deserve the same archive/close-policy review
+   as turn-entry and rewrite helpers.
    - Evidence:
-     - `app/services/agent_deployments/unavailable_pause_state.rb:5-17`
-     - `test/services/agent_deployments/mark_unavailable_test.rb:14-21`
-     - `app/services/human_interactions/request.rb:67-74`
-     - `app/services/agent_control/report.rb:279-290`
-     - `app/services/workflows/scheduler.rb:97-104`
-   - Why it matters: agent-unavailable pauses still write an internal
-     `AgentDeployment.id`, while human-interaction, retryable-failure, and
-     policy-gate waits use `public_id`. That inconsistency makes generic
-     wait-state handling harder and risks future identifier leaks if any
-     external or agent-facing read path serializes this field without special
-     cases.
-   - Suggested action: normalize the agent-unavailable path to
-     `AgentDeployment.public_id`, or explicitly split the field contract so raw
-     internal ids are never mixed with externally shaped blocker references.
+     - `app/services/conversations/create_branch.rb:15-33`
+     - `app/services/conversations/create_thread.rb:15-28`
+     - `app/services/conversations/create_checkpoint.rb:15-28`
+     - `docs/behavior/conversation-structure-and-lineage.md:88-90`
+   - Why it matters: deletion is explicitly covered, but archive/close behavior
+     for branch/thread/checkpoint creation is still not spelled out the same way
+     the turn-entry contract is. I did not treat this as a confirmed defect
+     because the current behavior docs stop at non-retained parents, but it is a
+     likely future drift point.
+   - Suggested action: decide whether archived or closing parents should reject
+     lineage creation, then document and test that policy explicitly.
 
-2. Turn-history rewrite helpers can reactivate turns without checking retention,
-   archive/delete state, or close fences.
+2. The legacy `Conversations::RetentionGuard` now mixes two different product
+   contracts.
    - Evidence:
-     - `app/services/turns/retry_output.rb:12-35`
-     - `app/services/turns/rerun_output.rb:12-78`
-     - `test/services/turns/retry_output_test.rb:4-29`
-     - `test/services/turns/rerun_output_test.rb:4-64`
-   - Why it matters: `RetryOutput` and in-place `RerunOutput` both create new
-     transcript messages and move a turn back to `active`, but they do not
-     re-check conversation retention, archive/delete lifecycle, or
-     `turn_interrupted` fences. They are only covered by happy-path tests today,
-     so the services could resurrect superseded turns if they are wired into a
-     product surface later.
-   - Suggested action: add the same retained/active/closing guards used by
-     turn-entry services, and add negative tests for archived, pending-delete,
-     and interrupted turns before these helpers are exposed more broadly.
+     - `app/services/conversations/retention_guard.rb:1-29`
+     - `app/services/canonical_stores/set.rb:1-58`
+     - `app/services/workflows/manual_resume.rb:1-103`
+     - `app/services/publications/publish_live.rb:1-66`
+   - Why it matters: some call sites need only `retained`, while others should
+     really require `retained + active + not_closing`. Reusing the same helper
+     across both semantics makes future drift likely even when no single call
+     site is obviously broken today.
+   - Suggested action: replace `RetentionGuard` with explicit shared contracts
+     for `retained-only`, `live conversation mutation`, and `turn timeline
+     mutation`, then migrate every remaining call site onto one of those
+     explicit choices.
 
 ## Watch List
 
@@ -138,27 +174,31 @@ Execution follow-up note:
 ## Cross-check Summary
 
 - Global signal scan notes:
-  - the previous purge-chain omission now appears fixed in
-    `Conversations::PurgePlan`, and `purge_deleted_test.rb` now exercises
-    phase-two agent-control residue explicitly
-  - the recent interrupt/provider fence fixes are present in code and no longer
-    stand out as unresolved scan targets
-  - the strongest new signal comes from recovery and turn-entry paths because
-    `ManualRetry` validates materially less than `ManualResume`, and the
-    integration recovery test currently accepts a replacement deployment from a
-    fresh execution environment
-  - wait-state blocker identifiers still diverge between agent-unavailable and
-    the other blocker families
+  - the recent runtime-binding, rewrite, and blocker-id fixes are present and
+    the obvious sibling deployment paths (`AutoResumeWorkflows`,
+    `StartAutomationTurn`) were already folded into that batch
+  - the strongest remaining signal now comes from turn-mutation helpers that
+    still write transcript or timeline state but were not folded into the new
+    shared rewrite guard
+  - `SteerCurrentInput` is the highest-risk entry because it can run while a
+    fenced turn is still `active`
+  - a broader follow-up scan across conversation-local selector, visibility,
+    import, summary, lineage, and canonical-store services surfaced one more
+    confirmed unfenced writer: `Conversations::UpdateOverride`
+  - after that broader scan, no additional timeline/projection/lineage/settings
+    mutation services were found outside the final hardening scope for this
+    round
 - Reverse-pass confirmations:
-  - `bin/rails test test/services/workflows/manual_retry_test.rb test/integration/agent_recovery_flow_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/queue_follow_up_test.rb`
+  - `bin/rails test test/services/turns/steer_current_input_test.rb test/services/turns/edit_tail_input_test.rb test/services/turns/select_output_variant_test.rb test/services/conversations/rollback_to_turn_test.rb`
     currently passes as
-    `11 runs, 61 assertions, 0 failures, 0 errors, 0 skips`, confirming that no
-    cross-environment rejection exists today
-  - `SwitchAgentDeployment` explicitly rejects cross-environment deployment
-    moves, which makes `ManualRetry` accepting them a contract inconsistency,
-    not a shared product rule
-  - the turn-history rewrite tests cover only happy paths and do not challenge
-    retained/archived/deleted/interrupted state
+    `9 runs, 30 assertions, 0 failures, 0 errors, 0 skips`
+  - those passing tests confirm timeline-shape behavior only; they do not
+    challenge retained/archived/closing/`turn_interrupted` state
+  - the newly added `ValidateRewriteTarget` guard is only referenced from
+    `RetryOutput` and `RerunOutput`, which leaves adjacent history-mutation
+    helpers outside the shared contract
+  - `test/services/conversations/update_override_test.rb` currently covers only
+    happy-path persistence and does not challenge retained/archive/close state
 
 ## Completeness Check
 
@@ -167,10 +207,10 @@ Execution follow-up note:
   - Ruby and Rails philosophy review refreshed
   - potential-risk review refreshed
 - Scope coverage:
-  - re-reviewed the highest-yield service areas under `app/services/turns`,
-    `app/services/workflows`, `app/services/agent_deployments`,
-    `app/services/conversations`, and `app/services/agent_control`
-  - spot-checked the current larger model target in `app/models/conversation.rb`
+  - re-reviewed the highest-yield mutation services under
+    `app/services/turns`, `app/services/workflows`, and
+    `app/services/conversations`
+  - cross-checked the corresponding behavior docs and targeted test suites
 - Double-check coverage:
   - findings were identified from code and contract drift first
   - findings were then checked against existing tests, sibling services, and

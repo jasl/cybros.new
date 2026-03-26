@@ -46,6 +46,11 @@ end-to-end stack.
 - [2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md)
 
+### Task C7 Follow-Up
+
+- [2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md)
+- [2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
@@ -62,6 +67,10 @@ end-to-end stack.
   than scattered lifecycle writers
 - deployment rebinding, new turn entry, and turn-history rewrite all reuse one
   explicit runtime-binding and rewrite-safety contract
+- caller-driven conversation-local mutation uses one explicit contract family:
+  retained-only, live-mutation, or turn timeline mutation
+- legacy retained-state helpers no longer survive as an alternate path for
+  lifecycle checks
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources

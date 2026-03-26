@@ -15,6 +15,8 @@ This directory contains the active execution plans for `core_matrix`.
 - [2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md)
 - [2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md)
+- [2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md)
+- [2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md)
 
 Use the phase plan for overall ordering, the milestone documents for current
 implementation scope, and the task documents as the executable implementation
@@ -32,6 +34,7 @@ Active execution order for the current Phase 2 batch:
 8. `Task C5`
 9. `Task C2 Follow-Up`
 10. `Task C6 Follow-Up`
+11. `Task C7 Follow-Up`
 
 `Protocol E2E` belongs to Milestone C. It is distinct from any future browser
 or Web UI end-to-end coverage.
