@@ -11,5 +11,43 @@ module ActiveSupport
     fixtures :all
 
     # Add more helper methods to be used by all tests here...
+    private
+
+    def runtime_assignment_payload(mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {})
+      {
+        "item_id" => "mailbox-item-#{SecureRandom.uuid}",
+        "message_id" => "kernel-assignment-#{SecureRandom.uuid}",
+        "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
+        "attempt_no" => 1,
+        "payload" => {
+          "agent_task_run_id" => "task-#{SecureRandom.uuid}",
+          "workflow_run_id" => "workflow-#{SecureRandom.uuid}",
+          "workflow_node_id" => "node-#{SecureRandom.uuid}",
+          "conversation_id" => "conversation-#{SecureRandom.uuid}",
+          "turn_id" => "turn-#{SecureRandom.uuid}",
+          "task_kind" => "turn_step",
+          "task_payload" => { "mode" => mode, "expression" => "2 + 2" },
+          "context_messages" => context_messages,
+          "budget_hints" => {
+            "reserved_output_tokens" => 256,
+            "advisory_compaction_threshold_tokens" => 120,
+          }.merge(budget_hints),
+          "provider_execution" => {
+            "provider_handle" => "openai",
+            "model_ref" => "gpt-4.1-mini",
+          }.merge(provider_execution),
+          "model_context" => {
+            "likely_model" => "gpt-4.1-mini",
+          }.merge(model_context),
+        },
+      }
+    end
+
+    def default_context_messages
+      [
+        { "role" => "system", "content" => "You are Fenix." },
+        { "role" => "user", "content" => "Please calculate 2 + 2." },
+      ]
+    end
   end
 end
