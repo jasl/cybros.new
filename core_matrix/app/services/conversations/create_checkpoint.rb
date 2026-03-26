@@ -1,7 +1,5 @@
 module Conversations
   class CreateCheckpoint
-    include Conversations::RetentionGuard
-
     def self.call(...)
       new(...).call
     end
@@ -12,32 +10,38 @@ module Conversations
     end
 
     def call
-      ensure_conversation_retained!(@parent, message: "must be retained before checkpointing")
-
       ApplicationRecord.transaction do
-        conversation = Conversation.create!(
-          installation: @parent.installation,
-          workspace: @parent.workspace,
-          execution_environment: @parent.execution_environment,
-          agent_deployment: @parent.agent_deployment,
-          parent_conversation: @parent,
-          kind: "checkpoint",
-          purpose: @parent.purpose,
-          lifecycle_state: "active",
-          historical_anchor_message_id: @historical_anchor_message_id
-        )
+        Conversations::WithMutableStateLock.call(
+          conversation: @parent,
+          record: @parent,
+          retained_message: "must be retained before checkpointing",
+          active_message: "must be active before checkpointing",
+          closing_message: "must not create child conversations while close is in progress"
+        ) do |parent|
+          conversation = Conversation.create!(
+            installation: parent.installation,
+            workspace: parent.workspace,
+            execution_environment: parent.execution_environment,
+            agent_deployment: parent.agent_deployment,
+            parent_conversation: parent,
+            kind: "checkpoint",
+            purpose: parent.purpose,
+            lifecycle_state: "active",
+            historical_anchor_message_id: @historical_anchor_message_id
+          )
 
-        create_closures_for!(conversation)
-        create_canonical_store_reference_for!(conversation)
-        Conversations::RefreshRuntimeContract.call(conversation: conversation)
-        conversation
+          create_closures_for!(conversation, parent:)
+          create_canonical_store_reference_for!(conversation, parent:)
+          Conversations::RefreshRuntimeContract.call(conversation: conversation)
+          conversation
+        end
       end
     end
 
     private
 
-    def create_closures_for!(conversation)
-      ConversationClosure.where(descendant_conversation: @parent).find_each do |closure|
+    def create_closures_for!(conversation, parent:)
+      ConversationClosure.where(descendant_conversation: parent).find_each do |closure|
         ConversationClosure.create!(
           installation: conversation.installation,
           ancestor_conversation: closure.ancestor_conversation,
@@ -54,8 +58,8 @@ module Conversations
       )
     end
 
-    def create_canonical_store_reference_for!(conversation)
-      parent_reference = @parent.canonical_store_reference ||
+    def create_canonical_store_reference_for!(conversation, parent:)
+      parent_reference = parent.canonical_store_reference ||
         raise(ActiveRecord::RecordNotFound, "canonical store reference is missing")
 
       CanonicalStoreReference.create!(

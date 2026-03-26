@@ -59,4 +59,27 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
       Conversations::CreateThread.call(parent: automation_root)
     end
   end
+
+  test "rejects parents while close is in progress" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    ConversationCloseOperation.create!(
+      installation: root.installation,
+      conversation: root,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::CreateThread.call(parent: root)
+    end
+
+    assert_includes error.record.errors[:base], "must not create child conversations while close is in progress"
+  end
 end

@@ -15,17 +15,27 @@ module Conversations
     end
 
     def call
-      @conversation.update!(
-        override_payload: @payload,
-        override_last_schema_fingerprint: @schema_fingerprint,
-        override_reconciliation_report: @reconciliation_report,
-        override_updated_at: Time.current,
-        interactive_selector_mode: @selector_mode,
-        interactive_selector_provider_handle: @selector_provider_handle,
-        interactive_selector_model_ref: @selector_model_ref
-      )
+      ApplicationRecord.transaction do
+        Conversations::WithMutableStateLock.call(
+          conversation: @conversation,
+          record: @conversation,
+          retained_message: "must be retained before updating overrides",
+          active_message: "must be active before updating overrides",
+          closing_message: "must not update overrides while close is in progress"
+        ) do |conversation|
+          conversation.update!(
+            override_payload: @payload,
+            override_last_schema_fingerprint: @schema_fingerprint,
+            override_reconciliation_report: @reconciliation_report,
+            override_updated_at: Time.current,
+            interactive_selector_mode: @selector_mode,
+            interactive_selector_provider_handle: @selector_provider_handle,
+            interactive_selector_model_ref: @selector_model_ref
+          )
 
-      @conversation
+          conversation
+        end
+      end
     end
   end
 end

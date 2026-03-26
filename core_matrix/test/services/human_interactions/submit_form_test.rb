@@ -95,6 +95,36 @@ class HumanInteractions::SubmitFormTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:lifecycle_state], "must be active before resolving human interaction"
   end
 
+  test "rejects form submission while close is in progress" do
+    context = build_human_interaction_context!
+    request = HumanInteractions::Request.call(
+      request_type: "HumanFormRequest",
+      workflow_node: context[:workflow_node],
+      blocking: false,
+      request_payload: {
+        "input_schema" => { "required" => ["ticket_id"] },
+        "defaults" => {},
+      }
+    )
+    ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      HumanInteractions::SubmitForm.call(
+        human_form_request: request,
+        submission_payload: { "ticket_id" => "T-1000" }
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not resolve human interaction while close is in progress"
+  end
+
   test "rejects stale form submission after the request has already been resolved" do
     context = build_human_interaction_context!
     request = HumanInteractions::Request.call(

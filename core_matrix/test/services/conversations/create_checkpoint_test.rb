@@ -69,4 +69,23 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
       )
     end
   end
+
+  test "rejects pending delete parents" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::CreateCheckpoint.call(
+        parent: root,
+        historical_anchor_message_id: 303
+      )
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained before checkpointing"
+  end
 end

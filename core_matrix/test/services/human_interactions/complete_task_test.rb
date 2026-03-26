@@ -62,6 +62,33 @@ class HumanInteractions::CompleteTaskTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:lifecycle_state], "must be active before resolving human interaction"
   end
 
+  test "rejects task completion while close is in progress" do
+    context = build_human_interaction_context!
+    request = HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:workflow_node],
+      blocking: false,
+      request_payload: { "instructions" => "Optional task" }
+    )
+    ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      HumanInteractions::CompleteTask.call(
+        human_task_request: request,
+        completion_payload: { "eta" => "2026-03-26T09:00:00Z" }
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not resolve human interaction while close is in progress"
+  end
+
   test "rejects stale task completion after the request has already been resolved" do
     context = build_human_interaction_context!
     request = HumanInteractions::Request.call(

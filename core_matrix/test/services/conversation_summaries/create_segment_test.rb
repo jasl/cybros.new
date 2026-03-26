@@ -76,4 +76,39 @@ class ConversationSummaries::CreateSegmentTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:end_message], "must come after the start message in transcript order"
   end
+
+  test "rejects summary writes while close is in progress" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    ConversationCloseOperation.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      ConversationSummaries::CreateSegment.call(
+        conversation: conversation,
+        start_message: turn.selected_input_message,
+        end_message: turn.selected_input_message,
+        content: "Blocked summary"
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not mutate summary state while close is in progress"
+  end
 end

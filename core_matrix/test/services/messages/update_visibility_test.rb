@@ -117,4 +117,31 @@ class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
     assert_empty branch.conversation_message_visibilities
     assert_empty checkpoint.conversation_message_visibilities
   end
+
+  test "rejects visibility updates for archived conversations" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    conversation.update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: conversation,
+        message: turn.selected_input_message,
+        hidden: true
+      )
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active before updating message visibility"
+  end
 end

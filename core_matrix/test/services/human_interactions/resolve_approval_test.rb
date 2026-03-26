@@ -76,6 +76,33 @@ class HumanInteractions::ResolveApprovalTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:lifecycle_state], "must be active before resolving human interaction"
   end
 
+  test "rejects approval resolution while close is in progress" do
+    context = build_human_interaction_context!
+    request = HumanInteractions::Request.call(
+      request_type: "ApprovalRequest",
+      workflow_node: context[:workflow_node],
+      blocking: false,
+      request_payload: { "approval_scope" => "publish" }
+    )
+    ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      HumanInteractions::ResolveApproval.call(
+        approval_request: request,
+        decision: "approved"
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not resolve human interaction while close is in progress"
+  end
+
   test "rejects stale approval resolution after the request has already been resolved" do
     context = build_human_interaction_context!
     request = HumanInteractions::Request.call(

@@ -71,4 +71,20 @@ class Conversations::CreateBranchTest < ActiveSupport::TestCase
       )
     end
   end
+
+  test "rejects archived parents" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root.update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::CreateBranch.call(parent: root, historical_anchor_message_id: 101)
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active before branching"
+  end
 end

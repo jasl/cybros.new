@@ -62,6 +62,29 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:lifecycle_state], "must be active before opening human interaction"
   end
 
+  test "rejects opening a human interaction while close is in progress" do
+    context = build_human_interaction_context!
+    ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      HumanInteractions::Request.call(
+        request_type: "ApprovalRequest",
+        workflow_node: context[:workflow_node],
+        blocking: true,
+        request_payload: { "approval_scope" => "publish" }
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not open human interaction while close is in progress"
+  end
+
   test "rejects opening another blocking human interaction from a stale workflow snapshot" do
     context = build_human_interaction_context!
     stale_workflow_node = WorkflowNode.find(context[:workflow_node].id)

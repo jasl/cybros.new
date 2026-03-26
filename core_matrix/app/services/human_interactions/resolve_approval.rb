@@ -1,6 +1,5 @@
 module HumanInteractions
   class ResolveApproval
-    include Conversations::RetentionGuard
     include HumanInteractions::LockedContext
 
     DECISIONS = {
@@ -20,8 +19,13 @@ module HumanInteractions
 
     def call
       with_locked_request_context(@approval_request) do |request, workflow_run, conversation|
-        ensure_conversation_retained!(conversation, message: "must be retained before resolving human interaction")
-        raise_invalid!(conversation, :lifecycle_state, "must be active before resolving human interaction") unless conversation.active?
+        Conversations::ValidateMutableState.call(
+          conversation: conversation,
+          record: conversation,
+          retained_message: "must be retained before resolving human interaction",
+          active_message: "must be active before resolving human interaction",
+          closing_message: "must not resolve human interaction while close is in progress"
+        )
         raise_invalid!(request, :base, "must be open before approval resolution") unless request.open?
         if request.expired?
           return time_out_request!(request, workflow_run)

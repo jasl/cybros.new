@@ -14,16 +14,24 @@ module ConversationSummaries
 
     def call
       ApplicationRecord.transaction do
-        segment = ConversationSummarySegment.create!(
-          installation: @conversation.installation,
+        Conversations::WithMutableStateLock.call(
           conversation: @conversation,
-          start_message: @start_message,
-          end_message: @end_message,
-          content: @content
-        )
+          record: @conversation,
+          retained_message: "must be retained before mutating summary state",
+          active_message: "must be active before mutating summary state",
+          closing_message: "must not mutate summary state while close is in progress"
+        ) do |conversation|
+          segment = ConversationSummarySegment.create!(
+            installation: conversation.installation,
+            conversation: conversation,
+            start_message: @start_message,
+            end_message: @end_message,
+            content: @content
+          )
 
-        @supersedes&.update!(superseded_by: segment)
-        segment
+          @supersedes&.update!(superseded_by: segment)
+          segment
+        end
       end
     end
   end

@@ -16,27 +16,35 @@ module Messages
       raise ArgumentError, "conversation and message must belong to the same installation" unless @conversation.installation_id == @message.installation_id
 
       ApplicationRecord.transaction do
-        overlay = ConversationMessageVisibility.find_or_initialize_by(
-          installation: @conversation.installation,
+        Conversations::WithMutableStateLock.call(
           conversation: @conversation,
-          message: @message
-        )
+          record: @conversation,
+          retained_message: "must be retained before updating message visibility",
+          active_message: "must be active before updating message visibility",
+          closing_message: "must not update message visibility while close is in progress"
+        ) do |conversation|
+          overlay = ConversationMessageVisibility.find_or_initialize_by(
+            installation: conversation.installation,
+            conversation: conversation,
+            message: @message
+          )
 
-        overlay.hidden = @hidden unless @hidden.nil?
-        overlay.excluded_from_context = @excluded_from_context unless @excluded_from_context.nil?
+          overlay.hidden = @hidden unless @hidden.nil?
+          overlay.excluded_from_context = @excluded_from_context unless @excluded_from_context.nil?
 
-        if @message.fork_point? &&
-            (overlay.hidden? || overlay.excluded_from_context?)
-          raise_invalid!(@message, :base, "fork-point messages cannot be hidden or excluded from context")
+          if @message.fork_point? &&
+              (overlay.hidden? || overlay.excluded_from_context?)
+            raise_invalid!(@message, :base, "fork-point messages cannot be hidden or excluded from context")
+          end
+
+          if !overlay.hidden? && !overlay.excluded_from_context?
+            overlay.destroy! if overlay.persisted?
+            next nil
+          end
+
+          overlay.save!
+          overlay
         end
-
-        if !overlay.hidden? && !overlay.excluded_from_context?
-          overlay.destroy! if overlay.persisted?
-          next nil
-        end
-
-        overlay.save!
-        overlay
       end
     end
 

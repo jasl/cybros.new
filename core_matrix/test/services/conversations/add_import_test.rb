@@ -72,4 +72,38 @@ class Conversations::AddImportTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:source_message], "must match the branch anchor message"
   end
+
+  test "rejects imports for pending delete conversations" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Root input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    summary_segment = ConversationSummarySegment.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      start_message: turn.selected_input_message,
+      end_message: turn.selected_input_message,
+      content: "Quoted summary"
+    )
+    conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::AddImport.call(
+        conversation: conversation,
+        kind: "quoted_context",
+        summary_segment: summary_segment
+      )
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained before adding imports"
+  end
 end
