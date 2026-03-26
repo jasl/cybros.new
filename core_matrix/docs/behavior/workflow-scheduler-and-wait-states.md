@@ -143,6 +143,16 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - final deletion to have removed the live canonical-store reference
   - no active runtime residue
   - no lineage or provenance blockers
+- once those guards pass, purge removes mailbox residue and teardown-backed
+  runtime rows through an explicit ownership graph instead of relying on model
+  cascades
+- purge-owned mailbox cleanup includes phase-two `agent_task_runs`,
+  `agent_control_mailbox_items`, and `agent_control_report_receipts`
+- attachment-backed runtime rows such as `MessageAttachment` and
+  `WorkflowArtifact` are destroyed so their Active Storage attachment joins are
+  also removed
+- if the purge graph still reports owned rows after cleanup, purge fails closed
+  and keeps the deleted conversation shell in place
 - `PurgeDeleted(force: true)` does not locally stop mailbox-owned runtime
   resources; it issues the same delete close contract and expects purge to be
   retried after terminal close reports land

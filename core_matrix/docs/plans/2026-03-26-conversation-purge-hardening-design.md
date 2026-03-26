@@ -214,7 +214,7 @@ physical purge should not depend on future model callbacks.
 
 ## Purge Graph Order
 
-The purge graph executes in this order:
+The shipped purge graph executes in this order:
 
 1. collect ids for conversation, workflow, runtime, mailbox, and attachment
    scopes under lock
@@ -224,17 +224,17 @@ The purge graph executes in this order:
    `agent_control_report_receipts -> agent_control_mailbox_items`
 4. delete runtime leases:
    `execution_leases`
-5. delete task and runtime rows:
-   `agent_task_runs -> process_runs -> subagent_runs ->
-   workflow_node_events -> workflow_edges`
-6. destroy attachment-backed rows:
-   `workflow_artifacts` and `message_attachments`
-7. delete remaining workflow shell:
-   `workflow_nodes -> workflow_runs`
-8. delete conversation-owned metadata:
+5. delete conversation-owned metadata that still points at workflow shells:
    `conversation_close_operations -> conversation_message_visibilities ->
    conversation_events -> human_interaction_requests ->
    conversation_imports -> conversation_summary_segments`
+6. delete task and runtime rows:
+   `agent_task_runs -> process_runs -> subagent_runs ->
+   workflow_node_events -> workflow_edges`
+7. destroy attachment-backed rows:
+   `workflow_artifacts` and `message_attachments`
+8. delete remaining workflow shell:
+   `workflow_nodes -> workflow_runs`
 9. prepare transcript cleanup by nulling
    `turn.selected_input_message_id` / `selected_output_message_id`
 10. destroy / remove transcript rows:
@@ -280,7 +280,8 @@ lease cleanup.
 After executing all purge stages, the code must perform an explicit
 `remaining_owned_rows?` verification.
 
-If any owned scope still has rows, the conversation shell must not be deleted.
+If any owned scope still has rows, the conversation shell must not be deleted
+and purge raises `ActiveRecord::RecordInvalid`.
 
 This verification should cover at least:
 

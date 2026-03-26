@@ -95,8 +95,19 @@ may rotate or be switched within that bound environment.
   stop barrier is clear
 - detached background cleanup may still be `disposing` or `degraded` after the
   row has reached `deleted`
-- `Conversations::PurgeDeleted` now rejects corrupted `deleted` states that
-  still retain active runtime work or a live `CanonicalStoreReference`
+- `Conversations::PurgeDeleted` runs through an explicit ownership graph rather
+  than ad hoc per-table deletes
+- physical purge removes phase-two agent-control residue, including
+  `agent_task_runs`, mailbox items, and report receipts that still belong to
+  the deleted conversation's runtime graph
+- physical purge also tears down attachment-backed runtime rows such as
+  `MessageAttachment` and `WorkflowArtifact` through model destruction so their
+  Active Storage attachment joins are cleaned up
+- `Conversations::PurgeDeleted` rejects corrupted `deleted` states that still
+  retain active runtime work or a live `CanonicalStoreReference`
+- `Conversations::PurgeDeleted` also fails closed if its purge graph reports
+  any owned rows still remain after cleanup; in that case the tombstone shell
+  is kept and purge raises rather than deleting the conversation row anyway
 - `Conversations::PurgeDeleted(force: true)` still only helps with corrupted
   runtime residue by issuing the normal delete close contract; it does not
   bypass final-deletion or lineage guards

@@ -71,6 +71,189 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert_not HumanInteractionRequest.exists?(request.id)
   end
 
+  test "purges phase-two agent-control residue owned by the deleted conversation" do
+    context = build_agent_control_context!
+    scenario_builder = MailboxScenarioBuilder.new(self)
+
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago
+    )
+    assignment_mailbox_item = AgentControl::CreateExecutionAssignment.call(
+      agent_task_run: agent_task_run,
+      payload: { "step" => "execute" },
+      dispatch_deadline_at: 5.minutes.from_now,
+      execution_hard_deadline_at: 10.minutes.from_now
+    )
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      lifecycle_state: "stopped",
+      ended_at: 1.minute.ago
+    )
+    process_close_request = scenario_builder.close_request!(
+      context: context,
+      resource: process_run,
+      request_kind: "deletion_force_quiesce",
+      reason_kind: "conversation_deleted"
+    ).fetch(:mailbox_item)
+
+    AgentControlReportReceipt.create!(
+      installation: context[:installation],
+      agent_deployment: context[:deployment],
+      agent_task_run: agent_task_run,
+      mailbox_item: assignment_mailbox_item,
+      message_id: "assignment-receipt-#{next_test_sequence}",
+      method_id: "execution_complete",
+      result_code: "accepted",
+      payload: {
+        "mailbox_item_id" => assignment_mailbox_item.public_id,
+        "agent_task_run_id" => agent_task_run.public_id,
+      }
+    )
+    AgentControlReportReceipt.create!(
+      installation: context[:installation],
+      agent_deployment: context[:deployment],
+      mailbox_item: process_close_request,
+      message_id: "process-close-receipt-#{next_test_sequence}",
+      method_id: "resource_closed",
+      result_code: "accepted",
+      payload: {
+        "mailbox_item_id" => process_close_request.public_id,
+        "close_request_id" => process_close_request.public_id,
+        "resource_type" => "ProcessRun",
+        "resource_id" => process_run.public_id,
+      }
+    )
+
+    assert_nil process_close_request.agent_task_run_id
+
+    complete_turn_and_workflow!(turn: context[:turn], workflow_run: context[:workflow_run])
+    delete_and_finalize_conversation!(context[:conversation])
+
+    assert_difference("Conversation.count", -1) do
+      assert_difference("AgentTaskRun.count", -1) do
+        assert_difference("AgentControlMailboxItem.count", -2) do
+          assert_difference("AgentControlReportReceipt.count", -2) do
+            assert_purge_succeeds do
+              Conversations::PurgeDeleted.call(conversation: context[:conversation].reload)
+            end
+          end
+        end
+      end
+    end
+
+    assert_not Conversation.exists?(context[:conversation].id)
+    assert_not AgentTaskRun.exists?(agent_task_run.id)
+    assert_not AgentControlMailboxItem.exists?(assignment_mailbox_item.id)
+    assert_not AgentControlMailboxItem.exists?(process_close_request.id)
+  end
+
+  test "purges attachment-backed rows and active storage attachments" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Attachment input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    workflow_node = create_workflow_node!(workflow_run: workflow_run)
+    source_attachment = create_message_attachment!(message: turn.selected_input_message)
+    create_message_attachment!(
+      message: turn.selected_input_message,
+      origin_attachment: source_attachment,
+      filename: "derived-#{next_test_sequence}.txt"
+    )
+    artifact = WorkflowArtifact.new(
+      installation: context[:installation],
+      workflow_run: workflow_run,
+      workflow_node: workflow_node,
+      artifact_key: "bundle",
+      artifact_kind: "archive",
+      storage_mode: "attached_file",
+      payload: {}
+    )
+    artifact.file.attach(
+      io: StringIO.new("artifact"),
+      filename: "artifact.txt",
+      content_type: "text/plain"
+    )
+    artifact.save!
+
+    complete_turn_and_workflow!(turn: turn, workflow_run: workflow_run)
+    delete_and_finalize_conversation!(conversation)
+
+    assert_difference("Conversation.count", -1) do
+      assert_difference("MessageAttachment.count", -2) do
+        assert_difference("WorkflowArtifact.count", -1) do
+          assert_difference("ActiveStorage::Attachment.count", -3) do
+            Conversations::PurgeDeleted.call(conversation: conversation.reload)
+          end
+        end
+      end
+    end
+
+    assert_not Conversation.exists?(conversation.id)
+    assert_not MessageAttachment.exists?(source_attachment.id)
+    assert_not WorkflowArtifact.exists?(artifact.id)
+  end
+
+  test "rejects shell removal when the purge plan reports remaining owned rows" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Fail closed",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+
+    complete_turn_and_workflow!(turn: turn, workflow_run: workflow_run)
+    delete_and_finalize_conversation!(conversation)
+
+    real_plan = Conversations::PurgePlan.new(conversation: conversation.reload)
+    fake_plan = Object.new
+    fake_plan.define_singleton_method(:execute!) do
+      real_plan.execute!
+    end
+    fake_plan.define_singleton_method(:remaining_owned_rows?) do
+      true
+    end
+
+    original_new = Conversations::PurgePlan.method(:new)
+    Conversations::PurgePlan.singleton_class.send(:define_method, :new) do |*args, **kwargs, &block|
+      fake_plan
+    end
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      begin
+        Conversations::PurgeDeleted.call(conversation: conversation.reload)
+      ensure
+        Conversations::PurgePlan.singleton_class.send(:define_method, :new) do |*args, **kwargs, &block|
+          original_new.call(*args, **kwargs, &block)
+        end
+      end
+    end
+
+    assert_includes error.record.errors[:base], "must not purge while owned rows remain"
+    assert Conversation.exists?(conversation.id)
+  end
+
   test "rejects purge while a deleted conversation still has its live canonical store reference" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
@@ -322,5 +505,25 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
     assert_not Conversation.exists?(branch.id)
     assert Conversation.exists?(root.id)
+  end
+
+  private
+
+  def complete_turn_and_workflow!(turn:, workflow_run:, output_content: "Done")
+    attach_selected_output!(turn, content: output_content)
+    turn.update!(lifecycle_state: "completed")
+    workflow_run.update!(lifecycle_state: "completed")
+  end
+
+  def delete_and_finalize_conversation!(conversation)
+    Conversations::RequestDeletion.call(conversation: conversation)
+    Conversations::FinalizeDeletion.call(conversation: conversation.reload)
+    perform_enqueued_jobs
+  end
+
+  def assert_purge_succeeds
+    yield
+  rescue StandardError => error
+    flunk("expected purge to succeed, but raised #{error.class}: #{error.message}")
   end
 end

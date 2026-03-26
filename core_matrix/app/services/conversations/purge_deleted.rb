@@ -28,8 +28,11 @@ module Conversations
           end
           next if purge_blocked?
 
-          purge_owned_rows!
-          @conversation.destroy!
+          plan = Conversations::PurgePlan.new(conversation: @conversation)
+          plan.execute!
+          raise_invalid!(@conversation, :base, "must not purge while owned rows remain") if plan.remaining_owned_rows?
+
+          @conversation.delete
           purged = true
         end
       end
@@ -79,48 +82,6 @@ module Conversations
 
     def conversation_import_provenance_dependency?
       ConversationImport.where(source_conversation: @conversation).exists?
-    end
-
-    def purge_owned_rows!
-      workflow_run_ids = WorkflowRun.where(conversation: @conversation).pluck(:id)
-      turn_ids = Turn.where(conversation: @conversation).pluck(:id)
-      message_ids = Message.where(conversation: @conversation).pluck(:id)
-      publication_ids = Publication.where(conversation: @conversation).pluck(:id)
-
-      PublicationAccessEvent.where(publication_id: publication_ids).delete_all
-      Publication.where(id: publication_ids).delete_all
-
-      ConversationCloseOperation.where(conversation: @conversation).delete_all
-      ConversationMessageVisibility.where(conversation: @conversation).delete_all
-      ConversationEvent.where(conversation: @conversation).delete_all
-      HumanInteractionRequest.where(conversation: @conversation).delete_all
-      ExecutionLease.where(workflow_run_id: workflow_run_ids).delete_all
-      ProcessRun.where(conversation: @conversation).delete_all
-      SubagentRun.where(workflow_run_id: workflow_run_ids).delete_all
-      WorkflowNodeEvent.where(workflow_run_id: workflow_run_ids).delete_all
-      WorkflowArtifact.where(workflow_run_id: workflow_run_ids).delete_all
-      WorkflowEdge.where(workflow_run_id: workflow_run_ids).delete_all
-      WorkflowNode.where(workflow_run_id: workflow_run_ids).delete_all
-      WorkflowRun.where(id: workflow_run_ids).delete_all
-
-      ConversationImport.where(conversation: @conversation).delete_all
-      ConversationSummarySegment.where(conversation: @conversation).delete_all
-      MessageAttachment.where(conversation: @conversation).delete_all
-
-      if turn_ids.any?
-        Turn.where(id: turn_ids).update_all(
-          selected_input_message_id: nil,
-          selected_output_message_id: nil,
-          updated_at: Time.current
-        )
-      end
-
-      Message.where(id: message_ids).delete_all
-      Turn.where(id: turn_ids).delete_all
-      CanonicalStoreReference.where(owner: @conversation).delete_all
-      ConversationClosure.where(ancestor_conversation: @conversation).or(
-        ConversationClosure.where(descendant_conversation: @conversation)
-      ).delete_all
     end
 
     def raise_invalid!(record, attribute, message)
