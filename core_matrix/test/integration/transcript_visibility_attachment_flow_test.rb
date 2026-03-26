@@ -101,4 +101,37 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     assert_equal [turn.selected_input_message_id], branch.transcript_projection_messages.map(&:id)
     assert_equal [turn.selected_input_message_id], checkpoint.transcript_projection_messages.map(&:id)
   end
+
+  test "output anchored descendants protect the source input from visibility edits" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Root input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Root output")
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: output.id
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: branch,
+        message: turn.selected_input_message,
+        hidden: true
+      )
+    end
+
+    assert_equal ["Root input", "Root output"], root.transcript_projection_messages.map(&:content)
+    assert_equal ["Root input", "Root output"], branch.transcript_projection_messages.map(&:content)
+    assert_includes error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
+  end
 end

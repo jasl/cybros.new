@@ -45,10 +45,25 @@ class Message < ApplicationRecord
   validate :source_input_message_rules
 
   def fork_point?
-    Conversation.where(parent_conversation_id: conversation_id, historical_anchor_message_id: id).exists?
+    direct_anchor? || source_input_of_anchored_output?
   end
 
   private
+
+  def direct_anchor?
+    Conversation.where(parent_conversation_id: conversation_id, historical_anchor_message_id: id).exists?
+  end
+
+  def source_input_of_anchored_output?
+    return false unless input?
+
+    Conversation.joins(
+      "INNER JOIN messages anchor_messages ON anchor_messages.id = conversations.historical_anchor_message_id"
+    ).where(
+      parent_conversation_id: conversation_id,
+      anchor_messages: { source_input_message_id: id }
+    ).exists?
+  end
 
   def transcript_bearing_subclass_only
     return if TRANSCRIPT_BEARING_TYPES.include?(self.class.name)

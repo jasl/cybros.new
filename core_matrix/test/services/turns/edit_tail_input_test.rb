@@ -80,4 +80,31 @@ class Turns::EditTailInputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:lifecycle_state], "must belong to an active conversation to edit tail input"
   end
+
+  test "rejects editing a source input required by an output anchored descendant" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Original output")
+    Conversations::CreateBranch.call(
+      parent: conversation,
+      historical_anchor_message_id: output.id
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::EditTailInput.call(turn: turn, content: "Should fail")
+    end
+
+    assert_includes error.record.errors[:base], "cannot rewrite a fork-point input"
+  end
 end

@@ -118,6 +118,46 @@ class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
     assert_empty checkpoint.conversation_message_visibilities
   end
 
+  test "rejects hiding or excluding source inputs required by output anchored descendants" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Anchored input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Anchored output")
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: output.id
+    )
+
+    hidden_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: root,
+        message: turn.selected_input_message,
+        hidden: true
+      )
+    end
+
+    excluded_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Messages::UpdateVisibility.call(
+        conversation: branch,
+        message: turn.selected_input_message,
+        excluded_from_context: true
+      )
+    end
+
+    assert_includes hidden_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
+    assert_includes excluded_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
+  end
+
   test "rejects visibility updates for archived conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
