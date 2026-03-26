@@ -17,6 +17,7 @@ module Workflows
 
     def call
       ApplicationRecord.transaction do
+        Conversations::RefreshRuntimeContract.call(conversation: @turn.conversation)
         resolved_model_selection_snapshot = Workflows::ResolveModelSelector.call(
           turn: @turn,
           selector_source: @selector_source,

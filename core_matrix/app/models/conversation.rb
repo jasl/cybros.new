@@ -131,6 +131,14 @@ class Conversation < ApplicationRecord
     ).exists?
   end
 
+  def runtime_contract
+    Conversations::RefreshRuntimeContract.call(conversation: self)
+  end
+
+  def conversation_attachment_upload?
+    runtime_contract["conversation_attachment_upload"] == true
+  end
+
   private
 
   def base_transcript_projection_messages

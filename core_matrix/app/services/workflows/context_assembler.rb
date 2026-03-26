@@ -12,7 +12,8 @@ module Workflows
       raise_invalid!("requires a resolved provider handle") if @turn.resolved_provider_handle.blank?
       raise_invalid!("requires a resolved model ref") if @turn.resolved_model_ref.blank?
 
-      attachment_manifest = build_attachment_manifest
+      raw_attachment_manifest = build_raw_attachment_manifest
+      attachment_manifest = build_attachment_manifest(raw_attachment_manifest)
       {
         "config" => @turn.effective_config_snapshot,
         "execution_context" => {
@@ -26,7 +27,7 @@ module Workflows
           "attachment_manifest" => attachment_manifest,
           "runtime_attachment_manifest" => build_runtime_attachment_manifest(attachment_manifest),
           "model_input_attachments" => build_model_input_attachments(attachment_manifest),
-          "attachment_diagnostics" => build_attachment_diagnostics(attachment_manifest),
+          "attachment_diagnostics" => build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest),
         },
       }
     end
@@ -110,7 +111,7 @@ module Workflows
         end
     end
 
-    def build_attachment_manifest
+    def build_raw_attachment_manifest
       visible_context_messages.flat_map { |message| message.message_attachments.order(:id).to_a }.map do |attachment|
         {
           "attachment_id" => attachment.public_id,
@@ -124,6 +125,12 @@ module Workflows
           "runtime_ref" => runtime_ref_for(attachment),
         }.compact
       end
+    end
+
+    def build_attachment_manifest(raw_attachment_manifest)
+      return [] unless @turn.conversation.conversation_attachment_upload?
+
+      raw_attachment_manifest
     end
 
     def build_runtime_attachment_manifest(attachment_manifest)
@@ -154,7 +161,17 @@ module Workflows
       end
     end
 
-    def build_attachment_diagnostics(attachment_manifest)
+    def build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
+      unless @turn.conversation.conversation_attachment_upload?
+        return raw_attachment_manifest.map do |entry|
+          {
+            "attachment_id" => entry.fetch("attachment_id"),
+            "reason" => "conversation_attachment_upload_disabled",
+            "content_type" => entry.fetch("content_type"),
+          }
+        end
+      end
+
       attachment_manifest.filter_map do |entry|
         next if modality_supported?(entry.fetch("modality"))
 

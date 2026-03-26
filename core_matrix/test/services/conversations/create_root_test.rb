@@ -4,7 +4,11 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
   test "creates an active interactive root conversation with a self closure" do
     context = create_workspace_context!
 
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert_equal context[:installation], conversation.installation
     assert_equal context[:workspace], conversation.workspace

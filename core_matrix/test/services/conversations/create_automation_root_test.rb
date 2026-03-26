@@ -4,7 +4,11 @@ class Conversations::CreateAutomationRootTest < ActiveSupport::TestCase
   test "creates an active automation root conversation" do
     context = create_workspace_context!
 
-    conversation = Conversations::CreateAutomationRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert_equal context[:installation], conversation.installation
     assert_equal context[:workspace], conversation.workspace

@@ -19,7 +19,7 @@ class ExecutionEnvironment < ApplicationRecord
   validate :tool_catalog_contract_shape
 
   def conversation_attachment_upload?
-    capability_payload["conversation_attachment_upload"] == true
+    capability_payload.fetch("conversation_attachment_upload", true) == true
   end
 
   private

@@ -28,6 +28,10 @@ class CapabilitySnapshot < ApplicationRecord
     }.compact
   end
 
+  def tool_named?(tool_name)
+    tool_catalog.any? { |entry| entry["tool_name"] == tool_name }
+  end
+
   private
 
   def protocol_methods_must_be_array

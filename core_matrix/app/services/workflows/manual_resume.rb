@@ -22,6 +22,10 @@ module Workflows
       previous_deployment = @workflow_run.turn.agent_deployment
 
       ApplicationRecord.transaction do
+        Conversations::SwitchAgentDeployment.call(
+          conversation: @workflow_run.conversation,
+          agent_deployment: @deployment
+        )
         @workflow_run.turn.update!(
           agent_deployment: @deployment,
           pinned_deployment_fingerprint: @deployment.fingerprint,
@@ -66,6 +70,9 @@ module Workflows
       raise_invalid!(@workflow_run.turn, :agent_deployment, "must be eligible for scheduling to resume paused work") unless @deployment.eligible_for_scheduling?
       unless @workflow_run.turn.agent_deployment.same_logical_agent?(@deployment)
         raise_invalid!(@workflow_run.turn, :agent_deployment, "must belong to the same logical agent installation")
+      end
+      unless @deployment.execution_environment_id == @workflow_run.conversation.execution_environment_id
+        raise_invalid!(@workflow_run.turn, :agent_deployment, "must belong to the bound execution environment")
       end
       unless @deployment.preserves_capability_contract?(@workflow_run.turn)
         raise_invalid!(@workflow_run.turn, :agent_deployment, "must preserve the paused workflow capability contract")

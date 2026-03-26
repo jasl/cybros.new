@@ -3,7 +3,11 @@ require "test_helper"
 class Turns::StartUserTurnTest < ActiveSupport::TestCase
   test "starts an active manual user turn with a selected input message" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -31,7 +35,11 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
 
   test "rejects automation purpose conversations" do
     context = create_workspace_context!
-    conversation = Conversations::CreateAutomationRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert_raises(ActiveRecord::RecordInvalid) do
       Turns::StartUserTurn.call(
@@ -46,7 +54,11 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
 
   test "rejects pending delete conversations" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -64,7 +76,11 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
 
   test "rechecks active lifecycle state after acquiring the conversation lock" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     archive_during_lock!(conversation)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do

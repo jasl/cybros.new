@@ -3,7 +3,11 @@ require "test_helper"
 class Workflows::CreateForTurnTest < ActiveSupport::TestCase
   test "creates one active workflow with a root node for the turn" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
@@ -43,7 +47,11 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
   test "rejects a second active workflow in the same conversation" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",

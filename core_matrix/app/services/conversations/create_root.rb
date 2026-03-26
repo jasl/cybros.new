@@ -30,6 +30,7 @@ module Conversations
         )
 
         CanonicalStores::BootstrapForConversation.call(conversation: conversation)
+        Conversations::RefreshRuntimeContract.call(conversation: conversation)
 
         conversation
       end

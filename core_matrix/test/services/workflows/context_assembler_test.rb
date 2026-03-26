@@ -3,7 +3,11 @@ require "test_helper"
 class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
   test "assembles context from visible transcript messages imports and capability-gated attachment projections" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     previous_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Earlier input",
@@ -107,7 +111,11 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
 
   test "assembles automation turns without requiring a transcript-bearing input message" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateAutomationRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartAutomationTurn.call(
       conversation: conversation,
       origin_kind: "automation_schedule",
@@ -136,5 +144,44 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     assert_equal context[:workspace].public_id, snapshot.dig("execution_context", "identity", "workspace_id")
     assert_equal "codex_subscription", snapshot.dig("execution_context", "model_context", "provider_handle")
     assert_equal "responses", snapshot.dig("execution_context", "provider_execution", "wire_api")
+  end
+
+  test "omits attachments from workflow context when the environment disables conversation uploads" do
+    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context[:execution_environment].update!(
+      capability_payload: { "conversation_attachment_upload" => false }
+    )
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Attachment-disabled input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attachment = create_message_attachment!(
+      message: turn.selected_input_message,
+      filename: "brief.pdf",
+      content_type: "application/pdf",
+      body: "brief"
+    )
+    turn.update!(
+      resolved_model_selection_snapshot: Workflows::ResolveModelSelector.call(
+        turn: turn,
+        selector_source: "conversation"
+      )
+    )
+
+    snapshot = Workflows::ContextAssembler.call(turn: turn)
+
+    assert_equal [], snapshot.dig("execution_context", "attachment_manifest")
+    assert_equal [], snapshot.dig("execution_context", "runtime_attachment_manifest")
+    assert_equal [], snapshot.dig("execution_context", "model_input_attachments")
+    assert_equal [attachment.public_id], snapshot.dig("execution_context", "attachment_diagnostics").map { |item| item.fetch("attachment_id") }
+    assert_equal "conversation_attachment_upload_disabled", snapshot.dig("execution_context", "attachment_diagnostics").first.fetch("reason")
   end
 end

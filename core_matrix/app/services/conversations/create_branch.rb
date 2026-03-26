@@ -30,6 +30,7 @@ module Conversations
         create_closures_for!(conversation)
         create_canonical_store_reference_for!(conversation)
         create_branch_prefix_import_for!(conversation)
+        Conversations::RefreshRuntimeContract.call(conversation: conversation)
         conversation
       end
     end

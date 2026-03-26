@@ -6,6 +6,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
       selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
@@ -27,6 +28,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal replacement.public_id, resumed.execution_identity["agent_deployment_id"]
 
     conversation = context[:conversation].reload
+    assert_equal replacement, conversation.agent_deployment
     assert_equal "auto", conversation.interactive_selector_mode
     assert_nil conversation.interactive_selector_provider_handle
     assert_nil conversation.interactive_selector_model_ref
@@ -47,7 +49,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     other_installation = create_agent_installation!(installation: context[:installation])
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: other_installation
+      agent_installation: other_installation,
+      execution_environment: context[:execution_environment]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -66,6 +69,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
       protocol_methods: default_protocol_methods("agent_health"),
       tool_catalog: default_tool_catalog("shell_exec")
     )
@@ -85,7 +89,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation]
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
     )
     ProviderEntitlement.where(installation: context[:installation]).update_all(active: false)
 
@@ -115,6 +120,24 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:deletion_state], "must be retained before manual recovery"
   end
 
+  test "rejects manual resume when the replacement deployment belongs to another execution environment" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation]
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualResume.call(
+        workflow_run: context[:workflow_run],
+        deployment: replacement,
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
+  end
+
   private
 
   def build_paused_recovery_context!
@@ -128,7 +151,11 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context[:agent_deployment].update!(active_capability_snapshot: richer_snapshot)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Paused recovery input",
@@ -156,6 +183,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
   def create_compatible_replacement_deployment!(
     installation:,
     agent_installation:,
+    execution_environment: create_execution_environment!(installation: installation),
     protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
     tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
     selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
@@ -164,11 +192,10 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       bootstrap_state: "superseded",
       updated_at: Time.current
     )
-    environment = create_execution_environment!(installation: installation)
     deployment = create_agent_deployment!(
       installation: installation,
       agent_installation: agent_installation,
-      execution_environment: environment,
+      execution_environment: execution_environment,
       fingerprint: "replacement-#{next_test_sequence}",
       health_status: "healthy",
       auto_resume_eligible: true
