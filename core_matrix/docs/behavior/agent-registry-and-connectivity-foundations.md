@@ -10,10 +10,10 @@ tokens, concrete deployments, capability snapshots, and heartbeat state.
 
 This document records the current landed connectivity substrate.
 
-Phase 2 is expected to introduce mailbox-first control delivery,
+Phase 2 now extends that substrate with mailbox-first control delivery,
 `poll + WebSocket + piggyback` transport parity, and distinct realtime-link
-versus control-activity facts. Until those tasks land, this document remains
-the source of truth for the current implementation.
+versus control-activity facts. This document remains the source of truth for
+the registration and deployment aggregates underneath that control plane.
 
 Planned replacement design:
 
@@ -52,6 +52,10 @@ Planned replacement design:
   healthy heartbeat.
 - Health state and heartbeat timestamps are tracked independently of bootstrap
   state.
+- realtime session presence is tracked separately through
+  `realtime_link_state`
+- durable control-plane freshness is tracked separately through
+  `control_activity_state` and `last_control_activity_at`
 - Only one `active` deployment may exist for a given `AgentInstallation`.
 
 ### CapabilitySnapshot

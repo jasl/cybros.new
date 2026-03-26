@@ -2,16 +2,19 @@
 
 ## Purpose
 
-Task 10.1 adds the first workflow-owned runtime resource layer beyond the DAG
-shape itself.
+Task 10.1 added the first workflow-owned runtime resource layer beyond the DAG
+shape itself, and Phase 2 Milestone C extends that layer with mailbox-owned
+execution resources and durable close metadata.
 
-This task does not project runtime state into `ConversationEvent`, human inbox
-surfaces, or lease coordination yet. It establishes the workflow-local durable
-resources that later tasks build on:
+The current runtime substrate still keeps workflow-local durable resources as
+the source of truth and leaves user-visible projection to later layers. The
+runtime resources that later tasks now build on are:
 
 - `WorkflowArtifact`
 - `WorkflowNodeEvent`
+- `AgentTaskRun`
 - `ProcessRun`
+- `SubagentRun`
 
 ## Workflow Artifacts
 
@@ -89,6 +92,58 @@ resources that later tasks build on:
   - `stopped`
   - `failed`
   - `lost`
+- every process run now has a `public_id` so agent-facing close payloads and
+  diagnostics never expose raw bigint ids
+- process runs also persist close lifecycle fields:
+  - `close_state`
+  - `close_reason_kind`
+  - `close_requested_at`
+  - `close_grace_deadline_at`
+  - `close_force_deadline_at`
+  - `close_acknowledged_at`
+  - `close_outcome_kind`
+  - `close_outcome_payload`
+
+## Agent Task Runs
+
+- `AgentTaskRun` is the workflow-owned execution resource for mailbox-driven
+  agent work
+- every agent task run belongs to:
+  - one installation
+  - one agent installation
+  - one workflow run
+  - one workflow node
+  - one conversation
+  - one turn
+  - optionally one accepted holder deployment
+- task kinds are explicit and validated:
+  - `turn_step`
+  - `agent_tool_call`
+  - `subagent_step`
+- lifecycle states are explicit and validated:
+  - `queued`
+  - `running`
+  - `completed`
+  - `failed`
+  - `interrupted`
+  - `canceled`
+- `logical_work_id` plus `attempt_no` separate business-attempt identity from
+  mailbox-delivery retries
+- `execution_started` is the durable acceptance point that:
+  - moves the task to `running`
+  - records the accepted holder deployment
+  - acquires an `ExecutionLease`
+- progress and terminal summaries are persisted directly on the task run
+- agent task runs persist the same durable close fields as other closable
+  runtime resources so later interrupt and close orchestration can target one
+  stable execution aggregate
+
+## Subagent Runs
+
+- `SubagentRun` remains a workflow-owned runtime resource for nested agent
+  work
+- subagent runs now also carry `public_id` plus the shared durable close
+  fields used by mailbox-driven resource close handling
 
 ## Timeout And Ownership Rules
 
@@ -98,10 +153,14 @@ resources that later tasks build on:
 - `turn_id` must match the owning workflow run turn.
 - `origin_message_id`, when present, must belong to the same conversation and
   turn as the process run.
+- `AgentTaskRun.agent_installation_id` must match the turn deployment logical
+  agent installation.
 - `started_at` is defaulted during validation for new records so model-level
   validation and service-created rows share the same timestamp baseline.
 - non-running process states require `ended_at`; running process states must not
   carry `ended_at`.
+- queued `AgentTaskRun` rows must not carry `started_at` or `finished_at`
+- terminal `AgentTaskRun` rows must persist both `started_at` and `finished_at`
 
 ## Start And Stop Services
 
@@ -135,6 +194,9 @@ resources that later tasks build on:
 - process runs reject missing bounded timeouts on turn commands
 - stop requests reject non-running process runs instead of silently mutating
   terminal rows
+- agent task runs reject turn, conversation, workflow, or agent-installation
+  projection drift
+- closable runtime resources reject incomplete close lifecycle pairings
 
 ## Rails And Reference Findings
 

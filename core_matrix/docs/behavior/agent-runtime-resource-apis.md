@@ -8,18 +8,21 @@ Core Matrix exposes machine-facing runtime resource APIs for:
 - conversation-local canonical store reads and writes
 - workspace-scoped canonical variable reads and writes
 - workflow-owned human interaction request creation
+- mailbox-driven execution delivery and close control
 
-These endpoints are thin HTTP boundaries over authenticated lookups, query
-objects, and kernel-owned services.
+The resource plane stays a thin HTTP boundary over authenticated lookups,
+query objects, and kernel-owned services. The control plane uses the same
+machine credential authentication but carries durable mailbox items through
+`poll`, `WebSocket`, and response piggyback delivery.
 
 ## Status
 
-This document describes the current landed HTTP resource plane only.
-
-It does not define the planned Phase 2 mailbox control plane. Transcript,
-variable, and human-interaction APIs remain short HTTP resource-style
-boundaries, while mailbox delivery, turn interrupt, and resource-close control
-are defined in:
+This document describes the current landed runtime resource plane and the first
+Phase 2 mailbox control surface. Transcript, variable, and human-interaction
+APIs remain short HTTP resource-style boundaries. Mailbox delivery and
+resource-close reporting now use dedicated control endpoints plus the optional
+realtime stream described here. Broader turn-interrupt and conversation-close
+orchestration are still defined in:
 
 - [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 
@@ -31,6 +34,64 @@ are defined in:
 - conversations are resolved only while `deletion_state = retained`
 - deleted or pending-delete conversations are therefore hidden from
   agent-facing transcript and variable endpoints
+- control-plane resources such as `AgentTaskRun`, `ProcessRun`, and
+  `SubagentRun` also resolve by `public_id`
+
+## Control Plane
+
+### Delivery Paths
+
+- `POST /agent_api/control/poll` is the durable fallback transport for pending
+  mailbox items
+- `POST /agent_api/control/report` carries control-plane reports back into the
+  kernel
+- `/cable` may stream the same mailbox-item envelope over `AgentControlChannel`
+- poll responses, realtime broadcasts, and report-response piggyback all use
+  the same mailbox item envelope:
+  - `item_id`
+  - `item_type`
+  - `target_kind`
+  - `target_ref`
+  - `logical_work_id`
+  - `attempt_no`
+  - `delivery_no`
+  - `message_id`
+  - `causation_id`
+  - `priority`
+  - `status`
+  - `available_at`
+  - `dispatch_deadline_at`
+  - `lease_timeout_seconds`
+  - optional `execution_hard_deadline_at`
+  - `payload`
+
+### Control Reports
+
+- `agent_poll` leases queued mailbox items to the authenticated deployment
+- `execution_started` is the durable acceptance point for
+  `execution_assignment`
+- `execution_progress`, `execution_complete`, `execution_fail`, and
+  `execution_interrupted` are attributed to the accepted holder deployment and
+  the active `AgentTaskRun` lease
+- `resource_close_acknowledged`, `resource_closed`, and
+  `resource_close_failed` update the durable close fields on closable runtime
+  resources
+- `deployment_health_report` refreshes deployment health plus
+  `control_activity_state`
+- duplicate control reports are idempotent by `message_id`
+- stale or superseded reports return `409 conflict` and do not mutate durable
+  execution state
+
+### Deployment Activity Facts
+
+- `AgentDeployment.realtime_link_state` records whether the deployment
+  currently has a realtime control link
+- `AgentDeployment.control_activity_state` records durable control-plane
+  freshness separately from realtime connectivity
+- valid poll, report, and realtime-open events refresh
+  `control_activity_state = "active"`
+- realtime disconnect alone only moves `realtime_link_state` to
+  `disconnected`; it does not mark the deployment unavailable by itself
 
 ## Transcript Listing
 
@@ -109,7 +170,8 @@ are defined in:
 - runtime method IDs stay stable `snake_case` protocol identifiers
 - route names stay resource-oriented and do not redefine the method IDs
 - payload fields such as `workspace_id`, `conversation_id`, `turn_id`,
-  `workflow_run_id`, and `workflow_node_id` carry `public_id` values
+  `workflow_run_id`, `workflow_node_id`, `agent_task_run_id`, and
+  `resource_id` carry `public_id` values
 - raw internal bigint ids are never accepted as fallback resource lookups
 - capability snapshots still expose `protocol_methods` separately from
   `tool_catalog`
@@ -125,3 +187,5 @@ are defined in:
   are rejected for `pending_delete` or `deleted` conversations
 - human interaction opens and late human-interaction resolution are rejected for
   archived conversations
+- control reports for stale attempts, stale delivery leases, or superseded
+  close requests fail safe with `409 conflict`

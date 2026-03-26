@@ -28,4 +28,23 @@ class LeasesAcquireTest < ActiveSupport::TestCase
       assert replacement_lease.active?
     end
   end
+
+  test "supports agent task runs as leased runtime resources" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current
+    )
+
+    lease = Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    assert_equal agent_task_run, lease.leased_resource
+    assert_equal context[:deployment].public_id, lease.holder_key
+    assert lease.active?
+  end
 end

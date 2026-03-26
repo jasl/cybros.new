@@ -13,6 +13,21 @@ class AgentDeployment < ApplicationRecord
     },
     validate: true
   enum :bootstrap_state, { pending: "pending", active: "active", superseded: "superseded" }, validate: true
+  enum :realtime_link_state,
+    {
+      connected: "connected",
+      disconnected: "disconnected",
+    },
+    prefix: :realtime_link,
+    validate: true
+  enum :control_activity_state,
+    {
+      active: "active",
+      stale: "stale",
+      offline: "offline",
+    },
+    prefix: :control_activity,
+    validate: true
 
   belongs_to :installation
   belongs_to :agent_installation

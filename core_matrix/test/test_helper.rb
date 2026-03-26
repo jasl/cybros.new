@@ -730,6 +730,76 @@ module ActiveSupport
       }.merge(attrs))
     end
 
+    def create_process_run!(workflow_node:, installation: workflow_node.installation, execution_environment: create_execution_environment!(installation: installation), conversation: workflow_node.conversation, turn: workflow_node.turn, kind: "turn_command", lifecycle_state: "running", command_line: "echo test", metadata: {}, timeout_seconds: (kind == "turn_command" ? 60 : nil), **attrs)
+      ProcessRun.create!({
+        installation: installation,
+        workflow_node: workflow_node,
+        execution_environment: execution_environment,
+        conversation: conversation,
+        turn: turn,
+        kind: kind,
+        lifecycle_state: lifecycle_state,
+        command_line: command_line,
+        timeout_seconds: timeout_seconds,
+        metadata: metadata,
+      }.merge(attrs))
+    end
+
+    def create_subagent_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, requested_role_or_slot: "worker", lifecycle_state: "running", metadata: {}, depth: 0, **attrs)
+      SubagentRun.create!({
+        installation: installation,
+        workflow_run: workflow_run,
+        workflow_node: workflow_node,
+        requested_role_or_slot: requested_role_or_slot,
+        lifecycle_state: lifecycle_state,
+        metadata: metadata,
+        depth: depth,
+      }.merge(attrs))
+    end
+
+    def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_installation: turn.agent_deployment.agent_installation, task_kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
+      AgentTaskRun.create!({
+        installation: installation,
+        agent_installation: agent_installation,
+        workflow_run: workflow_run,
+        workflow_node: workflow_node,
+        conversation: conversation,
+        turn: turn,
+        task_kind: task_kind,
+        lifecycle_state: lifecycle_state,
+        logical_work_id: logical_work_id,
+        attempt_no: attempt_no,
+        task_payload: task_payload,
+        progress_payload: progress_payload,
+        terminal_payload: terminal_payload,
+        close_outcome_payload: close_outcome_payload,
+      }.merge(attrs))
+    end
+
+    def create_agent_control_mailbox_item!(installation:, target_agent_installation:, target_agent_deployment: nil, agent_task_run: nil, item_type: "execution_assignment", target_kind: (target_agent_deployment.present? ? "agent_deployment" : "agent_installation"), target_ref: (target_agent_deployment&.public_id || target_agent_installation.public_id), logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
+      AgentControlMailboxItem.create!({
+        installation: installation,
+        target_agent_installation: target_agent_installation,
+        target_agent_deployment: target_agent_deployment,
+        agent_task_run: agent_task_run,
+        item_type: item_type,
+        target_kind: target_kind,
+        target_ref: target_ref,
+        logical_work_id: logical_work_id,
+        attempt_no: attempt_no,
+        delivery_no: delivery_no,
+        message_id: message_id,
+        causation_id: causation_id,
+        priority: priority,
+        status: status,
+        available_at: available_at,
+        dispatch_deadline_at: dispatch_deadline_at,
+        lease_timeout_seconds: lease_timeout_seconds,
+        execution_hard_deadline_at: execution_hard_deadline_at,
+        payload: payload,
+      }.merge(attrs))
+    end
+
     def create_workflow_edge!(workflow_run:, from_node:, to_node:, installation: workflow_run.installation, ordinal: 0, **attrs)
       WorkflowEdge.create!({
         installation: installation,
@@ -909,6 +979,93 @@ module ActiveSupport
         workflow_run: workflow_run.reload,
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
       }.merge(context)
+    end
+
+    def build_agent_control_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {})
+      installation = create_installation!
+      actor = create_user!(installation: installation, role: "admin")
+      runtime_user = create_user!(installation: installation)
+      agent_installation = create_agent_installation!(installation: installation)
+      execution_environment = create_execution_environment!(installation: installation)
+      registration = register_agent_runtime!(
+        installation: installation,
+        actor: actor,
+        agent_installation: agent_installation,
+        execution_environment: execution_environment
+      )
+      registration.fetch(:deployment).update!(
+        bootstrap_state: "active",
+        health_status: "healthy",
+        last_heartbeat_at: Time.current
+      )
+      ProviderEntitlement.create!(
+        installation: installation,
+        provider_handle: "dev",
+        entitlement_key: "mock-runtime",
+        window_kind: "rolling_five_hours",
+        window_seconds: 5.hours.to_i,
+        quota_limit: 200_000,
+        active: true,
+        metadata: {}
+      )
+      user_agent_binding = create_user_agent_binding!(
+        installation: installation,
+        user: runtime_user,
+        agent_installation: agent_installation
+      )
+      workspace = create_workspace!(
+        installation: installation,
+        user: runtime_user,
+        user_agent_binding: user_agent_binding
+      )
+      conversation = Conversations::CreateRoot.call(workspace: workspace)
+      turn = Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Agent control input",
+        agent_deployment: registration[:deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+      workflow_run = Workflows::CreateForTurn.call(
+        turn: turn,
+        root_node_key: "root",
+        root_node_type: "turn_root",
+        decision_source: "system",
+        metadata: {},
+        selector_source: "test",
+        selector: "role:mock"
+      )
+
+      Workflows::Mutate.call(
+        workflow_run: workflow_run,
+        nodes: [
+          {
+            node_key: workflow_node_key,
+            node_type: workflow_node_type,
+            decision_source: "agent_program",
+            metadata: workflow_node_metadata,
+          },
+        ],
+        edges: [
+          { from_node_key: "root", to_node_key: workflow_node_key },
+        ]
+      )
+
+      {
+        installation: installation,
+        actor: actor,
+        user: runtime_user,
+        agent_installation: agent_installation,
+        execution_environment: execution_environment,
+        registration: registration,
+        deployment: registration[:deployment],
+        machine_credential: registration[:machine_credential],
+        workspace: workspace,
+        conversation: conversation,
+        turn: turn,
+        workflow_run: workflow_run.reload,
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
+      }
     end
 
     def capture_sql_queries

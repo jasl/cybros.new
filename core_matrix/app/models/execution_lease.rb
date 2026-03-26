@@ -1,5 +1,5 @@
 class ExecutionLease < ApplicationRecord
-  LEASED_RESOURCE_TYPES = %w[ProcessRun SubagentRun].freeze
+  LEASED_RESOURCE_TYPES = %w[AgentTaskRun ProcessRun SubagentRun].freeze
 
   belongs_to :installation
   belongs_to :workflow_run

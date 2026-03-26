@@ -1,4 +1,7 @@
 class SubagentRun < ApplicationRecord
+  include HasPublicId
+  include ClosableRuntimeResource
+
   enum :lifecycle_state,
     {
       running: "running",

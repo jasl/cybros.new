@@ -10,10 +10,10 @@ capability refresh, and capability handshake with config reconciliation.
 
 This document records the current landed registration and handshake substrate.
 
-Phase 2 is expected to replace the older heartbeat-led runtime-control
-direction with mailbox-driven control, split presence versus health, and
-optional realtime delivery. Until that lands, this document remains the source
-of truth for the current implementation.
+Phase 2 now layers mailbox-driven control, split presence versus health, and
+optional realtime delivery on top of this registration and handshake
+substrate. This document remains the source of truth for registration,
+machine-credential issuance, and capability handshake behavior.
 
 Planned replacement design:
 

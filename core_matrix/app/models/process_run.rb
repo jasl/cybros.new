@@ -1,4 +1,7 @@
 class ProcessRun < ApplicationRecord
+  include HasPublicId
+  include ClosableRuntimeResource
+
   enum :kind,
     {
       turn_command: "turn_command",

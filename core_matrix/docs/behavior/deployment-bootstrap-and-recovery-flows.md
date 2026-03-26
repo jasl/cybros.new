@@ -13,10 +13,10 @@ after runtime drift.
 This document describes the current landed deployment-bootstrap and recovery
 behavior.
 
-Phase 2 keeps the recovery concepts but is expected to rework runtime
-connectivity and control around mailbox delivery, session presence, and
-durable close semantics. Until that lands, this document remains the source of
-truth for the current implementation.
+Phase 2 keeps these recovery concepts and now runs them alongside mailbox
+delivery, session presence, and durable close semantics. This document remains
+the source of truth for bootstrap and recovery behavior, while the mailbox
+transport and close contract live in:
 
 Planned replacement design:
 

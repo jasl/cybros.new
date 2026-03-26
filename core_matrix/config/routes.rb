@@ -11,6 +11,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "home#index"
+  mount ActionCable.server => "/cable"
 
   namespace :agent_api do
     resources :registrations, only: :create
@@ -38,6 +39,8 @@ Rails.application.routes.draw do
       end
     end
     resources :human_interactions, only: :create
+    post "control/poll", to: "control#poll"
+    post "control/report", to: "control#report"
   end
 
   if Rails.env.development? || Rails.env.test?
