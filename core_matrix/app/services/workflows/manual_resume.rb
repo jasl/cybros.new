@@ -63,17 +63,14 @@ module Workflows
     end
 
     def validate_compatible_deployment!
-      raise_invalid!(@workflow_run.turn, :agent_deployment, "must belong to the same installation") unless same_installation?
       raise_invalid!(@workflow_run.turn, :agent_deployment, "must be eligible for scheduling to resume paused work") unless @deployment.eligible_for_scheduling?
-      unless @workflow_run.turn.agent_deployment.same_logical_agent?(@deployment)
-        raise_invalid!(@workflow_run.turn, :agent_deployment, "must belong to the same logical agent installation")
-      end
-      unless @deployment.execution_environment_id == @workflow_run.conversation.execution_environment_id
-        raise_invalid!(@workflow_run.turn, :agent_deployment, "must belong to the bound execution environment")
-      end
-      unless @deployment.preserves_capability_contract?(@workflow_run.turn)
-        raise_invalid!(@workflow_run.turn, :agent_deployment, "must preserve the paused workflow capability contract")
-      end
+      Conversations::ValidateAgentDeploymentTarget.call(
+        conversation: @workflow_run.conversation,
+        agent_deployment: @deployment,
+        record: @workflow_run.turn,
+        same_logical_agent_as: @workflow_run.turn.agent_deployment,
+        capability_contract_turn: @workflow_run.turn
+      )
     end
 
     def resolve_recovery_snapshot!
@@ -93,10 +90,6 @@ module Workflows
       )
     rescue ActiveRecord::RecordInvalid
       raise_invalid!(@workflow_run.turn, :resolved_model_selection_snapshot, "must remain resolvable for the recovery action")
-    end
-
-    def same_installation?
-      @deployment.installation_id == @workflow_run.installation_id
     end
 
     def raise_invalid!(record, attribute, message)

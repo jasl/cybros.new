@@ -27,15 +27,10 @@ module Conversations
     private
 
     def validate_target!
-      unless @agent_deployment.installation_id == @conversation.installation_id
-        @conversation.errors.add(:agent_deployment, "must belong to the same installation")
-        raise ActiveRecord::RecordInvalid, @conversation
-      end
-
-      return if @agent_deployment.execution_environment_id == @conversation.execution_environment_id
-
-      @conversation.errors.add(:agent_deployment, "must belong to the bound execution environment")
-      raise ActiveRecord::RecordInvalid, @conversation
+      Conversations::ValidateAgentDeploymentTarget.call(
+        conversation: @conversation,
+        agent_deployment: @agent_deployment
+      )
     end
   end
 end
