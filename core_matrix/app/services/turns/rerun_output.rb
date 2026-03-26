@@ -12,46 +12,49 @@ module Turns
     def call
       turn = @message.turn
 
-      raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
-      Turns::ValidateRewriteTarget.call(turn: turn)
-      if turn.tail_in_active_timeline? && turn.selected_output_message_id == @message.id && @message.fork_point?
-        raise_invalid!(turn, :base, "cannot rewrite a fork-point output")
-      end
+      Turns::WithTimelineMutationLock.call(
+        turn: turn,
+        retained_message: "must be retained before rewriting output",
+        active_message: "must belong to an active conversation to rewrite output",
+        closing_message: "must not rewrite output while close is in progress",
+        interrupted_message: "must not rewrite output after turn interruption"
+      ) do |locked_turn|
+        raise_invalid!(locked_turn, :lifecycle_state, "must be completed to rerun output") unless locked_turn.completed?
+        if locked_turn.tail_in_active_timeline? && locked_turn.selected_output_message_id == @message.id && @message.reload.fork_point?
+          raise_invalid!(locked_turn, :base, "cannot rewrite a fork-point output")
+        end
 
-      if turn.tail_in_active_timeline? && turn.selected_output_message_id == @message.id
-        return rerun_in_place(turn)
-      end
+        if locked_turn.tail_in_active_timeline? && locked_turn.selected_output_message_id == @message.id
+          return rerun_in_place(locked_turn)
+        end
 
-      rerun_in_branch(turn)
+        rerun_in_branch(locked_turn)
+      end
     end
 
     private
 
     def rerun_in_place(turn)
-      turn.with_lock do
-        turn.reload
-        Turns::ValidateRewriteTarget.call(turn: turn)
-        raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
-        raise_invalid!(turn, :selected_output_message, "must match the rerun target") unless turn.selected_output_message_id == @message.id
-        raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
-        raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
+      raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
+      raise_invalid!(turn, :selected_output_message, "must match the rerun target") unless turn.selected_output_message_id == @message.id
+      raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
+      raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
-        rerun_output = AgentMessage.create!(
-          installation: turn.installation,
-          conversation: turn.conversation,
-          turn: turn,
-          role: "agent",
-          slot: "output",
-          variant_index: turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
-          content: @content
-        )
+      rerun_output = AgentMessage.create!(
+        installation: turn.installation,
+        conversation: turn.conversation,
+        turn: turn,
+        role: "agent",
+        slot: "output",
+        variant_index: turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
+        content: @content
+      )
 
-        turn.update!(
-          selected_output_message: rerun_output,
-          lifecycle_state: "active"
-        )
-        turn
-      end
+      turn.update!(
+        selected_output_message: rerun_output,
+        lifecycle_state: "active"
+      )
+      turn
     end
 
     def rerun_in_branch(turn)

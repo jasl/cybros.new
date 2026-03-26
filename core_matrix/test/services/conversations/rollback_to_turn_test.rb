@@ -99,4 +99,39 @@ class Conversations::RollbackToTurnTest < ActiveSupport::TestCase
     assert_equal [retained_import.id], ConversationImport.where(conversation: conversation).pluck(:id)
     assert_not ConversationImport.exists?(superseded_import.id)
   end
+
+  test "rejects rollback after the target turn has been interrupted" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    first_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    second_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Second input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    first_turn.update!(
+      lifecycle_state: "canceled",
+      cancellation_reason_kind: "turn_interrupted",
+      cancellation_requested_at: Time.current
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::RollbackToTurn.call(conversation: conversation, turn: first_turn)
+    end
+
+    assert_includes error.record.errors[:base], "must not roll back the timeline after turn interruption"
+    assert second_turn.reload.active?
+  end
 end

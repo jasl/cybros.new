@@ -56,4 +56,28 @@ class Turns::EditTailInputTest < ActiveSupport::TestCase
       Turns::EditTailInput.call(turn: historical_turn, content: "Should fail")
     end
   end
+
+  test "rejects editing tail input from an archived conversation" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(turn, content: "Old output")
+    conversation.update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::EditTailInput.call(turn: turn, content: "Should fail")
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must belong to an active conversation to edit tail input"
+  end
 end

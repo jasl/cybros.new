@@ -12,28 +12,32 @@ module Turns
     def call
       turn = @message.turn
 
-      turn.with_lock do
-        turn.reload
-        Turns::ValidateRewriteTarget.call(turn: turn)
-        raise_invalid!(turn, :selected_output_message, "must match the retry target") unless turn.selected_output_message_id == @message.id
-        raise_invalid!(turn, :lifecycle_state, "must be failed or canceled to retry output") unless turn.failed? || turn.canceled?
-        raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
+      Turns::WithTimelineMutationLock.call(
+        turn: turn,
+        retained_message: "must be retained before rewriting output",
+        active_message: "must belong to an active conversation to rewrite output",
+        closing_message: "must not rewrite output while close is in progress",
+        interrupted_message: "must not rewrite output after turn interruption"
+      ) do |locked_turn|
+        raise_invalid!(locked_turn, :selected_output_message, "must match the retry target") unless locked_turn.selected_output_message_id == @message.id
+        raise_invalid!(locked_turn, :lifecycle_state, "must be failed or canceled to retry output") unless locked_turn.failed? || locked_turn.canceled?
+        raise_invalid!(locked_turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
         retry_output = AgentMessage.create!(
-          installation: turn.installation,
-          conversation: turn.conversation,
-          turn: turn,
+          installation: locked_turn.installation,
+          conversation: locked_turn.conversation,
+          turn: locked_turn,
           role: "agent",
           slot: "output",
-          variant_index: turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
+          variant_index: locked_turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
           content: @content
         )
 
-        turn.update!(
+        locked_turn.update!(
           selected_output_message: retry_output,
           lifecycle_state: "active"
         )
-        turn
+        locked_turn
       end
     end
 

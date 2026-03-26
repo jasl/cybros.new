@@ -90,4 +90,27 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     assert queued.queued?
     assert_equal "Queued from node metadata", queued.selected_input_message.content
   end
+
+  test "rejects steering current input after the turn has been interrupted" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::SteerCurrentInput.call(turn: turn, content: "Should not steer")
+    end
+
+    assert_includes error.record.errors[:base], "must not steer current input after turn interruption"
+  end
 end

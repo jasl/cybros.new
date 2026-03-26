@@ -12,56 +12,64 @@ module Conversations
     def call
       raise_invalid!(@turn, :conversation, "must belong to the target conversation") unless @turn.conversation_id == @conversation.id
 
-      ApplicationRecord.transaction do
-        @conversation.turns
-          .where("sequence > ?", @turn.sequence)
-          .where.not(lifecycle_state: "canceled")
-          .find_each do |later_turn|
-            later_turn.update!(lifecycle_state: "canceled")
-          end
+      Turns::WithTimelineMutationLock.call(
+        turn: @turn,
+        retained_message: "must be retained before rolling back the conversation",
+        active_message: "must belong to an active conversation to roll back the timeline",
+        closing_message: "must not roll back the timeline while close is in progress",
+        interrupted_message: "must not roll back the timeline after turn interruption"
+      ) do |turn|
+        ApplicationRecord.transaction do
+          turn.conversation.turns
+            .where("sequence > ?", turn.sequence)
+            .where.not(lifecycle_state: "canceled")
+            .find_each do |later_turn|
+              later_turn.update!(lifecycle_state: "canceled")
+            end
 
-        prune_superseded_support_state!
-        @turn
+          prune_superseded_support_state!(turn)
+          turn
+        end
       end
     end
 
     private
 
-    def prune_superseded_support_state!
-      dropped_segments = @conversation.conversation_summary_segments
+    def prune_superseded_support_state!(turn)
+      dropped_segments = turn.conversation.conversation_summary_segments
         .includes(:end_message, :superseded_segments)
-        .select { |segment| superseded_after_rollback?(segment) }
+        .select { |segment| superseded_after_rollback?(segment, turn) }
       dropped_segment_ids = dropped_segments.map(&:id)
 
       if dropped_segment_ids.any?
-        @conversation.conversation_summary_segments
+        turn.conversation.conversation_summary_segments
           .where(superseded_by_id: dropped_segment_ids)
           .update_all(superseded_by_id: nil)
       end
 
       ConversationImport.where(summary_segment_id: dropped_segment_ids).find_each(&:destroy!)
 
-      @conversation.conversation_imports
+      turn.conversation.conversation_imports
         .includes(:source_message, summary_segment: :end_message)
         .find_each do |conversation_import|
-          conversation_import.destroy! if drop_import_after_rollback?(conversation_import, dropped_segment_ids)
+          conversation_import.destroy! if drop_import_after_rollback?(conversation_import, dropped_segment_ids, turn)
         end
 
       dropped_segments.each(&:destroy!)
     end
 
-    def superseded_after_rollback?(segment)
-      return false unless segment.end_message.conversation_id == @conversation.id
+    def superseded_after_rollback?(segment, turn)
+      return false unless segment.end_message.conversation_id == turn.conversation_id
 
-      segment.end_message.turn.sequence > @turn.sequence
+      segment.end_message.turn.sequence > turn.sequence
     end
 
-    def drop_import_after_rollback?(conversation_import, dropped_segment_ids)
+    def drop_import_after_rollback?(conversation_import, dropped_segment_ids, turn)
       return true if dropped_segment_ids.include?(conversation_import.summary_segment_id)
       return false if conversation_import.source_message.blank?
-      return false unless conversation_import.source_message.conversation_id == @conversation.id
+      return false unless conversation_import.source_message.conversation_id == turn.conversation_id
 
-      conversation_import.source_message.turn.sequence > @turn.sequence
+      conversation_import.source_message.turn.sequence > turn.sequence
     end
 
     def raise_invalid!(record, attribute, message)
