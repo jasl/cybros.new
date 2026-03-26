@@ -698,7 +698,8 @@ module ActiveSupport
         role: "agent",
         slot: "output",
         variant_index: variant_index,
-        content: content
+        content: content,
+        source_input_message: turn.selected_input_message
       )
 
       turn.update!(selected_output_message: message)

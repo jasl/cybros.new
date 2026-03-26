@@ -24,8 +24,12 @@ module Turns
         if locked_turn.selected_output_message&.fork_point? || @message.reload.fork_point?
           raise_invalid!(locked_turn, :base, "cannot rewrite a fork-point output")
         end
+        raise_invalid!(locked_turn, :selected_output_message, "must carry source input provenance") if @message.source_input_message.blank?
 
-        locked_turn.update!(selected_output_message: @message)
+        locked_turn.update!(
+          selected_input_message: @message.source_input_message,
+          selected_output_message: @message
+        )
         locked_turn
       end
     end

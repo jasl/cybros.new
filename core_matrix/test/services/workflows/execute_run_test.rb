@@ -120,6 +120,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     refute request_body.key?("sandbox")
 
     assert_equal "Provider result", result.output_message.content
+    assert_equal workflow_run.turn.selected_input_message, result.output_message.source_input_message
     assert workflow_run.reload.completed?
     assert workflow_run.turn.reload.completed?
     assert_equal result.output_message, workflow_run.turn.selected_output_message

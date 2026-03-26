@@ -76,4 +76,62 @@ class MessageTest < ActiveSupport::TestCase
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:variant_index], "has already been taken"
   end
+
+  test "requires output provenance to point at a same turn input message" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
+      content: "Hello",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    output = AgentMessage.new(
+      installation: context[:installation],
+      conversation: turn.conversation,
+      turn: turn,
+      role: "agent",
+      slot: "output",
+      variant_index: 0,
+      content: "Output",
+      source_input_message: turn.selected_input_message
+    )
+
+    assert output.valid?
+  end
+
+  test "rejects source input provenance that points at an output message" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
+      content: "Hello",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Original output")
+
+    invalid = AgentMessage.new(
+      installation: context[:installation],
+      conversation: turn.conversation,
+      turn: turn,
+      role: "agent",
+      slot: "output",
+      variant_index: 1,
+      content: "Invalid output",
+      source_input_message: output
+    )
+
+    assert_not invalid.valid?
+    assert_includes invalid.errors[:source_input_message], "must be an input message from the same turn"
+  end
 end

@@ -40,14 +40,10 @@ module Turns
       raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
       raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
-      rerun_output = AgentMessage.create!(
-        installation: turn.installation,
-        conversation: turn.conversation,
+      rerun_output = Turns::CreateOutputVariant.call(
         turn: turn,
-        role: "agent",
-        slot: "output",
-        variant_index: turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
-        content: @content
+        content: @content,
+        source_input_message: @message.reload.source_input_message || turn.selected_input_message
       )
 
       turn.update!(
@@ -62,21 +58,19 @@ module Turns
         parent: turn.conversation,
         historical_anchor_message_id: @message.id
       )
+      source_input_message = @message.reload.source_input_message ||
+        raise_invalid!(turn, :selected_output_message, "must carry source input provenance to rerun in a branch")
       rerun_turn = Turns::StartUserTurn.call(
         conversation: branch,
-        content: turn.selected_input_message.content,
+        content: source_input_message.content,
         agent_deployment: turn.agent_deployment,
         resolved_config_snapshot: turn.resolved_config_snapshot,
         resolved_model_selection_snapshot: turn.resolved_model_selection_snapshot
       )
-      rerun_output = AgentMessage.create!(
-        installation: rerun_turn.installation,
-        conversation: rerun_turn.conversation,
+      rerun_output = Turns::CreateOutputVariant.call(
         turn: rerun_turn,
-        role: "agent",
-        slot: "output",
-        variant_index: 0,
-        content: @content
+        content: @content,
+        source_input_message: rerun_turn.selected_input_message
       )
 
       rerun_turn.update!(selected_output_message: rerun_output)

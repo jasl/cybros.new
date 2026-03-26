@@ -38,7 +38,8 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
       role: "agent",
       slot: "output",
       variant_index: 2,
-      content: "Second output alternative"
+      content: "Second output alternative",
+      source_input_message: retried_turn.selected_input_message
     )
     retried_turn.update!(lifecycle_state: "completed")
     Turns::SelectOutputVariant.call(message: alternative_output)
@@ -50,7 +51,10 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     assert_equal "First input revised", edited_turn.selected_input_message.content
     assert_nil edited_turn.selected_output_message
     assert_equal "Second output alternative", retried_turn.reload.selected_output_message.content
+    assert_equal retried_turn.reload.selected_input_message, retried_turn.selected_output_message.source_input_message
     assert branch_rerun.conversation.branch?
+    assert_equal "First input", branch_rerun.selected_input_message.content
     assert_equal "Branch rerun output", branch_rerun.selected_output_message.content
+    assert_equal branch_rerun.selected_input_message, branch_rerun.selected_output_message.source_input_message
   end
 end

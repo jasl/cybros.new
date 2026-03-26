@@ -84,14 +84,10 @@ module ProviderExecution
 
       ApplicationRecord.transaction do
         with_fresh_execution_state_lock do
-          output_message = AgentMessage.create!(
-            installation: @turn.installation,
-            conversation: @turn.conversation,
+          output_message = Turns::CreateOutputVariant.call(
             turn: @turn,
-            role: "agent",
-            slot: "output",
-            variant_index: @turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
-            content: provider_result.content.to_s
+            content: provider_result.content.to_s,
+            source_input_message: @turn.selected_input_message
           )
           usage_event = ProviderUsage::RecordEvent.call(
             installation: @workflow_run.installation,

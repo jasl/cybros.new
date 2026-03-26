@@ -86,6 +86,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
     assert_equal "openai/gpt-5.4", request_body.fetch("model")
     assert_equal 24, request_body.fetch("max_tokens")
     assert_equal "OpenRouter result", workflow_run.turn.reload.selected_output_message.content
+    assert_equal workflow_run.turn.selected_input_message, workflow_run.turn.selected_output_message.source_input_message
     assert workflow_run.reload.completed?
     assert workflow_run.turn.reload.completed?
     assert_equal "openrouter", usage_event.provider_handle

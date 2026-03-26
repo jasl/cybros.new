@@ -47,6 +47,7 @@ class Turn < ApplicationRecord
   validate :agent_deployment_execution_environment_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
+  validate :selected_output_lineage_rules
   validate :cancellation_request_pairing
 
   def terminal?
@@ -195,6 +196,13 @@ class Turn < ApplicationRecord
 
     errors.add(:selected_output_message, "must belong to the same turn") unless selected_output_message.turn_id == id
     errors.add(:selected_output_message, "must be an output message") unless selected_output_message.output?
+  end
+
+  def selected_output_lineage_rules
+    return if selected_input_message.blank? || selected_output_message.blank?
+    return if selected_output_message.source_input_message_id == selected_input_message_id
+
+    errors.add(:selected_output_message, "must belong to the selected input lineage")
   end
 
   def cancellation_request_pairing

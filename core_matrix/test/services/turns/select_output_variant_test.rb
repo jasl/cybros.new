@@ -1,7 +1,7 @@
 require "test_helper"
 
 class Turns::SelectOutputVariantTest < ActiveSupport::TestCase
-  test "selects a finished tail output variant" do
+  test "selects a finished tail output variant and restores the matching input lineage" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
@@ -15,22 +15,34 @@ class Turns::SelectOutputVariantTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
     first_output = attach_selected_output!(turn, content: "Output one")
+    edited_turn = Turns::EditTailInput.call(turn: turn, content: "Revised input")
+    revised_input = edited_turn.selected_input_message
     second_output = AgentMessage.create!(
-      installation: turn.installation,
-      conversation: turn.conversation,
-      turn: turn,
+      installation: edited_turn.installation,
+      conversation: edited_turn.conversation,
+      turn: edited_turn,
       role: "agent",
       slot: "output",
       variant_index: 1,
-      content: "Output two"
+      content: "Output two",
+      source_input_message: revised_input
     )
-    turn.update!(lifecycle_state: "completed")
+    edited_turn.update!(
+      selected_output_message: second_output,
+      lifecycle_state: "completed"
+    )
 
     selected = Turns::SelectOutputVariant.call(message: second_output)
 
     assert_equal turn.id, selected.id
     assert_equal second_output, selected.selected_output_message
-    assert_equal first_output.id, first_output.id
+    assert_equal revised_input, selected.selected_input_message
+    assert_equal revised_input, second_output.source_input_message
+
+    restored = Turns::SelectOutputVariant.call(message: first_output)
+
+    assert_equal first_output, restored.selected_output_message
+    assert_equal turn.messages.where(slot: "input", variant_index: 0).first, restored.selected_input_message
   end
 
   test "rejects selecting a non tail output variant in the current timeline" do
@@ -84,7 +96,8 @@ class Turns::SelectOutputVariantTest < ActiveSupport::TestCase
       role: "agent",
       slot: "output",
       variant_index: 1,
-      content: "Output two"
+      content: "Output two",
+      source_input_message: turn.selected_input_message
     )
     turn.update!(lifecycle_state: "completed")
     ConversationCloseOperation.create!(

@@ -26,9 +26,10 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     assert rerun.active?
     assert_equal "Rerun output", rerun.selected_output_message.content
     assert_equal 1, rerun.selected_output_message.variant_index
+    assert_equal turn.selected_input_message, rerun.selected_output_message.source_input_message
   end
 
-  test "auto branches before rerunning a non tail finished output" do
+  test "auto branches before rerunning a non tail finished output and uses the target output lineage" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -43,7 +44,21 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
     historical_output = attach_selected_output!(historical_turn, content: "Historical output")
-    historical_turn.update!(lifecycle_state: "completed")
+    edited_turn = Turns::EditTailInput.call(turn: historical_turn, content: "Historical input revised")
+    revised_output = AgentMessage.create!(
+      installation: edited_turn.installation,
+      conversation: edited_turn.conversation,
+      turn: edited_turn,
+      role: "agent",
+      slot: "output",
+      variant_index: 1,
+      content: "Historical revised output",
+      source_input_message: edited_turn.selected_input_message
+    )
+    edited_turn.update!(
+      selected_output_message: revised_output,
+      lifecycle_state: "completed"
+    )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
@@ -61,6 +76,7 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     assert_equal conversation, rerun_turn.conversation.parent_conversation
     assert_equal "Historical input", rerun_turn.selected_input_message.content
     assert_equal "Branch rerun output", rerun_turn.selected_output_message.content
+    assert_equal rerun_turn.selected_input_message, rerun_turn.selected_output_message.source_input_message
   end
 
   test "rejects rerunning output from an archived conversation" do

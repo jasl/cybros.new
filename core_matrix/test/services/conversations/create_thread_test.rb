@@ -74,7 +74,7 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
     end
   end
 
-  test "rejects invalid optional anchors outside the parent transcript projection" do
+  test "rejects invalid optional anchors outside the parent conversation history" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -101,7 +101,7 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:historical_anchor_message_id], "must belong to the parent transcript projection"
+    assert_includes error.record.errors[:historical_anchor_message_id], "must belong to the parent conversation history"
   end
 
   test "rejects parents while close is in progress" do

@@ -26,8 +26,8 @@ module Conversations
         installation_id: @parent.installation_id
       )
 
-      unless anchor_message.present? && @parent.transcript_projection_includes?(anchor_message)
-        invalid_record.errors.add(:historical_anchor_message_id, "must belong to the parent transcript projection")
+      unless anchor_message.present? && anchor_message.conversation_id == @parent.id
+        invalid_record.errors.add(:historical_anchor_message_id, "must belong to the parent conversation history")
         raise ActiveRecord::RecordInvalid, invalid_record
       end
 

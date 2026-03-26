@@ -114,7 +114,7 @@ class ConversationTest < ActiveSupport::TestCase
     assert_includes checkpoint_without_anchor.errors[:historical_anchor_message_id], "must exist"
   end
 
-  test "requires child historical anchors to belong to the parent transcript projection" do
+  test "requires child historical anchors to belong to the parent conversation history" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -147,7 +147,7 @@ class ConversationTest < ActiveSupport::TestCase
     )
 
     assert_not branch.valid?
-    assert_includes branch.errors[:historical_anchor_message_id], "must belong to the parent transcript projection"
+    assert_includes branch.errors[:historical_anchor_message_id], "must belong to the parent conversation history"
   end
 
   test "enforces automation conversations as root only" do

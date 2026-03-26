@@ -23,14 +23,10 @@ module Turns
         raise_invalid!(locked_turn, :lifecycle_state, "must be failed or canceled to retry output") unless locked_turn.failed? || locked_turn.canceled?
         raise_invalid!(locked_turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
-        retry_output = AgentMessage.create!(
-          installation: locked_turn.installation,
-          conversation: locked_turn.conversation,
+        retry_output = Turns::CreateOutputVariant.call(
           turn: locked_turn,
-          role: "agent",
-          slot: "output",
-          variant_index: locked_turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
-          content: @content
+          content: @content,
+          source_input_message: @message.reload.source_input_message || locked_turn.selected_input_message
         )
 
         locked_turn.update!(

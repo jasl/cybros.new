@@ -9,6 +9,7 @@ class Message < ApplicationRecord
   belongs_to :installation
   belongs_to :conversation
   belongs_to :turn
+  belongs_to :source_input_message, class_name: "Message", optional: true
 
   has_many :conversation_message_visibilities, dependent: :restrict_with_exception
   has_many :message_attachments, dependent: :restrict_with_exception
@@ -41,6 +42,7 @@ class Message < ApplicationRecord
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :turn_conversation_match
+  validate :source_input_message_rules
 
   def fork_point?
     Conversation.where(parent_conversation_id: conversation_id, historical_anchor_message_id: id).exists?
@@ -73,5 +75,17 @@ class Message < ApplicationRecord
     return if turn.conversation_id == conversation_id
 
     errors.add(:conversation, "must match the turn conversation")
+  end
+
+  def source_input_message_rules
+    if input?
+      errors.add(:source_input_message, "must be blank for input messages") if source_input_message.present?
+      return
+    end
+
+    return if source_input_message.blank?
+    return if source_input_message.turn_id == turn_id && source_input_message.input?
+
+    errors.add(:source_input_message, "must be an input message from the same turn")
   end
 end

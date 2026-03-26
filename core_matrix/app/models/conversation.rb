@@ -153,10 +153,20 @@ class Conversation < ApplicationRecord
     inherited_messages = parent_conversation.send(:base_transcript_projection_messages)
     return inherited_messages if thread?
 
-    anchor_index = inherited_messages.index { |message| message.id == historical_anchor_message_id }
-    return inherited_messages.first(anchor_index + 1) if anchor_index
+    anchor_message = historical_anchor_message
+    unless anchor_message.present? && anchor_message.conversation_id == parent_conversation_id
+      raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent conversation history"
+    end
 
-    raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent transcript projection"
+    earlier_messages = inherited_messages.select { |message| message.turn.sequence < anchor_message.turn.sequence }
+    return earlier_messages + [anchor_message] if anchor_message.input?
+
+    source_input_message = anchor_message.source_input_message
+    if source_input_message.present? && source_input_message.turn_id == anchor_message.turn_id
+      return earlier_messages + [source_input_message, anchor_message]
+    end
+
+    raise ActiveRecord::RecordNotFound, "historical anchor is missing source input provenance"
   end
 
   def selected_messages_for_own_turns

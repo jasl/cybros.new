@@ -227,4 +227,29 @@ class TurnTest < ActiveSupport::TestCase
     assert turn.invalid?
     assert_includes turn.errors[:agent_deployment], "must belong to the bound execution environment"
   end
+
+  test "rejects selected output lineage that does not match the selected input" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    first_input = turn.selected_input_message
+    first_output = attach_selected_output!(turn, content: "First output")
+    edited_turn = Turns::EditTailInput.call(turn: turn, content: "Second input")
+
+    edited_turn.selected_output_message = first_output
+
+    assert edited_turn.invalid?
+    assert_includes edited_turn.errors[:selected_output_message], "must belong to the selected input lineage"
+    assert_equal first_input, first_output.source_input_message
+  end
 end

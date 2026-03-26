@@ -26,6 +26,7 @@ class Turns::RetryOutputTest < ActiveSupport::TestCase
     assert retried.active?
     assert_equal "Retried output", retried.selected_output_message.content
     assert_equal 1, retried.selected_output_message.variant_index
+    assert_equal turn.selected_input_message, retried.selected_output_message.source_input_message
   end
 
   test "rejects retrying output after the turn has been interrupted" do
