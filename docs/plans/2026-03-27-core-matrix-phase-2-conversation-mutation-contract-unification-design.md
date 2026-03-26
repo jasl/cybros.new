@@ -14,7 +14,7 @@ Read together with:
 6. `docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md`
 7. `docs/plans/2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md`
 8. `docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md`
-9. `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+9. `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 ## Purpose
 
@@ -331,7 +331,7 @@ At minimum:
 - `core_matrix/docs/behavior/transcript-imports-and-summary-segments.md`
 - `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
-- `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 Verification must include:
 

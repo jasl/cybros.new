@@ -102,6 +102,8 @@ Milestone C follow-up task set is complete and re-verified.
 - `Task C7 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md)
 - `Task C8 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md)
 - `Task C9 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
+- `Task C10 Follow-Up`: [2026-03-26-core-matrix-phase-2-plan-conversation-purge-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-conversation-purge-hardening.md)
+- `Task C11 Follow-Up`: [2026-03-26-core-matrix-phase-2-plan-review-audit.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-review-audit.md)
 
 ## Later Phase 2 Milestones
 

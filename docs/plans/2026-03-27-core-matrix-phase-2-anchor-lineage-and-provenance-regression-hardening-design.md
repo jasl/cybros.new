@@ -12,7 +12,7 @@ Read together with:
 4. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
 5. `docs/plans/2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md`
 6. `docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md`
-7. `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+7. `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 ## Purpose
 

@@ -47,8 +47,8 @@ Do not consider the review complete until:
 **Files:**
 - Modify: `README.md`
 - Modify: `docs/behavior/identifier-policy.md`
-- Modify: `docs/plans/2026-03-26-core-matrix-review-audit-design.md`
-- Create: `docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-design.md`
+- Create: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 **Step 1: Create the findings scaffold**
 
@@ -94,7 +94,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-sed -n '1,200p' docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+sed -n '1,200p' docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 ```
 
 Expected: the findings document has all required top-level sections.
@@ -103,14 +103,14 @@ Expected: the findings document has all required top-level sections.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: add core matrix review audit findings scaffold"
 ```
 
 ### Task 2: Run the Global Signal Scan
 
 **Files:**
-- Modify: `docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 - Modify: `app/**/*.rb`
 - Modify: `lib/**/*.rb`
 - Modify: `config/**/*.rb`
@@ -138,7 +138,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-sed -n '1,260p' docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+sed -n '1,260p' docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 ```
 
 Expected: the document now names specific high-yield namespaces or files for the
@@ -148,14 +148,14 @@ main review pass.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: record core matrix review audit targets"
 ```
 
 ### Task 3: Audit Layered Runtime Paths
 
 **Files:**
-- Modify: `docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 - Modify: `app/controllers/**/*.rb`
 - Modify: `app/services/**/*.rb`
 - Modify: `app/queries/**/*.rb`
@@ -185,14 +185,14 @@ action to the findings doc.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: capture layered review findings"
 ```
 
 ### Task 4: Audit Data, Boundary, and Lifecycle Risks
 
 **Files:**
-- Modify: `docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 - Modify: `config/**/*.rb`
 - Modify: `db/**/*.rb`
 - Modify: `app/models/**/*.rb`
@@ -222,14 +222,14 @@ Move uncertain items to `Watch List`.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: capture core matrix risk audit findings"
 ```
 
 ### Task 5: Run the Test Reverse Pass
 
 **Files:**
-- Modify: `docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 - Modify: `test/**/*_test.rb`
 
 **Step 1: Review tests for heavy setup and repeated scaffolding**
@@ -255,14 +255,14 @@ Document what the reverse pass confirmed, expanded, or weakened.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: capture reverse-pass audit results"
 ```
 
 ### Task 6: Finalize the Findings Document
 
 **Files:**
-- Modify: `docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 **Step 1: Order findings by severity**
 
@@ -290,7 +290,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-sed -n '1,260p' docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+sed -n '1,260p' docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 ```
 
 Expected: the report reads as a complete artifact and does not rely on chat-only
@@ -300,6 +300,6 @@ context.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+git add docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: finalize core matrix review audit findings"
 ```

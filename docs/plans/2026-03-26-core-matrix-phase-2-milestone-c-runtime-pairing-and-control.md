@@ -61,6 +61,17 @@ end-to-end stack.
 - [2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
 
+### Task C10 Follow-Up
+
+- [2026-03-26-core-matrix-phase-2-conversation-purge-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-conversation-purge-hardening-design.md)
+- [2026-03-26-core-matrix-phase-2-plan-conversation-purge-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-conversation-purge-hardening.md)
+
+### Task C11 Follow-Up
+
+- [2026-03-26-core-matrix-phase-2-review-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-review-audit-design.md)
+- [2026-03-26-core-matrix-phase-2-plan-review-audit.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-review-audit.md)
+- [2026-03-26-core-matrix-phase-2-review-audit-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral

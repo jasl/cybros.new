@@ -62,7 +62,7 @@
 - `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
   Reason: must state the normalized blocker identifier contract and the shared
   safety rules explicitly.
-- `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
   Reason: should be refreshable against the landed result once implementation is
   complete.
 
@@ -386,7 +386,7 @@ git commit -m "fix: share turn rewrite safety guards"
 - Modify: `core_matrix/test/services/agent_deployments/mark_unavailable_test.rb`
 - Modify: `core_matrix/test/services/agent_deployments/auto_resume_workflows_test.rb`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
-- Modify: `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 - Modify: `docs/plans/README.md`
 - Modify: `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 - Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
@@ -500,7 +500,7 @@ git add core_matrix/app/services/agent_deployments/unavailable_pause_state.rb \
   core_matrix/test/services/agent_deployments/mark_unavailable_test.rb \
   core_matrix/test/services/agent_deployments/auto_resume_workflows_test.rb \
   core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md \
-  core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md \
+  docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md \
   docs/plans/README.md \
   docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md \
   docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md

@@ -59,7 +59,7 @@
   Reason: must document strict historical-anchor rules.
 - `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
   Reason: must document output-lineage selection behavior.
-- `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
   Reason: should reflect the final implementation status once complete.
 
 Before finishing, explicitly re-check that:
@@ -349,7 +349,7 @@ git commit -m "fix: require quiescent suffixes before rollback"
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
 - Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
-- Modify: `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 **Step 1: Update the docs**
 
@@ -432,6 +432,6 @@ Confirm:
 git add core_matrix/docs/behavior/conversation-structure-and-lineage.md \
   core_matrix/docs/behavior/turn-entry-and-selector-state.md \
   core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md \
-  core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+  docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: describe lineage provenance hardening"
 ```

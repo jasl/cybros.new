@@ -572,7 +572,7 @@ git commit -m "refactor: unify turn timeline mutation guards"
 - Modify: `core_matrix/docs/behavior/transcript-imports-and-summary-segments.md`
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
-- Modify: `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 **Step 1: Write the doc changes**
 
@@ -598,7 +598,7 @@ cd /Users/jasl/Workspaces/Ruby/cybros
 sed -n '1,220p' core_matrix/docs/behavior/turn-entry-and-selector-state.md
 sed -n '1,220p' core_matrix/docs/behavior/turn-rewrite-and-variant-operations.md
 sed -n '1,220p' core_matrix/docs/behavior/agent-runtime-resource-apis.md
-sed -n '1,260p' core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+sed -n '1,260p' docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 ```
 
 Expected: the new shared-contract family is explicit and no doc still describes
@@ -613,7 +613,7 @@ git add core_matrix/docs/behavior/turn-entry-and-selector-state.md \
   core_matrix/docs/behavior/transcript-imports-and-summary-segments.md \
   core_matrix/docs/behavior/agent-runtime-resource-apis.md \
   core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md \
-  core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+  docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: describe shared conversation mutation contracts"
 ```
 

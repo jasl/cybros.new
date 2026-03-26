@@ -72,7 +72,7 @@
 - `core_matrix/docs/behavior/turn-rewrite-and-variant-operations.md`
   Reason: must document output-anchor source-input fork-point protection and
   fail-closed rewrite behavior.
-- `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
   Reason: should record the fix state after implementation and the next audit
   pass.
 
@@ -291,7 +291,7 @@ git commit -m "fix: fail closed on malformed output provenance"
 **Files:**
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `core_matrix/docs/behavior/turn-rewrite-and-variant-operations.md`
-- Modify: `core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`
 
 **Step 1: Update behavior docs**
 
@@ -343,7 +343,7 @@ Expected: all commands succeed.
 Run the review workflow from:
 
 ```bash
-core_matrix/docs/plans/2026-03-26-core-matrix-review-audit.md
+docs/plans/2026-03-26-core-matrix-phase-2-plan-review-audit.md
 ```
 
 Stop only when:
@@ -352,13 +352,13 @@ Stop only when:
 - the next issue is architectural enough to require user discussion
 
 Record the result in
-`core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md`.
+`docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md`.
 
 **Step 5: Commit**
 
 ```bash
 git add core_matrix/docs/behavior/conversation-structure-and-lineage.md \
   core_matrix/docs/behavior/turn-rewrite-and-variant-operations.md \
-  core_matrix/docs/plans/2026-03-26-core-matrix-review-audit-findings.md
+  docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md
 git commit -m "docs: record anchor lineage regression hardening"
 ```

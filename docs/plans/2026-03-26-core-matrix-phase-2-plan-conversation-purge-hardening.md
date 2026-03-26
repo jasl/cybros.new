@@ -305,7 +305,7 @@ git commit -m "refactor: harden conversation purge ownership graph"
 **Files:**
 - Modify: `docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `docs/behavior/workflow-scheduler-and-wait-states.md`
-- Modify: `docs/plans/2026-03-26-conversation-purge-hardening-design.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-conversation-purge-hardening-design.md`
 
 **Step 1: Update the lifecycle behavior doc**
 
@@ -355,7 +355,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/behavior/conversation-structure-and-lineage.md docs/behavior/workflow-scheduler-and-wait-states.md docs/plans/2026-03-26-conversation-purge-hardening-design.md
+git add docs/behavior/conversation-structure-and-lineage.md docs/behavior/workflow-scheduler-and-wait-states.md docs/plans/2026-03-26-core-matrix-phase-2-conversation-purge-hardening-design.md
 git commit -m "docs: record hardened conversation purge behavior"
 ```
 
