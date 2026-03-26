@@ -45,16 +45,56 @@
   - `937311d fix: validate historical anchors against parent transcript`
   - `dbce5f2 fix: persist transcript output provenance`
   - `b3cb2bf fix: block rollback until later runtime is quiescent`
+- The follow-up regressions found after that hardening pass were resolved by:
+  - `7fba2a1 fix: align anchors with effective transcript history`
+  - `1f9dd79 fix: protect output anchor source inputs`
+  - `2d41c91 fix: fail closed on malformed output provenance`
+  - `f809c23 docs: describe anchor lineage regression hardening`
 - Post-fix contract state:
-  - child-conversation anchors are validated against parent conversation
-    history and invalid durable anchors fail loudly at replay time
-  - output variants carry `source_input_message` provenance and selection/rerun
-    paths stay within one lineage
+  - child-conversation anchors are validated against parent durable transcript
+    history, including inherited visible rows and parent-local historical
+    variants, and invalid durable anchors fail loudly at replay time
+  - output variants carry `source_input_message` provenance, fork-point
+    protection covers output-anchor source inputs, and selection/rerun paths
+    stay within one lineage
   - rollback now rejects non-quiescent suffixes through
     `Conversations::ValidateTimelineSuffixSupersession` backed by the shared
     `Conversations::WorkBarrierQuery`
 - Post-fix verification and grep rescans are recorded in the final execution
   pass for this follow-up batch
+
+## Latest Post-Fix Audit Result
+
+- Post-fix audit baseline:
+  - `f809c23 docs: describe anchor lineage regression hardening`
+- Full verification evidence:
+  - `bin/brakeman --no-pager` -> `0 warnings`
+  - `bin/bundler-audit` -> `No vulnerabilities found`
+  - `bin/rubocop -f github` -> exit `0`
+  - `bun run lint:js` -> exit `0`
+  - `bin/rails db:test:prepare test` -> `535 runs, 2680 assertions, 0 failures, 0 errors, 0 skips`
+  - `bin/rails db:test:prepare test:system` -> `0 runs, 0 failures, 0 errors`
+- Reverse-pass grep confirmations:
+  - child-conversation creators still route through
+    `Conversations::ValidateHistoricalAnchor`
+  - branch-prefix imports now validate against the same anchor family instead
+    of a local direct-parent-only rule
+  - no output rewrite path silently falls back from missing
+    `source_input_message` to `selected_input_message`
+  - the only production output writer remains `Turns::CreateOutputVariant`
+- Additional regression surfaced during full verification:
+  - `ExternalFenixPairingFlowTest` still encoded an obsolete expectation that
+    manual retry could rebind paused work onto a rotated deployment created in
+    a different execution environment, and that new workflow creation could
+    still schedule on a superseded deployment
+  - the test was updated to match the already-landed runtime-binding contract:
+    paused work is created before rotation, and retry targets a rotated
+    deployment in the same bound execution environment
+- Outcome:
+  - this post-fix audit pass did not confirm any new concrete production defect
+    in the re-audited anchor, fork-point, provenance, or adjacent
+    runtime-binding families
+  - stop condition met for this review loop iteration
 
 ## Latest Refresh Findings
 
