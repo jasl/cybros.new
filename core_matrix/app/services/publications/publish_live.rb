@@ -1,7 +1,5 @@
 module Publications
   class PublishLive
-    include Conversations::RetentionGuard
-
     ALLOWED_VISIBILITY_MODES = %w[internal_public external_public].freeze
 
     def self.call(...)
@@ -17,24 +15,33 @@ module Publications
 
     def call
       raise ArgumentError, "visibility mode must publish the conversation" unless ALLOWED_VISIBILITY_MODES.include?(@visibility_mode)
-      ensure_conversation_retained!(@conversation, message: "must be retained before publishing")
+      Conversations::WithRetainedStateLock.call(
+        conversation: @conversation,
+        record: @conversation,
+        message: "must be retained before publishing"
+      ) do |conversation|
+        publication = Publication.find_or_initialize_by(conversation: conversation)
+        previously_active = publication.persisted? && publication.active?
+        previous_visibility_mode = publication.visibility_mode
 
-      publication = Publication.find_or_initialize_by(conversation: @conversation)
-      previously_active = publication.persisted? && publication.active?
-      previous_visibility_mode = publication.visibility_mode
+        assign_publication_attributes!(
+          publication,
+          conversation: conversation,
+          previously_active: previously_active,
+          previous_visibility_mode: previous_visibility_mode
+        )
+        publication.save!
 
-      assign_publication_attributes!(publication, previously_active, previous_visibility_mode)
-      publication.save!
-
-      record_audit!(publication, previously_active, previous_visibility_mode)
-      publication
+        record_audit!(publication, previously_active, previous_visibility_mode)
+        publication
+      end
     end
 
     private
 
-    def assign_publication_attributes!(publication, previously_active, previous_visibility_mode)
-      publication.installation = @conversation.installation
-      publication.owner_user = @conversation.workspace.user
+    def assign_publication_attributes!(publication, conversation:, previously_active:, previous_visibility_mode:)
+      publication.installation = conversation.installation
+      publication.owner_user = conversation.workspace.user
       publication.visibility_mode = @visibility_mode
       publication.slug ||= Publication.issue_slug
       publication.published_at = previously_active ? publication.published_at : @published_at

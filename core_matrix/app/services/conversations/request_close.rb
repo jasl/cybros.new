@@ -1,7 +1,5 @@
 module Conversations
   class RequestClose
-    include Conversations::RetentionGuard
-
     INTENT_CONFIG = {
       "archive" => {
         queued_turn_reason: "conversation_archived",
@@ -30,7 +28,13 @@ module Conversations
 
       ApplicationRecord.transaction do
         @conversation.with_lock do
-          ensure_conversation_retained!(@conversation, message: "must be retained before close") if @intent_kind == "archive"
+          if @intent_kind == "archive"
+            Conversations::ValidateRetainedState.call(
+              conversation: @conversation,
+              record: @conversation,
+              message: "must be retained before close"
+            )
+          end
           find_or_create_close_operation!
           apply_immediate_state!
           cancel_queued_turns!(reason_kind: config.fetch(:queued_turn_reason))

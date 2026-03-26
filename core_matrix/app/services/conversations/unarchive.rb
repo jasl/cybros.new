@@ -1,7 +1,5 @@
 module Conversations
   class Unarchive
-    include Conversations::RetentionGuard
-
     def self.call(...)
       new(...).call
     end
@@ -13,7 +11,11 @@ module Conversations
     def call
       ApplicationRecord.transaction do
         @conversation.with_lock do
-          ensure_conversation_retained!(@conversation, message: "must be retained before unarchival")
+          Conversations::ValidateRetainedState.call(
+            conversation: @conversation,
+            record: @conversation,
+            message: "must be retained before unarchival"
+          )
           raise_invalid!(@conversation, :lifecycle_state, "must be archived before unarchival") unless @conversation.archived?
           @conversation.update!(lifecycle_state: "active")
         end

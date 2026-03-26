@@ -1,6 +1,5 @@
 module Conversations
   class Archive
-    include Conversations::RetentionGuard
     include Conversations::WorkQuiescenceGuard
 
     def self.call(...)
@@ -22,7 +21,11 @@ module Conversations
 
       ApplicationRecord.transaction do
         @conversation.with_lock do
-          ensure_conversation_retained!(@conversation, message: "must be retained before archival")
+          Conversations::ValidateRetainedState.call(
+            conversation: @conversation,
+            record: @conversation,
+            message: "must be retained before archival"
+          )
           raise_invalid!(@conversation, :lifecycle_state, "must be active before archival") unless @conversation.active?
           ensure_conversation_quiescent!(@conversation, stage: "archival")
           @conversation.update!(lifecycle_state: "archived")
