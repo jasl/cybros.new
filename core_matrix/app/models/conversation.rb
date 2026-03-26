@@ -154,16 +154,20 @@ class Conversation < ApplicationRecord
     return inherited_messages if thread?
 
     anchor_message = historical_anchor_message
-    unless anchor_message.present? && anchor_message.conversation_id == parent_conversation_id
+    anchor_index = inherited_messages.index { |message| message.id == anchor_message&.id }
+    unless anchor_message.present? && anchor_index.present?
       raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent conversation history"
     end
 
-    earlier_messages = inherited_messages.select { |message| message.turn.sequence < anchor_message.turn.sequence }
+    earlier_messages = inherited_messages.first(anchor_index)
     return earlier_messages + [anchor_message] if anchor_message.input?
 
     source_input_message = anchor_message.source_input_message
-    if source_input_message.present? && source_input_message.turn_id == anchor_message.turn_id
-      return earlier_messages + [source_input_message, anchor_message]
+    source_input_index = inherited_messages.index { |message| message.id == source_input_message&.id }
+    if source_input_message.present? &&
+        source_input_message.turn_id == anchor_message.turn_id &&
+        source_input_index.present?
+      return inherited_messages.first(source_input_index) + [source_input_message, anchor_message]
     end
 
     raise ActiveRecord::RecordNotFound, "historical anchor is missing source input provenance"

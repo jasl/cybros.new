@@ -104,6 +104,34 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:historical_anchor_message_id], "must belong to the parent conversation history"
   end
 
+  test "accepts an optional anchor inherited into the parent transcript history" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Root inherited thread anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: root_turn.selected_input_message_id
+    )
+
+    thread = Conversations::CreateThread.call(
+      parent: branch,
+      historical_anchor_message_id: root_turn.selected_input_message_id
+    )
+
+    assert_equal branch, thread.parent_conversation
+    assert_equal root_turn.selected_input_message_id, thread.historical_anchor_message_id
+  end
+
   test "rejects parents while close is in progress" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(

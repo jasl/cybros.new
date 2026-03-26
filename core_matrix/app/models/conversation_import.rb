@@ -60,9 +60,7 @@ class ConversationImport < ApplicationRecord
   def source_message_belongs_to_source_conversation
     return if source_message.blank? || source_conversation.blank?
 
-    if branch_prefix?
-      return if source_message.conversation_id == source_conversation_id
-    elsif source_conversation.transcript_projection_includes?(source_message)
+    if source_conversation.transcript_projection_includes?(source_message)
       return
     end
 

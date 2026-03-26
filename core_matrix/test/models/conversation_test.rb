@@ -150,6 +150,40 @@ class ConversationTest < ActiveSupport::TestCase
     assert_includes branch.errors[:historical_anchor_message_id], "must belong to the parent conversation history"
   end
 
+  test "accepts a historical anchor inherited into the parent transcript history" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Root anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    branch = Conversations::CreateBranch.call(
+      parent: root,
+      historical_anchor_message_id: root_turn.selected_input_message_id
+    )
+
+    checkpoint = Conversation.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      parent_conversation: branch,
+      kind: "checkpoint",
+      purpose: "interactive",
+      lifecycle_state: "active",
+      historical_anchor_message_id: root_turn.selected_input_message_id
+    )
+
+    assert checkpoint.valid?
+  end
+
   test "enforces automation conversations as root only" do
     context = create_workspace_context!
     automation_persisted_root = Conversations::CreateAutomationRoot.call(
