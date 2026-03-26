@@ -42,7 +42,9 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
     )
 
     automation_conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace]
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
     )
     automation_turn = Turns::StartAutomationTurn.call(
       conversation: automation_conversation,

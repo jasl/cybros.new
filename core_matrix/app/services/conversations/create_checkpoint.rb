@@ -18,6 +18,8 @@ module Conversations
         conversation = Conversation.create!(
           installation: @parent.installation,
           workspace: @parent.workspace,
+          execution_environment: @parent.execution_environment,
+          agent_deployment: @parent.agent_deployment,
           parent_conversation: @parent,
           kind: "checkpoint",
           purpose: @parent.purpose,
@@ -27,6 +29,7 @@ module Conversations
 
         create_closures_for!(conversation)
         create_canonical_store_reference_for!(conversation)
+        Conversations::RefreshRuntimeContract.call(conversation: conversation)
         conversation
       end
     end

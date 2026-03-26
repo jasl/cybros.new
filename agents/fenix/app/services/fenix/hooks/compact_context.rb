@@ -23,7 +23,7 @@ module Fenix
             preserved_head + [
               {
                 "role" => "system",
-                "content" => "Earlier context compacted for #{@likely_model || 'unknown-model'}.",
+                "content" => "Earlier context compacted for #{@likely_model || "unknown-model"}.",
               },
             ] + preserved_tail
           else

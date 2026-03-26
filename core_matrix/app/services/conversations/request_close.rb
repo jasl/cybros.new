@@ -100,8 +100,8 @@ module Conversations
           request_kind: request_kind,
           reason_kind: reason_kind,
           strictness: "graceful",
-          grace_deadline_at: @occurred_at + 30.seconds,
-          force_deadline_at: @occurred_at + 60.seconds
+          grace_deadline_at: close_deadline_anchor + 30.seconds,
+          force_deadline_at: close_deadline_anchor + 60.seconds
         )
       end
     end
@@ -153,6 +153,10 @@ module Conversations
 
     def tail_degraded?(summary)
       summary.dig(:tail, :degraded_close_count).positive?
+    end
+
+    def close_deadline_anchor
+      @close_deadline_anchor ||= [@occurred_at, Time.current].max
     end
 
     def raise_invalid!(record, attribute, message)

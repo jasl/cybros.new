@@ -2,8 +2,11 @@ require "test_helper"
 
 class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
   test "persists override payload and auto selector state" do
+    context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: create_workspace_context![:workspace]
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
     )
 
     updated = Conversations::UpdateOverride.call(
@@ -24,8 +27,11 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
   end
 
   test "persists an explicit candidate selector" do
+    context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: create_workspace_context![:workspace]
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
     )
 
     updated = Conversations::UpdateOverride.call(

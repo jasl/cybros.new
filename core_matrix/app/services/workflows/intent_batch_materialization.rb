@@ -61,7 +61,7 @@ module Workflows
             "conflict_scope" => intent["conflict_scope"],
             "payload" => intent.fetch("payload"),
             "idempotency_key" => intent["idempotency_key"],
-          }
+          },
         }
 
         Workflows::Mutate.call(
@@ -71,7 +71,7 @@ module Workflows
             {
               from_node_key: @yielding_node.node_key,
               to_node_key: intent.fetch("node_key"),
-            }
+            },
           ]
         )
 

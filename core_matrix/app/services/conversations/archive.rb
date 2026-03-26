@@ -33,6 +33,7 @@ module Conversations
     end
 
     private
+
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record

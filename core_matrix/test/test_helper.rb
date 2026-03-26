@@ -895,10 +895,23 @@ module ActiveSupport
       }.merge(context)
     end
 
-    def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
+    def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, execution_environment: nil, agent_deployment: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
+      agent_installation = workspace.user_agent_binding&.agent_installation
+      active_deployment = agent_installation&.agent_deployments&.order(created_at: :desc)&.first
+
+      agent_deployment ||= parent_conversation&.agent_deployment || active_deployment
+      execution_environment ||= parent_conversation&.execution_environment || agent_deployment&.execution_environment || create_execution_environment!(installation: installation)
+      agent_deployment ||= create_agent_deployment!(
+        installation: installation,
+        agent_installation: agent_installation || create_agent_installation!(installation: installation),
+        execution_environment: execution_environment
+      )
+
       Conversation.create!({
         installation: installation,
         workspace: workspace,
+        execution_environment: execution_environment,
+        agent_deployment: agent_deployment,
         parent_conversation: parent_conversation,
         kind: kind,
         purpose: purpose,
