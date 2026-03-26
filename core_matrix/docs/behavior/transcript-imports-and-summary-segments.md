@@ -21,6 +21,9 @@ state is removed.
   do not copy parent transcript rows into the branch conversation.
 - `branch_prefix` imports are branch-only and must match both the branch parent
   conversation and the branch anchor message.
+- branch-prefix anchors may point at:
+  - inherited transcript rows still visible in the parent lineage
+  - parent-local historical variants that remain durable branch points
 - `merge_summary` imports must reference a summary segment.
 - `quoted_context` imports may reference a summary segment or a projected source
   message.
@@ -61,6 +64,8 @@ state is removed.
 ## Fork-Point Protection
 
 - Messages used as historical anchors for child conversations are fork points.
+- input messages referenced as `source_input_message` by output-anchored child
+  conversations are fork points too.
 - Fork-point transcript rows cannot be hidden or excluded from context through
   visibility overlays in either the native conversation or any descendant
   projection that depends on the anchor.

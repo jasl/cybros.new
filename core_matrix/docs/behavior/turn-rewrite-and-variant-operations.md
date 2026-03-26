@@ -42,6 +42,8 @@ rollback, and output-variant selection.
   the matching selected input pointer for that output lineage.
 - branch rerun replays the target output's stored source-input content, not the
   turn's current selected input pointer.
+- retry, in-place rerun, and branch rerun all fail closed when the target
+  output is missing persisted source-input provenance.
 - Retry, in-place rerun, and output-variant selection all reject fork-point
   outputs because those operations would rewrite the active path after a child
   conversation already anchored to it.
@@ -65,6 +67,8 @@ rollback, and output-variant selection.
 - non-selected historical output reruns branch instead of mutating the current
   tail in place
 - fork-point messages remain stable once a child conversation depends on them
+- source inputs required by output-anchored descendants are fork-point messages
+  too
 - rollback and edit preserve old variants as inspectable history
 - old output variants stay durable history without being re-paired to a newer
   input variant
@@ -74,6 +78,7 @@ rollback, and output-variant selection.
 - editing a non-tail input without rollback or branch semantics is rejected
 - retrying a non-selected or completed output is rejected
 - rerunning a non-completed output is rejected
+- retry and rerun reject outputs with missing source-input provenance
 - selecting an output variant on a non-tail or non-completed turn is rejected
 
 ## Reference Sanity Check

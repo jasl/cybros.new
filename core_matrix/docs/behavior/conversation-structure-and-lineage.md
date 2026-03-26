@@ -54,8 +54,11 @@ may rotate or be switched within that bound environment.
 - child conversations inherit the parent's execution environment binding
 - automation conversations remain root-only
 - branch, checkpoint, and optional thread anchors are validated against the
-  parent conversation's durable transcript history, not just the parent's
-  currently selected projection
+  parent conversation's durable transcript history
+- that durable history consists of:
+  - inherited transcript rows still visible through parent lineage replay
+  - parent-local historical transcript rows, including non-selected variants on
+    the parent's own turns
 
 ## Closure And Transcript Lineage
 
@@ -68,6 +71,8 @@ may rotate or be switched within that bound environment.
   anchor does not belong to the parent conversation
 - output anchors rely on persisted `source_input_message` provenance so replay
   can restore the matching input/output pair inside the child transcript
+- local historical output anchors replay from the stored source-input lineage
+  pair even when the parent currently selects a newer variant on the same turn
 - descendants therefore depend on deleted ancestors remaining as tombstone
   shells until lineage blockers disappear
 

@@ -59,21 +59,6 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
   test "manual retry can move paused work onto a rotated external fenix deployment" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    actor = create_user!(installation: context[:installation], role: "admin")
-    rotated = register_runtime!(
-      installation: context[:installation],
-      actor: actor,
-      agent_installation: context[:agent_installation],
-      sdk_version: "fenix-0.2.0",
-      base_url: "https://fenix-v2.example.test"
-    )
-    AgentDeployments::RecordHeartbeat.call(
-      deployment: rotated[:deployment],
-      health_status: "healthy",
-      health_metadata: { "release" => "fenix-0.2.0" },
-      auto_resume_eligible: true
-    )
-
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -92,6 +77,21 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
       root_node_type: "turn_root",
       decision_source: "system",
       metadata: {}
+    )
+    actor = create_user!(installation: context[:installation], role: "admin")
+    rotated = register_runtime!(
+      installation: context[:installation],
+      actor: actor,
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
+      sdk_version: "fenix-0.2.0",
+      base_url: "https://fenix-v2.example.test"
+    )
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: rotated[:deployment],
+      health_status: "healthy",
+      health_metadata: { "release" => "fenix-0.2.0" },
+      auto_resume_eligible: true
     )
     AgentDeployments::MarkUnavailable.call(
       deployment: context[:agent_deployment],
@@ -114,12 +114,13 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
   private
 
-  def register_runtime!(installation:, actor:, agent_installation:, sdk_version:, base_url:)
+  def register_runtime!(installation:, actor:, agent_installation:, sdk_version:, base_url:, execution_environment: nil)
     register_agent_runtime!(
       installation: installation,
       actor: actor,
       agent_installation: agent_installation,
-      environment_fingerprint: "fenix-host-a",
+      execution_environment: execution_environment,
+      environment_fingerprint: execution_environment&.environment_fingerprint || "fenix-host-a",
       sdk_version: sdk_version,
       fingerprint: "fenix-release-#{sdk_version}",
       endpoint_metadata: {
