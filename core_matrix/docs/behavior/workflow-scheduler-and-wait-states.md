@@ -19,6 +19,10 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `waiting_since_at`
   - `blocking_resource_type`
   - `blocking_resource_id`
+- `blocking_resource_id` stores durable external-style identifiers only:
+  - `AgentDeployment.public_id` for `agent_unavailable`
+  - blocker `public_id` values for `human_interaction`, `retryable_failure`,
+    and `policy_gate`
 - `WorkflowRun` also persists workflow-yield continuation hints through:
   - `resume_policy`
   - `resume_metadata`
@@ -67,10 +71,18 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 
 - `AgentDeployments::MarkUnavailable` moves active workflows into a waiting
   state when the pinned deployment becomes unavailable
+- `agent_unavailable` stores:
+  - `blocking_resource_type = "AgentDeployment"`
+  - `blocking_resource_id = <deployment public_id>`
 - if a workflow was already waiting on another blocker, outage pause snapshots
   that original blocker and restores it after recovery instead of erasing it
 - `AgentDeployments::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
+- compatible rotated replacements may auto resume only when they preserve the
+  conversation-bound execution environment and capability contract
+- auto-resume rebinding now updates both `conversation.agent_deployment` and
+  `turn.agent_deployment` through the same shared deployment-target contract
+  used by manual recovery
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
   boundaries for paused workflows and are rejected once deletion has been
   requested

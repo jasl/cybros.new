@@ -13,7 +13,7 @@ module AgentDeployments
         ),
         waiting_since_at: occurred_at,
         blocking_resource_type: "AgentDeployment",
-        blocking_resource_id: deployment.id.to_s,
+        blocking_resource_id: deployment.public_id,
       }
     end
 

@@ -15,7 +15,7 @@ class AgentDeployments::MarkUnavailableTest < ActiveSupport::TestCase
     assert workflow_run.waiting?
     assert_equal "agent_unavailable", workflow_run.wait_reason_kind
     assert_equal "transient_outage", workflow_run.wait_reason_payload["recovery_state"]
-    assert_equal context[:agent_deployment].id.to_s, workflow_run.blocking_resource_id
+    assert_equal context[:agent_deployment].public_id, workflow_run.blocking_resource_id
     assert_equal "AgentDeployment", workflow_run.blocking_resource_type
     assert_equal context[:agent_deployment].fingerprint, workflow_run.wait_reason_payload["pinned_deployment_fingerprint"]
     assert_equal context[:capability_snapshot].version, workflow_run.wait_reason_payload["pinned_capability_version"]

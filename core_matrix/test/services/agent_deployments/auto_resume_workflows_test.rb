@@ -3,6 +3,7 @@ require "test_helper"
 class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
   test "automatically resumes waiting workflows when runtime identity did not drift" do
     context = build_waiting_recovery_context!
+    assert_equal context[:agent_deployment].public_id, context[:workflow_run].reload.blocking_resource_id
 
     AgentDeployments::RecordHeartbeat.call(
       deployment: context[:agent_deployment],
@@ -71,7 +72,8 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     context = build_waiting_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation]
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
     )
 
     AgentDeployments::RecordHeartbeat.call(
@@ -84,9 +86,33 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: replacement)
 
     assert_equal [context[:workflow_run].id], resumed.map(&:id)
+    assert_equal replacement, context[:conversation].reload.agent_deployment
     assert_equal replacement, context[:turn].reload.agent_deployment
     assert_equal replacement.fingerprint, context[:turn].pinned_deployment_fingerprint
     assert context[:workflow_run].reload.ready?
+  end
+
+  test "cross environment rotated deployments require manual recovery instead of auto resume" do
+    context = build_waiting_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation]
+    )
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: replacement,
+      health_status: "healthy",
+      health_metadata: { "release" => "fenix-0.2.0" },
+      auto_resume_eligible: true
+    )
+
+    resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: replacement)
+
+    assert_equal [], resumed
+    assert_equal context[:agent_deployment], context[:conversation].reload.agent_deployment
+    assert_equal context[:agent_deployment], context[:turn].reload.agent_deployment
+    assert_equal "manual_recovery_required", context[:workflow_run].reload.wait_reason_kind
+    assert_equal "execution_environment_drift", context[:workflow_run].wait_reason_payload["drift_reason"]
   end
 
   test "restores the original human-interaction blocker after auto resume" do
@@ -194,12 +220,15 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     context.merge(request: request, workflow_run: context[:workflow_run].reload)
   end
 
-  def create_compatible_replacement_deployment!(installation:, agent_installation:)
-    environment = create_execution_environment!(installation: installation)
+  def create_compatible_replacement_deployment!(
+    installation:,
+    agent_installation:,
+    execution_environment: create_execution_environment!(installation: installation)
+  )
     deployment = create_agent_deployment!(
       installation: installation,
       agent_installation: agent_installation,
-      execution_environment: environment,
+      execution_environment: execution_environment,
       fingerprint: "replacement-#{next_test_sequence}",
       health_status: "offline",
       bootstrap_state: "pending",

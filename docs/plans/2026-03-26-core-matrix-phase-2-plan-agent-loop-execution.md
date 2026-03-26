@@ -98,11 +98,12 @@ Milestone C follow-up task set is complete and re-verified.
 - `Task C4`: [2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md)
 - `Task C5`: [2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md)
 - `Task C2 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md)
+- `Task C6 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md)
 
 ## Later Phase 2 Milestones
 
-Later Phase 2 breadth should continue only after Milestone C plus its runtime
-boundary follow-up are stable.
+Later Phase 2 breadth should continue only after Milestone C plus its active
+runtime-boundary and hardening follow-ups are stable.
 
 ### Milestone D: Kernel Runtime Breadth
 

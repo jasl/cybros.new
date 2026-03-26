@@ -84,28 +84,12 @@ module AgentDeployments
       )
     end
 
-    def drift_reason_for(turn)
-      if rotated_replacement_for?(turn)
-        return "capability_contract_drift" unless @deployment.preserves_capability_contract?(turn)
-        return "selector_resolution_drift" if resolve_rotated_model_selection_snapshot(turn).blank?
-        return "auto_resume_not_permitted" unless @deployment.auto_resume_eligible?
-
-        return "deployment_rotation_drift"
-      end
-
-      return "fingerprint_drift" if @deployment.fingerprint != turn.pinned_deployment_fingerprint
-      return "capability_snapshot_version_drift" if @deployment.capability_snapshot_version != turn.pinned_capability_snapshot_version
-      return "auto_resume_not_permitted" unless @deployment.auto_resume_eligible?
-
-      "runtime_drift"
-    end
-
     def resumable_deployment_state?
       @deployment.healthy? && @deployment.active_capability_snapshot.present?
     end
 
     def compatible_rotated_replacement?(turn)
-      rotated_replacement_for?(turn) && @deployment.preserves_capability_contract?(turn)
+      rotated_replacement_for?(turn) && auto_resume_target_valid?(turn)
     end
 
     def rotated_replacement_for?(turn)
@@ -136,12 +120,57 @@ module AgentDeployments
     end
 
     def rebind_turn!(turn, resume_plan)
-      turn.update!(
+      Conversations::ValidateAgentDeploymentTarget.call(
+        conversation: turn.conversation,
         agent_deployment: @deployment,
-        pinned_deployment_fingerprint: @deployment.fingerprint,
+        record: turn,
+        same_logical_agent_as: turn.agent_deployment,
+        capability_contract_turn: turn
+      )
+      Conversations::SwitchAgentDeployment.call(
+        conversation: turn.conversation,
+        agent_deployment: @deployment
+      )
+      turn.update!(
+        agent_deployment: turn.conversation.agent_deployment,
+        pinned_deployment_fingerprint: turn.conversation.agent_deployment.fingerprint,
         resolved_model_selection_snapshot: resume_plan.fetch(:resolved_model_selection_snapshot)
       )
       turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: turn))
+    end
+
+    def auto_resume_target_valid?(turn)
+      Conversations::ValidateAgentDeploymentTarget.call(
+        conversation: turn.conversation,
+        agent_deployment: @deployment,
+        record: turn.dup,
+        same_logical_agent_as: turn.agent_deployment,
+        capability_contract_turn: turn
+      )
+      true
+    rescue ActiveRecord::RecordInvalid
+      false
+    end
+
+    def same_execution_environment?(turn)
+      turn.conversation.execution_environment_id == @deployment.execution_environment_id
+    end
+
+    def drift_reason_for(turn)
+      if rotated_replacement_for?(turn)
+        return "execution_environment_drift" unless same_execution_environment?(turn)
+        return "capability_contract_drift" unless @deployment.preserves_capability_contract?(turn)
+        return "selector_resolution_drift" if resolve_rotated_model_selection_snapshot(turn).blank?
+        return "auto_resume_not_permitted" unless @deployment.auto_resume_eligible?
+
+        return "deployment_rotation_drift"
+      end
+
+      return "fingerprint_drift" if @deployment.fingerprint != turn.pinned_deployment_fingerprint
+      return "capability_snapshot_version_drift" if @deployment.capability_snapshot_version != turn.pinned_capability_snapshot_version
+      return "auto_resume_not_permitted" unless @deployment.auto_resume_eligible?
+
+      "runtime_drift"
     end
   end
 end

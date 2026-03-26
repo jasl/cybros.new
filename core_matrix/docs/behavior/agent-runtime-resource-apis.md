@@ -206,6 +206,9 @@ orchestration are still defined in:
 - payload fields such as `workspace_id`, `conversation_id`, `turn_id`,
   `workflow_run_id`, `workflow_node_id`, `agent_task_run_id`, and
   `resource_id` carry `public_id` values
+- workflow wait blockers also use durable identifiers:
+  - `WorkflowRun.blocking_resource_id` stores `public_id` values, including
+    `AgentDeployment.public_id` for `agent_unavailable`
 - raw internal bigint ids are never accepted as fallback resource lookups
 - capability snapshots still expose `protocol_methods` separately from
   `tool_catalog`

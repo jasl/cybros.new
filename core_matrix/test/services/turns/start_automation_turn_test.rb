@@ -32,6 +32,38 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     assert_nil turn.selected_output_message
   end
 
+  test "uses the conversation bound deployment instead of an arbitrary caller supplied deployment" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    alternate_deployment = create_agent_deployment!(
+      installation: context[:installation],
+      agent_installation: create_agent_installation!(installation: context[:installation]),
+      execution_environment: context[:execution_environment],
+      fingerprint: "alternate-#{next_test_sequence}",
+      bootstrap_state: "pending"
+    )
+
+    turn = Turns::StartAutomationTurn.call(
+      conversation: conversation,
+      origin_kind: "automation_schedule",
+      origin_payload: { "cron" => "0 9 * * *" },
+      source_ref_type: "AutomationSchedule",
+      source_ref_id: "schedule-2",
+      idempotency_key: "idemp-2",
+      external_event_key: "evt-2",
+      agent_deployment: alternate_deployment,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_equal conversation.agent_deployment, turn.agent_deployment
+    assert_equal conversation.agent_deployment.fingerprint, turn.pinned_deployment_fingerprint
+  end
+
   test "rejects pending delete automation conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(

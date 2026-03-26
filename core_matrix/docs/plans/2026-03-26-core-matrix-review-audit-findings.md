@@ -2,6 +2,9 @@
 
 ## Scope
 
+- Refresh date: `2026-03-27`
+- Refresh baseline: post-fix state after `fix: harden turn interrupt fences`
+  (`7b3f7b6`)
 - In scope: Ruby code under `app/`, `lib/`, `config/`, `db/`, and `test/`
 - Out of scope: frontend work, compiled assets, and non-Ruby code
 - Review goals:
@@ -14,174 +17,168 @@
   - reverse pass: cross-cutting rules and tests
   - no category is considered complete until it has been checked from both
     directions
-- Pre-screen targets from the global scan:
+- Pre-screen targets from the refreshed global scan:
   - large production files:
     - `app/services/agent_control/report.rb`
-    - `app/controllers/mock_llm/v1/chat_completions_controller.rb`
     - `app/models/conversation.rb`
-    - `app/services/provider_catalog/validate.rb`
     - `app/services/provider_execution/execute_turn_step.rb`
     - `app/services/workflows/context_assembler.rb`
     - `app/services/installations/register_bundled_agent_runtime.rb`
   - high-yield namespaces by volume or signal density:
     - `app/services/conversations`
     - `app/services/workflows`
+    - `app/services/turns`
+    - `app/services/agent_deployments`
     - `app/services/agent_control`
-    - `app/services/provider_execution`
-    - `app/services/provider_catalog`
   - targeted follow-up areas:
-    - boundary and identifier handling around agent-facing controllers and
-      provider execution
-    - workflow lifecycle and manual recovery flows
-    - conversation model and related conversation services
-    - seed/bootstrap paths that may keep transitional runtime logic alive
+    - recovery paths that rebind or restart workflow execution
+    - turn-entry services that accept `agent_deployment`
+    - wait-state blocker identifier semantics
+    - turn-history rewrite helpers that can mutate terminal turns
 
 ## Findings
 
+Execution follow-up note:
+
+- later implementation work on this refresh also surfaced two sibling paths
+  that fit the same runtime-binding defect family:
+  - `AgentDeployments::AutoResumeWorkflows`
+  - `Turns::StartAutomationTurn`
+- they were folded into the same hardening batch rather than treated as
+  separate later cleanup
 ### Must Fix
 
-1. `Conversations::PurgeDeleted` omits the phase-two agent-control tables from
-   its manual delete chain.
-   - Why it matters: the purge path deletes `workflow_runs` and `turns`
-     manually, but it does not delete `agent_task_runs`,
-     `agent_control_mailbox_items`, or `agent_control_report_receipts` first.
-     Because those rows have foreign keys back to `workflow_runs` and
-     `agent_task_runs`, a deleted conversation that ever used agent-control work
-     can become unpurgeable or fail with foreign-key violations.
+1. `Workflows::ManualRetry` can rebind a paused workflow to a deployment
+   outside the conversation's bound execution environment, and the current test
+   suite codifies that drift as valid.
+   - Why it matters: the retry path can create a new turn and workflow whose
+     execution identity pairs
+     `conversation.execution_environment.public_id` with an unrelated
+     `turn.agent_deployment.public_id`, while the conversation-level runtime
+     contract still remains bound to the original deployment. That breaks the
+     runtime-binding contract and can route recovered work through the wrong
+     environment boundary.
    - Evidence:
-     - `app/services/conversations/purge_deleted.rb:84-123`
-     - `app/services/conversations/work_quiescence_guard.rb:5-19`
-     - `app/services/conversations/finalize_deletion.rb:26-29`
-     - `app/models/agent_task_run.rb:25-31`
-     - `app/models/agent_control_mailbox_item.rb:31-37`
-     - `db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb:3-40`
-     - `db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb:72-86`
-     - `app/services/conversations/request_turn_interrupt.rb:75-86`
-     - `test/services/conversations/purge_deleted_test.rb:198-325`
-   - Reasoning basis: queued agent tasks are canceled during interrupt flows but
-     retained as rows, and the purge tests do not cover any conversation that
-     owns `AgentTaskRun` or related mailbox/receipt rows. The current purge list
-     therefore predates the phase-two agent-control schema.
-   - Recommended action: extend purge cleanup to delete
-     `agent_control_report_receipts`, `agent_control_mailbox_items`, and
-     `agent_task_runs` in the correct dependency order, then add a purge test
-     that exercises a conversation with agent-control task state.
+     - `app/services/workflows/manual_retry.rb:16-43`
+     - `app/services/workflows/manual_retry.rb:70-73`
+     - `app/services/turns/start_user_turn.rb:17-50`
+     - `app/services/turns/queue_follow_up.rb:17-54`
+     - `app/models/turn.rb:29-49`
+     - `app/services/workflows/context_assembler.rb:37-45`
+     - `app/services/conversations/switch_agent_deployment.rb:14-38`
+     - `test/services/conversations/switch_agent_deployment_test.rb:28-52`
+     - `test/integration/agent_recovery_flow_test.rb:51-60`
+     - `test/integration/agent_recovery_flow_test.rb:76-99`
+   - Reasoning basis: `ManualRetry` validates only installation membership,
+     scheduling eligibility, and input presence, then passes the replacement
+     deployment straight into `Turns::StartUserTurn`. `Turn` only validates
+     installation matching, not execution-environment binding. `ContextAssembler`
+     then serializes the conversation's environment and the turn's deployment
+     side by side. The current integration recovery test explicitly builds the
+     replacement deployment in a fresh execution environment and expects the
+     retry to succeed, while `SwitchAgentDeployment` rejects the same
+     cross-environment move.
+   - Recommended action: make manual retry enforce the same environment guard as
+     `Conversations::SwitchAgentDeployment`, decide whether retry must also move
+     the conversation's active deployment to the replacement target, and add
+     negative tests for cross-environment retry targets in
+     `manual_retry_test.rb` and `agent_recovery_flow_test.rb`.
 
 ## Suggestions
 
-1. `AgentControl::Report` has drifted into a large multi-role service.
+1. `WorkflowRun#blocking_resource_id` is still semantically inconsistent across
+   wait-state producers.
    - Evidence:
-     - `app/services/agent_control/report.rb:26-365`
-   - Why it matters: one class now owns idempotency receipts, mailbox
-     validation, lease handling, execution status transitions, resource-close
-     transitions, retry-gate updates, and close-operation reconciliation. That
-     makes local changes hard to reason about and increases the chance of
-     cross-path regressions.
-   - Suggested action: split report handling by method family or resource type,
-     leaving this class as orchestration only.
-
-2. `Conversation` is carrying multiple abstractions that do not sit naturally in
-   one Active Record model.
-   - Evidence:
-     - `app/models/conversation.rb:88-140`
-     - `app/models/conversation.rb:144-210`
-     - `app/models/conversation.rb:213-306`
-   - Why it matters: projection assembly, lineage traversal, runtime-contract
-     access, deletion-state validation, and provider-catalog validation all live
-     in one model, including a `send` call to recurse into another instance's
-     private method. This is valid Ruby, but it is not a clean domain boundary.
-   - Suggested action: extract projection/query behavior and selector validation
-     into dedicated collaborators, leaving the model to own invariants and
-     lightweight domain predicates.
-
-3. `MockLLM::V1::ChatCompletionsController` is controller-heavy even for a mock
-   endpoint.
-   - Evidence:
-     - `app/controllers/mock_llm/v1/chat_completions_controller.rb:8-338`
-   - Why it matters: request validation, directive parsing, token estimation,
-     streaming protocol formatting, environment clamping, and response-building
-     all live in the controller. The namespace is intentionally mock-only, so
-     this is not a product-correctness defect, but it is clearly outside normal
-     Rails controller responsibilities.
-   - Suggested action: extract parser and response-builder objects so the
-     controller only coordinates request/response flow.
-
-4. `WorkflowRun#blocking_resource_id` no longer has consistent semantics across
-   callers.
-   - Evidence:
-     - `app/services/agent_deployments/mark_unavailable.rb:52-60`
-     - `app/services/workflows/step_retry.rb:76`
-     - `app/services/agent_control/report.rb:279-289`
+     - `app/services/agent_deployments/unavailable_pause_state.rb:5-17`
      - `test/services/agent_deployments/mark_unavailable_test.rb:14-21`
-   - Why it matters: most flows write a resource `public_id` into
-     `blocking_resource_id`, but the agent-unavailable path stores
-     `AgentDeployment#id.to_s`. That inconsistency is a trap for future generic
-     lookup or serialization code, especially in a codebase with an explicit
-     `public_id` boundary policy.
-   - Suggested action: normalize `blocking_resource_id` to durable external
-     identifiers whenever it references a resource with `public_id`, and adjust
-     tests to enforce the stable contract.
+     - `app/services/human_interactions/request.rb:67-74`
+     - `app/services/agent_control/report.rb:279-290`
+     - `app/services/workflows/scheduler.rb:97-104`
+   - Why it matters: agent-unavailable pauses still write an internal
+     `AgentDeployment.id`, while human-interaction, retryable-failure, and
+     policy-gate waits use `public_id`. That inconsistency makes generic
+     wait-state handling harder and risks future identifier leaks if any
+     external or agent-facing read path serializes this field without special
+     cases.
+   - Suggested action: normalize the agent-unavailable path to
+     `AgentDeployment.public_id`, or explicitly split the field contract so raw
+     internal ids are never mixed with externally shaped blocker references.
+
+2. Turn-history rewrite helpers can reactivate turns without checking retention,
+   archive/delete state, or close fences.
+   - Evidence:
+     - `app/services/turns/retry_output.rb:12-35`
+     - `app/services/turns/rerun_output.rb:12-78`
+     - `test/services/turns/retry_output_test.rb:4-29`
+     - `test/services/turns/rerun_output_test.rb:4-64`
+   - Why it matters: `RetryOutput` and in-place `RerunOutput` both create new
+     transcript messages and move a turn back to `active`, but they do not
+     re-check conversation retention, archive/delete lifecycle, or
+     `turn_interrupted` fences. They are only covered by happy-path tests today,
+     so the services could resurrect superseded turns if they are wired into a
+     product surface later.
+   - Suggested action: add the same retained/active/closing guards used by
+     turn-entry services, and add negative tests for archived, pending-delete,
+     and interrupted turns before these helpers are exposed more broadly.
 
 ## Watch List
 
-1. The manual purge path is maintenance-heavy by design.
-   - Even after the current missing tables are fixed, `Conversations::PurgeDeleted`
-     will remain fragile because every new dependent table must be added to an
-     explicit delete list. This should be monitored whenever schema changes land
-     in workflow, agent-control, or conversation-related models.
+1. `AgentControl::Report` remains a large multi-role orchestrator.
+   - `app/services/agent_control/report.rb` still owns mailbox validation,
+     receipt idempotency, execution state transitions, retry-gate updates,
+     resource-close transitions, lease handling, and close-operation
+     reconciliation.
 
-2. Provider execution is still only indirectly tested.
-   - `ProviderExecution::ExecuteTurnStep` currently gets exercised through
-     `Workflows::ExecuteRun`, which is enough for happy/failure paths but weak
-     for state-machine edge cases and repeat-execution guards.
+2. `Conversation` is still carrying multiple abstractions in one Active Record
+   model.
+   - `app/models/conversation.rb` still mixes projection assembly, lineage
+     traversal, runtime-contract access, deletion-state validation, and
+     interactive selector rules.
 
 ## Cross-check Summary
 
 - Global signal scan notes:
-  - explicit debug leftovers were scarce; the only obvious `puts` calls are in
-    `db/seeds.rb`, which may be intentional operational output rather than a
-    cleanup defect
-  - model callback density is low and mostly `before_validation`, so callback
-    overuse does not currently look like the first-order risk
-  - rescue-heavy code clusters around provider execution, workflow mutation, and
-    mock LLM handling, so those paths need closer inspection for swallowed or
-    downgraded failures
-  - the largest production files line up with the largest service namespaces,
-    which raises the likelihood of mixed responsibilities or incomplete cleanup
+  - the previous purge-chain omission now appears fixed in
+    `Conversations::PurgePlan`, and `purge_deleted_test.rb` now exercises
+    phase-two agent-control residue explicitly
+  - the recent interrupt/provider fence fixes are present in code and no longer
+    stand out as unresolved scan targets
+  - the strongest new signal comes from recovery and turn-entry paths because
+    `ManualRetry` validates materially less than `ManualResume`, and the
+    integration recovery test currently accepts a replacement deployment from a
+    fresh execution environment
+  - wait-state blocker identifiers still diverge between agent-unavailable and
+    the other blocker families
 - Reverse-pass confirmations:
-  - the purge-chain omission is confirmed by cross-reading the phase-two schema,
-    the `AgentTaskRun`/mailbox associations, and the purge tests; the tests do
-    not currently exercise a deleted conversation that owns agent-control task
-    state
-  - a candidate `ExecuteTurnStep` terminal-state issue was investigated and
-    downgraded because the current workflow-node event writers do not establish
-    `interrupted` as a confirmed node-event terminal state
-  - the agent-facing HTTP controllers reviewed in `app/controllers/agent_api`
-    consistently resolve lookups by `public_id` and serialize durable
-    identifiers back out as `public_id`, so no confirmed external boundary leak
-    was found in those controllers during this pass
-  - the `lib/`, `config/`, and `db/` Ruby sweep did not uncover additional
-    leftover development branches beyond intentional seed logging and the
-    already-noted phase-two purge omission
+  - `bin/rails test test/services/workflows/manual_retry_test.rb test/integration/agent_recovery_flow_test.rb test/services/turns/start_user_turn_test.rb test/services/turns/queue_follow_up_test.rb`
+    currently passes as
+    `11 runs, 61 assertions, 0 failures, 0 errors, 0 skips`, confirming that no
+    cross-environment rejection exists today
+  - `SwitchAgentDeployment` explicitly rejects cross-environment deployment
+    moves, which makes `ManualRetry` accepting them a contract inconsistency,
+    not a shared product rule
+  - the turn-history rewrite tests cover only happy paths and do not challenge
+    retained/archived/deleted/interrupted state
 
 ## Completeness Check
 
 - Goal coverage:
-  - leftover-code review completed
-  - Ruby and Rails philosophy review completed
-  - potential-risk review completed
+  - leftover-code review refreshed
+  - Ruby and Rails philosophy review refreshed
+  - potential-risk review refreshed
 - Scope coverage:
-  - reviewed `app/`, `config/`, `db/`, and `test/` Ruby code
-  - `lib/` contains no review-significant Ruby implementation in the current
-    project state
+  - re-reviewed the highest-yield service areas under `app/services/turns`,
+    `app/services/workflows`, `app/services/agent_deployments`,
+    `app/services/conversations`, and `app/services/agent_control`
+  - spot-checked the current larger model target in `app/models/conversation.rb`
 - Double-check coverage:
-  - findings were first identified from code and structure
-  - findings were then re-checked against schema, tests, or sibling-call-site
-    behavior
+  - findings were identified from code and contract drift first
+  - findings were then checked against existing tests, sibling services, and
+    contrasting guard paths
 - Artifact completeness:
-  - all current conclusions are written in this document
-  - each must-fix finding includes evidence and a recommended action
-  - non-blocking issues are separated into `Suggestions` and `Watch List`
+  - the current evidence-backed conclusions are written in this document
+  - blocking defects are separated from suggestions and watch-list items
 - Residual limitations:
-  - no full automated test suite was run as part of this review
-  - no manual runtime validation was performed in `bin/dev`
+  - this refresh used targeted Rails test suites, not the full project test
+    suite
+  - no `bin/dev` or live-runtime manual validation was performed in this round

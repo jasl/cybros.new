@@ -41,6 +41,11 @@ end-to-end stack.
 - [2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md)
 
+### Task C6 Follow-Up
+
+- [2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md)
+- [2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
@@ -55,6 +60,8 @@ end-to-end stack.
   lifecycle state machine
 - close progression uses one explicit conversation-scoped reconciler rather
   than scattered lifecycle writers
+- deployment rebinding, new turn entry, and turn-history rewrite all reuse one
+  explicit runtime-binding and rewrite-safety contract
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources
