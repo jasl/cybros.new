@@ -73,6 +73,7 @@ runtime resources that later tasks now build on are:
 
 - `ProcessRun` is now a first-class runtime resource instead of an opaque tool
   side effect.
+- `ProcessRun` is `ExecutionEnvironment`-owned, not `AgentDeployment`-owned.
 - Every process run belongs to:
   - one installation
   - one workflow node
@@ -103,6 +104,11 @@ runtime resources that later tasks now build on are:
   - `close_acknowledged_at`
   - `close_outcome_kind`
   - `close_outcome_payload`
+- mailbox close for `ProcessRun` now rides the `environment` runtime plane:
+  - mailbox `target_ref` is the owning `ExecutionEnvironment.public_id`
+  - delivery may still go to the currently active deployment attached to that
+    environment
+  - deployment rotation does not change process ownership
 
 ## Agent Task Runs
 
@@ -155,6 +161,8 @@ runtime resources that later tasks now build on are:
   turn as the process run.
 - `AgentTaskRun.agent_installation_id` must match the turn deployment logical
   agent installation.
+- `ExecutionLease.holder_key` is only a routing and heartbeat hint for the
+  current runtime endpoint; it does not redefine the owner of a process run.
 - `started_at` is defaulted during validation for new records so model-level
   validation and service-created rows share the same timestamp baseline.
 - non-running process states require `ended_at`; running process states must not

@@ -28,6 +28,19 @@ class ExecutionLease < ApplicationRecord
     last_heartbeat_at < at - heartbeat_timeout_seconds.seconds
   end
 
+  def holder_deployment
+    return if holder_key.blank?
+
+    @holder_deployment ||= AgentDeployment.find_by(
+      installation_id: installation_id,
+      public_id: holder_key
+    )
+  end
+
+  def holder_execution_environment
+    holder_deployment&.execution_environment
+  end
+
   private
 
   def metadata_must_be_hash

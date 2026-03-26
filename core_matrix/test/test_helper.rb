@@ -1035,7 +1035,11 @@ module ActiveSupport
         user: runtime_user,
         user_agent_binding: user_agent_binding
       )
-      conversation = Conversations::CreateRoot.call(workspace: workspace)
+      conversation = Conversations::CreateRoot.call(
+        workspace: workspace,
+        execution_environment: execution_environment,
+        agent_deployment: registration[:deployment]
+      )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Agent control input",
@@ -1083,6 +1087,37 @@ module ActiveSupport
         workflow_run: workflow_run.reload,
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
       }
+    end
+
+    def build_rotated_runtime_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {})
+      context = build_agent_control_context!(
+        workflow_node_key: workflow_node_key,
+        workflow_node_type: workflow_node_type,
+        workflow_node_metadata: workflow_node_metadata
+      )
+      previous_deployment = context.fetch(:deployment)
+      replacement = register_agent_runtime!(
+        installation: context.fetch(:installation),
+        actor: context.fetch(:actor),
+        agent_installation: context.fetch(:agent_installation),
+        execution_environment: context.fetch(:execution_environment),
+        environment_fingerprint: context.fetch(:execution_environment).environment_fingerprint,
+        reuse_enrollment: true
+      )
+
+      previous_deployment.update!(bootstrap_state: "superseded")
+      replacement.fetch(:deployment).update!(
+        bootstrap_state: "active",
+        health_status: "healthy",
+        last_heartbeat_at: Time.current
+      )
+
+      context.merge(
+        previous_deployment: previous_deployment,
+        replacement_registration: replacement,
+        replacement_deployment: replacement.fetch(:deployment),
+        replacement_machine_credential: replacement.fetch(:machine_credential)
+      )
     end
 
     def capture_sql_queries

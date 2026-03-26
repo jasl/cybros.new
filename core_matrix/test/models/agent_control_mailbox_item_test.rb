@@ -61,4 +61,31 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_not mailbox_item.valid?
     assert_includes mailbox_item.errors[:target_agent_deployment], "must belong to the targeted agent installation"
   end
+
+  test "environment-plane close work keeps the execution environment as the durable target reference" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    mailbox_item = AgentControl::CreateResourceCloseRequest.call(
+      resource: process_run,
+      request_kind: "turn_interrupt",
+      reason_kind: "turn_interrupted",
+      strictness: "graceful",
+      grace_deadline_at: 30.seconds.from_now,
+      force_deadline_at: 60.seconds.from_now
+    )
+
+    assert_equal "environment", mailbox_item.payload.fetch("runtime_plane")
+    assert_equal context[:execution_environment].public_id, mailbox_item.payload.fetch("execution_environment_id")
+    assert_equal context[:execution_environment].public_id, mailbox_item.target_ref
+  end
 end

@@ -120,6 +120,9 @@ or recovery-time policy decisions. It establishes:
 - lease acquire rejects a fresh competing active lease
 - heartbeat and release reject holder mismatch
 - stale heartbeat does not silently restore a timed-out lease
+- `holder_key` is a delivery or heartbeat hint for the currently accepted
+  runtime endpoint; it is not the durable owner identity for
+  `ExecutionEnvironment`-owned resources such as `ProcessRun`
 
 ## Rails Findings
 

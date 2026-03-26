@@ -33,8 +33,12 @@ Planned replacement design:
 
 ### ExecutionEnvironment
 
-- `ExecutionEnvironment` models the runtime target for deployments.
+- `ExecutionEnvironment` is the stable runtime-resource owner aggregate.
+- It is the durable owner for environment-backed resources such as
+  `ProcessRun` and future shell or file sessions.
 - Kind is `local`, `container`, or `remote`.
+- Stable reconciliation identity is `environment_fingerprint`, scoped to one
+  installation.
 - Connection details live in `connection_metadata`.
 - Lifecycle state tracks whether the environment is still available for new
   deployments.
@@ -47,7 +51,8 @@ Planned replacement design:
 
 ### AgentDeployment
 
-- `AgentDeployment` is the concrete runtime row for one `AgentInstallation`.
+- `AgentDeployment` is the concrete, rotatable Agent Program layer attached to
+  one `ExecutionEnvironment`.
 - Machine credentials are stored as digests, not plaintext bearer secrets.
 - Bootstrap state starts at `pending` and moves to `active` on the first
   healthy heartbeat.
@@ -107,10 +112,16 @@ Planned replacement design:
 - release change is represented as registering a new deployment, waiting for a
   healthy heartbeat, and then cutting future work over to the newly active row
 - both upgrade and downgrade use the same rotation contract
+- deployment rotation reuses the same `ExecutionEnvironment` when
+  `environment_fingerprint` is unchanged
+- mailbox control may keep using the active deployment as the delivery
+  endpoint, but owner identity remains the execution environment
 
 ## Invariants
 
 - `AgentInstallation` and `AgentDeployment` remain separate aggregates.
+- `ExecutionEnvironment` remains stable across deployment rotation for the same
+  runtime carrier.
 - Cross-installation references are rejected for owners, enrollments, and
   deployments.
 - Active deployment uniqueness is scoped to `agent_installation_id`, not the

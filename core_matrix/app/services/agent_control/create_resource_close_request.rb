@@ -18,7 +18,7 @@ module AgentControl
     end
 
     def call
-      target_deployment = current_holder_deployment
+      target_deployment = delivery_endpoint
       target_agent_installation = target_deployment&.agent_installation || owning_agent_installation
 
       @resource.update!(
@@ -36,7 +36,7 @@ module AgentControl
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
         target_kind: target_deployment.present? ? "agent_deployment" : "agent_installation",
-        target_ref: target_deployment&.public_id || target_agent_installation.public_id,
+        target_ref: durable_target_ref(target_agent_installation:, target_deployment:),
         logical_work_id: agent_task_run&.logical_work_id || "close:#{@resource.class.name}:#{@resource.public_id}",
         attempt_no: agent_task_run&.attempt_no || 1,
         message_id: @message_id,
@@ -47,6 +47,8 @@ module AgentControl
         dispatch_deadline_at: @force_deadline_at,
         lease_timeout_seconds: 30,
         payload: {
+          "runtime_plane" => runtime_plane,
+          "execution_environment_id" => resource_execution_environment&.public_id,
           "resource_type" => @resource.class.name,
           "resource_id" => @resource.public_id,
           "agent_task_run_id" => agent_task_run&.public_id,
@@ -65,11 +67,14 @@ module AgentControl
 
     private
 
-    def current_holder_deployment
-      holder_key = @resource.execution_lease&.holder_key
-      return if holder_key.blank?
+    def delivery_endpoint
+      if environment_plane?
+        return if resource_execution_environment.blank?
 
-      AgentDeployment.find_by(installation_id: @resource.installation_id, public_id: holder_key)
+        ExecutionEnvironments::ResolveDeliveryEndpoint.call(execution_environment: resource_execution_environment)
+      end
+
+      @resource.execution_lease&.holder_deployment
     end
 
     def owning_agent_installation
@@ -80,6 +85,27 @@ module AgentControl
 
     def agent_task_run
       @resource if @resource.is_a?(AgentTaskRun)
+    end
+
+    def runtime_plane
+      environment_plane? ? "environment" : "agent"
+    end
+
+    def environment_plane?
+      @resource.is_a?(ProcessRun)
+    end
+
+    def resource_execution_environment
+      return @resource.execution_environment if @resource.respond_to?(:execution_environment)
+      return @resource.turn&.conversation&.execution_environment if @resource.respond_to?(:turn)
+
+      @resource.workflow_run&.conversation&.execution_environment if @resource.respond_to?(:workflow_run)
+    end
+
+    def durable_target_ref(target_agent_installation:, target_deployment:)
+      return resource_execution_environment.public_id if environment_plane? && resource_execution_environment.present?
+
+      target_deployment&.public_id || target_agent_installation.public_id
     end
   end
 end

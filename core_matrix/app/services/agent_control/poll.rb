@@ -17,8 +17,9 @@ module AgentControl
 
       deliveries = []
 
-      candidate_scope.limit(@limit * 5).each do |mailbox_item|
+      candidate_scope.limit(@limit * 10).each do |mailbox_item|
         break if deliveries.size >= @limit
+        next unless delivery_candidate?(mailbox_item)
 
         if mailbox_item.leased? && mailbox_item.leased_to?(@deployment) && !mailbox_item.lease_stale?(at: @occurred_at)
           deliveries << mailbox_item
@@ -42,13 +43,31 @@ module AgentControl
       AgentControlMailboxItem
         .where(installation_id: @deployment.installation_id)
         .where(
-          "target_agent_deployment_id = :deployment_id OR (target_agent_deployment_id IS NULL AND target_agent_installation_id = :agent_installation_id)",
+          <<~SQL.squish,
+            target_agent_deployment_id = :deployment_id
+            OR target_agent_installation_id = :agent_installation_id
+            OR (
+              payload ->> 'runtime_plane' = 'environment'
+              AND payload ->> 'execution_environment_id' = :execution_environment_id
+            )
+          SQL
           deployment_id: @deployment.id,
-          agent_installation_id: @deployment.agent_installation_id
+          agent_installation_id: @deployment.agent_installation_id,
+          execution_environment_id: @deployment.execution_environment.public_id
         )
         .where(status: %w[queued leased])
         .where("available_at <= ?", @occurred_at)
         .order(priority: :asc, available_at: :asc, id: :asc)
+    end
+
+    def delivery_candidate?(mailbox_item)
+      resolution = ResolveTargetRuntime.call(mailbox_item: mailbox_item)
+
+      if mailbox_item.leased? && mailbox_item.leased_to?(@deployment) && !mailbox_item.lease_stale?(at: @occurred_at)
+        return true
       end
+
+      resolution.matches?(@deployment)
+    end
   end
 end

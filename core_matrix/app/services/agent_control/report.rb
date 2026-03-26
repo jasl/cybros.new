@@ -229,6 +229,13 @@ module AgentControl
       raise StaleReportError unless mailbox_item.public_id == @payload["close_request_id"]
       raise StaleReportError unless resource.close_requested_at.present?
       raise StaleReportError if resource.close_closed? || resource.close_failed?
+
+      if mailbox_item.environment_plane?
+        resource_environment = resource_execution_environment(resource)
+        raise StaleReportError if resource_environment.blank?
+        raise StaleReportError unless mailbox_item.payload["execution_environment_id"] == resource_environment.public_id
+        raise StaleReportError unless @deployment.execution_environment_id == resource_environment.id
+      end
     end
 
     def agent_task_run
@@ -252,6 +259,13 @@ module AgentControl
         installation_id: @deployment.installation_id,
         public_id: @payload.fetch("resource_id")
       )
+    end
+
+    def resource_execution_environment(resource)
+      return resource.execution_environment if resource.respond_to?(:execution_environment)
+      return resource.turn&.conversation&.execution_environment if resource.respond_to?(:turn)
+
+      resource.workflow_run&.conversation&.execution_environment if resource.respond_to?(:workflow_run)
     end
 
     def apply_retry_gate!

@@ -46,6 +46,7 @@ module AgentControl
 
     def base_payload
       {
+        "runtime_plane" => "agent",
         "agent_task_run_id" => @agent_task_run.public_id,
         "workflow_run_id" => @agent_task_run.workflow_run.public_id,
         "workflow_node_id" => @agent_task_run.workflow_node.public_id,

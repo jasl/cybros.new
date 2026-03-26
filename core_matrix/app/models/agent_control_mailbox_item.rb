@@ -1,6 +1,8 @@
 class AgentControlMailboxItem < ApplicationRecord
   include HasPublicId
 
+  RUNTIME_PLANES = %w[agent environment].freeze
+
   enum :item_type,
     {
       execution_assignment: "execution_assignment",
@@ -47,18 +49,54 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :agent_task_run_match
   validate :lease_holder_match
   validate :target_ref_consistency
+  validate :runtime_plane_contract
 
   def targets?(deployment)
     return false if deployment.blank?
 
-    case target_kind
-    when "agent_installation"
-      deployment.agent_installation_id == target_agent_installation_id
-    when "agent_deployment"
-      deployment.id == target_agent_deployment_id
+    if environment_plane?
+      return false unless deployment.installation_id == installation_id
+      return false if target_execution_environment_id.blank?
+
+      deployment.execution_environment&.public_id == target_execution_environment_id
     else
-      false
+      case target_kind
+      when "agent_installation"
+        deployment.agent_installation_id == target_agent_installation_id
+      when "agent_deployment"
+        deployment.id == target_agent_deployment_id
+      else
+        false
+      end
     end
+  end
+
+  def runtime_plane
+    runtime_value = payload.is_a?(Hash) ? payload["runtime_plane"].to_s : ""
+    runtime_value.presence || inferred_runtime_plane
+  end
+
+  def agent_plane?
+    runtime_plane == "agent"
+  end
+
+  def environment_plane?
+    runtime_plane == "environment"
+  end
+
+  def target_execution_environment_id
+    return unless payload.is_a?(Hash)
+
+    payload["execution_environment_id"].presence
+  end
+
+  def target_execution_environment
+    return if target_execution_environment_id.blank?
+
+    @target_execution_environment ||= ExecutionEnvironment.find_by(
+      installation_id: installation_id,
+      public_id: target_execution_environment_id
+    )
   end
 
   def leased_to?(deployment)
@@ -70,6 +108,12 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   private
+
+  def inferred_runtime_plane
+    return "environment" if resource_close_request? && payload.is_a?(Hash) && payload["resource_type"] == "ProcessRun"
+
+    "agent"
+  end
 
   def payload_must_be_hash
     errors.add(:payload, "must be a hash") unless payload.is_a?(Hash)
@@ -116,7 +160,9 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def target_ref_consistency
-    expected_ref = if agent_deployment?
+    expected_ref = if environment_plane?
+      target_execution_environment_id
+    elsif agent_deployment?
       target_agent_deployment&.public_id
     else
       target_agent_installation&.public_id
@@ -124,5 +170,23 @@ class AgentControlMailboxItem < ApplicationRecord
     return if target_ref == expected_ref
 
     errors.add(:target_ref, "must match the durable target reference")
+  end
+
+  def runtime_plane_contract
+    unless RUNTIME_PLANES.include?(runtime_plane)
+      errors.add(:payload, "must declare a supported runtime_plane")
+      return
+    end
+
+    return unless environment_plane?
+
+    if target_execution_environment_id.blank?
+      errors.add(:payload, "must include execution_environment_id for environment-plane work")
+      return
+    end
+
+    return if target_execution_environment.present?
+
+    errors.add(:payload, "must reference an execution environment in the same installation")
   end
 end

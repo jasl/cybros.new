@@ -43,19 +43,10 @@ module AgentControl
     end
 
     def connected_target_for(mailbox_item)
-      if mailbox_item.agent_deployment?
-        deployment = mailbox_item.target_agent_deployment
-        return deployment if deployment&.realtime_link_state == "connected"
+      deployment = ResolveTargetRuntime.call(mailbox_item: mailbox_item).delivery_endpoint
+      return unless deployment&.realtime_link_connected?
 
-        return
-      end
-
-      deployments = AgentDeployment
-        .where(agent_installation_id: mailbox_item.target_agent_installation_id, bootstrap_state: "active", realtime_link_state: "connected")
-        .order(:id)
-        .to_a
-
-      deployments.one? ? deployments.first : nil
+      deployment
     end
   end
 end

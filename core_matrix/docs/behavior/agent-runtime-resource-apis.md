@@ -50,6 +50,7 @@ orchestration are still defined in:
   the same mailbox item envelope:
   - `item_id`
   - `item_type`
+  - `runtime_plane`
   - `target_kind`
   - `target_ref`
   - `logical_work_id`
@@ -64,6 +65,15 @@ orchestration are still defined in:
   - `lease_timeout_seconds`
   - optional `execution_hard_deadline_at`
   - `payload`
+- `runtime_plane` is explicit:
+  - `agent` for agent-loop work and agent-owned close control
+  - `environment` for `ExecutionEnvironment`-owned resources such as
+    `ProcessRun`
+- for `environment` plane work:
+  - `target_ref` is the owning `ExecutionEnvironment.public_id`
+  - `payload.execution_environment_id` carries the same durable owner identity
+  - the live delivery endpoint is resolved separately from the active
+    deployment attached to that environment
 
 ### Control Reports
 
@@ -76,6 +86,8 @@ orchestration are still defined in:
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources
+- environment-owned close reports are only accepted from deployments attached
+  to the owning execution environment
 - `deployment_health_report` refreshes deployment health plus
   `control_activity_state`
 - duplicate control reports are idempotent by `message_id`
@@ -177,6 +189,8 @@ orchestration are still defined in:
 - raw internal bigint ids are never accepted as fallback resource lookups
 - capability snapshots still expose `protocol_methods` separately from
   `tool_catalog`
+- `target_ref` is the durable owner reference, not a promise that the same
+  deployment will remain the delivery endpoint across rotation
 
 ## Failure Modes
 
