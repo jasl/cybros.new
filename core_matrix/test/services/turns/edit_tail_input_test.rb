@@ -4,7 +4,11 @@ class Turns::EditTailInputTest < ActiveSupport::TestCase
   test "creates a new selected input variant without mutating historical rows" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Original input",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -27,7 +31,11 @@ class Turns::EditTailInputTest < ActiveSupport::TestCase
 
   test "rejects editing a non tail input without rollback or fork semantics" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     historical_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Historical input",

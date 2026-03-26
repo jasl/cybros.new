@@ -135,6 +135,7 @@ At minimum, a capability snapshot should expose:
 - `protocol_methods`
 - `agent_capabilities_version`
 - `tool_catalog`
+- `effective_tool_catalog`
 - `config_schema_snapshot`
 - `conversation_override_schema_snapshot`
 - `default_config_snapshot`
@@ -144,6 +145,8 @@ Rules:
 - do not overload one mixed `supported_methods` list with both protocol methods and tool names
 - `protocol_methods` describes callable runtime operations
 - `tool_catalog` describes model-visible or runtime-callable tools
+- `effective_tool_catalog` describes the final winning tool surface after
+  environment, agent, and reserved system-tool precedence are applied
 - the handshake must freeze enough metadata for history, audit, and recovery-time compatibility checks
 
 ## Binding Freeze Boundary

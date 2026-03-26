@@ -4,7 +4,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Workflow input",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -18,7 +22,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
 
   test "enforces one workflow per turn and one active workflow per conversation" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
@@ -56,7 +64,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
 
   test "tracks structured wait state fields" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Wait-state input",
@@ -110,7 +122,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
 
   test "requires deletion cancellation fields to be paired" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Deletion input",
@@ -133,7 +149,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
 
   test "delegates resolved model references to the turn snapshot" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Selector input",

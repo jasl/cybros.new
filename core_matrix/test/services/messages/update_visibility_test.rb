@@ -3,7 +3,11 @@ require "test_helper"
 class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
   test "creates and updates overlays without deleting immutable message rows" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -39,8 +43,16 @@ class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
 
   test "rejects messages outside the conversation transcript projection" do
     context = create_workspace_context!
-    first_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
-    second_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    first_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    second_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: second_conversation,
       content: "Unrelated input",
@@ -62,7 +74,11 @@ class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
 
   test "rejects hiding or excluding fork-point anchors in descendant projections" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Anchored input",

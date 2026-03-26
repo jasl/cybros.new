@@ -5,6 +5,7 @@
 Core Matrix conversations now carry three independent concerns:
 
 - lineage shape
+- runtime binding
 - user-visible lifecycle state
 - deletion state and canonical-store ownership
 
@@ -28,10 +29,17 @@ and safe deletion support.
   - `retained`
   - `pending_delete`
   - `deleted`
+- runtime binding:
+  - one fixed `ExecutionEnvironment`
+  - one active `AgentDeployment` that may change within that environment
 
 `lifecycle_state` and `deletion_state` are separate axes. A conversation can be
 archived yet retained, or active yet pending deletion while safe-deletion
 cleanup is still running.
+
+Runtime binding is a third independent concern. A conversation stays bound to
+one execution environment for its whole lifetime, while the active deployment
+may rotate or be switched within that bound environment.
 
 ## Kind Rules
 
@@ -43,6 +51,7 @@ cleanup is still running.
 - `checkpoint` conversations require both a parent conversation and a
   `historical_anchor_message_id`
 - child conversations stay in the same workspace as their parent
+- child conversations inherit the parent's execution environment binding
 - automation conversations remain root-only
 
 ## Closure And Transcript Lineage
@@ -125,6 +134,8 @@ cleanup is still running.
 - active mainline work is fenced through `turn_interrupt`
 - detached background processes are closed through mailbox close requests with
   `request_kind = "archive_force_quiesce"`
+- those process-close requests target the bound execution environment as the
+  durable owner and resolve the live delivery endpoint separately
 - the conversation transitions to `archived` once the mainline stop barrier is
   clear
 - the archive close operation may remain `disposing` or `degraded` after the
@@ -160,11 +171,13 @@ cleanup is still running.
 ## Invariants
 
 - workspace ownership remains the root of conversation ownership
-- lineage shape, visible lifecycle, and deletion state stay distinct
+- lineage shape, runtime binding, visible lifecycle, and deletion state stay
+  distinct
 - automation conversations stay root-only
 - child conversations reuse canonical-store lineage by reference, not by eager
   copying
 - deletion never breaks descendant transcript or store lineage
+- conversation environment binding does not change after creation
 
 ## Failure Modes
 

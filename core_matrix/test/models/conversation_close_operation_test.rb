@@ -2,7 +2,12 @@ require "test_helper"
 
 class ConversationCloseOperationTest < ActiveSupport::TestCase
   test "requires completion timestamp only for terminal lifecycle states" do
-    conversation = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     operation = ConversationCloseOperation.new(
       installation: conversation.installation,
@@ -22,7 +27,12 @@ class ConversationCloseOperationTest < ActiveSupport::TestCase
   end
 
   test "allows only one unfinished close operation per conversation" do
-    conversation = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     ConversationCloseOperation.create!(
       installation: conversation.installation,
       conversation: conversation,

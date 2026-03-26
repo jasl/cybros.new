@@ -829,7 +829,11 @@ module ActiveSupport
 
     def build_human_interaction_context!(workflow_node_key: "human_gate", workflow_node_type: "human_interaction", workflow_node_metadata: {})
       context = prepare_workflow_execution_context!(create_workspace_context!)
-      conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+      conversation = Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment]
+      )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Human interaction input",
@@ -870,7 +874,11 @@ module ActiveSupport
 
     def build_canonical_variable_context!
       context = create_workspace_context!
-      conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+      conversation = Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment]
+      )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Canonical variable input",
@@ -959,7 +967,11 @@ module ActiveSupport
 
     def build_subagent_context!(workflow_node_key: "subagent_fanout", workflow_node_type: "subagent_batch", workflow_node_metadata: {})
       context = prepare_workflow_execution_context!(create_workspace_context!)
-      conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+      conversation = Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment]
+      )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Subagent coordination input",

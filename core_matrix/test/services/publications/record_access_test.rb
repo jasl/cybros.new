@@ -4,7 +4,11 @@ class Publications::RecordAccessTest < ActiveSupport::TestCase
   test "internal public allows authenticated installation users and rejects anonymous access" do
     context = create_workspace_context!
     viewer = create_user!(installation: context[:installation])
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publications::PublishLive.call(
       conversation: conversation,
       actor: context[:user],
@@ -30,7 +34,11 @@ class Publications::RecordAccessTest < ActiveSupport::TestCase
 
   test "external public allows anonymous access through slug or token" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publications::PublishLive.call(
       conversation: conversation,
       actor: context[:user],

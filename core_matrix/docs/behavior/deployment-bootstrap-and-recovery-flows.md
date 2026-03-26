@@ -26,7 +26,7 @@ Planned replacement design:
 
 - `AgentDeployments::Bootstrap` materializes bootstrap as a normal automation
   conversation, turn, and workflow run instead of a hidden row update.
-- bootstrap uses `Turn.origin_kind = "system_internal"` so deployment-owned
+- bootstrap uses `Turn.origin_kind = "system_internal"` so deployment-scoped
   bootstrap work is distinguishable from schedule- or webhook-driven
   automation turns
 - bootstrap turns use:
@@ -60,7 +60,7 @@ Planned replacement design:
 ## Outage Wait-State Model
 
 - `AgentDeployments::MarkUnavailable` is the control-plane service that moves
-  active work into a deployment-owned wait state.
+  active work into a deployment-scoped wait state.
 - affected workflows are discovered by the deployment referenced on the pinned
   turn, not by a parallel pause ledger.
 - transient outage behavior:

@@ -57,7 +57,11 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
 
   def build_paused_recovery_context!
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Paused retry input",

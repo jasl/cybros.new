@@ -57,6 +57,8 @@ Repair the runtime ownership boundary exposed by Milestone C so that:
 - conversation capability and attachment policy refresh on both:
   - active deployment switch
   - environment capability change
+- capability publication exposes explicit `agent_plane`,
+  `environment_plane`, and `effective_tool_catalog`
 - `core_matrix__*` system tools remain kernel-owned and outside ordinary name
   collision rules
 - the follow-up remains inside the existing Phase 2 protocol E2E harness

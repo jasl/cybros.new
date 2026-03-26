@@ -363,7 +363,9 @@ V1 rule:
 
 ### ExecutionEnvironment
 
-`ExecutionEnvironment` should exist as a thin object now, even if it is usually one-to-one with a deployment.
+`ExecutionEnvironment` is the stable runtime-resource owner aggregate. It may
+currently be served by the same process as an `AgentDeployment`, but it is no
+longer modeled as a thin one-to-one placeholder for a deployment.
 
 It should represent:
 
@@ -371,7 +373,8 @@ It should represent:
 - environment identity and connection metadata
 - future split point for separating agent runtime from code execution runtime
 
-This is a deliberate placeholder for future refactoring, not a full scheduling system.
+This is the durable owner boundary for environment-backed runtime resources,
+while delivery may still reuse the currently active deployment endpoint.
 
 ## Agent Visibility And User Binding
 

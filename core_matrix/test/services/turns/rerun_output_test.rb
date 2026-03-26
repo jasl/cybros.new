@@ -4,7 +4,11 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
   test "reruns a finished tail output in place by creating a new output variant" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Input",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -26,7 +30,11 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
 
   test "auto branches before rerunning a non tail finished output" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     historical_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Historical input",

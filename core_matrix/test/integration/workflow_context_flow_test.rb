@@ -3,7 +3,11 @@ require "test_helper"
 class WorkflowContextFlowTest < ActionDispatch::IntegrationTest
   test "branch workflow context uses local imports and does not pull branch-ineligible attachments" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Anchor input",

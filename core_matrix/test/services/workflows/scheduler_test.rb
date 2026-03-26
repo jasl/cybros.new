@@ -27,7 +27,11 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
 
   test "reject policy leaves transcript state unchanged" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -52,7 +56,11 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
 
   test "restart policy records wait state and clears older queued follow up work" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -92,7 +100,11 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
 
   test "cancels stale queued work when expected tail no longer matches" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -118,7 +130,11 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
 
   def create_barrier_workflow!
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Graph input",

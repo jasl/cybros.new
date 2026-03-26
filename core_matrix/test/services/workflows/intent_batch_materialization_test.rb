@@ -3,7 +3,11 @@ require "test_helper"
 class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
   test "materializes accepted intents and batch summaries onto workflow-owned rows" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
@@ -77,7 +81,11 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
 
   test "records rejected intents as audit-only workflow node events without durable mutation nodes" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",

@@ -35,6 +35,8 @@ Frozen substrate assumptions for this phase:
   authoritative runtime lineage for Phase 2 follow-up work
 - agent capability snapshots remain deployment-scoped, while environment
   capability state is first-class on `ExecutionEnvironment`
+- capability publication must materialize `agent_plane`,
+  `environment_plane`, and `effective_tool_catalog`
 - Phase 2 work should extend those roots instead of introducing parallel pause,
   close, delivery, or projection ledgers for the same facts
 - workflow wait, retry, and close control should reuse workflow-owned durable

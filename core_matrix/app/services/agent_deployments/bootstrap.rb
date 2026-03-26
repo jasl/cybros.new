@@ -18,7 +18,11 @@ module AgentDeployments
       raise ArgumentError, "workspace must belong to the same installation" unless same_installation?
 
       ApplicationRecord.transaction do
-        conversation = Conversations::CreateAutomationRoot.call(workspace: @workspace)
+        conversation = Conversations::CreateAutomationRoot.call(
+          workspace: @workspace,
+          execution_environment: @deployment.execution_environment,
+          agent_deployment: @deployment
+        )
         turn = Turns::StartAutomationTurn.call(
           conversation: conversation,
           origin_kind: "system_internal",

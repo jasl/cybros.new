@@ -94,7 +94,11 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
   def build_waiting_recovery_context!
     context = prepare_workflow_execution_context!(create_workspace_context!)
     context[:agent_deployment].update!(auto_resume_eligible: true)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Recovery input",

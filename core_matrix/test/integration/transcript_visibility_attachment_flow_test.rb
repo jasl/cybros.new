@@ -3,7 +3,11 @@ require "test_helper"
 class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
   test "branch and checkpoint attachment projections follow message visibility overlays" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",

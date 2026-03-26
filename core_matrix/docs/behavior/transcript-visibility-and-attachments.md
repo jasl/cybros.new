@@ -55,6 +55,10 @@ into descendant conversation support surfaces.
 - `Conversation#context_projection_attachments` derives attachment support rows
   from `context_projection_messages`, so hidden or context-excluded messages do
   not leak attachments into branch or checkpoint support projections.
+- transcript visibility decides which attachments are even eligible for a
+  conversation, but later runtime exposure is still gated by the conversation's
+  effective runtime contract from its bound execution environment plus active
+  agent deployment.
 
 ## Attachment Ancestry Behavior
 

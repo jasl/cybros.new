@@ -2,7 +2,12 @@ require "test_helper"
 
 class Conversations::CreateThreadTest < ActiveSupport::TestCase
   test "creates a thread without requiring transcript cloning" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     thread = Conversations::CreateThread.call(
       parent: root,
@@ -22,7 +27,11 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
 
   test "copies the current snapshot reference without duplicating keys" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     CanonicalStores::Set.call(
       conversation: root,
       key: "tone",
@@ -39,8 +48,11 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
   end
 
   test "rejects automation conversations" do
+    context = create_workspace_context!
     automation_root = Conversations::CreateAutomationRoot.call(
-      workspace: create_workspace_context![:workspace]
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
     )
 
     assert_raises(ActiveRecord::RecordInvalid) do

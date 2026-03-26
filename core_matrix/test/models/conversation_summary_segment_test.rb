@@ -3,7 +3,11 @@ require "test_helper"
 class ConversationSummarySegmentTest < ActiveSupport::TestCase
   test "tracks replacement and supersession across transcript ranges" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
@@ -43,7 +47,11 @@ class ConversationSummarySegmentTest < ActiveSupport::TestCase
 
   test "requires the summarized range to follow transcript order" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",

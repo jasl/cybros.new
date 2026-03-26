@@ -3,7 +3,11 @@ require "test_helper"
 class ConversationImportTest < ActiveSupport::TestCase
   test "supports branch prefix merge summary and quoted context imports" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
@@ -45,7 +49,11 @@ class ConversationImportTest < ActiveSupport::TestCase
 
   test "requires source references that match the import kind" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     invalid = ConversationImport.new(
       installation: conversation.installation,

@@ -44,7 +44,11 @@ class SubagentRunTest < ActiveSupport::TestCase
 
     assert child_run.valid?
 
-    other_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    other_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     other_turn = Turns::StartUserTurn.call(
       conversation: other_conversation,
       content: "Other subagent input",

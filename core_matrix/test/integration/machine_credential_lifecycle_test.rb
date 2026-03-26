@@ -31,7 +31,11 @@ class MachineCredentialLifecycleTest < ActionDispatch::IntegrationTest
       actor: context[:user]
     )
 
-    future_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    future_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     future_turn = Turns::StartUserTurn.call(
       conversation: future_conversation,
       content: "Retry on retired deployment",

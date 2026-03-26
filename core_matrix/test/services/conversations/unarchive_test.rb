@@ -2,7 +2,12 @@ require "test_helper"
 
 class Conversations::UnarchiveTest < ActiveSupport::TestCase
   test "returns an archived conversation to active state" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     archived = Conversations::Archive.call(conversation: root)
 
     restored = Conversations::Unarchive.call(conversation: archived)
@@ -12,7 +17,12 @@ class Conversations::UnarchiveTest < ActiveSupport::TestCase
   end
 
   test "rejects unarchiving a non-archived conversation" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::Unarchive.call(conversation: root)
@@ -22,7 +32,12 @@ class Conversations::UnarchiveTest < ActiveSupport::TestCase
   end
 
   test "rejects unarchiving non-retained conversations" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     root.update!(lifecycle_state: "archived", deletion_state: "pending_delete", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do

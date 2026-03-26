@@ -5,7 +5,11 @@ class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
     context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     ProviderEntitlement.create!(
       installation: context[:installation],
       provider_handle: "codex_subscription",

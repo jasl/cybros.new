@@ -41,6 +41,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal({ "temperature" => 0.2 }, turn.effective_config_snapshot)
     assert_equal context[:user].public_id, turn.execution_identity["user_id"]
     assert_equal context[:workspace].public_id, workflow_run.execution_identity["workspace_id"]
+    assert_equal context[:execution_environment].public_id, turn.execution_identity["execution_environment_id"]
     assert_equal [attachment.public_id], turn.runtime_attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal [attachment.public_id], workflow_run.model_input_attachments.map { |item| item.fetch("attachment_id") }
   end

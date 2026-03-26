@@ -86,7 +86,11 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
 
   test "deleting a parent conversation does not cancel active child turns and purge stays blocked by lineage" do
     context = create_workspace_context!
-    parent = Conversations::CreateRoot.call(workspace: context[:workspace])
+    parent = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     child = Conversations::CreateThread.call(parent: parent)
     child_turn = Turns::StartUserTurn.call(
       conversation: child,

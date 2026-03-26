@@ -4,7 +4,11 @@ class MessageTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Hello",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -19,7 +23,11 @@ class MessageTest < ActiveSupport::TestCase
   test "restricts STI persistence to transcript bearing subclasses" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Hello",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -44,7 +52,11 @@ class MessageTest < ActiveSupport::TestCase
   test "enforces unique variants within one turn and slot" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Hello",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},

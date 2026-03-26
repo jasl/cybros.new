@@ -3,7 +3,11 @@ require "test_helper"
 class MessageAttachmentTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -19,7 +23,11 @@ class MessageAttachmentTest < ActiveSupport::TestCase
 
   test "requires an attached file and matching message ownership" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -49,7 +57,11 @@ class MessageAttachmentTest < ActiveSupport::TestCase
 
   test "tracks attachment ancestry through origin attachment and message pointers" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     source_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Source input",

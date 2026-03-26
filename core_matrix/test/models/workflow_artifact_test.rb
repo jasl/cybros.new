@@ -3,7 +3,11 @@ require "test_helper"
 class WorkflowArtifactTest < ActiveSupport::TestCase
   test "supports inline json and attached file storage modes" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Artifact input",
@@ -57,7 +61,11 @@ class WorkflowArtifactTest < ActiveSupport::TestCase
 
   test "captures redundant projection metadata for workflow proof and inspection reads" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Artifact input",

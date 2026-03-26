@@ -4,7 +4,11 @@ class UserMessageTest < ActiveSupport::TestCase
   test "requires user input role and slot" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Hello",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},

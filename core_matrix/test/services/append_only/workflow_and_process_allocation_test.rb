@@ -8,7 +8,11 @@ class AppendOnly::WorkflowAndProcessAllocationTest < ActiveSupport::TestCase
 
   test "allocates unique workflow node and edge ordinals across concurrent mutations" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
@@ -106,7 +110,11 @@ class AppendOnly::WorkflowAndProcessAllocationTest < ActiveSupport::TestCase
 
   def build_process_context!
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Process input",

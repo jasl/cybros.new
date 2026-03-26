@@ -2,7 +2,12 @@ require "test_helper"
 
 class ConversationClosureTest < ActiveSupport::TestCase
   test "stores unique ancestor descendant pairs with non negative depth" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     branch = Conversations::CreateBranch.call(
       parent: root,
       historical_anchor_message_id: 101

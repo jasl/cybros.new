@@ -3,7 +3,11 @@ require "test_helper"
 class PublicationTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publication.create!(
       installation: context[:installation],
       conversation: conversation,
@@ -20,7 +24,11 @@ class PublicationTest < ActiveSupport::TestCase
 
   test "supports visibility modes token matching and revocation state helpers" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publication.new(
       installation: context[:installation],
       conversation: conversation,

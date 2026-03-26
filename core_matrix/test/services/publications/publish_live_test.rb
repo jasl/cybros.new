@@ -3,7 +3,11 @@ require "test_helper"
 class Publications::PublishLiveTest < ActiveSupport::TestCase
   test "publishes a conversation live and records the enable audit row" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     publication = Publications::PublishLive.call(
       conversation: conversation,
@@ -26,7 +30,11 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
 
   test "reuses the publication row and audits visibility changes" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publications::PublishLive.call(
       conversation: conversation,
       actor: context[:user],
@@ -51,7 +59,11 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
 
   test "rejects publishing a pending delete conversation" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do

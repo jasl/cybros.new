@@ -4,7 +4,11 @@ class PublicationFlowTest < ActionDispatch::IntegrationTest
   test "publication visibility access logging and live projection follow canonical conversation state" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
     viewer = create_user!(installation: context[:installation])
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Share this conversation",

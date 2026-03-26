@@ -48,6 +48,7 @@ freezes a per-turn execution snapshot that preserves:
   - `workspace_id`
   - `conversation_id`
   - `turn_id`
+  - `execution_environment_id`
   - `agent_deployment_id`
 - these identity fields are public ids for the referenced resources, not raw
   internal `bigint` primary keys
@@ -151,6 +152,10 @@ freezes a per-turn execution snapshot that preserves:
   `runtime_attachment_manifest` so runtime tooling can access them.
 - Unsupported prompt projection is recorded explicitly in
   `attachment_diagnostics` with `reason=unsupported_modality`.
+- if the bound conversation runtime contract disables attachment upload
+  entirely, the assembler emits empty attachment projections and records
+  `attachment_diagnostics` with
+  `reason=conversation_attachment_upload_disabled`.
 
 ## Turn And Workflow Helpers
 

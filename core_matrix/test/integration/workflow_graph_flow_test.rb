@@ -3,7 +3,11 @@ require "test_helper"
 class WorkflowGraphFlowTest < ActionDispatch::IntegrationTest
   test "workflow graphs stay turn scoped and expand without replacing the run" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",

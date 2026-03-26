@@ -3,7 +3,11 @@ require "test_helper"
 class TranscriptImportSummaryFlowTest < ActionDispatch::IntegrationTest
   test "branch imports summaries and fork-point protections preserve transcript support invariants" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",

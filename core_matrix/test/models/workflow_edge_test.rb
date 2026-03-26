@@ -3,7 +3,11 @@ require "test_helper"
 class WorkflowEdgeTest < ActiveSupport::TestCase
   test "enforces edge ordering and same workflow integrity" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
@@ -20,7 +24,11 @@ class WorkflowEdgeTest < ActiveSupport::TestCase
       to_node: child_node,
       ordinal: 0
     )
-    other_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    other_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     other_turn = Turns::StartUserTurn.call(
       conversation: other_conversation,
       content: "Other input",

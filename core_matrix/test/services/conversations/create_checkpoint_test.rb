@@ -2,7 +2,12 @@ require "test_helper"
 
 class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
   test "requires a historical anchor and keeps checkpoint lineage" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::CreateCheckpoint.call(parent: root)
@@ -26,7 +31,11 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
 
   test "copies the current snapshot reference without creating store rows" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     CanonicalStores::Set.call(
       conversation: root,
       key: "tone",
@@ -46,8 +55,11 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
   end
 
   test "rejects automation conversations" do
+    context = create_workspace_context!
     automation_root = Conversations::CreateAutomationRoot.call(
-      workspace: create_workspace_context![:workspace]
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
     )
 
     assert_raises(ActiveRecord::RecordInvalid) do

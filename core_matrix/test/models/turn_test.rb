@@ -4,7 +4,11 @@ class TurnTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Hello",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -17,7 +21,11 @@ class TurnTest < ActiveSupport::TestCase
 
   test "enforces unique sequence numbers within a conversation" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     Turn.create!(
       installation: context[:installation],
@@ -51,7 +59,11 @@ class TurnTest < ActiveSupport::TestCase
 
   test "persists structured origin metadata and state helpers" do
     context = create_workspace_context!
-    conversation = Conversations::CreateAutomationRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     queued = Turn.new(
       installation: context[:installation],
@@ -95,7 +107,11 @@ class TurnTest < ActiveSupport::TestCase
 
   test "requires cancellation reason and timestamp to be paired" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turn.new(
       installation: context[:installation],
       conversation: conversation,
@@ -116,7 +132,11 @@ class TurnTest < ActiveSupport::TestCase
 
   test "exposes resolved model selection snapshot helpers" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turn.new(
       installation: context[:installation],
       conversation: conversation,
@@ -141,7 +161,11 @@ class TurnTest < ActiveSupport::TestCase
 
   test "exposes execution context helpers from a wrapped resolved config snapshot" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turn.new(
       installation: context[:installation],
       conversation: conversation,

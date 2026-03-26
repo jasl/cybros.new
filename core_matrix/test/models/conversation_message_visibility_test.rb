@@ -3,7 +3,11 @@ require "test_helper"
 class ConversationMessageVisibilityTest < ActiveSupport::TestCase
   test "tracks hidden and context exclusion overlays without mutating transcript rows" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -30,7 +34,11 @@ class ConversationMessageVisibilityTest < ActiveSupport::TestCase
 
   test "requires one effective overlay state and a unique row per conversation message pair" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",

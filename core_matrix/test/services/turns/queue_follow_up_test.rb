@@ -3,7 +3,11 @@ require "test_helper"
 class Turns::QueueFollowUpTest < ActiveSupport::TestCase
   test "creates a queued follow up turn with a new selected input message" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
@@ -31,7 +35,11 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
 
   test "rejects queueing when no active work exists" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert_raises(ActiveRecord::RecordInvalid) do
       Turns::QueueFollowUp.call(
@@ -46,7 +54,11 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
 
   test "rejects queueing follow up on a pending delete conversation" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
@@ -71,7 +83,11 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
 
   test "rechecks active lifecycle state after acquiring the conversation lock" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",

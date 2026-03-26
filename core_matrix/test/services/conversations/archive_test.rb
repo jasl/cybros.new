@@ -2,7 +2,12 @@ require "test_helper"
 
 class Conversations::ArchiveTest < ActiveSupport::TestCase
   test "archives a conversation without changing lineage" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     archived = Conversations::Archive.call(conversation: root)
 
@@ -15,7 +20,11 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
 
   test "rejects archiving while unfinished work remains" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     Turns::StartUserTurn.call(
       conversation: root,
       content: "Still running",
@@ -53,7 +62,12 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
   end
 
   test "rejects archiving non-retained conversations" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     root.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -64,7 +78,12 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
   end
 
   test "rejects archiving a non-active conversation" do
-    root = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     root.update!(lifecycle_state: "archived")
 
     error = assert_raises(ActiveRecord::RecordInvalid) do

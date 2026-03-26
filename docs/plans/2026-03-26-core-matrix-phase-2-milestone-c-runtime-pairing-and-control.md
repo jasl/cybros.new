@@ -53,6 +53,7 @@ end-to-end stack.
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources
 - agent plane and environment plane are explicit protocol concepts even when one
   runtime process implements both
+- capability publication exposes environment-first effective tool catalogs
 
 ## Non-Goals
 

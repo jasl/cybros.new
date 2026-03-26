@@ -4,7 +4,11 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
   test "creates a new selected input variant for the active turn" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Original input",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
@@ -25,7 +29,11 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
 
   test "queues follow up work after the first transcript side-effect boundary" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
@@ -52,7 +60,11 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
 
   test "detects side-effect boundaries from freshly persisted workflow node metadata" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",

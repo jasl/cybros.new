@@ -3,7 +3,11 @@ require "test_helper"
 class Attachments::MaterializeRefsTest < ActiveSupport::TestCase
   test "materializes reusable attachment refs into new logical attachment rows" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     source_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Source input",
@@ -46,7 +50,11 @@ class Attachments::MaterializeRefsTest < ActiveSupport::TestCase
 
   test "streams source files without eagerly downloading the full blob" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     source_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Source input",
@@ -89,7 +97,11 @@ class Attachments::MaterializeRefsTest < ActiveSupport::TestCase
 
   test "rejects refs that are not message attachments" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Target input",

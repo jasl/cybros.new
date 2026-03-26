@@ -3,7 +3,11 @@ require "test_helper"
 class Conversations::RollbackToTurnTest < ActiveSupport::TestCase
   test "cancels later turns so the target turn becomes the active tail" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
@@ -34,7 +38,11 @@ class Conversations::RollbackToTurnTest < ActiveSupport::TestCase
 
   test "preserves retained summary context while dropping superseded post rollback support state" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",

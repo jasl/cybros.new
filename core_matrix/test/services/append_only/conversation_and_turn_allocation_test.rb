@@ -11,7 +11,11 @@ class AppendOnly::ConversationAndTurnAllocationTest < ActiveSupport::TestCase
 
   test "allocates unique sequences for concurrent user turns in one conversation" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     deployment_id = context[:agent_deployment].id
 
     turns = assert_parallel_success!(
@@ -33,7 +37,11 @@ class AppendOnly::ConversationAndTurnAllocationTest < ActiveSupport::TestCase
   test "allocates unique input variants for concurrent steer operations" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
-      conversation: Conversations::CreateRoot.call(workspace: context[:workspace]),
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
       content: "Original input",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},

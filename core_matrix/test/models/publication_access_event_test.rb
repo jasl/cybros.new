@@ -3,7 +3,11 @@ require "test_helper"
 class PublicationAccessEventTest < ActiveSupport::TestCase
   test "allows anonymous access rows and enforces viewer installation integrity" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publication.create!(
       installation: context[:installation],
       conversation: conversation,

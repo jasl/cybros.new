@@ -170,7 +170,11 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Execute run input",

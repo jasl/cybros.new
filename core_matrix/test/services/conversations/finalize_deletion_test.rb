@@ -4,7 +4,12 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   test "marks a pending deletion deleted, removes the canonical store reference, and enqueues gc" do
-    conversation = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     Conversations::RequestDeletion.call(conversation: conversation)
 
     assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do

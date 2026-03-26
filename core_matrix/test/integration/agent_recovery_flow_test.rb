@@ -3,7 +3,11 @@ require "test_helper"
 class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
   test "drifted outage recovery requires an explicit retry before work continues" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Recover this workflow",

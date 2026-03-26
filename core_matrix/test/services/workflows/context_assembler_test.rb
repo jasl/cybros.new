@@ -79,6 +79,7 @@ class Workflows::ContextAssemblerTest < ActiveSupport::TestCase
     assert_equal context[:workspace].public_id, snapshot.dig("execution_context", "identity", "workspace_id")
     assert_equal conversation.public_id, snapshot.dig("execution_context", "identity", "conversation_id")
     assert_equal current_turn.public_id, snapshot.dig("execution_context", "identity", "turn_id")
+    assert_equal context[:execution_environment].public_id, snapshot.dig("execution_context", "identity", "execution_environment_id")
     assert_equal context[:agent_deployment].public_id, snapshot.dig("execution_context", "identity", "agent_deployment_id")
     assert_equal "codex_subscription", snapshot.dig("execution_context", "model_context", "provider_handle")
     assert_equal "gpt-5.4", snapshot.dig("execution_context", "model_context", "model_ref")

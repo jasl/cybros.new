@@ -3,7 +3,11 @@ require "test_helper"
 class WorkflowNodeEventTest < ActiveSupport::TestCase
   test "preserves ordered live output and status replay events per workflow node" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Event input",
@@ -48,7 +52,11 @@ class WorkflowNodeEventTest < ActiveSupport::TestCase
 
   test "copies projection metadata from the workflow node for audit-only intent outcomes" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Event input",

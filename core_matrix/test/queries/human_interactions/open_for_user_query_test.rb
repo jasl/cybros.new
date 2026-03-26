@@ -85,7 +85,11 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       user_agent_binding: user_agent_binding
     )
 
-    interactive_conversation = Conversations::CreateRoot.call(workspace: workspace)
+    interactive_conversation = Conversations::CreateRoot.call(
+      workspace: workspace,
+      execution_environment: execution_environment,
+      agent_deployment: agent_deployment
+    )
     interactive_turn = Turns::StartUserTurn.call(
       conversation: interactive_conversation,
       content: "Interactive task",
@@ -103,7 +107,11 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    automation_conversation = Conversations::CreateAutomationRoot.call(workspace: workspace)
+    automation_conversation = Conversations::CreateAutomationRoot.call(
+      workspace: workspace,
+      execution_environment: execution_environment,
+      agent_deployment: agent_deployment
+    )
     automation_turn = Turns::StartAutomationTurn.call(
       conversation: automation_conversation,
       origin_kind: "automation_schedule",

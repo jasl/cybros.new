@@ -3,7 +3,11 @@ require "test_helper"
 class Publications::RevokeTest < ActiveSupport::TestCase
   test "revokes a live publication and records the revoke audit row" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     publication = Publications::PublishLive.call(
       conversation: conversation,
       actor: context[:user],

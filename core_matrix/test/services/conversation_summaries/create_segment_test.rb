@@ -3,7 +3,11 @@ require "test_helper"
 class ConversationSummaries::CreateSegmentTest < ActiveSupport::TestCase
   test "creates a replacement segment and marks the previous segment superseded" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
@@ -41,7 +45,11 @@ class ConversationSummaries::CreateSegmentTest < ActiveSupport::TestCase
 
   test "rejects ranges that run backward through the transcript projection" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",

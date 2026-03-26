@@ -3,7 +3,11 @@ require "test_helper"
 class ConversationCanonicalStoreBranchFlowTest < ActionDispatch::IntegrationTest
   test "branches share the canonical store but freeze the child snapshot at branch time" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     CanonicalStores::Set.call(
       conversation: root,
       key: "tone",

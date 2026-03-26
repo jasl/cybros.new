@@ -104,6 +104,32 @@ class ProcessRunTest < ActiveSupport::TestCase
     assert_includes process_run.errors[:execution_environment], "must match the conversation execution environment"
   end
 
+  test "close requests keep the execution environment as the durable owner reference" do
+    process_context = build_process_context!
+    process_run = create_process_run!(
+      workflow_node: process_context[:workflow_node],
+      execution_environment: process_context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: process_context[:agent_deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    close_request = AgentControl::CreateResourceCloseRequest.call(
+      resource: process_run,
+      request_kind: "turn_interrupt",
+      reason_kind: "turn_interrupted",
+      strictness: "graceful",
+      grace_deadline_at: 30.seconds.from_now,
+      force_deadline_at: 60.seconds.from_now
+    )
+
+    assert_equal process_context[:execution_environment].public_id, close_request.target_ref
+    assert_equal process_context[:execution_environment].public_id, close_request.payload.fetch("execution_environment_id")
+  end
+
   private
 
   def build_process_context!

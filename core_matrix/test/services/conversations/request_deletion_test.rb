@@ -73,7 +73,12 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
   end
 
   test "is idempotent and preserves the original deleted_at timestamp" do
-    conversation = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     original_deleted_at = Time.zone.parse("2026-03-25 09:00:00 UTC")
 
     first_deleted = Conversations::RequestDeletion.call(conversation: conversation, occurred_at: original_deleted_at)

@@ -240,7 +240,11 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
 
   test "requires an active capability snapshot to freeze resolution" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     ProviderEntitlement.create!(
       installation: context[:installation],
       provider_handle: "codex_subscription",
@@ -296,7 +300,11 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
     context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
 
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     create_provider_entitlement!(
       installation: context[:installation],

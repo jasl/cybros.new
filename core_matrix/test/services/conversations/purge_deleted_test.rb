@@ -5,7 +5,11 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
   test "keeps the deleted conversation shell while descendants still depend on it" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Anchor",
@@ -69,7 +73,11 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
   test "rejects purge while a deleted conversation still has its live canonical store reference" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Anchor",
@@ -93,7 +101,11 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
   test "rejects purge while deleted conversation state is corrupted by active work" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Need more work",
@@ -118,7 +130,11 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
   test "rejects purge while a deleted conversation still has an open non-blocking human interaction" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     branch = Conversations::CreateThread.call(parent: root)
     turn = Turns::StartUserTurn.call(
       conversation: branch,
@@ -159,7 +175,11 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
   test "force purge still requires final deletion to remove the live canonical store reference" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     branch = Conversations::CreateThread.call(parent: root)
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
 

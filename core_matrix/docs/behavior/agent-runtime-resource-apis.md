@@ -189,6 +189,13 @@ orchestration are still defined in:
 - raw internal bigint ids are never accepted as fallback resource lookups
 - capability snapshots still expose `protocol_methods` separately from
   `tool_catalog`
+- capability endpoints also expose:
+  - `agent_plane`
+  - `environment_plane`
+  - `effective_tool_catalog`
+- `effective_tool_catalog` applies environment-first tool precedence for
+  ordinary tool names and keeps reserved `core_matrix__*` tools outside that
+  collision domain
 - `target_ref` is the durable owner reference, not a promise that the same
   deployment will remain the delivery endpoint across rotation
 

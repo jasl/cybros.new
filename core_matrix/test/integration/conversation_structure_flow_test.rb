@@ -2,9 +2,14 @@ require "test_helper"
 
 class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
   test "interactive conversations support lineage while automation stays root only" do
-    workspace = create_workspace_context![:workspace]
+    context = create_workspace_context!
+    workspace = context[:workspace]
 
-    root = Conversations::CreateRoot.call(workspace: workspace)
+    root = Conversations::CreateRoot.call(
+      workspace: workspace,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     branch = Conversations::CreateBranch.call(
       parent: root,
       historical_anchor_message_id: 101
@@ -18,7 +23,11 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
     Conversations::Archive.call(conversation: branch)
     Conversations::Unarchive.call(conversation: branch)
 
-    automation_root = Conversations::CreateAutomationRoot.call(workspace: workspace)
+    automation_root = Conversations::CreateAutomationRoot.call(
+      workspace: workspace,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert_equal "active", branch.reload.lifecycle_state
     assert_equal [[root.id, checkpoint.id, 2], [branch.id, checkpoint.id, 1], [checkpoint.id, checkpoint.id, 0]],

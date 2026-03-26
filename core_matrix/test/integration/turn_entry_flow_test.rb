@@ -3,7 +3,11 @@ require "test_helper"
 class TurnEntryFlowTest < ActionDispatch::IntegrationTest
   test "turn entry persists selector state, turn origins, and queued follow up state" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     Conversations::UpdateOverride.call(
       conversation: conversation,
