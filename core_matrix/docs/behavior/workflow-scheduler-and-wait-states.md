@@ -143,6 +143,9 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - final deletion to have removed the live canonical-store reference
   - no active runtime residue
   - no lineage or provenance blockers
+- `PurgeDeleted(force: true)` does not locally stop mailbox-owned runtime
+  resources; it issues the same delete close contract and expects purge to be
+  retried after terminal close reports land
 - retained child conversations are not deleted or interrupted when a parent is
   put into `pending_delete`
 

@@ -20,8 +20,12 @@ module Conversations
       ApplicationRecord.transaction do
         @conversation.with_lock do
           ensure_finalized_state!
-          force_quiesce! if @force
-          ensure_conversation_quiescent!(@conversation, stage: "purge")
+          if @force
+            force_quiesce!
+            next if quiescence_pending_after_force?
+          else
+            ensure_conversation_quiescent!(@conversation, stage: "purge")
+          end
           next if purge_blocked?
 
           purge_owned_rows!
@@ -40,11 +44,18 @@ module Conversations
     end
 
     def force_quiesce!
-      Conversations::QuiesceActiveWork.call(
+      Conversations::RequestClose.call(
         conversation: @conversation,
-        reason_kind: "conversation_deleted",
+        intent_kind: "delete",
         occurred_at: @occurred_at
       )
+    end
+
+    def quiescence_pending_after_force?
+      ensure_conversation_quiescent!(@conversation, stage: "purge")
+      false
+    rescue ActiveRecord::RecordInvalid
+      true
     end
 
     def purge_blocked?

@@ -175,14 +175,14 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert Conversation.exists?(branch.id)
   end
 
-  test "force purge quiesces deleted active work before removing the shell" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+  test "force purge requests mailbox close for deleted active work before later removing the shell" do
+    context = build_agent_control_context!
+    root = context[:conversation]
     branch = Conversations::CreateThread.call(parent: root)
     turn = Turns::StartUserTurn.call(
       conversation: branch,
       content: "Still running on branch",
-      agent_deployment: context[:agent_deployment],
+      agent_deployment: context[:deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -219,18 +219,70 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       workflow_node: human_node,
       requested_role_or_slot: "researcher"
     )
-    process_lease = Leases::Acquire.call(
+    Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: "runtime-process",
+      holder_key: context[:deployment].public_id,
       heartbeat_timeout_seconds: 30
     )
-    subagent_lease = Leases::Acquire.call(
+    Leases::Acquire.call(
       leased_resource: subagent_run,
-      holder_key: "runtime-subagent",
+      holder_key: context[:deployment].public_id,
       heartbeat_timeout_seconds: 30
     )
     branch.canonical_store_reference.destroy!
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
+
+    assert_no_difference("Conversation.count") do
+      Conversations::PurgeDeleted.call(
+        conversation: branch.reload,
+        force: true,
+        occurred_at: Time.zone.parse("2026-03-26 11:30:00 UTC")
+      )
+    end
+
+    mailbox_items = AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    process_close = mailbox_items.find do |item|
+      item.payload["resource_type"] == "ProcessRun" &&
+        item.payload["resource_id"] == process_run.public_id
+    end
+    subagent_close = mailbox_items.find do |item|
+      item.payload["resource_type"] == "SubagentRun" &&
+        item.payload["resource_id"] == subagent_run.public_id
+    end
+
+    assert process_close.present?
+    assert subagent_close.present?
+    assert process_run.reload.close_requested_at.present?
+    assert subagent_run.reload.close_requested_at.present?
+    assert HumanInteractionRequest.where(conversation: branch, lifecycle_state: "open").none?
+    assert branch.reload.unfinished_close_operation.present?
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      payload: {
+        method_id: "resource_closed",
+        message_id: "process-close-#{next_test_sequence}",
+        mailbox_item_id: process_close.public_id,
+        close_request_id: process_close.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: { "source" => "force-purge" },
+      }
+    )
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      payload: {
+        method_id: "resource_closed",
+        message_id: "subagent-close-#{next_test_sequence}",
+        mailbox_item_id: subagent_close.public_id,
+        close_request_id: subagent_close.public_id,
+        resource_type: "SubagentRun",
+        resource_id: subagent_run.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: { "source" => "force-purge" },
+      }
+    )
 
     assert_difference("Conversation.count", -1) do
       assert_difference("Turn.count", -1) do
@@ -239,11 +291,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
             assert_difference("ProcessRun.count", -1) do
               assert_difference("SubagentRun.count", -1) do
                 assert_difference("ExecutionLease.count", -2) do
-                  Conversations::PurgeDeleted.call(
-                    conversation: branch.reload,
-                    force: true,
-                    occurred_at: Time.zone.parse("2026-03-26 11:30:00 UTC")
-                  )
+                  Conversations::PurgeDeleted.call(conversation: branch.reload)
                 end
               end
             end
@@ -254,7 +302,5 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
     assert_not Conversation.exists?(branch.id)
     assert Conversation.exists?(root.id)
-    assert_not ExecutionLease.exists?(process_lease.id)
-    assert_not ExecutionLease.exists?(subagent_lease.id)
   end
 end

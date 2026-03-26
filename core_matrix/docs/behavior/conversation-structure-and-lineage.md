@@ -89,9 +89,13 @@ cleanup is still running.
 - `Conversations::PurgeDeleted` now rejects corrupted `deleted` states that
   still retain active runtime work or a live `CanonicalStoreReference`
 - `Conversations::PurgeDeleted(force: true)` still only helps with corrupted
-  local runtime residue; it does not bypass final-deletion or lineage guards
+  runtime residue by issuing the normal delete close contract; it does not
+  bypass final-deletion or lineage guards
 - `PurgeDeleted(force: true)` still does not perform final deletion on behalf
   of the caller; the live `CanonicalStoreReference` must already be gone
+- if active runtime residue still exists after that force request, the deleted
+  tombstone shell remains until close reports clear the residue and purge is
+  retried
 - physical purge is deferred while descendants, canonical-store root
   ownership, or other durable provenance still require the row
 - a deleted row may therefore remain as a non-visible tombstone shell
