@@ -62,4 +62,32 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     assert_equal "Historical input", rerun_turn.selected_input_message.content
     assert_equal "Branch rerun output", rerun_turn.selected_output_message.content
   end
+
+  test "rejects rerunning output from an archived conversation" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Archived output")
+    turn.update!(lifecycle_state: "completed")
+    conversation.update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RerunOutput.call(
+        message: output,
+        content: "Should not rerun"
+      )
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must belong to an active conversation to rewrite output"
+  end
 end

@@ -13,6 +13,7 @@ module Turns
       turn = @message.turn
 
       raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
+      Turns::ValidateRewriteTarget.call(turn: turn)
       if turn.tail_in_active_timeline? && turn.selected_output_message_id == @message.id && @message.fork_point?
         raise_invalid!(turn, :base, "cannot rewrite a fork-point output")
       end
@@ -29,6 +30,7 @@ module Turns
     def rerun_in_place(turn)
       turn.with_lock do
         turn.reload
+        Turns::ValidateRewriteTarget.call(turn: turn)
         raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
         raise_invalid!(turn, :selected_output_message, "must match the rerun target") unless turn.selected_output_message_id == @message.id
         raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
