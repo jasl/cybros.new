@@ -109,6 +109,21 @@ In the foreseeable future, agents should default to
 `includes_execution_environment = true`. That means one runtime advertises both
 planes together and can be paired in one flow.
 
+`ExecutionEnvironment` reconciliation must key off an explicit stable runtime
+identity. That identity is not the deployment release fingerprint.
+
+For this follow-up, the contract should require one installation-local
+`environment_fingerprint` value that:
+
+- stays stable across `AgentDeployment` rotation for the same runtime carrier
+- changes only when the runtime carrier should be treated as a different
+  execution environment
+- is published by bundled or external runtimes as part of pairing and
+  capability metadata
+
+If a runtime cannot provide `environment_fingerprint`, pairing should fail
+rather than guessing from deployment-only metadata.
+
 When a deployment rotates:
 
 - the environment remains the same
@@ -186,7 +201,13 @@ environment-plane control whenever it holds environment-owned resources.
 Tool lookup must no longer be left implicit when capabilities from Core Matrix,
 `AgentDeployment`, and `ExecutionEnvironment` overlap.
 
-Except for reserved Core Matrix system tool namespaces, the resolution order is:
+Reserved Core Matrix system tools must use the `core_matrix__` public-name
+prefix and keep `tool_kind = kernel_primitive`.
+
+Those `core_matrix__*` tools do not participate in ordinary collision
+resolution.
+
+For all non-`core_matrix__*` tool names, the resolution order is:
 
 1. `ExecutionEnvironment`
 2. `AgentDeployment`
@@ -195,9 +216,6 @@ Except for reserved Core Matrix system tool namespaces, the resolution order is:
 This makes the runtime carrier authoritative for shell, file, process, and
 other environment-backed operations even if the agent program exposes the same
 tool name.
-
-Reserved Core Matrix system tools must remain namespaced and must not
-participate in ordinary name collisions.
 
 Capability publication should materialize the final effective tool manifest so
 that UI, orchestration, and runtime execution all observe the same winning
@@ -218,6 +236,13 @@ surfaces, such as:
 
 Conversation and tool resolution must be based on the combined environment and
 agent capability picture rather than a deployment-only view.
+
+Environment capability changes must be able to land independently from agent
+deployment rotation. Conversation contract refresh therefore needs to cover two
+separate mutation paths:
+
+- active `AgentDeployment` switches within one bound environment
+- `ExecutionEnvironment` capability refresh for the same bound environment
 
 ## Fenix And Future Agents
 

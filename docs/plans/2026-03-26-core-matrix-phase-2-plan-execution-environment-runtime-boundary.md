@@ -18,6 +18,7 @@
 - Do not keep transitional compatibility fields, adapters, or fallback routing.
 - Extend the existing protocol E2E harness instead of introducing a second path.
 - Commit after every task with the suggested message or a tighter equivalent.
+- Treat this plan as `Task C5`, the `Milestone C` runtime-boundary follow-up.
 
 ### Task 1: Lift `ExecutionEnvironment` Into The Durable Owner Aggregate
 
@@ -76,6 +77,8 @@ Expected: FAIL because `Conversation` does not yet carry the new environment bin
 Implement the smallest schema and model changes that make the new aggregate real:
 
 - add explicit environment ownership fields and capability payload fields to `execution_environments`
+- add a stable `environment_fingerprint` field that is installation-local and
+  distinct from deployment release fingerprinting
 - make `conversations` bind to `execution_environment`
 - keep `ProcessRun` environment-owned and remove any remaining deployment-owned interpretation
 - demote `ExecutionLease.holder_key` to routing hint semantics only
@@ -118,6 +121,7 @@ git commit -m "refactor: make execution environments durable runtime owners"
 
 **Files:**
 - Create: `core_matrix/app/services/execution_environments/reconcile.rb`
+- Create: `core_matrix/app/services/execution_environments/record_capabilities.rb`
 - Create: `core_matrix/app/services/execution_environments/resolve_delivery_endpoint.rb`
 - Modify: `core_matrix/app/services/agent_deployments/register.rb`
 - Modify: `core_matrix/app/services/agent_deployments/handshake.rb`
@@ -130,12 +134,17 @@ git commit -m "refactor: make execution environments durable runtime owners"
 - Modify: `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
 - Modify: `core_matrix/app/controllers/agent_api/health_controller.rb`
 - Modify: `core_matrix/app/channels/application_cable/connection.rb`
+- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/controllers/runtime/manifests_controller.rb`
 - Create: `core_matrix/test/services/execution_environments/reconcile_test.rb`
+- Create: `core_matrix/test/services/execution_environments/record_capabilities_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/registrations_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/health_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
 - Modify: `core_matrix/test/integration/bundled_default_agent_bootstrap_flow_test.rb`
+- Modify: `core_matrix/test/integration/external_fenix_pairing_flow_test.rb`
+- Modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 
 **Step 1: Write the failing test**
 
@@ -162,11 +171,16 @@ Run:
 cd core_matrix
 bin/rails test \
   test/services/execution_environments/reconcile_test.rb \
+  test/services/execution_environments/record_capabilities_test.rb \
   test/requests/agent_api/registrations_test.rb \
   test/requests/agent_api/capabilities_test.rb \
   test/requests/agent_api/health_test.rb \
   test/integration/agent_registration_contract_test.rb \
-  test/integration/bundled_default_agent_bootstrap_flow_test.rb
+  test/integration/bundled_default_agent_bootstrap_flow_test.rb \
+  test/integration/external_fenix_pairing_flow_test.rb
+
+cd ../agents/fenix
+bin/rails test test/integration/external_runtime_pairing_test.rb
 ```
 
 Expected: FAIL because pairing still treats the deployment as the primary runtime identity.
@@ -175,8 +189,10 @@ Expected: FAIL because pairing still treats the deployment as the primary runtim
 
 Implement the pairing split:
 
-- reconcile or create `ExecutionEnvironment` from stable runtime identity
+- reconcile or create `ExecutionEnvironment` from stable `environment_fingerprint`
 - create or rotate `AgentDeployment` on top of that environment
+- reject pairing when the runtime does not provide `environment_fingerprint`
+- record environment capabilities independently from deployment capability snapshot
 - keep transport reuse, but persist environment identity independently from deployment identity
 - expose environment identity in contract payloads where the runtime boundary now depends on it
 
@@ -188,6 +204,7 @@ Run the same command and confirm PASS.
 
 ```bash
 git add core_matrix/app/services/execution_environments/reconcile.rb \
+  core_matrix/app/services/execution_environments/record_capabilities.rb \
   core_matrix/app/services/execution_environments/resolve_delivery_endpoint.rb \
   core_matrix/app/services/agent_deployments/register.rb \
   core_matrix/app/services/agent_deployments/handshake.rb \
@@ -200,12 +217,17 @@ git add core_matrix/app/services/execution_environments/reconcile.rb \
   core_matrix/app/controllers/agent_api/capabilities_controller.rb \
   core_matrix/app/controllers/agent_api/health_controller.rb \
   core_matrix/app/channels/application_cable/connection.rb \
+  agents/fenix/app/services/fenix/runtime/pairing_manifest.rb \
+  agents/fenix/app/controllers/runtime/manifests_controller.rb \
   core_matrix/test/services/execution_environments/reconcile_test.rb \
+  core_matrix/test/services/execution_environments/record_capabilities_test.rb \
   core_matrix/test/requests/agent_api/registrations_test.rb \
   core_matrix/test/requests/agent_api/capabilities_test.rb \
   core_matrix/test/requests/agent_api/health_test.rb \
   core_matrix/test/integration/agent_registration_contract_test.rb \
-  core_matrix/test/integration/bundled_default_agent_bootstrap_flow_test.rb
+  core_matrix/test/integration/bundled_default_agent_bootstrap_flow_test.rb \
+  core_matrix/test/integration/external_fenix_pairing_flow_test.rb \
+  agents/fenix/test/integration/external_runtime_pairing_test.rb
 git commit -m "refactor: split environment reconciliation from deployment rotation"
 ```
 
@@ -214,6 +236,7 @@ git commit -m "refactor: split environment reconciliation from deployment rotati
 **Files:**
 - Create: `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
 - Create: `core_matrix/app/services/conversations/refresh_runtime_contract.rb`
+- Create: `core_matrix/app/services/conversations/switch_agent_deployment.rb`
 - Modify: `core_matrix/app/services/conversations/create_root.rb`
 - Modify: `core_matrix/app/services/conversations/create_thread.rb`
 - Modify: `core_matrix/app/services/conversations/create_branch.rb`
@@ -221,9 +244,11 @@ git commit -m "refactor: split environment reconciliation from deployment rotati
 - Modify: `core_matrix/app/services/workflows/context_assembler.rb`
 - Modify: `core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `core_matrix/app/models/conversation.rb`
+- Modify: `core_matrix/app/models/execution_environment.rb`
 - Modify: `core_matrix/app/models/capability_snapshot.rb`
 - Create: `core_matrix/test/services/runtime_capabilities/compose_for_conversation_test.rb`
 - Create: `core_matrix/test/services/conversations/refresh_runtime_contract_test.rb`
+- Create: `core_matrix/test/services/conversations/switch_agent_deployment_test.rb`
 - Modify: `core_matrix/test/services/workflows/context_assembler_test.rb`
 - Modify: `core_matrix/test/services/workflows/manual_resume_test.rb`
 
@@ -256,6 +281,7 @@ cd core_matrix
 bin/rails test \
   test/services/runtime_capabilities/compose_for_conversation_test.rb \
   test/services/conversations/refresh_runtime_contract_test.rb \
+  test/services/conversations/switch_agent_deployment_test.rb \
   test/services/workflows/context_assembler_test.rb \
   test/services/workflows/manual_resume_test.rb
 ```
@@ -268,6 +294,7 @@ Implement the conversation contract refresh path:
 
 - compose effective capabilities from environment and agent
 - refresh on conversation creation and agent switch
+- refresh on environment capability change without requiring deployment rotation
 - gate attachment visibility and workflow resume rules against the composed contract
 - keep the environment fixed while allowing the active deployment to change
 
@@ -280,6 +307,7 @@ Run the same command and confirm PASS.
 ```bash
 git add core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb \
   core_matrix/app/services/conversations/refresh_runtime_contract.rb \
+  core_matrix/app/services/conversations/switch_agent_deployment.rb \
   core_matrix/app/services/conversations/create_root.rb \
   core_matrix/app/services/conversations/create_thread.rb \
   core_matrix/app/services/conversations/create_branch.rb \
@@ -287,9 +315,11 @@ git add core_matrix/app/services/runtime_capabilities/compose_for_conversation.r
   core_matrix/app/services/workflows/context_assembler.rb \
   core_matrix/app/services/workflows/manual_resume.rb \
   core_matrix/app/models/conversation.rb \
+  core_matrix/app/models/execution_environment.rb \
   core_matrix/app/models/capability_snapshot.rb \
   core_matrix/test/services/runtime_capabilities/compose_for_conversation_test.rb \
   core_matrix/test/services/conversations/refresh_runtime_contract_test.rb \
+  core_matrix/test/services/conversations/switch_agent_deployment_test.rb \
   core_matrix/test/services/workflows/context_assembler_test.rb \
   core_matrix/test/services/workflows/manual_resume_test.rb
 git commit -m "feat: compose conversation runtime contract from environment and agent"
@@ -452,7 +482,9 @@ Expected: FAIL because the runtime manifest and capability refresh output do not
 
 Implement the effective tool surface:
 
-- compose the final tool catalog with `ExecutionEnvironment > AgentDeployment > CoreMatrix`, excluding reserved system namespaces
+- rename model-visible Core Matrix system tools into the reserved
+  `core_matrix__*` namespace
+- compose the final tool catalog with `ExecutionEnvironment > AgentDeployment > CoreMatrix` for all non-`core_matrix__*` tool names
 - publish both agent-plane and environment-plane capabilities in pairing and refresh payloads
 - update Fenix to advertise and execute the bundled dual-plane contract explicitly
 
@@ -493,6 +525,10 @@ git commit -m "feat: publish environment-first tool precedence and dual-plane ru
 - Modify: `core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md`
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+- Modify: `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
+- Modify: `docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md`
 - Modify: `agents/fenix/README.md`
 - Modify: `docs/plans/README.md`
 - Modify: any stale tests or helper code that still assert deployment-owned runtime behavior
@@ -551,8 +587,10 @@ bin/rails test \
   test/models/process_run_test.rb \
   test/models/agent_control_mailbox_item_test.rb \
   test/services/execution_environments/reconcile_test.rb \
+  test/services/execution_environments/record_capabilities_test.rb \
   test/services/runtime_capabilities/compose_for_conversation_test.rb \
   test/services/conversations/refresh_runtime_contract_test.rb \
+  test/services/conversations/switch_agent_deployment_test.rb \
   test/services/conversations/request_turn_interrupt_test.rb \
   test/services/workflows/context_assembler_test.rb \
   test/services/workflows/manual_resume_test.rb \
@@ -564,6 +602,8 @@ bin/rails test \
   test/requests/agent_api/resource_close_test.rb \
   test/integration/agent_registration_contract_test.rb \
   test/integration/bundled_default_agent_bootstrap_flow_test.rb \
+  test/integration/external_fenix_pairing_flow_test.rb \
+  test/integration/agent_runtime_resource_api_test.rb \
   test/e2e/protocol/mailbox_delivery_e2e_test.rb \
   test/e2e/protocol/turn_interrupt_e2e_test.rb \
   test/e2e/protocol/process_close_escalation_e2e_test.rb
@@ -592,6 +632,10 @@ git add core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md
   core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md \
   core_matrix/docs/behavior/agent-runtime-resource-apis.md \
   core_matrix/docs/behavior/subagent-runs-and-execution-leases.md \
+  docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md \
+  docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md \
+  docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md \
+  docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md \
   agents/fenix/README.md \
   docs/plans/README.md
 git commit -m "docs: remove stale deployment-owned runtime semantics"
@@ -603,8 +647,10 @@ After Task 6, run one final manual review pass before opening follow-up executio
 
 1. Confirm every runtime-owned resource resolves to one `ExecutionEnvironment`.
 2. Confirm no conversation can switch environments after creation.
-3. Confirm deployment rotation preserves environment identity and resource ownership.
-4. Confirm timeout-driven stop paths still route environment-owned resources through mailbox control.
-5. Confirm effective tool catalogs honor `ExecutionEnvironment > AgentDeployment > CoreMatrix`, excluding reserved system namespaces.
-6. Confirm Fenix and future bundled-agent assumptions are explicit in docs and manifests.
-7. Confirm no stale behavior doc, test name, or helper still teaches deployment-owned runtime semantics.
+3. Confirm active agent switching works inside one bound environment and refreshes the conversation contract.
+4. Confirm environment capability refresh works without deployment rotation.
+5. Confirm deployment rotation preserves environment identity and resource ownership.
+6. Confirm timeout-driven stop paths still route environment-owned resources through mailbox control.
+7. Confirm effective tool catalogs honor `ExecutionEnvironment > AgentDeployment > CoreMatrix` for ordinary tools and reserve `core_matrix__*` for system tools.
+8. Confirm Fenix and future bundled-agent assumptions are explicit in docs and manifests.
+9. Confirm no stale behavior doc, test name, helper, or canonical design note still teaches deployment-owned runtime semantics.

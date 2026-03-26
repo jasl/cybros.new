@@ -69,6 +69,7 @@ Rules:
 
 - public tool names use `snake_case`
 - dotted names such as `human_interactions.request` are not valid public tool names
+- reserved Core Matrix system tools use the `core_matrix__` prefix
 - tool names and protocol method IDs may overlap in wording, but they are different identifier families and must remain independently documented
 
 ### 3. HTTP Routes
@@ -182,6 +183,9 @@ Recommended `tool_kind` values:
 Rules:
 
 - `tool_name` is the canonical model-visible identifier
+- `kernel_primitive` tools that are intentionally model-visible must use the
+  reserved `core_matrix__` prefix so they stay outside ordinary agent and
+  environment collision domains
 - `implementation_source` identifies where the implementation lives, such as `kernel` or `agent`
 - `implementation_ref` is a stable implementation locator for audit and diagnostics, not a user-facing label
 - input and result schema snapshots must be stable enough for contract tests and replay diagnostics
@@ -287,6 +291,10 @@ Core Matrix remains a strong-kernel system.
 ### Kernel Primitive
 
 `kernel_primitive` tools are kernel-owned and kernel-executed.
+
+When they are model-visible, they must publish reserved `core_matrix__*`
+`tool_name` values rather than competing for ordinary tool names such as
+`shell_exec`.
 
 ### Agent Observation
 

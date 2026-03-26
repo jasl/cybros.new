@@ -32,6 +32,10 @@ end-to-end stack.
 
 - [2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md)
 
+### Task C5 Follow-Up
+
+- [2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
@@ -46,6 +50,9 @@ end-to-end stack.
   lifecycle state machine
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
+- `ExecutionEnvironment` is explicitly the stable owner of runtime resources
+- agent plane and environment plane are explicit protocol concepts even when one
+  runtime process implements both
 
 ## Non-Goals
 
