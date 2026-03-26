@@ -24,6 +24,7 @@ module Turns
         raise_invalid!(@conversation, :purpose, "must be automation for automation turn entry") unless @conversation.automation?
         raise_invalid!(@conversation, :lifecycle_state, "must be active for automation turn entry") unless @conversation.active?
         ensure_conversation_retained!(@conversation, message: "must be retained for automation turn entry")
+        ensure_conversation_not_closing!(@conversation, message: "must not accept new turn entry while close is in progress")
 
         Turn.create!(
           installation: @conversation.installation,

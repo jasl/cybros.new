@@ -150,6 +150,8 @@ module AgentControl
         finished_at: @occurred_at
       )
 
+      apply_retry_gate! if lifecycle_state == "failed"
+
       if agent_task_run.execution_lease&.active?
         Leases::Release.call(
           execution_lease: agent_task_run.execution_lease,
@@ -179,6 +181,7 @@ module AgentControl
         close_outcome_kind: @payload.fetch("close_outcome_kind"),
         close_outcome_payload: @payload.fetch("close_outcome_payload", {})
       )
+      terminalize_closed_resource!(resource)
       mailbox_item.update!(status: "completed", completed_at: @occurred_at)
     end
 
@@ -205,6 +208,7 @@ module AgentControl
       raise StaleReportError unless agent_task_run.running?
       raise StaleReportError unless agent_task_run.holder_agent_deployment_id == @deployment.id
       raise StaleReportError unless agent_task_run.execution_lease&.active?
+      raise StaleReportError if agent_task_run.close_requested_at.present?
     end
 
     def heartbeat_task_lease!
@@ -247,6 +251,100 @@ module AgentControl
       resource_class.find_by!(
         installation_id: @deployment.installation_id,
         public_id: @payload.fetch("resource_id")
+      )
+    end
+
+    def apply_retry_gate!
+      terminal_payload = agent_task_run.terminal_payload
+      return unless terminal_payload["retryable"]
+      return unless terminal_payload["retry_scope"] == "step"
+
+      agent_task_run.workflow_run.update!(
+        wait_state: "waiting",
+        wait_reason_kind: "retryable_failure",
+        wait_reason_payload: {
+          "failure_kind" => terminal_payload["failure_kind"],
+          "retryable" => true,
+          "retry_scope" => "step",
+          "logical_work_id" => agent_task_run.logical_work_id,
+          "attempt_no" => agent_task_run.attempt_no,
+          "last_error_summary" => terminal_payload["last_error_summary"],
+        }.compact,
+        waiting_since_at: @occurred_at,
+        blocking_resource_type: "AgentTaskRun",
+        blocking_resource_id: agent_task_run.public_id
+      )
+    end
+
+    def terminalize_closed_resource!(resource)
+      case resource
+      when AgentTaskRun
+        resource.update!(
+          lifecycle_state: mailbox_item.payload["request_kind"] == "turn_interrupt" ? "interrupted" : "canceled",
+          finished_at: resource.finished_at || @occurred_at,
+          terminal_payload: resource.terminal_payload.merge(
+            "close_outcome_kind" => resource.close_outcome_kind
+          )
+        )
+      when ProcessRun
+        resource.update!(
+          lifecycle_state: resource.close_outcome_kind == "residual_abandoned" ? "lost" : "stopped",
+          ended_at: resource.ended_at || @occurred_at,
+          metadata: resource.metadata.merge(
+            "stop_reason" => resource.close_reason_kind,
+            "close_request_kind" => mailbox_item.payload["request_kind"]
+          )
+        )
+      when SubagentRun
+        resource.update!(
+          lifecycle_state: resource.close_state == "failed" ? "failed" : "canceled",
+          finished_at: resource.finished_at || @occurred_at
+        )
+      end
+
+      release_resource_lease!(resource)
+      reconcile_turn_interrupt!(resource)
+      reconcile_close_operation!(resource)
+    end
+
+    def release_resource_lease!(resource)
+      return unless resource.respond_to?(:execution_lease)
+      return unless resource.execution_lease&.active?
+
+      Leases::Release.call(
+        execution_lease: resource.execution_lease,
+        holder_key: @deployment.public_id,
+        reason: "resource_closed",
+        released_at: @occurred_at
+      )
+    rescue ArgumentError
+      nil
+    end
+
+    def reconcile_turn_interrupt!(resource)
+      turn =
+        if resource.respond_to?(:turn)
+          resource.turn
+        elsif resource.respond_to?(:workflow_run)
+          resource.workflow_run&.turn
+        end
+      return if turn.blank?
+      return unless turn.cancellation_reason_kind == "turn_interrupted"
+
+      Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: @occurred_at)
+    end
+
+    def reconcile_close_operation!(resource)
+      conversation = resource.respond_to?(:conversation) ? resource.conversation : nil
+      return if conversation.blank?
+
+      close_operation = conversation.unfinished_close_operation
+      return if close_operation.blank?
+
+      Conversations::RequestClose.call(
+        conversation: conversation,
+        intent_kind: close_operation.intent_kind,
+        occurred_at: @occurred_at
       )
     end
   end

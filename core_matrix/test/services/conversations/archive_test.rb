@@ -74,88 +74,104 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:lifecycle_state], "must be active before archival"
   end
 
-  test "force archives by quiescing active runtime work with archive-specific reasons" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
-    turn = Turns::StartUserTurn.call(
-      conversation: conversation,
-      content: "Archive me anyway",
-      agent_deployment: context[:agent_deployment],
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
-    workflow_run = create_workflow_run!(turn: turn)
-    human_node = create_workflow_node!(
-      workflow_run: workflow_run,
-      node_key: "human_gate",
-      node_type: "human_interaction",
-      decision_source: "agent_program",
-      metadata: {}
-    )
-    request = HumanInteractions::Request.call(
+  test "force archive creates a close operation and waits only for mainline blockers before archiving" do
+    context = build_agent_control_context!
+    blocking_request = HumanInteractions::Request.call(
       request_type: "HumanTaskRequest",
-      workflow_node: human_node,
+      workflow_node: context[:workflow_node],
       blocking: true,
       request_payload: { "instructions" => "Need user input" }
     )
-    process_node = create_workflow_node!(
-      workflow_run: workflow_run,
-      node_key: "process",
-      node_type: "turn_command",
-      decision_source: "agent_program",
-      metadata: {}
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current
     )
-    process_run = Processes::Start.call(
-      workflow_node: process_node,
+    Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    turn_command = create_process_run!(
+      workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command",
-      command_line: "echo hi",
-      timeout_seconds: 30,
-      origin_message: turn.selected_input_message
+      kind: "turn_command"
     )
-    subagent_run = Subagents::Spawn.call(
-      workflow_node: human_node,
-      requested_role_or_slot: "researcher"
+    background_service = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      timeout_seconds: nil
     )
-    process_lease = Leases::Acquire.call(
-      leased_resource: process_run,
-      holder_key: "runtime-process",
-      heartbeat_timeout_seconds: 30
+    subagent_run = create_subagent_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running"
     )
-    subagent_lease = Leases::Acquire.call(
-      leased_resource: subagent_run,
-      holder_key: "runtime-subagent",
-      heartbeat_timeout_seconds: 30
-    )
+    [turn_command, background_service, subagent_run].each do |resource|
+      Leases::Acquire.call(
+        leased_resource: resource,
+        holder_key: context[:deployment].public_id,
+        heartbeat_timeout_seconds: 30
+      )
+    end
 
     archived = Conversations::Archive.call(
-      conversation: conversation,
+      conversation: context[:conversation],
       force: true,
       occurred_at: Time.zone.parse("2026-03-26 10:00:00 UTC")
     )
 
+    assert archived.active?
+    close_operation = archived.reload.conversation_close_operations.order(:created_at).last
+    assert_equal "archive", close_operation.intent_kind
+    assert_equal "quiescing", close_operation.lifecycle_state
+    assert_equal "turn_interrupted", context[:turn].reload.cancellation_reason_kind
+    assert_equal "turn_interrupted", context[:workflow_run].reload.cancellation_reason_kind
+    assert blocking_request.reload.canceled?
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::StartUserTurn.call(
+        conversation: context[:conversation].reload,
+        content: "Blocked while archive close is in progress",
+        agent_deployment: context[:deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+
+    agent_task_run.reload.update!(
+      lifecycle_state: "interrupted",
+      finished_at: Time.zone.parse("2026-03-26 10:00:10 UTC"),
+      close_state: "closed",
+      close_acknowledged_at: Time.zone.parse("2026-03-26 10:00:05 UTC"),
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+    turn_command.reload.update!(
+      lifecycle_state: "stopped",
+      ended_at: Time.zone.parse("2026-03-26 10:00:10 UTC"),
+      close_state: "closed",
+      close_acknowledged_at: Time.zone.parse("2026-03-26 10:00:05 UTC"),
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+    subagent_run.reload.update!(
+      lifecycle_state: "canceled",
+      finished_at: Time.zone.parse("2026-03-26 10:00:10 UTC"),
+      close_state: "closed",
+      close_acknowledged_at: Time.zone.parse("2026-03-26 10:00:05 UTC"),
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+
+    archived = Conversations::Archive.call(
+      conversation: context[:conversation].reload,
+      force: true,
+      occurred_at: Time.zone.parse("2026-03-26 10:01:00 UTC")
+    )
+
     assert archived.archived?
-    assert turn.reload.canceled?
-    assert_equal "conversation_archived", turn.cancellation_reason_kind
-
-    assert workflow_run.reload.canceled?
-    assert workflow_run.ready?
-    assert_equal "conversation_archived", workflow_run.cancellation_reason_kind
-    assert_nil workflow_run.blocking_resource_type
-    assert_nil workflow_run.blocking_resource_id
-
-    assert request.reload.canceled?
-    assert_equal "conversation_archived", request.result_payload["reason"]
-    assert_equal "canceled", request.resolution_kind
-
-    assert process_run.reload.stopped?
-    assert_equal "conversation_archived", process_run.metadata["stop_reason"]
-    assert subagent_run.reload.canceled?
-    assert_not_nil subagent_run.finished_at
-
-    assert_not process_lease.reload.active?
-    assert_equal "conversation_archived", process_lease.release_reason
-    assert_not subagent_lease.reload.active?
-    assert_equal "conversation_archived", subagent_lease.release_reason
+    assert_equal "disposing", close_operation.reload.lifecycle_state
+    assert_equal "requested", background_service.reload.close_state
   end
 end

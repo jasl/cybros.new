@@ -22,6 +22,7 @@ class Turn < ApplicationRecord
     {
       conversation_deleted: "conversation_deleted",
       conversation_archived: "conversation_archived",
+      turn_interrupted: "turn_interrupted",
     },
     validate: { allow_nil: true }
 

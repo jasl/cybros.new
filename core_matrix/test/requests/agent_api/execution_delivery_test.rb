@@ -98,6 +98,88 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal "stale", JSON.parse(response.body).fetch("result")
   end
 
+  test "retryable execution failure moves the workflow into the step retry gate" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_started",
+      message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 30
+    )
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_fail",
+        message_id: "agent-fail-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        terminal_payload: {
+          "retryable" => true,
+          "retry_scope" => "step",
+          "failure_kind" => "tool_failure",
+          "last_error_summary" => "exit status 1",
+        },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    workflow_run = context[:workflow_run].reload
+    assert workflow_run.waiting?
+    assert_equal "retryable_failure", workflow_run.wait_reason_kind
+    assert_equal "step", workflow_run.wait_reason_payload["retry_scope"]
+    assert_equal agent_task_run.logical_work_id, workflow_run.wait_reason_payload["logical_work_id"]
+    assert_equal agent_task_run.public_id, workflow_run.blocking_resource_id
+    assert context[:turn].reload.active?
+  end
+
+  test "execution progress is rejected once the turn has been fenced by interrupt" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_started",
+      message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 30
+    )
+
+    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.current)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_progress",
+        message_id: "agent-progress-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: { "state" => "late" },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :conflict
+    assert_equal "stale", JSON.parse(response.body).fetch("result")
+  end
+
   test "deployment_health_report refreshes control activity and piggybacks pending mailbox items" do
     context = build_agent_control_context!
     MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

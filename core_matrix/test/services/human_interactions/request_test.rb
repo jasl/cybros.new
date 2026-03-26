@@ -86,4 +86,20 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:wait_state], "must be ready before opening another blocking human interaction"
     assert_equal [first_request.id], HumanInteractionRequest.where(workflow_run: context[:workflow_run]).order(:id).pluck(:id)
   end
+
+  test "rejects opening a human interaction after the turn has been interrupted" do
+    context = build_human_interaction_context!
+    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      HumanInteractions::Request.call(
+        request_type: "ApprovalRequest",
+        workflow_node: context[:workflow_node],
+        blocking: true,
+        request_payload: { "approval_scope" => "publish" }
+      )
+    end
+
+    assert_includes error.record.errors[:turn], "must not be fenced by turn interrupt"
+  end
 end

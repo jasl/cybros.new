@@ -21,12 +21,14 @@ class WorkflowRun < ApplicationRecord
       agent_unavailable: "agent_unavailable",
       manual_recovery_required: "manual_recovery_required",
       policy_gate: "policy_gate",
+      retryable_failure: "retryable_failure",
     },
     validate: { allow_nil: true }
   enum :cancellation_reason_kind,
     {
       conversation_deleted: "conversation_deleted",
       conversation_archived: "conversation_archived",
+      turn_interrupted: "turn_interrupted",
     },
     validate: { allow_nil: true }
   enum :resume_policy,

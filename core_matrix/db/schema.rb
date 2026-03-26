@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_26_113000) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_26_123000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -324,6 +324,23 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_113000) do
     t.integer "version", null: false
     t.index ["agent_deployment_id", "version"], name: "index_capability_snapshots_on_agent_deployment_id_and_version", unique: true
     t.index ["agent_deployment_id"], name: "index_capability_snapshots_on_agent_deployment_id"
+  end
+
+  create_table "conversation_close_operations", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.string "intent_kind", null: false
+    t.string "lifecycle_state", default: "requested", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "requested_at", null: false
+    t.jsonb "summary_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL ((ARRAY['completed'::character varying, 'degraded'::character varying])::text[]))"
+    t.index ["conversation_id"], name: "index_conversation_close_operations_on_conversation_id"
+    t.index ["installation_id"], name: "index_conversation_close_operations_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_close_operations_on_public_id", unique: true
   end
 
   create_table "conversation_closures", force: :cascade do |t|
@@ -798,7 +815,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_113000) do
     t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
     t.index ["selected_output_message_id"], name: "index_turns_on_selected_output_message_id"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_turns_cancellation_pairing"
-    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text]))", name: "chk_turns_cancellation_reason_kind"
+    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))", name: "chk_turns_cancellation_reason_kind"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -1023,7 +1040,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_113000) do
     t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
     t.index ["workspace_id"], name: "index_workflow_runs_on_workspace_id"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
-    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text]))", name: "chk_workflow_runs_cancellation_reason_kind"
+    t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))", name: "chk_workflow_runs_cancellation_reason_kind"
     t.check_constraint "resume_policy IS NULL OR resume_policy::text = 're_enter_agent'::text", name: "chk_workflow_runs_resume_policy"
   end
 
@@ -1087,6 +1104,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_113000) do
   add_foreign_key "canonical_variables", "workflow_runs", column: "source_workflow_run_id"
   add_foreign_key "canonical_variables", "workspaces"
   add_foreign_key "capability_snapshots", "agent_deployments"
+  add_foreign_key "conversation_close_operations", "conversations"
+  add_foreign_key "conversation_close_operations", "installations"
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"

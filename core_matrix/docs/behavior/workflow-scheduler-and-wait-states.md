@@ -3,20 +3,12 @@
 ## Purpose
 
 Core Matrix keeps one structured current wait state on `WorkflowRun` and now
-also defines how deletion interacts with waiting and active workflow work.
+also defines how interrupt, retry, archive, and delete interact with active
+workflow work.
 
 ## Status
 
-This document records the current landed Phase 1 scheduler and wait-state
-behavior.
-
-Archive, delete, turn interrupt, step retry, and mailbox-close semantics are
-expected to change in Phase 2. Until those tasks land, this document remains
-the source of truth for the current implementation.
-
-Planned replacement design:
-
-- [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
+This document reflects the landed Phase 2 scheduler and close-fence behavior.
 
 ## Workflow Wait State Shape
 
@@ -38,6 +30,7 @@ Planned replacement design:
   - `agent_unavailable`
   - `manual_recovery_required`
   - `policy_gate`
+  - `retryable_failure`
 - `waiting` requires a reason kind and `waiting_since_at`
 - `ready` must not retain stale wait fields or blocking-resource references
 
@@ -79,40 +72,79 @@ Planned replacement design:
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
   boundaries for paused workflows and are rejected once deletion has been
   requested
+- retryable in-place step failures now move the workflow into:
+  - `wait_state = "waiting"`
+  - `wait_reason_kind = "retryable_failure"`
+  - `blocking_resource_type = "AgentTaskRun"`
+  - `blocking_resource_id = <failed agent task public_id>`
+- the retry gate stores `logical_work_id`, `attempt_no`, `retry_scope`, and
+  the last error summary in `wait_reason_payload`
+- `Workflows::StepRetry` creates a new `AgentTaskRun` inside the same turn and
+  workflow and delivers it through the mailbox as a priority-2 retry attempt
+- step retry is rejected once the turn has been fenced by
+  `turn_interrupt`
+
+## Turn Interrupt
+
+- user-facing `Stop` maps to `Conversations::RequestTurnInterrupt`
+- turn interrupt writes a durable close fence by marking both the turn and its
+  workflow with:
+  - `cancellation_requested_at`
+  - `cancellation_reason_kind = "turn_interrupted"`
+- the fence cancels queued retry attempts, clears workflow wait fields, and
+  rejects late `execution_progress` or terminal execution reports for the
+  superseded attempt
+- turn interrupt targets only mainline blockers:
+  - running `AgentTaskRun`
+  - blocking `HumanInteractionRequest`
+  - running `ProcessRun(kind = "turn_command")`
+  - running turn-bound `SubagentRun`
+- turn interrupt does not target detached
+  `ProcessRun(kind = "background_service")`
+- the turn and workflow move to `canceled` only after those mainline blockers
+  have reached durable terminal close state
 
 ## Archive Interaction
 
 - archive without force is only allowed once the conversation has no unfinished
   runtime work
-- `Conversations::Archive(force: true)` quiesces the conversation's own queued
-  turns, active turns, active workflow runs, open human interactions, running
-  processes, running subagents, and active leases before transitioning to
-  `archived`
-- force archival uses `conversation_archived` as the cancellation or release
-  reason across turns, workflows, human-interaction payloads, process stop
-  metadata, and lease release reasons
+- `Conversations::Archive(force: true)` now creates a durable
+  `ConversationCloseOperation(intent_kind = "archive")`
+- the archive close operation immediately blocks new turn entry even while the
+  conversation row is still `active`
+- active mainline work is stopped through `turn_interrupt`
+- detached background processes are closed through mailbox
+  `resource_close_request(request_kind = "archive_force_quiesce")`
+- the conversation transitions to `archived` once the mainline stop barrier is
+  clear
+- the close operation remains:
+  - `quiescing` while mainline blockers remain
+  - `disposing` while only background disposal tails remain
+  - `degraded` when disposal tails end in residual or failed close outcomes
+  - `completed` when both mainline and disposal tail cleanup finish cleanly
 - once archived, the conversation no longer accepts new turn entry or queued
   follow-up work
 
 ## Safe Deletion Interaction
 
-- `Conversations::RequestDeletion` cancels queued turns immediately
-- open human interaction requests on the conversation are canceled
-- running process runs are stopped with reason `conversation_deleted`
-- running subagent runs are marked canceled
-- active execution leases are force-released with reason `conversation_deleted`
-- active workflow runs are marked with:
-  - `cancellation_requested_at`
-  - `cancellation_reason_kind = "conversation_deleted"`
-- once runtime work has been quiesced, active workflow runs and turns are moved
-  to `canceled`
-- `Conversations::FinalizeDeletion` rejects finalization while active turns,
-  active workflows, open human interactions, running processes,
-  running subagents, or active leases still remain
-- `Conversations::PurgeDeleted(force: true)` may quiesce corrupted deleted
-  runtime work with `conversation_deleted` reasons before retrying purge, but it
-  still requires final deletion to have removed the live canonical-store
-  reference first
+- `Conversations::RequestDeletion` moves the conversation to
+  `pending_delete` immediately and stamps `deleted_at`
+- queued turns are canceled immediately with
+  `cancellation_reason_kind = "conversation_deleted"`
+- the active turn is fenced through `turn_interrupt`
+- detached background processes are closed through mailbox
+  `resource_close_request(request_kind = "deletion_force_quiesce")`
+- delete also records a durable
+  `ConversationCloseOperation(intent_kind = "delete")`
+- `Conversations::FinalizeDeletion` now requires only the mainline stop
+  barrier to be clear; background disposal tails may still be `disposing` or
+  `degraded`
+- `Conversations::PurgeDeleted` still requires:
+  - final deletion to have removed the live canonical-store reference
+  - no active runtime residue
+  - no lineage or provenance blockers
+- retained child conversations are not deleted or interrupted when a parent is
+  put into `pending_delete`
 
 ## Human Interaction Interaction
 
@@ -130,6 +162,8 @@ Planned replacement design:
   - late completion, form submission, and approval resolution are rejected
   - deletion-driven cancellation projects `human_interaction.canceled`
     conversation events
+- once a turn has been fenced by `turn_interrupt`, opening a new human
+  interaction from that workflow is also rejected
 
 ## Invariants
 
@@ -137,8 +171,8 @@ Planned replacement design:
 - waiting workflows do not surface runnable nodes
 - restart and queue policies replace older queued follow-up work with the newest
   input
-- deletion uses the existing workflow wait/cancel state rather than inventing
-  a second pause store
+- close fences reuse the same workflow row rather than inventing a second pause
+  store
 
 ## Failure Modes
 
@@ -147,4 +181,5 @@ Planned replacement design:
 - queued follow-up work is canceled when predecessor output drift invalidates
   the expected-tail guard
 - manual recovery actions are rejected for non-retained conversations
-- final deletion is rejected while unfinished runtime work remains
+- step retry is rejected after `turn_interrupt`
+- final deletion is rejected while unfinished mainline work remains

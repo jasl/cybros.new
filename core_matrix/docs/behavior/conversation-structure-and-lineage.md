@@ -72,18 +72,24 @@ cleanup is still running.
 
 - `Conversations::RequestDeletion` moves a retained conversation to
   `pending_delete` and stamps `deleted_at`
+- delete also creates a durable
+  `ConversationCloseOperation(intent_kind = "delete")`
 - `pending_delete` conversations are hidden from default agent-facing
   conversation lookups
 - new turn entry, branching, checkpointing, threading, and conversation-local
   store writes are rejected once deletion has been requested
+- queued turns are canceled immediately with `conversation_deleted`
+- the current active turn is fenced through `turn_interrupt`
+- parent delete does not interrupt retained child conversations
 - `Conversations::FinalizeDeletion` removes the conversation's live
-  `CanonicalStoreReference` and moves the row to `deleted` once runtime work is
-  quiescent
+  `CanonicalStoreReference` and moves the row to `deleted` once the mainline
+  stop barrier is clear
+- detached background cleanup may still be `disposing` or `degraded` after the
+  row has reached `deleted`
 - `Conversations::PurgeDeleted` now rejects corrupted `deleted` states that
   still retain active runtime work or a live `CanonicalStoreReference`
-- `Conversations::PurgeDeleted(force: true)` first quiesces the deleted
-  conversation's own runtime work with deletion reasons and then re-runs the
-  same purge guards
+- `Conversations::PurgeDeleted(force: true)` still only helps with corrupted
+  local runtime residue; it does not bypass final-deletion or lineage guards
 - `PurgeDeleted(force: true)` still does not perform final deletion on behalf
   of the caller; the live `CanonicalStoreReference` must already be gone
 - physical purge is deferred while descendants, canonical-store root
@@ -108,9 +114,18 @@ cleanup is still running.
   - no active execution leases
   - no open human interaction
   - no running process or subagent execution
-- `Conversations::Archive(force: true)` first quiesces the conversation's own
-  queued or active runtime work with `conversation_archived` cancellation
-  reasons and then applies the same retained-lifecycle transition
+- `Conversations::Archive(force: true)` creates a durable
+  `ConversationCloseOperation(intent_kind = "archive")`
+- force archive blocks new turn entry immediately, even while the conversation
+  row remains `active`
+- active mainline work is fenced through `turn_interrupt`
+- detached background processes are closed through mailbox close requests with
+  `request_kind = "archive_force_quiesce"`
+- the conversation transitions to `archived` once the mainline stop barrier is
+  clear
+- the archive close operation may remain `disposing` or `degraded` after the
+  conversation is already archived if detached cleanup still has pending or
+  residual outcomes
 - archived conversations are excluded from open human-interaction inbox queries
 - archived conversations reject opening new human interactions and reject late
   resolution of still-open requests
@@ -132,6 +147,11 @@ cleanup is still running.
 - `include_descendants: true` widens the check across descendant lineage so UI
   or operator flows can warn about running child work before destructive
   actions
+- `Conversations::CloseSummaryQuery` is the operator-facing query for close
+  state and separates:
+  - mainline blockers
+  - disposal-tail blockers
+  - lineage and provenance blockers
 
 ## Invariants
 
@@ -157,3 +177,5 @@ cleanup is still running.
 - unarchive is rejected for non-retained or non-archived conversations
 - purge is rejected until final deletion has already removed the live canonical
   store reference, even when force is requested
+- new turn entry is rejected while an archive or delete close operation is
+  still in progress

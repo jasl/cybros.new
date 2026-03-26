@@ -79,6 +79,7 @@ module Conversations
       PublicationAccessEvent.where(publication_id: publication_ids).delete_all
       Publication.where(id: publication_ids).delete_all
 
+      ConversationCloseOperation.where(conversation: @conversation).delete_all
       ConversationMessageVisibility.where(conversation: @conversation).delete_all
       ConversationEvent.where(conversation: @conversation).delete_all
       HumanInteractionRequest.where(conversation: @conversation).delete_all

@@ -19,6 +19,7 @@ module Turns
         raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
         raise_invalid!(@conversation, :lifecycle_state, "must be active for user turn entry") unless @conversation.active?
         ensure_conversation_retained!(@conversation, message: "must be retained for follow up turn entry")
+        ensure_conversation_not_closing!(@conversation, message: "must not accept new turn entry while close is in progress")
 
         unless @conversation.turns.where(lifecycle_state: %w[queued active]).exists?
           raise_invalid!(@conversation, :base, "must have active work before queueing follow up")

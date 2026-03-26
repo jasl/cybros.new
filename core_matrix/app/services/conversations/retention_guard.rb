@@ -14,5 +14,18 @@ module Conversations
       current_conversation.errors.add(:deletion_state, message)
       raise ActiveRecord::RecordInvalid, current_conversation
     end
+
+    def ensure_conversation_not_closing!(conversation, message:)
+      current_conversation =
+        if conversation.persisted? && !conversation.destroyed?
+          conversation.class.find(conversation.id)
+        else
+          conversation
+        end
+      return unless current_conversation.closing?
+
+      current_conversation.errors.add(:base, message)
+      raise ActiveRecord::RecordInvalid, current_conversation
+    end
   end
 end

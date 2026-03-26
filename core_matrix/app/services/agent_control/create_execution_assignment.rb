@@ -6,7 +6,7 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_task_run:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil, message_id: nil, causation_id: nil, lease_timeout_seconds: 30)
+    def initialize(agent_task_run:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil, message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
       @agent_task_run = agent_task_run
       @payload = payload.deep_stringify_keys
       @dispatch_deadline_at = dispatch_deadline_at
@@ -14,6 +14,7 @@ module AgentControl
       @message_id = message_id || "kernel-assignment-#{SecureRandom.uuid}"
       @causation_id = causation_id
       @lease_timeout_seconds = lease_timeout_seconds
+      @priority = priority
     end
 
     def call
@@ -28,7 +29,7 @@ module AgentControl
         attempt_no: @agent_task_run.attempt_no,
         message_id: @message_id,
         causation_id: @causation_id,
-        priority: 1,
+        priority: @priority,
         status: "queued",
         available_at: Time.current,
         dispatch_deadline_at: @dispatch_deadline_at,

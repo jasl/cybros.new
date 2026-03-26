@@ -47,6 +47,7 @@ class Conversation < ApplicationRecord
   has_many :conversation_events, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :workflow_runs, dependent: :restrict_with_exception
+  has_many :conversation_close_operations, dependent: :restrict_with_exception
   has_one :publication, dependent: :restrict_with_exception
   has_one :canonical_store_reference, as: :owner, dependent: :restrict_with_exception
   has_one :root_canonical_store,
@@ -105,6 +106,14 @@ class Conversation < ApplicationRecord
 
   def deleting?
     pending_delete? || deleted?
+  end
+
+  def unfinished_close_operation
+    conversation_close_operations.where.not(lifecycle_state: ConversationCloseOperation::TERMINAL_STATES).order(created_at: :desc).first
+  end
+
+  def closing?
+    unfinished_close_operation.present?
   end
 
   def active_turn_exists?(include_descendants: false)

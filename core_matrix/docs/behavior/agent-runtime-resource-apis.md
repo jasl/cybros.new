@@ -160,6 +160,8 @@ orchestration are still defined in:
   `ConversationEvent` rows
 - opening a human interaction is rejected unless the owning conversation is
   both retained and active
+- opening a human interaction is also rejected while a conversation close is in
+  progress or after the owning turn has been fenced by `turn_interrupt`
 - late human resolution paths are also rejected once the conversation is no
   longer retained or no longer active
 - both checks are enforced from fresh locked conversation and workflow/request

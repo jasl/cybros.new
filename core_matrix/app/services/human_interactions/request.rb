@@ -27,7 +27,11 @@ module HumanInteractions
 
       with_locked_workflow_context(@workflow_node.id) do |workflow_node, workflow_run, conversation|
         ensure_conversation_retained!(conversation, message: "must be retained before opening human interaction")
+        ensure_conversation_not_closing!(conversation, message: "must not open human interaction while close is in progress")
         raise_invalid!(conversation, :lifecycle_state, "must be active before opening human interaction") unless conversation.active?
+        if workflow_run.turn.cancellation_reason_kind == "turn_interrupted"
+          raise_invalid!(workflow_run, :turn, "must not be fenced by turn interrupt")
+        end
         raise_invalid!(workflow_run, :wait_state, "must be ready before opening another blocking human interaction") if @blocking && workflow_run.waiting?
 
         request = klass.create!(
