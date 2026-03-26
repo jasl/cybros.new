@@ -60,10 +60,15 @@ class ConversationImport < ApplicationRecord
   def source_message_belongs_to_source_conversation
     return if source_message.blank? || source_conversation.blank?
 
-    if source_conversation.transcript_projection_includes?(source_message)
+    if branch_prefix?
+      source_conversation.historical_anchor_prefix_messages(source_message)
+      return
+    elsif source_conversation.transcript_projection_includes?(source_message)
       return
     end
 
+    errors.add(:source_message, "must be present in the source conversation transcript projection")
+  rescue ActiveRecord::RecordNotFound
     errors.add(:source_message, "must be present in the source conversation transcript projection")
   end
 

@@ -40,10 +40,11 @@ module Turns
       raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
       raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
+      source_input_message = source_input_message_for_replay!(turn)
       rerun_output = Turns::CreateOutputVariant.call(
         turn: turn,
         content: @content,
-        source_input_message: @message.reload.source_input_message || turn.selected_input_message
+        source_input_message: source_input_message
       )
 
       turn.update!(
@@ -54,12 +55,11 @@ module Turns
     end
 
     def rerun_in_branch(turn)
+      source_input_message = source_input_message_for_replay!(turn)
       branch = Conversations::CreateBranch.call(
         parent: turn.conversation,
         historical_anchor_message_id: @message.id
       )
-      source_input_message = @message.reload.source_input_message ||
-        raise_invalid!(turn, :selected_output_message, "must carry source input provenance to rerun in a branch")
       rerun_turn = Turns::StartUserTurn.call(
         conversation: branch,
         content: source_input_message.content,
@@ -80,6 +80,11 @@ module Turns
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def source_input_message_for_replay!(turn)
+      @message.reload.source_input_message ||
+        raise_invalid!(turn, :selected_output_message, "must carry source input provenance")
     end
   end
 end

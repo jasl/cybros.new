@@ -57,4 +57,46 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     assert_equal "Branch rerun output", branch_rerun.selected_output_message.content
     assert_equal branch_rerun.selected_input_message, branch_rerun.selected_output_message.source_input_message
   end
+
+  test "retry and rerun fail closed when selected output provenance is missing" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+
+    failed_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Failed input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    failed_output = attach_selected_output!(failed_turn, content: "Failed output")
+    failed_turn.update!(lifecycle_state: "failed")
+    failed_output.update_columns(source_input_message_id: nil)
+
+    retry_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RetryOutput.call(message: failed_output.reload, content: "Retried output")
+    end
+
+    completed_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Completed input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    completed_output = attach_selected_output!(completed_turn, content: "Completed output")
+    completed_turn.update!(lifecycle_state: "completed")
+    completed_output.update_columns(source_input_message_id: nil)
+
+    rerun_error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RerunOutput.call(message: completed_output.reload, content: "Rerun output")
+    end
+
+    assert_includes retry_error.record.errors[:selected_output_message], "must carry source input provenance"
+    assert_includes rerun_error.record.errors[:selected_output_message], "must carry source input provenance"
+  end
 end

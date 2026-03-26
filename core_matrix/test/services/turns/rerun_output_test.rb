@@ -106,4 +106,66 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:lifecycle_state], "must belong to an active conversation to rewrite output"
   end
+
+  test "rejects in place rerun when the target output is missing source input provenance" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
+      content: "Input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Original output")
+    turn.update!(lifecycle_state: "completed")
+    output.update_columns(source_input_message_id: nil)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RerunOutput.call(
+        message: output.reload,
+        content: "Should fail"
+      )
+    end
+
+    assert_includes error.record.errors[:selected_output_message], "must carry source input provenance"
+  end
+
+  test "rejects branch rerun when the target output is missing source input provenance" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    historical_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Historical input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    historical_output = attach_selected_output!(historical_turn, content: "Historical output")
+    historical_turn.update!(lifecycle_state: "completed")
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    historical_output.update_columns(source_input_message_id: nil)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RerunOutput.call(
+        message: historical_output.reload,
+        content: "Should fail"
+      )
+    end
+
+    assert_includes error.record.errors[:selected_output_message], "must carry source input provenance"
+  end
 end

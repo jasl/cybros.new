@@ -58,4 +58,31 @@ class Turns::RetryOutputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:base], "must not rewrite output after turn interruption"
   end
+
+  test "rejects retrying output when the target output is missing source input provenance" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
+      content: "Input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Failed output")
+    turn.update!(lifecycle_state: "failed")
+    output.update_columns(source_input_message_id: nil)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RetryOutput.call(
+        message: output.reload,
+        content: "Should fail"
+      )
+    end
+
+    assert_includes error.record.errors[:selected_output_message], "must carry source input provenance"
+  end
 end

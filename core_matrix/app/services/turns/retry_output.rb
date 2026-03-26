@@ -23,10 +23,12 @@ module Turns
         raise_invalid!(locked_turn, :lifecycle_state, "must be failed or canceled to retry output") unless locked_turn.failed? || locked_turn.canceled?
         raise_invalid!(locked_turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
+        source_input_message = @message.reload.source_input_message ||
+          raise_invalid!(locked_turn, :selected_output_message, "must carry source input provenance")
         retry_output = Turns::CreateOutputVariant.call(
           turn: locked_turn,
           content: @content,
-          source_input_message: @message.reload.source_input_message || locked_turn.selected_input_message
+          source_input_message: source_input_message
         )
 
         locked_turn.update!(

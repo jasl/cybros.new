@@ -112,6 +112,16 @@ class Conversation < ApplicationRecord
     context_projection_messages.flat_map { |message| message.message_attachments.order(:id).to_a }
   end
 
+  def historical_anchor_prefix_messages(message)
+    raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent conversation history" if message.blank?
+
+    if message.conversation_id == id
+      local_historical_anchor_prefix_messages(message)
+    else
+      projection_prefix_messages(message)
+    end
+  end
+
   def deleting?
     pending_delete? || deleted?
   end
@@ -149,28 +159,9 @@ class Conversation < ApplicationRecord
 
   def inherited_transcript_projection_messages
     return [] if parent_conversation.blank?
+    return parent_conversation.send(:base_transcript_projection_messages) if thread?
 
-    inherited_messages = parent_conversation.send(:base_transcript_projection_messages)
-    return inherited_messages if thread?
-
-    anchor_message = historical_anchor_message
-    anchor_index = inherited_messages.index { |message| message.id == anchor_message&.id }
-    unless anchor_message.present? && anchor_index.present?
-      raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent conversation history"
-    end
-
-    earlier_messages = inherited_messages.first(anchor_index)
-    return earlier_messages + [anchor_message] if anchor_message.input?
-
-    source_input_message = anchor_message.source_input_message
-    source_input_index = inherited_messages.index { |message| message.id == source_input_message&.id }
-    if source_input_message.present? &&
-        source_input_message.turn_id == anchor_message.turn_id &&
-        source_input_index.present?
-      return inherited_messages.first(source_input_index) + [source_input_message, anchor_message]
-    end
-
-    raise ActiveRecord::RecordNotFound, "historical anchor is missing source input provenance"
+    parent_conversation.historical_anchor_prefix_messages(historical_anchor_message)
   end
 
   def selected_messages_for_own_turns
@@ -226,6 +217,52 @@ class Conversation < ApplicationRecord
     end
 
     nil
+  end
+
+  def projection_prefix_messages(message)
+    messages = base_transcript_projection_messages
+    anchor_index = messages.index { |candidate| candidate.id == message.id }
+    raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent conversation history" unless anchor_index.present?
+
+    prefix_messages_for_anchor(messages, message, anchor_index:)
+  end
+
+  def local_historical_anchor_prefix_messages(message)
+    raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent conversation history" unless message.conversation_id == id
+
+    prefix_messages = inherited_transcript_projection_messages
+    turns.where("sequence < ?", message.turn.sequence)
+      .includes(:selected_input_message, :selected_output_message)
+      .order(:sequence)
+      .each do |turn|
+        prefix_messages.concat([turn.selected_input_message, turn.selected_output_message].compact)
+      end
+
+    if message.input?
+      prefix_messages << message
+      return prefix_messages
+    end
+
+    source_input_message = message.source_input_message
+    unless source_input_message.present? && source_input_message.turn_id == message.turn_id
+      raise ActiveRecord::RecordNotFound, "historical anchor is missing source input provenance"
+    end
+
+    prefix_messages + [source_input_message, message]
+  end
+
+  def prefix_messages_for_anchor(messages, message, anchor_index:)
+    return messages.first(anchor_index) + [message] if message.input?
+
+    source_input_message = message.source_input_message
+    source_input_index = messages.index { |candidate| candidate.id == source_input_message&.id }
+    if source_input_message.present? &&
+        source_input_message.turn_id == message.turn_id &&
+        source_input_index.present?
+      return messages.first(source_input_index) + [source_input_message, message]
+    end
+
+    raise ActiveRecord::RecordNotFound, "historical anchor is missing source input provenance"
   end
 
   def workspace_installation_match
