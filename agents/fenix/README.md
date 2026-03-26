@@ -39,21 +39,32 @@ should land in separate agent programs rather than forcing them into Fenix.
 
 ## Phase 2 Runtime Surface
 
-`Fenix` now exposes one machine-facing runtime execution endpoint:
+`Fenix` now exposes two machine-facing Phase 2 endpoints:
 
+- `GET /runtime/manifest`
 - `POST /runtime/executions`
 
-The endpoint accepts one mailbox-shaped execution assignment and returns a
-deterministic report transcript for local validation:
+`GET /runtime/manifest` publishes the registration metadata needed for external
+pairing:
+
+- protocol version
+- SDK version
+- protocol methods
+- tool catalog
+- config schema snapshots
+- default config snapshot
+
+`POST /runtime/executions` accepts one mailbox-shaped execution assignment and
+returns a deterministic report transcript for local validation:
 
 - `execution_started`
 - `execution_progress`
 - `execution_complete`
 - `execution_fail`
 
-The current Phase 2 implementation keeps this surface local to `Fenix` so the
-runtime pipeline can be validated before external pairing work wires the same
-pipeline to `Core Matrix` mailbox delivery.
+The current Phase 2 implementation keeps the runtime deterministic, but the
+surface is now sufficient for both bundled validation and external pairing into
+Core Matrix.
 
 ## Retained Hook Lifecycle
 
@@ -107,3 +118,16 @@ The current Phase 2 runtime path is intentionally small and deterministic:
 This preserves the runtime-stage contract needed for later mixed
 code-plus-LLM execution without forcing prompt building or provider transport
 back into the kernel.
+
+## Deployment Rotation
+
+Phase 2 treats release change as deployment rotation:
+
+- boot a new `Fenix` release as a new deployment
+- expose the same manifest and execution endpoints
+- register it with Core Matrix
+- cut future work over once the new deployment reaches healthy runtime
+  participation
+
+There is no in-place self-updater in Phase 2. Upgrade and downgrade are the
+same kernel-facing operation.

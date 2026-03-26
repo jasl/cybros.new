@@ -8,6 +8,7 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   # root "posts#index"
   namespace :runtime do
+    resource :manifest, only: :show
     resources :executions, only: :create
   end
 end

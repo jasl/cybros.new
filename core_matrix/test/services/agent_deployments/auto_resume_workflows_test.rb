@@ -67,6 +67,28 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert context[:workflow_run].reload.waiting?
   end
 
+  test "compatible rotated deployment auto resumes waiting workflows and rewrites turn pinning" do
+    context = build_waiting_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation]
+    )
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: replacement,
+      health_status: "healthy",
+      health_metadata: { "release" => "fenix-0.2.0" },
+      auto_resume_eligible: true
+    )
+
+    resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: replacement)
+
+    assert_equal [context[:workflow_run].id], resumed.map(&:id)
+    assert_equal replacement, context[:turn].reload.agent_deployment
+    assert_equal replacement.fingerprint, context[:turn].pinned_deployment_fingerprint
+    assert context[:workflow_run].reload.ready?
+  end
+
   private
 
   def build_waiting_recovery_context!
@@ -96,5 +118,28 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     )
 
     context.merge(conversation: conversation, turn: turn.reload, workflow_run: workflow_run.reload)
+  end
+
+  def create_compatible_replacement_deployment!(installation:, agent_installation:)
+    environment = create_execution_environment!(installation: installation)
+    deployment = create_agent_deployment!(
+      installation: installation,
+      agent_installation: agent_installation,
+      execution_environment: environment,
+      fingerprint: "replacement-#{next_test_sequence}",
+      health_status: "offline",
+      bootstrap_state: "pending",
+      auto_resume_eligible: true
+    )
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: deployment,
+      version: 1,
+      protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
+      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    deployment.update!(active_capability_snapshot: capability_snapshot)
+    deployment
   end
 end

@@ -42,6 +42,21 @@ Planned replacement design:
 - bootstrap records the audit action
   `agent_deployment.bootstrap_started`
 
+## Deployment Rotation
+
+- release change is modeled as deployment rotation, not in-place mutation
+- a replacement `AgentDeployment` registers as `pending`
+- the first healthy heartbeat on that pending deployment:
+  - promotes it to `bootstrap_state = "active"`
+  - supersedes any previously active deployment for the same logical
+    `AgentInstallation`
+- upgrade and downgrade follow the same kernel-facing rule
+- the superseded deployment may still be referenced by paused turns or old
+  audits, but it is no longer eligible for new scheduling
+- Core Matrix does not need to dial the runtime back during cutover; the
+  runtime pairs outbound and the kernel routes future work to the active
+  deployment row
+
 ## Outage Wait-State Model
 
 - `AgentDeployments::MarkUnavailable` is the control-plane service that moves
@@ -69,20 +84,33 @@ Planned replacement design:
 ## Auto Resume
 
 - `AgentDeployments::AutoResumeWorkflows` only considers workflows already
-  waiting on `agent_unavailable`.
+  waiting on `agent_unavailable`
+- waiting workflows are discovered by logical agent identity, not only by the
+  currently active deployment row
 - automatic resume is allowed only when all of these remain true:
   - deployment is healthy
   - deployment is still eligible for scheduling
   - deployment is marked `auto_resume_eligible`
-  - pinned deployment fingerprint matches the current deployment fingerprint
-  - pinned capability snapshot version matches the current active capability
-    snapshot version
+  - one of these recovery paths applies:
+    - pinned deployment fingerprint still matches the current deployment
+      fingerprint and the pinned capability snapshot version still matches the
+      current active capability snapshot version
+    - a rotated deployment from the same logical `AgentInstallation` preserves
+      the paused capability contract and the frozen selector still resolves on
+      the replacement deployment
 - successful auto-resume clears the structured wait state and preserves the
-  existing turn and workflow-run IDs.
+  existing turn and workflow-run IDs
+- when the auto-resume target is a rotated replacement deployment, the kernel:
+  - re-pins the turn to the replacement deployment
+  - refreshes the frozen capability snapshot binding
+  - re-assembles the execution context so execution identity now references the
+    replacement deployment public id
 - if the deployment comes back healthy but runtime identity drifted, the kernel
   does not continue silently; it escalates the workflow to
   `manual_recovery_required` with
   `wait_reason_payload["recovery_state"] = "paused_agent_unavailable"`
+- if rotation preserves logical agent identity but no longer preserves the
+  capability contract, auto-resume is denied and explicit recovery is required
 
 ## Manual Recovery
 

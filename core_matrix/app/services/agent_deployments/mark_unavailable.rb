@@ -15,6 +15,7 @@ module AgentDeployments
 
     def call
       ApplicationRecord.transaction do
+        @deployment.reload
         @deployment.update!(
           health_status: next_health_status,
           auto_resume_eligible: next_auto_resume_eligible,

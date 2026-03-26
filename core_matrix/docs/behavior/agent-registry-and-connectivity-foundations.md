@@ -13,7 +13,8 @@ This document records the current landed connectivity substrate.
 Phase 2 now extends that substrate with mailbox-first control delivery,
 `poll + WebSocket + piggyback` transport parity, and distinct realtime-link
 versus control-activity facts. This document remains the source of truth for
-the registration and deployment aggregates underneath that control plane.
+the registration and deployment aggregates underneath that control plane,
+including external-runtime pairing and same-installation deployment rotation.
 
 Planned replacement design:
 
@@ -50,13 +51,16 @@ Planned replacement design:
 - Machine credentials are stored as digests, not plaintext bearer secrets.
 - Bootstrap state starts at `pending` and moves to `active` on the first
   healthy heartbeat.
+- A newly healthy pending deployment supersedes the previously active
+  deployment for the same logical `AgentInstallation`.
 - Health state and heartbeat timestamps are tracked independently of bootstrap
   state.
 - realtime session presence is tracked separately through
   `realtime_link_state`
 - durable control-plane freshness is tracked separately through
   `control_activity_state` and `last_control_activity_at`
-- Only one `active` deployment may exist for a given `AgentInstallation`.
+- Only one `active` deployment may exist for a given `AgentInstallation` at a
+  time; release change happens through row rotation, not in-place update.
 
 ### CapabilitySnapshot
 
@@ -80,14 +84,29 @@ Planned replacement design:
 - Creates a pending deployment plus its first capability snapshot in one
   transaction.
 - Exchanges the one-time enrollment token for a durable machine credential.
+- Works for bundled and external runtimes because the kernel only needs
+  registration metadata, not a callback path into the runtime's private
+  network.
 - Writes the `agent_deployment.registered` audit row.
 
 ### `AgentDeployments::RecordHeartbeat`
 
 - Updates deployment health metadata and heartbeat timestamps.
 - Rotates a pending deployment to `active` on the first healthy heartbeat.
+- Supersedes any previously active deployment for the same logical
+  `AgentInstallation` during that promotion.
 - Preserves deployment identity and capability snapshot history while health
   changes over time.
+
+## Pairing And Rotation
+
+- external runtimes pair outbound with Core Matrix; normal execution delivery
+  does not require the kernel to dial runtime-private addresses
+- bundled and external runtimes share the same registration and heartbeat
+  substrate once the deployment row exists
+- release change is represented as registering a new deployment, waiting for a
+  healthy heartbeat, and then cutting future work over to the newly active row
+- both upgrade and downgrade use the same rotation contract
 
 ## Invariants
 
