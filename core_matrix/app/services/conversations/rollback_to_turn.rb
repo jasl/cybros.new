@@ -20,6 +20,10 @@ module Conversations
         interrupted_message: "must not roll back the timeline after turn interruption"
       ) do |turn|
         ApplicationRecord.transaction do
+          Conversations::ValidateTimelineSuffixSupersession.call(
+            conversation: turn.conversation,
+            turn: turn
+          )
           turn.conversation.turns
             .where("sequence > ?", turn.sequence)
             .where.not(lifecycle_state: "canceled")
