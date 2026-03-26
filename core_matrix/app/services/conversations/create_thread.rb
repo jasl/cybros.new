@@ -18,6 +18,8 @@ module Conversations
         conversation = Conversation.create!(
           installation: @parent.installation,
           workspace: @parent.workspace,
+          execution_environment: @parent.execution_environment,
+          agent_deployment: @parent.agent_deployment,
           parent_conversation: @parent,
           kind: "thread",
           purpose: @parent.purpose,

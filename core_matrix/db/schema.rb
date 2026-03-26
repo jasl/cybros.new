@@ -235,7 +235,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_123000) do
     t.index ["canonical_store_snapshot_id"], name: "index_canonical_store_entries_on_canonical_store_snapshot_id"
     t.index ["canonical_store_value_id"], name: "index_canonical_store_entries_on_canonical_store_value_id"
     t.check_constraint "entry_kind::text = 'set'::text AND canonical_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND canonical_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_canonical_store_entries_value_shape"
-    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_canonical_store_entries_kind"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying, 'tombstone'::character varying]::text[])", name: "chk_canonical_store_entries_kind"
     t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_canonical_store_entries_key_bytes"
   end
 
@@ -258,8 +258,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_123000) do
     t.datetime "updated_at", null: false
     t.index ["base_snapshot_id"], name: "index_canonical_store_snapshots_on_base_snapshot_id"
     t.index ["canonical_store_id"], name: "index_canonical_store_snapshots_on_canonical_store_id"
-    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
-    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_canonical_store_snapshots_kind"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying, 'compaction'::character varying]::text[])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying, 'write'::character varying, 'compaction'::character varying]::text[])", name: "chk_canonical_store_snapshots_kind"
   end
 
   create_table "canonical_store_values", force: :cascade do |t|
@@ -425,9 +425,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_123000) do
   end
 
   create_table "conversations", force: :cascade do |t|
+    t.bigint "agent_deployment_id", null: false
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.string "deletion_state", default: "retained", null: false
+    t.bigint "execution_environment_id", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
     t.string "interactive_selector_mode", default: "auto", null: false
@@ -444,23 +446,30 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_123000) do
     t.string "purpose", null: false
     t.datetime "updated_at", null: false
     t.bigint "workspace_id", null: false
+    t.index ["agent_deployment_id"], name: "index_conversations_on_agent_deployment_id"
+    t.index ["execution_environment_id", "lifecycle_state"], name: "idx_conversations_environment_lifecycle"
+    t.index ["execution_environment_id"], name: "index_conversations_on_execution_environment_id"
     t.index ["installation_id"], name: "index_conversations_on_installation_id"
     t.index ["parent_conversation_id"], name: "index_conversations_on_parent_conversation_id"
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
-    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
-    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
   end
 
   create_table "execution_environments", force: :cascade do |t|
+    t.jsonb "capability_payload", default: {}, null: false
     t.jsonb "connection_metadata", default: {}, null: false
     t.datetime "created_at", null: false
+    t.string "environment_fingerprint", null: false
     t.bigint "installation_id", null: false
     t.string "kind", default: "local", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.jsonb "tool_catalog", default: [], null: false
     t.datetime "updated_at", null: false
+    t.index ["installation_id", "environment_fingerprint"], name: "idx_execution_environments_installation_fingerprint", unique: true
     t.index ["installation_id", "kind"], name: "index_execution_environments_on_installation_id_and_kind"
     t.index ["installation_id"], name: "index_execution_environments_on_installation_id"
     t.index ["public_id"], name: "index_execution_environments_on_public_id", unique: true
@@ -1125,7 +1134,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_26_123000) do
   add_foreign_key "conversation_summary_segments", "installations"
   add_foreign_key "conversation_summary_segments", "messages", column: "end_message_id"
   add_foreign_key "conversation_summary_segments", "messages", column: "start_message_id"
+  add_foreign_key "conversations", "agent_deployments"
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
+  add_foreign_key "conversations", "execution_environments"
   add_foreign_key "conversations", "installations"
   add_foreign_key "conversations", "workspaces"
   add_foreign_key "execution_environments", "installations"

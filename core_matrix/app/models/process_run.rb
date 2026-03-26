@@ -37,6 +37,7 @@ class ProcessRun < ApplicationRecord
   validate :origin_message_installation_match
   validate :workflow_node_turn_match
   validate :workflow_node_conversation_match
+  validate :conversation_execution_environment_match
   validate :origin_message_turn_match
   validate :origin_message_conversation_match
   validate :timeout_rules
@@ -103,6 +104,13 @@ class ProcessRun < ApplicationRecord
     return if workflow_node.workflow_run.conversation_id == conversation_id
 
     errors.add(:conversation, "must match the workflow run conversation")
+  end
+
+  def conversation_execution_environment_match
+    return if conversation.blank? || execution_environment.blank?
+    return if conversation.execution_environment_id == execution_environment_id
+
+    errors.add(:execution_environment, "must match the conversation execution environment")
   end
 
   def origin_message_turn_match

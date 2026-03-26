@@ -37,6 +37,8 @@ class Conversation < ApplicationRecord
 
   belongs_to :installation
   belongs_to :workspace
+  belongs_to :execution_environment
+  belongs_to :agent_deployment
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
 
   has_many :messages, dependent: :restrict_with_exception
@@ -71,8 +73,12 @@ class Conversation < ApplicationRecord
     inverse_of: :ancestor_conversation
 
   validate :workspace_installation_match
+  validate :execution_environment_installation_match
+  validate :agent_deployment_installation_match
+  validate :agent_deployment_environment_match
   validate :parent_lineage_rules
   validate :parent_workspace_match
+  validate :parent_execution_environment_match
   validate :automation_rules
   validate :override_payload_must_be_hash
   validate :override_reconciliation_report_must_be_hash
@@ -203,6 +209,27 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
+  def execution_environment_installation_match
+    return if execution_environment.blank?
+    return if execution_environment.installation_id == installation_id
+
+    errors.add(:execution_environment, "must belong to the same installation")
+  end
+
+  def agent_deployment_installation_match
+    return if agent_deployment.blank?
+    return if agent_deployment.installation_id == installation_id
+
+    errors.add(:agent_deployment, "must belong to the same installation")
+  end
+
+  def agent_deployment_environment_match
+    return if agent_deployment.blank? || execution_environment.blank?
+    return if agent_deployment.execution_environment_id == execution_environment_id
+
+    errors.add(:agent_deployment, "must belong to the bound execution environment")
+  end
+
   def parent_lineage_rules
     return if kind.blank?
 
@@ -227,6 +254,13 @@ class Conversation < ApplicationRecord
     return if parent_conversation.workspace_id == workspace_id
 
     errors.add(:workspace, "must match the parent conversation workspace")
+  end
+
+  def parent_execution_environment_match
+    return if parent_conversation.blank?
+    return if parent_conversation.execution_environment_id == execution_environment_id
+
+    errors.add(:execution_environment, "must match the parent conversation execution environment")
   end
 
   def override_payload_must_be_hash

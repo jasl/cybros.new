@@ -78,11 +78,41 @@ class ProcessRunTest < ActiveSupport::TestCase
     assert_includes process_run.errors[:turn], "must match the workflow run turn"
   end
 
+  test "requires the process run environment to match the bound conversation environment" do
+    process_context = build_process_context!
+    other_environment = create_execution_environment!(
+      installation: process_context[:installation],
+      environment_fingerprint: "other-host",
+      capability_payload: {}
+    )
+
+    process_run = ProcessRun.new(
+      installation: process_context[:installation],
+      workflow_node: process_context[:workflow_node],
+      execution_environment: other_environment,
+      conversation: process_context[:conversation],
+      turn: process_context[:turn],
+      origin_message: process_context[:origin_message],
+      kind: "turn_command",
+      lifecycle_state: "running",
+      command_line: "echo hi",
+      timeout_seconds: 30,
+      metadata: {}
+    )
+
+    assert_not process_run.valid?
+    assert_includes process_run.errors[:execution_environment], "must match the conversation execution environment"
+  end
+
   private
 
   def build_process_context!
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Process input",

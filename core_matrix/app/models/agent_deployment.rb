@@ -35,6 +35,7 @@ class AgentDeployment < ApplicationRecord
   belongs_to :active_capability_snapshot, class_name: "CapabilitySnapshot", optional: true
 
   has_many :capability_snapshots, dependent: :restrict_with_exception
+  has_many :conversations, dependent: :restrict_with_exception
 
   validates :fingerprint, presence: true, uniqueness: { scope: :installation_id }
   validates :machine_credential_digest, presence: true, uniqueness: true

@@ -2,10 +2,59 @@ require "test_helper"
 
 class ConversationTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
-    conversation = Conversations::CreateRoot.call(workspace: create_workspace_context![:workspace])
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     assert conversation.public_id.present?
     assert_equal conversation, Conversation.find_by_public_id!(conversation.public_id)
+  end
+
+  test "binds to one execution environment and rejects a deployment from another environment" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent_installation = create_agent_installation!(installation: installation)
+    first = create_execution_environment!(
+      installation: installation,
+      environment_fingerprint: "host-a",
+      capability_payload: {}
+    )
+    second = create_execution_environment!(
+      installation: installation,
+      environment_fingerprint: "host-b",
+      capability_payload: {}
+    )
+    deployment = create_agent_deployment!(
+      installation: installation,
+      agent_installation: agent_installation,
+      execution_environment: second
+    )
+    binding = create_user_agent_binding!(
+      installation: installation,
+      user: user,
+      agent_installation: agent_installation
+    )
+    workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      user_agent_binding: binding
+    )
+
+    conversation = Conversation.new(
+      installation: installation,
+      workspace: workspace,
+      execution_environment: first,
+      agent_deployment: deployment,
+      kind: "root",
+      purpose: "interactive",
+      lifecycle_state: "active"
+    )
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:agent_deployment], "must belong to the bound execution environment"
   end
 
   test "belongs to workspace and not directly to an agent installation" do
@@ -20,6 +69,8 @@ class ConversationTest < ActiveSupport::TestCase
     root = Conversation.new(
       installation: context[:installation],
       workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
       kind: "root",
       purpose: "interactive",
       lifecycle_state: "active"
@@ -27,6 +78,8 @@ class ConversationTest < ActiveSupport::TestCase
     branch_without_parent = Conversation.new(
       installation: context[:installation],
       workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
       kind: "branch",
       purpose: "interactive",
       lifecycle_state: "active",
@@ -35,6 +88,8 @@ class ConversationTest < ActiveSupport::TestCase
     checkpoint_without_anchor = Conversation.new(
       installation: context[:installation],
       workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
       kind: "checkpoint",
       purpose: "interactive",
       lifecycle_state: "active",
@@ -54,6 +109,8 @@ class ConversationTest < ActiveSupport::TestCase
     automation_root = Conversation.new(
       installation: context[:installation],
       workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
       kind: "root",
       purpose: "automation",
       lifecycle_state: "active"
@@ -61,6 +118,8 @@ class ConversationTest < ActiveSupport::TestCase
     automation_branch = Conversation.new(
       installation: context[:installation],
       workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
       kind: "branch",
       purpose: "automation",
       lifecycle_state: "active",
@@ -79,6 +138,8 @@ class ConversationTest < ActiveSupport::TestCase
     pending_delete = Conversation.new(
       installation: context[:installation],
       workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
       kind: "root",
       purpose: "interactive",
       lifecycle_state: "active",
@@ -96,7 +157,11 @@ class ConversationTest < ActiveSupport::TestCase
 
   test "requires child conversations to stay in the parent workspace" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     other_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
@@ -119,7 +184,11 @@ class ConversationTest < ActiveSupport::TestCase
 
   test "batches visibility lookups for descendant context projections" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
 
     3.times do |index|
       turn = Turns::StartUserTurn.call(
@@ -146,7 +215,11 @@ class ConversationTest < ActiveSupport::TestCase
 
   test "detects active turns locally and across descendants when requested" do
     context = create_workspace_context!
-    root = Conversations::CreateRoot.call(workspace: context[:workspace])
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
     child = Conversations::CreateThread.call(parent: root)
 
     Turns::StartUserTurn.call(

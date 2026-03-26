@@ -341,11 +341,14 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_execution_environment!(installation: create_installation!, kind: "local", connection_metadata: {}, lifecycle_state: "active", **attrs)
+    def create_execution_environment!(installation: create_installation!, kind: "local", environment_fingerprint: "env-#{next_test_sequence}", connection_metadata: {}, capability_payload: {}, tool_catalog: [], lifecycle_state: "active", **attrs)
       ExecutionEnvironment.create!({
         installation: installation,
         kind: kind,
+        environment_fingerprint: environment_fingerprint,
         connection_metadata: connection_metadata,
+        capability_payload: capability_payload,
+        tool_catalog: tool_catalog,
         lifecycle_state: lifecycle_state,
       }.merge(attrs))
     end

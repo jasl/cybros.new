@@ -4,8 +4,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(workspace:)
+    def initialize(workspace:, execution_environment:, agent_deployment:)
       @workspace = workspace
+      @execution_environment = execution_environment
+      @agent_deployment = agent_deployment
     end
 
     def call
@@ -13,6 +15,8 @@ module Conversations
         conversation = Conversation.create!(
           installation: @workspace.installation,
           workspace: @workspace,
+          execution_environment: @execution_environment,
+          agent_deployment: @agent_deployment,
           kind: "root",
           purpose: "interactive",
           lifecycle_state: "active"

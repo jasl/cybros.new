@@ -31,4 +31,33 @@ class ExecutionEnvironmentTest < ActiveSupport::TestCase
     assert_not invalid_environment.valid?
     assert_includes invalid_environment.errors[:connection_metadata], "must be a Hash"
   end
+
+  test "requires an installation-local environment fingerprint and capability payload hash" do
+    installation = create_installation!
+    create_execution_environment!(
+      installation: installation,
+      environment_fingerprint: "host-a",
+      capability_payload: { "conversation_attachment_upload" => true }
+    )
+
+    duplicate = ExecutionEnvironment.new(
+      installation: installation,
+      kind: "local",
+      environment_fingerprint: "host-a",
+      connection_metadata: {},
+      capability_payload: {}
+    )
+    invalid_payload = ExecutionEnvironment.new(
+      installation: installation,
+      kind: "local",
+      environment_fingerprint: "host-b",
+      connection_metadata: {},
+      capability_payload: []
+    )
+
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:environment_fingerprint], "has already been taken"
+    assert_not invalid_payload.valid?
+    assert_includes invalid_payload.errors[:capability_payload], "must be a Hash"
+  end
 end
