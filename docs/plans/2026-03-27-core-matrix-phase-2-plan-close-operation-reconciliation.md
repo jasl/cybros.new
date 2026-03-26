@@ -54,6 +54,20 @@ Before finishing, explicitly re-check that no other path writes
 `ConversationCloseOperation.lifecycle_state`, `summary_payload`, or
 `completed_at` directly.
 
+## Post-Implementation Hardening Notes
+
+A later audit found two follow-up race windows that belong to the same close
+fence contract and should stay documented with this plan:
+
+- `Conversations::RequestTurnInterrupt` must cancel superseded retry mailbox
+  items in both `queued` and `leased` state, clear any existing lease
+  attribution, and rely on `AgentControl::Poll` to deliver
+  `execution_assignment` only while the backing `AgentTaskRun` remains `queued`
+- `ProviderExecution::ExecuteTurnStep` must perform a second freshness check
+  under lock before persisting success or failure so a late local provider
+  result cannot overwrite `turn_interrupted` state or create post-fence
+  transcript, usage, or profiling side effects
+
 ### Task 1: Introduce The Reconciler And Lock Its Decision Contract Down With Tests
 
 **Files:**

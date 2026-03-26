@@ -81,9 +81,12 @@ module Conversations
           finished_at: @occurred_at,
           terminal_payload: task_run.terminal_payload.merge("cancellation_reason_kind" => "turn_interrupted")
         )
-        AgentControlMailboxItem.where(agent_task_run: task_run, status: "queued").update_all(
+        AgentControlMailboxItem.where(agent_task_run: task_run, status: %w[queued leased]).update_all(
           status: "canceled",
           completed_at: @occurred_at,
+          leased_to_agent_deployment_id: nil,
+          leased_at: nil,
+          lease_expires_at: nil,
           updated_at: @occurred_at
         )
       end

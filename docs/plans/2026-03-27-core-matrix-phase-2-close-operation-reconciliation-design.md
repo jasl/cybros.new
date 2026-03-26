@@ -250,6 +250,25 @@ The desired close progression flow is:
 7. No subsequent archive or delete API call is required merely to move the
    close operation forward.
 
+## Post-Implementation Hardening
+
+The reconciler follow-up fixed the single-writer close progression problem, but
+the close fence still has to exclude two other late-writer paths that showed up
+in audit:
+
+1. interrupt must cancel both `queued` and already `leased`
+   `execution_assignment` mailbox items for superseded retry work, and later
+   `Poll` calls must refuse to redeliver that assignment once the backing
+   `AgentTaskRun` is no longer `queued`
+2. local provider execution must re-lock `Turn`, `WorkflowRun`, and
+   `WorkflowNode` immediately before persisting success or failure, then drop
+   the result if `turn_interrupt` or another terminal state fenced the run in
+   the meantime
+
+These are part of the same architectural contract, not separate cleanup work:
+the close fence is only durable if both mailbox-delivered work and local
+provider work are prevented from writing through it after interruption.
+
 ## Acceptance Criteria
 
 This follow-up is complete only when all of the following are true:
@@ -263,6 +282,10 @@ This follow-up is complete only when all of the following are true:
   close operation immediately after terminal close reporting
 - archive with remaining detached background residue still reaches
   `disposing` or `degraded`, not a false clean completion
+- interrupt clears superseded retry delivery even when the mailbox item had
+  already been `leased`
+- late local provider success or failure cannot overwrite an interrupted turn
+  or create transcript, usage, or profiling side effects after the fence
 - no model callback is introduced for close progression
 - future extension rules are documented clearly enough that adding a new blocker
   family does not require re-deriving the architecture from chat history

@@ -61,6 +61,8 @@ module AgentControl
     end
 
     def delivery_candidate?(mailbox_item)
+      return false unless mailbox_item_deliverable?(mailbox_item)
+
       resolution = ResolveTargetRuntime.call(mailbox_item: mailbox_item)
 
       if mailbox_item.leased? && mailbox_item.leased_to?(@deployment) && !mailbox_item.lease_stale?(at: @occurred_at)
@@ -68,6 +70,12 @@ module AgentControl
       end
 
       resolution.matches?(@deployment)
+    end
+
+    def mailbox_item_deliverable?(mailbox_item)
+      return true unless mailbox_item.execution_assignment?
+
+      mailbox_item.agent_task_run&.queued?
     end
   end
 end

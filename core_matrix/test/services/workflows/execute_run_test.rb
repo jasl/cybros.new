@@ -22,6 +22,31 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     end
   end
 
+  class InterruptingChatCompletionsAdapter < SimpleInference::HTTPAdapter
+    def initialize(workflow_run:, response_body:, status: 200, headers: {})
+      @workflow_run = workflow_run
+      @response_body = response_body
+      @status = status
+      @headers = {
+        "content-type" => "application/json",
+        "x-request-id" => "provider-request-interrupted",
+      }.merge(headers)
+    end
+
+    def call(_env)
+      Conversations::RequestTurnInterrupt.call(
+        turn: @workflow_run.turn,
+        occurred_at: Time.zone.parse("2026-03-27 13:00:00 UTC")
+      )
+
+      {
+        status: @status,
+        headers: @headers,
+        body: JSON.generate(@response_body),
+      }
+    end
+  end
+
   test "executes a provider-backed turn step and persists durable usage and execution facts" do
     catalog_definition = test_provider_catalog_definition.deep_dup
     catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
@@ -151,6 +176,85 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     refute profiling_fact.success
     assert_equal %w[running failed], workflow_run.workflow_node_events.order(:ordinal).map { |event| event.payload.fetch("state") }
     assert_equal 0, UsageEvent.count
+  end
+
+  test "rejects a late provider success after the turn has been interrupted" do
+    catalog = build_test_provider_catalog_from(test_provider_catalog_definition.deep_dup)
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    end
+
+    adapter = InterruptingChatCompletionsAdapter.new(
+      workflow_run: workflow_run,
+      response_body: {
+        id: "chatcmpl-stale-success",
+        choices: [
+          {
+            message: { role: "assistant", content: "too late" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 5,
+          total_tokens: 15,
+        },
+      }
+    )
+
+    with_stubbed_provider_catalog(catalog) do
+      error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
+        Workflows::ExecuteRun.call(
+          workflow_run: workflow_run,
+          messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+          adapter: adapter
+        )
+      end
+
+      assert_equal "provider execution result is stale", error.message
+    end
+
+    assert workflow_run.reload.canceled?
+    assert workflow_run.turn.reload.canceled?
+    assert_nil workflow_run.turn.selected_output_message
+    assert_equal 0, UsageEvent.count
+    assert_equal 0, ExecutionProfileFact.count
+    assert_equal ["running"], workflow_run.workflow_node_events.order(:ordinal).map { |event| event.payload.fetch("state") }
+  end
+
+  test "rejects a late provider failure after the turn has been interrupted" do
+    catalog = build_test_provider_catalog_from(test_provider_catalog_definition.deep_dup)
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    end
+
+    adapter = InterruptingChatCompletionsAdapter.new(
+      workflow_run: workflow_run,
+      status: 429,
+      response_body: { error: { message: "too_late" } }
+    )
+
+    with_stubbed_provider_catalog(catalog) do
+      error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
+        Workflows::ExecuteRun.call(
+          workflow_run: workflow_run,
+          messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+          adapter: adapter
+        )
+      end
+
+      assert_equal "provider execution result is stale", error.message
+    end
+
+    assert workflow_run.reload.canceled?
+    assert workflow_run.turn.reload.canceled?
+    assert_equal 0, UsageEvent.count
+    assert_equal 0, ExecutionProfileFact.count
+    assert_equal ["running"], workflow_run.workflow_node_events.order(:ordinal).map { |event| event.payload.fetch("state") }
   end
 
   private

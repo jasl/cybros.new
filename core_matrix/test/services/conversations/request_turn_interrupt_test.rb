@@ -120,6 +120,25 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal "canceled", retry_mailbox_item.status
   end
 
+  test "cancels leased execution assignments so they are not redelivered after interrupt" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    deliveries = AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    assert_equal [mailbox_item.id], deliveries.map(&:id)
+    assert_equal "leased", mailbox_item.reload.status
+
+    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.zone.parse("2026-03-27 12:10:00 UTC"))
+
+    assert agent_task_run.reload.canceled?
+    assert_equal "canceled", mailbox_item.reload.status
+    assert_nil mailbox_item.leased_to_agent_deployment
+    assert_empty AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+  end
+
   test "requests subagent close even when the running subagent has no lease" do
     context = build_agent_control_context!
     subagent_run = create_subagent_run!(

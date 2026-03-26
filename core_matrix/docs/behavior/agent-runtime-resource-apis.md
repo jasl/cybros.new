@@ -86,6 +86,9 @@ orchestration are still defined in:
 ### Control Reports
 
 - `agent_poll` leases queued mailbox items to the authenticated deployment
+- `execution_assignment` delivery remains valid only while the backing
+  `AgentTaskRun` is still `queued`; interrupt-canceled leased assignments are
+  marked `canceled` and have their lease cleared before later polls
 - `execution_started` is the durable acceptance point for
   `execution_assignment`
 - `execution_progress`, `execution_complete`, `execution_fail`, and

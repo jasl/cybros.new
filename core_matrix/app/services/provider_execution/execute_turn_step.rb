@@ -2,6 +2,8 @@ require "securerandom"
 
 module ProviderExecution
   class ExecuteTurnStep
+    StaleExecutionError = Class.new(StandardError)
+
     Result = Struct.new(
       :workflow_run,
       :workflow_node,
@@ -81,108 +83,137 @@ module ProviderExecution
       usage_evaluation = evaluate_usage(usage)
 
       ApplicationRecord.transaction do
-        output_message = AgentMessage.create!(
-          installation: @turn.installation,
-          conversation: @turn.conversation,
-          turn: @turn,
-          role: "agent",
-          slot: "output",
-          variant_index: @turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
-          content: provider_result.content.to_s
-        )
-        usage_event = ProviderUsage::RecordEvent.call(
-          installation: @workflow_run.installation,
-          user: @workflow_run.workspace.user,
-          workspace: @workflow_run.workspace,
-          conversation_id: @workflow_run.conversation_id,
-          turn_id: @workflow_run.turn_id,
-          workflow_node_key: @workflow_node.node_key,
-          agent_installation: @turn.agent_deployment.agent_installation,
-          agent_deployment: @turn.agent_deployment,
-          provider_handle: @request_context.fetch("provider_handle"),
-          model_ref: @request_context.fetch("model_ref"),
-          operation_kind: "text_generation",
-          input_tokens: usage["input_tokens"],
-          output_tokens: usage["output_tokens"],
-          latency_ms: duration_ms,
-          success: true,
-          entitlement_window_key: @turn.resolved_model_selection_snapshot["entitlement_key"]
-        )
-        profiling_fact = ExecutionProfiling::RecordFact.call(
-          installation: @workflow_run.installation,
-          user: @workflow_run.workspace.user,
-          workspace: @workflow_run.workspace,
-          conversation_id: @workflow_run.conversation_id,
-          turn_id: @workflow_run.turn_id,
-          workflow_node_key: @workflow_node.node_key,
-          fact_kind: "provider_request",
-          fact_key: @workflow_node.node_key,
-          count_value: @messages.length,
-          duration_ms: duration_ms,
-          success: true,
-          metadata: profiling_metadata(
-            provider_result: provider_result,
-            usage_evaluation: usage_evaluation
+        with_fresh_execution_state_lock do
+          output_message = AgentMessage.create!(
+            installation: @turn.installation,
+            conversation: @turn.conversation,
+            turn: @turn,
+            role: "agent",
+            slot: "output",
+            variant_index: @turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
+            content: provider_result.content.to_s
           )
-        )
+          usage_event = ProviderUsage::RecordEvent.call(
+            installation: @workflow_run.installation,
+            user: @workflow_run.workspace.user,
+            workspace: @workflow_run.workspace,
+            conversation_id: @workflow_run.conversation_id,
+            turn_id: @workflow_run.turn_id,
+            workflow_node_key: @workflow_node.node_key,
+            agent_installation: @turn.agent_deployment.agent_installation,
+            agent_deployment: @turn.agent_deployment,
+            provider_handle: @request_context.fetch("provider_handle"),
+            model_ref: @request_context.fetch("model_ref"),
+            operation_kind: "text_generation",
+            input_tokens: usage["input_tokens"],
+            output_tokens: usage["output_tokens"],
+            latency_ms: duration_ms,
+            success: true,
+            entitlement_window_key: @turn.resolved_model_selection_snapshot["entitlement_key"]
+          )
+          profiling_fact = ExecutionProfiling::RecordFact.call(
+            installation: @workflow_run.installation,
+            user: @workflow_run.workspace.user,
+            workspace: @workflow_run.workspace,
+            conversation_id: @workflow_run.conversation_id,
+            turn_id: @workflow_run.turn_id,
+            workflow_node_key: @workflow_node.node_key,
+            fact_kind: "provider_request",
+            fact_key: @workflow_node.node_key,
+            count_value: @messages.length,
+            duration_ms: duration_ms,
+            success: true,
+            metadata: profiling_metadata(
+              provider_result: provider_result,
+              usage_evaluation: usage_evaluation
+            )
+          )
 
-        @turn.update!(
-          selected_output_message: output_message,
-          lifecycle_state: "completed"
-        )
-        @workflow_run.update!(lifecycle_state: "completed")
-        append_status_event!(
-          "completed",
-          output_message_id: output_message.public_id,
-          provider_request_id: provider_request_id_for(provider_result),
-          usage_event_id: usage_event.id,
-          execution_profile_fact_id: profiling_fact.id
-        )
+          @turn.update!(
+            selected_output_message: output_message,
+            lifecycle_state: "completed"
+          )
+          @workflow_run.update!(lifecycle_state: "completed")
+          append_status_event!(
+            "completed",
+            output_message_id: output_message.public_id,
+            provider_request_id: provider_request_id_for(provider_result),
+            usage_event_id: usage_event.id,
+            execution_profile_fact_id: profiling_fact.id
+          )
 
-        Result.new(
-          workflow_run: @workflow_run,
-          workflow_node: @workflow_node,
-          output_message: output_message,
-          usage_event: usage_event,
-          execution_profile_fact: profiling_fact
-        )
+          Result.new(
+            workflow_run: @workflow_run,
+            workflow_node: @workflow_node,
+            output_message: output_message,
+            usage_event: usage_event,
+            execution_profile_fact: profiling_fact
+          )
+        end
       end
     end
 
     def persist_failure!(error:, duration_ms:)
       ApplicationRecord.transaction do
-        profiling_fact = ExecutionProfiling::RecordFact.call(
-          installation: @workflow_run.installation,
-          user: @workflow_run.workspace.user,
-          workspace: @workflow_run.workspace,
-          conversation_id: @workflow_run.conversation_id,
-          turn_id: @workflow_run.turn_id,
-          workflow_node_key: @workflow_node.node_key,
-          fact_kind: "provider_request",
-          fact_key: @workflow_node.node_key,
-          count_value: @messages.length,
-          duration_ms: duration_ms,
-          success: false,
-          metadata: {
-            "provider_request_id" => @provider_request_id,
-            "provider_handle" => @request_context.fetch("provider_handle"),
-            "model_ref" => @request_context.fetch("model_ref"),
-            "wire_api" => @request_context.fetch("wire_api"),
-            "error_class" => error.class.name,
-            "error_message" => error.message,
-          }
-        )
+        with_fresh_execution_state_lock do
+          profiling_fact = ExecutionProfiling::RecordFact.call(
+            installation: @workflow_run.installation,
+            user: @workflow_run.workspace.user,
+            workspace: @workflow_run.workspace,
+            conversation_id: @workflow_run.conversation_id,
+            turn_id: @workflow_run.turn_id,
+            workflow_node_key: @workflow_node.node_key,
+            fact_kind: "provider_request",
+            fact_key: @workflow_node.node_key,
+            count_value: @messages.length,
+            duration_ms: duration_ms,
+            success: false,
+            metadata: {
+              "provider_request_id" => @provider_request_id,
+              "provider_handle" => @request_context.fetch("provider_handle"),
+              "model_ref" => @request_context.fetch("model_ref"),
+              "wire_api" => @request_context.fetch("wire_api"),
+              "error_class" => error.class.name,
+              "error_message" => error.message,
+            }
+          )
 
-        @turn.update!(lifecycle_state: "failed")
-        @workflow_run.update!(lifecycle_state: "failed")
-        append_status_event!(
-          "failed",
-          provider_request_id: @provider_request_id,
-          execution_profile_fact_id: profiling_fact.id,
-          error_class: error.class.name,
-          error_message: error.message
-        )
+          @turn.update!(lifecycle_state: "failed")
+          @workflow_run.update!(lifecycle_state: "failed")
+          append_status_event!(
+            "failed",
+            provider_request_id: @provider_request_id,
+            execution_profile_fact_id: profiling_fact.id,
+            error_class: error.class.name,
+            error_message: error.message
+          )
+        end
       end
+    end
+
+    def with_fresh_execution_state_lock
+      @turn.with_lock do
+        @workflow_run.with_lock do
+          @workflow_node.with_lock do
+            @turn.reload
+            @workflow_run.reload
+            @workflow_node.reload
+            ensure_execution_still_fresh!
+            yield
+          end
+        end
+      end
+    end
+
+    def ensure_execution_still_fresh!
+      return if @turn.active? &&
+        @workflow_run.active? &&
+        @workflow_run.ready? &&
+        @turn.cancellation_requested_at.blank? &&
+        @workflow_run.cancellation_requested_at.blank? &&
+        terminal_event_state.blank?
+
+      raise StaleExecutionError, "provider execution result is stale"
     end
 
     def profiling_metadata(provider_result:, usage_evaluation:)

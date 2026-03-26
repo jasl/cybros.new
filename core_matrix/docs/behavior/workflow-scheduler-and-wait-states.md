@@ -93,9 +93,16 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   workflow with:
   - `cancellation_requested_at`
   - `cancellation_reason_kind = "turn_interrupted"`
-- the fence cancels queued retry attempts, clears workflow wait fields, and
-  rejects late `execution_progress` or terminal execution reports for the
-  superseded attempt
+- the fence cancels queued retry attempts, revokes already leased retry
+  `execution_assignment` mailbox items, and clears workflow wait fields
+- `AgentControl::Poll` must not redeliver an `execution_assignment` once the
+  backing `AgentTaskRun` has left `queued`
+- late mailbox `execution_progress` or terminal execution reports for the
+  superseded attempt are rejected as stale
+- local provider completions and failures must re-lock the turn, workflow, and
+  workflow node before persistence; if the interrupt fence or another terminal
+  state has landed first, that provider result is dropped without transcript,
+  usage, or profiling side effects
 - turn interrupt targets only mainline blockers:
   - running `AgentTaskRun`
   - blocking `HumanInteractionRequest`
