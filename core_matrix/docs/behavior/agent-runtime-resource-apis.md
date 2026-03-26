@@ -171,8 +171,11 @@ orchestration are still defined in:
   in the same rollout; no compatibility aliases remain
 - conversation-variable payloads do not expose canonical-store row ids or
   canonical-variable row ids
-- writes, deletes, and promotion are rejected once a conversation is no longer
-  retained
+- writes, deletes, and promotion are rejected unless the owning conversation is
+  still:
+  - `retained`
+  - `active`
+  - free of unfinished close operations
 
 ## Workspace Variable APIs
 
@@ -195,7 +198,7 @@ orchestration are still defined in:
 - opening a human interaction is also rejected while a conversation close is in
   progress or after the owning turn has been fenced by `turn_interrupt`
 - late human resolution paths are also rejected once the conversation is no
-  longer retained or no longer active
+  longer retained, no longer active, or already closing
 - both checks are enforced from fresh locked conversation and workflow/request
   state rather than trusting a stale caller-side object snapshot
 
@@ -231,7 +234,9 @@ orchestration are still defined in:
   canonical-store validations
 - conversation-local writes, deletes, promotions, and human interaction opens
   are rejected for `pending_delete` or `deleted` conversations
-- human interaction opens and late human-interaction resolution are rejected for
-  archived conversations
+- conversation-local writes, deletes, promotions, and human interaction opens
+  are also rejected for archived or close-in-progress conversations
+- late human-interaction resolution is rejected for archived or
+  close-in-progress conversations
 - control reports for stale attempts, stale delivery leases, or superseded
   close requests fail safe with `409 conflict`

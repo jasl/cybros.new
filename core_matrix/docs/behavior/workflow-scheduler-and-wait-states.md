@@ -84,8 +84,11 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   `turn.agent_deployment` through the same shared deployment-target contract
   used by manual recovery
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
-  boundaries for paused workflows and are rejected once deletion has been
-  requested
+  boundaries for paused workflows and are rejected unless the owning
+  conversation is still:
+  - `retained`
+  - `active`
+  - free of unfinished close operations
 - retryable in-place step failures now move the workflow into:
   - `wait_state = "waiting"`
   - `wait_reason_kind = "retryable_failure"`
@@ -115,6 +118,13 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   workflow node before persistence; if the interrupt fence or another terminal
   state has landed first, that provider result is dropped without transcript,
   usage, or profiling side effects
+- turn timeline mutation helpers now use one shared contract and lock order:
+  - `conversation.with_lock`
+  - `turn.with_lock`
+  - re-check `retained + active + not_closing + not turn_interrupted`
+- steering current input, editing tail input, selecting output variants,
+  retrying or rerunning output, and rollback all fail closed once that
+  interrupt fence or a close fence has landed
 - turn interrupt targets only mainline blockers:
   - running `AgentTaskRun`
   - blocking `HumanInteractionRequest`
@@ -204,6 +214,8 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - late completion, form submission, and approval resolution are rejected
   - deletion-driven cancellation projects `human_interaction.canceled`
     conversation events
+- once a conversation is closing, the same open and late-resolution writes are
+  rejected even if the row still reads `lifecycle_state = active`
 - once a turn has been fenced by `turn_interrupt`, opening a new human
   interaction from that workflow is also rejected
 

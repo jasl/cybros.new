@@ -22,6 +22,13 @@ selector state without implementing selector resolution or fallback yet.
 - Override persistence is execution state, not unsent draft state.
 - `Conversations::UpdateOverride` updates override state and interactive
   selector state together.
+- override updates now use the same live conversation mutation contract as turn
+  entry:
+  - `deletion_state = retained`
+  - `lifecycle_state = active`
+  - no unfinished close operation
+- archived, pending-delete, and close-in-progress conversations therefore
+  reject override and selector changes uniformly
 
 ## Turn Behavior
 
@@ -86,11 +93,16 @@ selector state without implementing selector resolution or fallback yet.
   active turn and moves the turn's selected-input pointer.
 - Steering is limited to pre-output state in this task; if an output pointer is
   already selected, the in-place steering path is rejected.
-- user-turn entry, automation-turn entry, and queued follow-up all re-check the
-  conversation lifecycle and deletion state after acquiring the conversation
-  row lock
+- user-turn entry, automation-turn entry, queued follow-up, and override
+  updates all re-check the live conversation mutation contract after acquiring
+  the conversation row lock
 - this prevents concurrent archive or deletion requests from opening new turn
   work against a conversation that became non-active mid-flight
+- `Turns::SteerCurrentInput` now uses the shared timeline-mutation contract:
+  - the owning conversation must still pass the live mutation contract
+  - the target turn is reloaded under lock
+  - `turn_interrupted` fences reject in-place steering and
+    during-generation follow-up policy entry
 
 ## Invariants
 
@@ -114,6 +126,8 @@ selector state without implementing selector resolution or fallback yet.
 - archived conversations reject new user turns, automation turns, and queued
   follow-up turns even if the archive transition wins a race after caller-side
   prechecks
+- close-in-progress or pending-delete conversations reject override updates and
+  current-turn steering for the same reason
 
 ## Reference Sanity Check
 

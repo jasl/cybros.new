@@ -85,8 +85,14 @@ may rotate or be switched within that bound environment.
   `ConversationCloseOperation(intent_kind = "delete")`
 - `pending_delete` conversations are hidden from default agent-facing
   conversation lookups
-- new turn entry, branching, checkpointing, threading, and conversation-local
-  store writes are rejected once deletion has been requested
+- once deletion has been requested, all caller-driven live mutation is
+  rejected, including:
+  - new turn entry
+  - branch, thread, and checkpoint creation
+  - conversation-local store writes
+  - import and summary writes
+  - message-visibility updates
+  - selector and override updates
 - queued turns are canceled immediately with `conversation_deleted`
 - the current active turn is fenced through `turn_interrupt`
 - parent delete does not interrupt retained child conversations
@@ -156,8 +162,16 @@ may rotate or be switched within that bound environment.
   conversation is already archived if detached cleanup still has pending or
   residual outcomes
 - archived conversations are excluded from open human-interaction inbox queries
-- archived conversations reject opening new human interactions and reject late
-  resolution of still-open requests
+- archived conversations reject all caller-driven live mutation, including:
+  - turn entry and queued follow-up
+  - branch, thread, and checkpoint creation
+  - human-interaction open and late resolution
+  - import and summary writes
+  - message-visibility updates
+  - selector and override updates
+  - turn timeline rewrites and rollback
+- conversations with an unfinished close operation reject the same live
+  mutation surface even while the row still reads `lifecycle_state = active`
 - `Conversations::Unarchive` requires:
   - `deletion_state = retained`
   - `lifecycle_state = archived`
@@ -201,8 +215,8 @@ may rotate or be switched within that bound environment.
 - branch and checkpoint conversations without a historical anchor are rejected
 - automation conversations with non-root kinds are rejected
 - child conversations in a different workspace from the parent are rejected
-- branch, checkpoint, and thread creation are rejected from non-retained
-  parents
+- branch, checkpoint, and thread creation are rejected from parents that are
+  non-retained, archived, or currently closing
 - archive is rejected for non-retained or non-active conversations
 - archive without force is rejected while unfinished runtime work remains
 - unarchive is rejected for non-retained or non-archived conversations
