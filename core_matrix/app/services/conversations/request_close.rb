@@ -31,7 +31,7 @@ module Conversations
       ApplicationRecord.transaction do
         @conversation.with_lock do
           ensure_conversation_retained!(@conversation, message: "must be retained before close") if @intent_kind == "archive"
-          close_operation = find_or_create_close_operation!
+          find_or_create_close_operation!
           apply_immediate_state!
           cancel_queued_turns!(reason_kind: config.fetch(:queued_turn_reason))
           request_turn_interrupts!
@@ -39,8 +39,12 @@ module Conversations
             request_kind: config.fetch(:background_request_kind),
             reason_kind: config.fetch(:close_reason_kind)
           )
-          refresh_close_operation!(close_operation)
         end
+
+        Conversations::ReconcileCloseOperation.call(
+          conversation: @conversation,
+          occurred_at: @occurred_at
+        )
       end
 
       @conversation.reload
@@ -104,55 +108,6 @@ module Conversations
           force_deadline_at: close_deadline_anchor + 60.seconds
         )
       end
-    end
-
-    def refresh_close_operation!(close_operation)
-      summary = Conversations::CloseSummaryQuery.call(conversation: @conversation)
-      lifecycle_state = close_operation_lifecycle_state(summary)
-      attributes = {
-        lifecycle_state: lifecycle_state,
-        summary_payload: summary.deep_stringify_keys,
-      }
-
-      if ConversationCloseOperation::TERMINAL_STATES.include?(lifecycle_state)
-        attributes[:completed_at] = @occurred_at
-      elsif lifecycle_state == "disposing"
-        attributes[:completed_at] = nil
-      end
-
-      close_operation.update!(attributes)
-    end
-
-    def close_operation_lifecycle_state(summary)
-      return "quiescing" unless mainline_clear?(summary)
-      return "quiescing" if @intent_kind == "delete" && !@conversation.deleted?
-
-      if @intent_kind == "archive" && @conversation.active?
-        @conversation.update!(lifecycle_state: "archived")
-      end
-
-      return "disposing" if tail_pending?(summary)
-      return "degraded" if tail_degraded?(summary)
-
-      "completed"
-    end
-
-    def mainline_clear?(summary)
-      summary.dig(:mainline, :active_turn_count).zero? &&
-        summary.dig(:mainline, :active_workflow_count).zero? &&
-        summary.dig(:mainline, :active_agent_task_count).zero? &&
-        summary.dig(:mainline, :open_blocking_interaction_count).zero? &&
-        summary.dig(:mainline, :running_turn_command_count).zero? &&
-        summary.dig(:mainline, :running_subagent_count).zero?
-    end
-
-    def tail_pending?(summary)
-      summary.dig(:tail, :running_background_process_count).positive? ||
-        summary.dig(:tail, :detached_tool_process_count).positive?
-    end
-
-    def tail_degraded?(summary)
-      summary.dig(:tail, :degraded_close_count).positive?
     end
 
     def close_deadline_anchor

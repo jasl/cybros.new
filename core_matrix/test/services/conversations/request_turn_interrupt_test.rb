@@ -141,4 +141,24 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal "agent_installation", close_request.target_kind
     assert_equal context[:agent_installation].public_id, close_request.target_ref
   end
+
+  test "reconciles an unfinished archive close after local mainline blockers are canceled" do
+    context = build_agent_control_context!
+    close_operation = ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "quiescing",
+      requested_at: Time.zone.parse("2026-03-27 10:15:00 UTC"),
+      summary_payload: {}
+    )
+
+    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.zone.parse("2026-03-27 10:16:00 UTC"))
+
+    assert context[:conversation].reload.archived?
+    assert_equal "completed", close_operation.reload.lifecycle_state
+    assert_not_nil close_operation.completed_at
+    assert_equal 0, close_operation.summary_payload.dig("mainline", "active_turn_count")
+    assert_equal 0, close_operation.summary_payload.dig("mainline", "active_workflow_count")
+  end
 end

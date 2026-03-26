@@ -23,6 +23,8 @@ module Conversations
             finalize_if_mainline_cleared!
           end
         end
+
+        reconcile_close_operation!
       end
 
       @turn.reload
@@ -159,6 +161,16 @@ module Conversations
 
     def close_deadline_anchor
       @close_deadline_anchor ||= [@occurred_at, Time.current].max
+    end
+
+    def reconcile_close_operation!
+      conversation = @turn.conversation
+      return if conversation.unfinished_close_operation.blank?
+
+      Conversations::ReconcileCloseOperation.call(
+        conversation: conversation,
+        occurred_at: @occurred_at
+      )
     end
   end
 end

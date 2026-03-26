@@ -10,6 +10,8 @@ Use this task document together with:
 4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 5. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
 6. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
+7. `docs/plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md`
+8. `docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md`
 
 ## Purpose
 
@@ -25,6 +27,11 @@ This task should establish:
 - archive and delete orchestration over the mailbox control plane
 - `step_retry` versus `workflow_retry` semantics
 - close-summary queries for UI and operator confirmation
+
+This task's landed implementation now has an approved follow-up design for
+unifying close progression under one conversation-scoped reconciler rather than
+keeping lifecycle writes distributed across initiation, finalization, and
+mailbox handlers.
 
 ## Scope
 

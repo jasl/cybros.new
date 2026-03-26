@@ -94,6 +94,11 @@ orchestration are still defined in:
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources
+- terminal close reports for `AgentTaskRun`, `ProcessRun`, and
+  `SubagentRun` must also re-enter
+  `Conversations::ReconcileCloseOperation` through the resource's owning
+  conversation (`conversation`, `turn.conversation`, or
+  `workflow_run.conversation`)
 - environment-owned close reports are only accepted from deployments attached
   to the owning execution environment
 - `deployment_health_report` refreshes deployment health plus

@@ -115,8 +115,13 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - active mainline work is stopped through `turn_interrupt`
 - detached background processes are closed through mailbox
   `resource_close_request(request_kind = "archive_force_quiesce")`
+- `Conversations::ReconcileCloseOperation` is the single writer for archive
+  close lifecycle state, `summary_payload`, and archive-side
+  `conversation.lifecycle_state = archived`
 - the conversation transitions to `archived` once the mainline stop barrier is
   clear
+- any local blocker cancellation or mailbox terminal close report that changes
+  close summary must re-enter that reconciler before the flow returns
 - the close operation remains:
   - `quiescing` while mainline blockers remain
   - `disposing` while only background disposal tails remain
@@ -136,6 +141,9 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   `resource_close_request(request_kind = "deletion_force_quiesce")`
 - delete also records a durable
   `ConversationCloseOperation(intent_kind = "delete")`
+- `Conversations::ReconcileCloseOperation` is the single writer for delete
+  close lifecycle state and `summary_payload`; it does not set
+  `deletion_state = deleted`
 - `Conversations::FinalizeDeletion` now requires only the mainline stop
   barrier to be clear; background disposal tails may still be `disposing` or
   `degraded`

@@ -349,17 +349,20 @@ module AgentControl
     end
 
     def reconcile_close_operation!(resource)
-      conversation = resource.respond_to?(:conversation) ? resource.conversation : nil
+      conversation = conversation_for_close_reconciliation(resource)
       return if conversation.blank?
 
-      close_operation = conversation.unfinished_close_operation
-      return if close_operation.blank?
-
-      Conversations::RequestClose.call(
+      Conversations::ReconcileCloseOperation.call(
         conversation: conversation,
-        intent_kind: close_operation.intent_kind,
         occurred_at: @occurred_at
       )
+    end
+
+    def conversation_for_close_reconciliation(resource)
+      return resource.conversation if resource.respond_to?(:conversation)
+      return resource.turn&.conversation if resource.respond_to?(:turn)
+
+      resource.workflow_run&.conversation if resource.respond_to?(:workflow_run)
     end
   end
 end

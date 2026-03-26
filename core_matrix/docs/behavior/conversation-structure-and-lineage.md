@@ -147,6 +147,9 @@ may rotate or be switched within that bound environment.
   `request_kind = "archive_force_quiesce"`
 - those process-close requests target the bound execution environment as the
   durable owner and resolve the live delivery endpoint separately
+- `Conversations::ReconcileCloseOperation` is the single writer for archive
+  close progression; local turn fencing and mailbox terminal close reports both
+  re-enter it
 - the conversation transitions to `archived` once the mainline stop barrier is
   clear
 - the archive close operation may remain `disposing` or `degraded` after the

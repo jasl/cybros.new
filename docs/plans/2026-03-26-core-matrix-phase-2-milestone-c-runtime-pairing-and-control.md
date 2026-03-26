@@ -36,6 +36,11 @@ end-to-end stack.
 
 - [2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md)
 
+### Task C2 Follow-Up
+
+- [2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md)
+- [2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
@@ -48,6 +53,8 @@ end-to-end stack.
 - `turn_interrupt` is a tested kernel primitive
 - archive and delete reuse the close model without collapsing into one
   lifecycle state machine
+- close progression uses one explicit conversation-scoped reconciler rather
+  than scattered lifecycle writers
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources

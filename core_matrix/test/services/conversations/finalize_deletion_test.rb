@@ -14,10 +14,14 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
 
     assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do
       finalized = Conversations::FinalizeDeletion.call(conversation: conversation.reload)
+      close_operation = finalized.reload.conversation_close_operations.order(:created_at).last
 
       assert finalized.deleted?
       assert_nil finalized.canonical_store_reference
       assert_not_nil finalized.deleted_at
+      assert_equal "completed", close_operation.lifecycle_state
+      assert_not_nil close_operation.completed_at
+      assert_equal 0, close_operation.summary_payload.dig("tail", "running_background_process_count")
     end
   end
 
@@ -56,9 +60,13 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
 
     assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do
       finalized = Conversations::FinalizeDeletion.call(conversation: context[:conversation].reload)
+      close_operation = finalized.reload.conversation_close_operations.order(:created_at).last
 
       assert finalized.deleted?
       assert_equal "requested", background_service.reload.close_state
+      assert_equal "disposing", close_operation.lifecycle_state
+      assert_nil close_operation.completed_at
+      assert_equal 1, close_operation.summary_payload.dig("tail", "running_background_process_count")
     end
   end
 

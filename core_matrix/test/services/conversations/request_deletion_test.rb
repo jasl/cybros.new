@@ -45,6 +45,9 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     close_operation = deleted.reload.conversation_close_operations.order(:created_at).last
     assert_equal "delete", close_operation.intent_kind
     assert_equal "quiescing", close_operation.lifecycle_state
+    assert_equal 0, close_operation.summary_payload.dig("mainline", "active_turn_count")
+    assert_equal 0, close_operation.summary_payload.dig("mainline", "active_workflow_count")
+    assert_equal 0, close_operation.summary_payload.dig("mainline", "open_blocking_interaction_count")
   end
 
   test "delete close also targets detached background processes without stopping them synchronously" do
