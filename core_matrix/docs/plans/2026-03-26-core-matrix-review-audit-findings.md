@@ -3,8 +3,8 @@
 ## Scope
 
 - Refresh date: `2026-03-27`
-- Refresh baseline: post-fix state after `docs: describe conversation mutation contracts`
-  (`2e56996`)
+- Refresh baseline: post-fix state after `docs: describe lineage provenance hardening`
+  (`b36e3ae`)
 - In scope: Ruby code under `app/`, `lib/`, `config/`, `db/`, and `test/`
 - Out of scope: frontend work, compiled assets, and non-Ruby code
 - Review goals:
@@ -55,6 +55,113 @@
     `Conversations::WorkBarrierQuery`
 - Post-fix verification and grep rescans are recorded in the final execution
   pass for this follow-up batch
+
+## Latest Refresh Findings
+
+### Must Fix
+
+1. `ValidateHistoricalAnchor` is now stricter than the actual transcript
+   lineage model, so descendants can no longer anchor to inherited messages
+   that are still valid in the parent transcript.
+   - Why it matters: child conversations inherit transcript through
+     `parent_conversation` recursion, not only through parent-owned rows.
+     Tightening anchor validation to `anchor_message.conversation_id == parent.id`
+     means a branch can display an inherited ancestor message in its transcript
+     projection, but `CreateCheckpoint` or `CreateBranch` from that branch now
+     rejects the same message as an anchor. This regresses legitimate
+     checkpointing and descendant branch flows on inherited history.
+   - Evidence:
+     - `app/services/conversations/validate_historical_anchor.rb`
+     - `app/models/conversation.rb`
+     - `test/services/messages/update_visibility_test.rb`
+     - `test/integration/transcript_visibility_attachment_flow_test.rb`
+   - Reproduction:
+     - `RAILS_ENV=test bin/rails db:drop db:create db:schema:load >/dev/null && bin/rails test test/services/messages/update_visibility_test.rb test/integration/transcript_visibility_attachment_flow_test.rb`
+     - current result: `2 errors`, both failing inside
+       `Conversations::CreateCheckpoint.call(... historical_anchor_message_id: message.id)`
+       with `Historical anchor message must belong to the parent conversation history`
+   - Reasoning basis: `Conversation#transcript_projection_includes?` and
+     `Conversation#inherited_transcript_projection_messages` still model parent
+     transcript lineage in terms of inherited messages, but the validator now
+     only accepts parent-owned rows. The write contract and the projection
+     contract have diverged.
+   - Recommended action: validate anchors against the parent conversation's
+     effective transcript lineage, not only `message.conversation_id == parent.id`,
+     while still rejecting arbitrary foreign rows.
+
+2. Output-anchored child lineage still does not protect the anchor's implicit
+   `source_input_message` as a fork-point dependency.
+   - Why it matters: output-anchor replay now reconstructs
+     `[source_input_message, anchor_output]`, but fork-point protection still
+     only recognizes the direct anchor row. That lets callers hide or rewrite
+     the source-input half of an output-anchored pair, producing orphaned
+     output-only transcript projections in the parent and descendants.
+   - Evidence:
+     - `app/models/conversation.rb`
+     - `app/models/message.rb`
+     - `app/services/messages/update_visibility.rb`
+     - `app/services/turns/edit_tail_input.rb`
+     - `test/services/messages/update_visibility_test.rb`
+     - `test/services/turns/edit_tail_input_test.rb`
+     - `test/integration/transcript_visibility_attachment_flow_test.rb`
+   - Reproduction:
+     - after resetting `core_matrix_test`, create a branch anchored to an output
+       variant and call
+       `Messages::UpdateVisibility.call(conversation: root, message: source_input, hidden: true)`
+     - current observed result:
+       `{overlay_id: 1, root_projection: ["Output"], branch_projection: ["Output"]}`
+     - similarly, `Turns::EditTailInput.call(...)` still succeeds on the same
+       source input after the child branch already anchors to the output
+   - Reasoning basis: `Message#fork_point?` only checks whether
+     `historical_anchor_message_id == message.id`. It does not treat
+     `source_input_message` of an anchored output as protected lineage, even
+     though descendant transcript replay now depends on it.
+   - Recommended action: promote output-anchor source inputs into the same
+     fork-point protection family used by direct anchor messages, and extend the
+     visibility/edit tests to cover output-anchor lineage.
+
+3. In-place `RerunOutput` and `RetryOutput` still silently repair malformed
+   output provenance instead of failing closed.
+   - Why it matters: the new provenance contract is explicit everywhere else,
+     but these two paths still use
+     `message.source_input_message || turn.selected_input_message`. A malformed
+     or legacy output row with blank provenance therefore does not surface as a
+     contract violation; the rewrite path silently re-pairs it to the current
+     selected input and writes a fresh output variant.
+   - Evidence:
+     - `app/services/turns/rerun_output.rb`
+     - `app/services/turns/retry_output.rb`
+     - `test/services/turns/rerun_output_test.rb`
+     - `test/services/turns/retry_output_test.rb`
+     - `test/integration/turn_history_rewrite_flow_test.rb`
+   - Reproduction:
+     - after resetting `core_matrix_test`, corrupt the selected output with
+       `output.update_columns(source_input_message_id: nil)` and bypass the turn
+       backstop with `turn.update_columns(...)`
+     - then call `Turns::RerunOutput.call(...)`
+     - current observed result:
+       `{old_output_source_input: nil, new_output: "Rerun", new_output_source_input: "Input"}`
+   - Reasoning basis: branch rerun already fails closed on missing provenance,
+     but in-place rerun and retry still keep a compatibility fallback. That is
+     inconsistent with the explicit-lineage hardening just introduced.
+   - Recommended action: remove the fallback and reject retry/rerun when the
+     target output does not carry persisted source-input provenance.
+
+## Latest Refresh Cross-check Summary
+
+- Global signal notes:
+  - the newest regressions concentrate in the lineage/provenance seams added by
+    `937311d`, `dbce5f2`, and `b3cb2bf`
+  - `ValidateHistoricalAnchor` is now the highest-yield hotspot because its
+    write-time contract no longer matches transcript replay semantics
+  - fork-point protection remains direct-anchor-only even though output-anchor
+    replay now depends on a two-message pair
+- Reverse-pass confirmations:
+  - `RAILS_ENV=test bin/rails db:drop db:create db:schema:load >/dev/null && bin/rails test test/services/messages/update_visibility_test.rb test/integration/transcript_visibility_attachment_flow_test.rb`
+    currently returns `2 errors`, confirming the inherited-anchor regression is
+    already visible in existing test suites
+  - the existing rewrite and visibility suites still do not cover output-anchor
+    source-input protection or malformed-provenance fail-closed behavior
 
 ## Findings
 

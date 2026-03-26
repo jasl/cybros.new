@@ -99,6 +99,9 @@ Milestone C follow-up task set is complete and re-verified.
 - `Task C5`: [2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md)
 - `Task C2 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md)
 - `Task C6 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md)
+- `Task C7 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md)
+- `Task C8 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md)
+- `Task C9 Follow-Up`: [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
 
 ## Later Phase 2 Milestones
 

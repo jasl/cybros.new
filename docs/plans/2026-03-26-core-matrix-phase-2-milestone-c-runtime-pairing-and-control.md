@@ -56,6 +56,11 @@ end-to-end stack.
 - [2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md)
 
+### Task C9 Follow-Up
+
+- [2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md)
+- [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
@@ -82,6 +87,8 @@ end-to-end stack.
   within one lineage
 - child-conversation historical anchors are validated against the parent
   conversation history instead of relying on permissive raw ids
+- effective transcript history, output-anchor fork-point protection, and
+  provenance fail-closed behavior all share one lineage contract
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources
