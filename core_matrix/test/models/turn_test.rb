@@ -195,4 +195,36 @@ class TurnTest < ActiveSupport::TestCase
     assert_equal ["att-1"], turn.attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal ["att-1"], turn.model_input_attachments.map { |item| item.fetch("attachment_id") }
   end
+
+  test "rejects a deployment outside the conversation execution environment" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    other_environment = create_execution_environment!(installation: context[:installation])
+    other_deployment = create_agent_deployment!(
+      installation: context[:installation],
+      agent_installation: create_agent_installation!(installation: context[:installation]),
+      execution_environment: other_environment,
+      fingerprint: "other-env-#{next_test_sequence}",
+      bootstrap_state: "pending"
+    )
+    turn = Turn.new(
+      installation: context[:installation],
+      conversation: conversation,
+      agent_deployment: other_deployment,
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_deployment_fingerprint: other_deployment.fingerprint,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert turn.invalid?
+    assert_includes turn.errors[:agent_deployment], "must belong to the bound execution environment"
+  end
 end

@@ -44,6 +44,7 @@ class Turn < ApplicationRecord
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
   validate :agent_deployment_installation_match
+  validate :agent_deployment_execution_environment_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
   validate :cancellation_request_pairing
@@ -173,6 +174,13 @@ class Turn < ApplicationRecord
     return if agent_deployment.installation_id == installation_id
 
     errors.add(:agent_deployment, "must belong to the same installation")
+  end
+
+  def agent_deployment_execution_environment_match
+    return if conversation.blank? || agent_deployment.blank?
+    return if agent_deployment.execution_environment_id == conversation.execution_environment_id
+
+    errors.add(:agent_deployment, "must belong to the bound execution environment")
   end
 
   def selected_input_message_rules

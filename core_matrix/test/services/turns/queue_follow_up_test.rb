@@ -33,6 +33,40 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_equal "Follow up input", queued.selected_input_message.content
   end
 
+  test "uses the conversation bound deployment instead of an arbitrary caller supplied deployment" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    alternate_deployment = create_agent_deployment!(
+      installation: context[:installation],
+      agent_installation: create_agent_installation!(installation: context[:installation]),
+      execution_environment: context[:execution_environment],
+      fingerprint: "alternate-#{next_test_sequence}",
+      bootstrap_state: "pending"
+    )
+
+    queued = Turns::QueueFollowUp.call(
+      conversation: conversation,
+      content: "Follow up input",
+      agent_deployment: alternate_deployment,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_equal conversation.agent_deployment, queued.agent_deployment
+    assert_equal conversation.agent_deployment.fingerprint, queued.pinned_deployment_fingerprint
+  end
+
   test "rejects queueing when no active work exists" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

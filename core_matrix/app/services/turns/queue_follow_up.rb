@@ -9,7 +9,6 @@ module Turns
     def initialize(conversation:, content:, agent_deployment:, resolved_config_snapshot:, resolved_model_selection_snapshot:)
       @conversation = conversation
       @content = content
-      @agent_deployment = agent_deployment
       @resolved_config_snapshot = resolved_config_snapshot
       @resolved_model_selection_snapshot = resolved_model_selection_snapshot
     end
@@ -24,18 +23,19 @@ module Turns
         unless @conversation.turns.where(lifecycle_state: %w[queued active]).exists?
           raise_invalid!(@conversation, :base, "must have active work before queueing follow up")
         end
+        agent_deployment = @conversation.agent_deployment
 
         turn = Turn.create!(
           installation: @conversation.installation,
           conversation: @conversation,
-          agent_deployment: @agent_deployment,
+          agent_deployment: agent_deployment,
           sequence: @conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "queued",
           origin_kind: "manual_user",
           origin_payload: {},
           source_ref_type: "User",
           source_ref_id: @conversation.workspace.user.public_id,
-          pinned_deployment_fingerprint: @agent_deployment.fingerprint,
+          pinned_deployment_fingerprint: agent_deployment.fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )
