@@ -69,9 +69,17 @@ orchestration are still defined in:
   - `agent` for agent-loop work and agent-owned close control
   - `environment` for `ExecutionEnvironment`-owned resources such as
     `ProcessRun`
+- for `agent` plane close work, the durable owner fallback is resolved from the
+  resource type rather than the current delivery lease:
+  - `AgentTaskRun` falls back to its own `agent_installation`
+  - `SubagentRun` falls back to the owning workflow turn deployment's logical
+    `agent_installation`
 - for `environment` plane work:
   - `target_ref` is the owning `ExecutionEnvironment.public_id`
   - `payload.execution_environment_id` carries the same durable owner identity
+  - if no active deployment currently holds the resource lease, the mailbox row
+    still records the owning turn deployment's logical `agent_installation` as
+    the durable installation target
   - the live delivery endpoint is resolved separately from the active
     deployment attached to that environment
 

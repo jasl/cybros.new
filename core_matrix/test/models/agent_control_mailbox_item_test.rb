@@ -88,4 +88,28 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal context[:execution_environment].public_id, mailbox_item.payload.fetch("execution_environment_id")
     assert_equal context[:execution_environment].public_id, mailbox_item.target_ref
   end
+
+  test "agent-plane subagent close work falls back to the workflow turn agent installation when no lease holder exists" do
+    context = build_agent_control_context!
+    subagent_run = create_subagent_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running"
+    )
+
+    mailbox_item = AgentControl::CreateResourceCloseRequest.call(
+      resource: subagent_run,
+      request_kind: "turn_interrupt",
+      reason_kind: "turn_interrupted",
+      strictness: "graceful",
+      grace_deadline_at: 30.seconds.from_now,
+      force_deadline_at: 60.seconds.from_now
+    )
+
+    assert_equal context[:agent_installation], mailbox_item.target_agent_installation
+    assert_equal "agent_installation", mailbox_item.target_kind
+    assert_equal context[:agent_installation].public_id, mailbox_item.target_ref
+    assert_equal "agent", mailbox_item.payload.fetch("runtime_plane")
+    assert_equal "SubagentRun", mailbox_item.payload.fetch("resource_type")
+    assert_equal subagent_run.public_id, mailbox_item.payload.fetch("resource_id")
+  end
 end

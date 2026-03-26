@@ -119,4 +119,26 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     retry_mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: queued_retry)
     assert_equal "canceled", retry_mailbox_item.status
   end
+
+  test "requests subagent close even when the running subagent has no lease" do
+    context = build_agent_control_context!
+    subagent_run = create_subagent_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running"
+    )
+
+    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.zone.parse("2026-03-27 10:00:00 UTC"))
+
+    close_request = AgentControlMailboxItem.find_by!(
+      item_type: "resource_close_request",
+      target_agent_installation: context[:agent_installation]
+    )
+
+    assert_equal "requested", subagent_run.reload.close_state
+    assert_equal subagent_run.public_id, close_request.payload.fetch("resource_id")
+    assert_equal "SubagentRun", close_request.payload.fetch("resource_type")
+    assert_equal "agent", close_request.payload.fetch("runtime_plane")
+    assert_equal "agent_installation", close_request.target_kind
+    assert_equal context[:agent_installation].public_id, close_request.target_ref
+  end
 end

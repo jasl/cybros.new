@@ -2,6 +2,12 @@ require "securerandom"
 
 module AgentControl
   class CreateResourceCloseRequest
+    SUPPORTED_RESOURCE_TYPES = [
+      AgentTaskRun,
+      ProcessRun,
+      SubagentRun,
+    ].freeze
+
     def self.call(...)
       new(...).call
     end
@@ -18,6 +24,8 @@ module AgentControl
     end
 
     def call
+      validate_supported_resource!
+
       target_deployment = delivery_endpoint
       target_agent_installation = target_deployment&.agent_installation || owning_agent_installation
 
@@ -67,6 +75,12 @@ module AgentControl
 
     private
 
+    def validate_supported_resource!
+      return if SUPPORTED_RESOURCE_TYPES.any? { |resource_type| @resource.is_a?(resource_type) }
+
+      raise ArgumentError, "unsupported close resource #{@resource.class.name}"
+    end
+
     def delivery_endpoint
       if environment_plane?
         return if resource_execution_environment.blank?
@@ -78,9 +92,12 @@ module AgentControl
     end
 
     def owning_agent_installation
-      return @resource.agent_installation if @resource.respond_to?(:agent_installation)
-
-      @resource.turn.agent_deployment.agent_installation
+      case @resource
+      when AgentTaskRun
+        @resource.agent_installation
+      when ProcessRun, SubagentRun
+        resource_turn.agent_deployment.agent_installation
+      end
     end
 
     def agent_task_run
@@ -96,10 +113,23 @@ module AgentControl
     end
 
     def resource_execution_environment
-      return @resource.execution_environment if @resource.respond_to?(:execution_environment)
-      return @resource.turn&.conversation&.execution_environment if @resource.respond_to?(:turn)
+      case @resource
+      when ProcessRun
+        @resource.execution_environment
+      when AgentTaskRun
+        @resource.turn&.conversation&.execution_environment
+      when SubagentRun
+        @resource.workflow_run&.conversation&.execution_environment
+      end
+    end
 
-      @resource.workflow_run&.conversation&.execution_environment if @resource.respond_to?(:workflow_run)
+    def resource_turn
+      case @resource
+      when AgentTaskRun, ProcessRun
+        @resource.turn
+      when SubagentRun
+        @resource.workflow_run&.turn
+      end
     end
 
     def durable_target_ref(target_agent_installation:, target_deployment:)

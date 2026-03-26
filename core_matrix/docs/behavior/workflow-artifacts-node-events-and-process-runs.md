@@ -150,6 +150,9 @@ runtime resources that later tasks now build on are:
   work
 - subagent runs now also carry `public_id` plus the shared durable close
   fields used by mailbox-driven resource close handling
+- when a subagent close request has no active lease holder, the mailbox target
+  falls back to the owning workflow turn deployment's logical
+  `agent_installation` rather than failing the close request
 
 ## Timeout And Ownership Rules
 
