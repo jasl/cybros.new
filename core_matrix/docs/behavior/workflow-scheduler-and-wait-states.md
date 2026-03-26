@@ -67,6 +67,8 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 
 - `AgentDeployments::MarkUnavailable` moves active workflows into a waiting
   state when the pinned deployment becomes unavailable
+- if a workflow was already waiting on another blocker, outage pause snapshots
+  that original blocker and restores it after recovery instead of erasing it
 - `AgentDeployments::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery

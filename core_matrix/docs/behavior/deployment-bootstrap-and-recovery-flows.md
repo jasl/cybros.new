@@ -80,6 +80,13 @@ Planned replacement design:
   - audit action `agent_deployment.paused_agent_unavailable`
 - the wait payload freezes the deployment fingerprint and capability version
   that were pinned when the workflow last ran safely
+- if a workflow was already waiting on another blocker such as
+  `human_interaction`, `retryable_failure`, or `policy_gate`, outage pause
+  snapshots that original wait contract inside the pause payload instead of
+  discarding it
+- recovery restores the snapped blocker when it is still unresolved, and only
+  clears to `ready` when the snapped blocker has already been satisfied while
+  the workflow was paused
 
 ## Auto Resume
 
@@ -98,8 +105,9 @@ Planned replacement design:
     - a rotated deployment from the same logical `AgentInstallation` preserves
       the paused capability contract and the frozen selector still resolves on
       the replacement deployment
-- successful auto-resume clears the structured wait state and preserves the
-  existing turn and workflow-run IDs
+- successful auto-resume preserves the existing turn and workflow-run IDs
+- if outage pause wrapped an older blocker, successful auto-resume restores
+  that blocker instead of forcing the workflow to `ready`
 - when the auto-resume target is a rotated replacement deployment, the kernel:
   - re-pins the turn to the replacement deployment
   - refreshes the frozen capability snapshot binding
@@ -131,7 +139,8 @@ Planned replacement design:
   - refreshes the frozen model-selection snapshot
   - re-assembles the execution context so the execution identity carries the
     new deployment ID
-  - clears the workflow wait state
+  - clears the workflow wait state only when no snapped blocker remains
+  - otherwise restores the snapped blocker in place
   - records audit action `workflow.manual_resumed`
 
 ### Manual Retry

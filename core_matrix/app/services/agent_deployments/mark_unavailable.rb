@@ -47,17 +47,14 @@ module AgentDeployments
 
     def apply_wait_state!(workflow_run)
       workflow_run.update!(
-        wait_state: "waiting",
-        wait_reason_kind: next_wait_reason_kind,
-        wait_reason_payload: {
-          "recovery_state" => recovery_state,
-          "reason" => @reason,
-          "pinned_deployment_fingerprint" => workflow_run.turn.pinned_deployment_fingerprint,
-          "pinned_capability_version" => workflow_run.turn.pinned_capability_snapshot_version,
-        },
-        waiting_since_at: @occurred_at,
-        blocking_resource_type: "AgentDeployment",
-        blocking_resource_id: @deployment.id.to_s
+        AgentDeployments::UnavailablePauseState.pause_attributes(
+          workflow_run: workflow_run,
+          deployment: @deployment,
+          recovery_state: recovery_state,
+          reason: @reason,
+          occurred_at: @occurred_at,
+          wait_reason_kind: next_wait_reason_kind
+        )
       )
     end
 

@@ -59,6 +59,33 @@ class AgentDeployments::MarkUnavailableTest < ActiveSupport::TestCase
     assert_equal [workflow_run.id], audit_log.metadata["workflow_run_ids"]
   end
 
+  test "snapshots the original human-interaction blocker instead of discarding it" do
+    context = build_human_interaction_context!
+    request = HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:workflow_node],
+      blocking: true,
+      request_payload: { "instructions" => "Need operator input" }
+    )
+
+    AgentDeployments::MarkUnavailable.call(
+      deployment: context[:agent_deployment],
+      severity: "transient",
+      reason: "heartbeat_missed",
+      occurred_at: Time.current
+    )
+
+    workflow_run = context[:workflow_run].reload
+    snapshot = workflow_run.wait_reason_payload["paused_wait_snapshot"]
+
+    assert workflow_run.waiting?
+    assert_equal "agent_unavailable", workflow_run.wait_reason_kind
+    assert_equal "human_interaction", snapshot["wait_reason_kind"]
+    assert_equal request.public_id, snapshot["blocking_resource_id"]
+    assert_equal "HumanInteractionRequest", snapshot["blocking_resource_type"]
+    assert_equal request.public_id, snapshot["wait_reason_payload"]["request_id"]
+  end
+
   private
 
   def build_recovery_context!

@@ -47,4 +47,51 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "stale", result.code
     assert_equal({}, agent_task_run.reload.progress_payload)
   end
+
+  test "rejects terminal close reports from a sibling deployment after another deployment acknowledged the request" do
+    context = build_rotated_runtime_context!
+    subagent_run = create_subagent_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running"
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: subagent_run
+    ).fetch(:mailbox_item)
+
+    assert_equal "agent_installation", mailbox_item.target_kind
+
+    AgentControl::Poll.call(deployment: context[:replacement_deployment], limit: 10)
+
+    ack_result = AgentControl::Report.call(
+      deployment: context[:replacement_deployment],
+      method_id: "resource_close_acknowledged",
+      message_id: "close-ack-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      close_request_id: mailbox_item.public_id,
+      resource_type: "SubagentRun",
+      resource_id: subagent_run.public_id
+    )
+
+    assert_equal "accepted", ack_result.code
+    assert_equal "acked", mailbox_item.reload.status
+    assert_equal "acknowledged", subagent_run.reload.close_state
+
+    terminal_result = AgentControl::Report.call(
+      deployment: context[:previous_deployment],
+      method_id: "resource_closed",
+      message_id: "close-terminal-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      close_request_id: mailbox_item.public_id,
+      resource_type: "SubagentRun",
+      resource_id: subagent_run.public_id,
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+
+    assert_equal "stale", terminal_result.code
+    assert_equal "acked", mailbox_item.reload.status
+    assert_equal "acknowledged", subagent_run.reload.close_state
+    assert subagent_run.reload.running?
+  end
 end

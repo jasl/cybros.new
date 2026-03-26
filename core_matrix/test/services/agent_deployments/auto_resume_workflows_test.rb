@@ -89,6 +89,56 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert context[:workflow_run].reload.ready?
   end
 
+  test "restores the original human-interaction blocker after auto resume" do
+    context = build_waiting_human_interaction_recovery_context!
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: context[:agent_deployment],
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
+    )
+
+    resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: context[:agent_deployment])
+
+    assert_equal [context[:workflow_run].id], resumed.map(&:id)
+
+    workflow_run = context[:workflow_run].reload
+    assert workflow_run.waiting?
+    assert_equal "human_interaction", workflow_run.wait_reason_kind
+    assert_equal "HumanInteractionRequest", workflow_run.blocking_resource_type
+    assert_equal context[:request].public_id, workflow_run.blocking_resource_id
+    assert_equal context[:request].public_id, workflow_run.wait_reason_payload["request_id"]
+    assert_equal "HumanTaskRequest", workflow_run.wait_reason_payload["request_type"]
+  end
+
+  test "does not restore a human-interaction blocker that was resolved during the outage" do
+    context = build_waiting_human_interaction_recovery_context!
+
+    HumanInteractions::CompleteTask.call(
+      human_task_request: context[:request],
+      completion_payload: { "approved" => true }
+    )
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: context[:agent_deployment],
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
+    )
+
+    resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: context[:agent_deployment])
+
+    assert_equal [context[:workflow_run].id], resumed.map(&:id)
+
+    workflow_run = context[:workflow_run].reload
+    assert workflow_run.ready?
+    assert_nil workflow_run.wait_reason_kind
+    assert_equal({}, workflow_run.wait_reason_payload)
+    assert_nil workflow_run.blocking_resource_type
+    assert_nil workflow_run.blocking_resource_id
+  end
+
   private
 
   def build_waiting_recovery_context!
@@ -122,6 +172,26 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     )
 
     context.merge(conversation: conversation, turn: turn.reload, workflow_run: workflow_run.reload)
+  end
+
+  def build_waiting_human_interaction_recovery_context!
+    context = build_human_interaction_context!
+    context[:agent_deployment].update!(auto_resume_eligible: true)
+    request = HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:workflow_node],
+      blocking: true,
+      request_payload: { "instructions" => "Need operator input" }
+    )
+
+    AgentDeployments::MarkUnavailable.call(
+      deployment: context[:agent_deployment],
+      severity: "transient",
+      reason: "heartbeat_missed",
+      occurred_at: Time.current
+    )
+
+    context.merge(request: request, workflow_run: context[:workflow_run].reload)
   end
 
   def create_compatible_replacement_deployment!(installation:, agent_installation:)

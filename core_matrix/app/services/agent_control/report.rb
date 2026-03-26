@@ -223,7 +223,8 @@ module AgentControl
 
     def ensure_close_request_fresh!(resource)
       raise StaleReportError unless mailbox_item.resource_close_request?
-      raise StaleReportError unless mailbox_item.leased_to?(@deployment) || mailbox_item.acked?
+      raise StaleReportError unless mailbox_item.leased_to?(@deployment)
+      raise StaleReportError if mailbox_item.leased? && mailbox_item.lease_stale?(at: @occurred_at)
       raise StaleReportError unless mailbox_item.payload["resource_type"] == resource.class.name
       raise StaleReportError unless mailbox_item.payload["resource_id"] == resource.public_id
       raise StaleReportError unless mailbox_item.public_id == @payload["close_request_id"]

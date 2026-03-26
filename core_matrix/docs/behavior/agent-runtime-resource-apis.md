@@ -94,6 +94,10 @@ orchestration are still defined in:
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources
+- close reports are attributed to the deployment recorded in
+  `leased_to_agent_deployment` for that mailbox item; once one deployment has
+  accepted the close request, sibling deployments in the same installation must
+  be treated as stale reporters for that request
 - terminal close reports for `AgentTaskRun`, `ProcessRun`, and
   `SubagentRun` must also re-enter
   `Conversations::ReconcileCloseOperation` through the resource's owning

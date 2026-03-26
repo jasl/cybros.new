@@ -138,6 +138,29 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
   end
 
+  test "manual resume restores the original human-interaction blocker for paused workflows" do
+    context = build_paused_human_interaction_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
+      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    actor = create_user!(installation: context[:installation], role: "admin")
+
+    resumed = Workflows::ManualResume.call(
+      workflow_run: context[:workflow_run],
+      deployment: replacement,
+      actor: actor
+    )
+
+    assert resumed.waiting?
+    assert_equal "human_interaction", resumed.wait_reason_kind
+    assert_equal "HumanInteractionRequest", resumed.blocking_resource_type
+    assert_equal context[:request].public_id, resumed.blocking_resource_id
+    assert_equal replacement, resumed.turn.reload.agent_deployment
+  end
+
   private
 
   def build_paused_recovery_context!
@@ -178,6 +201,33 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     )
 
     context.merge(conversation: conversation, turn: turn.reload, workflow_run: workflow_run.reload)
+  end
+
+  def build_paused_human_interaction_recovery_context!
+    context = build_human_interaction_context!
+    richer_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:agent_deployment],
+      version: 2,
+      protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
+      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    context[:agent_deployment].update!(active_capability_snapshot: richer_snapshot)
+    request = HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:workflow_node],
+      blocking: true,
+      request_payload: { "instructions" => "Need operator input" }
+    )
+    AgentDeployments::MarkUnavailable.call(
+      deployment: context[:agent_deployment],
+      severity: "prolonged",
+      reason: "runtime_offline",
+      occurred_at: Time.current
+    )
+
+    context.merge(request: request, workflow_run: context[:workflow_run].reload)
   end
 
   def create_compatible_replacement_deployment!(

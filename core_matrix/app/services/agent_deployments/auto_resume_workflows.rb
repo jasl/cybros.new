@@ -55,12 +55,9 @@ module AgentDeployments
         rebind_turn!(workflow_run.turn, resume_plan) if resume_plan.fetch(:rebind_turn)
 
         workflow_run.update!(
-          wait_state: "ready",
-          wait_reason_kind: nil,
-          wait_reason_payload: {},
-          waiting_since_at: nil,
-          blocking_resource_type: nil,
-          blocking_resource_id: nil
+          AgentDeployments::UnavailablePauseState.resume_attributes(
+            workflow_run: workflow_run
+          )
         )
       end
     end
