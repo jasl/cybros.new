@@ -81,7 +81,7 @@ end-to-end stack.
 - transcript output variants carry explicit input provenance and selection stays
   within one lineage
 - child-conversation historical anchors are validated against the parent
-  transcript projection instead of relying on permissive raw ids
+  conversation history instead of relying on permissive raw ids
 - `Fenix` can pair as a bundled runtime and as an external runtime
 - same-installation deployment rotation works for both upgrade and downgrade
 - `ExecutionEnvironment` is explicitly the stable owner of runtime resources

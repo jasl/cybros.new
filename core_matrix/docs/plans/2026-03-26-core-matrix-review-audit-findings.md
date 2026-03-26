@@ -39,6 +39,23 @@
     - test suites that still encode permissive historical-anchor or rewrite
       behavior from earlier phases
 
+## Resolution Update
+
+- The three `Must Fix` findings from this refresh were resolved by:
+  - `937311d fix: validate historical anchors against parent transcript`
+  - `dbce5f2 fix: persist transcript output provenance`
+  - `b3cb2bf fix: block rollback until later runtime is quiescent`
+- Post-fix contract state:
+  - child-conversation anchors are validated against parent conversation
+    history and invalid durable anchors fail loudly at replay time
+  - output variants carry `source_input_message` provenance and selection/rerun
+    paths stay within one lineage
+  - rollback now rejects non-quiescent suffixes through
+    `Conversations::ValidateTimelineSuffixSupersession` backed by the shared
+    `Conversations::WorkBarrierQuery`
+- Post-fix verification and grep rescans are recorded in the final execution
+  pass for this follow-up batch
+
 ## Findings
 
 ### Must Fix

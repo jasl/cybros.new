@@ -88,8 +88,8 @@ Before finishing, explicitly re-check that:
 
 Add regressions that prove:
 
-- branch rejects an anchor not present in the parent transcript projection
-- checkpoint rejects an anchor not present in the parent transcript projection
+- branch rejects an anchor outside the parent conversation history
+- checkpoint rejects an anchor outside the parent conversation history
 - thread rejects an invalid optional anchor
 - valid anchors still create durable child conversations
 - inherited transcript projection no longer silently falls back to `[]` for an
@@ -98,12 +98,12 @@ Add regressions that prove:
 Example expectation:
 
 ```ruby
-test "create branch rejects an anchor outside the parent transcript projection" do
+test "create branch rejects an anchor outside the parent conversation history" do
   error = assert_raises(ActiveRecord::RecordInvalid) do
     Conversations::CreateBranch.call(parent: root, historical_anchor_message_id: invalid_message.id)
   end
 
-  assert_includes error.record.errors[:historical_anchor_message_id], "must belong to the parent transcript projection"
+  assert_includes error.record.errors[:historical_anchor_message_id], "must belong to the parent conversation history"
 end
 ```
 
@@ -130,7 +130,9 @@ Implement `Conversations::ValidateHistoricalAnchor` so it:
 - accepts `parent:`, `kind:`, `historical_anchor_message_id:`, and `record:`
 - resolves and returns the anchor `Message` row when valid
 - enforces branch/checkpoint required anchors and thread optional anchors
-- validates membership against the parent transcript projection
+- validates membership against the parent conversation history
+- allows durable output anchors only when replay can recover matching
+  `source_input_message` provenance
 
 Then:
 
@@ -263,19 +265,25 @@ git commit -m "fix: persist transcript output provenance"
 ### Task 3: Introduce Shared Suffix Supersession Validation For Rollback
 
 **Files:**
+- Create: `core_matrix/app/queries/conversations/work_barrier_query.rb`
 - Create: `core_matrix/app/services/conversations/validate_timeline_suffix_supersession.rb`
 - Modify: `core_matrix/app/services/conversations/rollback_to_turn.rb`
+- Modify: `core_matrix/app/services/conversations/work_quiescence_guard.rb`
 - Modify: `core_matrix/test/services/conversations/rollback_to_turn_test.rb`
+- Create: `core_matrix/test/services/conversations/validate_timeline_suffix_supersession_test.rb`
 - Modify: `core_matrix/test/integration/turn_history_rewrite_flow_test.rb`
 
 **Step 1: Write the failing tests**
 
 Add regressions that prove rollback rejects:
 
-- later turns with active or waiting workflow runs
+- later queued turns
+- later active turns
+- later turns with active workflow runs
 - later turns with queued or running agent tasks
-- later turns with blocking open human interaction requests
+- later turns with open human interaction requests
 - later turns with running turn-command or subagent work
+- later turns with active execution leases
 
 Also keep one success path proving rollback still works after the suffix is
 already quiescent.
@@ -288,7 +296,7 @@ test "rollback rejects when a later turn still owns an active workflow run" do
     Conversations::RollbackToTurn.call(conversation: conversation, turn: earlier_turn)
   end
 
-  assert_includes error.record.errors[:base], "must quiesce later turn runtime before rollback"
+  assert_includes error.record.errors[:base], "must not roll back the timeline while later workflow runs remain active"
 end
 ```
 
@@ -303,19 +311,21 @@ bin/rails test \
   test/integration/turn_history_rewrite_flow_test.rb
 ```
 
-Expected: FAIL because rollback still cancels later turns unconditionally.
+Expected: FAIL because rollback still cancels later turns unconditionally and no
+shared suffix-supersession validator exists yet.
 
 **Step 3: Write the minimal implementation**
 
 Implement `Conversations::ValidateTimelineSuffixSupersession` so it:
 
-- locks or reloads the suffix turns it evaluates
-- gathers live runtime blockers on later turns
+- uses a shared scoped runtime-barrier query for conversation or suffix checks
+- gathers queued work and live runtime blockers on later turns
 - raises `RecordInvalid` on the caller-facing record when blockers exist
 
 Then:
 
 - call it from `RollbackToTurn` before canceling later turns
+- refactor `WorkQuiescenceGuard` to reuse the same shared query
 - keep summary/import pruning behavior after the suffix is proven quiescent
 - do not add auto-interrupt side effects to rollback
 

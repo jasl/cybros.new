@@ -53,6 +53,9 @@ may rotate or be switched within that bound environment.
 - child conversations stay in the same workspace as their parent
 - child conversations inherit the parent's execution environment binding
 - automation conversations remain root-only
+- branch, checkpoint, and optional thread anchors are validated against the
+  parent conversation's durable transcript history, not just the parent's
+  currently selected projection
 
 ## Closure And Transcript Lineage
 
@@ -61,6 +64,10 @@ may rotate or be switched within that bound environment.
 - child conversations inherit the parent ancestor chain in the same
   transaction
 - transcript projection still walks `parent_conversation` recursively
+- branch, checkpoint, and anchored thread replay fail closed if the persisted
+  anchor does not belong to the parent conversation
+- output anchors rely on persisted `source_input_message` provenance so replay
+  can restore the matching input/output pair inside the child transcript
 - descendants therefore depend on deleted ancestors remaining as tombstone
   shells until lineage blockers disappear
 
@@ -224,3 +231,5 @@ may rotate or be switched within that bound environment.
   store reference, even when force is requested
 - new turn entry is rejected while an archive or delete close operation is
   still in progress
+- invalid or cross-conversation historical anchors are rejected at write time
+- persisted child rows with broken anchor provenance fail loudly at read time

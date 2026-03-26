@@ -26,7 +26,7 @@ three integrity gaps remain one layer deeper:
   work is already quiescent
 - transcript output variants do not persist which input variant produced them
 - child conversation creation still accepts raw historical-anchor ids without
-  validating that they point at a real parent transcript message
+  validating that they point at a real parent conversation-history message
 
 These are not unrelated bugs. They are the same architectural problem repeated
 at different boundaries: durable mutation targets are rewritten while subordinate
@@ -67,17 +67,21 @@ no longer owns live runtime work.
 Phase 2 should add one explicit application service:
 
 - `Conversations::ValidateTimelineSuffixSupersession`
+- backed by a shared scoped runtime query:
+  - `Conversations::WorkBarrierQuery`
 
 That contract should:
 
 - accept a conversation and target turn
 - collect later turns that would be superseded
 - reject when any later turn still owns live runtime work, including:
-  - `WorkflowRun` in `active` or `waiting`
+  - `Turn` in `queued` or `active`
+  - `WorkflowRun` in `active`
   - `AgentTaskRun` in `queued` or `running`
-  - blocking `HumanInteractionRequest` in `open`
+  - any `HumanInteractionRequest` in `open`
   - `ProcessRun` in `running`
   - `SubagentRun` in `running`
+  - active `ExecutionLease`
 
 This follow-up intentionally chooses strict rejection instead of embedding a new
 interrupt-or-close orchestration path inside rollback.
@@ -153,7 +157,10 @@ Rules:
 - branch and checkpoint must provide an anchor
 - thread may omit the anchor, but if one is provided it must be valid
 - a valid anchor must be a real `Message`
-- the anchor must be present in the parent conversation's transcript projection
+- the anchor must belong to the parent conversation's durable transcript history
+- if the anchor is an output variant, it must carry
+  `source_input_message` provenance so inherited transcript replay can restore
+  the matching input/output pair
 - the validator should return the resolved anchor message row when one exists
 
 This removes the current split where write paths accept arbitrary ids and
@@ -210,6 +217,8 @@ Current issue:
 Required adjustment:
 
 - call the shared suffix-supersession validator before canceling later turns
+- reuse the shared scoped runtime query instead of maintaining a private blocker
+  list beside archive/purge/finalize
 - keep summary and import pruning after the suffix is proven quiescent
 - do not embed a second interrupt/close orchestration path inside rollback
 

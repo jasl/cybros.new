@@ -9,10 +9,15 @@ rollback, and output-variant selection.
 
 ## Rewrite Behavior
 
-- `Conversations::RollbackToTurn` cancels later turns in the same conversation
-  so an earlier turn becomes the active tail again.
+- `Conversations::RollbackToTurn` only supersedes later turns after a shared
+  suffix-supersession contract proves the later suffix is already quiescent.
+- rollback rejects later queued turns, later active turns, active workflow
+  runs, queued or running agent tasks, open human interaction, running
+  processes or subagents, and active execution leases in the superseded suffix.
 - Rollback does not delete later turns or mutate their historical rows in
   place.
+- rollback is not a second interrupt or close orchestration path; callers must
+  quiesce live later runtime first.
 - `Turns::EditTailInput` is tail-only in the active timeline.
 - Tail input edit creates a new input variant row on the same turn, moves the
   selected-input pointer, and clears the selected output pointer.
@@ -31,8 +36,12 @@ rollback, and output-variant selection.
   turn.
 - If the completed output is historical or otherwise no longer the selected
   tail output, rerun auto-branches first and then replays inside the branch.
-- `Turns::SelectOutputVariant` only changes the selected output pointer; it
-  never mutates historical output rows in place.
+- output variants persist `source_input_message` provenance so each output row
+  records the input variant that produced it.
+- `Turns::SelectOutputVariant` restores both the selected output pointer and
+  the matching selected input pointer for that output lineage.
+- branch rerun replays the target output's stored source-input content, not the
+  turn's current selected input pointer.
 - Retry, in-place rerun, and output-variant selection all reject fork-point
   outputs because those operations would rewrite the active path after a child
   conversation already anchored to it.
@@ -40,6 +49,8 @@ rollback, and output-variant selection.
 ## Variant And Tail Rules
 
 - Selected input and output pointers remain explicit turn-owned state.
+- selected input and selected output must stay within one persisted provenance
+  lineage whenever both pointers are present.
 - Variant rows remain append-only; services only add new variants and move
   selected pointers.
 - Selecting a different output variant is only legal on a completed tail turn
@@ -55,6 +66,8 @@ rollback, and output-variant selection.
   tail in place
 - fork-point messages remain stable once a child conversation depends on them
 - rollback and edit preserve old variants as inspectable history
+- old output variants stay durable history without being re-paired to a newer
+  input variant
 
 ## Failure Modes
 
