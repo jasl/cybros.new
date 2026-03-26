@@ -10,14 +10,31 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
+    root_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Root input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    branch_anchor = attach_selected_output!(root_turn, content: "Root output")
+    root_turn.update!(lifecycle_state: "completed")
     branch = Conversations::CreateBranch.call(
       parent: root,
-      historical_anchor_message_id: 101
+      historical_anchor_message_id: branch_anchor.id
     )
+    branch_turn = Turns::StartUserTurn.call(
+      conversation: branch,
+      content: "Branch input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    branch_turn.update!(lifecycle_state: "completed")
     thread = Conversations::CreateThread.call(parent: root)
     checkpoint = Conversations::CreateCheckpoint.call(
       parent: branch,
-      historical_anchor_message_id: 303
+      historical_anchor_message_id: branch_turn.selected_input_message_id
     )
 
     Conversations::Archive.call(conversation: branch)
@@ -38,7 +55,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
     assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::CreateBranch.call(
         parent: automation_root,
-        historical_anchor_message_id: 404
+        historical_anchor_message_id: branch_anchor.id
       )
     end
 
@@ -49,7 +66,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
     assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::CreateCheckpoint.call(
         parent: automation_root,
-        historical_anchor_message_id: 505
+        historical_anchor_message_id: branch_anchor.id
       )
     end
   end

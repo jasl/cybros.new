@@ -40,6 +40,7 @@ class Conversation < ApplicationRecord
   belongs_to :execution_environment
   belongs_to :agent_deployment
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
+  belongs_to :historical_anchor_message, class_name: "Message", optional: true
 
   has_many :messages, dependent: :restrict_with_exception
   has_many :conversation_imports, dependent: :restrict_with_exception
@@ -79,6 +80,7 @@ class Conversation < ApplicationRecord
   validate :parent_lineage_rules
   validate :parent_workspace_match
   validate :parent_execution_environment_match
+  validate :historical_anchor_membership
   validate :automation_rules
   validate :override_payload_must_be_hash
   validate :override_reconciliation_report_must_be_hash
@@ -152,7 +154,9 @@ class Conversation < ApplicationRecord
     return inherited_messages if thread?
 
     anchor_index = inherited_messages.index { |message| message.id == historical_anchor_message_id }
-    anchor_index ? inherited_messages.first(anchor_index + 1) : []
+    return inherited_messages.first(anchor_index + 1) if anchor_index
+
+    raise ActiveRecord::RecordNotFound, "historical anchor is missing from the parent transcript projection"
   end
 
   def selected_messages_for_own_turns
@@ -249,6 +253,20 @@ class Conversation < ApplicationRecord
 
     errors.add(:parent_conversation, "must exist") if parent_conversation.blank?
     errors.add(:historical_anchor_message_id, "must exist") if (branch? || checkpoint?) && historical_anchor_message_id.blank?
+  end
+
+  def historical_anchor_membership
+    return if parent_conversation.blank?
+    return if historical_anchor_message_id.blank?
+
+    Conversations::ValidateHistoricalAnchor.call(
+      parent: parent_conversation,
+      kind: kind,
+      historical_anchor_message_id: historical_anchor_message_id,
+      record: self
+    )
+  rescue ActiveRecord::RecordInvalid
+    nil
   end
 
   def automation_rules

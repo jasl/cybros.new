@@ -18,6 +18,13 @@ module Conversations
           active_message: "must be active before checkpointing",
           closing_message: "must not create child conversations while close is in progress"
         ) do |parent|
+          Conversations::ValidateHistoricalAnchor.call(
+            parent: parent,
+            kind: "checkpoint",
+            historical_anchor_message_id: @historical_anchor_message_id,
+            record: parent
+          )
+
           conversation = Conversation.create!(
             installation: parent.installation,
             workspace: parent.workspace,

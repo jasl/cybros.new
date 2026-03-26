@@ -8,9 +8,16 @@ class ConversationClosureTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
+    anchor_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Anchor input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
     branch = Conversations::CreateBranch.call(
       parent: root,
-      historical_anchor_message_id: 101
+      historical_anchor_message_id: anchor_turn.selected_input_message_id
     )
 
     duplicate = ConversationClosure.new(

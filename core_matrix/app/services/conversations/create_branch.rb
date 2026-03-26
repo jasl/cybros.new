@@ -18,7 +18,7 @@ module Conversations
           active_message: "must be active before branching",
           closing_message: "must not create child conversations while close is in progress"
         ) do |parent|
-          conversation = Conversation.create!(
+          conversation = Conversation.new(
             installation: parent.installation,
             workspace: parent.workspace,
             execution_environment: parent.execution_environment,
@@ -29,10 +29,17 @@ module Conversations
             lifecycle_state: "active",
             historical_anchor_message_id: @historical_anchor_message_id
           )
+          anchor_message = Conversations::ValidateHistoricalAnchor.call(
+            parent: parent,
+            kind: conversation.kind,
+            historical_anchor_message_id: @historical_anchor_message_id,
+            record: conversation
+          )
+          conversation.save!
 
           create_closures_for!(conversation, parent:)
           create_canonical_store_reference_for!(conversation, parent:)
-          create_branch_prefix_import_for!(conversation, parent:)
+          create_branch_prefix_import_for!(conversation, parent:, anchor_message:)
           Conversations::RefreshRuntimeContract.call(conversation: conversation)
           conversation
         end
@@ -59,13 +66,7 @@ module Conversations
       )
     end
 
-    def create_branch_prefix_import_for!(conversation, parent:)
-      anchor_message = Message.find_by(
-        id: @historical_anchor_message_id,
-        installation_id: parent.installation_id
-      )
-      return if anchor_message.blank?
-
+    def create_branch_prefix_import_for!(conversation, parent:, anchor_message:)
       Conversations::AddImport.call(
         conversation: conversation,
         kind: "branch_prefix",

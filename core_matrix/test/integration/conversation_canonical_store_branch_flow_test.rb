@@ -13,10 +13,17 @@ class ConversationCanonicalStoreBranchFlowTest < ActionDispatch::IntegrationTest
       key: "tone",
       typed_value_payload: { "type" => "string", "value" => "direct" }
     )
+    anchor_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Root input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
 
     branch = Conversations::CreateBranch.call(
       parent: root,
-      historical_anchor_message_id: 101
+      historical_anchor_message_id: anchor_turn.selected_input_message_id
     )
 
     CanonicalStores::Set.call(

@@ -65,6 +65,17 @@ class ConversationTest < ActiveSupport::TestCase
 
   test "enforces conversation kind rules" do
     context = create_workspace_context!
+    root_anchor_turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment]
+      ),
+      content: "Root anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
 
     root = Conversation.new(
       installation: context[:installation],
@@ -83,7 +94,7 @@ class ConversationTest < ActiveSupport::TestCase
       kind: "branch",
       purpose: "interactive",
       lifecycle_state: "active",
-      historical_anchor_message_id: 101
+      historical_anchor_message_id: root_anchor_turn.selected_input_message_id
     )
     checkpoint_without_anchor = Conversation.new(
       installation: context[:installation],
@@ -103,8 +114,62 @@ class ConversationTest < ActiveSupport::TestCase
     assert_includes checkpoint_without_anchor.errors[:historical_anchor_message_id], "must exist"
   end
 
+  test "requires child historical anchors to belong to the parent transcript projection" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_turn = Turns::StartUserTurn.call(
+      conversation: foreign_root,
+      content: "Foreign anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    branch = Conversation.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      parent_conversation: root,
+      kind: "branch",
+      purpose: "interactive",
+      lifecycle_state: "active",
+      historical_anchor_message_id: foreign_turn.selected_input_message_id
+    )
+
+    assert_not branch.valid?
+    assert_includes branch.errors[:historical_anchor_message_id], "must belong to the parent transcript projection"
+  end
+
   test "enforces automation conversations as root only" do
     context = create_workspace_context!
+    automation_persisted_root = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    automation_anchor_turn = Turns::StartAutomationTurn.call(
+      conversation: automation_persisted_root,
+      origin_kind: "system_internal",
+      origin_payload: {},
+      source_ref_type: "AgentDeployment",
+      source_ref_id: context[:agent_deployment].public_id,
+      idempotency_key: "automation-model-anchor",
+      external_event_key: "automation-model-anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    automation_anchor = attach_selected_output!(automation_anchor_turn, content: "Automation output")
 
     automation_root = Conversation.new(
       installation: context[:installation],
@@ -124,7 +189,7 @@ class ConversationTest < ActiveSupport::TestCase
       purpose: "automation",
       lifecycle_state: "active",
       parent_conversation: automation_root,
-      historical_anchor_message_id: 101
+      historical_anchor_message_id: automation_anchor.id
     )
 
     assert automation_root.valid?
@@ -211,6 +276,52 @@ class ConversationTest < ActiveSupport::TestCase
     end
 
     assert_operator queries.size, :<=, 2
+  end
+
+  test "raises when a persisted child conversation carries an invalid historical anchor" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    anchor_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Root input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(anchor_turn, content: "Root output")
+    foreign_root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_turn = Turns::StartUserTurn.call(
+      conversation: foreign_root,
+      content: "Foreign input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    invalid_branch = Conversation.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      parent_conversation: root,
+      kind: "branch",
+      purpose: "interactive",
+      lifecycle_state: "active",
+      historical_anchor_message_id: foreign_turn.selected_input_message_id
+    )
+    invalid_branch.save!(validate: false)
+
+    assert_raises(ActiveRecord::RecordNotFound) do
+      invalid_branch.reload.transcript_projection_messages
+    end
   end
 
   test "detects active turns locally and across descendants when requested" do
