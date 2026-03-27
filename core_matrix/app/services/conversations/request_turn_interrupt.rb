@@ -96,8 +96,7 @@ module Conversations
           request_kind: "turn_interrupt",
           reason_kind: "turn_interrupted",
           strictness: "graceful",
-          grace_deadline_at: close_deadline_anchor + 30.seconds,
-          force_deadline_at: close_deadline_anchor + 60.seconds
+          **close_request_deadlines
         )
       end
     end
@@ -111,8 +110,7 @@ module Conversations
           request_kind: "turn_interrupt",
           reason_kind: "turn_interrupted",
           strictness: "graceful",
-          grace_deadline_at: close_deadline_anchor + 30.seconds,
-          force_deadline_at: close_deadline_anchor + 60.seconds
+          **close_request_deadlines
         )
       end
     end
@@ -128,8 +126,7 @@ module Conversations
           request_kind: "turn_interrupt",
           reason_kind: "turn_interrupted",
           strictness: "graceful",
-          grace_deadline_at: close_deadline_anchor + 30.seconds,
-          force_deadline_at: close_deadline_anchor + 60.seconds
+          **close_request_deadlines
         )
       end
     end
@@ -152,8 +149,8 @@ module Conversations
         (@workflow_run.blank? || SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running").none?)
     end
 
-    def close_deadline_anchor
-      @close_deadline_anchor ||= [@occurred_at, Time.current].max
+    def close_request_deadlines
+      @close_request_deadlines ||= CloseRequestSchedule.deadlines_for(occurred_at: @occurred_at)
     end
 
     def reconcile_close_operation!

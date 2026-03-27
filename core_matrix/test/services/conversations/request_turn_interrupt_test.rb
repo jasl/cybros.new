@@ -79,6 +79,36 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal ["turn_interrupt"], close_requests.reorder(nil).distinct.pluck(Arel.sql("payload ->> 'request_kind'"))
   end
 
+  test "uses the shared close deadline schedule for turn interrupt close requests" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current
+    )
+    Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    travel_to Time.zone.parse("2026-03-27 11:00:00 UTC") do
+      occurred_at = Time.zone.parse("2026-03-27 11:05:00 UTC")
+
+      Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: occurred_at)
+    end
+
+    close_request = AgentControlMailboxItem.find_by!(
+      item_type: "resource_close_request",
+      agent_task_run: agent_task_run
+    )
+
+    assert_equal Time.zone.parse("2026-03-27 11:05:30 UTC"), agent_task_run.reload.close_grace_deadline_at
+    assert_equal Time.zone.parse("2026-03-27 11:06:00 UTC"), agent_task_run.close_force_deadline_at
+    assert_equal Time.zone.parse("2026-03-27 11:05:30 UTC"), Time.zone.parse(close_request.payload.fetch("grace_deadline_at"))
+    assert_equal Time.zone.parse("2026-03-27 11:06:00 UTC"), Time.zone.parse(close_request.payload.fetch("force_deadline_at"))
+  end
+
   test "cancels queued step retry work when the turn is fenced" do
     context = build_agent_control_context!
     failed_task = create_agent_task_run!(

@@ -4,10 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, payload:, method_id:, occurred_at: Time.current)
+    def initialize(deployment:, payload:, occurred_at: Time.current, **)
       @deployment = deployment
       @payload = payload
-      @method_id = method_id
       @occurred_at = occurred_at
     end
 

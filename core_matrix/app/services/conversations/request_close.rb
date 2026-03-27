@@ -108,14 +108,13 @@ module Conversations
           request_kind: request_kind,
           reason_kind: reason_kind,
           strictness: "graceful",
-          grace_deadline_at: close_deadline_anchor + 30.seconds,
-          force_deadline_at: close_deadline_anchor + 60.seconds
+          **close_request_deadlines
         )
       end
     end
 
-    def close_deadline_anchor
-      @close_deadline_anchor ||= [@occurred_at, Time.current].max
+    def close_request_deadlines
+      @close_request_deadlines ||= CloseRequestSchedule.deadlines_for(occurred_at: @occurred_at)
     end
 
     def raise_invalid!(record, attribute, message)

@@ -82,6 +82,52 @@ class AgentControlReportTest < ActiveSupport::TestCase
     poll_singleton.send(:define_method, :call, original_poll) if poll_singleton && original_poll
   end
 
+  test "report rolls back the receipt and mailbox mutations when handler processing blows up" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    message_id = "report-exception-#{next_test_sequence}"
+    dispatch_singleton = AgentControl::ReportDispatch.singleton_class
+    original_dispatch = AgentControl::ReportDispatch.method(:call)
+    fake_handler = Struct.new(:receipt_attributes, :mailbox_item) do
+      def call
+        mailbox_item.update!(status: "acked", acked_at: Time.current)
+        raise "boom"
+      end
+    end.new(
+      {
+        mailbox_item: mailbox_item,
+        agent_task_run: agent_task_run,
+      },
+      mailbox_item
+    )
+
+    dispatch_singleton.send(:define_method, :call) do |**_kwargs|
+      fake_handler
+    end
+
+    error = assert_raises(RuntimeError) do
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_progress",
+        message_id: message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: { "state" => "boom" }
+      )
+    end
+
+    assert_equal "boom", error.message
+    assert_nil AgentControlReportReceipt.find_by(installation: context[:installation], message_id: message_id)
+    assert_equal "queued", mailbox_item.reload.status
+    assert_nil mailbox_item.acked_at
+  ensure
+    dispatch_singleton.send(:define_method, :call, original_dispatch) if dispatch_singleton && original_dispatch
+  end
+
   test "execution_started acknowledges the offered delivery and acquires the task lease" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

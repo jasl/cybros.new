@@ -23,20 +23,26 @@ module AgentControl
       existing_receipt = find_existing_receipt
       return duplicate_result_for(existing_receipt) if existing_receipt.present?
 
-      receipt = create_receipt!
+      result_code = nil
 
-      begin
-        process_report!(receipt)
-        receipt.update!(result_code: "accepted")
-        Result.new(
-          code: "accepted",
-          http_status: :ok,
-          mailbox_items: Poll.call(deployment: @deployment, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
-        )
-      rescue StaleReportError
-        receipt.update!(result_code: "stale")
-        Result.new(code: "stale", http_status: :conflict, mailbox_items: [])
+      ApplicationRecord.transaction do
+        receipt = create_receipt!
+
+        begin
+          process_report!(receipt)
+          receipt.update!(result_code: "accepted")
+          result_code = "accepted"
+        rescue StaleReportError
+          receipt.update!(result_code: "stale")
+          result_code = "stale"
+        end
       end
+
+      Result.new(
+        code: result_code,
+        http_status: result_code == "stale" ? :conflict : :ok,
+        mailbox_items: result_code == "stale" ? [] : Poll.call(deployment: @deployment, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
+      )
     rescue ActiveRecord::RecordNotUnique
       duplicate_result_for(find_existing_receipt)
     end

@@ -106,12 +106,7 @@ module AgentControl
     end
 
     def reconcile_turn_interrupt!(resource)
-      turn =
-        if resource.respond_to?(:turn)
-          resource.turn
-        elsif resource.respond_to?(:workflow_run)
-          resource.workflow_run&.turn
-        end
+      turn = ClosableResourceRouting.turn_for(resource)
       return if turn.blank?
       return unless turn.cancellation_reason_kind == "turn_interrupted"
 
@@ -119,20 +114,13 @@ module AgentControl
     end
 
     def reconcile_close_operation!(resource)
-      conversation = conversation_for_close_reconciliation(resource)
+      conversation = ClosableResourceRouting.conversation_for(resource)
       return if conversation.blank?
 
       Conversations::ReconcileCloseOperation.call(
         conversation: conversation,
         occurred_at: @occurred_at
       )
-    end
-
-    def conversation_for_close_reconciliation(resource)
-      return resource.conversation if resource.respond_to?(:conversation)
-      return resource.turn&.conversation if resource.respond_to?(:turn)
-
-      resource.workflow_run&.conversation if resource.respond_to?(:workflow_run)
     end
 
     def mailbox_item

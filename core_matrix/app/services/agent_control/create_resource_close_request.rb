@@ -27,7 +27,7 @@ module AgentControl
       validate_supported_resource!
 
       target_deployment = delivery_endpoint
-      target_agent_installation = target_deployment&.agent_installation || owning_agent_installation
+      target_agent_installation = target_deployment&.agent_installation || ClosableResourceRouting.owning_agent_installation_for(@resource)
 
       @resource.update!(
         close_state: "requested",
@@ -41,7 +41,7 @@ module AgentControl
         installation: @resource.installation,
         target_agent_installation: target_agent_installation,
         target_agent_deployment: target_deployment,
-        target_execution_environment: environment_plane? ? resource_execution_environment : nil,
+        target_execution_environment: environment_plane? ? ClosableResourceRouting.execution_environment_for(@resource) : nil,
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
         runtime_plane: runtime_plane,
@@ -83,21 +83,13 @@ module AgentControl
 
     def delivery_endpoint
       if environment_plane?
-        return if resource_execution_environment.blank?
+        execution_environment = ClosableResourceRouting.execution_environment_for(@resource)
+        return if execution_environment.blank?
 
-        ExecutionEnvironments::ResolveDeliveryEndpoint.call(execution_environment: resource_execution_environment)
+        return ExecutionEnvironments::ResolveDeliveryEndpoint.call(execution_environment: execution_environment)
       end
 
       @resource.execution_lease&.holder_deployment
-    end
-
-    def owning_agent_installation
-      case @resource
-      when AgentTaskRun
-        @resource.agent_installation
-      when ProcessRun, SubagentRun
-        resource_turn.agent_deployment.agent_installation
-      end
     end
 
     def agent_task_run
@@ -112,28 +104,9 @@ module AgentControl
       @resource.is_a?(ProcessRun)
     end
 
-    def resource_execution_environment
-      case @resource
-      when ProcessRun
-        @resource.execution_environment
-      when AgentTaskRun
-        @resource.turn&.conversation&.execution_environment
-      when SubagentRun
-        @resource.workflow_run&.conversation&.execution_environment
-      end
-    end
-
-    def resource_turn
-      case @resource
-      when AgentTaskRun, ProcessRun
-        @resource.turn
-      when SubagentRun
-        @resource.workflow_run&.turn
-      end
-    end
-
     def durable_target_ref(target_agent_installation:, target_deployment:)
-      return resource_execution_environment.public_id if environment_plane? && resource_execution_environment.present?
+      execution_environment = ClosableResourceRouting.execution_environment_for(@resource)
+      return execution_environment.public_id if environment_plane? && execution_environment.present?
 
       target_deployment&.public_id || target_agent_installation.public_id
     end

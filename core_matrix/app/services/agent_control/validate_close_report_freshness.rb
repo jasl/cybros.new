@@ -24,20 +24,13 @@ module AgentControl
 
       return unless @mailbox_item.environment_plane?
 
-      resource_environment = resource_execution_environment
+      resource_environment = ClosableResourceRouting.execution_environment_for(@resource)
       stale! if resource_environment.blank?
       stale! unless @mailbox_item.target_execution_environment_id == resource_environment.id
       stale! unless @deployment.execution_environment_id == resource_environment.id
     end
 
     private
-
-    def resource_execution_environment
-      return @resource.execution_environment if @resource.respond_to?(:execution_environment)
-      return @resource.turn&.conversation&.execution_environment if @resource.respond_to?(:turn)
-
-      @resource.workflow_run&.conversation&.execution_environment if @resource.respond_to?(:workflow_run)
-    end
 
     def stale!
       raise Report::StaleReportError
