@@ -1,0 +1,144 @@
+module ProviderExecutionTestSupport
+  class FakeChatCompletionsAdapter < SimpleInference::HTTPAdapter
+    attr_reader :last_request
+
+    def initialize(response_body:)
+      @response_body = response_body
+    end
+
+    def call(env)
+      @last_request = env
+      {
+        status: 200,
+        headers: {
+          "content-type" => "application/json",
+          "x-request-id" => "execute-turn-step-request-1",
+        },
+        body: JSON.generate(@response_body),
+      }
+    end
+  end
+
+  def build_mock_chat_catalog
+    catalog_definition = test_provider_catalog_definition.deep_dup
+    catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
+      display_name: "Mock Model",
+      api_model: "mock-model",
+      tokenizer_hint: "o200k_base",
+      context_window_tokens: 100,
+      max_output_tokens: 40,
+      context_soft_limit_ratio: 0.5,
+      request_defaults: {
+        temperature: 0.9,
+        top_p: 0.95,
+        top_k: 20,
+        min_p: 0.1,
+        presence_penalty: 0.2,
+        repetition_penalty: 1.1,
+      }
+    )
+
+    build_test_provider_catalog_from(catalog_definition)
+  end
+
+  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog)
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      context = create_workspace_context!
+      capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+      context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+      ProviderEntitlement.create!(
+        installation: context[:installation],
+        provider_handle: "dev",
+        entitlement_key: "dev_window",
+        window_kind: "rolling_five_hours",
+        window_seconds: 5.hours.to_i,
+        quota_limit: 200_000,
+        active: true,
+        metadata: {}
+      )
+
+      conversation = Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment]
+      )
+      turn = Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Execute turn step input",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: resolved_config_snapshot,
+        resolved_model_selection_snapshot: {}
+      )
+
+      workflow_run = Workflows::CreateForTurn.call(
+        turn: turn,
+        root_node_key: "turn_step",
+        root_node_type: "turn_step",
+        decision_source: "system",
+        metadata: {},
+        selector_source: "slot",
+        selector: "role:mock"
+      )
+    end
+
+    workflow_run
+  end
+
+  def build_request_context_for(workflow_run, catalog: build_mock_chat_catalog)
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::BuildRequestContext.call(
+        turn: workflow_run.turn,
+        execution_snapshot: workflow_run.execution_snapshot
+      )
+    end
+  end
+
+  def turn_step_messages_for(workflow_run)
+    workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+  end
+
+  def build_provider_chat_result(
+    content: "Direct provider result",
+    prompt_tokens: 12,
+    completion_tokens: 8,
+    total_tokens: 20,
+    request_id: "execute-turn-step-request-1",
+    response_id: "chatcmpl-direct-step-1"
+  )
+    response = SimpleInference::Response.new(
+      status: 200,
+      headers: {
+        "content-type" => "application/json",
+        "x-request-id" => request_id,
+      },
+      body: { "id" => response_id },
+      raw_body: JSON.generate({ "id" => response_id })
+    )
+
+    SimpleInference::OpenAI::ChatResult.new(
+      content: content,
+      usage: {
+        prompt_tokens: prompt_tokens,
+        completion_tokens: completion_tokens,
+        total_tokens: total_tokens,
+      },
+      finish_reason: "stop",
+      response: response
+    )
+  end
+
+  def build_provider_http_error(message: "provider request failed", request_id: "execute-turn-step-request-1")
+    response = SimpleInference::Response.new(
+      status: 500,
+      headers: { "x-request-id" => request_id },
+      body: { "error" => { "message" => message } },
+      raw_body: JSON.generate({ "error" => { "message" => message } })
+    )
+
+    SimpleInference::HTTPError.new(message, response: response)
+  end
+end
+
+ActiveSupport::TestCase.include(ProviderExecutionTestSupport)
