@@ -40,20 +40,10 @@ module AgentControl
     private
 
     def candidate_scope
-      AgentControlMailboxItem
-        .where(installation_id: @deployment.installation_id)
-        .where(
-          <<~SQL.squish,
-            target_agent_deployment_id = :deployment_id
-            OR target_agent_installation_id = :agent_installation_id
-            OR (
-              payload ->> 'runtime_plane' = 'environment'
-              AND payload ->> 'execution_environment_id' = :execution_environment_id
-            )
-          SQL
-          deployment_id: @deployment.id,
-          agent_installation_id: @deployment.agent_installation_id,
-          execution_environment_id: @deployment.execution_environment.public_id
+      ResolveTargetRuntime
+        .candidate_scope_for(
+          deployment: @deployment,
+          relation: AgentControlMailboxItem.where(installation_id: @deployment.installation_id)
         )
         .where(status: %w[queued leased])
         .where("available_at <= ?", @occurred_at)

@@ -33,21 +33,21 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
 
   test "poll delivers environment-plane close work to the rotated deployment on the same execution environment" do
     context = build_rotated_runtime_context!
-    process_run = create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
-      kind: "turn_command"
+    other_agent_installation = create_agent_installation!(installation: context[:installation])
+    mailbox_item = create_agent_control_mailbox_item!(
+      installation: context[:installation],
+      target_agent_installation: other_agent_installation,
+      target_execution_environment: context[:execution_environment],
+      item_type: "resource_close_request",
+      runtime_plane: "environment",
+      target_kind: "agent_installation",
+      payload: {
+        "resource_type" => "ProcessRun",
+        "resource_id" => "process-#{next_test_sequence}",
+        "request_kind" => "turn_interrupt",
+        "reason_kind" => "turn_interrupted",
+      }
     )
-    Leases::Acquire.call(
-      leased_resource: process_run,
-      holder_key: context[:previous_deployment].public_id,
-      heartbeat_timeout_seconds: 30
-    )
-    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
-      context: context,
-      resource: process_run,
-      reason_kind: "turn_interrupted"
-    ).fetch(:mailbox_item)
 
     post "/agent_api/control/poll",
       params: { limit: 10 },

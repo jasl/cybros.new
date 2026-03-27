@@ -1,5 +1,8 @@
 module AgentControl
   class ResolveTargetRuntime
+    ENVIRONMENT_PLANE = "environment".freeze
+    AGENT_PLANE = "agent".freeze
+
     Result = Struct.new(
       :runtime_plane,
       :execution_environment,
@@ -15,7 +18,28 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item:)
+    def self.candidate_scope_for(deployment:, relation: AgentControlMailboxItem.all)
+      relation.where(
+        <<~SQL.squish,
+          target_agent_deployment_id = :deployment_id
+          OR (
+            runtime_plane = :agent_plane
+            AND target_agent_installation_id = :agent_installation_id
+          )
+          OR (
+            runtime_plane = :environment_plane
+            AND target_execution_environment_id = :execution_environment_id
+          )
+        SQL
+        deployment_id: deployment.id,
+        agent_plane: AGENT_PLANE,
+        environment_plane: ENVIRONMENT_PLANE,
+        agent_installation_id: deployment.agent_installation_id,
+        execution_environment_id: deployment.execution_environment_id
+      )
+    end
+
+    def initialize(mailbox_item: nil)
       @mailbox_item = mailbox_item
     end
 
@@ -33,7 +57,7 @@ module AgentControl
       execution_environment = @mailbox_item.target_execution_environment
 
       Result.new(
-        runtime_plane: "environment",
+        runtime_plane: ENVIRONMENT_PLANE,
         execution_environment: execution_environment,
         delivery_endpoint: execution_environment.present? ? ExecutionEnvironments::ResolveDeliveryEndpoint.call(execution_environment: execution_environment) : nil
       )
@@ -41,7 +65,7 @@ module AgentControl
 
     def resolve_agent_runtime
       Result.new(
-        runtime_plane: "agent",
+        runtime_plane: AGENT_PLANE,
         execution_environment: nil,
         delivery_endpoint: resolve_agent_delivery_endpoint
       )

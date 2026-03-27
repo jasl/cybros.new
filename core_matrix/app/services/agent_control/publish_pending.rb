@@ -24,10 +24,7 @@ module AgentControl
       )
       return if leased_item.blank?
 
-      ActionCable.server.broadcast(
-        StreamName.for_deployment(target_deployment),
-        SerializeMailboxItem.call(leased_item)
-      )
+      broadcast(mailbox_item: leased_item, deployment: target_deployment)
       leased_item
     end
 
@@ -35,18 +32,26 @@ module AgentControl
 
     def publish_for_deployment!
       Poll.call(deployment: @deployment, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
-        ActionCable.server.broadcast(
-          StreamName.for_deployment(@deployment),
-          SerializeMailboxItem.call(mailbox_item)
-        )
+        broadcast(mailbox_item:, deployment: @deployment)
       end
     end
 
     def connected_target_for(mailbox_item)
-      deployment = ResolveTargetRuntime.call(mailbox_item: mailbox_item).delivery_endpoint
+      deployment = routing_resolution_for(mailbox_item).delivery_endpoint
       return unless deployment&.realtime_link_connected?
 
       deployment
+    end
+
+    def routing_resolution_for(mailbox_item)
+      ResolveTargetRuntime.call(mailbox_item: mailbox_item)
+    end
+
+    def broadcast(mailbox_item:, deployment:)
+      ActionCable.server.broadcast(
+        StreamName.for_deployment(deployment),
+        SerializeMailboxItem.call(mailbox_item)
+      )
     end
   end
 end
