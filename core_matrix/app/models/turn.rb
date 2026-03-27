@@ -1,32 +1,6 @@
 class Turn < ApplicationRecord
   include HasPublicId
 
-  class ExecutionSnapshot
-    def initialize(payload)
-      @payload = payload.deep_dup
-    end
-
-    def to_h
-      @payload.deep_dup
-    end
-
-    def identity
-      @payload.fetch("identity", {})
-    end
-
-    def attachment_manifest
-      @payload.fetch("attachment_manifest", [])
-    end
-
-    def runtime_attachment_manifest
-      @payload.fetch("runtime_attachment_manifest", [])
-    end
-
-    def model_input_attachments
-      @payload.fetch("model_input_attachments", [])
-    end
-  end
-
   enum :lifecycle_state,
     {
       queued: "queued",
@@ -119,7 +93,7 @@ class Turn < ApplicationRecord
   end
 
   def execution_snapshot
-    ExecutionSnapshot.new(execution_snapshot_payload || {})
+    TurnExecutionSnapshot.new(execution_snapshot_payload || {})
   end
 
   def execution_identity
@@ -127,27 +101,27 @@ class Turn < ApplicationRecord
   end
 
   def model_context
-    execution_snapshot.to_h.fetch("model_context", {})
+    execution_snapshot.model_context
   end
 
   def provider_execution
-    execution_snapshot.to_h.fetch("provider_execution", {})
+    execution_snapshot.provider_execution
   end
 
   def budget_hints
-    execution_snapshot.to_h.fetch("budget_hints", {})
+    execution_snapshot.budget_hints
   end
 
   def turn_origin_context
-    execution_snapshot.to_h.fetch("turn_origin", {})
+    execution_snapshot.turn_origin
   end
 
   def context_messages
-    execution_snapshot.to_h.fetch("context_messages", [])
+    execution_snapshot.context_messages
   end
 
   def context_imports
-    execution_snapshot.to_h.fetch("context_imports", [])
+    execution_snapshot.context_imports
   end
 
   def attachment_manifest
@@ -163,7 +137,7 @@ class Turn < ApplicationRecord
   end
 
   def attachment_diagnostics
-    execution_snapshot.to_h.fetch("attachment_diagnostics", [])
+    execution_snapshot.attachment_diagnostics
   end
 
   def tail_in_active_timeline?
