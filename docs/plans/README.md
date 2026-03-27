@@ -28,6 +28,7 @@ This directory contains the active execution plans for `core_matrix`.
 - [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
 - [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md)
 - [2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md)
+- [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md)
 
 Use the phase plan for overall ordering, the milestone documents for current
 implementation scope, and the task documents as the executable implementation
