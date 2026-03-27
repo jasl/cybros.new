@@ -20,13 +20,25 @@ module AgentControl
     def call
       validate_supported_resource!
 
+      mailbox_item = ApplicationRecord.transaction do
+        create_mailbox_item!
+      end
+
+      PublishPending.call(mailbox_item: mailbox_item)
+      mailbox_item
+    end
+
+    private
+
+    def create_mailbox_item!
+      requested_at = Time.current
       target_deployment = delivery_endpoint
       target_agent_installation = target_deployment&.agent_installation || ClosableResourceRouting.owning_agent_installation_for(@resource)
 
       @resource.update!(
         close_state: "requested",
         close_reason_kind: @reason_kind,
-        close_requested_at: Time.current,
+        close_requested_at: requested_at,
         close_grace_deadline_at: @grace_deadline_at,
         close_force_deadline_at: @force_deadline_at
       )
@@ -47,7 +59,7 @@ module AgentControl
         causation_id: @causation_id,
         priority: 0,
         status: "queued",
-        available_at: Time.current,
+        available_at: requested_at,
         dispatch_deadline_at: @force_deadline_at,
         lease_timeout_seconds: 30,
         payload: {
@@ -63,11 +75,8 @@ module AgentControl
       )
 
       mailbox_item.update!(payload: mailbox_item.payload.merge("close_request_id" => mailbox_item.public_id))
-      PublishPending.call(mailbox_item: mailbox_item)
       mailbox_item
     end
-
-    private
 
     def validate_supported_resource!
       return if ClosableResourceRegistry.supported?(@resource)

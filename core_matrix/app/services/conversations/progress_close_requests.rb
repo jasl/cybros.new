@@ -12,26 +12,28 @@ module Conversations
     end
 
     def call
-      pending_resources.each do |resource|
-        mailbox_item = open_close_request_for(resource)
-        next if mailbox_item.blank?
+      pending_resource_relations.each do |relation|
+        relation.find_each do |resource|
+          mailbox_item = open_close_request_for(resource)
+          next if mailbox_item.blank?
 
-        AgentControl::ProgressCloseRequest.call(
-          mailbox_item: mailbox_item,
-          occurred_at: @occurred_at
-        )
+          AgentControl::ProgressCloseRequest.call(
+            mailbox_item: mailbox_item,
+            occurred_at: @occurred_at
+          )
+        end
       end
     end
 
     private
 
-    def pending_resources
-      EnumeratorChain.new(
+    def pending_resource_relations
+      [
         AgentTaskRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
         ProcessRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
         SubagentRun.joins(:workflow_run)
-          .where(workflow_runs: { conversation_id: @conversation.id }, close_state: CLOSE_PENDING_STATES)
-      )
+          .where(workflow_runs: { conversation_id: @conversation.id }, close_state: CLOSE_PENDING_STATES),
+      ]
     end
 
     def open_close_request_for(resource)
@@ -44,22 +46,6 @@ module Conversations
         .where("payload ->> 'resource_type' = ? AND payload ->> 'resource_id' = ?", resource.class.name, resource.public_id)
         .order(id: :desc)
         .first
-    end
-
-    class EnumeratorChain
-      include Enumerable
-
-      def initialize(*relations)
-        @relations = relations
-      end
-
-      def each
-        @relations.each do |relation|
-          relation.find_each do |record|
-            yield record
-          end
-        end
-      end
     end
   end
 end

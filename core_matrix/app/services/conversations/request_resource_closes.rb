@@ -1,5 +1,8 @@
 module Conversations
   class RequestResourceCloses
+    GRACE_PERIOD = 30.seconds
+    FORCE_PERIOD = 60.seconds
+
     def self.call(...)
       new(...).call
     end
@@ -37,7 +40,14 @@ module Conversations
     end
 
     def close_request_deadlines
-      @close_request_deadlines ||= CloseRequestSchedule.deadlines_for(occurred_at: @occurred_at)
+      @close_request_deadlines ||= begin
+        anchor = [@occurred_at, Time.current].max
+
+        {
+          grace_deadline_at: anchor + GRACE_PERIOD,
+          force_deadline_at: anchor + FORCE_PERIOD,
+        }
+      end
     end
   end
 end

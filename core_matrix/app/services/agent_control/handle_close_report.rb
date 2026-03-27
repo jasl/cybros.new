@@ -35,9 +35,9 @@ module AgentControl
           when "resource_close_acknowledged"
             handle_resource_close_acknowledged!(resource)
           when "resource_closed"
-            handle_resource_closed!(resource)
+            handle_terminal_close_report!(resource, close_state: "closed")
           when "resource_close_failed"
-            handle_resource_close_failed!(resource)
+            handle_terminal_close_report!(resource, close_state: "failed")
           else
             raise ArgumentError, "unsupported close report #{@method_id}"
           end
@@ -52,22 +52,11 @@ module AgentControl
       mailbox_item.update!(status: "acked", acked_at: @occurred_at)
     end
 
-    def handle_resource_closed!(resource)
+    def handle_terminal_close_report!(resource, close_state:)
       ApplyCloseOutcome.call(
         resource: resource,
         mailbox_item: mailbox_item,
-        close_state: "closed",
-        close_outcome_kind: @payload.fetch("close_outcome_kind"),
-        close_outcome_payload: @payload.fetch("close_outcome_payload", {}),
-        occurred_at: @occurred_at
-      )
-    end
-
-    def handle_resource_close_failed!(resource)
-      ApplyCloseOutcome.call(
-        resource: resource,
-        mailbox_item: mailbox_item,
-        close_state: "failed",
+        close_state: close_state,
         close_outcome_kind: @payload.fetch("close_outcome_kind"),
         close_outcome_payload: @payload.fetch("close_outcome_payload", {}),
         occurred_at: @occurred_at

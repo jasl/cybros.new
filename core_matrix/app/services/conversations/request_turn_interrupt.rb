@@ -88,7 +88,7 @@ module Conversations
     def request_mainline_resource_closes!
       relations = [
         AgentTaskRun.where(turn: @turn, lifecycle_state: "running"),
-        ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command")
+        ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command"),
       ]
       relations << SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running") if @workflow_run.present?
 

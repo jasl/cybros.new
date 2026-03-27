@@ -127,6 +127,44 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal subagent_run.public_id, mailbox_item.payload.fetch("resource_id")
   end
 
+  test "close request creation rolls back resource state when mailbox persistence fails" do
+    context = build_agent_control_context!
+    subagent_run = create_subagent_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running"
+    )
+    message_id = "duplicate-close-message"
+
+    create_agent_control_mailbox_item!(
+      installation: context[:installation],
+      target_agent_installation: context[:agent_installation],
+      item_type: "resource_close_request",
+      runtime_plane: "agent",
+      target_kind: "agent_installation",
+      target_ref: context[:agent_installation].public_id,
+      logical_work_id: "close-test-#{next_test_sequence}",
+      message_id: message_id,
+      priority: 0,
+      payload: { "request_kind" => "turn_interrupt" }
+    )
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      AgentControl::CreateResourceCloseRequest.call(
+        resource: subagent_run,
+        request_kind: "turn_interrupt",
+        reason_kind: "turn_interrupted",
+        strictness: "graceful",
+        grace_deadline_at: 30.seconds.from_now,
+        force_deadline_at: 60.seconds.from_now,
+        message_id: message_id
+      )
+    end
+
+    assert subagent_run.reload.close_open?
+    assert_nil subagent_run.close_reason_kind
+    assert_nil subagent_run.close_requested_at
+  end
+
   test "requires runtime_plane to be declared explicitly instead of inferring it from payload conventions" do
     context = build_agent_control_context!
 
