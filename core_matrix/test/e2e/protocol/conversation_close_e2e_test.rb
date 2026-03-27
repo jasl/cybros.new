@@ -69,18 +69,30 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       mailbox_item: close_requests.fetch(subagent_run.public_id),
       close_outcome_kind: "graceful"
     )
+    background_close_message_id = "background-close-#{next_test_sequence}"
     report_resource_closed!(
       harness: harness,
       mailbox_item: close_requests.fetch(background_service.public_id),
-      close_outcome_kind: "residual_abandoned"
+      close_outcome_kind: "residual_abandoned",
+      message_id: background_close_message_id
     )
 
     close_operation = context[:conversation].reload.conversation_close_operations.order(:created_at).last
+    close_operation_updated_at = close_operation.updated_at
+    duplicate_background_close = report_resource_closed!(
+      harness: harness,
+      mailbox_item: close_requests.fetch(background_service.public_id),
+      close_outcome_kind: "residual_abandoned",
+      message_id: background_close_message_id
+    )
 
     assert context[:conversation].reload.archived?
     assert_equal "degraded", close_operation.lifecycle_state
     assert_equal "residual_abandoned", background_service.reload.close_outcome_kind
     assert background_service.reload.lost?
+    assert_equal 200, duplicate_background_close.fetch("http_status")
+    assert_equal "duplicate", duplicate_background_close.fetch("result")
+    assert_equal close_operation_updated_at, close_operation.reload.updated_at
   end
 
   test "delete enters pending_delete immediately, finalizes after mainline close, and keeps retained children" do
@@ -157,10 +169,10 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
 
   private
 
-  def report_resource_closed!(harness:, mailbox_item:, close_outcome_kind:)
+  def report_resource_closed!(harness:, mailbox_item:, close_outcome_kind:, message_id: "close-#{next_test_sequence}")
     harness.report!(
       method_id: "resource_closed",
-      message_id: "close-#{next_test_sequence}",
+      message_id: message_id,
       mailbox_item_id: mailbox_item.fetch("item_id"),
       close_request_id: mailbox_item.fetch("item_id"),
       resource_type: mailbox_item.fetch("payload").fetch("resource_type"),

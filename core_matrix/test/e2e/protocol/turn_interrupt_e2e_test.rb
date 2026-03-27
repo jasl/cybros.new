@@ -1,6 +1,77 @@
 require "test_helper"
 
 class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
+  test "execution terminal reports only mutate the lifecycle path for the accepted holder deployment" do
+    context = build_agent_control_context!
+    holder_harness = FakeAgentRuntimeHarness.new(
+      test_case: self,
+      deployment: context[:deployment],
+      machine_credential: context[:machine_credential]
+    )
+    sibling_agent_installation = create_agent_installation!(installation: context[:installation])
+    sibling_execution_environment = create_execution_environment!(installation: context[:installation])
+    sibling_registration = register_agent_runtime!(
+      installation: context[:installation],
+      actor: context[:actor],
+      agent_installation: sibling_agent_installation,
+      execution_environment: sibling_execution_environment,
+      reuse_enrollment: true
+    )
+    sibling_registration.fetch(:deployment).update!(
+      bootstrap_state: "active",
+      health_status: "healthy",
+      last_heartbeat_at: Time.current
+    )
+    sibling_harness = FakeAgentRuntimeHarness.new(
+      test_case: self,
+      deployment: sibling_registration.fetch(:deployment),
+      machine_credential: sibling_registration.fetch(:machine_credential)
+    )
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    assignment = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    holder_harness.poll!
+    holder_harness.report!(
+      method_id: "execution_started",
+      message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: assignment.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 30
+    )
+
+    sibling_terminal = sibling_harness.report!(
+      method_id: "execution_complete",
+      message_id: "sibling-terminal-#{next_test_sequence}",
+      mailbox_item_id: assignment.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      terminal_payload: { "output" => "wrong deployment" }
+    )
+
+    assert_equal 409, sibling_terminal.fetch("http_status")
+    assert_equal "stale", sibling_terminal.fetch("result")
+    assert_equal "running", agent_task_run.reload.lifecycle_state
+    assert_equal context[:deployment], agent_task_run.holder_agent_deployment
+
+    holder_terminal = holder_harness.report!(
+      method_id: "execution_complete",
+      message_id: "holder-terminal-#{next_test_sequence}",
+      mailbox_item_id: assignment.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      terminal_payload: { "output" => "accepted deployment" }
+    )
+
+    assert_equal 200, holder_terminal.fetch("http_status")
+    assert_equal "accepted", holder_terminal.fetch("result")
+    assert_equal "completed", agent_task_run.reload.lifecycle_state
+  end
+
   test "turn interrupt fences late execution reports and cancels the turn once mainline close completes" do
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(

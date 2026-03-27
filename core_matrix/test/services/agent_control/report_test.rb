@@ -152,4 +152,60 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "acknowledged", subagent_run.reload.close_state
     assert subagent_run.reload.running?
   end
+
+  test "duplicate resource close terminal reports do not re-enter close reconciliation" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment]
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    close_operation = ConversationCloseOperation.create!(
+      installation: context[:conversation].installation,
+      conversation: context[:conversation],
+      intent_kind: "archive",
+      lifecycle_state: "quiescing",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+    calls = []
+    singleton = Conversations::ReconcileCloseOperation.singleton_class
+    original_call = Conversations::ReconcileCloseOperation.method(:call)
+
+    singleton.send(:define_method, :call) do |*args, **kwargs, &block|
+      calls << [args, kwargs]
+      original_call.call(*args, **kwargs, &block)
+    end
+
+    params = {
+      deployment: context[:deployment],
+      method_id: "resource_closed",
+      message_id: "close-terminal-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      close_request_id: mailbox_item.public_id,
+      resource_type: "ProcessRun",
+      resource_id: process_run.public_id,
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {},
+    }
+
+    first_result = AgentControl::Report.call(**params)
+    duplicate_result = AgentControl::Report.call(**params)
+
+    assert_equal "accepted", first_result.code
+    assert_equal "duplicate", duplicate_result.code
+    assert_equal 1, calls.size
+    assert_equal close_operation.reload.id, context[:conversation].reload.conversation_close_operations.order(:created_at).last.id
+  ensure
+    singleton.send(:define_method, :call, original_call) if singleton && original_call
+  end
 end
