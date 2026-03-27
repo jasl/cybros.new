@@ -65,9 +65,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.jsonb "payload", default: {}, null: false
     t.integer "priority", default: 1, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "runtime_plane", null: false
     t.string "status", default: "queued", null: false
     t.bigint "target_agent_deployment_id"
     t.bigint "target_agent_installation_id", null: false
+    t.bigint "target_execution_environment_id"
     t.string "target_kind", null: false
     t.string "target_ref", null: false
     t.datetime "updated_at", null: false
@@ -76,10 +78,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["installation_id"], name: "index_agent_control_mailbox_items_on_installation_id"
     t.index ["leased_to_agent_deployment_id"], name: "idx_on_leased_to_agent_deployment_id_0933e88604"
     t.index ["public_id"], name: "index_agent_control_mailbox_items_on_public_id", unique: true
-    t.index ["target_agent_deployment_id", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_deployment_delivery"
+    t.index ["target_agent_deployment_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_deployment_delivery"
     t.index ["target_agent_deployment_id"], name: "idx_on_target_agent_deployment_id_9a3acfd81e"
-    t.index ["target_agent_installation_id", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_installation_delivery"
+    t.index ["target_agent_installation_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_installation_delivery"
     t.index ["target_agent_installation_id"], name: "idx_on_target_agent_installation_id_b0ef2265cc"
+    t.index ["target_execution_environment_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_environment_delivery"
+    t.index ["target_execution_environment_id"], name: "idx_on_target_execution_environment_id_39911cf3ca"
   end
 
   create_table "agent_control_report_receipts", force: :cascade do |t|
@@ -1080,6 +1084,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "agent_control_mailbox_items", "agent_deployments", column: "target_agent_deployment_id"
   add_foreign_key "agent_control_mailbox_items", "agent_installations", column: "target_agent_installation_id"
   add_foreign_key "agent_control_mailbox_items", "agent_task_runs"
+  add_foreign_key "agent_control_mailbox_items", "execution_environments", column: "target_execution_environment_id"
   add_foreign_key "agent_control_mailbox_items", "installations"
   add_foreign_key "agent_control_report_receipts", "agent_control_mailbox_items", column: "mailbox_item_id"
   add_foreign_key "agent_control_report_receipts", "agent_deployments"

@@ -36,10 +36,12 @@ class AddAgentControlContractForPhaseTwo < ActiveRecord::Migration[8.0]
       t.references :installation, null: false, foreign_key: true
       t.references :target_agent_installation, null: false, foreign_key: { to_table: :agent_installations }
       t.references :target_agent_deployment, foreign_key: { to_table: :agent_deployments }
+      t.references :target_execution_environment, foreign_key: { to_table: :execution_environments }
       t.references :agent_task_run, foreign_key: true
       t.references :leased_to_agent_deployment, foreign_key: { to_table: :agent_deployments }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :item_type, null: false
+      t.string :runtime_plane, null: false
       t.string :target_kind, null: false
       t.string :target_ref, null: false
       t.string :logical_work_id, null: false
@@ -63,8 +65,9 @@ class AddAgentControlContractForPhaseTwo < ActiveRecord::Migration[8.0]
     end
     add_index :agent_control_mailbox_items, :public_id, unique: true
     add_index :agent_control_mailbox_items, [:installation_id, :message_id], unique: true, name: "idx_agent_control_mailbox_items_message"
-    add_index :agent_control_mailbox_items, [:target_agent_installation_id, :status, :priority, :available_at], name: "idx_agent_control_mailbox_installation_delivery"
-    add_index :agent_control_mailbox_items, [:target_agent_deployment_id, :status, :priority, :available_at], name: "idx_agent_control_mailbox_deployment_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_installation_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_installation_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_deployment_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_deployment_delivery"
+    add_index :agent_control_mailbox_items, [:target_execution_environment_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_environment_delivery"
 
     create_table :agent_control_report_receipts do |t|
       t.references :installation, null: false, foreign_key: true

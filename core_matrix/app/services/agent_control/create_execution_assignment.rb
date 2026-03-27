@@ -23,6 +23,7 @@ module AgentControl
         target_agent_installation: @agent_task_run.agent_installation,
         agent_task_run: @agent_task_run,
         item_type: "execution_assignment",
+        runtime_plane: "agent",
         target_kind: "agent_installation",
         target_ref: @agent_task_run.agent_installation.public_id,
         logical_work_id: @agent_task_run.logical_work_id,
@@ -46,7 +47,6 @@ module AgentControl
 
     def base_payload
       {
-        "runtime_plane" => "agent",
         "agent_task_run_id" => @agent_task_run.public_id,
         "workflow_run_id" => @agent_task_run.workflow_run.public_id,
         "workflow_node_id" => @agent_task_run.workflow_node.public_id,

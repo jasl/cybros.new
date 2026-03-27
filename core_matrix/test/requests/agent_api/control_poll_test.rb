@@ -23,8 +23,10 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
 
     assert_equal scenario.fetch(:mailbox_item).public_id, item.fetch("item_id")
     assert_equal "execution_assignment", item.fetch("item_type")
+    assert_equal "agent", item.fetch("runtime_plane")
     assert_equal context[:agent_installation].public_id, item.fetch("target_ref")
     assert_equal context[:workflow_run].public_id, item.dig("payload", "workflow_run_id")
+    refute item.fetch("payload").key?("runtime_plane")
     assert_equal 1, item.fetch("delivery_no")
     refute_includes response.body, %("#{context[:workflow_run].id}")
   end
@@ -58,7 +60,7 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     item = response_body.fetch("mailbox_items").fetch(0)
 
     assert_equal mailbox_item.public_id, item.fetch("item_id")
-    assert_equal "environment", item.dig("payload", "runtime_plane")
+    assert_equal "environment", item.fetch("runtime_plane")
     assert_equal context[:execution_environment].public_id, item.fetch("target_ref")
     assert_equal context[:replacement_deployment].public_id, mailbox_item.reload.leased_to_agent_deployment.public_id
   end

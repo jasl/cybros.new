@@ -810,13 +810,21 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_control_mailbox_item!(installation:, target_agent_installation:, target_agent_deployment: nil, agent_task_run: nil, item_type: "execution_assignment", target_kind: (target_agent_deployment.present? ? "agent_deployment" : "agent_installation"), target_ref: (target_agent_deployment&.public_id || target_agent_installation.public_id), logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
+    def create_agent_control_mailbox_item!(installation:, target_agent_installation:, target_agent_deployment: nil, target_execution_environment: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "agent", target_kind: (target_agent_deployment.present? ? "agent_deployment" : "agent_installation"), target_ref: nil, logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
+      target_ref ||= if runtime_plane == "environment"
+        target_execution_environment&.public_id
+      else
+        target_agent_deployment&.public_id || target_agent_installation.public_id
+      end
+
       AgentControlMailboxItem.create!({
         installation: installation,
         target_agent_installation: target_agent_installation,
         target_agent_deployment: target_agent_deployment,
+        target_execution_environment: target_execution_environment,
         agent_task_run: agent_task_run,
         item_type: item_type,
+        runtime_plane: runtime_plane,
         target_kind: target_kind,
         target_ref: target_ref,
         logical_work_id: logical_work_id,

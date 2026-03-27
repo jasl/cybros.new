@@ -1,6 +1,19 @@
 require "test_helper"
 
 class AgentControlMailboxItemTest < ActiveSupport::TestCase
+  test "execution assignments persist agent-plane routing in durable mailbox columns" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item).reload
+    envelope = AgentControl::SerializeMailboxItem.call(mailbox_item)
+
+    assert_equal "agent", mailbox_item.attributes["runtime_plane"]
+    assert_nil mailbox_item.attributes["target_execution_environment_id"]
+    assert_equal context[:agent_installation].public_id, mailbox_item.target_ref
+    assert_equal "agent", envelope.fetch("runtime_plane")
+    refute envelope.fetch("payload").key?("runtime_plane")
+  end
+
   test "matches the authenticated deployment target and detects stale leases" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
@@ -44,6 +57,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       target_agent_installation: context[:agent_installation],
       target_agent_deployment: other_deployment,
       item_type: "resource_close_request",
+      runtime_plane: "agent",
       target_kind: "agent_deployment",
       target_ref: other_deployment.public_id,
       logical_work_id: "close-test",
@@ -84,8 +98,8 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       force_deadline_at: 60.seconds.from_now
     )
 
-    assert_equal "environment", mailbox_item.payload.fetch("runtime_plane")
-    assert_equal context[:execution_environment].public_id, mailbox_item.payload.fetch("execution_environment_id")
+    assert_equal "environment", mailbox_item.attributes["runtime_plane"]
+    assert_equal context[:execution_environment].id, mailbox_item.attributes["target_execution_environment_id"]
     assert_equal context[:execution_environment].public_id, mailbox_item.target_ref
   end
 
@@ -108,8 +122,35 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal context[:agent_installation], mailbox_item.target_agent_installation
     assert_equal "agent_installation", mailbox_item.target_kind
     assert_equal context[:agent_installation].public_id, mailbox_item.target_ref
-    assert_equal "agent", mailbox_item.payload.fetch("runtime_plane")
+    assert_equal "agent", mailbox_item.attributes["runtime_plane"]
     assert_equal "SubagentRun", mailbox_item.payload.fetch("resource_type")
     assert_equal subagent_run.public_id, mailbox_item.payload.fetch("resource_id")
+  end
+
+  test "requires runtime_plane to be declared explicitly instead of inferring it from payload conventions" do
+    context = build_agent_control_context!
+
+    mailbox_item = AgentControlMailboxItem.new(
+      installation: context[:installation],
+      target_agent_installation: context[:agent_installation],
+      item_type: "execution_assignment",
+      target_kind: "agent_installation",
+      target_ref: context[:agent_installation].public_id,
+      logical_work_id: "assignment-#{next_test_sequence}",
+      attempt_no: 1,
+      delivery_no: 0,
+      message_id: "kernel-message-#{next_test_sequence}",
+      priority: 1,
+      status: "queued",
+      available_at: Time.current,
+      dispatch_deadline_at: 5.minutes.from_now,
+      lease_timeout_seconds: 30,
+      payload: {
+        "agent_task_run_id" => "task-run-#{next_test_sequence}",
+      }
+    )
+
+    assert_not mailbox_item.valid?
+    assert_includes mailbox_item.errors.attribute_names, :runtime_plane
   end
 end
