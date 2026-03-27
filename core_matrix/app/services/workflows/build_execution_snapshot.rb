@@ -237,16 +237,12 @@ module Workflows
     end
 
     def execution_settings
-      allowed_keys = ProviderExecution::BuildRequestContext::EXECUTION_SETTING_KEYS.fetch(provider_definition.fetch(:wire_api), [])
-      settings = model_definition.fetch(:request_defaults, {}).slice(*allowed_keys)
-
-      @turn.resolved_config_snapshot.each do |key, value|
-        next unless allowed_keys.include?(key)
-
-        settings[key] = value
-      end
-
-      deep_stringify(settings)
+      ProviderRequestSettingsSchema
+        .for(provider_definition.fetch(:wire_api))
+        .merge_execution_settings(
+          request_defaults: model_definition.fetch(:request_defaults, {}),
+          runtime_overrides: @turn.resolved_config_snapshot
+        )
     end
 
     def deep_stringify(value)

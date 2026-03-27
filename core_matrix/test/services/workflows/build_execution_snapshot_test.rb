@@ -79,7 +79,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("api_model")
     assert_equal "responses", snapshot.provider_execution.fetch("wire_api")
-    assert_equal "high", snapshot.provider_execution.fetch("execution_settings").fetch("reasoning_effort")
+    assert_equal(
+      ProviderRequestSettingsSchema.for("responses").merge_execution_settings(
+        request_defaults: test_provider_catalog_definition
+          .dig(:providers, :codex_subscription, :models, "gpt-5.4", :request_defaults),
+        runtime_overrides: current_turn.resolved_config_snapshot
+      ),
+      snapshot.provider_execution.fetch("execution_settings")
+    )
     assert_equal 1_000_000, snapshot.budget_hints.fetch("hard_limits").fetch("context_window_tokens")
     assert_equal 128_000, snapshot.budget_hints.fetch("hard_limits").fetch("max_output_tokens")
     assert_equal 900_000, snapshot.budget_hints.fetch("advisory_hints").fetch("recommended_compaction_threshold")
@@ -165,5 +172,86 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal [], snapshot.model_input_attachments
     assert_equal [attachment.public_id], snapshot.attachment_diagnostics.map { |item| item.fetch("attachment_id") }
     assert_equal "conversation_attachment_upload_disabled", snapshot.attachment_diagnostics.first.fetch("reason")
+  end
+
+  test "filters provider execution settings through the shared schema for chat completions" do
+    catalog_definition = test_provider_catalog_definition.deep_dup
+    catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
+      display_name: "Mock Model",
+      api_model: "mock-model",
+      tokenizer_hint: "o200k_base",
+      context_window_tokens: 100,
+      max_output_tokens: 40,
+      context_soft_limit_ratio: 0.5,
+      request_defaults: {
+        temperature: 0.9,
+        top_p: 0.95,
+        top_k: 20,
+        min_p: 0.1,
+        presence_penalty: 0.2,
+        repetition_penalty: 1.1,
+      }
+    )
+    catalog = build_test_provider_catalog_from(catalog_definition)
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      context = create_workspace_context!
+      capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+      context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+      ProviderEntitlement.create!(
+        installation: context[:installation],
+        provider_handle: "dev",
+        entitlement_key: "dev_window",
+        window_kind: "rolling_five_hours",
+        window_seconds: 5.hours.to_i,
+        quota_limit: 200_000,
+        active: true,
+        metadata: {}
+      )
+      conversation = Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment]
+      )
+      turn = Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Current input",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {
+          "temperature" => 0.4,
+          "presence_penalty" => 0.6,
+          "sandbox" => "workspace-write",
+        },
+        resolved_model_selection_snapshot: {}
+      )
+      workflow_run = Workflows::CreateForTurn.call(
+        turn: turn,
+        root_node_key: "turn_step",
+        root_node_type: "turn_step",
+        decision_source: "system",
+        metadata: {},
+        selector_source: "slot",
+        selector: "role:mock"
+      )
+    end
+
+    snapshot = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      snapshot = Workflows::BuildExecutionSnapshot.call(turn: workflow_run.turn)
+    end
+
+    assert_equal(
+      {
+        "temperature" => 0.4,
+        "top_p" => 0.95,
+        "top_k" => 20,
+        "min_p" => 0.1,
+        "presence_penalty" => 0.6,
+        "repetition_penalty" => 1.1,
+      },
+      snapshot.provider_execution.fetch("execution_settings")
+    )
   end
 end

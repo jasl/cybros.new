@@ -70,6 +70,7 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
       },
       request_context.fetch("advisory_hints")
     )
+    assert_equal request_context, ProviderRequestContext.new(request_context).to_h
   end
 
   private

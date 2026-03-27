@@ -258,6 +258,32 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
     assert_includes error.message, "temprature"
   end
 
+  test "rejects request defaults not supported by the provider wire api" do
+    error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
+      ProviderCatalog::Validate.call(
+        version: 1,
+        providers: {
+          "openai" => valid_provider_definition(
+            wire_api: "chat_completions",
+            models: {
+              "gpt-5.3-chat-latest" => valid_model_definition(
+                request_defaults: {
+                  reasoning_effort: "high",
+                }
+              ),
+            }
+          ),
+        },
+        model_roles: {
+          "main" => ["openai/gpt-5.3-chat-latest"],
+        }
+      )
+    end
+
+    assert_includes error.message, "request_defaults"
+    assert_includes error.message, "reasoning_effort"
+  end
+
   test "rejects blank reasoning effort in request defaults" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
       ProviderCatalog::Validate.call(

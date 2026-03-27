@@ -8,15 +8,6 @@ module ProviderCatalog
     ROLE_NAME_FORMAT = /\A[a-z0-9][a-z0-9_]*\z/
     REQUIRED_MULTIMODAL_INPUTS = %w[image audio video file].freeze
     REQUIRED_CAPABILITY_FLAGS = %w[text_output tool_calls structured_output].freeze
-    SUPPORTED_REQUEST_DEFAULTS = {
-      "reasoning_effort" => :string,
-      "temperature" => :non_negative_number,
-      "top_p" => :probability,
-      "top_k" => :non_negative_integer,
-      "min_p" => :probability,
-      "presence_penalty" => :number,
-      "repetition_penalty" => :positive_number,
-    }.freeze
 
     def self.call(...)
       new(...).call
@@ -48,6 +39,7 @@ module ProviderCatalog
 
         provider_definition = normalize_hash(raw_provider_definition, label: "provider #{provider_handle}")
         models = normalize_hash(provider_definition["models"], label: "provider #{provider_handle} models")
+        wire_api = nil
 
         normalized[provider_handle] = {
           display_name: validate_string!(provider_definition["display_name"], "provider #{provider_handle} display_name"),
@@ -56,18 +48,18 @@ module ProviderCatalog
           adapter_key: validate_string!(provider_definition["adapter_key"], "provider #{provider_handle} adapter_key"),
           base_url: validate_string!(provider_definition["base_url"], "provider #{provider_handle} base_url"),
           headers: normalize_hash(provider_definition["headers"], label: "provider #{provider_handle} headers"),
-          wire_api: validate_string!(provider_definition["wire_api"], "provider #{provider_handle} wire_api"),
+          wire_api: wire_api = validate_string!(provider_definition["wire_api"], "provider #{provider_handle} wire_api"),
           transport: validate_string!(provider_definition["transport"], "provider #{provider_handle} transport"),
           responses_path: optional_string(provider_definition["responses_path"], "provider #{provider_handle} responses_path"),
           requires_credential: validate_boolean!(provider_definition["requires_credential"], "provider #{provider_handle} requires_credential"),
           credential_kind: validate_string!(provider_definition["credential_kind"], "provider #{provider_handle} credential_kind"),
           metadata: normalize_hash(provider_definition["metadata"], label: "provider #{provider_handle} metadata").deep_symbolize_keys,
-          models: validate_models(provider_handle, models),
+          models: validate_models(provider_handle, wire_api, models),
         }
       end
     end
 
-    def validate_models(provider_handle, models)
+    def validate_models(provider_handle, wire_api, models)
       models.each_with_object({}) do |(model_ref, raw_model_definition), normalized|
         validate_format!(model_ref, MODEL_REF_FORMAT, "model ref")
 
@@ -81,7 +73,7 @@ module ProviderCatalog
           context_window_tokens: validate_integer!(model_definition["context_window_tokens"], "#{provider_handle}/#{model_ref} context_window_tokens"),
           max_output_tokens: validate_integer!(model_definition["max_output_tokens"], "#{provider_handle}/#{model_ref} max_output_tokens"),
           context_soft_limit_ratio: validate_ratio!(model_definition["context_soft_limit_ratio"], "#{provider_handle}/#{model_ref} context_soft_limit_ratio"),
-          request_defaults: validate_request_defaults(provider_handle, model_ref, model_definition["request_defaults"]),
+          request_defaults: validate_request_defaults(provider_handle, model_ref, wire_api, model_definition["request_defaults"]),
           metadata: normalize_hash(model_definition["metadata"], label: "#{provider_handle}/#{model_ref} metadata").deep_symbolize_keys,
           capabilities: validate_capabilities(provider_handle, model_ref, model_definition["capabilities"]),
         }
@@ -94,36 +86,16 @@ module ProviderCatalog
       validate_boolean!(value, label)
     end
 
-    def validate_request_defaults(provider_handle, model_ref, raw_request_defaults)
+    def validate_request_defaults(provider_handle, model_ref, wire_api, raw_request_defaults)
       request_defaults = normalize_hash(raw_request_defaults, label: "#{provider_handle}/#{model_ref} request_defaults")
-      unknown_keys = request_defaults.keys - SUPPORTED_REQUEST_DEFAULTS.keys
-
-      if unknown_keys.any?
-        raise InvalidCatalog, "#{provider_handle}/#{model_ref} request_defaults contains unsupported keys: #{unknown_keys.join(", ")}"
-      end
-
-      request_defaults.each do |key, value|
-        label = "#{provider_handle}/#{model_ref} request_default #{key}"
-
-        case SUPPORTED_REQUEST_DEFAULTS.fetch(key)
-        when :string
-          validate_string!(value, label)
-        when :number
-          validate_number!(value, label)
-        when :positive_number
-          validate_positive_number!(value, label)
-        when :non_negative_number
-          validate_non_negative_number!(value, label)
-        when :non_negative_integer
-          validate_non_negative_integer!(value, label)
-        when :probability
-          validate_probability!(value, label)
-        else
-          raise InvalidCatalog, "#{provider_handle}/#{model_ref} request_default #{key} validation is unsupported"
-        end
-      end
-
-      request_defaults
+      ProviderRequestSettingsSchema
+        .for(wire_api)
+        .validate_request_defaults!(
+          request_defaults,
+          label_prefix: "#{provider_handle}/#{model_ref}"
+        )
+    rescue ProviderRequestSettingsSchema::InvalidSettings => error
+      raise InvalidCatalog, error.message
     end
 
     def validate_capabilities(provider_handle, model_ref, raw_capabilities)
