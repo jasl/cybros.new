@@ -1,6 +1,6 @@
 module CanonicalStores
   class DeleteKey
-    MAX_SNAPSHOT_DEPTH = 32
+    include CanonicalStores::WriteSupport
 
     def self.call(...)
       new(...).call
@@ -12,50 +12,17 @@ module CanonicalStores
     end
 
     def call
-      ApplicationRecord.transaction do
-        Conversations::WithMutableStateLock.call(
-          conversation: @conversation,
-          record: @conversation,
-          retained_message: "must be retained for conversation-local writes",
-          active_message: "must be active for conversation-local writes",
-          closing_message: "must not mutate conversation state while close is in progress"
-        ) do |conversation|
-          @conversation = conversation
-          reference = current_reference!
-          reference.lock!
+      with_locked_reference_for_write do |_conversation, reference|
+        return if CanonicalStores::GetQuery.call(reference_owner: @conversation, key: @key).blank?
 
-          return if CanonicalStores::GetQuery.call(reference_owner: @conversation, key: @key).blank?
-
-          reference = compact_if_needed!(reference)
-          current_snapshot = reference.canonical_store_snapshot
-          write_snapshot = CanonicalStoreSnapshot.create!(
-            canonical_store: current_snapshot.canonical_store,
-            base_snapshot: current_snapshot,
-            snapshot_kind: "write",
-            depth: current_snapshot.depth + 1
-          )
-          CanonicalStoreEntry.create!(
-            canonical_store_snapshot: write_snapshot,
+        append_write_entry!(
+          reference: reference,
+          entry_attributes: {
             key: @key,
-            entry_kind: "tombstone"
-          )
-          reference.update!(canonical_store_snapshot: write_snapshot)
-        end
+            entry_kind: "tombstone",
+          }
+        )
       end
-    end
-
-    private
-
-    def compact_if_needed!(reference)
-      return reference unless reference.canonical_store_snapshot.depth >= MAX_SNAPSHOT_DEPTH
-
-      CanonicalStores::CompactSnapshot.call(conversation: @conversation)
-      reference.reload
-    end
-
-    def current_reference!
-      @conversation.canonical_store_reference ||
-        raise(ActiveRecord::RecordNotFound, "canonical store reference is missing")
     end
   end
 end

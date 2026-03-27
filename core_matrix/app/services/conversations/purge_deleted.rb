@@ -72,26 +72,7 @@ module Conversations
     end
 
     def purge_blocked?
-      descendant_dependencies? ||
-        root_store_dependency? ||
-        canonical_variable_provenance_dependency? ||
-        conversation_import_provenance_dependency?
-    end
-
-    def descendant_dependencies?
-      @conversation.descendant_closures.where.not(descendant_conversation_id: @conversation.id).exists?
-    end
-
-    def root_store_dependency?
-      CanonicalStore.where(root_conversation: @conversation).exists?
-    end
-
-    def canonical_variable_provenance_dependency?
-      CanonicalVariable.where(source_conversation: @conversation).exists?
-    end
-
-    def conversation_import_provenance_dependency?
-      ConversationImport.where(source_conversation: @conversation).exists?
+      Conversations::DependencyBlockersQuery.call(conversation: @conversation).blocked?
     end
 
     def ancestor_conversation_ids

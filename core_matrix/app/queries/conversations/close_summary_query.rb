@@ -9,6 +9,8 @@ module Conversations
     end
 
     def call
+      dependency_blockers = Conversations::DependencyBlockersQuery.call(conversation: @conversation)
+
       {
         mainline: {
           active_turn_count: active_turn_count,
@@ -24,10 +26,10 @@ module Conversations
           degraded_close_count: degraded_close_count,
         },
         dependencies: {
-          descendant_lineage_blockers: descendant_lineage_blockers,
-          root_store_blocker: root_store_blocker?,
-          variable_provenance_blocker: variable_provenance_blocker?,
-          import_provenance_blocker: import_provenance_blocker?,
+          descendant_lineage_blockers: dependency_blockers.descendant_lineage_blockers,
+          root_store_blocker: dependency_blockers.root_store_blocker,
+          variable_provenance_blocker: dependency_blockers.variable_provenance_blocker,
+          import_provenance_blocker: dependency_blockers.import_provenance_blocker,
         },
       }
     end
@@ -82,22 +84,6 @@ module Conversations
 
     def task_close_failures
       AgentTaskRun.where(conversation: @conversation, close_state: "failed").count
-    end
-
-    def descendant_lineage_blockers
-      @conversation.descendant_closures.where.not(descendant_conversation_id: @conversation.id).count
-    end
-
-    def root_store_blocker?
-      CanonicalStore.where(root_conversation: @conversation).exists?
-    end
-
-    def variable_provenance_blocker?
-      CanonicalVariable.where(source_conversation: @conversation).exists?
-    end
-
-    def import_provenance_blocker?
-      ConversationImport.where(source_conversation: @conversation).exists?
     end
   end
 end
