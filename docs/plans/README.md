@@ -26,6 +26,8 @@ This directory contains the active execution plans for `core_matrix`.
 - [2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md)
 - [2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md)
 - [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
+- [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md)
+- [2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md)
 
 Use the phase plan for overall ordering, the milestone documents for current
 implementation scope, and the task documents as the executable implementation
@@ -48,6 +50,7 @@ Active execution order for the current Phase 2 batch:
 13. `Task C9 Follow-Up`
 14. `Task C10 Follow-Up`
 15. `Task C11 Follow-Up`
+16. `Task C12 Follow-Up`
 
 `Protocol E2E` belongs to Milestone C. It is distinct from any future browser
 or Web UI end-to-end coverage.

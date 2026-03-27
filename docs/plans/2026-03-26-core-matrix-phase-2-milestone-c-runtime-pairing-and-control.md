@@ -72,6 +72,11 @@ end-to-end stack.
 - [2026-03-26-core-matrix-phase-2-plan-review-audit.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-review-audit.md)
 - [2026-03-26-core-matrix-phase-2-review-audit-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md)
 
+### Task C12 Follow-Up
+
+- [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md)
+- [2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md)
+
 ## Exit Criteria
 
 - mailbox control is durable and transport-neutral
