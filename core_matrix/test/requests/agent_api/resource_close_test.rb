@@ -103,6 +103,64 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal first_updated_at, process_run.reload.updated_at
   end
 
+  test "resource_closed rejects wrong-environment reporters even when payload data is spoofed" do
+    context = build_agent_control_context!
+    other_agent_installation = create_agent_installation!(installation: context[:installation])
+    other_execution_environment = create_execution_environment!(installation: context[:installation])
+    wrong_runtime = register_agent_runtime!(
+      installation: context[:installation],
+      actor: context[:actor],
+      agent_installation: other_agent_installation,
+      execution_environment: other_execution_environment,
+      reuse_enrollment: true
+    )
+    wrong_runtime.fetch(:deployment).update!(
+      bootstrap_state: "active",
+      health_status: "healthy",
+      last_heartbeat_at: Time.current
+    )
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment]
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+
+    assert mailbox_item.environment_plane?
+
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "resource_closed",
+        message_id: "close-spoofed-env-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        close_request_id: mailbox_item.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        runtime_plane: "environment",
+        execution_environment_id: context[:execution_environment].public_id,
+        target_ref: context[:execution_environment].public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: { "signal" => "SIGINT" },
+      },
+      headers: agent_api_headers(wrong_runtime.fetch(:machine_credential)),
+      as: :json
+
+    assert_response :conflict
+    assert_equal "stale", JSON.parse(response.body).fetch("result")
+    assert_equal "requested", process_run.reload.close_state
+    assert_equal "leased", mailbox_item.reload.status
+    assert_equal context[:deployment].public_id, mailbox_item.reload.leased_to_agent_deployment.public_id
+  end
+
   test "resource_closed terminalizes an agent task run and releases its execution lease" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(
