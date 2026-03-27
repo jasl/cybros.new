@@ -52,6 +52,9 @@
   simplification around two unification opportunities:
   - execution snapshot and aggregate-boundary ownership
   - control-plane routing and lifecycle ownership
+- Recovery and scheduler observations in this round are based on the current
+  workspace state, which already contains in-flight uncommitted edits in that
+  area. Re-run those judgments after that change set lands.
 
 ## Confirmed Findings
 
@@ -199,6 +202,9 @@
   surface of the ingress boundary and make environment-plane growth more brittle.
 
 ## Candidate Signals
+
+This section preserves the Round 1 broad-scan discovery pool. Promotion,
+clustering, and retirement status live in the cumulative register.
 
 ### Candidate: Conversation model is carrying too many architecture roles
 - Category: `layering`
@@ -474,3 +480,6 @@
 - Remaining blind spots:
   - no dedicated browser/UI layer review
   - no second round yet focused only on query purity and read-side ownership
+  - recovery and scheduler surfaces are currently under active local
+    modification, so those judgments should be treated as current-workspace
+    observations rather than a frozen baseline

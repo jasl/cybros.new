@@ -31,35 +31,37 @@
 ## Active Entries
 
 ### AH-001
-- Status: `clustered`
-- Title: Conversation model carries too many architecture roles
+- Status: `confirmed`
+- Title: Conversation and Turn are carrying too much read-side and snapshot-facing responsibility
 - First seen: `2026-03-27`
 - Last reviewed: `2026-03-27`
 - Type: `responsibility drift`
-- Confidence: `medium`
+- Confidence: `high`
 - Priority: `P1`
-- Related files: `core_matrix/app/models/conversation.rb`, `core_matrix/test/models/conversation_test.rb`
-- Related concepts: transcript projection, historical anchors, visibility overlays, runtime contract
+- Related files: `core_matrix/app/models/conversation.rb`, `core_matrix/app/models/turn.rb`, `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`, `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- Related concepts: transcript projection, historical anchors, visibility
+  overlays, execution context, provider execution
 - Linked rounds: `round-1`
-- Recommended direction: separate projection and lineage-calculation helpers
-  from row-level conversation invariants
+- Recommended direction: separate aggregate invariants from snapshot-facing and
+  projection-facing helpers
 
 ### AH-002
-- Status: `clustered`
+- Status: `confirmed`
 - Title: AgentControl::Report is becoming a multi-protocol sink
 - First seen: `2026-03-27`
 - Last reviewed: `2026-03-27`
 - Type: `responsibility drift`
-- Confidence: `medium`
+- Confidence: `high`
 - Priority: `P1`
-- Related files: `core_matrix/app/services/agent_control/report.rb`
-- Related concepts: mailbox control, execution reports, close reports, leases, idempotency receipts
+- Related files: `core_matrix/app/services/agent_control/report.rb`, `core_matrix/app/models/agent_control_mailbox_item.rb`, `core_matrix/app/services/agent_control/poll.rb`, `core_matrix/test/services/agent_control/report_test.rb`
+- Related concepts: mailbox control, execution reports, close reports, leases,
+  idempotency receipts
 - Linked rounds: `round-1`
 - Recommended direction: keep one intake boundary but split method-specific
   report handlers from the shared receipt shell
 
 ### AH-003
-- Status: `clustered`
+- Status: `confirmed`
 - Title: ProviderExecution::ExecuteTurnStep crosses too many boundaries at once
 - First seen: `2026-03-27`
 - Last reviewed: `2026-03-27`
@@ -74,11 +76,11 @@
 
 ### AH-004
 - Status: `confirmed`
-- Title: ManualResume and ManualRetry look like sibling workflows without a shared recovery abstraction
+- Title: ManualResume and ManualRetry duplicate the paused-recovery pipeline
 - First seen: `2026-03-27`
 - Last reviewed: `2026-03-27`
 - Type: `contract duplication`
-- Confidence: `medium`
+- Confidence: `high`
 - Priority: `P1`
 - Related files: `core_matrix/app/services/workflows/manual_resume.rb`, `core_matrix/app/services/workflows/manual_retry.rb`, `core_matrix/test/services/workflows/manual_resume_test.rb`, `core_matrix/test/services/workflows/manual_retry_test.rb`
 - Related concepts: paused recovery, mutable workflow context, deployment switching, selector recovery
@@ -106,7 +108,7 @@
 - First seen: `2026-03-27`
 - Last reviewed: `2026-03-27`
 - Type: `accidental complexity`
-- Confidence: `medium`
+- Confidence: `low`
 - Priority: `P1`
 - Related files: `core_matrix/app/services/conversations/purge_deleted.rb`, `core_matrix/app/services/conversations/purge_plan.rb`, `core_matrix/test/services/conversations/purge_deleted_test.rb`
 - Related concepts: purge ownership graph, quiescence, mailbox residue, runtime rows, attachment teardown
