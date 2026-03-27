@@ -13,17 +13,16 @@ class SeedBaselineTest < ActiveSupport::TestCase
     initial_deployment_count = AgentDeployment.count
     initial_snapshot_count = CapabilitySnapshot.count
 
-    original_configuration = Rails.configuration.x.bundled_agent
-    Rails.configuration.x.bundled_agent = bundled_agent_configuration(enabled: true)
-
-    begin
-      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil) do
-        load Rails.root.join("db/seeds.rb")
-        load Rails.root.join("db/seeds.rb")
-      end
-    ensure
-      Rails.configuration.x.bundled_agent = original_configuration
-    end
+    run_seed_script!(
+      installation: installation,
+      bundled_agent_configuration: bundled_agent_configuration(enabled: true),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil }
+    )
+    run_seed_script!(
+      installation: installation,
+      bundled_agent_configuration: bundled_agent_configuration(enabled: true),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil }
+    )
 
     assert_equal initial_installation_count, Installation.count
     assert_equal installation, Installation.first
@@ -46,12 +45,16 @@ class SeedBaselineTest < ActiveSupport::TestCase
   test "seeds import openrouter credentials idempotently when the environment variable is present" do
     installation = create_installation!
 
-    with_bundled_agent(enabled: false) do
-      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123") do
-        load Rails.root.join("db/seeds.rb")
-        load Rails.root.join("db/seeds.rb")
-      end
-    end
+    run_seed_script!(
+      installation: installation,
+      bundled_agent_configuration: bundled_agent_configuration(enabled: false),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123" }
+    )
+    run_seed_script!(
+      installation: installation,
+      bundled_agent_configuration: bundled_agent_configuration(enabled: false),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123" }
+    )
 
     credential = ProviderCredential.find_by!(installation: installation, provider_handle: "openrouter", credential_kind: "api_key")
 
@@ -67,11 +70,11 @@ class SeedBaselineTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
     context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
 
-    with_bundled_agent(enabled: false) do
-      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil) do
-        load Rails.root.join("db/seeds.rb")
-      end
-    end
+    run_seed_script!(
+      installation: context[:installation],
+      bundled_agent_configuration: bundled_agent_configuration(enabled: false),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil }
+    )
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -103,11 +106,11 @@ class SeedBaselineTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
     context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
 
-    with_bundled_agent(enabled: false) do
-      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil) do
-        load Rails.root.join("db/seeds.rb")
-      end
-    end
+    run_seed_script!(
+      installation: context[:installation],
+      bundled_agent_configuration: bundled_agent_configuration(enabled: false),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil }
+    )
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -138,11 +141,11 @@ class SeedBaselineTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
     context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
 
-    with_bundled_agent(enabled: false) do
-      with_modified_env("OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123") do
-        load Rails.root.join("db/seeds.rb")
-      end
-    end
+    run_seed_script!(
+      installation: context[:installation],
+      bundled_agent_configuration: bundled_agent_configuration(enabled: false),
+      env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => "or-live-123" }
+    )
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -168,13 +171,28 @@ class SeedBaselineTest < ActiveSupport::TestCase
     assert_equal "openai-gpt-5.4", snapshot["resolved_model_ref"]
   end
 
-  private
+  test "seed runner rejects ambiguous installation sets before loading db seeds" do
+    installation = create_installation!
+    timestamp = Time.current
 
-  def with_bundled_agent(enabled:)
-    original_configuration = Rails.configuration.x.bundled_agent
-    Rails.configuration.x.bundled_agent = bundled_agent_configuration(enabled: enabled)
-    yield
-  ensure
-    Rails.configuration.x.bundled_agent = original_configuration
+    Installation.insert_all!([
+      {
+        name: "Secondary installation",
+        bootstrap_state: "bootstrapped",
+        global_settings: {},
+        created_at: timestamp,
+        updated_at: timestamp,
+      },
+    ])
+
+    error = assert_raises(ArgumentError) do
+      run_seed_script!(
+        installation: installation,
+        bundled_agent_configuration: bundled_agent_configuration(enabled: false),
+        env: { "OPENAI_API_KEY" => nil, "OPENROUTER_API_KEY" => nil }
+      )
+    end
+
+    assert_match(/expected exactly one installation/i, error.message)
   end
 end
