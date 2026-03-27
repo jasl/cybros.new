@@ -256,6 +256,133 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert subagent_run.reload.running?
   end
 
+  test "forced requeue keeps the last acknowledged deployment valid until a new lease takes over" do
+    context = build_agent_control_context!
+    occurred_at = Time.zone.parse("2026-03-28 12:00:00 UTC")
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    close_request = travel_to(occurred_at) do
+      MailboxScenarioBuilder.new(self).close_request!(
+        context: context,
+        resource: process_run
+      ).fetch(:mailbox_item)
+    end
+
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10, occurred_at: occurred_at)
+
+    ack_result = AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "resource_close_acknowledged",
+      message_id: "close-ack-#{next_test_sequence}",
+      mailbox_item_id: close_request.public_id,
+      close_request_id: close_request.public_id,
+      resource_type: "ProcessRun",
+      resource_id: process_run.public_id
+    )
+
+    assert_equal "accepted", ack_result.code
+    assert_equal "acked", close_request.reload.status
+    assert_equal context[:deployment], close_request.leased_to_agent_deployment
+
+    AgentControl::ProgressCloseRequest.call(
+      mailbox_item: close_request,
+      occurred_at: occurred_at + 31.seconds
+    )
+
+    assert_equal "queued", close_request.reload.status
+    assert_equal "forced", close_request.payload["strictness"]
+    assert_equal context[:deployment], close_request.leased_to_agent_deployment
+
+    terminal_result = AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "resource_closed",
+      message_id: "close-terminal-#{next_test_sequence}",
+      mailbox_item_id: close_request.public_id,
+      close_request_id: close_request.public_id,
+      resource_type: "ProcessRun",
+      resource_id: process_run.public_id,
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+
+    assert_equal "accepted", terminal_result.code
+    assert_equal "completed", close_request.reload.status
+    assert process_run.reload.close_closed?
+    assert process_run.stopped?
+  end
+
+  test "late terminal close reports stay stale after kernel timeout terminalizes the close request" do
+    context = build_agent_control_context!
+    occurred_at = Time.zone.parse("2026-03-28 13:00:00 UTC")
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    close_request = travel_to(occurred_at) do
+      MailboxScenarioBuilder.new(self).close_request!(
+        context: context,
+        resource: process_run
+      ).fetch(:mailbox_item)
+    end
+
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10, occurred_at: occurred_at)
+
+    ack_result = AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "resource_close_acknowledged",
+      message_id: "close-ack-#{next_test_sequence}",
+      mailbox_item_id: close_request.public_id,
+      close_request_id: close_request.public_id,
+      resource_type: "ProcessRun",
+      resource_id: process_run.public_id
+    )
+
+    assert_equal "accepted", ack_result.code
+
+    AgentControl::ProgressCloseRequest.call(
+      mailbox_item: close_request,
+      occurred_at: occurred_at + 61.seconds
+    )
+
+    process_run.reload
+    close_request.reload
+
+    assert process_run.close_failed?
+    assert process_run.lost?
+    assert_equal "completed", close_request.status
+    assert_equal "timed_out_forced", process_run.close_outcome_kind
+
+    terminal_result = AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "resource_closed",
+      message_id: "close-terminal-#{next_test_sequence}",
+      mailbox_item_id: close_request.public_id,
+      close_request_id: close_request.public_id,
+      resource_type: "ProcessRun",
+      resource_id: process_run.public_id,
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+
+    assert_equal "stale", terminal_result.code
+    assert process_run.reload.close_failed?
+    assert_equal "timed_out_forced", process_run.close_outcome_kind
+  end
+
   test "duplicate resource close terminal reports do not re-enter close reconciliation" do
     context = build_agent_control_context!
     process_run = create_process_run!(

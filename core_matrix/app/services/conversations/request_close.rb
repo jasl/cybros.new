@@ -100,21 +100,16 @@ module Conversations
     end
 
     def request_background_process_closes!(request_kind:, reason_kind:)
-      ProcessRun.where(conversation: @conversation, lifecycle_state: "running", kind: "background_service").find_each do |process_run|
-        next unless process_run.close_open?
-
-        AgentControl::CreateResourceCloseRequest.call(
-          resource: process_run,
-          request_kind: request_kind,
-          reason_kind: reason_kind,
-          strictness: "graceful",
-          **close_request_deadlines
-        )
-      end
-    end
-
-    def close_request_deadlines
-      @close_request_deadlines ||= CloseRequestSchedule.deadlines_for(occurred_at: @occurred_at)
+      Conversations::RequestResourceCloses.call(
+        relations: ProcessRun.where(
+          conversation: @conversation,
+          lifecycle_state: "running",
+          kind: "background_service"
+        ),
+        request_kind: request_kind,
+        reason_kind: reason_kind,
+        occurred_at: @occurred_at
+      )
     end
 
     def raise_invalid!(record, attribute, message)

@@ -15,27 +15,39 @@ module AgentControl
       return @mailbox_item unless @mailbox_item.resource_close_request?
       return @mailbox_item unless ACTIVE_STATUSES.include?(@mailbox_item.status)
 
-      resource = closable_resource
-      return @mailbox_item if resource.blank?
-      return @mailbox_item if resource.close_closed? || resource.close_failed?
+      @mailbox_item.with_lock do
+        @mailbox_item.reload
+        return @mailbox_item unless ACTIVE_STATUSES.include?(@mailbox_item.status)
 
-      if force_deadline_reached?(resource)
-        return ApplyCloseOutcome.call(
-          resource: resource,
-          mailbox_item: @mailbox_item,
-          close_state: "failed",
-          close_outcome_kind: "timed_out_forced",
-          close_outcome_payload: {
-            "source" => "kernel_timeout",
-            "reason" => "force_deadline_elapsed",
-          },
-          occurred_at: @occurred_at
-        )
+        resource = closable_resource
+        return @mailbox_item if resource.blank?
+
+        resource.with_lock do
+          @mailbox_item.reload
+          resource.reload
+
+          return @mailbox_item unless ACTIVE_STATUSES.include?(@mailbox_item.status)
+          return @mailbox_item if resource.close_closed? || resource.close_failed?
+
+          if force_deadline_reached?(resource)
+            return ApplyCloseOutcome.call(
+              resource: resource,
+              mailbox_item: @mailbox_item,
+              close_state: "failed",
+              close_outcome_kind: "timed_out_forced",
+              close_outcome_payload: {
+                "source" => "kernel_timeout",
+                "reason" => "force_deadline_elapsed",
+              },
+              occurred_at: @occurred_at
+            )
+          end
+
+          return escalate_to_forced! if grace_deadline_reached?(resource) && @mailbox_item.payload["strictness"] != "forced"
+
+          @mailbox_item
+        end
       end
-
-      return escalate_to_forced! if grace_deadline_reached?(resource) && @mailbox_item.payload["strictness"] != "forced"
-
-      @mailbox_item
     end
 
     private
@@ -44,10 +56,8 @@ module AgentControl
       @mailbox_item.update!(
         status: "queued",
         available_at: @occurred_at,
-        leased_to_agent_deployment: nil,
         leased_at: nil,
         lease_expires_at: nil,
-        acked_at: nil,
         completed_at: nil,
         payload: @mailbox_item.payload.merge("strictness" => "forced")
       )
@@ -55,9 +65,9 @@ module AgentControl
     end
 
     def closable_resource
-      resource_class = HandleCloseReport::RESOURCE_TYPES.fetch(@mailbox_item.payload.fetch("resource_type"))
-      resource_class.find_by(
+      ClosableResourceRegistry.find(
         installation_id: @mailbox_item.installation_id,
+        resource_type: @mailbox_item.payload.fetch("resource_type"),
         public_id: @mailbox_item.payload.fetch("resource_id")
       )
     end

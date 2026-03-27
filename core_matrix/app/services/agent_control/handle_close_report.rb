@@ -1,11 +1,5 @@
 module AgentControl
   class HandleCloseReport
-    RESOURCE_TYPES = {
-      "AgentTaskRun" => AgentTaskRun,
-      "ProcessRun" => ProcessRun,
-      "SubagentRun" => SubagentRun,
-    }.freeze
-
     def self.call(...)
       new(...).call
     end
@@ -22,25 +16,32 @@ module AgentControl
     end
 
     def call
-      resource = closable_resource
+      mailbox_item.with_lock do
+        resource = closable_resource
 
-      ValidateCloseReportFreshness.call(
-        deployment: @deployment,
-        payload: @payload,
-        mailbox_item: mailbox_item,
-        resource: resource,
-        occurred_at: @occurred_at
-      )
+        resource.with_lock do
+          mailbox_item.reload
+          resource.reload
 
-      case @method_id
-      when "resource_close_acknowledged"
-        handle_resource_close_acknowledged!(resource)
-      when "resource_closed"
-        handle_resource_closed!(resource)
-      when "resource_close_failed"
-        handle_resource_close_failed!(resource)
-      else
-        raise ArgumentError, "unsupported close report #{@method_id}"
+          ValidateCloseReportFreshness.call(
+            deployment: @deployment,
+            payload: @payload,
+            mailbox_item: mailbox_item,
+            resource: resource,
+            occurred_at: @occurred_at
+          )
+
+          case @method_id
+          when "resource_close_acknowledged"
+            handle_resource_close_acknowledged!(resource)
+          when "resource_closed"
+            handle_resource_closed!(resource)
+          when "resource_close_failed"
+            handle_resource_close_failed!(resource)
+          else
+            raise ArgumentError, "unsupported close report #{@method_id}"
+          end
+        end
       end
     end
 
@@ -81,10 +82,9 @@ module AgentControl
     end
 
     def closable_resource
-      resource_type = @payload.fetch("resource_type")
-      resource_class = RESOURCE_TYPES.fetch(resource_type)
-      resource_class.find_by!(
+      ClosableResourceRegistry.find!(
         installation_id: @deployment.installation_id,
+        resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
       )
     end

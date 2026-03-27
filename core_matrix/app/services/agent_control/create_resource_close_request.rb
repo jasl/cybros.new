@@ -2,12 +2,6 @@ require "securerandom"
 
 module AgentControl
   class CreateResourceCloseRequest
-    SUPPORTED_RESOURCE_TYPES = [
-      AgentTaskRun,
-      ProcessRun,
-      SubagentRun,
-    ].freeze
-
     def self.call(...)
       new(...).call
     end
@@ -76,7 +70,7 @@ module AgentControl
     private
 
     def validate_supported_resource!
-      return if SUPPORTED_RESOURCE_TYPES.any? { |resource_type| @resource.is_a?(resource_type) }
+      return if ClosableResourceRegistry.supported?(@resource)
 
       raise ArgumentError, "unsupported close resource #{@resource.class.name}"
     end

@@ -17,9 +17,7 @@ module Conversations
             fence_turn!
             cancel_blocking_human_interactions!
             cancel_queued_retry_work!
-            request_running_agent_task_closes!
-            request_turn_command_closes!
-            request_subagent_closes!
+            request_mainline_resource_closes!
             finalize_if_mainline_cleared!
           end
         end
@@ -87,48 +85,19 @@ module Conversations
       end
     end
 
-    def request_running_agent_task_closes!
-      AgentTaskRun.where(turn: @turn, lifecycle_state: "running").find_each do |task_run|
-        next unless task_run.close_open?
+    def request_mainline_resource_closes!
+      relations = [
+        AgentTaskRun.where(turn: @turn, lifecycle_state: "running"),
+        ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command")
+      ]
+      relations << SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running") if @workflow_run.present?
 
-        AgentControl::CreateResourceCloseRequest.call(
-          resource: task_run,
-          request_kind: "turn_interrupt",
-          reason_kind: "turn_interrupted",
-          strictness: "graceful",
-          **close_request_deadlines
-        )
-      end
-    end
-
-    def request_turn_command_closes!
-      ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command").find_each do |process_run|
-        next unless process_run.close_open?
-
-        AgentControl::CreateResourceCloseRequest.call(
-          resource: process_run,
-          request_kind: "turn_interrupt",
-          reason_kind: "turn_interrupted",
-          strictness: "graceful",
-          **close_request_deadlines
-        )
-      end
-    end
-
-    def request_subagent_closes!
-      return if @workflow_run.blank?
-
-      SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running").find_each do |subagent_run|
-        next unless subagent_run.close_open?
-
-        AgentControl::CreateResourceCloseRequest.call(
-          resource: subagent_run,
-          request_kind: "turn_interrupt",
-          reason_kind: "turn_interrupted",
-          strictness: "graceful",
-          **close_request_deadlines
-        )
-      end
+      Conversations::RequestResourceCloses.call(
+        relations: relations,
+        request_kind: "turn_interrupt",
+        reason_kind: "turn_interrupted",
+        occurred_at: @occurred_at
+      )
     end
 
     def finalize_if_mainline_cleared!
@@ -147,10 +116,6 @@ module Conversations
         HumanInteractionRequest.where(conversation: @turn.conversation, turn: @turn, lifecycle_state: "open", blocking: true).none? &&
         ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command").none? &&
         (@workflow_run.blank? || SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running").none?)
-    end
-
-    def close_request_deadlines
-      @close_request_deadlines ||= CloseRequestSchedule.deadlines_for(occurred_at: @occurred_at)
     end
 
     def reconcile_close_operation!
