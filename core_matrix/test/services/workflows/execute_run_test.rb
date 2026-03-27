@@ -99,7 +99,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     with_stubbed_provider_catalog(catalog) do
       result = Workflows::ExecuteRun.call(
         workflow_run: workflow_run,
-        messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+        messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
         adapter: adapter
       )
     end
@@ -161,7 +161,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       error = assert_raises(SimpleInference::HTTPError) do
         Workflows::ExecuteRun.call(
           workflow_run: workflow_run,
-          messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+          messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter
         )
       end
@@ -209,7 +209,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
         Workflows::ExecuteRun.call(
           workflow_run: workflow_run,
-          messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+          messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter
         )
       end
@@ -243,7 +243,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
         Workflows::ExecuteRun.call(
           workflow_run: workflow_run,
-          messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+          messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter
         )
       end
@@ -256,6 +256,15 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     assert_equal 0, UsageEvent.count
     assert_equal 0, ExecutionProfileFact.count
     assert_equal ["running"], workflow_run.workflow_node_events.order(:ordinal).map { |event| event.payload.fetch("state") }
+  end
+
+  test "defaults provider messages from the workflow run execution snapshot" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+
+    assert_equal(
+      workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
+      Workflows::ExecuteRun.new(workflow_run: workflow_run).send(:default_messages)
+    )
   end
 
   private

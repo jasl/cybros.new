@@ -584,7 +584,7 @@ module ActiveSupport
       }
     end
 
-    def prepare_workflow_execution_context!(
+    def prepare_workflow_execution_setup!(
       context,
       codex_entitlement_active: true,
       openai_entitlement_active: true,
@@ -652,6 +652,10 @@ module ActiveSupport
       )
 
       Workflows::BuildExecutionSnapshot.call(turn: turn)
+    end
+
+    def legacy_snapshot_context_key
+      ["execution", "context"].join("_")
     end
 
     def bundled_agent_configuration(enabled: true, **attrs)
@@ -841,7 +845,7 @@ module ActiveSupport
     end
 
     def build_human_interaction_context!(workflow_node_key: "human_gate", workflow_node_type: "human_interaction", workflow_node_metadata: {})
-      context = prepare_workflow_execution_context!(create_workspace_context!)
+      context = prepare_workflow_execution_setup!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
         execution_environment: context[:execution_environment],
@@ -992,7 +996,7 @@ module ActiveSupport
     end
 
     def build_subagent_context!(workflow_node_key: "subagent_fanout", workflow_node_type: "subagent_batch", workflow_node_metadata: {})
-      context = prepare_workflow_execution_context!(create_workspace_context!)
+      context = prepare_workflow_execution_setup!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
         execution_environment: context[:execution_environment],

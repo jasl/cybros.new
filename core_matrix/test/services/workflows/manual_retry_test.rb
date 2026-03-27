@@ -25,8 +25,8 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_equal "candidate:openai/gpt-5.3-chat-latest", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.3-chat-latest", retried.turn.resolved_model_ref
-    assert_equal replacement.public_id, retried.turn.execution_identity["agent_deployment_id"]
-    assert_equal context[:execution_environment].public_id, retried.turn.execution_identity["execution_environment_id"]
+    assert_equal replacement.public_id, retried.execution_identity["agent_deployment_id"]
+    assert_equal context[:execution_environment].public_id, retried.execution_identity["execution_environment_id"]
     assert_equal ["root"], retried.workflow_nodes.order(:ordinal).pluck(:node_key)
 
     paused = context[:workflow_run].reload
@@ -102,7 +102,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
   private
 
   def build_paused_recovery_context!
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

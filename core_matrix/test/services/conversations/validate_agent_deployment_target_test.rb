@@ -108,7 +108,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
   private
 
   def build_turn_context!
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     richer_snapshot = create_capability_snapshot!(
       agent_deployment: context[:agent_deployment],
       version: 2,

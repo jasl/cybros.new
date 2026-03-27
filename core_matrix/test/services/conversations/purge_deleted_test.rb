@@ -312,7 +312,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
   end
 
   test "rejects purge while a deleted conversation still has an open non-blocking human interaction" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

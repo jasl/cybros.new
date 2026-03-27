@@ -2,7 +2,7 @@ require "test_helper"
 
 class Workflows::MutateTest < ActiveSupport::TestCase
   test "appends nodes and edges without replacing the workflow run" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -66,7 +66,7 @@ class Workflows::MutateTest < ActiveSupport::TestCase
   end
 
   test "rejects mutations that would introduce a cycle" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -115,7 +115,7 @@ class Workflows::MutateTest < ActiveSupport::TestCase
   end
 
   test "rejects edges that reference unknown workflow node keys" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

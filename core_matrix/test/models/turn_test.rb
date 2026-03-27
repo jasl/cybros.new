@@ -202,7 +202,7 @@ class TurnTest < ActiveSupport::TestCase
       pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
       resolved_config_snapshot: {
         "config" => { "temperature" => 0.2 },
-        "execution_context" => {
+        legacy_snapshot_context_key => {
           "identity" => {
             "user_id" => context[:user].public_id,
           },

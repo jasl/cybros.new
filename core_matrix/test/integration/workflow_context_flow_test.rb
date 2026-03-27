@@ -2,7 +2,7 @@ require "test_helper"
 
 class WorkflowContextFlowTest < ActionDispatch::IntegrationTest
   test "branch workflow context uses local imports and does not pull branch-ineligible attachments" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -80,12 +80,12 @@ class WorkflowContextFlowTest < ActionDispatch::IntegrationTest
       ],
       projection.messages.map(&:public_id)
     )
-    assert_equal %w[branch_prefix quoted_context], branch_turn.context_imports.map { |item| item.fetch("kind") }.sort
+    assert_equal %w[branch_prefix quoted_context], branch_turn.execution_snapshot.context_imports.map { |item| item.fetch("kind") }.sort
     expected_attachment_ids = [anchor_attachment.public_id, branch_attachment.public_id].sort
 
     assert_equal expected_attachment_ids, projection.attachments.map(&:public_id).sort
     refute_includes projection.attachments.map(&:public_id), later_root_attachment.public_id
     assert_equal expected_attachment_ids, workflow_run.model_input_attachments.map { |item| item.fetch("attachment_id") }.sort
-    assert_equal "Anchor summary", branch_turn.context_imports.find { |item| item.fetch("kind") == "quoted_context" }.fetch("content")
+    assert_equal "Anchor summary", branch_turn.execution_snapshot.context_imports.find { |item| item.fetch("kind") == "quoted_context" }.fetch("content")
   end
 end

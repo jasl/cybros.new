@@ -2,7 +2,7 @@ require "test_helper"
 
 class WorkflowSchedulerFlowTest < ActionDispatch::IntegrationTest
   test "scheduler keeps joins blocked until predecessors finish and cancels stale queued follow up work" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

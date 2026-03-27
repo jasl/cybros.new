@@ -2,7 +2,7 @@ require "test_helper"
 
 class AgentDeployments::BootstrapTest < ActiveSupport::TestCase
   test "creates a system owned bootstrap workflow and audit row" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
 
     result = AgentDeployments::Bootstrap.call(
       deployment: context[:agent_deployment],

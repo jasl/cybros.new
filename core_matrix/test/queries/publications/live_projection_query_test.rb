@@ -2,7 +2,7 @@ require "test_helper"
 
 class Publications::LiveProjectionQueryTest < ActiveSupport::TestCase
   test "returns transcript messages and visible conversation events in deterministic live order" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

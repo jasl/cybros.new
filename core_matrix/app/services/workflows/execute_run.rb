@@ -44,7 +44,7 @@ module Workflows
     end
 
     def default_messages
-      @workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") }
+      @workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
     end
 
     def raise_invalid!(record, attribute, message)

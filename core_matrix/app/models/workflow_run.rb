@@ -51,11 +51,14 @@ class WorkflowRun < ApplicationRecord
   has_many :subagent_runs, dependent: :restrict_with_exception
   has_many :execution_leases, dependent: :restrict_with_exception
 
+  delegate :execution_snapshot, to: :turn, allow_nil: true
   delegate :normalized_selector,
     :resolved_provider_handle,
     :resolved_model_ref,
     :resolved_role_name,
-    :execution_identity,
+    to: :turn,
+    allow_nil: true
+  delegate :identity,
     :model_context,
     :provider_execution,
     :budget_hints,
@@ -63,12 +66,15 @@ class WorkflowRun < ApplicationRecord
     :runtime_attachment_manifest,
     :model_input_attachments,
     :attachment_diagnostics,
-    to: :turn,
+    :context_messages,
+    :context_imports,
+    to: :execution_snapshot,
     allow_nil: true
 
-  before_validation :default_workspace_from_conversation
+  def execution_identity
+    execution_snapshot&.identity
+  end
 
-  validates :turn_id, uniqueness: true
   validate :wait_reason_payload_must_be_hash
   validate :resume_metadata_must_be_hash
   validate :workspace_installation_match
@@ -80,6 +86,10 @@ class WorkflowRun < ApplicationRecord
   validate :one_active_workflow_per_conversation
   validate :wait_state_consistency
   validate :cancellation_request_pairing
+
+  before_validation :default_workspace_from_conversation
+
+  validates :turn_id, uniqueness: true
 
   def waiting_on_agent_unavailable?
     waiting? && wait_reason_kind == "agent_unavailable"

@@ -163,7 +163,7 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
   private
 
   def create_barrier_workflow!
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

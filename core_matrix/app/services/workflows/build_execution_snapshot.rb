@@ -44,29 +44,36 @@ module Workflows
     end
 
     def model_context
-      request_context.slice(
-        "provider_handle",
-        "model_ref",
-        "api_model",
-        "wire_api",
-        "transport",
-        "tokenizer_hint",
-        "provider_metadata",
-        "model_metadata"
-      )
+      {
+        "provider_handle" => @turn.resolved_provider_handle,
+        "model_ref" => @turn.resolved_model_ref,
+        "api_model" => model_definition.fetch(:api_model),
+        "wire_api" => provider_definition.fetch(:wire_api),
+        "transport" => provider_definition.fetch(:transport),
+        "tokenizer_hint" => model_definition.fetch(:tokenizer_hint),
+        "provider_metadata" => deep_stringify(provider_definition.fetch(:metadata, {})),
+        "model_metadata" => deep_stringify(model_definition.fetch(:metadata, {})),
+      }
     end
 
     def provider_execution
       {
-        "wire_api" => request_context.fetch("wire_api"),
-        "execution_settings" => request_context.fetch("execution_settings"),
+        "wire_api" => provider_definition.fetch(:wire_api),
+        "execution_settings" => execution_settings,
       }
     end
 
     def budget_hints
+      context_window_tokens = model_definition.fetch(:context_window_tokens)
+
       {
-        "hard_limits" => request_context.fetch("hard_limits"),
-        "advisory_hints" => request_context.fetch("advisory_hints"),
+        "hard_limits" => {
+          "context_window_tokens" => context_window_tokens,
+          "max_output_tokens" => model_definition.fetch(:max_output_tokens),
+        },
+        "advisory_hints" => {
+          "recommended_compaction_threshold" => (context_window_tokens * model_definition.fetch(:context_soft_limit_ratio)).floor,
+        },
       }
     end
 
@@ -221,8 +228,38 @@ module Workflows
       @catalog ||= ProviderCatalog::Load.call
     end
 
-    def request_context
-      @request_context ||= ProviderExecution::BuildRequestContext.call(turn: @turn, catalog: catalog)
+    def provider_definition
+      @provider_definition ||= catalog.provider(@turn.resolved_provider_handle)
+    end
+
+    def model_definition
+      @model_definition ||= catalog.model(@turn.resolved_provider_handle, @turn.resolved_model_ref)
+    end
+
+    def execution_settings
+      allowed_keys = ProviderExecution::BuildRequestContext::EXECUTION_SETTING_KEYS.fetch(provider_definition.fetch(:wire_api), [])
+      settings = model_definition.fetch(:request_defaults, {}).slice(*allowed_keys)
+
+      @turn.effective_config_snapshot.each do |key, value|
+        next unless allowed_keys.include?(key)
+
+        settings[key] = value
+      end
+
+      deep_stringify(settings)
+    end
+
+    def deep_stringify(value)
+      case value
+      when Hash
+        value.each_with_object({}) do |(key, nested_value), out|
+          out[key.to_s] = deep_stringify(nested_value)
+        end
+      when Array
+        value.map { |item| deep_stringify(item) }
+      else
+        value
+      end
     end
 
     def raise_invalid!(message)

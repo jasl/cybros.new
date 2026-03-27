@@ -2,7 +2,7 @@ require "test_helper"
 
 class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
   test "builds an execution snapshot from visible transcript messages imports and capability-gated attachment projections" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -68,7 +68,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: current_turn)
 
-    refute snapshot.to_h.key?("execution_context")
+    refute snapshot.to_h.key?(legacy_snapshot_context_key)
     assert_equal context[:user].public_id, snapshot.identity.fetch("user_id")
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")
@@ -105,7 +105,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
   end
 
   test "builds automation turns without requiring a transcript-bearing input message" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -135,7 +135,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
   end
 
   test "omits attachments when the environment disables conversation uploads" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     context[:execution_environment].update!(
       capability_payload: { "conversation_attachment_upload" => false }
     )

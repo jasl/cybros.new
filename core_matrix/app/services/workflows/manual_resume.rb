@@ -35,7 +35,10 @@ module Workflows
             pinned_deployment_fingerprint: @deployment.fingerprint,
             resolved_model_selection_snapshot: resolved_model_selection_snapshot
           )
-          turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: turn))
+          turn.update!(
+            resolved_config_snapshot: turn.resolved_config_snapshot,
+            execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn).to_h
+          )
           workflow_run.update!(
             AgentDeployments::UnavailablePauseState.resume_attributes(
               workflow_run: workflow_run

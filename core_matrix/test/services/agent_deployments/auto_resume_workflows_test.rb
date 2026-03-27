@@ -189,7 +189,7 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
   private
 
   def build_waiting_recovery_context!
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     context[:agent_deployment].update!(auto_resume_eligible: true)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],

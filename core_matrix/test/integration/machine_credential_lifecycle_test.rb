@@ -2,7 +2,7 @@ require "test_helper"
 
 class MachineCredentialLifecycleTest < ActionDispatch::IntegrationTest
   test "rotation revocation and retirement preserve auditability and block future scheduling" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     admin = create_user!(installation: context[:installation], role: "admin")
     registration = register_agent_runtime!(
       installation: context[:installation],

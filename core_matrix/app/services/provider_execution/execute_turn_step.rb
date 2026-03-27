@@ -24,7 +24,10 @@ module ProviderExecution
       @messages = normalize_messages(messages)
       @adapter = adapter
       @catalog = catalog
-      @request_context = BuildRequestContext.call(turn: @turn, catalog: @catalog)
+      @request_context = BuildRequestContext.call(
+        turn: @turn,
+        execution_snapshot: @workflow_run.execution_snapshot
+      )
       @provider_request_id = SecureRandom.uuid
     end
 

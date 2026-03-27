@@ -58,7 +58,7 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
   end
 
   test "manual retry can move paused work onto a rotated external fenix deployment" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

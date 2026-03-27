@@ -2,7 +2,7 @@ require "test_helper"
 
 class PublicationFlowTest < ActionDispatch::IntegrationTest
   test "publication visibility access logging and live projection follow canonical conversation state" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     viewer = create_user!(installation: context[:installation])
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],

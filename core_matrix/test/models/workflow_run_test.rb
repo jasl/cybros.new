@@ -171,4 +171,36 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert_equal "codex_subscription", workflow_run.resolved_provider_handle
     assert_equal "gpt-5.4", workflow_run.resolved_model_ref
   end
+
+  test "delegates execution snapshot fields through the explicit snapshot contract" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turn.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      agent_deployment: context[:agent_deployment],
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
+      resolved_config_snapshot: {},
+      execution_snapshot_payload: {
+        "identity" => {
+          "turn_id" => "turn-public-id",
+          "agent_deployment_id" => context[:agent_deployment].public_id,
+        },
+        "context_messages" => [{ "role" => "user", "content" => "Input" }],
+      },
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+
+    assert_equal "turn-public-id", workflow_run.execution_identity.fetch("turn_id")
+    assert_equal [{ "role" => "user", "content" => "Input" }], workflow_run.execution_snapshot.context_messages
+  end
 end

@@ -66,7 +66,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
     with_stubbed_provider_catalog(catalog) do
       Workflows::ExecuteRun.call(
         workflow_run: workflow_run,
-        messages: workflow_run.turn.context_messages.map { |entry| entry.slice("role", "content") },
+        messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
         adapter: adapter
       )
     end
@@ -79,10 +79,10 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       model_ref: "openai-gpt-5.4"
     )
 
-    assert_equal "openrouter", workflow_run.turn.execution_context.dig("model_context", "provider_handle")
-    assert_equal "openai/gpt-5.4", workflow_run.turn.execution_context.dig("model_context", "api_model")
-    assert_equal 90, workflow_run.turn.execution_context.dig("budget_hints", "advisory_hints", "recommended_compaction_threshold")
-    assert_equal 0.3, workflow_run.turn.execution_context.dig("provider_execution", "execution_settings", "temperature")
+    assert_equal "openrouter", workflow_run.execution_snapshot.model_context.fetch("provider_handle")
+    assert_equal "openai/gpt-5.4", workflow_run.execution_snapshot.model_context.fetch("api_model")
+    assert_equal 90, workflow_run.execution_snapshot.budget_hints.fetch("advisory_hints").fetch("recommended_compaction_threshold")
+    assert_equal 0.3, workflow_run.execution_snapshot.provider_execution.fetch("execution_settings").fetch("temperature")
     assert_equal "openai/gpt-5.4", request_body.fetch("model")
     assert_equal 24, request_body.fetch("max_tokens")
     assert_equal "OpenRouter result", workflow_run.turn.reload.selected_output_message.content

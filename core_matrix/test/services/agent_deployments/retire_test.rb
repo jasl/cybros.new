@@ -5,7 +5,7 @@ end
 
 class AgentDeployments::RetireTest < ActiveSupport::TestCase
   test "moves the deployment into the retired state and makes it ineligible for future scheduling" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
 
     AgentDeployments::Retire.call(
       deployment: context[:agent_deployment],

@@ -2,7 +2,7 @@ require "test_helper"
 
 class Workflows::CreateForTurnTest < ActiveSupport::TestCase
   test "creates one active workflow with a root node for the turn" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
@@ -39,7 +39,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal "codex_subscription", workflow_run.resolved_provider_handle
     assert_equal "gpt-5.4", workflow_run.resolved_model_ref
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
-    refute turn.resolved_config_snapshot.key?("execution_context")
+    refute turn.resolved_config_snapshot.key?(legacy_snapshot_context_key)
     assert_equal turn.public_id, turn.execution_snapshot.identity["turn_id"]
     assert_equal context[:user].public_id, turn.execution_snapshot.identity["user_id"]
     assert_equal context[:workspace].public_id, turn.execution_snapshot.identity["workspace_id"]
@@ -51,7 +51,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
   end
 
   test "rejects a second active workflow in the same conversation" do
-    context = prepare_workflow_execution_context!(create_workspace_context!)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
