@@ -25,6 +25,63 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_kind_of AgentControl::HandleHealthReport, health_handler
   end
 
+  test "report delegates processing to the dispatcher-provided handler" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    dispatch_calls = []
+    handler_calls = []
+    message_id = "report-dispatch-#{next_test_sequence}"
+    fake_handler = Struct.new(:receipt_attributes, :calls) do
+      def call
+        calls << :called
+      end
+    end.new(
+      {
+        mailbox_item: mailbox_item,
+        agent_task_run: agent_task_run,
+      },
+      handler_calls
+    )
+    dispatch_singleton = AgentControl::ReportDispatch.singleton_class
+    original_dispatch = AgentControl::ReportDispatch.method(:call)
+    poll_singleton = AgentControl::Poll.singleton_class
+    original_poll = AgentControl::Poll.method(:call)
+
+    dispatch_singleton.send(:define_method, :call) do |**kwargs|
+      dispatch_calls << kwargs
+      fake_handler
+    end
+    poll_singleton.send(:define_method, :call) do |**_kwargs|
+      []
+    end
+
+    result = AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_progress",
+      message_id: message_id,
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      progress_payload: { "state" => "stubbed" }
+    )
+
+    receipt = AgentControlReportReceipt.find_by!(installation: context[:installation], message_id: message_id)
+
+    assert_equal "accepted", result.code
+    assert_equal [:called], handler_calls
+    assert_equal 1, dispatch_calls.size
+    assert_equal "execution_progress", dispatch_calls.first.fetch(:method_id)
+    assert_equal mailbox_item.public_id, dispatch_calls.first.fetch(:payload).fetch("mailbox_item_id")
+    assert_equal mailbox_item, receipt.mailbox_item
+    assert_equal agent_task_run, receipt.agent_task_run
+  ensure
+    dispatch_singleton.send(:define_method, :call, original_dispatch) if dispatch_singleton && original_dispatch
+    poll_singleton.send(:define_method, :call, original_poll) if poll_singleton && original_poll
+  end
+
   test "execution_started acknowledges the offered delivery and acquires the task lease" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

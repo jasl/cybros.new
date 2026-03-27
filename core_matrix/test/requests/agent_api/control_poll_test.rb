@@ -64,4 +64,38 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_equal context[:execution_environment].public_id, item.fetch("target_ref")
     assert_equal context[:replacement_deployment].public_id, mailbox_item.reload.leased_to_agent_deployment.public_id
   end
+
+  test "poll delivers environment-plane close requests from the writer path without routing payload fallback" do
+    context = build_rotated_runtime_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run,
+      reason_kind: "turn_interrupted"
+    ).fetch(:mailbox_item)
+
+    post "/agent_api/control/poll",
+      params: { limit: 10 },
+      headers: agent_api_headers(context[:replacement_machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    item = response_body.fetch("mailbox_items").fetch(0)
+
+    assert_equal mailbox_item.public_id, item.fetch("item_id")
+    assert_equal "environment", item.fetch("runtime_plane")
+    assert_equal context[:execution_environment].public_id, item.fetch("target_ref")
+    assert_equal "ProcessRun", item.dig("payload", "resource_type")
+    assert_equal process_run.public_id, item.dig("payload", "resource_id")
+    refute item.fetch("payload").key?("runtime_plane")
+    refute item.fetch("payload").key?("execution_environment_id")
+    assert_equal context[:execution_environment].id, mailbox_item.reload.target_execution_environment_id
+    assert_equal context[:replacement_deployment].public_id, mailbox_item.reload.leased_to_agent_deployment.public_id
+  end
 end
