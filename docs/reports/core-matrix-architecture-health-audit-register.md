@@ -30,21 +30,6 @@
 
 ## Active Entries
 
-### AH-001
-- Status: `confirmed`
-- Title: Conversation and Turn are carrying too much read-side and snapshot-facing responsibility
-- First seen: `2026-03-27`
-- Last reviewed: `2026-03-27`
-- Type: `responsibility drift`
-- Confidence: `high`
-- Priority: `P1`
-- Related files: `core_matrix/app/models/conversation.rb`, `core_matrix/app/models/turn.rb`, `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`, `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
-- Related concepts: transcript projection, historical anchors, visibility
-  overlays, execution context, provider execution
-- Linked rounds: `round-1`
-- Recommended direction: separate aggregate invariants from snapshot-facing and
-  projection-facing helpers
-
 ### AH-002
 - Status: `confirmed`
 - Title: AgentControl::Report is becoming a multi-protocol sink
@@ -159,21 +144,6 @@
 - Recommended direction: clarify one contract family for lock order,
   revalidation, and stale-result handling
 
-### AH-010
-- Status: `clustered`
-- Title: Runtime snapshot shape has no single obvious owner
-- First seen: `2026-03-27`
-- Last reviewed: `2026-03-27`
-- Type: `boundary ambiguity`
-- Confidence: `medium`
-- Priority: `P1`
-- Related files: `core_matrix/app/models/turn.rb`, `core_matrix/app/services/workflows/context_assembler.rb`, `core_matrix/app/services/provider_execution/build_request_context.rb`, `core_matrix/test/services/workflows/context_assembler_test.rb`
-- Related concepts: resolved config snapshot, execution context, model context,
-  provider execution, runtime attachment manifest
-- Linked rounds: `round-1`
-- Recommended direction: make the runtime snapshot a clearer first-class
-  projection or contract owner
-
 ### AH-011
 - Status: `clustered`
 - Title: Mailbox targeting semantics depend on payload inference
@@ -188,21 +158,6 @@
 - Linked rounds: `round-1`
 - Recommended direction: move runtime-plane and durable-target semantics into a
   stricter write-time contract
-
-### AH-013
-- Status: `unification-opportunity`
-- Title: Execution snapshot and aggregate-boundary ownership unification
-- First seen: `2026-03-27`
-- Last reviewed: `2026-03-27`
-- Type: `unification-opportunity`
-- Confidence: `high`
-- Priority: `P1`
-- Related files: `core_matrix/app/models/conversation.rb`, `core_matrix/app/models/turn.rb`, `core_matrix/app/services/workflows/context_assembler.rb`, `core_matrix/app/services/provider_execution/build_request_context.rb`, `core_matrix/app/services/provider_execution/execute_turn_step.rb`
-- Related concepts: aggregate invariants, execution snapshot, snapshot readers,
-  provider execution, runtime attachment manifest
-- Linked rounds: `round-1`
-- Recommended direction: define one explicit execution-snapshot contract owner
-  and shrink aggregate-model helper surfaces to true row invariants
 
 ### AH-014
 - Status: `unification-opportunity`
@@ -220,6 +175,33 @@
   target semantics into one shared control-plane contract family
 
 ## Resolved Or Retired Entries
+
+### AH-001
+- Status: `resolved`
+- Title: Conversation and Turn are carrying too much read-side and snapshot-facing responsibility
+- Decision: resolved by Phase 2 execution-snapshot / aggregate-boundary unification
+- Reason: projection helpers moved out of `Conversation` into dedicated
+  read-side services and the runtime-facing snapshot surface moved behind
+  `Turn#execution_snapshot`, leaving aggregate models with row ownership and
+  invariants only.
+
+### AH-010
+- Status: `resolved`
+- Title: Runtime snapshot shape has no single obvious owner
+- Decision: resolved by explicit execution-snapshot contract introduction
+- Reason: `TurnExecutionSnapshot` and
+  `Workflows::BuildExecutionSnapshot` now own snapshot field names,
+  serialization, and downstream reads, replacing the previous split between
+  `Turn`, `ContextAssembler`, and hash consumers.
+
+### AH-013
+- Status: `resolved`
+- Title: Execution snapshot and aggregate-boundary ownership unification
+- Decision: resolved by Phase 2 execution-snapshot / aggregate-boundary unification
+- Reason: the unification target landed as code and docs: runtime snapshot
+  ownership is explicit, conversation read-side projection logic is extracted,
+  and aggregate models no longer carry the old execution-snapshot convenience
+  surface.
 
 ### AH-012
 - Status: `retired`

@@ -56,11 +56,32 @@
   workspace state, which already contains in-flight uncommitted edits in that
   area. Re-run those judgments after that change set lands.
 
+## Implementation Update
+
+- A later Phase 2 execution-snapshot / aggregate-boundary unification batch
+  has now landed in `core_matrix`.
+- The batch introduced `TurnExecutionSnapshot` and
+  `Workflows::BuildExecutionSnapshot` as the explicit runtime snapshot contract
+  family, replacing the previous split across `Turn`, `ContextAssembler`, and
+  downstream hash readers.
+- Conversation transcript, context, and historical-anchor projection logic now
+  lives in dedicated read-side services under
+  `core_matrix/app/services/conversations/`.
+- That implementation resolves the execution-snapshot ownership family tracked
+  through `AH-001`, `AH-010`, and `AH-013`.
+- The Round 1 observations remain useful as the historical diagnosis that led
+  to the batch, but their current status should now be read through the audit
+  register rather than as still-open findings.
+
 ## Confirmed Findings
 
 ### Conversation and Turn are carrying too much read-side and snapshot-facing responsibility
 - Priority: `P1`
 - Confidence: `high`
+- Implementation update: resolved later by the Phase 2 execution-snapshot /
+  aggregate-boundary unification batch, which extracted conversation
+  projection logic into dedicated services and reduced `Turn` to row-owned
+  state plus the single `execution_snapshot` reader.
 - Why it matters: `Conversation` and `Turn` are both genuine aggregates, but
   they also act as projection engines and snapshot facades. That makes it
   harder to tell which rules are durable domain invariants and which are
@@ -153,6 +174,10 @@
   as explicit stages, instead of one growable service object.
 
 ### Unification Opportunity: Execution snapshot and aggregate-boundary ownership
+- Implementation update: this target shape has now landed. `TurnExecutionSnapshot`
+  owns snapshot field names and readers, `Workflows::BuildExecutionSnapshot`
+  owns persisted snapshot assembly, and the aggregate helper surfaces on
+  `Conversation` and `Turn` were reduced accordingly.
 - Current shape: execution-related structure is split across `Conversation`,
   `Turn`, `Workflows::ContextAssembler`, `ProviderExecution::BuildRequestContext`,
   and downstream consumers.
@@ -364,6 +389,9 @@ clustering, and retirement status live in the cumulative register.
 
 ### Candidate: Runtime snapshot shape has no single obvious owner
 - Category: `complexity`
+- Implementation update: resolved later by introducing
+  `TurnExecutionSnapshot` and `Workflows::BuildExecutionSnapshot` as the
+  single runtime snapshot contract family.
 - Why suspicious: `Turn` exposes many readers over nested snapshot hashes while
   `Workflows::ContextAssembler` manufactures the nested runtime payload and
   other services depend on pieces of it. The snapshot looks important enough to
