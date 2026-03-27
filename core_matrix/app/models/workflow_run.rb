@@ -101,6 +101,10 @@ class WorkflowRun < ApplicationRecord
       wait_reason_payload["recovery_state"] == "paused_agent_unavailable"
   end
 
+  def paused_wait_snapshot
+    WorkflowWaitSnapshot.from_workflow_run(self)
+  end
+
   private
 
   def default_workspace_from_conversation
