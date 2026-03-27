@@ -41,7 +41,10 @@ module Conversations
     end
 
     def validate_anchor_membership!(anchor_message)
-      @parent.historical_anchor_prefix_messages(anchor_message)
+      Conversations::HistoricalAnchorProjection.call(
+        conversation: @parent,
+        message: anchor_message
+      )
     rescue ActiveRecord::RecordNotFound
       invalid_record.errors.add(:historical_anchor_message_id, "must belong to the parent conversation history")
       raise ActiveRecord::RecordInvalid, invalid_record

@@ -306,9 +306,10 @@ class ConversationTest < ActiveSupport::TestCase
     )
 
     queries = capture_visibility_queries do
-      assert_equal 6, branch.context_projection_messages.size
+      assert_equal 6, Conversations::ContextProjection.call(conversation: branch).messages.size
     end
 
+    refute_respond_to branch, :context_projection_messages
     assert_operator queries.size, :<=, 2
   end
 
@@ -353,9 +354,8 @@ class ConversationTest < ActiveSupport::TestCase
     )
     invalid_branch.save!(validate: false)
 
-    assert_raises(ActiveRecord::RecordNotFound) do
-      invalid_branch.reload.transcript_projection_messages
-    end
+    refute_respond_to invalid_branch, :transcript_projection_messages
+    assert_raises(ActiveRecord::RecordNotFound) { Conversations::TranscriptProjection.call(conversation: invalid_branch.reload) }
   end
 
   test "detects active turns locally and across descendants when requested" do

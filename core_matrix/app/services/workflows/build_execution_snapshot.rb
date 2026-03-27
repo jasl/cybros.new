@@ -184,7 +184,7 @@ module Workflows
     end
 
     def visible_context_messages
-      @visible_context_messages ||= @turn.conversation.context_projection_messages.select do |message|
+      @visible_context_messages ||= Conversations::ContextProjection.call(conversation: @turn.conversation).messages.select do |message|
         message.conversation_id != @turn.conversation_id || message.turn.sequence <= @turn.sequence
       end
     end

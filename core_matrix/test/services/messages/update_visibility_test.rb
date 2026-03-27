@@ -26,8 +26,8 @@ class Messages::UpdateVisibilityTest < ActiveSupport::TestCase
     assert overlay.persisted?
     assert_not overlay.hidden?
     assert overlay.excluded_from_context?
-    assert_equal [message.id], conversation.transcript_projection_messages.map(&:id)
-    assert_empty conversation.context_projection_messages
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: conversation).map(&:id)
+    assert_empty Conversations::ContextProjection.call(conversation: conversation).messages
 
     updated = Messages::UpdateVisibility.call(
       conversation: conversation,

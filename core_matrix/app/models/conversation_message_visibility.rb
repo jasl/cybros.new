@@ -33,7 +33,7 @@ class ConversationMessageVisibility < ApplicationRecord
 
   def message_present_in_conversation_projection
     return if conversation.blank? || message.blank?
-    return if conversation.transcript_projection_includes?(message)
+    return if Conversations::TranscriptProjection.call(conversation: conversation).any? { |candidate| candidate.id == message.id }
 
     errors.add(:message, "must be present in the conversation transcript projection")
   end

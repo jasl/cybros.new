@@ -16,7 +16,7 @@ module ConversationTranscripts
     end
 
     def call
-      messages = @conversation.transcript_projection_messages
+      messages = Conversations::TranscriptProjection.call(conversation: @conversation)
       start_index = cursor_start_index(messages)
       page = messages.drop(start_index).first(@limit)
       has_more = messages[start_index + page.length].present?

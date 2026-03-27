@@ -26,8 +26,8 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
       historical_anchor_message_id: message.id
     )
 
-    assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
-    assert_equal [attachment.id], branch.context_projection_attachments.map(&:id)
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: branch).map(&:id)
+    assert_equal [attachment.id], Conversations::ContextProjection.call(conversation: branch).attachments.map(&:id)
 
     branch_error = assert_raises(ActiveRecord::RecordInvalid) do
       Messages::UpdateVisibility.call(
@@ -37,10 +37,10 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
       )
     end
 
-    assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
-    assert_equal [message.id], branch.context_projection_messages.map(&:id)
-    assert_equal [attachment.id], branch.context_projection_attachments.map(&:id)
-    assert_equal [attachment.id], root.context_projection_attachments.map(&:id)
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: branch).map(&:id)
+    assert_equal [message.id], Conversations::ContextProjection.call(conversation: branch).messages.map(&:id)
+    assert_equal [attachment.id], Conversations::ContextProjection.call(conversation: branch).attachments.map(&:id)
+    assert_equal [attachment.id], Conversations::ContextProjection.call(conversation: root).attachments.map(&:id)
     assert_includes branch_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
 
     checkpoint = Conversations::CreateCheckpoint.call(
@@ -48,8 +48,8 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
       historical_anchor_message_id: message.id
     )
 
-    assert_equal [message.id], checkpoint.transcript_projection_messages.map(&:id)
-    assert_equal [attachment.id], checkpoint.context_projection_attachments.map(&:id)
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: checkpoint).map(&:id)
+    assert_equal [attachment.id], Conversations::ContextProjection.call(conversation: checkpoint).attachments.map(&:id)
 
     checkpoint_error = assert_raises(ActiveRecord::RecordInvalid) do
       Messages::UpdateVisibility.call(
@@ -67,10 +67,10 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
       )
     end
 
-    assert_equal [message.id], root.transcript_projection_messages.map(&:id)
-    assert_equal [message.id], branch.transcript_projection_messages.map(&:id)
-    assert_equal [message.id], checkpoint.transcript_projection_messages.map(&:id)
-    assert_equal [attachment.id], checkpoint.context_projection_attachments.map(&:id)
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: root).map(&:id)
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: branch).map(&:id)
+    assert_equal [message.id], Conversations::TranscriptProjection.call(conversation: checkpoint).map(&:id)
+    assert_equal [attachment.id], Conversations::ContextProjection.call(conversation: checkpoint).attachments.map(&:id)
     assert_includes checkpoint_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
   end
 
@@ -98,8 +98,8 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
       historical_anchor_message_id: turn.selected_input_message_id
     )
 
-    assert_equal [turn.selected_input_message_id], branch.transcript_projection_messages.map(&:id)
-    assert_equal [turn.selected_input_message_id], checkpoint.transcript_projection_messages.map(&:id)
+    assert_equal [turn.selected_input_message_id], Conversations::TranscriptProjection.call(conversation: branch).map(&:id)
+    assert_equal [turn.selected_input_message_id], Conversations::TranscriptProjection.call(conversation: checkpoint).map(&:id)
   end
 
   test "output anchored descendants protect the source input from visibility edits" do
@@ -130,8 +130,8 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
       )
     end
 
-    assert_equal ["Root input", "Root output"], root.transcript_projection_messages.map(&:content)
-    assert_equal ["Root input", "Root output"], branch.transcript_projection_messages.map(&:content)
+    assert_equal ["Root input", "Root output"], Conversations::TranscriptProjection.call(conversation: root).map(&:content)
+    assert_equal ["Root input", "Root output"], Conversations::TranscriptProjection.call(conversation: branch).map(&:content)
     assert_includes error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
   end
 end

@@ -49,7 +49,7 @@ class TranscriptImportSummaryFlowTest < ActionDispatch::IntegrationTest
     end
 
     assert_includes branch_error.record.errors[:base], "fork-point messages cannot be hidden or excluded from context"
-    assert_equal [root_message.id], branch.context_projection_messages.map(&:id)
+    assert_equal [root_message.id], Conversations::ContextProjection.call(conversation: branch).messages.map(&:id)
 
     summary_segment = ConversationSummaries::CreateSegment.call(
       conversation: root,

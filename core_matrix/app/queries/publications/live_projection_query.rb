@@ -46,7 +46,7 @@ module Publications
     end
 
     def transcript_messages
-      @publication.conversation.transcript_projection_messages
+      Conversations::TranscriptProjection.call(conversation: @publication.conversation)
     end
 
     def live_events

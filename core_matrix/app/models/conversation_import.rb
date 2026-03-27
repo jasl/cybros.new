@@ -61,9 +61,12 @@ class ConversationImport < ApplicationRecord
     return if source_message.blank? || source_conversation.blank?
 
     if branch_prefix?
-      source_conversation.historical_anchor_prefix_messages(source_message)
+      Conversations::HistoricalAnchorProjection.call(
+        conversation: source_conversation,
+        message: source_message
+      )
       return
-    elsif source_conversation.transcript_projection_includes?(source_message)
+    elsif Conversations::TranscriptProjection.call(conversation: source_conversation).any? { |candidate| candidate.id == source_message.id }
       return
     end
 

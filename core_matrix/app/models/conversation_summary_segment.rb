@@ -49,7 +49,7 @@ class ConversationSummarySegment < ApplicationRecord
   def messages_present_in_transcript_projection
     return if conversation.blank? || start_message.blank? || end_message.blank?
 
-    projection_message_ids = conversation.transcript_projection_messages.map(&:id)
+    projection_message_ids = Conversations::TranscriptProjection.call(conversation: conversation).map(&:id)
 
     errors.add(:start_message, "must be present in the conversation transcript projection") unless projection_message_ids.include?(start_message_id)
     errors.add(:end_message, "must be present in the conversation transcript projection") unless projection_message_ids.include?(end_message_id)
@@ -58,7 +58,7 @@ class ConversationSummarySegment < ApplicationRecord
   def transcript_range_order
     return if conversation.blank? || start_message.blank? || end_message.blank?
 
-    projection_message_ids = conversation.transcript_projection_messages.map(&:id)
+    projection_message_ids = Conversations::TranscriptProjection.call(conversation: conversation).map(&:id)
     start_index = projection_message_ids.index(start_message_id)
     end_index = projection_message_ids.index(end_message_id)
     return if start_index.blank? || end_index.blank?
