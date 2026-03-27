@@ -109,8 +109,44 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     assert_nil close_operation.completed_at
   end
 
+  test "delete reconcile stays disposing while dependency blockers remain after deletion finalization" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    anchor_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Parent thread anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    parent_thread = Conversations::CreateThread.call(
+      parent: root,
+      historical_anchor_message_id: anchor_turn.selected_input_message_id
+    )
+    Conversations::CreateThread.call(
+      parent: parent_thread,
+      historical_anchor_message_id: anchor_turn.selected_input_message_id
+    )
+    parent_thread.update!(deletion_state: "deleted", deleted_at: close_requested_at)
+    close_operation = create_close_operation!(
+      conversation: parent_thread,
+      intent_kind: "delete"
+    )
+
+    Conversations::ReconcileCloseOperation.call(conversation: parent_thread)
+
+    assert_equal "disposing", close_operation.reload.lifecycle_state
+    assert_nil close_operation.completed_at
+    assert_equal 1, close_operation.summary_payload.dig("dependencies", "descendant_lineage_blockers")
+    assert_equal false, close_operation.summary_payload.dig("dependencies", "root_store_blocker")
+  end
+
   test "delete reconcile moves to degraded after deletion finalization when close failures remain" do
-    context = build_agent_control_context!
+    context = build_thread_close_context!
     create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
@@ -141,7 +177,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
   end
 
   test "delete reconcile times out expired background close requests before summarizing the tail" do
-    context = build_agent_control_context!
+    context = build_thread_close_context!
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
@@ -181,7 +217,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
   end
 
   test "delete reconcile completes after deletion finalization when no tail blockers remain" do
-    context = build_agent_control_context!
+    context = build_thread_close_context!
     clear_mainline!(context)
     context[:conversation].update!(deletion_state: "deleted", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
@@ -225,6 +261,42 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
       lifecycle_state: "canceled",
       cancellation_requested_at: close_requested_at,
       cancellation_reason_kind: "turn_interrupted"
+    )
+  end
+
+  def build_thread_close_context!
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Thread close anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    conversation = Conversations::CreateThread.call(
+      parent: root,
+      historical_anchor_message_id: root_turn.selected_input_message_id
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Thread close work",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    workflow_node = create_workflow_node!(workflow_run: workflow_run)
+
+    context.merge(
+      conversation: conversation,
+      turn: turn,
+      workflow_run: workflow_run,
+      workflow_node: workflow_node
     )
   end
 

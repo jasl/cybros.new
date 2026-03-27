@@ -42,4 +42,21 @@ class CanonicalStores::GarbageCollectTest < ActiveSupport::TestCase
     assert_equal 0, CanonicalStoreEntry.count
     assert_equal 0, CanonicalStoreValue.count
   end
+
+  test "reconciles unfinished delete close operations after removing the root store blocker" do
+    context = build_canonical_store_context!
+
+    Conversations::RequestDeletion.call(conversation: context[:conversation])
+    finalized = Conversations::FinalizeDeletion.call(conversation: context[:conversation].reload)
+    close_operation = finalized.reload.conversation_close_operations.order(:created_at).last
+
+    assert_equal "disposing", close_operation.lifecycle_state
+    assert_equal true, close_operation.summary_payload.dig("dependencies", "root_store_blocker")
+
+    CanonicalStores::GarbageCollect.call
+
+    assert_equal "completed", close_operation.reload.lifecycle_state
+    assert_not_nil close_operation.completed_at
+    assert_equal false, close_operation.summary_payload.dig("dependencies", "root_store_blocker")
+  end
 end

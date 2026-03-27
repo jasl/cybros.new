@@ -31,6 +31,109 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert root.reload.deleted?
   end
 
+  test "purging a descendant reconciles the ancestor delete close operation once lineage blockers clear" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Parent thread anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    parent_thread = Conversations::CreateThread.call(
+      parent: root,
+      historical_anchor_message_id: root_turn.selected_input_message_id
+    )
+    parent_turn = Turns::StartUserTurn.call(
+      conversation: parent_thread,
+      content: "Child thread anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_thread = Conversations::CreateThread.call(
+      parent: parent_thread,
+      historical_anchor_message_id: parent_turn.selected_input_message_id
+    )
+
+    Conversations::RequestDeletion.call(conversation: parent_thread)
+    parent_thread = Conversations::FinalizeDeletion.call(conversation: parent_thread.reload)
+    parent_close_operation = parent_thread.conversation_close_operations.order(:created_at).last
+
+    assert_equal "disposing", parent_close_operation.lifecycle_state
+    assert_equal 1, parent_close_operation.summary_payload.dig("dependencies", "descendant_lineage_blockers")
+
+    Conversations::RequestDeletion.call(conversation: child_thread)
+    child_thread = Conversations::FinalizeDeletion.call(conversation: child_thread.reload)
+
+    assert_difference("Conversation.count", -1) do
+      Conversations::PurgeDeleted.call(conversation: child_thread.reload)
+    end
+
+    assert_equal "completed", parent_close_operation.reload.lifecycle_state
+    assert_not_nil parent_close_operation.completed_at
+    assert_equal 0, parent_close_operation.summary_payload.dig("dependencies", "descendant_lineage_blockers")
+  end
+
+  test "purging an importing conversation reconciles source delete close operations once import blockers clear" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    source_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Source thread anchor",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    source_thread = Conversations::CreateThread.call(
+      parent: root,
+      historical_anchor_message_id: source_turn.selected_input_message_id
+    )
+    imported_message = Turns::StartUserTurn.call(
+      conversation: source_thread,
+      content: "Quoted source",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    ).selected_input_message
+    importer = Conversations::CreateThread.call(
+      parent: root,
+      historical_anchor_message_id: source_turn.selected_input_message_id
+    )
+    Conversations::AddImport.call(
+      conversation: importer,
+      kind: "quoted_context",
+      source_message: imported_message
+    )
+
+    Conversations::RequestDeletion.call(conversation: source_thread)
+    source_thread = Conversations::FinalizeDeletion.call(conversation: source_thread.reload)
+    source_close_operation = source_thread.conversation_close_operations.order(:created_at).last
+
+    assert_equal "disposing", source_close_operation.lifecycle_state
+    assert_equal true, source_close_operation.summary_payload.dig("dependencies", "import_provenance_blocker")
+
+    Conversations::RequestDeletion.call(conversation: importer)
+    importer = Conversations::FinalizeDeletion.call(conversation: importer.reload)
+
+    assert_difference("Conversation.count", -1) do
+      Conversations::PurgeDeleted.call(conversation: importer.reload)
+    end
+
+    assert_equal "completed", source_close_operation.reload.lifecycle_state
+    assert_not_nil source_close_operation.completed_at
+    assert_equal false, source_close_operation.summary_payload.dig("dependencies", "import_provenance_blocker")
+  end
+
   test "purges the deleted conversation shell and owned rows once blockers are gone" do
     context = build_human_interaction_context!
     request = HumanInteractions::Request.call(

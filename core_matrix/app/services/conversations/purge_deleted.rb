@@ -16,9 +16,11 @@ module Conversations
       return @conversation unless @conversation.deleted?
 
       purged = false
+      affected_conversation_ids = []
 
       ApplicationRecord.transaction do
         @conversation.with_lock do
+          affected_conversation_ids = reconcile_target_ids
           ensure_finalized_state!
           if @force
             force_quiesce!
@@ -37,10 +39,18 @@ module Conversations
         end
       end
 
+      reconcile_affected_conversations!(affected_conversation_ids) if purged
       purged ? @conversation : @conversation.reload
     end
 
     private
+
+    def reconcile_target_ids
+      (
+        ancestor_conversation_ids +
+        import_source_conversation_ids
+      ).uniq
+    end
 
     def ensure_finalized_state!
       raise_invalid!(@conversation, :base, "must not purge before final deletion removes the canonical store reference") if @conversation.canonical_store_reference.present?
@@ -82,6 +92,25 @@ module Conversations
 
     def conversation_import_provenance_dependency?
       ConversationImport.where(source_conversation: @conversation).exists?
+    end
+
+    def ancestor_conversation_ids
+      @conversation.ancestor_closures.where.not(ancestor_conversation_id: @conversation.id).pluck(:ancestor_conversation_id)
+    end
+
+    def import_source_conversation_ids
+      ConversationImport.where(conversation: @conversation).where.not(source_conversation_id: nil).distinct.pluck(:source_conversation_id)
+    end
+
+    def reconcile_affected_conversations!(conversation_ids)
+      Conversation.where(id: conversation_ids).find_each do |conversation|
+        next if conversation.unfinished_close_operation.blank?
+
+        Conversations::ReconcileCloseOperation.call(
+          conversation: conversation,
+          occurred_at: @occurred_at
+        )
+      end
     end
 
     def raise_invalid!(record, attribute, message)

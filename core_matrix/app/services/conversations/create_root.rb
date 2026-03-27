@@ -1,38 +1,26 @@
 module Conversations
   class CreateRoot
+    include Conversations::CreationSupport
+
     def self.call(...)
       new(...).call
     end
 
-    def initialize(workspace:, execution_environment:, agent_deployment:)
+    def initialize(workspace:, execution_environment:, agent_deployment:, purpose: "interactive")
       @workspace = workspace
       @execution_environment = execution_environment
       @agent_deployment = agent_deployment
+      @purpose = purpose
     end
 
     def call
       ApplicationRecord.transaction do
-        conversation = Conversation.create!(
-          installation: @workspace.installation,
+        create_root_conversation!(
           workspace: @workspace,
           execution_environment: @execution_environment,
           agent_deployment: @agent_deployment,
-          kind: "root",
-          purpose: "interactive",
-          lifecycle_state: "active"
+          purpose: @purpose
         )
-
-        ConversationClosure.create!(
-          installation: conversation.installation,
-          ancestor_conversation: conversation,
-          descendant_conversation: conversation,
-          depth: 0
-        )
-
-        CanonicalStores::BootstrapForConversation.call(conversation: conversation)
-        Conversations::RefreshRuntimeContract.call(conversation: conversation)
-
-        conversation
       end
     end
   end

@@ -1,5 +1,7 @@
 module Conversations
   class CreateBranch
+    include Conversations::CreationSupport
+
     def self.call(...)
       new(...).call
     end
@@ -37,33 +39,11 @@ module Conversations
           )
           conversation.save!
 
-          create_closures_for!(conversation, parent:)
-          create_canonical_store_reference_for!(conversation, parent:)
+          initialize_child_conversation!(conversation: conversation, parent: parent)
           create_branch_prefix_import_for!(conversation, parent:, anchor_message:)
-          Conversations::RefreshRuntimeContract.call(conversation: conversation)
           conversation
         end
       end
-    end
-
-    private
-
-    def create_closures_for!(conversation, parent:)
-      ConversationClosure.where(descendant_conversation: parent).find_each do |closure|
-        ConversationClosure.create!(
-          installation: conversation.installation,
-          ancestor_conversation: closure.ancestor_conversation,
-          descendant_conversation: conversation,
-          depth: closure.depth + 1
-        )
-      end
-
-      ConversationClosure.create!(
-        installation: conversation.installation,
-        ancestor_conversation: conversation,
-        descendant_conversation: conversation,
-        depth: 0
-      )
     end
 
     def create_branch_prefix_import_for!(conversation, parent:, anchor_message:)
@@ -72,16 +52,6 @@ module Conversations
         kind: "branch_prefix",
         source_conversation: parent,
         source_message: anchor_message
-      )
-    end
-
-    def create_canonical_store_reference_for!(conversation, parent:)
-      parent_reference = parent.canonical_store_reference ||
-        raise(ActiveRecord::RecordNotFound, "canonical store reference is missing")
-
-      CanonicalStoreReference.create!(
-        owner: conversation,
-        canonical_store_snapshot: parent_reference.canonical_store_snapshot
       )
     end
   end

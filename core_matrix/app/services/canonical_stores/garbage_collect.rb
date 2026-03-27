@@ -6,6 +6,7 @@ module CanonicalStores
 
     def call
       reachable_snapshot_ids = load_reachable_snapshot_ids
+      affected_root_conversation_ids = []
 
       ApplicationRecord.transaction do
         unreachable_snapshots = reachable_snapshot_ids.empty? ?
@@ -19,11 +20,23 @@ module CanonicalStores
         end
 
         CanonicalStoreValue.where.missing(:canonical_store_entries).delete_all
-        CanonicalStore.where.missing(:canonical_store_snapshots).delete_all
+        unreachable_stores = CanonicalStore.where.missing(:canonical_store_snapshots)
+        affected_root_conversation_ids = unreachable_stores.pluck(:root_conversation_id).compact
+        unreachable_stores.delete_all
       end
+
+      reconcile_deleted_conversations!(affected_root_conversation_ids)
     end
 
     private
+
+    def reconcile_deleted_conversations!(conversation_ids)
+      Conversation.where(id: conversation_ids).find_each do |conversation|
+        next if conversation.unfinished_close_operation.blank?
+
+        Conversations::ReconcileCloseOperation.call(conversation: conversation)
+      end
+    end
 
     def load_reachable_snapshot_ids
       ApplicationRecord.with_connection do |connection|

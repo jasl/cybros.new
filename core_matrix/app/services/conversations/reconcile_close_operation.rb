@@ -41,6 +41,7 @@ module Conversations
     def lifecycle_state_for(close_operation, summary)
       return "quiescing" unless mainline_clear?(summary)
       return "quiescing" if close_operation.intent_delete? && !@conversation.deleted?
+      return "disposing" if close_operation.intent_delete? && dependency_blocked?(summary)
       return "disposing" if tail_pending?(summary)
       return "degraded" if tail_degraded?(summary)
 
@@ -73,6 +74,13 @@ module Conversations
 
     def tail_degraded?(summary)
       summary.dig(:tail, :degraded_close_count).positive?
+    end
+
+    def dependency_blocked?(summary)
+      summary.dig(:dependencies, :descendant_lineage_blockers).positive? ||
+        summary.dig(:dependencies, :root_store_blocker) ||
+        summary.dig(:dependencies, :variable_provenance_blocker) ||
+        summary.dig(:dependencies, :import_provenance_blocker)
     end
   end
 end

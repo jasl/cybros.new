@@ -19,9 +19,10 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
       assert finalized.deleted?
       assert_nil finalized.canonical_store_reference
       assert_not_nil finalized.deleted_at
-      assert_equal "completed", close_operation.lifecycle_state
-      assert_not_nil close_operation.completed_at
+      assert_equal "disposing", close_operation.lifecycle_state
+      assert_nil close_operation.completed_at
       assert_equal 0, close_operation.summary_payload.dig("tail", "running_background_process_count")
+      assert_equal true, close_operation.summary_payload.dig("dependencies", "root_store_blocker")
     end
   end
 
