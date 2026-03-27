@@ -57,8 +57,6 @@ module AgentControl
         dispatch_deadline_at: @force_deadline_at,
         lease_timeout_seconds: 30,
         payload: {
-          "runtime_plane" => runtime_plane,
-          "execution_environment_id" => resource_execution_environment&.public_id,
           "resource_type" => @resource.class.name,
           "resource_id" => @resource.public_id,
           "agent_task_run_id" => agent_task_run&.public_id,

@@ -127,7 +127,8 @@ class ProcessRunTest < ActiveSupport::TestCase
     )
 
     assert_equal process_context[:execution_environment].public_id, close_request.target_ref
-    assert_equal process_context[:execution_environment].public_id, close_request.payload.fetch("execution_environment_id")
+    assert_equal process_context[:execution_environment].id, close_request.target_execution_environment_id
+    refute close_request.payload.key?("execution_environment_id")
   end
 
   private

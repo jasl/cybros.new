@@ -156,7 +156,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal "requested", subagent_run.reload.close_state
     assert_equal subagent_run.public_id, close_request.payload.fetch("resource_id")
     assert_equal "SubagentRun", close_request.payload.fetch("resource_type")
-    assert_equal "agent", close_request.payload.fetch("runtime_plane")
+    assert_equal "agent", close_request.runtime_plane
     assert_equal "agent_installation", close_request.target_kind
     assert_equal context[:agent_installation].public_id, close_request.target_ref
   end
