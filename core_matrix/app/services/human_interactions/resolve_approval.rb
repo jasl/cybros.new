@@ -60,14 +60,7 @@ module HumanInteractions
       return unless workflow_run.blocking_resource_type == "HumanInteractionRequest"
       return unless workflow_run.blocking_resource_id == request.public_id
 
-      workflow_run.update!(
-        wait_state: "ready",
-        wait_reason_kind: nil,
-        wait_reason_payload: {},
-        waiting_since_at: nil,
-        blocking_resource_type: nil,
-        blocking_resource_id: nil
-      )
+      workflow_run.update!(Workflows::WaitState.ready_attributes)
     end
 
     def project_event!(request, event_kind)

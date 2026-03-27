@@ -165,6 +165,27 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert_nil workflow_run.blocking_resource_id
   end
 
+  test "rechecks retained conversation state before auto resuming a workflow" do
+    context = build_waiting_recovery_context!
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: context[:agent_deployment],
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
+    )
+
+    service = AgentDeployments::AutoResumeWorkflows.new(deployment: context[:agent_deployment])
+    inject_pending_delete_before_resume!(service, context[:conversation])
+
+    assert_equal [], service.call
+
+    workflow_run = context[:workflow_run].reload
+    assert workflow_run.waiting?
+    assert_equal "agent_unavailable", workflow_run.wait_reason_kind
+    assert_equal context[:agent_deployment].public_id, workflow_run.blocking_resource_id
+  end
+
   private
 
   def build_waiting_recovery_context!
@@ -244,5 +265,20 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     )
     deployment.update!(active_capability_snapshot: capability_snapshot)
     deployment
+  end
+
+  def inject_pending_delete_before_resume!(service, conversation)
+    injected = false
+
+    service.singleton_class.prepend(Module.new do
+      define_method(:resume_workflow!) do |*args|
+        unless injected
+          injected = true
+          conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+        end
+
+        super(*args)
+      end
+    end)
   end
 end

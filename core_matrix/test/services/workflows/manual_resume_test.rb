@@ -175,6 +175,30 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
   end
 
+  test "rechecks paused recovery state after acquiring the conversation lock" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
+    )
+    service = Workflows::ManualResume.new(
+      workflow_run: context[:workflow_run],
+      deployment: replacement,
+      actor: create_user!(installation: context[:installation], role: "admin")
+    )
+    inject_ready_state_after_initial_check!(service, context[:workflow_run])
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      service.call
+    end
+
+    assert_includes error.record.errors[:wait_reason_kind], "must require manual recovery before resuming"
+    assert context[:workflow_run].reload.ready?
+    assert_equal context[:agent_deployment], context[:conversation].reload.agent_deployment
+    assert_equal context[:agent_deployment], context[:turn].reload.agent_deployment
+  end
+
   test "manual resume restores the original human-interaction blocker for paused workflows" do
     context = build_paused_human_interaction_recovery_context!
     replacement = create_compatible_replacement_deployment!(
@@ -298,5 +322,27 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     deployment.update!(active_capability_snapshot: capability_snapshot)
 
     deployment
+  end
+
+  def inject_ready_state_after_initial_check!(service, workflow_run)
+    injected = false
+
+    service.singleton_class.prepend(Module.new do
+      define_method(:validate_wait_state!) do |current_workflow_run = @workflow_run|
+        super(current_workflow_run).tap do
+          next if injected
+
+          injected = true
+          workflow_run.update!(
+            wait_state: "ready",
+            wait_reason_kind: nil,
+            wait_reason_payload: {},
+            waiting_since_at: nil,
+            blocking_resource_type: nil,
+            blocking_resource_id: nil
+          )
+        end
+      end
+    end)
   end
 end

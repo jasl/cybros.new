@@ -141,6 +141,8 @@ class Turn < ApplicationRecord
   end
 
   def tail_in_active_timeline?
+    return false if canceled?
+
     conversation.turns
       .where("sequence > ?", sequence)
       .where.not(lifecycle_state: "canceled")

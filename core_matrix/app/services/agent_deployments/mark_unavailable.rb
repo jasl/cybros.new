@@ -23,9 +23,8 @@ module AgentDeployments
           last_health_check_at: @occurred_at
         )
 
-        affected_workflows = workflow_runs_scope.map do |workflow_run|
-          apply_wait_state!(workflow_run)
-          workflow_run
+        affected_workflows = workflow_runs_scope.filter_map do |workflow_run|
+          workflow_run if apply_wait_state!(workflow_run)
         end
 
         AuditLog.record!(
@@ -46,16 +45,32 @@ module AgentDeployments
     private
 
     def apply_wait_state!(workflow_run)
-      workflow_run.update!(
-        AgentDeployments::UnavailablePauseState.pause_attributes(
-          workflow_run: workflow_run,
-          deployment: @deployment,
-          recovery_state: recovery_state,
-          reason: @reason,
-          occurred_at: @occurred_at,
-          wait_reason_kind: next_wait_reason_kind
+      applied = false
+
+      Workflows::WithLockedWorkflowContext.call(workflow_run: workflow_run) do |current_workflow_run, turn|
+        next unless pausable_workflow_state?(current_workflow_run, turn)
+
+        current_workflow_run.update!(
+          AgentDeployments::UnavailablePauseState.pause_attributes(
+            workflow_run: current_workflow_run,
+            deployment: @deployment,
+            recovery_state: recovery_state,
+            reason: @reason,
+            occurred_at: @occurred_at,
+            wait_reason_kind: next_wait_reason_kind
+          )
         )
-      )
+        applied = true
+      end
+
+      applied
+    end
+
+    def pausable_workflow_state?(workflow_run, turn)
+      workflow_run.active? &&
+        workflow_run.cancellation_reason_kind.blank? &&
+        turn.cancellation_reason_kind.blank? &&
+        turn.agent_deployment_id == @deployment.id
     end
 
     def workflow_runs_scope

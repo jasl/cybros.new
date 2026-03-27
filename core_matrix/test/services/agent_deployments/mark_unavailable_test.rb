@@ -86,6 +86,27 @@ class AgentDeployments::MarkUnavailableTest < ActiveSupport::TestCase
     assert_equal request.public_id, snapshot["wait_reason_payload"]["request_id"]
   end
 
+  test "rechecks workflow activity before applying the unavailable wait state" do
+    context = build_recovery_context!
+    service = AgentDeployments::MarkUnavailable.new(
+      deployment: context[:agent_deployment],
+      severity: "transient",
+      reason: "heartbeat_missed",
+      occurred_at: Time.current
+    )
+    inject_completed_state_before_pause!(service, context[:workflow_run])
+
+    result = service.call
+
+    assert_equal [], result.workflow_runs.map(&:id)
+
+    workflow_run = context[:workflow_run].reload
+    assert workflow_run.completed?
+    assert workflow_run.ready?
+    assert_nil workflow_run.wait_reason_kind
+    assert_equal({}, workflow_run.wait_reason_payload)
+  end
+
   private
 
   def build_recovery_context!
@@ -111,5 +132,20 @@ class AgentDeployments::MarkUnavailableTest < ActiveSupport::TestCase
     )
 
     context.merge(conversation: conversation, turn: turn.reload, workflow_run: workflow_run.reload)
+  end
+
+  def inject_completed_state_before_pause!(service, workflow_run)
+    injected = false
+
+    service.singleton_class.prepend(Module.new do
+      define_method(:apply_wait_state!) do |current_workflow_run|
+        unless injected
+          injected = true
+          workflow_run.update!(lifecycle_state: "completed")
+        end
+
+        super(current_workflow_run)
+      end
+    end)
   end
 end

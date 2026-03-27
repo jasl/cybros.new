@@ -29,6 +29,48 @@ class Turns::RetryOutputTest < ActiveSupport::TestCase
     assert_equal turn.selected_input_message, retried.selected_output_message.source_input_message
   end
 
+  test "rejects retrying output on a turn superseded by rollback" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    first_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(first_turn, content: "First output")
+    first_turn.update!(lifecycle_state: "completed")
+
+    second_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Second input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(second_turn, content: "Second output")
+    second_turn.update!(lifecycle_state: "failed")
+
+    Conversations::RollbackToTurn.call(conversation: conversation, turn: first_turn)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RetryOutput.call(
+        message: output.reload,
+        content: "Should stay superseded"
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must target the selected tail output"
+    assert second_turn.reload.canceled?
+    assert_equal output, second_turn.selected_output_message
+    assert_equal [output.id], second_turn.messages.where(slot: "output").order(:variant_index).pluck(:id)
+  end
+
   test "rejects retrying output after the turn has been interrupted" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(

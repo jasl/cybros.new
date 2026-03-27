@@ -130,15 +130,50 @@ module Workflows
       def call
         return @turn unless @turn.queued?
 
-        expected_tail_message_id = @turn.origin_payload["expected_tail_message_id"]
-        return @turn if expected_tail_message_id.blank?
+        ApplicationRecord.transaction do
+          @turn.conversation.with_lock do
+            @turn.with_lock do
+              guarded_turn = @turn.reload
+              return guarded_turn unless guarded_turn.queued?
 
-        predecessor_turn = @turn.conversation.turns.where("sequence < ?", @turn.sequence).order(sequence: :desc).first
-        current_predecessor_output_id = predecessor_turn&.selected_output_message&.public_id
-        return @turn if current_predecessor_output_id == expected_tail_message_id
+              expected_tail_message_id = guarded_turn.origin_payload["expected_tail_message_id"]
+              return guarded_turn if expected_tail_message_id.blank?
 
-        @turn.update!(lifecycle_state: "canceled")
-        @turn
+              predecessor_turn = predecessor_turn_for(guarded_turn)
+              current_predecessor_output_id = predecessor_turn&.selected_output_message&.public_id
+              return guarded_turn if current_predecessor_output_id == expected_tail_message_id
+
+              guarded_turn.update!(lifecycle_state: "canceled")
+              release_matching_policy_gate!(predecessor_turn: predecessor_turn, queued_turn: guarded_turn)
+              guarded_turn
+            end
+          end
+        end
+      end
+
+      private
+
+      def predecessor_turn_for(turn)
+        queued_from_turn_id = turn.origin_payload["queued_from_turn_id"]
+        return turn.conversation.turns.find_by(public_id: queued_from_turn_id) if queued_from_turn_id.present?
+
+        turn.conversation.turns.where("sequence < ?", turn.sequence).order(sequence: :desc).first
+      end
+
+      def release_matching_policy_gate!(predecessor_turn:, queued_turn:)
+        workflow_run = predecessor_turn&.workflow_run
+        return if workflow_run.blank?
+
+        workflow_run.with_lock do
+          workflow_run.reload
+          return unless workflow_run.waiting? &&
+            workflow_run.wait_reason_kind == "policy_gate" &&
+            workflow_run.blocking_resource_type == "Turn" &&
+            workflow_run.blocking_resource_id == queued_turn.public_id &&
+            workflow_run.wait_reason_payload["queued_turn_id"] == queued_turn.public_id
+
+          workflow_run.update!(Workflows::WaitState.ready_attributes)
+        end
       end
     end
   end

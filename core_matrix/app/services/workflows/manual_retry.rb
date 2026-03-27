@@ -15,19 +15,19 @@ module Workflows
       validate_retry_state!
 
       ApplicationRecord.transaction do
-        Conversations::WithMutableStateLock.call(
-          conversation: @workflow_run.conversation,
-          record: @workflow_run.conversation,
+        Workflows::WithMutableWorkflowContext.call(
+          workflow_run: @workflow_run,
           retained_message: "must be retained before manual retry",
           active_message: "must be active before manual retry",
           closing_message: "must not retry paused work while close is in progress"
-        ) do |conversation|
-          validate_retry_target!
-          root_node = @workflow_run.workflow_nodes.order(:ordinal).first
-          raise_invalid!(@workflow_run, :workflow_nodes, "must include a root node to retry") if root_node.blank?
+        ) do |conversation, workflow_run, turn|
+          validate_retry_state!(workflow_run)
+          validate_retry_target!(workflow_run, turn)
+          root_node = workflow_run.workflow_nodes.order(:ordinal).first
+          raise_invalid!(workflow_run, :workflow_nodes, "must include a root node to retry") if root_node.blank?
 
-          @workflow_run.update!(lifecycle_state: "canceled")
-          @workflow_run.turn.update!(lifecycle_state: "canceled")
+          workflow_run.update!(lifecycle_state: "canceled")
+          turn.update!(lifecycle_state: "canceled")
           Conversations::SwitchAgentDeployment.call(
             conversation: conversation,
             agent_deployment: @deployment
@@ -35,7 +35,7 @@ module Workflows
 
           retried_turn = Turns::StartUserTurn.call(
             conversation: conversation,
-            content: @workflow_run.turn.selected_input_message.content,
+            content: turn.selected_input_message.content,
             agent_deployment: conversation.agent_deployment,
             resolved_config_snapshot: {},
             resolved_model_selection_snapshot: {}
@@ -47,17 +47,17 @@ module Workflows
             decision_source: root_node.decision_source,
             metadata: root_node.metadata,
             selector_source: "manual_recovery",
-            selector: @selector.presence || @workflow_run.turn.recovery_selector
+            selector: @selector.presence || turn.recovery_selector
           )
 
           AuditLog.record!(
-            installation: @workflow_run.installation,
+            installation: workflow_run.installation,
             action: "workflow.manual_retried",
             actor: @actor,
             subject: retried_workflow_run,
             metadata: {
-              "paused_workflow_run_id" => @workflow_run.id,
-              "paused_turn_id" => @workflow_run.turn.id,
+              "paused_workflow_run_id" => workflow_run.id,
+              "paused_turn_id" => turn.id,
               "deployment_id" => @deployment.id,
               "temporary_selector_override" => @selector,
             }.compact
@@ -70,19 +70,19 @@ module Workflows
 
     private
 
-    def validate_retry_state!
-      return if @workflow_run.paused_agent_unavailable?
+    def validate_retry_state!(workflow_run = @workflow_run)
+      return if workflow_run.paused_agent_unavailable?
 
-      raise_invalid!(@workflow_run, :wait_reason_kind, "must require manual recovery before retrying")
+      raise_invalid!(workflow_run, :wait_reason_kind, "must require manual recovery before retrying")
     end
 
-    def validate_retry_target!
-      raise_invalid!(@workflow_run.turn, :agent_deployment, "must be eligible for scheduling to retry paused work") unless @deployment.eligible_for_scheduling?
-      raise_invalid!(@workflow_run.turn, :selected_input_message, "must exist to retry paused work") if @workflow_run.turn.selected_input_message.blank?
+    def validate_retry_target!(workflow_run, turn)
+      raise_invalid!(turn, :agent_deployment, "must be eligible for scheduling to retry paused work") unless @deployment.eligible_for_scheduling?
+      raise_invalid!(turn, :selected_input_message, "must exist to retry paused work") if turn.selected_input_message.blank?
       Conversations::ValidateAgentDeploymentTarget.call(
-        conversation: @workflow_run.conversation,
+        conversation: workflow_run.conversation,
         agent_deployment: @deployment,
-        record: @workflow_run.turn
+        record: turn
       )
     end
 

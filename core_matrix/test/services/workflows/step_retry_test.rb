@@ -93,4 +93,72 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:turn], "must not be fenced by turn interrupt"
   end
+
+  test "rechecks the retry gate after loading the failed task" do
+    context = build_agent_control_context!
+    failed_task = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "failed",
+      logical_work_id: "retry-step",
+      attempt_no: 1,
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago,
+      terminal_payload: {
+        "retryable" => true,
+        "retry_scope" => "step",
+      }
+    )
+    context[:workflow_run].update!(
+      wait_state: "waiting",
+      wait_reason_kind: "retryable_failure",
+      wait_reason_payload: {
+        "retryable" => true,
+        "retry_scope" => "step",
+        "logical_work_id" => failed_task.logical_work_id,
+        "attempt_no" => failed_task.attempt_no,
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "AgentTaskRun",
+      blocking_resource_id: failed_task.public_id
+    )
+
+    service = Workflows::StepRetry.new(workflow_run: context[:workflow_run])
+    inject_ready_state_after_failed_task_lookup!(service, context[:workflow_run])
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      service.call
+    end
+
+    assert_includes error.record.errors[:wait_reason_kind], "must be retryable_failure before step retry"
+    assert_equal 0,
+      AgentTaskRun.where(
+        workflow_run: context[:workflow_run],
+        logical_work_id: failed_task.logical_work_id,
+        attempt_no: 2
+      ).count
+  end
+
+  private
+
+  def inject_ready_state_after_failed_task_lookup!(service, workflow_run)
+    injected = false
+
+    service.singleton_class.prepend(Module.new do
+      define_method(:blocking_agent_task) do |*args|
+        super(*args).tap do
+          next if injected
+
+          injected = true
+          workflow_run.update!(
+            wait_state: "ready",
+            wait_reason_kind: nil,
+            wait_reason_payload: {},
+            waiting_since_at: nil,
+            blocking_resource_type: nil,
+            blocking_resource_id: nil
+          )
+        end
+      end
+    end)
+  end
 end

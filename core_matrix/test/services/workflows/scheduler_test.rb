@@ -126,6 +126,40 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
     assert guarded.canceled?
   end
 
+  test "restart policy releases the matching policy gate when expected tail no longer matches" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    attach_selected_output!(turn, content: "Initial output")
+    queued_turn = Workflows::Scheduler.apply_during_generation_policy(
+      turn: turn,
+      content: "Queued follow up",
+      policy_mode: "restart"
+    )
+    attach_selected_output!(turn, content: "Newer output", variant_index: 1)
+
+    guarded = Workflows::Scheduler.guard_expected_tail!(turn: queued_turn)
+
+    assert guarded.canceled?
+    assert workflow_run.reload.ready?
+    assert_nil workflow_run.wait_reason_kind
+    assert_equal({}, workflow_run.wait_reason_payload)
+    assert_nil workflow_run.waiting_since_at
+    assert_nil workflow_run.blocking_resource_type
+    assert_nil workflow_run.blocking_resource_id
+  end
+
   private
 
   def create_barrier_workflow!

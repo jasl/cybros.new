@@ -51,12 +51,7 @@ module Conversations
       @workflow_run.update!(
         cancellation_requested_at: @workflow_run.cancellation_requested_at || @occurred_at,
         cancellation_reason_kind: "turn_interrupted",
-        wait_state: "ready",
-        wait_reason_kind: nil,
-        wait_reason_payload: {},
-        waiting_since_at: nil,
-        blocking_resource_type: nil,
-        blocking_resource_id: nil
+        **Workflows::WaitState.ready_attributes
       )
     end
 
@@ -144,12 +139,7 @@ module Conversations
 
       @workflow_run&.update!(
         lifecycle_state: "canceled",
-        wait_state: "ready",
-        wait_reason_kind: nil,
-        wait_reason_payload: {},
-        waiting_since_at: nil,
-        blocking_resource_type: nil,
-        blocking_resource_id: nil
+        **Workflows::WaitState.ready_attributes
       )
 
       @turn.update!(lifecycle_state: "canceled")

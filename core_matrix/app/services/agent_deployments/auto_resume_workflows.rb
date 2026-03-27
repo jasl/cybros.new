@@ -15,8 +15,7 @@ module AgentDeployments
         resume_plan = auto_resume_plan_for(workflow_run.turn)
 
         if @deployment.eligible_for_auto_resume? && resume_plan.present?
-          resume_workflow!(workflow_run, resume_plan)
-          workflow_run
+          workflow_run if resume_workflow!(workflow_run, resume_plan)
         elsif @deployment.eligible_for_scheduling?
           escalate_to_manual_recovery!(workflow_run, drift_reason_for(workflow_run.turn))
           nil
@@ -51,37 +50,65 @@ module AgentDeployments
     end
 
     def resume_workflow!(workflow_run, resume_plan)
-      ApplicationRecord.transaction do
-        rebind_turn!(workflow_run.turn, resume_plan) if resume_plan.fetch(:rebind_turn)
+      resumed = false
 
-        workflow_run.update!(
-          AgentDeployments::UnavailablePauseState.resume_attributes(
-            workflow_run: workflow_run
+      ApplicationRecord.transaction do
+        Workflows::WithMutableWorkflowContext.call(
+          workflow_run: workflow_run,
+          retained_message: "must be retained before auto resume",
+          active_message: "must be active before auto resume",
+          closing_message: "must not auto resume while close is in progress"
+        ) do |_conversation, current_workflow_run, turn|
+          next unless resumable_workflow_state?(current_workflow_run)
+
+          rebind_turn!(turn, resume_plan) if resume_plan.fetch(:rebind_turn)
+          current_workflow_run.update!(
+            AgentDeployments::UnavailablePauseState.resume_attributes(
+              workflow_run: current_workflow_run
+            )
           )
-        )
+          resumed = true
+        end
       end
+
+      resumed
+    rescue ActiveRecord::RecordInvalid
+      false
     end
 
     def escalate_to_manual_recovery!(workflow_run, drift_reason)
-      workflow_run.update!(
-        wait_reason_kind: "manual_recovery_required",
-        wait_reason_payload: workflow_run.wait_reason_payload.merge(
-          "recovery_state" => "paused_agent_unavailable",
-          "drift_reason" => drift_reason,
-          "reason" => @deployment.unavailability_reason.presence || workflow_run.wait_reason_payload["reason"]
-        )
-      )
+      ApplicationRecord.transaction do
+        Workflows::WithMutableWorkflowContext.call(
+          workflow_run: workflow_run,
+          retained_message: "must be retained before auto resume",
+          active_message: "must be active before auto resume",
+          closing_message: "must not auto resume while close is in progress"
+        ) do |_conversation, current_workflow_run, _turn|
+          next unless resumable_workflow_state?(current_workflow_run)
 
-      AuditLog.record!(
-        installation: @deployment.installation,
-        action: "agent_deployment.paused_agent_unavailable",
-        subject: @deployment,
-        metadata: {
-          "reason" => workflow_run.wait_reason_payload["reason"],
-          "drift_reason" => drift_reason,
-          "workflow_run_ids" => [workflow_run.id],
-        }
-      )
+          current_workflow_run.update!(
+            wait_reason_kind: "manual_recovery_required",
+            wait_reason_payload: current_workflow_run.wait_reason_payload.merge(
+              "recovery_state" => "paused_agent_unavailable",
+              "drift_reason" => drift_reason,
+              "reason" => @deployment.unavailability_reason.presence || current_workflow_run.wait_reason_payload["reason"]
+            )
+          )
+
+          AuditLog.record!(
+            installation: @deployment.installation,
+            action: "agent_deployment.paused_agent_unavailable",
+            subject: @deployment,
+            metadata: {
+              "reason" => current_workflow_run.wait_reason_payload["reason"],
+              "drift_reason" => drift_reason,
+              "workflow_run_ids" => [current_workflow_run.id],
+            }
+          )
+        end
+      end
+    rescue ActiveRecord::RecordInvalid
+      false
     end
 
     def resumable_deployment_state?
@@ -154,6 +181,12 @@ module AgentDeployments
 
     def same_execution_environment?(turn)
       turn.conversation.execution_environment_id == @deployment.execution_environment_id
+    end
+
+    def resumable_workflow_state?(workflow_run)
+      workflow_run.active? &&
+        workflow_run.waiting? &&
+        workflow_run.wait_reason_kind == "agent_unavailable"
     end
 
     def drift_reason_for(turn)
