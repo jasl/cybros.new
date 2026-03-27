@@ -1,6 +1,32 @@
 class Turn < ApplicationRecord
   include HasPublicId
 
+  class ExecutionSnapshot
+    def initialize(payload)
+      @payload = payload.deep_dup
+    end
+
+    def to_h
+      @payload.deep_dup
+    end
+
+    def identity
+      @payload.fetch("identity", {})
+    end
+
+    def attachment_manifest
+      @payload.fetch("attachment_manifest", [])
+    end
+
+    def runtime_attachment_manifest
+      @payload.fetch("runtime_attachment_manifest", [])
+    end
+
+    def model_input_attachments
+      @payload.fetch("model_input_attachments", [])
+    end
+  end
+
   enum :lifecycle_state,
     {
       queued: "queued",
@@ -41,6 +67,8 @@ class Turn < ApplicationRecord
   validates :pinned_deployment_fingerprint, presence: true
   validate :origin_payload_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
+  validate :resolved_config_snapshot_must_not_use_legacy_wrapper
+  validate :execution_snapshot_payload_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
   validate :agent_deployment_installation_match
@@ -87,57 +115,55 @@ class Turn < ApplicationRecord
   end
 
   def effective_config_snapshot
-    return resolved_config_snapshot["config"] if resolved_config_snapshot.key?("config")
-
     resolved_config_snapshot
   end
 
-  def execution_context
-    resolved_config_snapshot.fetch("execution_context", {})
+  def execution_snapshot
+    ExecutionSnapshot.new(execution_snapshot_payload || {})
   end
 
   def execution_identity
-    execution_context.fetch("identity", {})
+    execution_snapshot.identity
   end
 
   def model_context
-    execution_context.fetch("model_context", {})
+    execution_snapshot.to_h.fetch("model_context", {})
   end
 
   def provider_execution
-    execution_context.fetch("provider_execution", {})
+    execution_snapshot.to_h.fetch("provider_execution", {})
   end
 
   def budget_hints
-    execution_context.fetch("budget_hints", {})
+    execution_snapshot.to_h.fetch("budget_hints", {})
   end
 
   def turn_origin_context
-    execution_context.fetch("turn_origin", {})
+    execution_snapshot.to_h.fetch("turn_origin", {})
   end
 
   def context_messages
-    execution_context.fetch("context_messages", [])
+    execution_snapshot.to_h.fetch("context_messages", [])
   end
 
   def context_imports
-    execution_context.fetch("context_imports", [])
+    execution_snapshot.to_h.fetch("context_imports", [])
   end
 
   def attachment_manifest
-    execution_context.fetch("attachment_manifest", [])
+    execution_snapshot.attachment_manifest
   end
 
   def runtime_attachment_manifest
-    execution_context.fetch("runtime_attachment_manifest", [])
+    execution_snapshot.runtime_attachment_manifest
   end
 
   def model_input_attachments
-    execution_context.fetch("model_input_attachments", [])
+    execution_snapshot.model_input_attachments
   end
 
   def attachment_diagnostics
-    execution_context.fetch("attachment_diagnostics", [])
+    execution_snapshot.to_h.fetch("attachment_diagnostics", [])
   end
 
   def tail_in_active_timeline?
@@ -157,6 +183,17 @@ class Turn < ApplicationRecord
 
   def resolved_config_snapshot_must_be_hash
     errors.add(:resolved_config_snapshot, "must be a hash") unless resolved_config_snapshot.is_a?(Hash)
+  end
+
+  def resolved_config_snapshot_must_not_use_legacy_wrapper
+    return unless resolved_config_snapshot.is_a?(Hash)
+    return unless resolved_config_snapshot.key?("config") && resolved_config_snapshot.key?("execution_context")
+
+    errors.add(:resolved_config_snapshot, "must not use legacy wrapped execution context")
+  end
+
+  def execution_snapshot_payload_must_be_hash
+    errors.add(:execution_snapshot_payload, "must be a hash") unless execution_snapshot_payload.is_a?(Hash)
   end
 
   def resolved_model_selection_snapshot_must_be_hash

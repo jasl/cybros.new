@@ -235,7 +235,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["canonical_store_snapshot_id"], name: "index_canonical_store_entries_on_canonical_store_snapshot_id"
     t.index ["canonical_store_value_id"], name: "index_canonical_store_entries_on_canonical_store_value_id"
     t.check_constraint "entry_kind::text = 'set'::text AND canonical_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND canonical_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_canonical_store_entries_value_shape"
-    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_canonical_store_entries_kind"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying, 'tombstone'::character varying]::text[])", name: "chk_canonical_store_entries_kind"
     t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_canonical_store_entries_key_bytes"
   end
 
@@ -258,8 +258,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "updated_at", null: false
     t.index ["base_snapshot_id"], name: "index_canonical_store_snapshots_on_base_snapshot_id"
     t.index ["canonical_store_id"], name: "index_canonical_store_snapshots_on_canonical_store_id"
-    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
-    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_canonical_store_snapshots_kind"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying, 'compaction'::character varying]::text[])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying, 'write'::character varying, 'compaction'::character varying]::text[])", name: "chk_canonical_store_snapshots_kind"
   end
 
   create_table "canonical_store_values", force: :cascade do |t|
@@ -337,7 +337,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "requested_at", null: false
     t.jsonb "summary_payload", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL (ARRAY[('completed'::character varying)::text, ('degraded'::character varying)::text]))"
+    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL ((ARRAY['completed'::character varying, 'degraded'::character varying])::text[]))"
     t.index ["conversation_id"], name: "index_conversation_close_operations_on_conversation_id"
     t.index ["installation_id"], name: "index_conversation_close_operations_on_installation_id"
     t.index ["public_id"], name: "index_conversation_close_operations_on_public_id", unique: true
@@ -454,8 +454,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
-    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
-    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -802,6 +802,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "cancellation_requested_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.jsonb "execution_snapshot_payload", default: {}, null: false
     t.string "external_event_key"
     t.string "idempotency_key"
     t.bigint "installation_id", null: false
@@ -947,7 +948,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workflow_run_id", "artifact_key"], name: "index_workflow_artifacts_on_workflow_run_id_and_artifact_key"
     t.index ["workflow_run_id"], name: "index_workflow_artifacts_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_artifacts_on_workspace_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_artifacts_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_artifacts_presentation_policy"
   end
 
   create_table "workflow_edges", force: :cascade do |t|
@@ -990,7 +991,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workflow_run_id", "event_kind"], name: "index_workflow_node_events_on_workflow_run_id_and_event_kind"
     t.index ["workflow_run_id"], name: "index_workflow_node_events_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_node_events_on_workspace_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_node_events_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_node_events_presentation_policy"
   end
 
   create_table "workflow_nodes", force: :cascade do |t|
@@ -1022,7 +1023,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_nodes_on_workspace_id"
     t.index ["yielding_workflow_node_id"], name: "index_workflow_nodes_on_yielding_workflow_node_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_nodes_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_nodes_presentation_policy"
   end
 
   create_table "workflow_runs", force: :cascade do |t|

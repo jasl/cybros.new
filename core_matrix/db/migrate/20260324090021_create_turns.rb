@@ -19,6 +19,7 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.string :cancellation_reason_kind
       t.string :pinned_deployment_fingerprint, null: false
       t.jsonb :resolved_config_snapshot, null: false, default: {}
+      t.jsonb :execution_snapshot_payload, null: false, default: {}
       t.jsonb :resolved_model_selection_snapshot, null: false, default: {}
 
       t.timestamps

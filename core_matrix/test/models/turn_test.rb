@@ -159,7 +159,32 @@ class TurnTest < ActiveSupport::TestCase
     assert_equal "gpt-5.4", turn.resolved_model_ref
   end
 
-  test "exposes execution context helpers from a wrapped resolved config snapshot" do
+  test "rejects non-hash execution snapshot payloads" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turn.new(
+      installation: context[:installation],
+      conversation: conversation,
+      agent_deployment: context[:agent_deployment],
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
+      resolved_config_snapshot: {},
+      execution_snapshot_payload: "invalid",
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert turn.invalid?
+    assert_includes turn.errors[:execution_snapshot_payload], "must be a hash"
+  end
+
+  test "rejects legacy wrapped resolved config snapshot layout" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -179,21 +204,48 @@ class TurnTest < ActiveSupport::TestCase
         "config" => { "temperature" => 0.2 },
         "execution_context" => {
           "identity" => {
-            "user_id" => context[:user].id.to_s,
-            "workspace_id" => context[:workspace].id.to_s,
+            "user_id" => context[:user].public_id,
           },
-          "attachment_manifest" => [{ "attachment_id" => "att-1" }],
-          "model_input_attachments" => [{ "attachment_id" => "att-1" }],
         },
+      },
+      execution_snapshot_payload: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert turn.invalid?
+    assert_includes turn.errors[:resolved_config_snapshot], "must not use legacy wrapped execution context"
+  end
+
+  test "returns an explicit execution snapshot reader" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turn.new(
+      installation: context[:installation],
+      conversation: conversation,
+      agent_deployment: context[:agent_deployment],
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
+      resolved_config_snapshot: { "temperature" => 0.2 },
+      execution_snapshot_payload: {
+        "identity" => {
+          "user_id" => context[:user].public_id,
+          "workspace_id" => context[:workspace].public_id,
+        },
+        "attachment_manifest" => [{ "attachment_id" => "att-1" }],
       },
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal({ "temperature" => 0.2 }, turn.effective_config_snapshot)
-    assert_equal context[:user].id.to_s, turn.execution_identity["user_id"]
-    assert_equal context[:workspace].id.to_s, turn.execution_identity["workspace_id"]
-    assert_equal ["att-1"], turn.attachment_manifest.map { |item| item.fetch("attachment_id") }
-    assert_equal ["att-1"], turn.model_input_attachments.map { |item| item.fetch("attachment_id") }
+    assert_equal context[:user].public_id, turn.execution_snapshot.identity["user_id"]
+    assert_equal context[:workspace].public_id, turn.execution_snapshot.identity["workspace_id"]
+    assert_equal ["att-1"], turn.execution_snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }
   end
 
   test "rejects a deployment outside the conversation execution environment" do
