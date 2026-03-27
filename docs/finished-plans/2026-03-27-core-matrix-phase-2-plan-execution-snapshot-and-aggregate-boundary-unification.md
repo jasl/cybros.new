@@ -249,7 +249,8 @@ Then run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "effective_config_snapshot|LEGACY_WRAPPED_EXECUTION_KEY|legacy_snapshot_context_key" core_matrix/app core_matrix/test core_matrix/docs docs/reports
+rg -n "LEGACY_WRAPPED_EXECUTION_KEY|legacy_snapshot_context_key" core_matrix/app core_matrix/test core_matrix/docs docs/reports
+rg -n "effective_config_snapshot" core_matrix/app core_matrix/docs docs/reports
 git diff --check
 ```
 
@@ -273,3 +274,38 @@ Confirm:
 - the audit register and Round 1 report describe the landed owners with current
   names.
 - targeted tests, grep audits, and `git diff --check` all pass.
+
+## Completion Record
+
+- Status: completed
+- Completion date: 2026-03-28
+- Retirement note: moved out of `docs/plans` after the third-round
+  completeness review confirmed this closeout had already landed in code and
+  active docs.
+- Landing commits:
+  - `b3c3198` `refactor: split turn execution snapshot persistence`
+  - `0090944` `refactor: formalize execution snapshot contract`
+  - `679b15a` `refactor: wire turn to execution snapshot contract`
+  - `bec23bb` `refactor: extract conversation projection services`
+  - `be756eb` `refactor: route execution consumers through snapshot contract`
+  - `d52d962` `docs: record execution snapshot boundary unification`
+  - `e82a02b` `cleanup: close out execution snapshot boundaries`
+- Landed scope:
+  - `Turn` now exposes the explicit `execution_snapshot` contract and no longer
+    carries the old public transition helper surface.
+  - `Workflows::BuildExecutionSnapshot` owns persisted runtime snapshot
+    assembly, and conversation projection logic lives in the extracted
+    `Conversations::*Projection` services.
+  - active behavior docs and audit artifacts describe the landed owners using
+    the current names.
+- Review corrections on 2026-03-28:
+  - the final grep gate was narrowed so it no longer false-fails on the
+    intentional negative assertion in `core_matrix/test/models/turn_test.rb`
+    that proves `effective_config_snapshot` is gone.
+  - the plan was retired from active execution tracking because the requested
+    closeout work was already present at `HEAD`.
+- Verification evidence:
+  - `cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix && bin/rails test test/models/turn_test.rb test/models/conversation_test.rb test/services/workflows/build_execution_snapshot_test.rb test/services/workflows/create_for_turn_test.rb test/queries/publications/live_projection_query_test.rb test/integration/workflow_context_flow_test.rb`
+  - `cd /Users/jasl/Workspaces/Ruby/cybros && rg -n "LEGACY_WRAPPED_EXECUTION_KEY|legacy_snapshot_context_key" core_matrix/app core_matrix/test core_matrix/docs docs/reports`
+  - `cd /Users/jasl/Workspaces/Ruby/cybros && rg -n "effective_config_snapshot" core_matrix/app core_matrix/docs docs/reports`
+  - `cd /Users/jasl/Workspaces/Ruby/cybros && git diff --check`

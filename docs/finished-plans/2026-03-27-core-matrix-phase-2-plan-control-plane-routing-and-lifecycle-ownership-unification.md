@@ -258,3 +258,34 @@ alongside the other finished implementation artifacts.
   lifecycle owners correctly.
 - focused service and request tests pass.
 - `git diff --check` passes.
+
+## Completion Record
+
+- Status: completed
+- Completion date: 2026-03-28
+- Retirement note: moved out of `docs/plans` after the third-round
+  completeness review confirmed the remaining request-boundary hardening had
+  already landed and the active plan was stale.
+- Landing commits:
+  - `ab6131f` `refactor: unify mailbox routing for poll and publish`
+  - `3a00781` `refactor: split control report handling by family`
+  - `687ddf1` `docs: record control-plane routing unification`
+  - `cc07a5d` `test: harden control-plane ingress coverage`
+  - `b033b4e` `test: cover wrong-environment close report rejection`
+- Landed scope:
+  - durable mailbox routing lives on mailbox-row fields, with
+    `ResolveTargetRuntime` shared by poll and publish.
+  - `AgentControl::Report` remains a thin ingress shell while execution, close,
+    and health lifecycle handling is split across dedicated handler families and
+    freshness validators.
+  - the wrong-environment environment-plane close-report regression is covered
+    at the request boundary and rejects spoofed payload routing data.
+- Review corrections on 2026-03-28:
+  - the active plan was retired because the purported final missing regression
+    already existed in `core_matrix/test/requests/agent_api/resource_close_test.rb`.
+  - the focused control-plane verification suite was rerun during the review to
+    confirm the retirement decision against current `HEAD`.
+- Verification evidence:
+  - `cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix && bin/rails test test/models/agent_control_mailbox_item_test.rb test/services/agent_control/poll_test.rb test/services/agent_control/publish_pending_test.rb test/services/agent_control/report_test.rb test/requests/agent_api/control_poll_test.rb test/requests/agent_api/resource_close_test.rb test/requests/agent_api/execution_delivery_test.rb`
+  - `cd /Users/jasl/Workspaces/Ruby/cybros && rg -n "inferred_runtime_plane|payload ->> 'runtime_plane'|payload ->> \"runtime_plane\"" core_matrix/app core_matrix/docs/behavior docs/reports`
+  - `cd /Users/jasl/Workspaces/Ruby/cybros && git diff --check`

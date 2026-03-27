@@ -10,6 +10,12 @@ milestone, or review used `references/` or external repositories during
 implementation, summarize the retained findings in the finished record instead
 of leaving only a volatile reference path behind.
 
+Current Phase 2 finished records:
+
+- Closeout records:
+  [2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md),
+  [2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md)
+
 Current Phase 1 finished records:
 
 - Follow-up records:
