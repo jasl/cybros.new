@@ -1,5 +1,5 @@
 module Workflows
-  class ContextAssembler
+  class BuildExecutionSnapshot
     def self.call(...)
       new(...).call
     end
@@ -14,22 +14,20 @@ module Workflows
 
       raw_attachment_manifest = build_raw_attachment_manifest
       attachment_manifest = build_attachment_manifest(raw_attachment_manifest)
-      {
-        "config" => @turn.effective_config_snapshot,
-        "execution_context" => {
-          "identity" => execution_identity,
-          "model_context" => model_context,
-          "provider_execution" => provider_execution,
-          "budget_hints" => budget_hints,
-          "turn_origin" => turn_origin,
-          "context_messages" => context_messages,
-          "context_imports" => context_imports,
-          "attachment_manifest" => attachment_manifest,
-          "runtime_attachment_manifest" => build_runtime_attachment_manifest(attachment_manifest),
-          "model_input_attachments" => build_model_input_attachments(attachment_manifest),
-          "attachment_diagnostics" => build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest),
-        },
-      }
+
+      TurnExecutionSnapshot.new(
+        "identity" => execution_identity,
+        "model_context" => model_context,
+        "provider_execution" => provider_execution,
+        "budget_hints" => budget_hints,
+        "turn_origin" => turn_origin,
+        "context_messages" => context_messages,
+        "context_imports" => context_imports,
+        "attachment_manifest" => attachment_manifest,
+        "runtime_attachment_manifest" => build_runtime_attachment_manifest(attachment_manifest),
+        "model_input_attachments" => build_model_input_attachments(attachment_manifest),
+        "attachment_diagnostics" => build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
+      )
     end
 
     private

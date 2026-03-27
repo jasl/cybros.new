@@ -642,6 +642,18 @@ module ActiveSupport
       context.merge(capability_snapshot: capability_snapshot)
     end
 
+    def build_execution_snapshot_for!(turn:, selector_source: "conversation", selector: nil)
+      turn.update!(
+        resolved_model_selection_snapshot: Workflows::ResolveModelSelector.call(
+          turn: turn,
+          selector_source: selector_source,
+          selector: selector
+        )
+      )
+
+      Workflows::BuildExecutionSnapshot.call(turn: turn)
+    end
+
     def bundled_agent_configuration(enabled: true, **attrs)
       {
         enabled: enabled,

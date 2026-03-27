@@ -24,10 +24,10 @@ module Workflows
           selector: @selector
         )
         @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
-        assembled_snapshot = Workflows::ContextAssembler.call(turn: @turn)
+        execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: @turn)
         @turn.update!(
-          resolved_config_snapshot: assembled_snapshot.fetch("config"),
-          execution_snapshot_payload: assembled_snapshot.fetch("execution_context")
+          resolved_config_snapshot: @turn.resolved_config_snapshot,
+          execution_snapshot_payload: execution_snapshot.to_h
         )
 
         workflow_run = WorkflowRun.create!(
