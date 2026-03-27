@@ -19,7 +19,6 @@ module ConcurrentAllocationHelpers
     ready = Queue.new
     gate = Queue.new
     results = Array.new(operations.size)
-
     threads = operations.each_with_index.map do |operation, index|
       Thread.new do
         Thread.current.report_on_exception = false
@@ -42,6 +41,13 @@ module ConcurrentAllocationHelpers
     end
 
     results
+  ensure
+    Array(threads).each do |thread|
+      next unless thread&.alive?
+
+      thread.kill
+      thread.join
+    end
   end
 
   def assert_parallel_success!(results)

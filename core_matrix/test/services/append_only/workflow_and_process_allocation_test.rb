@@ -1,11 +1,6 @@
 require "test_helper"
 
-class AppendOnly::WorkflowAndProcessAllocationTest < ActiveSupport::TestCase
-  self.use_transactional_tests = false
-
-  setup { truncate_all_tables! }
-  teardown { truncate_all_tables! }
-
+class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrencyTestCase
   test "allocates unique workflow node and edge ordinals across concurrent mutations" do
     context = prepare_workflow_execution_context!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(

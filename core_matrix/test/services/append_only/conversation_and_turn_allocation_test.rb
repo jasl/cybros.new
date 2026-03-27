@@ -3,12 +3,7 @@ require "test_helper"
 module AppendOnly
 end
 
-class AppendOnly::ConversationAndTurnAllocationTest < ActiveSupport::TestCase
-  self.use_transactional_tests = false
-
-  setup { truncate_all_tables! }
-  teardown { truncate_all_tables! }
-
+class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrencyTestCase
   test "allocates unique sequences for concurrent user turns in one conversation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

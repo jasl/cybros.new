@@ -1,0 +1,2 @@
+module AppendOnly
+end
