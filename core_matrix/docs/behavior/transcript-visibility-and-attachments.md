@@ -25,8 +25,8 @@ into descendant conversation support surfaces.
 
 ## Transcript Projection Behavior
 
-- `Conversation#transcript_projection_messages` returns the visible transcript
-  path for the conversation.
+- `Conversations::TranscriptProjection.call(conversation: conversation)`
+  returns the visible transcript path for the conversation.
 - Root conversations project the selected input and selected output message of
   each turn in sequence order.
 - Thread conversations inherit the full parent projection and append their own
@@ -38,9 +38,9 @@ into descendant conversation support surfaces.
   conversation to the target conversation.
 - Projection helpers batch the relevant overlay rows for the current lineage
   path instead of issuing per-message overlay existence checks.
-- `Conversation#context_projection_messages` starts from the visible transcript
-  projection and removes messages marked `excluded_from_context` anywhere along
-  that lineage path.
+- `Conversations::ContextProjection.call(conversation: conversation).messages`
+  starts from the visible transcript projection and removes messages marked
+  `excluded_from_context` anywhere along that lineage path.
 
 ## Attachment Behavior
 
@@ -52,9 +52,10 @@ into descendant conversation support surfaces.
 - v1 does not introduce a separate attachment-visibility overlay model.
 - Attachment visibility and context inclusion inherit entirely from the parent
   message projection state.
-- `Conversation#context_projection_attachments` derives attachment support rows
-  from `context_projection_messages`, so hidden or context-excluded messages do
-  not leak attachments into branch or checkpoint support projections.
+- `Conversations::ContextProjection.call(conversation: conversation).attachments`
+  derives attachment support rows from the context-message projection, so
+  hidden or context-excluded messages do not leak attachments into branch or
+  checkpoint support projections.
 - transcript visibility decides which attachments are even eligible for a
   conversation, but later runtime exposure is still gated by the conversation's
   effective runtime contract from its bound execution environment plus active

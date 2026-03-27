@@ -39,7 +39,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal "codex_subscription", workflow_run.resolved_provider_handle
     assert_equal "gpt-5.4", workflow_run.resolved_model_ref
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
-    refute turn.resolved_config_snapshot.key?(legacy_snapshot_context_key)
+    refute turn.resolved_config_snapshot.key?("execution_context")
     assert_equal turn.public_id, turn.execution_snapshot.identity["turn_id"]
     assert_equal context[:user].public_id, turn.execution_snapshot.identity["user_id"]
     assert_equal context[:workspace].public_id, turn.execution_snapshot.identity["workspace_id"]

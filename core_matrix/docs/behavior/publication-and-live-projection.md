@@ -85,7 +85,7 @@ copying transcript data into a second source of truth.
   conversation state instead of duplicating transcript rows into publication
   storage.
 - the query combines:
-  - `conversation.transcript_projection_messages`
+  - `Conversations::TranscriptProjection.call(conversation: conversation)`
   - `ConversationEvent.live_projection(conversation: ...)`
 - projection entries preserve type distinction explicitly:
   - `entry_type = "message"`

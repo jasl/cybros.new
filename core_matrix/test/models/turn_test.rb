@@ -202,7 +202,7 @@ class TurnTest < ActiveSupport::TestCase
       pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
       resolved_config_snapshot: {
         "config" => { "temperature" => 0.2 },
-        legacy_snapshot_context_key => {
+        "execution_context" => {
           "identity" => {
             "user_id" => context[:user].public_id,
           },
@@ -214,6 +214,12 @@ class TurnTest < ActiveSupport::TestCase
 
     assert turn.invalid?
     assert_includes turn.errors[:resolved_config_snapshot], "must not use legacy wrapped execution context"
+  end
+
+  test "does not expose a legacy effective config snapshot helper" do
+    turn = Turn.new
+
+    refute_respond_to turn, :effective_config_snapshot
   end
 
   test "returns an explicit execution snapshot reader" do

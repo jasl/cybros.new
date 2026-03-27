@@ -240,7 +240,7 @@ module Workflows
       allowed_keys = ProviderExecution::BuildRequestContext::EXECUTION_SETTING_KEYS.fetch(provider_definition.fetch(:wire_api), [])
       settings = model_definition.fetch(:request_defaults, {}).slice(*allowed_keys)
 
-      @turn.effective_config_snapshot.each do |key, value|
+      @turn.resolved_config_snapshot.each do |key, value|
         next unless allowed_keys.include?(key)
 
         settings[key] = value

@@ -68,7 +68,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: current_turn)
 
-    refute snapshot.to_h.key?(legacy_snapshot_context_key)
+    refute snapshot.to_h.key?("execution_context")
     assert_equal context[:user].public_id, snapshot.identity.fetch("user_id")
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")

@@ -62,8 +62,8 @@
   has now landed in `core_matrix`.
 - The batch introduced `TurnExecutionSnapshot` and
   `Workflows::BuildExecutionSnapshot` as the explicit runtime snapshot contract
-  family, replacing the previous split across `Turn`, `ContextAssembler`, and
-  downstream hash readers.
+  family, replacing the previous split across `Turn`, workflow snapshot
+  assembly, and downstream hash readers.
 - Conversation transcript, context, and historical-anchor projection logic now
   lives in dedicated read-side services under
   `core_matrix/app/services/conversations/`.
@@ -99,9 +99,9 @@
   - `core_matrix/app/models/turn.rb`
   - `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
   - `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
-- Counterpoint: the behavior docs do intentionally bless `ContextAssembler` as
-  the assembly boundary and `Turn` as a read-helper surface, so some exposure
-  is expected.
+- Counterpoint: the behavior docs do intentionally bless an explicit workflow
+  snapshot assembly boundary and a limited `Turn` read surface, so some
+  exposure is expected.
 - Related concepts: transcript projection, historical anchors, execution
   context, provider execution, runtime attachment manifest
 - Local fix: extract transcript-projection and snapshot-access helpers into
@@ -117,10 +117,11 @@
   and lifecycle ownership unification batch, which moved routing semantics into
   durable mailbox fields and split the report family handling behind a thin
   ingress shell.
-- Why it matters: `AgentControl::Report` is acting as a large ingress shell for
-  execution events, close events, retry gating, and follow-up reconciliation,
-  while mailbox targeting still relies partly on payload inference. That makes
-  control-plane growth depend on one increasingly broad intake boundary.
+- Why it mattered at audit time: `AgentControl::Report` acted as a large
+  ingress shell for execution events, close events, retry gating, and
+  follow-up reconciliation, while mailbox targeting still depended partly on
+  payload conventions. That made control-plane growth depend on one
+  increasingly broad intake boundary.
 - Evidence:
   - `core_matrix/app/services/agent_control/report.rb`
   - `core_matrix/app/models/agent_control_mailbox_item.rb`
@@ -190,9 +191,9 @@
   owns snapshot field names and readers, `Workflows::BuildExecutionSnapshot`
   owns persisted snapshot assembly, and the aggregate helper surfaces on
   `Conversation` and `Turn` were reduced accordingly.
-- Current shape: execution-related structure is split across `Conversation`,
-  `Turn`, `Workflows::ContextAssembler`, `ProviderExecution::BuildRequestContext`,
-  and downstream consumers.
+- Historical shape at audit time: execution-related structure was split across
+  `Conversation`, `Turn`, workflow snapshot assembly,
+  `ProviderExecution::BuildRequestContext`, and downstream consumers.
 - Why it is not orthogonal: the codebase has aggregate roots, snapshot
   assemblers, and convenience read helpers, but the ownership line between them
   is only partly explicit. That invites more fields and more helper methods to
@@ -369,7 +370,7 @@ clustering, and retirement status live in the cumulative register.
 - Category: `test-reverse-view`
 - Why suspicious: Many service and integration tests depend on large helper
   families like `create_workspace_context!`, `build_human_interaction_context!`,
-  `build_agent_control_context!`, `prepare_workflow_execution_context!`, and
+  `build_agent_control_context!`, `prepare_workflow_execution_setup!`, and
   scenario builders to express ordinary behavior.
 - Evidence: `core_matrix/test/test_helper.rb`; `core_matrix/test/services/workflows/manual_resume_test.rb`; `core_matrix/test/services/conversations/purge_deleted_test.rb`; `core_matrix/test/services/agent_control/poll_test.rb`
 - Possible impact: Tests may remain expressive only for contributors who know
@@ -408,12 +409,12 @@ clustering, and retirement status live in the cumulative register.
 - Implementation update: resolved later by introducing
   `TurnExecutionSnapshot` and `Workflows::BuildExecutionSnapshot` as the
   single runtime snapshot contract family.
-- Why suspicious: `Turn` exposes many readers over nested snapshot hashes while
-  `Workflows::ContextAssembler` manufactures the nested runtime payload and
-  other services depend on pieces of it. The snapshot looks important enough to
-  be a first-class concept, but today it is split across a row, an assembler,
-  and downstream hash consumers.
-- Evidence: `core_matrix/app/models/turn.rb`; `core_matrix/app/services/workflows/context_assembler.rb`; `core_matrix/app/services/provider_execution/build_request_context.rb`; `core_matrix/test/services/workflows/context_assembler_test.rb`
+- Why suspicious: `Turn` exposed many readers over nested snapshot hashes while
+  workflow snapshot assembly lived in a separate builder layer and other
+  services depended on pieces of it. The snapshot looked important enough to be
+  a first-class concept, but it was split across a row, assembly code, and
+  downstream hash consumers.
+- Evidence: `core_matrix/app/models/turn.rb`; `core_matrix/app/services/workflows/build_execution_snapshot.rb`; `core_matrix/app/services/provider_execution/build_request_context.rb`; `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
 - Possible impact: snapshot-shape changes may fan out across helpers and tests,
   and it becomes hard to tell whether a field is part of a durable contract or
   just an incidental hash entry.
@@ -427,9 +428,9 @@ clustering, and retirement status live in the cumulative register.
 
 ### Candidate: Mailbox targeting semantics depend on payload inference
 - Category: `contracts`
-- Why suspicious: `AgentControlMailboxItem` partly reads runtime-plane and
--target meaning from explicit fields and partly infers them from payload
-  conventions such as `resource_type == "ProcessRun"`.
+- Why suspicious at audit time: `AgentControlMailboxItem` partly read
+  runtime-plane and target meaning from explicit fields and partly inferred
+  them from payload conventions such as `resource_type == "ProcessRun"`.
 - Evidence: `core_matrix/app/models/agent_control_mailbox_item.rb`; `core_matrix/app/services/agent_control/resolve_target_runtime.rb`; `core_matrix/app/services/agent_control/create_resource_close_request.rb`
 - Possible impact: as environment-plane work grows, mailbox routing can become
   increasingly convention-driven instead of contract-driven, which makes the

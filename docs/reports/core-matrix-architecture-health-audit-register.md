@@ -156,7 +156,7 @@
 - Reason: `TurnExecutionSnapshot` and
   `Workflows::BuildExecutionSnapshot` now own snapshot field names,
   serialization, and downstream reads, replacing the previous split between
-  `Turn`, `ContextAssembler`, and hash consumers.
+  `Turn`, workflow snapshot assembly, and hash consumers.
 
 ### AH-013
 - Status: `resolved`

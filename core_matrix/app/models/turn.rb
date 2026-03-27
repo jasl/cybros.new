@@ -1,8 +1,6 @@
 class Turn < ApplicationRecord
   include HasPublicId
 
-  LEGACY_WRAPPED_EXECUTION_KEY = ["execution", "context"].join("_").freeze
-
   enum :lifecycle_state,
     {
       queued: "queued",
@@ -90,10 +88,6 @@ class Turn < ApplicationRecord
     normalized_selector.presence || "role:main"
   end
 
-  def effective_config_snapshot
-    resolved_config_snapshot
-  end
-
   def execution_snapshot
     TurnExecutionSnapshot.new(execution_snapshot_payload || {})
   end
@@ -119,7 +113,7 @@ class Turn < ApplicationRecord
 
   def resolved_config_snapshot_must_not_use_legacy_wrapper
     return unless resolved_config_snapshot.is_a?(Hash)
-    return unless resolved_config_snapshot.key?("config") && resolved_config_snapshot.key?(LEGACY_WRAPPED_EXECUTION_KEY)
+    return unless resolved_config_snapshot.key?("config") && resolved_config_snapshot.key?("execution_context")
 
     errors.add(:resolved_config_snapshot, "must not use legacy wrapped execution context")
   end

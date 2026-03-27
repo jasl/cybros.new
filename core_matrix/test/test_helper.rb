@@ -654,10 +654,6 @@ module ActiveSupport
       Workflows::BuildExecutionSnapshot.call(turn: turn)
     end
 
-    def legacy_snapshot_context_key
-      ["execution", "context"].join("_")
-    end
-
     def bundled_agent_configuration(enabled: true, **attrs)
       {
         enabled: enabled,
