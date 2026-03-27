@@ -43,5 +43,19 @@
 
 - architecture map captured from `app` and `test` namespace inventories
 - hotspot inventory recorded from current file counts
-- findings, opportunities, and system judgment are still pending boundary
-  review and cross-check
+- conversation and lifecycle boundary reviewed through
+  `docs/behavior/conversation-structure-and-lineage.md`,
+  `app/models/conversation.rb`, `app/services/conversations`, and
+  `test/services/conversations`
+- workflow and execution boundary reviewed through
+  `docs/behavior/workflow-graph-foundations.md`,
+  `docs/behavior/workflow-scheduler-and-wait-states.md`,
+  `app/services/workflows`, and `test/services/workflows`
+- runtime control-plane boundary reviewed through
+  `docs/behavior/agent-runtime-resource-apis.md`,
+  `app/services/agent_control`, `app/controllers/agent_api/control_controller.rb`,
+  and `test/services/agent_control`
+- candidate issues from these three boundaries are collected in local scratch
+  and still pending cross-check before promotion
+- findings, opportunities, and system judgment are still pending the remaining
+  boundary review and anti-pattern pass
