@@ -1,4 +1,18 @@
 require "test_helper"
+require "timeout"
+
+module RequestConcurrencyConversationLockObserver
+  def with_lock(*args, **kwargs, &block)
+    observer = Thread.current[:request_concurrency_lock_observer]
+    observed_conversation_id = Thread.current[:request_concurrency_conversation_id]
+
+    observer << true if observer && id == observed_conversation_id
+
+    super
+  end
+end
+
+Conversation.prepend(RequestConcurrencyConversationLockObserver) unless Conversation < RequestConcurrencyConversationLockObserver
 
 class HumanInteractions::RequestConcurrencyTest < NonTransactionalConcurrencyTestCase
   test "waits for the conversation lock and rejects opens after concurrent archival" do
@@ -6,13 +20,14 @@ class HumanInteractions::RequestConcurrencyTest < NonTransactionalConcurrencyTes
     conversation_id = context[:conversation].id
     workflow_node_id = context[:workflow_node].id
     lock_attempted = Queue.new
-    request_service = build_lock_observed_request_service(lock_attempted)
 
     ready = Queue.new
     gate = Queue.new
 
     request_thread = Thread.new do
       Thread.current.report_on_exception = false
+      Thread.current[:request_concurrency_lock_observer] = lock_attempted
+      Thread.current[:request_concurrency_conversation_id] = conversation_id
 
       ActiveRecord::Base.connection_pool.with_connection do
         workflow_node = WorkflowNode.find(workflow_node_id)
@@ -21,7 +36,7 @@ class HumanInteractions::RequestConcurrencyTest < NonTransactionalConcurrencyTes
         ready << true
         gate.pop
 
-        request_service.call(
+        HumanInteractions::Request.call(
           request_type: "ApprovalRequest",
           workflow_node: workflow_node,
           blocking: true,
@@ -29,6 +44,9 @@ class HumanInteractions::RequestConcurrencyTest < NonTransactionalConcurrencyTes
         )
       rescue => error
         error
+      ensure
+        Thread.current[:request_concurrency_lock_observer] = nil
+        Thread.current[:request_concurrency_conversation_id] = nil
       end
     end
 
@@ -36,9 +54,9 @@ class HumanInteractions::RequestConcurrencyTest < NonTransactionalConcurrencyTes
       conversation = Conversation.find(conversation_id)
 
       conversation.with_lock do
-        ready.pop
+        wait_for_signal!(ready, message: "request thread did not start")
         gate << true
-        lock_attempted.pop
+        wait_for_signal!(lock_attempted, message: "request thread never attempted conversation lock")
         conversation.update!(lifecycle_state: "archived")
       end
     end
@@ -49,29 +67,16 @@ class HumanInteractions::RequestConcurrencyTest < NonTransactionalConcurrencyTes
     assert_instance_of ActiveRecord::RecordInvalid, result
     assert_includes result.record.errors[:lifecycle_state], "must be active before opening human interaction"
     assert_empty HumanInteractionRequest.where(conversation_id: conversation_id)
+  ensure
+    next unless request_thread&.alive?
+
+    request_thread.kill
+    request_thread.join
   end
 
   private
 
-  def build_lock_observed_request_service(lock_attempted)
-    Class.new(HumanInteractions::Request) do
-      define_method(:with_locked_workflow_context) do |workflow_node_id, &block|
-        ApplicationRecord.transaction do
-          workflow_node = WorkflowNode.find(workflow_node_id)
-          workflow_run = WorkflowRun.find(workflow_node.workflow_run_id)
-          conversation = Conversation.find(workflow_run.conversation_id)
-
-          lock_attempted << true
-
-          conversation.with_lock do
-            workflow_run.with_lock do
-              block.call(workflow_node.reload, workflow_run.reload, conversation.reload)
-            end
-          end
-        end
-      end
-
-      private :with_locked_workflow_context
-    end
+  def wait_for_signal!(queue, timeout: 1, message:)
+    Timeout.timeout(timeout, RuntimeError, message) { queue.pop }
   end
 end

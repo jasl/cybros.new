@@ -1,3 +1,5 @@
+require "timeout"
+
 module ConcurrentAllocationHelpers
   ParallelResult = Struct.new(:value, :error, keyword_init: true)
 
@@ -19,6 +21,7 @@ module ConcurrentAllocationHelpers
     ready = Queue.new
     gate = Queue.new
     results = Array.new(operations.size)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
     threads = operations.each_with_index.map do |operation, index|
       Thread.new do
         Thread.current.report_on_exception = false
@@ -33,11 +36,11 @@ module ConcurrentAllocationHelpers
       end
     end
 
-    operations.size.times { ready.pop }
+    wait_for_parallel_signals!(ready, operations.size, deadline)
     operations.size.times { gate << true }
 
     threads.each do |thread|
-      raise "parallel operation timed out" if thread.join(timeout).nil?
+      raise "parallel operation timed out" if thread.join(remaining_parallel_timeout(deadline)).nil?
     end
 
     results
@@ -48,6 +51,16 @@ module ConcurrentAllocationHelpers
       thread.kill
       thread.join
     end
+  end
+
+  def wait_for_parallel_signals!(queue, count, deadline)
+    Timeout.timeout(remaining_parallel_timeout(deadline), RuntimeError, "parallel operation timed out") do
+      count.times { queue.pop }
+    end
+  end
+
+  def remaining_parallel_timeout(deadline)
+    [deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0].max
   end
 
   def assert_parallel_success!(results)

@@ -28,4 +28,27 @@ class ConcurrentAllocationHelpersTest < ActiveSupport::TestCase
     assert_equal "parallel operation timed out", error.message
     assert_equal :done, Timeout.timeout(1) { cleaned.pop }
   end
+
+  test "times out if a worker never reaches the ready barrier" do
+    pool = ActiveRecord::Base.connection_pool
+    original_with_connection = pool.method(:with_connection)
+
+    pool.singleton_class.send(:define_method, :with_connection) do |*args, **kwargs, &block|
+      if Thread.current != Thread.main
+        sleep 60
+      else
+        original_with_connection.call(*args, **kwargs, &block)
+      end
+    end
+
+    error = assert_raises(RuntimeError) do
+      Timeout.timeout(1) do
+        run_parallel_operations(proc { :ok }, timeout: 0.01)
+      end
+    end
+
+    assert_equal "parallel operation timed out", error.message
+  ensure
+    pool.singleton_class.send(:define_method, :with_connection, original_with_connection)
+  end
 end
