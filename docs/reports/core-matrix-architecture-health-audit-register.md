@@ -30,21 +30,6 @@
 
 ## Active Entries
 
-### AH-002
-- Status: `confirmed`
-- Title: AgentControl::Report is becoming a multi-protocol sink
-- First seen: `2026-03-27`
-- Last reviewed: `2026-03-27`
-- Type: `responsibility drift`
-- Confidence: `high`
-- Priority: `P1`
-- Related files: `core_matrix/app/services/agent_control/report.rb`, `core_matrix/app/models/agent_control_mailbox_item.rb`, `core_matrix/app/services/agent_control/poll.rb`, `core_matrix/test/services/agent_control/report_test.rb`
-- Related concepts: mailbox control, execution reports, close reports, leases,
-  idempotency receipts
-- Linked rounds: `round-1`
-- Recommended direction: keep one intake boundary but split method-specific
-  report handlers from the shared receipt shell
-
 ### AH-003
 - Status: `confirmed`
 - Title: ProviderExecution::ExecuteTurnStep crosses too many boundaries at once
@@ -144,37 +129,16 @@
 - Recommended direction: clarify one contract family for lock order,
   revalidation, and stale-result handling
 
-### AH-011
-- Status: `clustered`
-- Title: Mailbox targeting semantics depend on payload inference
-- First seen: `2026-03-27`
-- Last reviewed: `2026-03-27`
-- Type: `boundary ambiguity`
-- Confidence: `medium`
-- Priority: `P2`
-- Related files: `core_matrix/app/models/agent_control_mailbox_item.rb`, `core_matrix/app/services/agent_control/resolve_target_runtime.rb`, `core_matrix/app/services/agent_control/create_resource_close_request.rb`
-- Related concepts: mailbox items, runtime plane, target resolution, resource
-  close requests, environment plane
-- Linked rounds: `round-1`
-- Recommended direction: move runtime-plane and durable-target semantics into a
-  stricter write-time contract
-
-### AH-014
-- Status: `unification-opportunity`
-- Title: Control-plane routing and lifecycle ownership unification
-- First seen: `2026-03-27`
-- Last reviewed: `2026-03-27`
-- Type: `unification-opportunity`
-- Confidence: `high`
-- Priority: `P1`
-- Related files: `core_matrix/app/services/agent_control/report.rb`, `core_matrix/app/models/agent_control_mailbox_item.rb`, `core_matrix/app/services/agent_control/poll.rb`
-- Related concepts: mailbox targeting, runtime plane, report-family dispatch,
-  stale reports, lifecycle ownership
-- Linked rounds: `round-1`
-- Recommended direction: keep one ingress shell, but centralize routing and
-  target semantics into one shared control-plane contract family
-
 ## Resolved Or Retired Entries
+
+### AH-002
+- Status: `resolved`
+- Title: AgentControl::Report is becoming a multi-protocol sink
+- Decision: resolved by the Phase 2 control-plane routing and lifecycle
+  ownership unification batch
+- Reason: `AgentControl::Report` now stays a thin ingress shell while
+  execution, close, and health report families are handled by dedicated
+  services and freshness validators.
 
 ### AH-001
 - Status: `resolved`
@@ -202,6 +166,23 @@
   ownership is explicit, conversation read-side projection logic is extracted,
   and aggregate models no longer carry the old execution-snapshot convenience
   surface.
+
+### AH-011
+- Status: `resolved`
+- Title: Mailbox targeting semantics depend on payload inference
+- Decision: resolved by durable mailbox routing columns and shared runtime
+  resolution
+- Reason: mailbox rows now persist `runtime_plane` and
+  `target_execution_environment_id`, and poll/publish routing no longer depends
+  on payload inference or JSON SQL branches.
+
+### AH-014
+- Status: `resolved`
+- Title: Control-plane routing and lifecycle ownership unification
+- Decision: resolved by the Phase 2 control-plane unification batch
+- Reason: routing semantics are now owned by durable mailbox fields plus
+  `ResolveTargetRuntime`, and lifecycle handling is split between execution,
+  close, and health handler families behind the shared ingress shell.
 
 ### AH-012
 - Status: `retired`

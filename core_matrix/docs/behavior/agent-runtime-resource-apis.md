@@ -69,6 +69,13 @@ orchestration are still defined in:
   - `agent` for agent-loop work and agent-owned close control
   - `environment` for `ExecutionEnvironment`-owned resources such as
     `ProcessRun`
+- mailbox rows persist routing semantics as durable columns:
+  - `runtime_plane`
+  - `target_kind`
+  - `target_ref`
+  - optional `target_execution_environment_id` for environment-plane work
+- `payload` now carries only family-specific request data; routing identity is
+  not reconstructed from payload shape
 - for `agent` plane close work, the durable owner fallback is resolved from the
   resource type rather than the current delivery lease:
   - `AgentTaskRun` falls back to its own `agent_installation`
@@ -76,12 +83,13 @@ orchestration are still defined in:
     `agent_installation`
 - for `environment` plane work:
   - `target_ref` is the owning `ExecutionEnvironment.public_id`
-  - `payload.execution_environment_id` carries the same durable owner identity
+  - `target_execution_environment_id` stores the owning
+    `ExecutionEnvironment` foreign key on the mailbox row
   - if no active deployment currently holds the resource lease, the mailbox row
     still records the owning turn deployment's logical `agent_installation` as
     the durable installation target
-  - the live delivery endpoint is resolved separately from the active
-    deployment attached to that environment
+  - the live delivery endpoint is resolved separately through the shared
+    `ResolveTargetRuntime` contract instead of SQL payload routing
 
 ### Control Reports
 
@@ -89,14 +97,28 @@ orchestration are still defined in:
 - `execution_assignment` delivery remains valid only while the backing
   `AgentTaskRun` is still `queued`; interrupt-canceled leased assignments are
   marked `canceled` and have their lease cleared before later polls
+- `ResolveTargetRuntime`, `Poll`, and `PublishPending` now share the same
+  durable mailbox routing contract for both agent-plane and environment-plane
+  delivery
+- `AgentControl::Report` is a thin ingress shell for:
+  - deployment activity touch
+  - duplicate detection
+  - receipt creation
+  - stale-to-HTTP translation
+  - piggyback poll assembly
 - `execution_started` is the durable acceptance point for
   `execution_assignment`
 - `execution_progress`, `execution_complete`, `execution_fail`, and
   `execution_interrupted` are attributed to the accepted holder deployment and
   the active `AgentTaskRun` lease
+- execution report lifecycle handling now lives in
+  `HandleExecutionReport` and freshness checks live in
+  `ValidateExecutionReportFreshness`
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources
+- close report lifecycle handling now lives in `HandleCloseReport` and
+  freshness checks live in `ValidateCloseReportFreshness`
 - close reports are attributed to the deployment recorded in
   `leased_to_agent_deployment` for that mailbox item; once one deployment has
   accepted the close request, sibling deployments in the same installation must
@@ -108,8 +130,8 @@ orchestration are still defined in:
   `workflow_run.conversation`)
 - environment-owned close reports are only accepted from deployments attached
   to the owning execution environment
-- `deployment_health_report` refreshes deployment health plus
-  `control_activity_state`
+- `deployment_health_report` now routes through `HandleHealthReport` and
+  refreshes deployment health plus `control_activity_state`
 - duplicate control reports are idempotent by `message_id`
 - stale or superseded reports return `409 conflict` and do not mutate durable
   execution state

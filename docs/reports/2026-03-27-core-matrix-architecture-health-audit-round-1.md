@@ -69,6 +69,14 @@
   `core_matrix/app/services/conversations/`.
 - That implementation resolves the execution-snapshot ownership family tracked
   through `AH-001`, `AH-010`, and `AH-013`.
+- A later Phase 2 control-plane routing and lifecycle ownership unification
+  batch has also landed in `core_matrix`.
+- The batch moved mailbox routing semantics into durable mailbox columns,
+  routed `Poll` and `PublishPending` through the shared
+  `ResolveTargetRuntime` contract, and split `AgentControl::Report` into a
+  thin ingress shell plus execution / close / health handler families.
+- That implementation resolves the control-plane ownership family tracked
+  through `AH-002`, `AH-011`, and `AH-014`.
 - The Round 1 observations remain useful as the historical diagnosis that led
   to the batch, but their current status should now be read through the audit
   register rather than as still-open findings.
@@ -105,6 +113,10 @@
 ### AgentControl control-plane intake is too centralized and still partly convention-driven
 - Priority: `P1`
 - Confidence: `high`
+- Implementation update: resolved later by the Phase 2 control-plane routing
+  and lifecycle ownership unification batch, which moved routing semantics into
+  durable mailbox fields and split the report family handling behind a thin
+  ingress shell.
 - Why it matters: `AgentControl::Report` is acting as a large ingress shell for
   execution events, close events, retry gating, and follow-up reconciliation,
   while mailbox targeting still relies partly on payload inference. That makes
@@ -203,6 +215,10 @@
   and service touch points around snapshot evolution.
 
 ### Unification Opportunity: Control-plane routing and lifecycle ownership
+- Implementation update: this target shape has now landed. Mailbox routing
+  semantics live on durable mailbox fields, `ResolveTargetRuntime` is shared by
+  poll and publish paths, and `AgentControl::Report` now delegates lifecycle
+  families to dedicated handlers and freshness validators.
 - Current shape: ingress report handling, mailbox targeting, runtime-plane
   semantics, and close follow-up behavior are spread across model validation,
   polling selection, and report dispatch.
