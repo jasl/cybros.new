@@ -33,6 +33,7 @@ module Turns
         current_turn.with_lock do
           validated_turn = Turns::ValidateTimelineMutationTarget.call(
             turn: current_turn,
+            conversation: current_conversation,
             record: @record,
             retained_attribute: @retained_attribute,
             retained_message: @retained_message,

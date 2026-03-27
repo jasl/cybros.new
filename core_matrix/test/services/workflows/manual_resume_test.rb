@@ -157,6 +157,34 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:base], "must not resume paused work while close is in progress"
   end
 
+  test "uses blocker snapshot semantics while validating paused recovery" do
+    context = build_paused_recovery_context!
+    actor = create_user!(installation: context[:installation], role: "admin")
+    fake_snapshot = ConversationBlockerSnapshot.new(
+      retained: true,
+      active: true,
+      closing: true
+    )
+    original_call = Conversations::BlockerSnapshotQuery.method(:call)
+    Conversations::BlockerSnapshotQuery.singleton_class.define_method(:call) do |*args, **kwargs|
+      fake_snapshot
+    end
+
+    begin
+      error = assert_raises(ActiveRecord::RecordInvalid) do
+        Workflows::ManualResume.call(
+          workflow_run: context[:workflow_run],
+          deployment: context[:agent_deployment],
+          actor: actor
+        )
+      end
+
+      assert_includes error.record.errors[:base], "must not resume paused work while close is in progress"
+    ensure
+      Conversations::BlockerSnapshotQuery.singleton_class.define_method(:call, original_call)
+    end
+  end
+
   test "rejects manual resume when the replacement deployment belongs to another execution environment" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(

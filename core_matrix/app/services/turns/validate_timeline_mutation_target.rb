@@ -6,6 +6,7 @@ module Turns
 
     def initialize(
       turn:,
+      conversation: nil,
       record: nil,
       retained_attribute: :deletion_state,
       retained_message:,
@@ -17,6 +18,7 @@ module Turns
       interrupted_message:
     )
       @turn = turn
+      @conversation = conversation
       @record = record
       @retained_attribute = retained_attribute
       @retained_message = retained_message
@@ -49,16 +51,15 @@ module Turns
     private
 
     def current_turn
-      @current_turn ||=
-        if @turn.persisted? && !@turn.destroyed?
-          @turn.reload
-        else
-          @turn
-        end
+      @current_turn ||= @turn
     end
 
     def invalid_record
       @invalid_record ||= @record || current_turn
+    end
+
+    def current_conversation
+      @current_conversation ||= @conversation || current_turn.conversation
     end
   end
 end

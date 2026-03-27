@@ -175,8 +175,15 @@ class ConversationBlockerSnapshot
       import_provenance_blocker
   end
 
+  def live_mutation_block_reason
+    return :retained unless retained?
+    return :inactive unless active?
+
+    :closing if closing?
+  end
+
   def mutable_for_live_mutation?
-    retained? && active? && !closing?
+    live_mutation_block_reason.nil?
   end
 
   def close_summary
