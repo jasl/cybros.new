@@ -95,7 +95,7 @@ After this batch:
   Reason: should mark the control-plane unification opportunity as implemented
   once complete.
 - `docs/reports/2026-03-27-core-matrix-architecture-health-audit-round-1.md`
-  Reason: should be refreshable with an implementation note after landing.
+  Reason: should be updated with an implementation note after landing.
 
 ## Anticipated File Set
 

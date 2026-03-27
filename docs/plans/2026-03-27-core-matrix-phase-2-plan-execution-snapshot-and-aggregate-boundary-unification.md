@@ -106,7 +106,7 @@ After this batch:
   Reason: should mark the relevant architecture finding and unification
   opportunity as implemented once the batch lands.
 - `docs/reports/2026-03-27-core-matrix-architecture-health-audit-round-1.md`
-  Reason: should be refreshable with a short implementation note after the
+  Reason: should be updated with a short implementation note after the
   batch lands.
 
 ## Anticipated File Set
