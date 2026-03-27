@@ -55,7 +55,20 @@
   `docs/behavior/agent-runtime-resource-apis.md`,
   `app/services/agent_control`, `app/controllers/agent_api/control_controller.rb`,
   and `test/services/agent_control`
+- runtime binding and deployment boundary reviewed through
+  `app/models/execution_environment.rb`, `app/models/agent_deployment.rb`,
+  `app/services/execution_environments`,
+  `app/services/agent_deployments`,
+  `app/services/runtime_capabilities`, and neighboring tests
+- provider and governance boundary reviewed through
+  `docs/behavior/provider-governance-models-and-services.md`,
+  `app/services/provider_catalog`, `app/services/provider_execution`,
+  `app/services/provider_credentials`, `app/services/provider_entitlements`,
+  `app/services/provider_policies`, `app/services/providers`, and neighboring
+  tests
+- read-side and projection boundary reviewed through `app/queries`,
+  `app/controllers/agent_api`, `test/queries`, and `test/requests/agent_api`
 - candidate issues from these three boundaries are collected in local scratch
   and still pending cross-check before promotion
-- findings, opportunities, and system judgment are still pending the remaining
-  boundary review and anti-pattern pass
+- findings, opportunities, and system judgment are still pending the
+  anti-pattern pass and final promotion review
