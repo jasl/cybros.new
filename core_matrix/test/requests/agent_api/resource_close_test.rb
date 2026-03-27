@@ -202,6 +202,88 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_not lease.reload.active?
   end
 
+  test "resource_close_failed marks an agent task run failed instead of interrupted" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current
+    )
+    lease = Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: agent_task_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "resource_close_failed",
+        message_id: "task-close-failed-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        close_request_id: mailbox_item.public_id,
+        resource_type: "AgentTaskRun",
+        resource_id: agent_task_run.public_id,
+        close_outcome_kind: "timed_out_forced",
+        close_outcome_payload: { "signal" => "SIGKILL", "timeout" => true },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    agent_task_run.reload
+    assert_equal "failed", agent_task_run.lifecycle_state
+    assert_not_nil agent_task_run.finished_at
+    assert_equal "failed", agent_task_run.close_state
+    assert_equal "timed_out_forced", agent_task_run.terminal_payload["close_outcome_kind"]
+    assert_not lease.reload.active?
+  end
+
+  test "resource_close_failed marks a process run lost instead of stopped" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment]
+    )
+    lease = Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "resource_close_failed",
+        message_id: "process-close-failed-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        close_request_id: mailbox_item.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "timed_out_forced",
+        close_outcome_payload: { "signal" => "SIGKILL", "timeout" => true },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    process_run.reload
+    assert_equal "lost", process_run.lifecycle_state
+    assert_equal "failed", process_run.close_state
+    assert_equal "timed_out_forced", process_run.close_outcome_kind
+    assert_not lease.reload.active?
+  end
+
   test "residual process close leaves the process run lost instead of stopped" do
     context = build_agent_control_context!
     process_run = create_process_run!(

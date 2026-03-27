@@ -140,6 +140,46 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     assert_equal 1, close_operation.summary_payload.dig("tail", "degraded_close_count")
   end
 
+  test "delete reconcile times out expired background close requests before summarizing the tail" do
+    context = build_agent_control_context!
+    background_service = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      timeout_seconds: nil,
+      started_at: close_requested_at
+    )
+    close_request = travel_to(close_requested_at) do
+      AgentControl::CreateResourceCloseRequest.call(
+        resource: background_service,
+        request_kind: "deletion_force_quiesce",
+        reason_kind: "conversation_deleted",
+        strictness: "graceful",
+        grace_deadline_at: close_requested_at + 30.seconds,
+        force_deadline_at: close_requested_at + 60.seconds
+      )
+    end
+    clear_mainline!(context)
+    context[:conversation].update!(deletion_state: "deleted", deleted_at: close_requested_at)
+    close_operation = create_close_operation!(
+      conversation: context[:conversation],
+      intent_kind: "delete"
+    )
+
+    Conversations::ReconcileCloseOperation.call(
+      conversation: context[:conversation],
+      occurred_at: close_requested_at + 61.seconds
+    )
+
+    assert_equal "completed", close_request.reload.status
+    assert background_service.reload.close_failed?
+    assert background_service.lost?
+    assert_equal "timed_out_forced", background_service.close_outcome_kind
+    assert_equal "degraded", close_operation.reload.lifecycle_state
+    assert_not_nil close_operation.completed_at
+    assert_equal 1, close_operation.summary_payload.dig("tail", "degraded_close_count")
+  end
+
   test "delete reconcile completes after deletion finalization when no tail blockers remain" do
     context = build_agent_control_context!
     clear_mainline!(context)

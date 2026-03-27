@@ -14,6 +14,7 @@ module AgentControl
 
     def call
       TouchDeploymentActivity.call(deployment: @deployment, occurred_at: @occurred_at)
+      progress_close_requests!
 
       deliveries = []
 
@@ -38,6 +39,27 @@ module AgentControl
     end
 
     private
+
+    def progress_close_requests!
+      close_request_scope.find_each do |mailbox_item|
+        ProgressCloseRequest.call(
+          mailbox_item: mailbox_item,
+          occurred_at: @occurred_at
+        )
+      end
+    end
+
+    def close_request_scope
+      ResolveTargetRuntime
+        .candidate_scope_for(
+          deployment: @deployment,
+          relation: AgentControlMailboxItem.where(
+            installation_id: @deployment.installation_id,
+            item_type: "resource_close_request",
+            status: ProgressCloseRequest::ACTIVE_STATUSES
+          )
+        )
+    end
 
     def candidate_scope
       ResolveTargetRuntime

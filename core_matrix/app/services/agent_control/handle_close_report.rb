@@ -35,8 +35,10 @@ module AgentControl
       case @method_id
       when "resource_close_acknowledged"
         handle_resource_close_acknowledged!(resource)
-      when "resource_closed", "resource_close_failed"
-        handle_resource_close_terminal!(resource)
+      when "resource_closed"
+        handle_resource_closed!(resource)
+      when "resource_close_failed"
+        handle_resource_close_failed!(resource)
       else
         raise ArgumentError, "unsupported close report #{@method_id}"
       end
@@ -49,76 +51,24 @@ module AgentControl
       mailbox_item.update!(status: "acked", acked_at: @occurred_at)
     end
 
-    def handle_resource_close_terminal!(resource)
-      resource.update!(
-        close_state: @method_id == "resource_closed" ? "closed" : "failed",
-        close_acknowledged_at: resource.close_acknowledged_at || @occurred_at,
+    def handle_resource_closed!(resource)
+      ApplyCloseOutcome.call(
+        resource: resource,
+        mailbox_item: mailbox_item,
+        close_state: "closed",
         close_outcome_kind: @payload.fetch("close_outcome_kind"),
-        close_outcome_payload: @payload.fetch("close_outcome_payload", {})
+        close_outcome_payload: @payload.fetch("close_outcome_payload", {}),
+        occurred_at: @occurred_at
       )
-      terminalize_closed_resource!(resource)
-      mailbox_item.update!(status: "completed", completed_at: @occurred_at)
     end
 
-    def terminalize_closed_resource!(resource)
-      case resource
-      when AgentTaskRun
-        resource.update!(
-          lifecycle_state: mailbox_item.payload["request_kind"] == "turn_interrupt" ? "interrupted" : "canceled",
-          finished_at: resource.finished_at || @occurred_at,
-          terminal_payload: resource.terminal_payload.merge(
-            "close_outcome_kind" => resource.close_outcome_kind
-          )
-        )
-      when ProcessRun
-        resource.update!(
-          lifecycle_state: resource.close_outcome_kind == "residual_abandoned" ? "lost" : "stopped",
-          ended_at: resource.ended_at || @occurred_at,
-          metadata: resource.metadata.merge(
-            "stop_reason" => resource.close_reason_kind,
-            "close_request_kind" => mailbox_item.payload["request_kind"]
-          )
-        )
-      when SubagentRun
-        resource.update!(
-          lifecycle_state: resource.close_state == "failed" ? "failed" : "canceled",
-          finished_at: resource.finished_at || @occurred_at
-        )
-      end
-
-      release_resource_lease!(resource)
-      reconcile_turn_interrupt!(resource)
-      reconcile_close_operation!(resource)
-    end
-
-    def release_resource_lease!(resource)
-      return unless resource.respond_to?(:execution_lease)
-      return unless resource.execution_lease&.active?
-
-      Leases::Release.call(
-        execution_lease: resource.execution_lease,
-        holder_key: @deployment.public_id,
-        reason: "resource_closed",
-        released_at: @occurred_at
-      )
-    rescue ArgumentError
-      nil
-    end
-
-    def reconcile_turn_interrupt!(resource)
-      turn = ClosableResourceRouting.turn_for(resource)
-      return if turn.blank?
-      return unless turn.cancellation_reason_kind == "turn_interrupted"
-
-      Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: @occurred_at)
-    end
-
-    def reconcile_close_operation!(resource)
-      conversation = ClosableResourceRouting.conversation_for(resource)
-      return if conversation.blank?
-
-      Conversations::ReconcileCloseOperation.call(
-        conversation: conversation,
+    def handle_resource_close_failed!(resource)
+      ApplyCloseOutcome.call(
+        resource: resource,
+        mailbox_item: mailbox_item,
+        close_state: "failed",
+        close_outcome_kind: @payload.fetch("close_outcome_kind"),
+        close_outcome_payload: @payload.fetch("close_outcome_payload", {}),
         occurred_at: @occurred_at
       )
     end

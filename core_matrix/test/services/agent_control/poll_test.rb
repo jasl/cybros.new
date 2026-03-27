@@ -97,4 +97,88 @@ class AgentControlPollTest < ActiveSupport::TestCase
     assert_empty deliveries
     assert_nil mailbox_item.reload.leased_to_agent_deployment
   end
+
+  test "requeues acknowledged close requests as forced once the grace deadline expires" do
+    context = build_rotated_runtime_context!
+    occurred_at = Time.zone.parse("2026-03-28 10:00:00 UTC")
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+
+    close_request = travel_to(occurred_at) do
+      AgentControl::CreateResourceCloseRequest.call(
+        resource: process_run,
+        request_kind: "turn_interrupt",
+        reason_kind: "turn_interrupted",
+        strictness: "graceful",
+        grace_deadline_at: occurred_at + 30.seconds,
+        force_deadline_at: occurred_at + 60.seconds
+      )
+    end
+
+    process_run.update!(
+      close_state: "acknowledged",
+      close_acknowledged_at: occurred_at + 5.seconds
+    )
+    close_request.update!(
+      status: "acked",
+      acked_at: occurred_at + 5.seconds
+    )
+
+    deliveries = AgentControl::Poll.call(
+      deployment: context[:replacement_deployment],
+      limit: 10,
+      occurred_at: occurred_at + 31.seconds
+    )
+
+    assert_equal [close_request.id], deliveries.map(&:id)
+    assert_equal "leased", close_request.reload.status
+    assert_equal "forced", close_request.payload["strictness"]
+    assert_equal context[:replacement_deployment], close_request.leased_to_agent_deployment
+  end
+
+  test "times out acknowledged close requests once the force deadline expires" do
+    context = build_rotated_runtime_context!
+    occurred_at = Time.zone.parse("2026-03-28 11:00:00 UTC")
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+
+    close_request = travel_to(occurred_at) do
+      AgentControl::CreateResourceCloseRequest.call(
+        resource: process_run,
+        request_kind: "turn_interrupt",
+        reason_kind: "turn_interrupted",
+        strictness: "graceful",
+        grace_deadline_at: occurred_at + 30.seconds,
+        force_deadline_at: occurred_at + 60.seconds
+      )
+    end
+
+    process_run.update!(
+      close_state: "acknowledged",
+      close_acknowledged_at: occurred_at + 5.seconds
+    )
+    close_request.update!(
+      status: "acked",
+      acked_at: occurred_at + 5.seconds
+    )
+
+    deliveries = AgentControl::Poll.call(
+      deployment: context[:replacement_deployment],
+      limit: 10,
+      occurred_at: occurred_at + 61.seconds
+    )
+
+    assert_empty deliveries
+    assert_equal "completed", close_request.reload.status
+    assert process_run.reload.close_failed?
+    assert process_run.lost?
+    assert_equal "timed_out_forced", process_run.close_outcome_kind
+    assert_equal "force_deadline_elapsed", process_run.close_outcome_payload["reason"]
+  end
 end

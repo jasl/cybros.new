@@ -15,6 +15,10 @@ module Conversations
           close_operation = @conversation.unfinished_close_operation
           next if close_operation.blank?
 
+          Conversations::ProgressCloseRequests.call(
+            conversation: @conversation,
+            occurred_at: @occurred_at
+          )
           summary = Conversations::CloseSummaryQuery.call(conversation: @conversation)
           archive_if_mainline_cleared!(close_operation, summary)
           close_operation.update!(reconciled_attributes(close_operation, summary))
