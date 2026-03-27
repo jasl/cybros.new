@@ -2,11 +2,11 @@
 
 ## Scope
 
-- this is a whole-application audit of `core_matrix`
-- the primary review surfaces are `app/models`, `app/services`, `app/queries`,
-  `app/controllers`, and `test`
-- the method is `six-boundary review + anti-pattern cross-check`
-- the work is a Milestone C follow-up
+- This is a whole-application audit of `core_matrix`.
+- The primary review surfaces are `app/models`, `app/services`, `app/queries`,
+  `app/controllers`, and `test`.
+- The method is `six-boundary review + anti-pattern cross-check`.
+- This work lands as a Milestone C follow-up.
 - the frozen execution root shape is
   `Conversation -> Turn -> WorkflowRun -> WorkflowNode`
 - current code volume is concentrated in:
