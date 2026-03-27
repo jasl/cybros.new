@@ -1,6 +1,30 @@
 require "test_helper"
 
 class AgentControlReportTest < ActiveSupport::TestCase
+  test "report dispatch maps control methods onto the correct handler families" do
+    context = build_agent_control_context!
+
+    execution_handler = AgentControl::ReportDispatch.call(
+      deployment: context[:deployment],
+      method_id: "execution_started",
+      payload: {}
+    )
+    close_handler = AgentControl::ReportDispatch.call(
+      deployment: context[:deployment],
+      method_id: "resource_closed",
+      payload: {}
+    )
+    health_handler = AgentControl::ReportDispatch.call(
+      deployment: context[:deployment],
+      method_id: "deployment_health_report",
+      payload: {}
+    )
+
+    assert_kind_of AgentControl::HandleExecutionReport, execution_handler
+    assert_kind_of AgentControl::HandleCloseReport, close_handler
+    assert_kind_of AgentControl::HandleHealthReport, health_handler
+  end
+
   test "execution_started acknowledges the offered delivery and acquires the task lease" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -24,6 +48,28 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "running", agent_task_run.reload.lifecycle_state
     assert_equal context[:deployment], agent_task_run.holder_agent_deployment
     assert_equal context[:deployment].public_id, agent_task_run.execution_lease.holder_key
+  end
+
+  test "execution freshness validation lives in a dedicated validator" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context, attempt_no: 2)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    validator = AgentControl::ValidateExecutionReportFreshness.new(
+      deployment: context[:deployment],
+      method_id: "execution_progress",
+      payload: {
+        "logical_work_id" => agent_task_run.logical_work_id,
+        "attempt_no" => 1,
+      },
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run,
+      occurred_at: Time.current
+    )
+
+    assert_raises(AgentControl::Report::StaleReportError) { validator.call }
   end
 
   test "rejects stale reports from a superseded attempt" do
@@ -76,6 +122,18 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "accepted", ack_result.code
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "acknowledged", subagent_run.reload.close_state
+
+    validator = AgentControl::ValidateCloseReportFreshness.new(
+      deployment: context[:previous_deployment],
+      payload: {
+        "close_request_id" => mailbox_item.public_id,
+      },
+      mailbox_item: mailbox_item,
+      resource: subagent_run,
+      occurred_at: Time.current
+    )
+
+    assert_raises(AgentControl::Report::StaleReportError) { validator.call }
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:previous_deployment],

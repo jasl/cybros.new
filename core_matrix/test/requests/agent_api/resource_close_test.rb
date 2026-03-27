@@ -31,6 +31,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
     assert_equal "acknowledged", process_run.reload.close_state
 
     post "/agent_api/control/report",
@@ -48,6 +49,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
 
     process_run.reload
     assert_equal "closed", process_run.close_state

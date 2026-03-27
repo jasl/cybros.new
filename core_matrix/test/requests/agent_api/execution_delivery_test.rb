@@ -22,6 +22,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "running", agent_task_run.reload.lifecycle_state
     assert_equal context[:deployment], agent_task_run.holder_agent_deployment
