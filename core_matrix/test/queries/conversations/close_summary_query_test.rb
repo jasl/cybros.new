@@ -33,6 +33,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
     )
 
     summary = Conversations::CloseSummaryQuery.call(conversation: root)
+    snapshot = Conversations::BlockerSnapshotQuery.call(conversation: root)
 
     assert_equal 1, summary.dig(:mainline, :active_turn_count)
     assert_equal 1, summary.dig(:mainline, :active_workflow_count)
@@ -42,6 +43,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
     assert_equal 1, summary.dig(:mainline, :running_subagent_count)
     assert_equal 1, summary.dig(:tail, :running_background_process_count)
     assert_equal 1, summary.dig(:dependencies, :descendant_lineage_blockers)
+    assert_equal snapshot.close_summary, summary
     assert request.open?
     assert running_task.running?
     assert process_run.running?

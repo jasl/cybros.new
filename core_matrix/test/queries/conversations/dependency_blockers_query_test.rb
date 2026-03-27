@@ -29,6 +29,7 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
     )
 
     result = Conversations::DependencyBlockersQuery.call(conversation: root)
+    snapshot = Conversations::BlockerSnapshotQuery.call(conversation: root)
 
     assert_equal(
       {
@@ -39,6 +40,7 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
       },
       result.to_h
     )
+    assert_equal snapshot.dependency_blockers.to_h, result.to_h
     assert result.blocked?
   end
 
@@ -50,6 +52,7 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
     )
 
     result = Conversations::DependencyBlockersQuery.call(conversation: thread)
+    snapshot = Conversations::BlockerSnapshotQuery.call(conversation: thread)
 
     assert_equal(
       {
@@ -60,6 +63,7 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
       },
       result.to_h
     )
+    assert_equal snapshot.dependency_blockers.to_h, result.to_h
     assert_not result.blocked?
   end
 end

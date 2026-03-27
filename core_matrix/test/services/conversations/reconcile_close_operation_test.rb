@@ -232,6 +232,72 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     assert context[:conversation].reload.deleted?
   end
 
+  test "reconcile uses blocker snapshot predicates instead of re-encoding summary hashes" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    conversation.update!(deletion_state: "deleted", deleted_at: close_requested_at)
+    close_operation = create_close_operation!(
+      conversation: conversation,
+      intent_kind: "delete"
+    )
+    fake_snapshot = Struct.new(:close_summary) do
+      def mainline_clear?
+        true
+      end
+
+      def tail_pending?
+        true
+      end
+
+      def tail_degraded?
+        false
+      end
+
+      def dependency_blocked?
+        false
+      end
+    end.new(
+      {
+        mainline: {
+          active_turn_count: 0,
+          active_workflow_count: 0,
+          active_agent_task_count: 0,
+          open_blocking_interaction_count: 0,
+          running_turn_command_count: 0,
+          running_subagent_count: 0,
+        },
+        tail: {
+          running_background_process_count: 0,
+          detached_tool_process_count: 0,
+          degraded_close_count: 0,
+        },
+        dependencies: {
+          descendant_lineage_blockers: 0,
+          root_store_blocker: false,
+          variable_provenance_blocker: false,
+          import_provenance_blocker: false,
+        },
+      }
+    )
+
+    original_call = Conversations::BlockerSnapshotQuery.method(:call)
+    Conversations::BlockerSnapshotQuery.singleton_class.define_method(:call) do |*args, **kwargs|
+      fake_snapshot
+    end
+
+    begin
+      Conversations::ReconcileCloseOperation.call(conversation: conversation)
+    ensure
+      Conversations::BlockerSnapshotQuery.singleton_class.define_method(:call, original_call)
+    end
+
+    assert_equal "disposing", close_operation.reload.lifecycle_state
+  end
+
   private
 
   def create_close_operation!(conversation:, intent_kind:, lifecycle_state: "requested")
