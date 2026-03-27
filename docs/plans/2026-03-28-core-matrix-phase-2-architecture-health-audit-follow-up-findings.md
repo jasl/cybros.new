@@ -68,7 +68,7 @@
   tests
 - read-side and projection boundary reviewed through `app/queries`,
   `app/controllers/agent_api`, `test/queries`, and `test/requests/agent_api`
-- candidate issues from these three boundaries are collected in local scratch
+- candidate issues from all six boundaries are collected in local scratch
   and still pending cross-check before promotion
 - findings, opportunities, and system judgment are still pending the
   anti-pattern pass and final promotion review
