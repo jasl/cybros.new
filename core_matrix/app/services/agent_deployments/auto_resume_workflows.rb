@@ -163,7 +163,9 @@ module AgentDeployments
         pinned_deployment_fingerprint: turn.conversation.agent_deployment.fingerprint,
         resolved_model_selection_snapshot: resume_plan.fetch(:resolved_model_selection_snapshot)
       )
-      turn.update!(resolved_config_snapshot: Workflows::ContextAssembler.call(turn: turn))
+      turn.update!(
+        execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn).to_h
+      )
     end
 
     def auto_resume_target_valid?(turn)

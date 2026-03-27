@@ -65,4 +65,35 @@ class ConversationImportTest < ActiveSupport::TestCase
     assert_includes invalid.errors[:source_conversation], "must exist for branch_prefix imports"
     assert_includes invalid.errors[:source_message], "must exist for branch_prefix imports"
   end
+
+  test "quoted context imports stay valid when the source message is hidden from the visible projection" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Root input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    message = turn.selected_input_message
+    quoted_context = ConversationImport.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      kind: "quoted_context",
+      source_message: message
+    )
+    ConversationMessageVisibility.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      message: message,
+      hidden: true
+    )
+
+    assert_predicate quoted_context.reload, :valid?
+  end
 end

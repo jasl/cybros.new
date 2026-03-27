@@ -72,4 +72,30 @@ class ConversationMessageVisibilityTest < ActiveSupport::TestCase
     assert_not inert.valid?
     assert_includes inert.errors[:base], "must hide the message or exclude it from context"
   end
+
+  test "keeps overlay membership valid against the base transcript lineage after a message is hidden" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    overlay = ConversationMessageVisibility.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      message: turn.selected_input_message,
+      hidden: true
+    )
+
+    overlay.excluded_from_context = true
+
+    assert_predicate overlay, :valid?
+  end
 end

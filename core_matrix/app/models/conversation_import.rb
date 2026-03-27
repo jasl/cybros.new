@@ -66,7 +66,7 @@ class ConversationImport < ApplicationRecord
         message: source_message
       )
       return
-    elsif Conversations::TranscriptProjection.call(conversation: source_conversation).any? { |candidate| candidate.id == source_message.id }
+    elsif Conversations::TranscriptProjection.base_messages_for(conversation: source_conversation).any? { |candidate| candidate.id == source_message.id }
       return
     end
 

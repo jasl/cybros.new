@@ -47,7 +47,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal [attachment.public_id], turn.execution_snapshot.runtime_attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal [attachment.public_id], turn.execution_snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert_equal turn.execution_snapshot.to_h, turn.execution_snapshot_payload
-    assert_raises(NameError) { Workflows::ContextAssembler }
+    refute Rails.root.join("app/services/workflows/context_assembler.rb").exist?
   end
 
   test "rejects a second active workflow in the same conversation" do

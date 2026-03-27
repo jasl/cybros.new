@@ -87,8 +87,10 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
 
     assert_equal [context[:workflow_run].id], resumed.map(&:id)
     assert_equal replacement, context[:conversation].reload.agent_deployment
-    assert_equal replacement, context[:turn].reload.agent_deployment
-    assert_equal replacement.fingerprint, context[:turn].pinned_deployment_fingerprint
+    turn = context[:turn].reload
+    assert_equal replacement, turn.agent_deployment
+    assert_equal replacement.fingerprint, turn.pinned_deployment_fingerprint
+    assert_equal replacement.public_id, turn.execution_snapshot.identity["agent_deployment_id"]
     assert context[:workflow_run].reload.ready?
   end
 
