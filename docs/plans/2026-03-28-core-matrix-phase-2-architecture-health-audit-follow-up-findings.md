@@ -2,12 +2,13 @@
 
 ## Scope
 
-- This is a whole-application audit of `core_matrix`.
+- This is an architecture-health audit of the whole current `core_matrix`
+  application.
 - The primary review surfaces are `app/models`, `app/services`, `app/queries`,
   `app/controllers`, and `test`.
 - The method is `six-boundary review + anti-pattern cross-check`.
 - This work lands as a Milestone C follow-up.
-- The frozen execution root shape remains
+- The frozen execution root shape is
   `Conversation -> Turn -> WorkflowRun -> WorkflowNode`.
 - Current code volume is concentrated in `app/services` (`142` files),
   `app/models` (`59`), `test/services` (`102`), `test/models` (`55`), and
@@ -15,7 +16,7 @@
 - The heaviest service namespaces are `conversations` (`33` files),
   `agent_control` (`22`), `workflows` (`13`), `agent_deployments` (`11`), and
   `turns` (`11`).
-- The six audit boundaries for this pass were conversation and lifecycle,
+- The six audit boundaries for this pass are conversation and lifecycle,
   workflow and execution graph, runtime control plane, runtime binding and
   deployments, provider and governance, and read side and projection.
 - Recent hardening work concentrated around close reconciliation, runtime
@@ -23,185 +24,203 @@
 
 ## System Judgment
 
-The current Core Matrix architecture is broadly healthy. The major ownership
-lines are explicit, the Phase 2 hardening work has removed the worst category
-of severe lifecycle regressions, and the system now names its runtime, close,
-and lineage contracts more clearly than it did earlier in the batch.
+The current architecture is broadly healthy. The important Phase 2 boundaries
+are explicit, and the system does not read like provider logic, runtime
+control, and conversation lifecycle were collapsed into one undifferentiated
+kernel. Most of the necessary complexity is concentrated where the product
+actually needs it: conversation lifecycle, workflow execution, mailbox control,
+and deployment recovery.
 
-The main architecture risk is no longer hidden severe breakage. It is rising
-contract-shape complexity. Several critical boundaries still rely on large raw
-`Hash` payload families, several mutation-safety helpers overlap without yet
-collapsing into one obvious guard layer, and runtime capability assembly is now
-fragmented enough that future breadth could create drift. None of that is an
-immediate emergency, but it is exactly the kind of accidental complexity that
-gets expensive if the next follow-up adds more runtime or provider surface area
-before the contracts are tightened.
+The drift now is subtler. The main risk is no longer missing boundaries; it is
+that a few hotspot services and guard families are beginning to absorb too many
+adjacent responsibilities. The architecture still feels governable, but it is
+close enough to that hotspot threshold that the next cleanup batch should favor
+structural consolidation over another round of narrow defect patching.
 
 ## Findings
 
-### Core lifecycle and runtime contracts still depend on loosely typed `Hash` families
+### Provider-backed turn execution is already a cross-boundary hotspot
 - Why it matters:
-  The system's most important runtime and lifecycle contracts are still carried
-  through raw JSON-shaped hashes whose real schema lives in scattered readers,
-  writers, and tests rather than behind explicit domain objects.
+  `ProviderExecution::ExecuteTurnStep` already owns transport setup, provider
+  request dispatch, stale-result fencing, transcript mutation, usage
+  accounting, profiling, workflow-node status events, and terminal turn or
+  workflow progression. That is too much responsibility for the first real
+  provider path, and every new provider feature will naturally accumulate in
+  the same place.
 - Evidence:
-  `app/models/turn.rb` validates `origin_payload`,
-  `resolved_config_snapshot`, `execution_snapshot_payload`, and
-  `resolved_model_selection_snapshot` mostly as "must be a hash" while also
-  exposing key-specific readers such as `normalized_selector` and
-  `resolved_provider_handle`. `app/models/workflow_run.rb` does the same for
-  `wait_reason_payload` and `resume_metadata`. `app/models/conversation_close_operation.rb`
-  does the same for `summary_payload`. Runtime capability state is likewise
-  split across `app/models/execution_environment.rb`,
-  `app/models/capability_snapshot.rb`, and their tool catalog and capability
-  payload hashes. Service code then reaches directly into these shapes in
-  `app/services/provider_execution/build_request_context.rb`,
-  `app/services/agent_deployments/auto_resume_workflows.rb`,
-  `app/controllers/agent_api/capabilities_controller.rb`, and many turn-entry
-  helpers. The tests reinforce the same contract style in
-  `test/services/provider_execution/build_request_context_test.rb`,
-  `test/services/provider_execution/execute_turn_step_test.rb`,
-  `test/services/agent_deployments/auto_resume_workflows_test.rb`, and the
-  turn-history rewrite suites.
+  `core_matrix/app/services/provider_execution/execute_turn_step.rb`,
+  `core_matrix/app/services/provider_execution/build_request_context.rb`,
+  `core_matrix/app/services/provider_usage/record_event.rb`,
+  `core_matrix/app/services/workflows/build_execution_snapshot.rb`, and
+  `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`.
 - Impact:
-  Schema changes now have to be reasoned about across models, service objects,
-  controllers, and tests at once. The source of truth for a field is often the
-  combination of several readers rather than one contract object, which makes
-  drift and accidental compatibility layers more likely.
+  Adding new wire APIs, multimodal behavior, richer failure modes, or more
+  telemetry will keep coupling transport concerns to persistence and reporting
+  side effects. The test seam is already broad enough that even targeted
+  behavior changes require large setup scaffolding.
 - Suggested direction:
-  Introduce explicit contract objects or builder families for the highest-value
-  payload groups first: turn execution context, workflow wait and recovery
-  state, close summary state, and runtime capability payloads. Keep JSON
-  persistence as the storage detail, but stop making callers depend on
-  free-form hashes as the primary domain API.
+  Keep one public entrypoint, but split request dispatch, response
+  normalization, and terminal persistence or fact recording into narrower
+  collaborators so provider breadth does not keep widening one service object.
 
-### Mutation safety is still split across overlapping guard and lock helper families
+### Workflow recovery and deployment auto-resume are becoming one control tower
 - Why it matters:
-  The system has done real work to centralize lifecycle checks, but callers
-  still have to choose among several similar helper families whose boundaries
-  are not yet obvious enough to prevent local re-implementation.
+  The outage and recovery path is spread across deployment predicates, pause
+  snapshot helpers, drift classification, rebinding, execution snapshot
+  rewrites, escalation to manual recovery, and audit logging. The behavior is
+  still coherent, but too much of the recovery story now lives inside one
+  orchestration surface.
 - Evidence:
-  Conversation-local mutation uses `app/services/conversations/validate_mutable_state.rb`
-  and `app/services/conversations/with_mutable_state_lock.rb`. Turn-history
-  mutation uses `app/services/turns/validate_timeline_mutation_target.rb` and
-  `app/services/turns/with_timeline_mutation_lock.rb`. Workflow mutation adds
-  `app/services/workflows/with_mutable_workflow_context.rb` plus
-  `app/services/workflows/with_locked_workflow_context.rb`. At the same time,
-  `app/services/turns/start_user_turn.rb` and
-  `app/services/turns/queue_follow_up.rb` still hand-roll
-  `conversation.with_lock` plus `Conversations::ValidateMutableState.call`
-  instead of joining a single obvious turn-entry guard. `app/services/conversations/rollback_to_turn.rb`
-  reaches a different helper stack again. Tests such as
-  `test/services/turns/validate_timeline_mutation_target_test.rb` verify one
-  guard family in isolation, which confirms the helpers exist, but also shows
-  how much of the contract is still spread across multiple entry points.
+  `core_matrix/app/services/agent_deployments/auto_resume_workflows.rb`,
+  `core_matrix/app/services/agent_deployments/mark_unavailable.rb`,
+  `core_matrix/app/services/agent_deployments/unavailable_pause_state.rb`,
+  `core_matrix/app/models/agent_deployment.rb`, and
+  `core_matrix/test/services/agent_deployments/auto_resume_workflows_test.rb`.
 - Impact:
-  Future callers have to decide which helper family to join, in what order, and
-  whether they still need local locking or validation on top. That keeps the
-  guard model understandable only to someone who already knows the current
-  layering. It also increases the chance that the next mutation path bypasses a
-  needed fence by choosing the wrong helper or by re-implementing the contract
-  inline.
+  New drift reasons, blocker types, or rotation rules will require edits across
+  planning, mutation, and audit paths at once. That increases the risk of
+  resume semantics drifting away from pause semantics and keeps the recovery
+  surface hard to test in smaller units.
 - Suggested direction:
-  Collapse the current helpers into a smaller, more explicit mutation-guard
-  surface organized by subject, not by historical rollout. For example,
-  separate `conversation mutable`, `turn timeline mutable`, and
-  `workflow mutable` guards, but make each one visibly delegate to one shared
-  lifecycle contract and one clearly documented lock order. Then route turn
-  entry, rollback, retry, rerun, and workflow recovery through those named
-  gates instead of mixing direct locking with helper composition.
+  Introduce an explicit recovery planner or state machine that owns pause
+  snapshot semantics, drift classification, and resume versus escalate
+  decisions, while keeping a small top-level service as the public orchestrator.
+
+### Lifecycle and mutation safety still depend on a fragmented guard family
+- Why it matters:
+  Core Matrix now has explicit lifecycle guards, which is good, but the guard
+  family is split across retained-state validation, mutable-state validation,
+  mutable-state locks, workflow wrappers, timeline-mutation wrappers, work
+  barrier queries, and close summaries. Callers still need to know which guard
+  flavor to choose instead of having one obvious entry point per mutation
+  intent.
+- Evidence:
+  `core_matrix/app/services/conversations/validate_mutable_state.rb`,
+  `core_matrix/app/services/conversations/with_mutable_state_lock.rb`,
+  `core_matrix/app/services/workflows/with_mutable_workflow_context.rb`,
+  `core_matrix/app/services/turns/with_timeline_mutation_lock.rb`,
+  `core_matrix/app/services/turns/validate_timeline_mutation_target.rb`,
+  `core_matrix/app/services/turns/start_user_turn.rb`,
+  `core_matrix/app/services/turns/queue_follow_up.rb`,
+  `core_matrix/app/services/turns/start_automation_turn.rb`,
+  `core_matrix/app/services/human_interactions/request.rb`,
+  `core_matrix/app/queries/conversations/work_barrier_query.rb`,
+  `core_matrix/app/queries/conversations/close_summary_query.rb`,
+  and `core_matrix/app/services/conversations/reconcile_close_operation.rb`.
+- Impact:
+  Future lifecycle work can join the wrong helper, duplicate one more variant,
+  or let enforcement logic and operator summary logic drift apart. The design
+  is explicit, but the helper topology remains harder to read than it should
+  be.
+- Suggested direction:
+  Collapse the guard family into a smaller set of named contracts with one
+  obvious entry point per intent, and derive operator summaries from the same
+  blocker model used by enforcement paths.
 
 ## Simplification / Reinforcement Opportunities
 
-### Runtime capability assembly is fragmented across models, services, and controllers
+### The `Query` namespace is carrying multiple kinds of objects
 - Why it matters:
-  Capability-related payloads are now assembled in several adjacent places that
-  represent the same runtime concept from slightly different angles.
+  Objects named `*Query` currently range from straightforward database lookups
+  to in-memory assemblers and live projection builders. That makes naming less
+  informative than it should be at the exact moment the read side is getting
+  more important.
 - Evidence:
-  `app/models/capability_snapshot.rb` exposes both `as_contract_payload` and
-  `as_agent_plane_payload`. `app/models/execution_environment.rb` exposes
-  `as_runtime_plane_payload`. `app/controllers/agent_api/capabilities_controller.rb`
-  then builds a separate response shape that merges snapshot payload,
-  environment-plane payload, and `effective_tool_catalog`. Conversation-facing
-  runtime contract assembly lives separately in
-  `app/services/runtime_capabilities/compose_for_conversation.rb` and
-  `app/services/runtime_capabilities/compose_effective_tool_catalog.rb`.
-  `app/controllers/agent_api/registrations_controller.rb`,
-  `app/services/agent_deployments/register.rb`, and
-  `app/services/agent_deployments/handshake.rb` also participate in shaping the
-  same runtime-capability family. The test split between
-  `test/services/runtime_capabilities/compose_for_conversation_test.rb`,
-  `test/requests/agent_api/capabilities_test.rb`, and
-  `test/requests/agent_api/registrations_test.rb` shows the same concept being
-  verified through multiple adjacent payload surfaces.
+  `core_matrix/app/queries/workspace_variables/list_query.rb`,
+  `core_matrix/app/queries/conversation_variables/resolve_query.rb`,
+  `core_matrix/app/queries/conversation_transcripts/list_query.rb`, and
+  `core_matrix/app/queries/publications/live_projection_query.rb`.
 - Impact:
-  Handshake, capability refresh, registration, and conversation runtime
-  contracts can drift even when each local change looks reasonable. It is also
-  harder to answer which representation is canonical and which are just views.
+  New read paths will likely continue copying mixed patterns, and engineers
+  cannot infer cost, composition style, or ownership just from the class name.
 - Suggested direction:
-  Create one explicit runtime capability contract builder with named projections
-  for registration, handshake or refresh, and conversation use. Keep models and
-  controllers thin by delegating shape assembly to that builder family.
+  Split the read side into clearer categories such as raw queries, projections,
+  and resolvers or assemblers, or define and enforce a naming contract that
+  makes the distinction explicit.
 
-### Provider-backed turn execution is already concentrated in one large orchestration service
+### Runtime capability assembly still lacks one canonical contract builder
 - Why it matters:
-  The provider-backed path is still intentionally narrow, but the main
-  orchestration object already owns too many concerns to grow comfortably.
+  Environment capability payloads, environment tool catalogs, deployment
+  capability snapshots, effective tool catalog composition, and
+  conversation-facing runtime state are all handled in adjacent places, but
+  no single object clearly owns the end-to-end capability shape.
 - Evidence:
-  `app/services/provider_execution/execute_turn_step.rb` is `307` lines and
-  currently owns precondition validation, provider client setup, external API
-  dispatch, freshness locking, transcript output creation, provider usage
-  recording, profiling fact recording, turn and workflow terminal transitions,
-  and workflow-node status events. `app/services/provider_execution/build_request_context.rb`
-  already exists as one collaborator, which is a sign that the service is doing
-  enough work to justify decomposition. The tests in
-  `test/services/provider_execution/build_request_context_test.rb` and
-  `test/services/provider_execution/execute_turn_step_test.rb` are still
-  readable, but they also confirm that one object is coordinating most of the
-  provider path.
+  `core_matrix/app/models/execution_environment.rb`,
+  `core_matrix/app/services/execution_environments/record_capabilities.rb`,
+  `core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb`,
+  `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`,
+  `core_matrix/app/controllers/agent_api/capabilities_controller.rb`, and
+  `core_matrix/app/models/agent_deployment.rb`.
 - Impact:
-  As provider breadth grows, changes to request wiring, usage accounting,
-  terminal state progression, or error handling are likely to keep landing in
-  the same choke point. That increases the chance that one future provider
-  feature couples transport details to persistence and profiling side effects.
+  As the runtime surface grows, normalization order and projection semantics can
+  drift even when each local payload change looks harmless.
 - Suggested direction:
-  Keep one top-level entrypoint, but split collaborators for request dispatch,
-  response normalization, and terminal persistence or fact recording. That would
-  preserve the freshness fence while reducing the cost of adding provider
-  breadth later.
+  Introduce one runtime-capability contract namespace that owns validation,
+  merge order, and named outward projections for registration, handshake or
+  refresh, and conversation use.
+
+### High-value runtime contracts still lean heavily on raw `Hash` payloads
+- Why it matters:
+  The system's most important evolving contracts are often persisted as generic
+  hashes with their real schema spread across readers, writers, and tests. That
+  flexibility was useful during Phase 2 hardening, but it is starting to hide
+  the contract boundaries that now need to stay stable.
+- Evidence:
+  `core_matrix/app/models/turn.rb`,
+  `core_matrix/app/models/workflow_run.rb`,
+  `core_matrix/app/models/execution_environment.rb`,
+  `core_matrix/app/services/agent_deployments/unavailable_pause_state.rb`,
+  `core_matrix/app/services/human_interactions/request.rb`,
+  `core_matrix/app/services/provider_execution/build_request_context.rb`, and
+  `core_matrix/test/services/provider_execution/build_request_context_test.rb`.
+- Impact:
+  Changing one field often requires coordinated edits across models, services,
+  queries, controllers, and tests, and the safe change surface is not obvious
+  from the code.
+- Suggested direction:
+  Keep JSON persistence, but introduce explicit builders or small contract
+  objects for the highest-value payload families first: execution snapshot
+  context, workflow wait or recovery state, runtime capability state, and close
+  summary state.
+
+### Provider request-setting rules are still split across multiple owners
+- Why it matters:
+  Supported request-default keys live in catalog validation, allowed execution
+  settings live in provider request-context code, and final setting selection is
+  assembled again when building the execution snapshot. The contract is still
+  consistent, but its schema is not owned in one place.
+- Evidence:
+  `core_matrix/app/services/provider_catalog/validate.rb`,
+  `core_matrix/app/services/provider_execution/build_request_context.rb`,
+  `core_matrix/app/services/workflows/build_execution_snapshot.rb`, and
+  `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`.
+- Impact:
+  Adding a new provider-facing setting or a second wire API requires edits in
+  multiple files, making drift more likely than it needs to be.
+- Suggested direction:
+  Promote per-wire-API request-setting schema into one explicit contract object
+  that both catalog validation and execution snapshot assembly consume.
 
 ## Top Structural Priorities
 
-1. Replace the highest-value raw `Hash` contract families with explicit runtime,
-   wait-state, close-summary, and execution-context contract objects.
-2. Collapse the current mutable-state and timeline-mutation helper stack into a
-   smaller, named guard layer with one clear lock and validation model.
-3. Unify runtime capability contract assembly so registration, handshake,
-   capability refresh, and conversation runtime composition project from one
-   canonical shape.
+1. Break the two orchestration hotspots first: provider-backed turn execution
+   and deployment outage recovery.
+2. Collapse lifecycle and mutation safety onto one smaller canonical blocker and
+   guard family.
+3. Introduce explicit contract builders for the highest-value hash payloads and
+   provider request-setting schema.
 
 ## Completeness Check
 
-- The whole current `core_matrix` application was covered through the planned
-  six-boundary model.
-- Conversation and lifecycle, workflow and execution graph, runtime control
-  plane, runtime binding and deployments, provider and governance, and read side
-  and projection were all reviewed against both implementation and behavior
-  docs.
-- The anti-pattern cross-check was run with focused searches over lock usage,
-  transactions, payload families, lifecycle terms, and large production files.
-- Tests were used as reverse evidence, especially
-  `test/services/turns/validate_timeline_mutation_target_test.rb`,
-  `test/services/provider_execution/build_request_context_test.rb`,
-  `test/services/provider_execution/execute_turn_step_test.rb`,
-  `test/services/agent_deployments/auto_resume_workflows_test.rb`,
-  `test/services/runtime_capabilities/compose_for_conversation_test.rb`,
-  `test/requests/agent_api/capabilities_test.rb`, and
-  `test/requests/agent_api/registrations_test.rb`.
-- Candidate-only signals that were not promoted included "the `Conversation`
-  model is large" by itself and "the `AgentAPI::BaseController` is centralized"
-  by itself, because neither point cleared the evidence bar without leaning on
-  taste-based judgment.
-- Every promoted item includes evidence and a concrete action direction.
+- The whole current `core_matrix` architecture was reviewed through the stated
+  primary surfaces, with secondary docs and planning artifacts used where the
+  code needed contract confirmation.
+- All six boundaries were reviewed against both implementation and neighboring
+  tests.
+- The anti-pattern cross-check ran across lock, transaction, payload, and
+  lifecycle keywords.
+- Tests were used as reverse evidence before promoting any item into the final
+  report.
+- Every reported item includes evidence and an action direction.
 - The report ends with exactly three structural priorities.
-- The prose was re-read once for flow before this draft was finalized.
+- The document was re-read once for prose flow before this checkpoint.
