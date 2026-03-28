@@ -16,26 +16,25 @@ module Turns
     end
 
     def call
-      @conversation.with_lock do
-        raise_invalid!(@conversation, :purpose, "must be interactive for agent turn entry") unless @conversation.interactive?
+      Turns::WithConversationEntryLock.call(
+        conversation: @conversation,
+        entry_label: "agent turn entry",
+        closing_message: "must not accept agent turn entry while close is in progress"
+      ) do |conversation|
+        raise_invalid!(conversation, :purpose, "must be interactive for agent turn entry") unless conversation.interactive?
         SubagentSessions::ValidateAddressability.call(
-          conversation: @conversation,
+          conversation: conversation,
           sender_kind: @sender_kind,
           rejection_message: "must be agent_addressable for agent turn entry"
         )
-        Turns::ValidateConversationTurnEntry.call(
-          conversation: @conversation,
-          entry_label: "agent turn entry",
-          closing_message: "must not accept agent turn entry while close is in progress"
-        )
         validate_sender_kind!
-        agent_deployment = @conversation.agent_deployment
+        agent_deployment = conversation.agent_deployment
 
         turn = Turn.create!(
-          installation: @conversation.installation,
-          conversation: @conversation,
+          installation: conversation.installation,
+          conversation: conversation,
           agent_deployment: agent_deployment,
-          sequence: @conversation.turns.maximum(:sequence).to_i + 1,
+          sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "active",
           origin_kind: "system_internal",
           origin_payload: sender_payload,
@@ -47,8 +46,8 @@ module Turns
         )
 
         message = UserMessage.create!(
-          installation: @conversation.installation,
-          conversation: @conversation,
+          installation: conversation.installation,
+          conversation: conversation,
           turn: turn,
           role: "user",
           slot: "input",

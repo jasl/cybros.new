@@ -17,19 +17,18 @@ module Turns
     end
 
     def call
-      @conversation.with_lock do
-        raise_invalid!(@conversation, :purpose, "must be automation for automation turn entry") unless @conversation.automation?
-        Turns::ValidateConversationTurnEntry.call(
-          conversation: @conversation,
-          entry_label: "automation turn entry"
-        )
-        agent_deployment = @conversation.agent_deployment
+      Turns::WithConversationEntryLock.call(
+        conversation: @conversation,
+        entry_label: "automation turn entry"
+      ) do |conversation|
+        raise_invalid!(conversation, :purpose, "must be automation for automation turn entry") unless conversation.automation?
+        agent_deployment = conversation.agent_deployment
 
         Turn.create!(
-          installation: @conversation.installation,
-          conversation: @conversation,
+          installation: conversation.installation,
+          conversation: conversation,
           agent_deployment: agent_deployment,
-          sequence: @conversation.turns.maximum(:sequence).to_i + 1,
+          sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "active",
           origin_kind: @origin_kind,
           origin_payload: @origin_payload,
