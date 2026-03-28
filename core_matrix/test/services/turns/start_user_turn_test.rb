@@ -79,6 +79,44 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     end
   end
 
+  test "rejects agent addressable conversations" do
+    context = create_workspace_context!
+    root_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: root_conversation,
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      addressability: "agent_addressable"
+    )
+    SubagentSession.create!(
+      installation: context[:installation],
+      conversation: child_conversation,
+      owner_conversation: root_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::StartUserTurn.call(
+        conversation: child_conversation,
+        content: "Blocked",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+
+    assert_includes error.record.errors[:addressability], "must be owner_addressable for user turn entry"
+  end
+
   test "rejects pending delete conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

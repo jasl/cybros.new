@@ -14,6 +14,11 @@ module Turns
     def call
       @conversation.with_lock do
         raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
+        SubagentSessions::ValidateAddressability.call(
+          conversation: @conversation,
+          sender_kind: "human",
+          rejection_message: "must be owner_addressable for follow up turn entry"
+        )
         Conversations::ValidateMutableState.call(
           conversation: @conversation,
           record: @conversation,
