@@ -29,19 +29,177 @@
 
 ## System Judgment
 
+The current `core_matrix` shape is still governable, but the architecture is no
+longer drifting around the original Milestone C hotspots that dominated the
+earlier audit. Provider request-setting ownership, blocker-summary projection,
+and machine-facing capability formatting are materially more coherent than they
+were in the earlier follow-up.
+
+The current pressure is concentrated in the newest delegation and runtime
+contract surfaces. The system is now most exposed where recovery, runtime
+capability preservation, subagent close control, and the `core_matrix <-> fenix`
+boundary overlap. Those are exactly the seams where another round of feature
+work would harden accidental complexity into durable protocol shape.
+
 ## Confirmed Findings
 
 ### Residual Earlier Findings
 
+#### Deployment recovery still has duplicate rebinding authority
+
+- Priority: `Act Now`
+- Why it matters: recovery planning, capability validation, selector
+  re-resolution, deployment switching, and execution-snapshot rewrites are
+  still spread across separate services instead of one obvious recovery
+  contract.
+- Evidence:
+  `core_matrix/app/services/agent_deployments/build_recovery_plan.rb`,
+  `core_matrix/app/services/agent_deployments/apply_recovery_plan.rb`,
+  `core_matrix/app/services/workflows/manual_resume.rb`, and
+  `core_matrix/app/services/conversations/validate_agent_deployment_target.rb`.
+- Structural impact: the same recovery semantics now have multiple edit sites,
+  so runtime-drift fixes can land in one path and silently miss the others.
+  The newer capability-preservation gap is a direct symptom of that split.
+- Action direction: centralize recovery compatibility checks, selector
+  re-resolution, deployment rebinding, and snapshot rebuilds behind one shared
+  recovery contract that both auto-resume and manual recovery use.
+
 ### Newly Discovered Findings
+
+#### Capability-preservation checks are narrower than the runtime contract they claim to protect
+
+- Priority: `Act Now`
+- Why it matters: recovery and manual rebinding currently treat
+  "capability contract preserved" as method-name and tool-name continuity, but
+  the actual runtime contract also includes profile catalog, config schema,
+  override schema, and default config.
+- Evidence:
+  `core_matrix/app/models/agent_deployment.rb`,
+  `core_matrix/app/services/agent_deployments/build_recovery_plan.rb`,
+  `core_matrix/app/services/conversations/validate_agent_deployment_target.rb`,
+  `core_matrix/app/models/runtime_capability_contract.rb`, and
+  `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`.
+- Structural impact: a rotated or manually selected deployment can be treated
+  as compatible even when conversation-visible tool visibility, profile
+  semantics, or override rules have drifted. That makes recovery continuity
+  look safer than it is.
+- Action direction: replace the current method/tool-name check with one shared
+  capability-compatibility comparison over the full runtime capability contract,
+  or an explicit reduced contract object that names every field recovery is
+  allowed to preserve.
+
+#### `SubagentSession` close progression is split across two state machines, and one of them has a dead middle state
+
+- Priority: `Act Now`
+- Why it matters: the documented and modeled `SubagentSession` lifecycle says
+  `open -> close_requested -> closed`, but the close-request path mutates only
+  `close_state`, while terminal close reports jump `lifecycle_state` straight
+  from `open` to `closed`.
+- Evidence:
+  `core_matrix/app/models/subagent_session.rb`,
+  `core_matrix/app/services/subagent_sessions/request_close.rb`,
+  `core_matrix/app/services/agent_control/create_resource_close_request.rb`,
+  `core_matrix/app/services/agent_control/apply_close_outcome.rb`, and
+  `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`.
+- Structural impact: session lifecycle is no longer the obvious durable owner
+  of session close progression. Queries and guards compensate by mixing
+  `lifecycle_state`, `close_state`, and `last_known_status`, which makes
+  `SubagentSession` harder to reason about than the rest of the closable
+  runtime surface.
+- Action direction: pick one canonical close-progression state model. Either
+  make `lifecycle_state` advance through `close_requested` for real, or delete
+  that lifecycle state and standardize all session-close readers on
+  `ClosableRuntimeResource`.
+
+#### The `core_matrix <-> fenix` execution-context contract drops real model hints on the floor
+
+- Priority: `Good Mid-Phase Cleanup`
+- Why it matters: Core Matrix freezes model identity in the execution snapshot,
+  but the Fenix runtime reads advisory model hints from fields that Core Matrix
+  does not actually send on real assignments.
+- Evidence:
+  `core_matrix/app/services/workflows/build_execution_snapshot.rb`,
+  `core_matrix/app/services/workflows/create_for_turn.rb`,
+  `core_matrix/app/services/agent_control/create_execution_assignment.rb`,
+  `agents/fenix/app/services/fenix/context/build_execution_context.rb`,
+  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`, and
+  `agents/fenix/README.md`.
+- Structural impact: compaction and any future model-sensitive runtime
+  heuristics cannot trust the actual cross-project execution payload. The
+  boundary currently looks richer in docs and local tests than it is in real
+  end-to-end traffic.
+- Action direction: align the boundary on one model-hint field family and add
+  a cross-project contract test that exercises real Core Matrix assignment
+  payloads against the Fenix execution-context builder.
 
 ## Risk Smells / Reinforcement Opportunities
 
 ### Residual Earlier Risk Smells
 
+#### Mutable-state and quiescence enforcement still require callers to know too many wrapper families
+
+- Priority: `Watch Closely`
+- Why it matters: blocker facts are now centralized, but the mutation and
+  quiescence entrypoints are still split across conversation, workflow, and
+  timeline-specific wrappers with slightly different lock and rejection
+  surfaces.
+- Evidence:
+  `core_matrix/app/services/conversations/with_mutable_state_lock.rb`,
+  `core_matrix/app/services/workflows/with_mutable_workflow_context.rb`,
+  `core_matrix/app/services/turns/with_timeline_mutation_lock.rb`,
+  `core_matrix/app/services/turns/validate_timeline_mutation_target.rb`, and
+  `core_matrix/app/services/conversations/work_quiescence_guard.rb`.
+- Structural impact: new callers still need to choose among several guard
+  families instead of one obvious contract per mutation intent. That is better
+  than the old state, but it still invites local reinvention.
+- Action direction: keep consolidating on blocker-snapshot-driven guards and
+  shrink the number of public wrapper entrypoints before the next lifecycle
+  batch adds more variants.
+
 ### Newly Discovered Risk Smells
 
+#### Capability-snapshot reuse rules are duplicated across registration paths
+
+- Priority: `Watch Closely`
+- Why it matters: the equality rules for reusing an existing capability
+  snapshot now live in more than one place.
+- Evidence:
+  `core_matrix/app/services/agent_deployments/handshake.rb` and
+  `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`.
+- Structural impact: the next runtime capability field addition will require
+  parallel edits across both paths or snapshot reuse semantics will drift.
+- Action direction: extract one shared capability-snapshot matcher so machine
+  registration and bundled runtime bootstrap reuse the same comparison rules.
+
+#### Fenix currently treats `allowed_tool_names` as trace data, not as an execution-time constraint
+
+- Priority: `Watch Closely`
+- Why it matters: Core Matrix already computes and freezes visible tool names
+  per conversation and subagent profile, but the Fenix runtime does not
+  currently consult that list when reviewing or choosing tools.
+- Evidence:
+  `core_matrix/app/services/workflows/build_execution_snapshot.rb`,
+  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`,
+  `agents/fenix/app/services/fenix/hooks/review_tool_call.rb`, and
+  `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`.
+- Structural impact: the boundary contract is only partially self-enforcing.
+  It is safe today because the deterministic runtime path still happens to stay
+  inside the currently allowed tool families, but that safety is accidental.
+- Action direction: either make Fenix consume `allowed_tool_names` as a real
+  policy input, or narrow the boundary so Core Matrix no longer advertises that
+  contract as execution-relevant.
+
 ## Top Structural Priorities
+
+1. Unify runtime capability preservation and reuse rules so recovery, manual
+   rebinding, handshake, and bundled runtime bootstrap all compare the same
+   contract surface.
+2. Collapse `SubagentSession` close progression onto one canonical state model
+   and remove the split authority between session lifecycle and close-state
+   metadata.
+3. Repair the `core_matrix <-> fenix` execution-context contract and lock it
+   down with cross-project contract tests for model hints and visible-tool
+   semantics.
 
 ## Round Log
 
@@ -125,6 +283,10 @@
   broad query-naming drift dropped below the evidence bar for this pass, while
   duplicated capability-snapshot matching logic moved toward risk-smell status
   instead of a confirmed finding.
+- Counter-evidence result:
+  `4` confirmed findings survived promotion; `5` candidate findings were
+  dropped or downgraded by counter-evidence. Round 5 itself did not add any new
+  high-confidence finding.
 
 ## Completeness Check
 
@@ -135,4 +297,7 @@
 - Round 3 boundary review is complete.
 - Round 4 hotspot deep dive is complete.
 - Round 5 cross-cut anti-pattern pass is complete.
-- The audit still owes round-by-round code review and counter-evidence.
+- Counter-evidence has been applied to every promoted item.
+- The mandatory five rounds are complete.
+- The audit still owes one extra no-new-finding round to satisfy the iterative
+  stop condition.
