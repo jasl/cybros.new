@@ -163,6 +163,39 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert listed_sessions.all? { |entry| entry.keys.none? { |key| key == "id" || key.end_with?("_id_before_type_cast") } }
   end
 
+  test "rejects pending delete owners on the would-be child conversation" do
+    context = prepare_profile_aware_execution_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    owner_conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      SubagentSessions::Spawn.call(
+        conversation: owner_conversation,
+        requested_by_turn: owner_turn,
+        content: "Blocked child session",
+        scope: "conversation",
+        profile_key: "researcher"
+      )
+    end
+
+    assert_instance_of Conversation, error.record
+    assert error.record.thread?
+    assert_equal "agent_addressable", error.record.addressability
+    assert_equal owner_conversation, error.record.parent_conversation
+    assert_includes error.record.errors[:deletion_state], "must be retained for subagent spawn"
+  end
+
   private
 
   def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)

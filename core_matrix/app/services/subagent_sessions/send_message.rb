@@ -15,40 +15,39 @@ module SubagentSessions
     end
 
     def call
-      @conversation.with_lock do
-        Conversations::ValidateMutableState.call(
-          conversation: @conversation,
-          record: @conversation,
-          retained_message: "must be retained for subagent delivery",
-          active_message: "must be active for subagent delivery",
-          closing_message: "must not accept subagent delivery while close is in progress"
-        )
-        validate_session_mutable!
+      Conversations::WithMutableStateLock.call(
+        conversation: @conversation,
+        record: @conversation,
+        retained_message: "must be retained for subagent delivery",
+        active_message: "must be active for subagent delivery",
+        closing_message: "must not accept subagent delivery while close is in progress"
+      ) do |conversation|
+        validate_session_mutable!(conversation:)
         SubagentSessions::ValidateAddressability.call(
-          conversation: @conversation,
+          conversation: conversation,
           sender_kind: @sender_kind,
           rejection_message: "must be agent_addressable for subagent delivery"
         )
-        validate_sender_kind!
+        validate_sender_kind!(conversation:)
 
         turn = Turn.create!(
-          installation: @conversation.installation,
-          conversation: @conversation,
-          agent_deployment: @conversation.agent_deployment,
-          sequence: @conversation.turns.maximum(:sequence).to_i + 1,
+          installation: conversation.installation,
+          conversation: conversation,
+          agent_deployment: conversation.agent_deployment,
+          sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "completed",
           origin_kind: "system_internal",
           origin_payload: sender_payload,
           source_ref_type: sender_source_ref_type,
           source_ref_id: sender_source_ref_id,
-          pinned_deployment_fingerprint: @conversation.agent_deployment.fingerprint,
+          pinned_deployment_fingerprint: conversation.agent_deployment.fingerprint,
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {}
         )
 
         message = AgentMessage.create!(
-          installation: @conversation.installation,
-          conversation: @conversation,
+          installation: conversation.installation,
+          conversation: conversation,
           turn: turn,
           role: "agent",
           slot: "output",
@@ -59,7 +58,7 @@ module SubagentSessions
         turn.update!(selected_output_message: message)
 
         ConversationEvents::Project.call(
-          conversation: @conversation,
+          conversation: conversation,
           turn: turn,
           source: message,
           event_kind: EVENT_KIND,
@@ -76,17 +75,17 @@ module SubagentSessions
 
     private
 
-    def validate_sender_kind!
+    def validate_sender_kind!(conversation:)
       unless ALLOWED_SENDER_KINDS.include?(@sender_kind)
-        raise_invalid!(:sender_kind, "must be owner_agent, subagent_self, or system")
+        raise_invalid!(conversation:, attribute: :sender_kind, message: "must be owner_agent, subagent_self, or system")
       end
 
-      if @sender_kind == "owner_agent" && @sender_conversation != @conversation.subagent_session&.owner_conversation
-        raise_invalid!(:sender_kind, "must match the owner conversation for owner_agent delivery")
+      if @sender_kind == "owner_agent" && @sender_conversation != conversation.subagent_session&.owner_conversation
+        raise_invalid!(conversation:, attribute: :sender_kind, message: "must match the owner conversation for owner_agent delivery")
       end
 
-      if @sender_kind == "subagent_self" && @sender_conversation != @conversation
-        raise_invalid!(:sender_kind, "must match the target conversation for subagent_self delivery")
+      if @sender_kind == "subagent_self" && @sender_conversation != conversation
+        raise_invalid!(conversation:, attribute: :sender_kind, message: "must match the target conversation for subagent_self delivery")
       end
     end
 
@@ -109,16 +108,16 @@ module SubagentSessions
       "system"
     end
 
-    def validate_session_mutable!
-      session = @conversation.subagent_session
+    def validate_session_mutable!(conversation:)
+      session = conversation.subagent_session
       return if session.blank? || session.close_open?
 
-      raise_invalid!(:base, "must not accept subagent delivery while session close is in progress")
+      raise_invalid!(conversation:, attribute: :base, message: "must not accept subagent delivery while session close is in progress")
     end
 
-    def raise_invalid!(attribute, message)
-      @conversation.errors.add(attribute, message)
-      raise ActiveRecord::RecordInvalid, @conversation
+    def raise_invalid!(conversation:, attribute:, message:)
+      conversation.errors.add(attribute, message)
+      raise ActiveRecord::RecordInvalid, conversation
     end
   end
 end

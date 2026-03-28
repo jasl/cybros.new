@@ -1,5 +1,7 @@
 module SubagentSessions
   class Spawn
+    include Conversations::CreationSupport
+
     def self.call(...)
       new(...).call
     end
@@ -16,40 +18,44 @@ module SubagentSessions
     end
 
     def call
-      ApplicationRecord.transaction do
-        @conversation.with_lock do
-          validate_requested_by_turn!
-          validate_spawn_visibility!
-          Conversations::ValidateMutableState.call(
-            conversation: @conversation,
-            record: @conversation,
-            retained_message: "must be retained for subagent spawn",
-            active_message: "must be active for subagent spawn",
-            closing_message: "must not spawn subagents while close is in progress"
-          )
+      child_conversation = build_child_conversation(
+        parent: @conversation,
+        kind: "thread",
+        addressability: "agent_addressable"
+      )
 
-          child_conversation = Conversations::CreateThread.call(
-            parent: @conversation,
-            addressability: "agent_addressable"
-          )
+      ApplicationRecord.transaction do
+        Conversations::WithMutableStateLock.call(
+          conversation: @conversation,
+          record: child_conversation,
+          retained_message: "must be retained for subagent spawn",
+          active_message: "must be active for subagent spawn",
+          closing_message: "must not spawn subagents while close is in progress"
+        ) do |conversation|
+          validate_requested_by_turn!(conversation:)
+          validate_spawn_visibility!(conversation:)
+          refresh_child_conversation_from_parent!(conversation: child_conversation, parent: conversation)
+          child_conversation.save!
+          initialize_child_conversation!(conversation: child_conversation, parent: conversation)
+
           session = SubagentSession.create!(
-            installation: @conversation.installation,
+            installation: conversation.installation,
             conversation: child_conversation,
-            owner_conversation: @conversation,
+            owner_conversation: conversation,
             origin_turn: scope_turn? ? @requested_by_turn : nil,
             scope: @scope,
-            profile_key: resolved_profile_key,
+            profile_key: resolved_profile_key(conversation:),
             canonical_name: @canonical_name,
             nickname: @nickname,
-            parent_subagent_session: @conversation.subagent_session,
-            depth: next_depth,
+            parent_subagent_session: conversation.subagent_session,
+            depth: next_depth(conversation:),
             last_known_status: "running"
           )
           child_turn = Turns::StartAgentTurn.call(
             conversation: child_conversation,
             content: @content,
             sender_kind: "owner_agent",
-            sender_conversation: @conversation,
+            sender_conversation: conversation,
             agent_deployment: child_conversation.agent_deployment,
             resolved_config_snapshot: {},
             resolved_model_selection_snapshot: {}
@@ -88,55 +94,55 @@ module SubagentSessions
 
     private
 
-    def validate_requested_by_turn!
-      return if @requested_by_turn.conversation_id == @conversation.id
+    def validate_requested_by_turn!(conversation:)
+      return if @requested_by_turn.conversation_id == conversation.id
 
-      raise_invalid!(@conversation, :requested_by_turn, "must belong to the owner conversation")
+      raise_invalid!(conversation, :requested_by_turn, "must belong to the owner conversation")
     end
 
-    def validate_spawn_visibility!
+    def validate_spawn_visibility!(conversation:)
       RuntimeCapabilities::ComposeForConversation.visible_tool_entry!(
-        conversation: @conversation,
+        conversation: conversation,
         tool_name: "subagent_spawn"
       )
     rescue RuntimeCapabilities::ComposeForConversation::ToolNotVisibleError => error
-      raise_invalid!(@conversation, :base, error.message)
+      raise_invalid!(conversation, :base, error.message)
     end
 
-    def resolved_profile_key
+    def resolved_profile_key(conversation:)
       @resolved_profile_key ||= begin
         requested = @profile_key.presence
         if requested.present?
-          raise_invalid!(@conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_catalog.key?(requested)
+          raise_invalid!(conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_catalog(conversation:).key?(requested)
           requested
         else
-          default_subagent_profile_key
+          default_subagent_profile_key(conversation:)
         end
       end
     end
 
-    def default_subagent_profile_key
-      metadata_default = profile_catalog.find do |_key, value|
+    def default_subagent_profile_key(conversation:)
+      metadata_default = profile_catalog(conversation:).find do |_key, value|
         value.is_a?(Hash) && value["default_subagent_profile"] == true
       end&.first
       return metadata_default if metadata_default.present?
 
-      profile_catalog.keys.find { |key| key != interactive_profile_key } ||
-        interactive_profile_key
+      profile_catalog(conversation:).keys.find { |key| key != interactive_profile_key(conversation:) } ||
+        interactive_profile_key(conversation:)
     end
 
-    def interactive_profile_key
-      runtime_contract.default_config_snapshot.dig("interactive", "profile") || "main"
+    def interactive_profile_key(conversation:)
+      runtime_contract(conversation:).default_config_snapshot.dig("interactive", "profile") || "main"
     end
 
-    def profile_catalog
-      runtime_contract.profile_catalog
+    def profile_catalog(conversation:)
+      runtime_contract(conversation:).profile_catalog
     end
 
-    def runtime_contract
+    def runtime_contract(conversation:)
       @runtime_contract ||= RuntimeCapabilityContract.build(
-        execution_environment: @conversation.execution_environment,
-        capability_snapshot: @conversation.agent_deployment.active_capability_snapshot,
+        execution_environment: conversation.execution_environment,
+        capability_snapshot: conversation.agent_deployment.active_capability_snapshot,
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )
     end
@@ -145,10 +151,10 @@ module SubagentSessions
       @scope.to_s == "turn"
     end
 
-    def next_depth
-      return 0 if @conversation.subagent_session.blank?
+    def next_depth(conversation:)
+      return 0 if conversation.subagent_session.blank?
 
-      @conversation.subagent_session.depth + 1
+      conversation.subagent_session.depth + 1
     end
 
     def serialize(session:, conversation:, turn:, workflow_run:, agent_task_run:)
