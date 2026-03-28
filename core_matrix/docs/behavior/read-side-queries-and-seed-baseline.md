@@ -95,6 +95,29 @@ inventing demo users or UI state.
 - The query intentionally avoids graph-reconstruction SQL or node-by-node
   follow-up queries for artifacts and events.
 
+## Conversation Blocker Queries
+
+### `Conversations::BlockerSnapshotQuery`
+
+- Builds the canonical conversation blocker snapshot used by both operator
+  close summaries and write-side mutation guards.
+- Freezes one current set of:
+  - mainline blocker counts
+  - disposal-tail blocker counts
+  - lineage and provenance blocker facts
+  - live-mutation eligibility state
+- `ConversationBlockerSnapshot` owns the derived predicates for close
+  reconciliation and write-fence enforcement.
+
+### Projection Queries
+
+- `Conversations::DependencyBlockersQuery`
+- `Conversations::WorkBarrierQuery`
+- `Conversations::CloseSummaryQuery`
+
+These queries now project from `Conversations::BlockerSnapshotQuery` instead
+of carrying separate counter families and close-summary logic in parallel.
+
 ## Seed Baseline
 
 - `db/seeds.rb` always loads the provider catalog so environment setup fails

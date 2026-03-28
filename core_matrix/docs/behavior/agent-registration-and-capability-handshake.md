@@ -75,6 +75,8 @@ Planned replacement design:
   - `agent_plane`
   - `environment_plane`
   - `effective_tool_catalog`
+- those sections now come from one shared `RuntimeCapabilityContract`
+  projection instead of controller-local hash assembly
 - `effective_tool_catalog` resolves ordinary tool-name conflicts in this order:
   - `ExecutionEnvironment`
   - `AgentDeployment`
@@ -107,8 +109,16 @@ Planned replacement design:
 - protocol method entries must be hashes with `snake_case` `method_id` values
 - tool catalog entries must be hashes with `snake_case` `tool_name` values and
   a supported `tool_kind`
-- `CapabilitySnapshot#as_contract_payload` is the shared machine-facing payload
-  formatter for registration and capability endpoints
+- `RuntimeCapabilityContract` is the shared formatter for:
+  - machine-facing capability refresh and handshake payloads
+  - `agent_plane`
+  - `environment_plane`
+  - `effective_tool_catalog`
+  - conversation-facing runtime capability payloads
+- `CapabilitySnapshot#as_contract_payload`,
+  `CapabilitySnapshot#as_agent_plane_payload`, and
+  `ExecutionEnvironment#as_runtime_plane_payload` are thin adapters over that
+  shared contract
 
 ## Config Reconciliation
 
@@ -121,6 +131,9 @@ Planned replacement design:
   exactly one new version
 - handshake updates the deployment protocol version, SDK version, and active
   capability snapshot pointer in one transaction
+- handshake normalizes both environment-plane and agent-plane payloads through
+  the shared runtime capability contract before persistence or response
+  rendering
 - `AgentDeployments::ReconcileConfig` keeps selector-bearing defaults from the
   previous active snapshot when the new config schema still exposes those keys
 - the retained selector-bearing keys in this task are `interactive`,

@@ -84,6 +84,8 @@ Planned replacement design:
   `human_interaction`, `retryable_failure`, or `policy_gate`, outage pause
   snapshots that original wait contract inside the pause payload instead of
   discarding it
+- `WorkflowWaitSnapshot` is the explicit contract object for that nested pause
+  payload and owns both restore attributes and blocker-resolution checks
 - recovery restores the snapped blocker when it is still unresolved, and only
   clears to `ready` when the snapped blocker has already been satisfied while
   the workflow was paused
@@ -108,6 +110,14 @@ Planned replacement design:
 - successful auto-resume preserves the existing turn and workflow-run IDs
 - if outage pause wrapped an older blocker, successful auto-resume restores
   that blocker instead of forcing the workflow to `ready`
+- `AgentDeployments::BuildRecoveryPlan` now owns drift classification and
+  recovery planning and returns one explicit action:
+  - `resume`
+  - `resume_with_rebind`
+  - `manual_recovery_required`
+- `AgentDeployments::ApplyRecoveryPlan` owns the matching mutation path,
+  including turn rebinding, restored wait-state writes, and manual-recovery
+  audit logging
 - when the auto-resume target is a rotated replacement deployment, the kernel:
   - re-pins the turn to the replacement deployment
   - refreshes the frozen capability snapshot binding

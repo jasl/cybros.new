@@ -207,6 +207,17 @@ may rotate or be switched within that bound environment.
   - mainline blockers
   - disposal-tail blockers
   - lineage and provenance blockers
+- `Conversations::BlockerSnapshotQuery` is now the canonical read-side builder
+  for those blocker facts
+- `ConversationBlockerSnapshot` owns the derived predicates that answer:
+  - whether the mainline stop barrier is clear
+  - whether disposal tail work is still pending
+  - whether disposal tail cleanup degraded
+  - whether lineage or provenance blockers still prevent purge
+  - whether the conversation is currently mutable for live writes
+- `DependencyBlockersQuery`, `WorkBarrierQuery`, and `CloseSummaryQuery` are
+  thin projections over that shared blocker snapshot instead of separate
+  counter families
 
 ## Invariants
 

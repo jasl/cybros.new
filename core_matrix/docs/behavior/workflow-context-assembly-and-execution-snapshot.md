@@ -80,6 +80,9 @@ freezes a per-turn execution snapshot that preserves:
   - `execution_settings`
 - `execution_settings` are filtered to the current provider wire API instead of
   blindly copying the whole resolved turn config payload
+- `ProviderRequestSettingsSchema` is the canonical owner of request-setting
+  filtering and validation for both catalog defaults and resolved runtime
+  overrides
 - for Phase 2 provider-backed execution, merge precedence is:
   1. model catalog `request_defaults`
   2. the turn's resolved config snapshot
@@ -92,8 +95,14 @@ freezes a per-turn execution snapshot that preserves:
 - `ProviderExecution::BuildRequestContext` now reads provider/model/budget
   fields from `TurnExecutionSnapshot` instead of reopening aggregate helpers or
   re-deriving request settings from a mixed snapshot blob
+- `ProviderExecution::BuildRequestContext` returns a validated
+  `ProviderRequestContext`, so request dispatch and persistence stages no
+  longer decode provider context out of raw nested hashes
 - `Workflows::ExecuteRun` remains a thin workflow-owned caller; its default
   message path reads frozen context messages from the execution snapshot
+- provider-backed turn execution now keeps a stable public entrypoint
+  (`ProviderExecution::ExecuteTurnStep`) but splits dispatch, freshness
+  locking, and terminal persistence into narrower collaborators
 
 ## Context Messages And Imports
 

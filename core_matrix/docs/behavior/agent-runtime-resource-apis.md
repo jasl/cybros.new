@@ -222,7 +222,8 @@ orchestration are still defined in:
 - late human resolution paths are also rejected once the conversation is no
   longer retained, no longer active, or already closing
 - both checks are enforced from fresh locked conversation and workflow/request
-  state rather than trusting a stale caller-side object snapshot
+  state through the shared `ConversationBlockerSnapshot`-backed mutation guard
+  rather than trusting a stale caller-side object snapshot
 
 ## Public Contract Rules
 
@@ -241,6 +242,8 @@ orchestration are still defined in:
   - `agent_plane`
   - `environment_plane`
   - `effective_tool_catalog`
+- those capability sections and the conversation-facing runtime capability
+  payload now come from the shared `RuntimeCapabilityContract`
 - `effective_tool_catalog` applies environment-first tool precedence for
   ordinary tool names and keeps reserved `core_matrix__*` tools outside that
   collision domain

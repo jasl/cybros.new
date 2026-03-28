@@ -119,6 +119,15 @@ Supported `request_defaults` keys are:
 - `presence_penalty`
 - `repetition_penalty`
 
+`ProviderRequestSettingsSchema` is now the single contract object that owns
+that wire-API-specific allowlist and value validation. Catalog validation,
+execution-snapshot assembly, and provider request-context building all ask the
+same schema object rather than each carrying their own copy of the key table.
+
+`ProviderRequestContext` is the canonical runtime contract that carries the
+filtered provider request settings, hard limits, advisory hints, and provider
+metadata into provider execution.
+
 ## Capability Validation
 
 Each model must declare:
@@ -146,6 +155,8 @@ from provider or model family.
 - omitted model `enabled` normalizes to `true`
 - explicit model `enabled` values must be boolean
 - `request_defaults` must be a hash that uses only supported keys
+- supported request-setting keys are validated against the current wire API
+  through `ProviderRequestSettingsSchema`
 - `request_defaults` values must pass broad type and value-range checks:
   - `reasoning_effort` must be a non-empty string
   - `temperature` must be numeric and `>= 0`

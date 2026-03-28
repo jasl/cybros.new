@@ -76,6 +76,8 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `blocking_resource_id = <deployment public_id>`
 - if a workflow was already waiting on another blocker, outage pause snapshots
   that original blocker and restores it after recovery instead of erasing it
+- `WorkflowWaitSnapshot` is the explicit parser and restore contract for those
+  nested pause payloads
 - `AgentDeployments::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
 - compatible rotated replacements may auto resume only when they preserve the
@@ -118,10 +120,13 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   workflow node before persistence; if the interrupt fence or another terminal
   state has landed first, that provider result is dropped without transcript,
   usage, or profiling side effects
-- turn timeline mutation helpers now use one shared contract and lock order:
+- close-summary projection and live/timeline mutation enforcement now both read
+  from `ConversationBlockerSnapshot`
+- turn timeline mutation helpers now use one shared blocker contract and lock
+  order:
   - `conversation.with_lock`
   - `turn.with_lock`
-  - re-check `retained + active + not_closing + not turn_interrupted`
+  - re-check `ConversationBlockerSnapshot` plus `not turn_interrupted`
 - steering current input, editing tail input, selecting output variants,
   retrying or rerunning output, and rollback all fail closed once that
   interrupt fence or a close fence has landed
