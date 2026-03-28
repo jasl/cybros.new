@@ -28,7 +28,7 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     context = build_waiting_recovery_context!
     drifted_snapshot = create_capability_snapshot!(
       agent_deployment: context[:agent_deployment],
-      version: 2,
+      version: 3,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
@@ -192,7 +192,18 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
 
   def build_waiting_recovery_context!
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    context[:agent_deployment].update!(auto_resume_eligible: true)
+    richer_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:agent_deployment],
+      version: 2,
+      protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
+      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    context[:agent_deployment].update!(
+      active_capability_snapshot: richer_snapshot,
+      auto_resume_eligible: true
+    )
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],

@@ -63,12 +63,13 @@ module AgentDeployments
     private
 
     def rebind_turn!(turn)
-      Conversations::ValidateAgentDeploymentTarget.call(
+      resolved_model_selection_snapshot = AgentDeployments::ValidateRecoveryTarget.call(
         conversation: turn.conversation,
+        turn: turn,
         agent_deployment: @deployment,
-        record: turn,
-        same_logical_agent_as: turn.agent_deployment,
-        capability_contract_turn: turn
+        selector_source: recovery_selector_source(turn),
+        selector: turn.normalized_selector,
+        require_auto_resume_eligible: true
       )
       Conversations::SwitchAgentDeployment.call(
         conversation: turn.conversation,
@@ -77,7 +78,7 @@ module AgentDeployments
       turn.update!(
         agent_deployment: turn.conversation.agent_deployment,
         pinned_deployment_fingerprint: turn.conversation.agent_deployment.fingerprint,
-        resolved_model_selection_snapshot: @recovery_plan.resolved_model_selection_snapshot
+        resolved_model_selection_snapshot: resolved_model_selection_snapshot
       )
       turn.update!(
         execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn).to_h
@@ -88,6 +89,10 @@ module AgentDeployments
       workflow_run.active? &&
         workflow_run.waiting? &&
         workflow_run.wait_reason_kind == "agent_unavailable"
+    end
+
+    def recovery_selector_source(turn)
+      turn.resolved_model_selection_snapshot["selector_source"] || "conversation"
     end
   end
 end

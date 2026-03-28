@@ -293,7 +293,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
   end
 
   def build_paused_human_interaction_recovery_context!
-    context = build_human_interaction_context!
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     richer_snapshot = create_capability_snapshot!(
       agent_deployment: context[:agent_deployment],
       version: 2,
@@ -303,9 +303,43 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context[:agent_deployment].update!(active_capability_snapshot: richer_snapshot)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Human interaction input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = Workflows::CreateForTurn.call(
+      turn: turn,
+      root_node_key: "root",
+      root_node_type: "turn_root",
+      decision_source: "system",
+      metadata: {}
+    )
+
+    Workflows::Mutate.call(
+      workflow_run: workflow_run,
+      nodes: [
+        {
+          node_key: "human_gate",
+          node_type: "human_interaction",
+          decision_source: "agent_program",
+          metadata: {},
+        },
+      ],
+      edges: [
+        { from_node_key: "root", to_node_key: "human_gate" },
+      ]
+    )
     request = HumanInteractions::Request.call(
       request_type: "HumanTaskRequest",
-      workflow_node: context[:workflow_node],
+      workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "human_gate"),
       blocking: true,
       request_payload: { "instructions" => "Need operator input" }
     )
@@ -316,7 +350,13 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    context.merge(request: request, workflow_run: context[:workflow_run].reload)
+    context.merge(
+      conversation: conversation,
+      turn: turn.reload,
+      workflow_run: workflow_run.reload,
+      workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "human_gate"),
+      request: request
+    )
   end
 
   def create_compatible_replacement_deployment!(

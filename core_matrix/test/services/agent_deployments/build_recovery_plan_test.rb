@@ -40,6 +40,12 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
       agent_installation: context[:agent_installation],
       execution_environment: context[:execution_environment]
     )
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: replacement,
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
+    )
 
     plan = AgentDeployments::BuildRecoveryPlan.call(
       deployment: replacement,
@@ -60,6 +66,12 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
       profile_catalog: default_profile_catalog.deep_merge(
         "researcher" => { "allowed_tool_names" => %w[shell_exec] }
       )
+    )
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: replacement,
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
     )
 
     plan = AgentDeployments::BuildRecoveryPlan.call(
