@@ -13,26 +13,32 @@ module Conversations
     end
 
     def call
+      conversation = current_conversation
+
       return Conversations::RequestClose.call(
-        conversation: @conversation,
+        conversation: conversation,
         intent_kind: "archive",
         occurred_at: @occurred_at
       ) if @force
 
       Conversations::WithRetainedLifecycleLock.call(
-        conversation: @conversation,
-        record: @conversation,
+        conversation: conversation,
+        record: conversation,
         retained_message: "must be retained before archival",
         expected_state: "active",
         lifecycle_message: "must be active before archival"
-      ) do |conversation|
-        ensure_conversation_quiescent!(conversation, stage: "archival")
-        conversation.update!(lifecycle_state: "archived")
+      ) do |locked_conversation|
+        ensure_conversation_quiescent!(locked_conversation, stage: "archival")
+        locked_conversation.update!(lifecycle_state: "archived")
       end
 
-      @conversation
+      conversation
     end
 
     private
+
+    def current_conversation
+      @current_conversation ||= Conversation.find(@conversation.id)
+    end
   end
 end

@@ -94,4 +94,47 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     assert_equal original_deleted_at, second_deleted.deleted_at
     assert second_deleted.pending_delete?
   end
+
+  test "reloads a cached nil publication association before revoking during deletion" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    stale_conversation = Conversation.find(conversation.id)
+    assert_nil stale_conversation.publication
+
+    publication = Publications::PublishLive.call(
+      conversation: conversation,
+      actor: context[:user],
+      visibility_mode: "external_public"
+    )
+
+    Conversations::RequestDeletion.call(conversation: stale_conversation, occurred_at: Time.current)
+
+    assert publication.reload.disabled?
+    assert publication.revoked?
+  end
+
+  test "preserves original deleted_at when deletion is retried from a stale conversation shell" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    stale_conversation = Conversation.find(conversation.id)
+    original_deleted_at = Time.zone.parse("2026-03-25 09:00:00 UTC")
+
+    first_deleted = Conversations::RequestDeletion.call(conversation: conversation, occurred_at: original_deleted_at)
+    second_deleted = Conversations::RequestDeletion.call(
+      conversation: stale_conversation,
+      occurred_at: original_deleted_at + 5.minutes
+    )
+
+    assert_equal original_deleted_at, first_deleted.deleted_at
+    assert_equal first_deleted.deleted_at, second_deleted.deleted_at
+    assert_equal 1, conversation.reload.conversation_close_operations.count
+  end
 end

@@ -24,52 +24,61 @@ module Conversations
     end
 
     def call
+      conversation = current_conversation
       config = INTENT_CONFIG.fetch(@intent_kind)
 
       ApplicationRecord.transaction do
-        with_close_lock do
-          find_or_create_close_operation!
-          apply_immediate_state!
-          cancel_queued_turns!(reason_kind: config.fetch(:queued_turn_reason))
-          request_turn_interrupts!
+        with_close_lock(conversation) do |locked_conversation|
+          find_or_create_close_operation!(locked_conversation)
+          apply_immediate_state!(locked_conversation)
+          cancel_queued_turns!(locked_conversation, reason_kind: config.fetch(:queued_turn_reason))
+          request_turn_interrupts!(locked_conversation)
           request_owned_subagent_session_closes!(
+            locked_conversation,
             request_kind: config.fetch(:background_request_kind),
             reason_kind: config.fetch(:close_reason_kind)
           )
           request_background_process_closes!(
+            locked_conversation,
             request_kind: config.fetch(:background_request_kind),
             reason_kind: config.fetch(:close_reason_kind)
           )
         end
 
         Conversations::ReconcileCloseOperation.call(
-          conversation: @conversation,
+          conversation: conversation,
           occurred_at: @occurred_at
         )
       end
 
-      @conversation.reload
+      conversation.reload
     end
 
     private
 
-    def with_close_lock(&block)
+    def current_conversation
+      @current_conversation ||= Conversation.find(@conversation.id)
+    end
+
+    def with_close_lock(conversation, &block)
       if @intent_kind == "archive"
         Conversations::WithRetainedLifecycleLock.call(
-          conversation: @conversation,
-          record: @conversation,
+          conversation: conversation,
+          record: conversation,
           retained_message: "must be retained before archival",
           expected_state: "active",
           lifecycle_message: "must be active before archival",
           &block
         )
       else
-        @conversation.with_lock(&block)
+        conversation.with_lock do
+          yield conversation.reload
+        end
       end
     end
 
-    def find_or_create_close_operation!
-      existing = @conversation.unfinished_close_operation
+    def find_or_create_close_operation!(conversation)
+      existing = conversation.unfinished_close_operation
       return existing if existing.present? && existing.intent_kind == @intent_kind
 
       if existing.present?
@@ -77,8 +86,8 @@ module Conversations
       end
 
       ConversationCloseOperation.create!(
-        installation: @conversation.installation,
-        conversation: @conversation,
+        installation: conversation.installation,
+        conversation: conversation,
         intent_kind: @intent_kind,
         lifecycle_state: "requested",
         requested_at: @occurred_at,
@@ -86,18 +95,18 @@ module Conversations
       )
     end
 
-    def apply_immediate_state!
+    def apply_immediate_state!(conversation)
       return unless @intent_kind == "delete"
-      return if @conversation.deleted?
+      return if conversation.deleted?
 
-      @conversation.update!(
+      conversation.update!(
         deletion_state: "pending_delete",
-        deleted_at: @conversation.deleted_at || @occurred_at
+        deleted_at: conversation.deleted_at || @occurred_at
       )
     end
 
-    def cancel_queued_turns!(reason_kind:)
-      Turn.where(conversation: @conversation, lifecycle_state: "queued").update_all(
+    def cancel_queued_turns!(conversation, reason_kind:)
+      Turn.where(conversation: conversation, lifecycle_state: "queued").update_all(
         lifecycle_state: "canceled",
         cancellation_requested_at: @occurred_at,
         cancellation_reason_kind: reason_kind,
@@ -105,16 +114,16 @@ module Conversations
       )
     end
 
-    def request_turn_interrupts!
-      Turn.where(conversation: @conversation, lifecycle_state: "active").find_each do |turn|
+    def request_turn_interrupts!(conversation)
+      Turn.where(conversation: conversation, lifecycle_state: "active").find_each do |turn|
         Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: @occurred_at)
       end
     end
 
-    def request_background_process_closes!(request_kind:, reason_kind:)
+    def request_background_process_closes!(conversation, request_kind:, reason_kind:)
       Conversations::RequestResourceCloses.call(
         relations: ProcessRun.where(
-          conversation: @conversation,
+          conversation: conversation,
           lifecycle_state: "running",
           kind: "background_service"
         ),
@@ -124,8 +133,8 @@ module Conversations
       )
     end
 
-    def request_owned_subagent_session_closes!(request_kind:, reason_kind:)
-      SubagentSessions::OwnedTree.sessions_for(owner_conversation: @conversation).each do |session|
+    def request_owned_subagent_session_closes!(conversation, request_kind:, reason_kind:)
+      SubagentSessions::OwnedTree.sessions_for(owner_conversation: conversation).each do |session|
         next unless session.close_open?
 
         SubagentSessions::RequestClose.call(

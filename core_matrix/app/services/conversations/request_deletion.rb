@@ -10,11 +10,12 @@ module Conversations
     end
 
     def call
-      return @conversation if @conversation.deleted?
+      conversation = current_conversation
+      return conversation if conversation.deleted?
 
-      revoke_publication!
+      revoke_publication!(conversation)
       Conversations::RequestClose.call(
-        conversation: @conversation,
+        conversation: conversation,
         intent_kind: "delete",
         occurred_at: @occurred_at
       )
@@ -22,8 +23,12 @@ module Conversations
 
     private
 
-    def revoke_publication!
-      publication = @conversation.publication
+    def current_conversation
+      @current_conversation ||= Conversation.find(@conversation.id)
+    end
+
+    def revoke_publication!(conversation)
+      publication = conversation.publication
       return if publication.blank? || !publication.active?
 
       Publications::Revoke.call(
