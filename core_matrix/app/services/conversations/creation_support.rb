@@ -27,6 +27,21 @@ module Conversations
       conversation
     end
 
+    def build_child_conversation(parent:, kind:, historical_anchor_message_id: nil, addressability: "owner_addressable")
+      Conversation.new(
+        installation: parent.installation,
+        workspace: parent.workspace,
+        execution_environment: parent.execution_environment,
+        agent_deployment: parent.agent_deployment,
+        parent_conversation: parent,
+        kind: kind,
+        purpose: parent.purpose,
+        addressability: addressability,
+        lifecycle_state: "active",
+        historical_anchor_message_id: historical_anchor_message_id
+      )
+    end
+
     def create_parent_closures!(conversation, parent:)
       ConversationClosure.where(descendant_conversation: parent).find_each do |closure|
         ConversationClosure.create!(

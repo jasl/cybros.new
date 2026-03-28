@@ -13,31 +13,23 @@ module Conversations
 
     def call
       ApplicationRecord.transaction do
-        Conversations::WithMutableStateLock.call(
-          conversation: @parent,
-          record: @parent,
-          retained_message: "must be retained before checkpointing",
-          active_message: "must be active before checkpointing",
-          closing_message: "must not create child conversations while close is in progress"
+        Conversations::WithChildConversationEntryLock.call(
+          parent: @parent,
+          entry_label: "checkpointing"
         ) do |parent|
+          conversation = build_child_conversation(
+            parent: parent,
+            kind: "checkpoint",
+            historical_anchor_message_id: @historical_anchor_message_id
+          )
           Conversations::ValidateHistoricalAnchor.call(
             parent: parent,
             kind: "checkpoint",
             historical_anchor_message_id: @historical_anchor_message_id,
-            record: parent
+            record: conversation
           )
 
-          conversation = Conversation.create!(
-            installation: parent.installation,
-            workspace: parent.workspace,
-            execution_environment: parent.execution_environment,
-            agent_deployment: parent.agent_deployment,
-            parent_conversation: parent,
-            kind: "checkpoint",
-            purpose: parent.purpose,
-            lifecycle_state: "active",
-            historical_anchor_message_id: @historical_anchor_message_id
-          )
+          conversation.save!
 
           initialize_child_conversation!(conversation: conversation, parent: parent)
         end

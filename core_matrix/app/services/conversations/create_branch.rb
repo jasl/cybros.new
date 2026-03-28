@@ -13,22 +13,13 @@ module Conversations
 
     def call
       ApplicationRecord.transaction do
-        Conversations::WithMutableStateLock.call(
-          conversation: @parent,
-          record: @parent,
-          retained_message: "must be retained before branching",
-          active_message: "must be active before branching",
-          closing_message: "must not create child conversations while close is in progress"
+        Conversations::WithChildConversationEntryLock.call(
+          parent: @parent,
+          entry_label: "branching"
         ) do |parent|
-          conversation = Conversation.new(
-            installation: parent.installation,
-            workspace: parent.workspace,
-            execution_environment: parent.execution_environment,
-            agent_deployment: parent.agent_deployment,
-            parent_conversation: parent,
+          conversation = build_child_conversation(
+            parent: parent,
             kind: "branch",
-            purpose: parent.purpose,
-            lifecycle_state: "active",
             historical_anchor_message_id: @historical_anchor_message_id
           )
           anchor_message = Conversations::ValidateHistoricalAnchor.call(

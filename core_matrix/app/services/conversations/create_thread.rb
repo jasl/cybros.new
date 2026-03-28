@@ -14,32 +14,24 @@ module Conversations
 
     def call
       ApplicationRecord.transaction do
-        Conversations::WithMutableStateLock.call(
-          conversation: @parent,
-          record: @parent,
-          retained_message: "must be retained before threading",
-          active_message: "must be active before threading",
-          closing_message: "must not create child conversations while close is in progress"
+        Conversations::WithChildConversationEntryLock.call(
+          parent: @parent,
+          entry_label: "threading"
         ) do |parent|
+          conversation = build_child_conversation(
+            parent: parent,
+            kind: "thread",
+            historical_anchor_message_id: @historical_anchor_message_id,
+            addressability: @addressability
+          )
           Conversations::ValidateHistoricalAnchor.call(
             parent: parent,
             kind: "thread",
             historical_anchor_message_id: @historical_anchor_message_id,
-            record: parent
+            record: conversation
           )
 
-          conversation = Conversation.create!(
-            installation: parent.installation,
-            workspace: parent.workspace,
-            execution_environment: parent.execution_environment,
-            agent_deployment: parent.agent_deployment,
-            parent_conversation: parent,
-            kind: "thread",
-            purpose: parent.purpose,
-            addressability: @addressability,
-            lifecycle_state: "active",
-            historical_anchor_message_id: @historical_anchor_message_id
-          )
+          conversation.save!
 
           initialize_child_conversation!(conversation: conversation, parent: parent)
         end
