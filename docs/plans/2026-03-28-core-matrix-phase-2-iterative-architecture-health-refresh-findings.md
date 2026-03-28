@@ -287,6 +287,23 @@ work would harden accidental complexity into durable protocol shape.
   `4` confirmed findings survived promotion; `5` candidate findings were
   dropped or downgraded by counter-evidence. Round 5 itself did not add any new
   high-confidence finding.
+- Round 6 `Contract Adjacency Re-Verification`
+- Coverage:
+  re-read capability-snapshot reuse in runtime handshake and bundled-runtime
+  bootstrap, traced the real Core Matrix execution-assignment assembly path,
+  and compared it against Fenix runtime-flow tests, execution test helpers,
+  and the external pairing manifest.
+- Round result:
+  no newly discovered high-confidence finding was promoted from this pass.
+  The duplicated capability-snapshot matcher still reads as a reinforcement
+  smell, and the `allowed_tool_names` enforcement gap still reads as a boundary
+  smell rather than an observed runtime break.
+- Counter-evidence and strengthening:
+  this pass confirmed that Core Matrix locally tests the frozen assignment
+  payload shape, while Fenix runtime tests still rely on a helper payload that
+  injects `model_context.likely_model` and `provider_execution.model_ref`.
+  That strengthened the existing `core_matrix <-> fenix` model-hint finding
+  without creating an additional independent finding.
 
 ## Completeness Check
 
@@ -297,7 +314,8 @@ work would harden accidental complexity into durable protocol shape.
 - Round 3 boundary review is complete.
 - Round 4 hotspot deep dive is complete.
 - Round 5 cross-cut anti-pattern pass is complete.
+- Round 6 contract adjacency re-verification is complete.
 - Counter-evidence has been applied to every promoted item.
 - The mandatory five rounds are complete.
-- The audit still owes one extra no-new-finding round to satisfy the iterative
-  stop condition.
+- Rounds 5 and 6 produced no new high-confidence findings.
+- The iterative stop condition is satisfied.
