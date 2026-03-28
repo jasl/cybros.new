@@ -82,6 +82,21 @@
   blocker-summary drift is no longer a standalone issue because
   `WorkBarrierQuery` and `CloseSummaryQuery` are both thin projections over
   `ConversationBlockerSnapshot`.
+- Round 3 `Boundary Review: runtime binding, provider, read side`
+- Coverage:
+  reviewed `ExecutionEnvironment`, `AgentDeployment`, environment capability
+  recording, deployment registration / handshake / recovery services, runtime
+  capability composition services, execution-snapshot shaping, provider
+  catalog and request-context contracts, read-side query objects, and
+  machine-facing capability request tests.
+- Round result:
+  this round produced a new high-confidence candidate around recovery-time
+  capability compatibility checks being narrower than the runtime capability
+  contract they are meant to preserve.
+- Earlier residual concerns that now look materially resolved:
+  provider request-setting validation and request-context shaping are now
+  separated cleanly enough from provider execution to drop them as a
+  standalone runtime-boundary finding.
 
 ## Completeness Check
 
@@ -89,4 +104,5 @@
 - Prior audit reconciled against current plans and current contract docs.
 - Round 1 baseline reconciliation is complete.
 - Round 2 boundary review is complete.
+- Round 3 boundary review is complete.
 - The audit still owes round-by-round code review and counter-evidence.
