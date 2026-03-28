@@ -103,6 +103,51 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal first_updated_at, process_run.reload.updated_at
   end
 
+  test "resource_close_acknowledged uses server receive time for freshness instead of a client supplied occurred_at" do
+    context = build_agent_control_context!
+    occurred_at = Time.zone.parse("2026-03-28 14:00:00 UTC")
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment]
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = travel_to(occurred_at) do
+      MailboxScenarioBuilder.new(self).close_request!(
+        context: context,
+        resource: process_run
+      ).fetch(:mailbox_item)
+    end
+
+    travel_to(occurred_at) do
+      AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    end
+
+    travel_to(occurred_at + 31.seconds) do
+      post "/agent_api/control/report",
+        params: {
+          method_id: "resource_close_acknowledged",
+          message_id: "close-ack-stale-#{next_test_sequence}",
+          mailbox_item_id: mailbox_item.public_id,
+          close_request_id: mailbox_item.public_id,
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+          occurred_at: occurred_at.iso8601,
+        },
+        headers: agent_api_headers(context[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :conflict
+    assert_equal "stale", JSON.parse(response.body).fetch("result")
+    assert_equal "requested", process_run.reload.close_state
+    assert_equal "leased", mailbox_item.reload.status
+    assert_equal context[:deployment].public_id, mailbox_item.leased_to_agent_deployment.public_id
+  end
+
   test "resource_closed rejects wrong-environment reporters even when payload data is spoofed" do
     context = build_agent_control_context!
     other_agent_installation = create_agent_installation!(installation: context[:installation])
