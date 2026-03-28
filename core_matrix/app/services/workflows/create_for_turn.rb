@@ -89,10 +89,6 @@ module Workflows
         agent_task_run: agent_task_run,
         payload: {
           "task_payload" => agent_task_run.task_payload,
-          "context_messages" => execution_snapshot.context_messages,
-          "budget_hints" => execution_snapshot.budget_hints,
-          "provider_execution" => execution_snapshot.provider_execution,
-          "model_context" => execution_snapshot.model_context,
         },
         dispatch_deadline_at: @dispatch_deadline_at,
         execution_hard_deadline_at: @execution_hard_deadline_at,

@@ -46,13 +46,62 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: retried_task)
     assert_equal "execution_assignment", mailbox_item.item_type
     assert_equal 2, mailbox_item.priority
-    assert_equal "step_retry", mailbox_item.payload["delivery_kind"]
-    assert_equal 1, mailbox_item.payload["previous_attempt_no"]
+    assert_equal(
+      {
+        "step" => "execute",
+        "tool_name" => "shell_exec",
+        "delivery_kind" => "step_retry",
+        "previous_attempt_no" => 1,
+      },
+      mailbox_item.payload["task_payload"]
+    )
 
     workflow_run = context[:workflow_run].reload
     assert workflow_run.ready?
     assert_nil workflow_run.wait_reason_kind
     assert_nil workflow_run.blocking_resource_type
+  end
+
+  test "reuses the frozen execution snapshot envelope for retry assignments" do
+    context = build_agent_control_context!
+    failed_task = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "failed",
+      logical_work_id: "retry-step",
+      attempt_no: 1,
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago,
+      task_payload: { "step" => "execute", "tool_name" => "shell_exec" },
+      terminal_payload: {
+        "retryable" => true,
+        "retry_scope" => "step",
+        "failure_kind" => "tool_failure",
+        "last_error_summary" => "exit status 1",
+      }
+    )
+    context[:workflow_run].update!(
+      wait_state: "waiting",
+      wait_reason_kind: "retryable_failure",
+      wait_reason_payload: {
+        "retryable" => true,
+        "retry_scope" => "step",
+        "logical_work_id" => failed_task.logical_work_id,
+        "attempt_no" => failed_task.attempt_no,
+        "last_error_summary" => "exit status 1",
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "AgentTaskRun",
+      blocking_resource_id: failed_task.public_id
+    )
+
+    retried_task = Workflows::StepRetry.call(workflow_run: context[:workflow_run])
+    mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: retried_task)
+    execution_snapshot = context[:turn].reload.execution_snapshot
+
+    assert_equal execution_snapshot.context_messages, mailbox_item.payload["context_messages"]
+    assert_equal execution_snapshot.budget_hints, mailbox_item.payload["budget_hints"]
+    assert_equal execution_snapshot.provider_execution, mailbox_item.payload["provider_execution"]
+    assert_equal execution_snapshot.model_context, mailbox_item.payload["model_context"]
   end
 
   test "rejects retry when the turn has already been interrupted" do

@@ -42,10 +42,12 @@ module Workflows
 
             AgentControl::CreateExecutionAssignment.call(
               agent_task_run: retried_task,
-              payload: failed_task.task_payload.merge(
-                "delivery_kind" => "step_retry",
-                "previous_attempt_no" => failed_task.attempt_no
-              ),
+              payload: {
+                "task_payload" => failed_task.task_payload.merge(
+                  "delivery_kind" => "step_retry",
+                  "previous_attempt_no" => failed_task.attempt_no
+                ),
+              },
               dispatch_deadline_at: @occurred_at + 5.minutes,
               execution_hard_deadline_at: @occurred_at + 10.minutes,
               priority: 2

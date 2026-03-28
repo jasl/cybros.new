@@ -2,6 +2,15 @@ require "securerandom"
 
 module AgentControl
   class CreateExecutionAssignment
+    ENVELOPE_KEYS = %w[
+      task_payload
+      context_messages
+      budget_hints
+      provider_execution
+      model_context
+      agent_context
+    ].freeze
+
     def self.call(...)
       new(...).call
     end
@@ -36,7 +45,7 @@ module AgentControl
         dispatch_deadline_at: @dispatch_deadline_at,
         lease_timeout_seconds: @lease_timeout_seconds,
         execution_hard_deadline_at: @execution_hard_deadline_at,
-        payload: @payload.except("agent_context").merge(base_payload)
+        payload: assignment_payload
       )
 
       PublishPending.call(mailbox_item: mailbox_item)
@@ -44,6 +53,12 @@ module AgentControl
     end
 
     private
+
+    def assignment_payload
+      extra_payload = @payload.except(*ENVELOPE_KEYS)
+
+      base_payload.merge(extra_payload)
+    end
 
     def base_payload
       {
@@ -53,8 +68,27 @@ module AgentControl
         "conversation_id" => @agent_task_run.conversation.public_id,
         "turn_id" => @agent_task_run.turn.public_id,
         "task_kind" => @agent_task_run.task_kind,
-        "agent_context" => @agent_task_run.turn.execution_snapshot.agent_context,
+        "task_payload" => normalized_task_payload,
+        "context_messages" => execution_snapshot.context_messages,
+        "budget_hints" => execution_snapshot.budget_hints,
+        "provider_execution" => execution_snapshot.provider_execution,
+        "model_context" => execution_snapshot.model_context,
+        "agent_context" => execution_snapshot.agent_context,
       }
+    end
+
+    def execution_snapshot
+      @execution_snapshot ||= @agent_task_run.turn.execution_snapshot
+    end
+
+    def normalized_task_payload
+      explicit_task_payload = @payload["task_payload"]
+      return explicit_task_payload.deep_stringify_keys if explicit_task_payload.is_a?(Hash)
+
+      legacy_task_payload = @payload.except(*ENVELOPE_KEYS)
+      return legacy_task_payload.deep_stringify_keys if legacy_task_payload.present?
+
+      @agent_task_run.task_payload.deep_stringify_keys
     end
   end
 end
