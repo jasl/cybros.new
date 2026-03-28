@@ -9,26 +9,17 @@ module Conversations
     end
 
     def call
-      ApplicationRecord.transaction do
-        @conversation.with_lock do
-          Conversations::ValidateRetainedState.call(
-            conversation: @conversation,
-            record: @conversation,
-            message: "must be retained before unarchival"
-          )
-          raise_invalid!(@conversation, :lifecycle_state, "must be archived before unarchival") unless @conversation.archived?
-          @conversation.update!(lifecycle_state: "active")
-        end
+      Conversations::WithRetainedLifecycleLock.call(
+        conversation: @conversation,
+        record: @conversation,
+        retained_message: "must be retained before unarchival",
+        expected_state: "archived",
+        lifecycle_message: "must be archived before unarchival"
+      ) do |conversation|
+        conversation.update!(lifecycle_state: "active")
       end
 
       @conversation
-    end
-
-    private
-
-    def raise_invalid!(record, attribute, message)
-      record.errors.add(attribute, message)
-      raise ActiveRecord::RecordInvalid, record
     end
   end
 end

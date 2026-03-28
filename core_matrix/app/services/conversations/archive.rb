@@ -19,15 +19,15 @@ module Conversations
         occurred_at: @occurred_at
       ) if @force
 
-      ApplicationRecord.transaction do
-        @conversation.with_lock do
-          Conversations::ValidateArchiveTarget.call(
-            conversation: @conversation,
-            record: @conversation
-          )
-          ensure_conversation_quiescent!(@conversation, stage: "archival")
-          @conversation.update!(lifecycle_state: "archived")
-        end
+      Conversations::WithRetainedLifecycleLock.call(
+        conversation: @conversation,
+        record: @conversation,
+        retained_message: "must be retained before archival",
+        expected_state: "active",
+        lifecycle_message: "must be active before archival"
+      ) do |conversation|
+        ensure_conversation_quiescent!(conversation, stage: "archival")
+        conversation.update!(lifecycle_state: "archived")
       end
 
       @conversation

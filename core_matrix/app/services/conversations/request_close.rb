@@ -27,11 +27,7 @@ module Conversations
       config = INTENT_CONFIG.fetch(@intent_kind)
 
       ApplicationRecord.transaction do
-        @conversation.with_lock do
-          Conversations::ValidateArchiveTarget.call(
-            conversation: @conversation,
-            record: @conversation
-          ) if @intent_kind == "archive"
+        with_close_lock do
           find_or_create_close_operation!
           apply_immediate_state!
           cancel_queued_turns!(reason_kind: config.fetch(:queued_turn_reason))
@@ -56,6 +52,21 @@ module Conversations
     end
 
     private
+
+    def with_close_lock(&block)
+      if @intent_kind == "archive"
+        Conversations::WithRetainedLifecycleLock.call(
+          conversation: @conversation,
+          record: @conversation,
+          retained_message: "must be retained before archival",
+          expected_state: "active",
+          lifecycle_message: "must be active before archival",
+          &block
+        )
+      else
+        @conversation.with_lock(&block)
+      end
+    end
 
     def find_or_create_close_operation!
       existing = @conversation.unfinished_close_operation
