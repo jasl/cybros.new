@@ -59,10 +59,10 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
-      when SubagentRun
+      when SubagentSession
         @resource.update!(
-          lifecycle_state: "canceled",
-          finished_at: @resource.finished_at || @occurred_at
+          lifecycle_state: "closed",
+          last_known_status: terminal_subagent_status
         )
       end
     end
@@ -87,10 +87,10 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
-      when SubagentRun
+      when SubagentSession
         @resource.update!(
-          lifecycle_state: "failed",
-          finished_at: @resource.finished_at || @occurred_at
+          lifecycle_state: "closed",
+          last_known_status: "failed"
         )
       end
     end
@@ -131,6 +131,12 @@ module AgentControl
 
     def close_failed?
       @close_state == "failed"
+    end
+
+    def terminal_subagent_status
+      return "interrupted" if @mailbox_item.payload["request_kind"] == "turn_interrupt"
+
+      "completed"
     end
   end
 end

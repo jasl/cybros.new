@@ -31,8 +31,7 @@ module Conversations
       [
         AgentTaskRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
         ProcessRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
-        SubagentRun.joins(:workflow_run)
-          .where(workflow_runs: { conversation_id: @conversation.id }, close_state: CLOSE_PENDING_STATES),
+        SubagentSession.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
       ]
     end
 

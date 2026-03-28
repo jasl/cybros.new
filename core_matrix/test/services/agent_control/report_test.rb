@@ -199,13 +199,28 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   test "rejects terminal close reports from a sibling deployment after another deployment acknowledged the request" do
     context = build_rotated_runtime_context!
-    subagent_run = create_subagent_run!(
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running"
+    owner_conversation = context[:conversation]
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
-      resource: subagent_run
+      resource: subagent_session
     ).fetch(:mailbox_item)
 
     assert_equal "agent_installation", mailbox_item.target_kind
@@ -218,13 +233,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
       message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       close_request_id: mailbox_item.public_id,
-      resource_type: "SubagentRun",
-      resource_id: subagent_run.public_id
+      resource_type: "SubagentSession",
+      resource_id: subagent_session.public_id
     )
 
     assert_equal "accepted", ack_result.code
     assert_equal "acked", mailbox_item.reload.status
-    assert_equal "acknowledged", subagent_run.reload.close_state
+    assert_equal "acknowledged", subagent_session.reload.close_state
 
     validator = AgentControl::ValidateCloseReportFreshness.new(
       deployment: context[:previous_deployment],
@@ -232,7 +247,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
         "close_request_id" => mailbox_item.public_id,
       },
       mailbox_item: mailbox_item,
-      resource: subagent_run,
+      resource: subagent_session,
       occurred_at: Time.current
     )
 
@@ -244,16 +259,65 @@ class AgentControlReportTest < ActiveSupport::TestCase
       message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       close_request_id: mailbox_item.public_id,
-      resource_type: "SubagentRun",
-      resource_id: subagent_run.public_id,
+      resource_type: "SubagentSession",
+      resource_id: subagent_session.public_id,
       close_outcome_kind: "graceful",
       close_outcome_payload: {}
     )
 
     assert_equal "stale", terminal_result.code
     assert_equal "acked", mailbox_item.reload.status
-    assert_equal "acknowledged", subagent_run.reload.close_state
-    assert subagent_run.reload.running?
+    assert_equal "acknowledged", subagent_session.reload.close_state
+    assert subagent_session.reload.lifecycle_open?
+    assert subagent_session.last_known_status_running?
+  end
+
+  test "resource_closed terminalizes a subagent session and updates durable status" do
+    context = build_agent_control_context!
+    owner_conversation = context[:conversation]
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      origin_turn: context[:turn],
+      scope: "turn",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
+    )
+    close_request = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: subagent_session
+    ).fetch(:mailbox_item)
+
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    result = AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "resource_closed",
+      message_id: "close-terminal-#{next_test_sequence}",
+      mailbox_item_id: close_request.public_id,
+      close_request_id: close_request.public_id,
+      resource_type: "SubagentSession",
+      resource_id: subagent_session.public_id,
+      close_outcome_kind: "graceful",
+      close_outcome_payload: {}
+    )
+
+    assert_equal "accepted", result.code
+    assert_equal "completed", close_request.reload.status
+    assert subagent_session.reload.close_closed?
+    assert subagent_session.lifecycle_closed?
+    assert subagent_session.last_known_status_interrupted?
   end
 
   test "forced requeue keeps the last acknowledged deployment valid until a new lease takes over" do

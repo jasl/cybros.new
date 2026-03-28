@@ -26,7 +26,8 @@ module AgentControl
     def owning_agent_installation_for(resource)
       return resource.agent_installation if resource.respond_to?(:agent_installation)
 
-      turn_for(resource)&.agent_deployment&.agent_installation
+      turn_for(resource)&.agent_deployment&.agent_installation ||
+        conversation_for(resource)&.agent_deployment&.agent_installation
     end
   end
 end
