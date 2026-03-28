@@ -89,6 +89,26 @@ module Fenix
           "idempotency_policy" => "best_effort",
         },
       ].freeze
+      SUBAGENT_TOOL_NAMES = %w[
+        subagent_spawn
+        subagent_send
+        subagent_wait
+        subagent_close
+        subagent_list
+      ].freeze
+      TOOL_NAMES = TOOL_CATALOG.map { |entry| entry.fetch("tool_name") }.freeze
+      PROFILE_CATALOG = {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => TOOL_NAMES + SUBAGENT_TOOL_NAMES,
+        },
+        "researcher" => {
+          "label" => "Researcher",
+          "description" => "Delegated research profile",
+          "allowed_tool_names" => TOOL_NAMES + (SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
+        },
+      }.freeze
       CONFIG_SCHEMA_SNAPSHOT = {
         "type" => "object",
         "properties" => {
@@ -96,6 +116,7 @@ module Fenix
           "interactive" => {
             "type" => "object",
             "properties" => {
+              "profile" => { "type" => "string" },
               "selector" => { "type" => "string" },
             },
           },
@@ -108,19 +129,42 @@ module Fenix
               },
             },
           },
+          "subagents" => {
+            "type" => "object",
+            "properties" => {
+              "enabled" => { "type" => "boolean" },
+              "allow_nested" => { "type" => "boolean" },
+              "max_depth" => { "type" => "integer" },
+            },
+          },
         },
       }.freeze
       CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT = {
         "type" => "object",
         "properties" => {
-          "selector" => { "type" => "string" },
+          "subagents" => {
+            "type" => "object",
+            "properties" => {
+              "enabled" => { "type" => "boolean" },
+              "allow_nested" => { "type" => "boolean" },
+              "max_depth" => { "type" => "integer" },
+            },
+          },
         },
       }.freeze
       DEFAULT_CONFIG_SNAPSHOT = {
         "sandbox" => "workspace-write",
-        "interactive" => { "selector" => "role:main" },
+        "interactive" => {
+          "profile" => "main",
+          "selector" => "role:main",
+        },
         "model_slots" => {
           "research" => { "selector" => "role:researcher" },
+        },
+        "subagents" => {
+          "enabled" => true,
+          "allow_nested" => true,
+          "max_depth" => 3,
         },
       }.freeze
       ENVIRONMENT_KIND = "local".freeze
@@ -152,6 +196,7 @@ module Fenix
           "endpoint_metadata" => endpoint_metadata,
           "protocol_methods" => protocol_methods,
           "tool_catalog" => TOOL_CATALOG,
+          "profile_catalog" => PROFILE_CATALOG,
           "agent_plane" => agent_plane,
           "environment_plane" => environment_plane,
           "effective_tool_catalog" => effective_tool_catalog,
@@ -181,6 +226,7 @@ module Fenix
           "runtime_plane" => "agent",
           "protocol_methods" => protocol_methods,
           "tool_catalog" => TOOL_CATALOG,
+          "profile_catalog" => PROFILE_CATALOG,
           "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
           "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,

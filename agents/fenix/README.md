@@ -51,11 +51,21 @@ pairing:
 - SDK version
 - protocol methods
 - tool catalog
+- `profile_catalog`
 - `agent_plane`
 - `environment_plane`
 - `effective_tool_catalog`
 - config schema snapshots
 - default config snapshot
+
+The manifest now declares runtime-owned profile and subagent defaults:
+
+- `default_config_snapshot.interactive.profile` is fixed to `main` for root
+  interactive conversations in this batch
+- `default_config_snapshot.subagents.enabled`
+- `default_config_snapshot.subagents.allow_nested`
+- `default_config_snapshot.subagents.max_depth`
+- `conversation_override_schema_snapshot` exposes only `subagents.*`
 
 The current pairing contract models `Fenix` as one process serving both:
 
@@ -134,6 +144,10 @@ The current Phase 2 runtime path is intentionally small and deterministic:
 This preserves the runtime-stage contract needed for later mixed
 code-plus-LLM execution without forcing prompt building or provider transport
 back into the kernel.
+
+Prompt building, prompt-template choice, and profile-specific tool semantics
+remain inside `Fenix`. Core Matrix only persists the manifest contract and
+enforces the visible tool set derived from it.
 
 ## Deployment Rotation
 
