@@ -21,7 +21,7 @@ module Workflows
     def call
       Conversations::WithMutableStateLock.call(
         conversation: @workflow_run.conversation,
-        record: @record || @workflow_run.conversation,
+        record: @record || @workflow_run,
         retained_message: @retained_message,
         active_message: @active_message,
         closing_message: @closing_message

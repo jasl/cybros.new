@@ -94,6 +94,43 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:turn], "must not be fenced by turn interrupt"
   end
 
+  test "rejects retry for pending delete conversations on the workflow record" do
+    context = build_agent_control_context!
+    failed_task = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "failed",
+      logical_work_id: "retry-step",
+      attempt_no: 1,
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago,
+      terminal_payload: {
+        "retryable" => true,
+        "retry_scope" => "step",
+      }
+    )
+    context[:workflow_run].update!(
+      wait_state: "waiting",
+      wait_reason_kind: "retryable_failure",
+      wait_reason_payload: {
+        "retryable" => true,
+        "retry_scope" => "step",
+        "logical_work_id" => failed_task.logical_work_id,
+        "attempt_no" => failed_task.attempt_no,
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "AgentTaskRun",
+      blocking_resource_id: failed_task.public_id
+    )
+    context[:conversation].update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::StepRetry.call(workflow_run: context[:workflow_run])
+    end
+
+    assert_equal context[:workflow_run].id, error.record.id
+    assert_includes error.record.errors[:deletion_state], "must be retained before step retry"
+  end
+
   test "rechecks the retry gate after loading the failed task" do
     context = build_agent_control_context!
     failed_task = create_agent_task_run!(
