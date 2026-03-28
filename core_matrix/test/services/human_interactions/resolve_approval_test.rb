@@ -53,6 +53,8 @@ class HumanInteractions::ResolveApprovalTest < ActiveSupport::TestCase
       )
     end
 
+    assert_equal request.id, error.record.id
+    assert_instance_of ApprovalRequest, error.record
     assert_includes error.record.errors[:deletion_state], "must be retained before resolving human interaction"
   end
 

@@ -1,7 +1,5 @@
 module HumanInteractions
   class CompleteTask
-    include HumanInteractions::LockedContext
-
     def self.call(...)
       new(...).call
     end
@@ -12,14 +10,7 @@ module HumanInteractions
     end
 
     def call
-      with_locked_request_context(@human_task_request) do |request, workflow_run, conversation|
-        Conversations::ValidateMutableState.call(
-          conversation: conversation,
-          record: conversation,
-          retained_message: "must be retained before resolving human interaction",
-          active_message: "must be active before resolving human interaction",
-          closing_message: "must not resolve human interaction while close is in progress"
-        )
+      HumanInteractions::WithMutableRequestContext.call(request: @human_task_request) do |request, workflow_run, conversation|
         raise_invalid!(request, :base, "must be open before task completion") unless request.open?
         if request.expired?
           return time_out_request!(request, workflow_run)

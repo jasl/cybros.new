@@ -39,6 +39,8 @@ class HumanInteractions::CompleteTaskTest < ActiveSupport::TestCase
       )
     end
 
+    assert_equal request.id, error.record.id
+    assert_instance_of HumanTaskRequest, error.record
     assert_includes error.record.errors[:deletion_state], "must be retained before resolving human interaction"
   end
 
