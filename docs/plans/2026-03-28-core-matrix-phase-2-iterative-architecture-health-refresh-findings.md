@@ -67,10 +67,26 @@
   contract.
 - New high-confidence candidates this round:
   none promoted yet; Round 1 is a baseline and hypothesis-freezing pass.
+- Round 2 `Boundary Review: conversation, workflow, control`
+- Coverage:
+  reviewed `Conversation`, close-request / turn-interrupt / close-reconcile
+  services, workflow mutation-context and manual-resume paths, workflow
+  scheduler and wait-state docs, and control-plane report / close-outcome
+  handlers plus the corresponding conversation, workflow, and agent-control
+  tests.
+- Round result:
+  no newly discovered high-confidence finding promoted from this boundary pass,
+  but the residual guard-family and close-control orchestration concerns stayed
+  live and moved forward for hotspot review.
+- Earlier findings rejected as no longer current in this round:
+  blocker-summary drift is no longer a standalone issue because
+  `WorkBarrierQuery` and `CloseSummaryQuery` are both thin projections over
+  `ConversationBlockerSnapshot`.
 
 ## Completeness Check
 
 - Baseline inventory captured.
 - Prior audit reconciled against current plans and current contract docs.
 - Round 1 baseline reconciliation is complete.
+- Round 2 boundary review is complete.
 - The audit still owes round-by-round code review and counter-evidence.
