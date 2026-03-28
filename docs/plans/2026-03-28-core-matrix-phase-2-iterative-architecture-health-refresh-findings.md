@@ -111,6 +111,20 @@
   expanded from the requested `fenix` boundary files into `fenix` execution
   hooks because the boundary mismatch only became concrete when the runtime
   consumer path was read end to end.
+- Round 5 `Cross-Cut Anti-Pattern Pass`
+- Search patterns used:
+  cross-cut scans over lock / transaction families, blocker and close-control
+  contracts, raw payload and snapshot families, `profile_catalog` /
+  `tool_catalog` usage, and query / projection naming.
+- Candidates strengthened:
+  the shallow capability-compatibility candidate, the dead
+  `SubagentSession.close_requested` lifecycle-state candidate, and the
+  `core_matrix <-> fenix` execution-context mismatch all still read as
+  system-level patterns rather than isolated local mistakes.
+- Candidates weakened or dropped:
+  broad query-naming drift dropped below the evidence bar for this pass, while
+  duplicated capability-snapshot matching logic moved toward risk-smell status
+  instead of a confirmed finding.
 
 ## Completeness Check
 
@@ -120,4 +134,5 @@
 - Round 2 boundary review is complete.
 - Round 3 boundary review is complete.
 - Round 4 hotspot deep dive is complete.
+- Round 5 cross-cut anti-pattern pass is complete.
 - The audit still owes round-by-round code review and counter-evidence.
