@@ -2,7 +2,7 @@ module AgentDeployments
   class ReconcileConfig
     Result = Struct.new(:reconciled_config, :report, keyword_init: true)
 
-    SELECTOR_BEARING_KEYS = %w[interactive model_slots model_roles].freeze
+    RUNTIME_OWNED_CONFIG_KEYS = %w[interactive model_slots model_roles subagents].freeze
 
     def self.call(...)
       new(...).call
@@ -40,7 +40,7 @@ module AgentDeployments
     private
 
     def allowed_selector_keys
-      schema_properties.keys & SELECTOR_BEARING_KEYS
+      schema_properties.keys & RUNTIME_OWNED_CONFIG_KEYS
     end
 
     def schema_properties

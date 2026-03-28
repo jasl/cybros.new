@@ -467,6 +467,58 @@ module ActiveSupport
       }
     end
 
+    def profile_aware_config_schema_snapshot
+      {
+        "type" => "object",
+        "properties" => {
+          "interactive" => {
+            "type" => "object",
+            "properties" => {
+              "profile" => { "type" => "string" },
+            },
+          },
+          "subagents" => {
+            "type" => "object",
+            "properties" => {
+              "enabled" => { "type" => "boolean" },
+              "allow_nested" => { "type" => "boolean" },
+              "max_depth" => { "type" => "integer" },
+            },
+          },
+        },
+      }
+    end
+
+    def subagent_policy_override_schema_snapshot
+      {
+        "type" => "object",
+        "properties" => {
+          "subagents" => {
+            "type" => "object",
+            "properties" => {
+              "enabled" => { "type" => "boolean" },
+              "allow_nested" => { "type" => "boolean" },
+              "max_depth" => { "type" => "integer" },
+            },
+          },
+        },
+      }
+    end
+
+    def profile_aware_default_config_snapshot
+      {
+        "sandbox" => "workspace-write",
+        "interactive" => {
+          "profile" => "main",
+        },
+        "subagents" => {
+          "enabled" => true,
+          "allow_nested" => true,
+          "max_depth" => 3,
+        },
+      }
+    end
+
     def agent_api_headers(machine_credential)
       {
         "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(machine_credential),

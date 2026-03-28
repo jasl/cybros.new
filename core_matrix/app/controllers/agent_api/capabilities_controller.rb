@@ -14,6 +14,7 @@ module AgentAPI
         environment_tool_catalog: request_payload["environment_tool_catalog"],
         protocol_methods: request_payload.fetch("protocol_methods", []),
         tool_catalog: request_payload.fetch("tool_catalog", []),
+        profile_catalog: request_payload.fetch("profile_catalog", {}),
         config_schema_snapshot: request_payload.fetch("config_schema_snapshot", {}),
         conversation_override_schema_snapshot: request_payload.fetch("conversation_override_schema_snapshot", {}),
         default_config_snapshot: request_payload.fetch("default_config_snapshot", {})

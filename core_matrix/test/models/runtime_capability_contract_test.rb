@@ -3,6 +3,7 @@ require "test_helper"
 class RuntimeCapabilityContractTest < ActiveSupport::TestCase
   test "renders environment, agent, effective, and conversation-facing projections from one contract" do
     registration = register_agent_runtime!(
+      profile_catalog: default_profile_catalog,
       environment_capability_payload: { conversation_attachment_upload: false },
       environment_tool_catalog: [
         {
@@ -16,6 +17,9 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
           idempotency_policy: "best_effort",
         },
       ],
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot,
       tool_catalog: [
         {
           tool_name: "shell_exec",
@@ -46,6 +50,12 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
 
     assert_equal "environment", contract.environment_plane.fetch("runtime_plane")
     assert_equal "agent", contract.agent_plane.fetch("runtime_plane")
+    assert_equal default_profile_catalog, contract.agent_plane.fetch("profile_catalog")
+    assert_equal default_profile_catalog, contract.contract_payload.fetch("profile_catalog")
+    assert_equal "main", contract.default_config_snapshot.dig("interactive", "profile")
+    assert_equal 3, contract.default_config_snapshot.dig("subagents", "max_depth")
+    assert_nil contract.conversation_override_schema_snapshot.dig("properties", "interactive")
+    assert_equal "boolean", contract.conversation_override_schema_snapshot.dig("properties", "subagents", "properties", "enabled", "type")
     assert_equal ["shell_exec"], contract.environment_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["shell_exec", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal false, contract.conversation_payload(

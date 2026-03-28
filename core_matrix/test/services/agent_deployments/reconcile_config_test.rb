@@ -19,4 +19,26 @@ class AgentDeployments::ReconcileConfigTest < ActiveSupport::TestCase
     assert_equal ["model_slots"], result.report["retained_keys"]
     assert_equal "reconciled", result.report["status"]
   end
+
+  test "retains runtime-owned interactive profile and subagent policy defaults" do
+    result = AgentDeployments::ReconcileConfig.call(
+      previous_default_config_snapshot: profile_aware_default_config_snapshot,
+      next_config_schema_snapshot: profile_aware_config_schema_snapshot,
+      next_default_config_snapshot: {
+        "sandbox" => "workspace-read",
+        "interactive" => {},
+        "subagents" => {
+          "enabled" => false,
+        },
+      }
+    )
+
+    assert_equal "workspace-read", result.reconciled_config["sandbox"]
+    assert_equal "main", result.reconciled_config.dig("interactive", "profile")
+    assert_equal false, result.reconciled_config.dig("subagents", "enabled")
+    assert_equal true, result.reconciled_config.dig("subagents", "allow_nested")
+    assert_equal 3, result.reconciled_config.dig("subagents", "max_depth")
+    assert_equal ["interactive", "subagents"], result.report["retained_keys"].sort
+    assert_equal "reconciled", result.report["status"]
+  end
 end
