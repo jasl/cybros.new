@@ -11,7 +11,7 @@ module Conversations
     end
 
     def call
-      Conversations::WithMutableStateLock.call(
+      Conversations::WithConversationEntryLock.call(
         conversation: @parent,
         record: @record,
         retained_message: "must be retained before #{@entry_label}",
