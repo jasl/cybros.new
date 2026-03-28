@@ -19,7 +19,6 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
       scope: "turn",
       profile_key: "researcher",
       depth: 0,
-      lifecycle_state: "open",
       last_known_status: "running"
     )
 
@@ -36,6 +35,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
     )
 
     assert lease.valid?
+    assert_equal "open", subagent_session.lifecycle_state
     lease.save!
     assert lease.active?
 

@@ -32,10 +32,17 @@ The landed model separates concerns cleanly:
 - `scope` is either:
   - `turn`
   - `conversation`
-- `lifecycle_state` is either:
+- `close_state` from `ClosableRuntimeResource` is the only durable owner of
+  subagent close progression:
   - `open`
-  - `close_requested`
+  - `requested`
+  - `acknowledged`
   - `closed`
+  - `failed`
+- machine-facing `lifecycle_state` remains available as a derived projection:
+  - `open -> open`
+  - `requested|acknowledged -> close_requested`
+  - `closed|failed -> closed`
 - `last_known_status` records runtime-observed progress:
   - `idle`
   - `running`
@@ -43,10 +50,13 @@ The landed model separates concerns cleanly:
   - `completed`
   - `failed`
   - `interrupted`
-- close-control metadata comes from `ClosableRuntimeResource`
-- `SubagentSessions::RequestClose` advances `lifecycle_state` from `open` to
-  `close_requested` immediately; terminal close reports then settle the session
-  into `closed`
+- close-control metadata also comes from `ClosableRuntimeResource`
+- `SubagentSessions::RequestClose` writes `close_state = requested` plus close
+  request metadata; terminal close reports then settle `close_state` into
+  `closed` or `failed`
+- quiescence checks, blocker snapshots, turn-interrupt barriers, and
+  `SubagentSessions::Wait` all read that canonical close model and only expose
+  `lifecycle_state` as a derived machine-facing projection
 
 ## Session Boundaries
 
