@@ -32,7 +32,7 @@ module Turns
 
     def call
       Conversations::ValidateMutableState.call(
-        conversation: current_turn.conversation,
+        conversation: current_conversation,
         record: invalid_record,
         retained_attribute: @retained_attribute,
         retained_message: @retained_message,
