@@ -105,6 +105,35 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:agent_deployment], "must preserve the paused workflow capability contract"
   end
 
+  test "rejects a replacement deployment that changes paused profile policy even when methods and tools match" do
+    context = build_profile_aware_turn_context!
+    replacement = create_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
+      protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
+      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      profile_catalog: default_profile_catalog.deep_merge(
+        "researcher" => { "allowed_tool_names" => %w[shell_exec] }
+      ),
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::ValidateAgentDeploymentTarget.call(
+        conversation: context[:conversation],
+        agent_deployment: replacement,
+        record: context[:turn],
+        capability_contract_turn: context[:turn]
+      )
+    end
+
+    assert_same context[:turn], error.record
+    assert_includes error.record.errors[:agent_deployment], "must preserve the paused workflow capability contract"
+  end
+
   private
 
   def build_turn_context!
@@ -145,12 +174,56 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
     context.merge(conversation: conversation, turn: turn.reload)
   end
 
+  def build_profile_aware_turn_context!
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    richer_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:agent_deployment],
+      version: 2,
+      protocol_methods: default_protocol_methods(
+        "agent_health",
+        "capabilities_handshake",
+        "conversation_transcript_list"
+      ),
+      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      profile_catalog: default_profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    context[:agent_deployment].update!(active_capability_snapshot: richer_snapshot)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Shared deployment validator input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    Workflows::CreateForTurn.call(
+      turn: turn,
+      root_node_key: "root",
+      root_node_type: "turn_root",
+      decision_source: "system",
+      metadata: {}
+    )
+
+    context.merge(conversation: conversation, turn: turn.reload)
+  end
+
   def create_replacement_deployment!(
     installation:,
     agent_installation:,
     execution_environment:,
     protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-    tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get")
+    tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+    profile_catalog: default_profile_catalog,
+    config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+    conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
+    default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
   )
     agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(
       bootstrap_state: "superseded",
@@ -170,8 +243,10 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
       version: 1,
       protocol_methods: protocol_methods,
       tool_catalog: tool_catalog,
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      profile_catalog: profile_catalog,
+      config_schema_snapshot: config_schema_snapshot,
+      conversation_override_schema_snapshot: conversation_override_schema_snapshot,
+      default_config_snapshot: default_config_snapshot
     )
     deployment.update!(active_capability_snapshot: capability_snapshot)
 

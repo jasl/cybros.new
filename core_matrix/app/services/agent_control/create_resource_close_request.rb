@@ -35,13 +35,16 @@ module AgentControl
       target_deployment = delivery_endpoint
       target_agent_installation = target_deployment&.agent_installation || ClosableResourceRouting.owning_agent_installation_for(@resource)
 
-      @resource.update!(
+      resource_updates = {
         close_state: "requested",
         close_reason_kind: @reason_kind,
         close_requested_at: requested_at,
         close_grace_deadline_at: @grace_deadline_at,
-        close_force_deadline_at: @force_deadline_at
-      )
+        close_force_deadline_at: @force_deadline_at,
+      }
+      resource_updates[:lifecycle_state] = "close_requested" if @resource.is_a?(SubagentSession)
+
+      @resource.update!(resource_updates)
 
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @resource.installation,

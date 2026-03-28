@@ -78,12 +78,9 @@ module AgentDeployments
 
     def find_matching_snapshot(reconciled_default_config_snapshot)
       @deployment.capability_snapshots.detect do |snapshot|
-        snapshot.protocol_methods == incoming_contract.protocol_methods &&
-          snapshot.tool_catalog == incoming_contract.agent_tool_catalog &&
-          snapshot.profile_catalog == incoming_contract.profile_catalog &&
-          snapshot.config_schema_snapshot == incoming_contract.config_schema_snapshot &&
-          snapshot.conversation_override_schema_snapshot == incoming_contract.conversation_override_schema_snapshot &&
-          snapshot.default_config_snapshot == reconciled_default_config_snapshot
+        snapshot.matches_runtime_capability_contract?(
+          reconciled_contract(reconciled_default_config_snapshot)
+        )
       end
     end
 
@@ -110,6 +107,20 @@ module AgentDeployments
         config_schema_snapshot: @config_schema_snapshot,
         conversation_override_schema_snapshot: @conversation_override_schema_snapshot,
         default_config_snapshot: @default_config_snapshot
+      )
+    end
+
+    def reconciled_contract(reconciled_default_config_snapshot)
+      RuntimeCapabilityContract.build(
+        execution_environment: @deployment.execution_environment,
+        environment_capability_payload: incoming_contract.environment_capability_payload,
+        environment_tool_catalog: incoming_contract.environment_tool_catalog,
+        protocol_methods: incoming_contract.protocol_methods,
+        tool_catalog: incoming_contract.agent_tool_catalog,
+        profile_catalog: incoming_contract.profile_catalog,
+        config_schema_snapshot: incoming_contract.config_schema_snapshot,
+        conversation_override_schema_snapshot: incoming_contract.conversation_override_schema_snapshot,
+        default_config_snapshot: reconciled_default_config_snapshot
       )
     end
   end

@@ -63,6 +63,10 @@ module AgentDeploymentRecoveryTestSupport
     agent_installation:,
     execution_environment: create_execution_environment!(installation: installation)
   )
+    active_snapshot = agent_installation
+      .agent_deployments
+      .find_by(bootstrap_state: "active")
+      &.active_capability_snapshot
     deployment = create_agent_deployment!(
       installation: installation,
       agent_installation: agent_installation,
@@ -75,10 +79,12 @@ module AgentDeploymentRecoveryTestSupport
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: deployment,
       version: 1,
-      protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      protocol_methods: active_snapshot&.protocol_methods || default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
+      tool_catalog: active_snapshot&.tool_catalog || default_tool_catalog("shell_exec", "workspace_variables_get"),
+      profile_catalog: active_snapshot&.profile_catalog || {},
+      config_schema_snapshot: active_snapshot&.config_schema_snapshot || default_config_schema_snapshot(include_selector_slots: true),
+      conversation_override_schema_snapshot: active_snapshot&.conversation_override_schema_snapshot || {},
+      default_config_snapshot: active_snapshot&.default_config_snapshot || default_default_config_snapshot(include_selector_slots: true)
     )
     deployment.update!(active_capability_snapshot: capability_snapshot)
     deployment

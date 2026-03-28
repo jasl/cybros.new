@@ -14,7 +14,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal "completed", result.status
   end
 
-  test "likely model hints trigger proactive context compaction before execution" do
+  test "core matrix model context triggers proactive context compaction before execution" do
     long_messages = 12.times.map do |index|
       { "role" => index.even? ? "user" : "assistant", "content" => "token token token token #{index}" }
     end
@@ -23,8 +23,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       mailbox_item: runtime_assignment_payload(
         mode: "deterministic_tool",
         context_messages: long_messages,
-        budget_hints: { "advisory_compaction_threshold_tokens" => 8 },
-        model_context: { "likely_model" => "gpt-4.1-mini" }
+        budget_hints: { "advisory_compaction_threshold_tokens" => 8 }
       )
     )
 

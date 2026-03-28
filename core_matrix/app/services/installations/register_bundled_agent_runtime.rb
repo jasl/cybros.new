@@ -172,12 +172,7 @@ module Installations
 
     def matching_capability_snapshot(deployment, runtime_capability_contract)
       deployment.capability_snapshots.detect do |snapshot|
-        snapshot.protocol_methods == runtime_capability_contract.protocol_methods &&
-          snapshot.tool_catalog == runtime_capability_contract.agent_tool_catalog &&
-          snapshot.profile_catalog == runtime_capability_contract.profile_catalog &&
-          snapshot.config_schema_snapshot == runtime_capability_contract.config_schema_snapshot &&
-          snapshot.conversation_override_schema_snapshot == runtime_capability_contract.conversation_override_schema_snapshot &&
-          snapshot.default_config_snapshot == runtime_capability_contract.default_config_snapshot
+        snapshot.matches_runtime_capability_contract?(runtime_capability_contract)
       end
     end
   end

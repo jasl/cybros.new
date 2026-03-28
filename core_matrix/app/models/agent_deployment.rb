@@ -92,12 +92,9 @@ class AgentDeployment < ApplicationRecord
     paused_snapshot = turn&.pinned_capability_snapshot
     return false if paused_snapshot.blank? || active_capability_snapshot.blank?
 
-    missing_method_ids = paused_snapshot.protocol_methods.map { |entry| entry["method_id"] } -
-      active_capability_snapshot.protocol_methods.map { |entry| entry["method_id"] }
-    missing_tool_names = paused_snapshot.tool_catalog.map { |entry| entry["tool_name"] } -
-      active_capability_snapshot.tool_catalog.map { |entry| entry["tool_name"] }
-
-    missing_method_ids.empty? && missing_tool_names.empty?
+    active_capability_snapshot.matches_runtime_capability_contract?(
+      RuntimeCapabilityContract.build(capability_snapshot: paused_snapshot)
+    )
   end
 
   def eligible_for_scheduling?

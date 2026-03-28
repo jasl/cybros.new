@@ -41,6 +41,7 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal "researcher", prepared.dig("trace", "profile")
     assert_equal true, prepared.dig("trace", "is_subagent")
     assert_equal %w[compact_context calculator subagent_send subagent_wait subagent_close subagent_list], prepared.dig("trace", "allowed_tool_names")
+    assert_equal "gpt-4.1-mini", prepared.fetch("likely_model")
   end
 
   test "runtime execution endpoint keeps one shared flow for subagent assignments" do

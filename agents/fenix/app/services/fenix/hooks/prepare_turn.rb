@@ -11,7 +11,11 @@ module Fenix
 
       def call
         messages = Array(@context.fetch("context_messages")).map(&:deep_stringify_keys)
-        likely_model = @context.dig("model_context", "likely_model") || @context.dig("provider_execution", "model_ref")
+        likely_model =
+          @context.dig("model_context", "likely_model") ||
+          @context.dig("model_context", "model_ref") ||
+          @context.dig("model_context", "api_model") ||
+          @context.dig("provider_execution", "model_ref")
         agent_context = @context.fetch("agent_context", {}).deep_stringify_keys
 
         {

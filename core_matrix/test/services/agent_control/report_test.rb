@@ -268,7 +268,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "stale", terminal_result.code
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "acknowledged", subagent_session.reload.close_state
-    assert subagent_session.reload.lifecycle_open?
+    assert subagent_session.reload.lifecycle_close_requested?
     assert subagent_session.last_known_status_running?
   end
 

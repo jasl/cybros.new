@@ -123,14 +123,16 @@ provider call.
 
 ## Likely-Model Hints
 
-Assignments may carry both:
+Assignments primarily carry model hints through:
 
-- `payload.model_context.likely_model`
-- `payload.provider_execution.model_ref`
+- `payload.model_context.model_ref`
+- `payload.model_context.api_model`
 
-`Fenix` treats those as advisory hints. When the estimated token load exceeds
+`Fenix` also accepts older compatibility fallbacks such as
+`payload.model_context.likely_model` or `payload.provider_execution.model_ref`.
+When the estimated token load exceeds
 `payload.budget_hints.advisory_compaction_threshold_tokens`, `compact_context`
-uses the likely-model hint to explain why compaction happened and records the
+uses the resolved model hint to explain why compaction happened and records the
 before or after message counts in the hook trace.
 
 ## Current Validation Path

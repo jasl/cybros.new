@@ -20,6 +20,35 @@ class CapabilitySnapshot < ApplicationRecord
     tool_catalog.any? { |entry| entry["tool_name"] == tool_name }
   end
 
+  def matches_runtime_capability_contract?(runtime_capability_contract)
+    comparable_contract_payload ==
+      self.class.comparable_contract_payload(runtime_capability_contract)
+  end
+
+  def comparable_contract_payload
+    self.class.comparable_contract_payload(self)
+  end
+
+  def self.comparable_contract_payload(source)
+    contract = case source
+    when RuntimeCapabilityContract
+      source
+    when CapabilitySnapshot
+      RuntimeCapabilityContract.build(capability_snapshot: source)
+    else
+      raise ArgumentError, "unsupported capability contract source #{source.class.name}"
+    end
+
+    {
+      "protocol_methods" => contract.protocol_methods,
+      "tool_catalog" => contract.agent_tool_catalog,
+      "profile_catalog" => contract.profile_catalog,
+      "config_schema_snapshot" => contract.config_schema_snapshot,
+      "conversation_override_schema_snapshot" => contract.conversation_override_schema_snapshot,
+      "default_config_snapshot" => contract.default_config_snapshot,
+    }
+  end
+
   private
 
   def protocol_methods_must_be_array

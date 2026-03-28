@@ -35,11 +35,20 @@ module ActiveSupport
           }.merge(budget_hints),
           "agent_context" => agent_context,
           "provider_execution" => {
-            "provider_handle" => "openai",
-            "model_ref" => "gpt-4.1-mini",
+            "wire_api" => "responses",
+            "execution_settings" => {
+              "temperature" => 0.2,
+            },
           }.merge(provider_execution),
           "model_context" => {
-            "likely_model" => "gpt-4.1-mini",
+            "provider_handle" => "openai",
+            "model_ref" => "gpt-4.1-mini",
+            "api_model" => "gpt-4.1-mini",
+            "wire_api" => "responses",
+            "transport" => "http",
+            "tokenizer_hint" => "o200k_base",
+            "provider_metadata" => {},
+            "model_metadata" => {},
           }.merge(model_context),
         },
       }
