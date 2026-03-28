@@ -7,26 +7,42 @@ module ExecutionEnvironments
         capability_payload: { "conversation_attachment_upload" => false },
         tool_catalog: []
       )
-
-      updated = ExecutionEnvironments::RecordCapabilities.call(
+      expected_contract = RuntimeCapabilityContract.build(
         execution_environment: environment,
-        capability_payload: { "conversation_attachment_upload" => true },
-        tool_catalog: [
+        environment_capability_payload: { conversation_attachment_upload: true },
+        environment_tool_catalog: [
           {
-            "tool_name" => "shell_exec",
-            "tool_kind" => "environment_runtime",
-            "implementation_source" => "environment",
-            "implementation_ref" => "runtime/shell_exec",
-            "input_schema" => { "type" => "object", "properties" => {} },
-            "result_schema" => { "type" => "object", "properties" => {} },
-            "streaming_support" => false,
-            "idempotency_policy" => "best_effort",
+            tool_name: "shell_exec",
+            tool_kind: "environment_runtime",
+            implementation_source: "environment",
+            implementation_ref: "runtime/shell_exec",
+            input_schema: { type: "object", properties: {} },
+            result_schema: { type: "object", properties: {} },
+            streaming_support: false,
+            idempotency_policy: "best_effort",
           },
         ]
       )
 
-      assert_equal true, updated.capability_payload["conversation_attachment_upload"]
-      assert_equal ["shell_exec"], updated.tool_catalog.map { |entry| entry.fetch("tool_name") }
+      updated = ExecutionEnvironments::RecordCapabilities.call(
+        execution_environment: environment,
+        capability_payload: { conversation_attachment_upload: true },
+        tool_catalog: [
+          {
+            tool_name: "shell_exec",
+            tool_kind: "environment_runtime",
+            implementation_source: "environment",
+            implementation_ref: "runtime/shell_exec",
+            input_schema: { type: "object", properties: {} },
+            result_schema: { type: "object", properties: {} },
+            streaming_support: false,
+            idempotency_policy: "best_effort",
+          },
+        ]
+      )
+
+      assert_equal expected_contract.environment_plane.fetch("capability_payload"), updated.capability_payload
+      assert_equal expected_contract.environment_plane.fetch("tool_catalog"), updated.tool_catalog
     end
   end
 end

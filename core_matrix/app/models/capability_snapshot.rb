@@ -16,28 +16,14 @@ class CapabilitySnapshot < ApplicationRecord
   def readonly? = persisted?
 
   def as_contract_payload(method_id: nil, reconciliation_report: nil)
-    {
-      "method_id" => method_id,
-      "agent_capabilities_version" => version,
-      "protocol_methods" => protocol_methods,
-      "tool_catalog" => tool_catalog,
-      "config_schema_snapshot" => config_schema_snapshot,
-      "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
-      "default_config_snapshot" => default_config_snapshot,
-      "reconciliation_report" => reconciliation_report,
-    }.compact
+    RuntimeCapabilityContract.build(capability_snapshot: self).contract_payload(
+      method_id: method_id,
+      reconciliation_report: reconciliation_report
+    )
   end
 
   def as_agent_plane_payload
-    {
-      "runtime_plane" => "agent",
-      "agent_capabilities_version" => version,
-      "protocol_methods" => protocol_methods,
-      "tool_catalog" => tool_catalog,
-      "config_schema_snapshot" => config_schema_snapshot,
-      "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
-      "default_config_snapshot" => default_config_snapshot,
-    }
+    RuntimeCapabilityContract.build(capability_snapshot: self).agent_plane
   end
 
   def tool_named?(tool_name)

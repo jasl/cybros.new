@@ -24,8 +24,16 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       execution_environment: environment,
       agent_deployment: deployment
     )
+    expected_contract = RuntimeCapabilityContract.build(
+      execution_environment: environment,
+      capability_snapshot: deployment.active_capability_snapshot
+    )
 
     assert_equal false, contract.fetch("conversation_attachment_upload")
+    assert_equal expected_contract.conversation_payload(
+      execution_environment_id: environment.public_id,
+      agent_deployment_id: deployment.public_id
+    ), contract
   end
 
   test "conversation attachments stay enabled when the environment allows uploads" do
@@ -45,8 +53,16 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       execution_environment: environment,
       agent_deployment: deployment
     )
+    expected_contract = RuntimeCapabilityContract.build(
+      execution_environment: environment,
+      capability_snapshot: deployment.active_capability_snapshot
+    )
 
     assert_equal true, contract.fetch("conversation_attachment_upload")
+    assert_equal expected_contract.conversation_payload(
+      execution_environment_id: environment.public_id,
+      agent_deployment_id: deployment.public_id
+    ), contract
   end
 
   test "conversation tool catalog prefers environment tools over agent tools with the same name" do
@@ -94,9 +110,17 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       execution_environment: environment,
       agent_deployment: deployment
     )
+    expected_contract = RuntimeCapabilityContract.build(
+      execution_environment: environment,
+      capability_snapshot: deployment.active_capability_snapshot
+    )
 
     shell_entry = contract.fetch("tool_catalog").find { |entry| entry.fetch("tool_name") == "shell_exec" }
 
     assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
+    assert_equal expected_contract.conversation_payload(
+      execution_environment_id: environment.public_id,
+      agent_deployment_id: deployment.public_id
+    ), contract
   end
 end

@@ -23,11 +23,7 @@ class ExecutionEnvironment < ApplicationRecord
   end
 
   def as_runtime_plane_payload
-    {
-      "runtime_plane" => "environment",
-      "capability_payload" => capability_payload,
-      "tool_catalog" => tool_catalog,
-    }
+    RuntimeCapabilityContract.build(execution_environment: self).environment_plane
   end
 
   private

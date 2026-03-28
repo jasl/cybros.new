@@ -60,4 +60,25 @@ class ExecutionEnvironmentTest < ActiveSupport::TestCase
     assert_not invalid_payload.valid?
     assert_includes invalid_payload.errors[:capability_payload], "must be a Hash"
   end
+
+  test "renders its runtime plane through the shared runtime capability contract" do
+    environment = create_execution_environment!(
+      capability_payload: { "conversation_attachment_upload" => false },
+      tool_catalog: [
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "environment_runtime",
+          "implementation_source" => "execution_environment",
+          "implementation_ref" => "env/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ]
+    )
+    contract = RuntimeCapabilityContract.build(execution_environment: environment)
+
+    assert_equal contract.environment_plane, environment.as_runtime_plane_payload
+  end
 end

@@ -31,5 +31,12 @@ class AgentDeployments::HandshakeTest < ActiveSupport::TestCase
     assert_equal ["model_slots"], result.reconciliation_report["retained_keys"]
     assert_equal result.capability_snapshot, registration[:deployment].reload.active_capability_snapshot
     assert_equal "2026-03-25", registration[:deployment].protocol_version
+    assert_equal(
+      RuntimeCapabilityContract.build(
+        execution_environment: registration[:deployment].execution_environment,
+        capability_snapshot: result.capability_snapshot
+      ).effective_tool_catalog,
+      result.runtime_capability_contract.effective_tool_catalog
+    )
   end
 end

@@ -2,7 +2,13 @@ module AgentDeployments
   class Handshake
     FingerprintMismatch = Class.new(StandardError)
 
-    Result = Struct.new(:deployment, :capability_snapshot, :reconciliation_report, keyword_init: true)
+    Result = Struct.new(
+      :deployment,
+      :capability_snapshot,
+      :reconciliation_report,
+      :runtime_capability_contract,
+      keyword_init: true
+    )
 
     def self.call(...)
       new(...).call
@@ -42,11 +48,16 @@ module AgentDeployments
             sdk_version: @sdk_version,
             active_capability_snapshot: capability_snapshot
           )
+          runtime_capability_contract = RuntimeCapabilityContract.build(
+            execution_environment: @deployment.execution_environment,
+            capability_snapshot: capability_snapshot
+          )
 
           Result.new(
             deployment: @deployment,
             capability_snapshot: capability_snapshot,
-            reconciliation_report: reconciliation.report
+            reconciliation_report: reconciliation.report,
+            runtime_capability_contract: runtime_capability_contract
           )
         end
       end
@@ -59,17 +70,17 @@ module AgentDeployments
 
       ExecutionEnvironments::RecordCapabilities.call(
         execution_environment: @deployment.execution_environment,
-        capability_payload: @environment_capability_payload.nil? ? @deployment.execution_environment.capability_payload : @environment_capability_payload,
-        tool_catalog: @environment_tool_catalog.nil? ? @deployment.execution_environment.tool_catalog : @environment_tool_catalog
+        capability_payload: incoming_contract.environment_capability_payload,
+        tool_catalog: incoming_contract.environment_tool_catalog
       )
     end
 
     def find_matching_snapshot(reconciled_default_config_snapshot)
       @deployment.capability_snapshots.detect do |snapshot|
-        snapshot.protocol_methods == @protocol_methods &&
-          snapshot.tool_catalog == @tool_catalog &&
-          snapshot.config_schema_snapshot == @config_schema_snapshot &&
-          snapshot.conversation_override_schema_snapshot == @conversation_override_schema_snapshot &&
+        snapshot.protocol_methods == incoming_contract.protocol_methods &&
+          snapshot.tool_catalog == incoming_contract.agent_tool_catalog &&
+          snapshot.config_schema_snapshot == incoming_contract.config_schema_snapshot &&
+          snapshot.conversation_override_schema_snapshot == incoming_contract.conversation_override_schema_snapshot &&
           snapshot.default_config_snapshot == reconciled_default_config_snapshot
       end
     end
@@ -77,11 +88,24 @@ module AgentDeployments
     def create_snapshot!(reconciled_default_config_snapshot)
       @deployment.capability_snapshots.create!(
         version: @deployment.capability_snapshots.maximum(:version).to_i + 1,
+        protocol_methods: incoming_contract.protocol_methods,
+        tool_catalog: incoming_contract.agent_tool_catalog,
+        config_schema_snapshot: incoming_contract.config_schema_snapshot,
+        conversation_override_schema_snapshot: incoming_contract.conversation_override_schema_snapshot,
+        default_config_snapshot: reconciled_default_config_snapshot
+      )
+    end
+
+    def incoming_contract
+      @incoming_contract ||= RuntimeCapabilityContract.build(
+        execution_environment: @deployment.execution_environment,
+        environment_capability_payload: @environment_capability_payload.nil? ? @deployment.execution_environment.capability_payload : @environment_capability_payload,
+        environment_tool_catalog: @environment_tool_catalog.nil? ? @deployment.execution_environment.tool_catalog : @environment_tool_catalog,
         protocol_methods: @protocol_methods,
         tool_catalog: @tool_catalog,
         config_schema_snapshot: @config_schema_snapshot,
         conversation_override_schema_snapshot: @conversation_override_schema_snapshot,
-        default_config_snapshot: reconciled_default_config_snapshot
+        default_config_snapshot: @default_config_snapshot
       )
     end
   end

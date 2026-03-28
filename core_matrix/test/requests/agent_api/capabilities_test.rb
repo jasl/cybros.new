@@ -44,6 +44,10 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
+    contract = RuntimeCapabilityContract.build(
+      execution_environment: registration[:execution_environment],
+      capability_snapshot: registration[:capability_snapshot]
+    )
     shell_entry = response_body.fetch("effective_tool_catalog").find { |entry| entry.fetch("tool_name") == "shell_exec" }
 
     assert_equal "capabilities_refresh", response_body["method_id"]
@@ -53,6 +57,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal ["shell_exec", "compact_context"], response_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["shell_exec"], response_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
+    assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
+    assert_equal contract.environment_plane, response_body.fetch("environment_plane")
   end
 
   test "capabilities handshake persists a new snapshot and preserves selector-bearing defaults" do
@@ -84,11 +90,17 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
+    contract = RuntimeCapabilityContract.build(
+      execution_environment: registration[:deployment].reload.execution_environment,
+      capability_snapshot: registration[:deployment].reload.active_capability_snapshot
+    )
     assert_equal 2, response_body["agent_capabilities_version"]
     assert_equal false, response_body.dig("environment_capability_payload", "conversation_attachment_upload")
     assert_equal "role:researcher", response_body.dig("default_config_snapshot", "model_slots", "research", "selector")
     assert_equal ["agent_health", "capabilities_handshake", "capabilities_refresh"], response_body["protocol_methods"].map { |entry| entry.fetch("method_id") }
     assert_equal 2, registration[:deployment].reload.active_capability_snapshot.version
     assert_equal false, registration[:deployment].reload.execution_environment.capability_payload["conversation_attachment_upload"]
+    assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
+    assert_equal contract.environment_plane, response_body.fetch("environment_plane")
   end
 end

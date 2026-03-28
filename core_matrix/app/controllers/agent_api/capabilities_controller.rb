@@ -22,30 +22,30 @@ module AgentAPI
       render json: capability_payload(
         method_id: "capabilities_handshake",
         reconciliation_report: result.reconciliation_report,
-        capability_snapshot: result.capability_snapshot
+        capability_snapshot: result.capability_snapshot,
+        runtime_capability_contract: result.runtime_capability_contract
       )
     end
 
     private
 
-    def capability_payload(method_id:, reconciliation_report: nil, capability_snapshot: current_deployment.active_capability_snapshot)
+    def capability_payload(
+      method_id:,
+      reconciliation_report: nil,
+      capability_snapshot: current_deployment.active_capability_snapshot,
+      runtime_capability_contract: nil
+    )
       execution_environment = current_deployment.reload.execution_environment
-      effective_tool_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
+      contract = runtime_capability_contract || RuntimeCapabilityContract.build(
         execution_environment: execution_environment,
         capability_snapshot: capability_snapshot
       )
 
-      capability_snapshot.as_contract_payload(
+      contract.capability_response(
         method_id: method_id,
+        execution_environment_id: execution_environment.public_id,
+        environment_fingerprint: execution_environment.environment_fingerprint,
         reconciliation_report: reconciliation_report
-      ).merge(
-        "execution_environment_id" => execution_environment.public_id,
-        "environment_fingerprint" => execution_environment.environment_fingerprint,
-        "environment_capability_payload" => execution_environment.capability_payload,
-        "environment_tool_catalog" => execution_environment.tool_catalog,
-        "agent_plane" => capability_snapshot.as_agent_plane_payload,
-        "environment_plane" => execution_environment.as_runtime_plane_payload,
-        "effective_tool_catalog" => effective_tool_catalog
       )
     end
   end
