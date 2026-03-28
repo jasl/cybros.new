@@ -30,6 +30,7 @@ This directory contains the active execution plans for `core_matrix`.
 - [2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md)
 - [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md)
 - [2026-03-28-core-matrix-phase-2-plan-structural-consolidation-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-structural-consolidation-follow-up.md)
+- [2026-03-28-core-matrix-phase-2-plan-post-consolidation-repair-loop.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-post-consolidation-repair-loop.md)
 
 Use the phase plan for overall ordering, the milestone documents for current
 implementation scope, and the task documents as the executable implementation
@@ -54,6 +55,7 @@ Active execution order for the current Phase 2 batch:
 15. `Task C11 Follow-Up`
 16. `Task C12 Follow-Up`
 17. `Task C13 Follow-Up`
+18. `Task C14 Follow-Up`
 
 `Protocol E2E` belongs to Milestone C. It is distinct from any future browser
 or Web UI end-to-end coverage.
