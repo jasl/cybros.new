@@ -9,6 +9,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :kind, null: false
       t.string :purpose, null: false
+      t.string :addressability, null: false, default: "owner_addressable"
       t.string :lifecycle_state, null: false
       t.string :deletion_state, null: false, default: "retained"
       t.datetime :deleted_at

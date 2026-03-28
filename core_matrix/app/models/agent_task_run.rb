@@ -26,6 +26,8 @@ class AgentTaskRun < ApplicationRecord
   belongs_to :workflow_node
   belongs_to :conversation
   belongs_to :turn
+  belongs_to :subagent_session, optional: true
+  belongs_to :requested_by_turn, class_name: "Turn", optional: true
   belongs_to :holder_agent_deployment, class_name: "AgentDeployment", optional: true
 
   has_many :agent_control_mailbox_items, dependent: :restrict_with_exception
@@ -42,6 +44,8 @@ class AgentTaskRun < ApplicationRecord
   validate :workflow_node_installation_match
   validate :conversation_installation_match
   validate :turn_installation_match
+  validate :subagent_session_installation_match
+  validate :requested_by_turn_installation_match
   validate :workflow_projection_match
   validate :agent_installation_turn_match
   validate :holder_deployment_matches_task
@@ -89,6 +93,18 @@ class AgentTaskRun < ApplicationRecord
     return if turn.blank? || turn.installation_id == installation_id
 
     errors.add(:turn, "must belong to the same installation")
+  end
+
+  def subagent_session_installation_match
+    return if subagent_session.blank? || subagent_session.installation_id == installation_id
+
+    errors.add(:subagent_session, "must belong to the same installation")
+  end
+
+  def requested_by_turn_installation_match
+    return if requested_by_turn.blank? || requested_by_turn.installation_id == installation_id
+
+    errors.add(:requested_by_turn, "must belong to the same installation")
   end
 
   def workflow_projection_match

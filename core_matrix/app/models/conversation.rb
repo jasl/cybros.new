@@ -15,6 +15,12 @@ class Conversation < ApplicationRecord
       automation: "automation",
     },
     validate: true
+  enum :addressability,
+    {
+      owner_addressable: "owner_addressable",
+      agent_addressable: "agent_addressable",
+    },
+    validate: true
   enum :lifecycle_state,
     {
       active: "active",
@@ -51,7 +57,15 @@ class Conversation < ApplicationRecord
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :workflow_runs, dependent: :restrict_with_exception
   has_many :conversation_close_operations, dependent: :restrict_with_exception
+  has_many :owned_subagent_sessions,
+    class_name: "SubagentSession",
+    foreign_key: :owner_conversation_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :owner_conversation
   has_one :publication, dependent: :restrict_with_exception
+  has_one :subagent_session,
+    dependent: :restrict_with_exception,
+    inverse_of: :conversation
   has_one :canonical_store_reference, as: :owner, dependent: :restrict_with_exception
   has_one :root_canonical_store,
     class_name: "CanonicalStore",

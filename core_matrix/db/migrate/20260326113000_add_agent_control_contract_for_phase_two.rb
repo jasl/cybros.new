@@ -7,6 +7,8 @@ class AddAgentControlContractForPhaseTwo < ActiveRecord::Migration[8.0]
       t.references :workflow_node, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true
+      t.references :subagent_session, foreign_key: true
+      t.references :requested_by_turn, foreign_key: { to_table: :turns }
       t.references :holder_agent_deployment, foreign_key: { to_table: :agent_deployments }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :task_kind, null: false
@@ -99,15 +101,15 @@ class AddAgentControlContractForPhaseTwo < ActiveRecord::Migration[8.0]
     add_column :process_runs, :close_outcome_payload, :jsonb, null: false, default: {}
     add_index :process_runs, :public_id, unique: true
 
-    add_column :subagent_runs, :public_id, :uuid, null: false, default: -> { "uuidv7()" }
-    add_column :subagent_runs, :close_state, :string, null: false, default: "open"
-    add_column :subagent_runs, :close_reason_kind, :string
-    add_column :subagent_runs, :close_requested_at, :datetime
-    add_column :subagent_runs, :close_grace_deadline_at, :datetime
-    add_column :subagent_runs, :close_force_deadline_at, :datetime
-    add_column :subagent_runs, :close_acknowledged_at, :datetime
-    add_column :subagent_runs, :close_outcome_kind, :string
-    add_column :subagent_runs, :close_outcome_payload, :jsonb, null: false, default: {}
-    add_index :subagent_runs, :public_id, unique: true
+    add_column :subagent_sessions, :public_id, :uuid, null: false, default: -> { "uuidv7()" }
+    add_column :subagent_sessions, :close_state, :string, null: false, default: "open"
+    add_column :subagent_sessions, :close_reason_kind, :string
+    add_column :subagent_sessions, :close_requested_at, :datetime
+    add_column :subagent_sessions, :close_grace_deadline_at, :datetime
+    add_column :subagent_sessions, :close_force_deadline_at, :datetime
+    add_column :subagent_sessions, :close_acknowledged_at, :datetime
+    add_column :subagent_sessions, :close_outcome_kind, :string
+    add_column :subagent_sessions, :close_outcome_payload, :jsonb, null: false, default: {}
+    add_index :subagent_sessions, :public_id, unique: true
   end
 end

@@ -1,0 +1,178 @@
+require "test_helper"
+
+class SubagentSessionTest < ActiveSupport::TestCase
+  test "requires owner and child conversations plus a profile key" do
+    assert Object.const_defined?(:SubagentSession), "Expected SubagentSession to be defined"
+    assert_includes SubagentSession.column_names, "owner_conversation_id"
+    assert_includes SubagentSession.column_names, "conversation_id"
+    assert_includes SubagentSession.column_names, "profile_key"
+    assert_includes SubagentSession.column_names, "scope"
+
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+
+    session = SubagentSession.new(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0
+    )
+
+    assert session.valid?
+
+    session.profile_key = nil
+    assert_not session.valid?
+    assert_includes session.errors[:profile_key], "can't be blank"
+
+    session.profile_key = "researcher"
+    session.owner_conversation = nil
+    assert_not session.valid?
+    assert_includes session.errors[:owner_conversation], "must exist"
+
+    session.owner_conversation = owner_conversation
+    session.conversation = nil
+    assert_not session.valid?
+    assert_includes session.errors[:conversation], "must exist"
+  end
+
+  test "enforces turn scope, installation alignment, and parent depth invariants" do
+    assert Object.const_defined?(:SubagentSession), "Expected SubagentSession to be defined"
+    assert_includes SubagentSession.column_names, "origin_turn_id"
+    assert_includes SubagentSession.column_names, "parent_subagent_session_id"
+    assert_includes SubagentSession.column_names, "depth"
+
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    origin_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate work",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+
+    root_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      origin_turn: origin_turn,
+      scope: "turn",
+      profile_key: "worker",
+      depth: 0
+    )
+
+    scoped_without_origin = SubagentSession.new(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "turn",
+      profile_key: "worker",
+      depth: 0
+    )
+
+    assert_not scoped_without_origin.valid?
+    assert_includes scoped_without_origin.errors[:origin_turn], "must exist for turn-scoped sessions"
+
+    wrong_depth_without_parent = SubagentSession.new(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: create_conversation_record!(
+        workspace: context[:workspace],
+        parent_conversation: owner_conversation,
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        kind: "thread",
+        addressability: "agent_addressable"
+      ),
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 1
+    )
+
+    assert_not wrong_depth_without_parent.valid?
+    assert_includes wrong_depth_without_parent.errors[:depth], "must be zero when there is no parent session"
+
+    child_session = SubagentSession.new(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: create_conversation_record!(
+        workspace: context[:workspace],
+        parent_conversation: owner_conversation,
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        kind: "thread",
+        addressability: "agent_addressable"
+      ),
+      scope: "conversation",
+      profile_key: "critic",
+      parent_subagent_session: root_session,
+      depth: 1
+    )
+
+    assert child_session.valid?
+
+    child_session.depth = 0
+    assert_not child_session.valid?
+    assert_includes child_session.errors[:depth], "must be parent depth plus one"
+
+    foreign_installation = Installation.new(
+      name: "Foreign Installation #{next_test_sequence}",
+      bootstrap_state: "bootstrapped",
+      global_settings: {}
+    )
+    foreign_installation.save!(validate: false)
+    foreign_user = create_user!(installation: foreign_installation)
+    foreign_agent_installation = create_agent_installation!(installation: foreign_installation)
+    foreign_execution_environment = create_execution_environment!(installation: foreign_installation)
+    foreign_agent_deployment = create_agent_deployment!(
+      installation: foreign_installation,
+      agent_installation: foreign_agent_installation,
+      execution_environment: foreign_execution_environment
+    )
+    foreign_binding = create_user_agent_binding!(
+      installation: foreign_installation,
+      user: foreign_user,
+      agent_installation: foreign_agent_installation
+    )
+    foreign_workspace = create_workspace!(
+      installation: foreign_installation,
+      user: foreign_user,
+      user_agent_binding: foreign_binding
+    )
+    foreign_owner = Conversations::CreateRoot.call(
+      workspace: foreign_workspace,
+      execution_environment: foreign_execution_environment,
+      agent_deployment: foreign_agent_deployment
+    )
+
+    child_session.owner_conversation = foreign_owner
+    assert_not child_session.valid?
+    assert_includes child_session.errors[:owner_conversation], "must belong to the same installation"
+  end
+end

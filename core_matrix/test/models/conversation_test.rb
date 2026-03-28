@@ -63,6 +63,30 @@ class ConversationTest < ActiveSupport::TestCase
     assert_not_includes Conversation.column_names, "agent_installation_id"
   end
 
+  test "supports owner and agent addressability" do
+    assert_respond_to Conversation, :addressabilities
+    assert_includes Conversation.addressabilities.keys, "owner_addressable"
+    assert_includes Conversation.addressabilities.keys, "agent_addressable"
+
+    context = create_workspace_context!
+    default_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: default_conversation,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+
+    assert_equal "owner_addressable", default_conversation.addressability
+    assert_equal "agent_addressable", child_conversation.addressability
+  end
+
   test "enforces conversation kind rules" do
     context = create_workspace_context!
     root_anchor_turn = Turns::StartUserTurn.call(

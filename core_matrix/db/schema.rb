@@ -191,7 +191,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.string "logical_work_id", null: false
     t.jsonb "progress_payload", default: {}, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "requested_by_turn_id"
     t.datetime "started_at"
+    t.bigint "subagent_session_id"
     t.string "task_kind", null: false
     t.jsonb "task_payload", default: {}, null: false
     t.jsonb "terminal_payload", default: {}, null: false
@@ -204,6 +206,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["holder_agent_deployment_id"], name: "index_agent_task_runs_on_holder_agent_deployment_id"
     t.index ["installation_id"], name: "index_agent_task_runs_on_installation_id"
     t.index ["public_id"], name: "index_agent_task_runs_on_public_id", unique: true
+    t.index ["requested_by_turn_id"], name: "index_agent_task_runs_on_requested_by_turn_id"
+    t.index ["subagent_session_id"], name: "index_agent_task_runs_on_subagent_session_id"
     t.index ["turn_id"], name: "index_agent_task_runs_on_turn_id"
     t.index ["workflow_node_id"], name: "index_agent_task_runs_on_workflow_node_id"
     t.index ["workflow_run_id", "logical_work_id", "attempt_no"], name: "idx_agent_task_runs_work_attempt", unique: true
@@ -429,6 +433,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   end
 
   create_table "conversations", force: :cascade do |t|
+    t.string "addressability", default: "owner_addressable", null: false
     t.bigint "agent_deployment_id", null: false
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
@@ -763,8 +768,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
-  create_table "subagent_runs", force: :cascade do |t|
-    t.string "batch_key"
+  create_table "subagent_sessions", force: :cascade do |t|
+    t.string "canonical_name"
     t.datetime "close_acknowledged_at"
     t.datetime "close_force_deadline_at"
     t.datetime "close_grace_deadline_at"
@@ -773,31 +778,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.string "close_reason_kind"
     t.datetime "close_requested_at"
     t.string "close_state", default: "open", null: false
-    t.string "coordination_key"
+    t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.integer "depth", default: 0, null: false
-    t.string "failure_reason"
-    t.datetime "finished_at"
     t.bigint "installation_id", null: false
-    t.string "lifecycle_state", default: "running", null: false
-    t.jsonb "metadata", default: {}, null: false
-    t.bigint "parent_subagent_run_id"
+    t.string "last_known_status", default: "idle", null: false
+    t.string "lifecycle_state", default: "open", null: false
+    t.string "nickname"
+    t.bigint "origin_turn_id"
+    t.bigint "owner_conversation_id", null: false
+    t.bigint "parent_subagent_session_id"
+    t.string "profile_key", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "requested_role_or_slot", null: false
-    t.datetime "started_at", null: false
-    t.bigint "terminal_summary_artifact_id"
+    t.string "scope", default: "turn", null: false
     t.datetime "updated_at", null: false
-    t.bigint "workflow_node_id", null: false
-    t.bigint "workflow_run_id", null: false
-    t.index ["installation_id"], name: "index_subagent_runs_on_installation_id"
-    t.index ["parent_subagent_run_id"], name: "index_subagent_runs_on_parent_subagent_run_id"
-    t.index ["public_id"], name: "index_subagent_runs_on_public_id", unique: true
-    t.index ["terminal_summary_artifact_id"], name: "index_subagent_runs_on_terminal_summary_artifact_id"
-    t.index ["workflow_node_id", "created_at"], name: "idx_subagent_runs_node_created"
-    t.index ["workflow_node_id"], name: "index_subagent_runs_on_workflow_node_id"
-    t.index ["workflow_run_id", "batch_key"], name: "idx_subagent_runs_run_batch"
-    t.index ["workflow_run_id", "coordination_key"], name: "idx_subagent_runs_run_coordination"
-    t.index ["workflow_run_id"], name: "index_subagent_runs_on_workflow_run_id"
+    t.index ["conversation_id"], name: "idx_subagent_sessions_conversation", unique: true
+    t.index ["conversation_id"], name: "index_subagent_sessions_on_conversation_id"
+    t.index ["installation_id"], name: "index_subagent_sessions_on_installation_id"
+    t.index ["origin_turn_id"], name: "index_subagent_sessions_on_origin_turn_id"
+    t.index ["owner_conversation_id", "created_at"], name: "idx_subagent_sessions_owner_created"
+    t.index ["owner_conversation_id"], name: "index_subagent_sessions_on_owner_conversation_id"
+    t.index ["parent_subagent_session_id"], name: "index_subagent_sessions_on_parent_subagent_session_id"
+    t.index ["public_id"], name: "index_subagent_sessions_on_public_id", unique: true
   end
 
   create_table "turns", force: :cascade do |t|
@@ -1102,7 +1104,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "agent_task_runs", "agent_installations"
   add_foreign_key "agent_task_runs", "conversations"
   add_foreign_key "agent_task_runs", "installations"
+  add_foreign_key "agent_task_runs", "subagent_sessions"
   add_foreign_key "agent_task_runs", "turns"
+  add_foreign_key "agent_task_runs", "turns", column: "requested_by_turn_id"
   add_foreign_key "agent_task_runs", "workflow_nodes"
   add_foreign_key "agent_task_runs", "workflow_runs"
   add_foreign_key "audit_logs", "installations"
@@ -1187,11 +1191,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "publications", "users", column: "owner_user_id"
   add_foreign_key "sessions", "identities"
   add_foreign_key "sessions", "users"
-  add_foreign_key "subagent_runs", "installations"
-  add_foreign_key "subagent_runs", "subagent_runs", column: "parent_subagent_run_id"
-  add_foreign_key "subagent_runs", "workflow_artifacts", column: "terminal_summary_artifact_id"
-  add_foreign_key "subagent_runs", "workflow_nodes"
-  add_foreign_key "subagent_runs", "workflow_runs"
+  add_foreign_key "subagent_sessions", "conversations"
+  add_foreign_key "subagent_sessions", "conversations", column: "owner_conversation_id"
+  add_foreign_key "subagent_sessions", "installations"
+  add_foreign_key "subagent_sessions", "subagent_sessions", column: "parent_subagent_session_id"
+  add_foreign_key "subagent_sessions", "turns", column: "origin_turn_id"
   add_foreign_key "turns", "agent_deployments"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "installations"
