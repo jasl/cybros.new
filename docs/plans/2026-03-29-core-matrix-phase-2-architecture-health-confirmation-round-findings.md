@@ -141,6 +141,21 @@ runtime capability preservation, subagent close control, and the
   the retry assignment family, which bypasses the frozen execution-snapshot
   envelope.
 
+### Adjacent anti-pattern sweep
+
+- Search patterns used:
+  in `core_matrix`, `profile_catalog|tool_catalog|allowed_tool_names|close_requested|close_state|recovery_plan|capability_snapshot|default_config_snapshot|conversation_override_schema_snapshot`
+  and `with_lock|transaction|close_operation|request_close|apply_close_outcome`;
+  in `agents/fenix`,
+  `allowed_tool_names|likely_model|model_context|agent_context|profile`.
+- Result:
+  the sweep did not surface a second new high-confidence structural issue. It
+  reinforced the archived capability-preservation and `SubagentSession`
+  hotspots, confirmed that current Fenix runtime code now treats
+  `allowed_tool_names` as an execution-time constraint, and re-confirmed that
+  the only newly promoted issue in this round is the retry-assignment drift
+  away from the frozen execution-snapshot contract.
+
 ## New High-Confidence Findings
 
 ### Step-retry assignments bypass the frozen execution-snapshot contract
@@ -175,21 +190,23 @@ runtime capability preservation, subagent close control, and the
   assignment family, then add cross-project contract coverage for a real
   step-retry assignment payload instead of only the create-for-turn fixture.
 
-### Adjacent anti-pattern sweep
-
-- Search patterns used:
-  in `core_matrix`, `profile_catalog|tool_catalog|allowed_tool_names|close_requested|close_state|recovery_plan|capability_snapshot|default_config_snapshot|conversation_override_schema_snapshot`
-  and `with_lock|transaction|close_operation|request_close|apply_close_outcome`;
-  in `agents/fenix`,
-  `allowed_tool_names|likely_model|model_context|agent_context|profile`.
-- Result:
-  the sweep did not surface a second new high-confidence structural issue. It
-  reinforced the archived capability-preservation and `SubagentSession`
-  hotspots, confirmed that current Fenix runtime code now treats
-  `allowed_tool_names` as an execution-time constraint, and re-confirmed that
-  the only newly promoted issue in this round is the retry-assignment drift
-  away from the frozen execution-snapshot contract.
-
 ## No-New-Finding Judgment
 
+This confirmation round did find one additional high-confidence structural
+issue: retry-generated execution assignments do not preserve the frozen
+execution-snapshot envelope that the normal `core_matrix <-> fenix` boundary
+now expects. The archived iterative audit therefore remains the baseline, but
+it should not yet be treated as exhaustive.
+
 ## Completeness Check
+
+- The archived iterative findings and the archived iterative plan were re-read
+  before looking for anything new.
+- All three targeted confirmation passes ran:
+  runtime capability preservation and reuse, `SubagentSession` close
+  progression and adjacent readers, and the `core_matrix <-> fenix`
+  execution-context boundary.
+- One adjacent anti-pattern sweep ran across neighboring wrapper and payload
+  families in `core_matrix` and `agents/fenix`.
+- This report explicitly states that one new high-confidence finding exists, so
+  the result is not `no new high-confidence findings`.
