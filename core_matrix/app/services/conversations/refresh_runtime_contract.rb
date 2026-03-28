@@ -11,10 +11,7 @@ module Conversations
     def call
       validate_runtime_binding!
 
-      RuntimeCapabilities::ComposeForConversation.call(
-        execution_environment: @conversation.execution_environment,
-        agent_deployment: @conversation.agent_deployment
-      )
+      RuntimeCapabilities::ComposeForConversation.call(conversation: @conversation)
     end
 
     private

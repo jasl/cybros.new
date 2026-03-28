@@ -23,6 +23,8 @@ module Conversations
           active_message: "must be active before updating overrides",
           closing_message: "must not update overrides while close is in progress"
         ) do |conversation|
+          validate_payload!(conversation)
+
           conversation.update!(
             override_payload: @payload,
             override_last_schema_fingerprint: @schema_fingerprint,
@@ -36,6 +38,46 @@ module Conversations
           conversation
         end
       end
+    end
+
+    private
+
+    def validate_payload!(conversation)
+      schema_properties = override_schema.fetch("properties", {})
+      invalid = false
+
+      invalid ||= payload_has_unknown_keys?(conversation, schema_properties)
+
+      schema_properties.each do |key, property_schema|
+        next unless @payload.key?(key)
+        next unless property_schema["type"] == "object"
+
+        value = @payload.fetch(key)
+        unless value.is_a?(Hash)
+          conversation.errors.add(:override_payload, "must only contain mutable subagent policy keys")
+          invalid = true
+          next
+        end
+
+        allowed_nested_keys = property_schema.fetch("properties", {}).keys
+        next unless (value.keys - allowed_nested_keys).any?
+
+        conversation.errors.add(:override_payload, "must only contain mutable subagent policy keys")
+        invalid = true
+      end
+
+      raise ActiveRecord::RecordInvalid, conversation if invalid
+    end
+
+    def payload_has_unknown_keys?(conversation, schema_properties)
+      return false unless (@payload.keys - schema_properties.keys).any?
+
+      conversation.errors.add(:override_payload, "must only contain mutable subagent policy keys")
+      true
+    end
+
+    def override_schema
+      @override_schema ||= @conversation.agent_deployment.active_capability_snapshot&.conversation_override_schema_snapshot || {}
     end
   end
 end

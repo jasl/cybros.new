@@ -1,23 +1,18 @@
 require "test_helper"
 
 class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
-  test "persists override payload and auto selector state" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+  test "persists subagent policy override payload and auto selector state" do
+    conversation = create_profile_aware_conversation!
 
     updated = Conversations::UpdateOverride.call(
       conversation: conversation,
-      payload: { "temperature" => 0.2 },
+      payload: { "subagents" => { "enabled" => false } },
       schema_fingerprint: "schema-v1",
       reconciliation_report: { "status" => "exact" },
       selector_mode: "auto"
     )
 
-    assert_equal({ "temperature" => 0.2 }, updated.override_payload)
+    assert_equal({ "subagents" => { "enabled" => false } }, updated.override_payload)
     assert_equal "schema-v1", updated.override_last_schema_fingerprint
     assert_equal({ "status" => "exact" }, updated.override_reconciliation_report)
     assert_equal "auto", updated.interactive_selector_mode
@@ -27,12 +22,7 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
   end
 
   test "persists an explicit candidate selector" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = create_profile_aware_conversation!
 
     updated = Conversations::UpdateOverride.call(
       conversation: conversation,
@@ -49,18 +39,13 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
   end
 
   test "rejects override updates for archived conversations" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = create_profile_aware_conversation!
     conversation.update!(lifecycle_state: "archived")
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::UpdateOverride.call(
         conversation: conversation,
-        payload: { "temperature" => 0.2 },
+        payload: { "subagents" => { "enabled" => false } },
         schema_fingerprint: "schema-v1",
         reconciliation_report: { "status" => "exact" },
         selector_mode: "auto"
@@ -71,18 +56,13 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
   end
 
   test "rejects override updates for pending delete conversations" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = create_profile_aware_conversation!
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::UpdateOverride.call(
         conversation: conversation,
-        payload: { "temperature" => 0.2 },
+        payload: { "subagents" => { "enabled" => false } },
         schema_fingerprint: "schema-v1",
         reconciliation_report: { "status" => "exact" },
         selector_mode: "auto"
@@ -93,12 +73,7 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
   end
 
   test "rejects override updates while close is in progress" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = create_profile_aware_conversation!
     ConversationCloseOperation.create!(
       installation: conversation.installation,
       conversation: conversation,
@@ -111,7 +86,7 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Conversations::UpdateOverride.call(
         conversation: conversation,
-        payload: { "temperature" => 0.2 },
+        payload: { "subagents" => { "enabled" => false } },
         schema_fingerprint: "schema-v1",
         reconciliation_report: { "status" => "exact" },
         selector_mode: "auto"
@@ -119,5 +94,31 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors[:base], "must not update overrides while close is in progress"
+  end
+
+  private
+
+  def create_profile_aware_conversation!
+    registration = register_agent_runtime!(
+      profile_catalog: default_profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    workspace = create_workspace!(
+      installation: registration[:installation],
+      user: registration[:actor],
+      user_agent_binding: create_user_agent_binding!(
+        installation: registration[:installation],
+        user: registration[:actor],
+        agent_installation: registration[:agent_installation]
+      )
+    )
+
+    Conversations::CreateRoot.call(
+      workspace: workspace,
+      execution_environment: registration[:execution_environment],
+      agent_deployment: registration[:deployment]
+    )
   end
 end
