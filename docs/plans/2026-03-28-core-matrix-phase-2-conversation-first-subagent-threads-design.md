@@ -1,35 +1,36 @@
-# Core Matrix Phase 2 Design: Conversation-First Subagent Threads
+# Core Matrix Phase 2 Design: Profile-Aware Conversation-First Subagent Threads
 
 Use this design document before starting the Phase 2 restructuring batch that
-replaces workflow-owned `SubagentRun` rows with conversation-first subagent
-threads.
+replaces workflow-owned `SubagentRun` rows with profile-aware,
+conversation-first subagent threads.
 
 Read together with:
 
 1. `AGENTS.md`
 2. `docs/plans/README.md`
-3. `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
-4. `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
-5. `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
-6. `docs/plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md`
+3. `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
+4. `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
+5. `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+6. `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
+7. `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
+8. `docs/plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md`
 
 ## Purpose
 
-Phase 2 currently models subagents as workflow-owned runtime rows:
-
-- `SubagentRun` owns the durable coordination record
-- `ExecutionLease` owns runtime heartbeat ownership
-- `subagent_spawn` is exposed as an ordinary tool-catalog entry
+Phase 2 currently models subagents as workflow-owned runtime rows and exposes
+`subagent_spawn` as an ordinary runtime tool.
 
 That shape is materially worse than the approved target:
 
 - subagents do not have their own conversation transcript
 - subagent lifecycle is anchored to workflow nodes instead of conversation
   ownership
+- capability contracts cannot express profile-aware subagent behavior or
+  nested-subagent policy cleanly
+- the machine-facing execution payload does not tell the agent program which
+  profile or subagent context it is running under
 - close, archive, delete, and purge semantics have to special-case
   workflow-owned residue
-- the capability surface cannot cleanly express reserved platform-level
-  controls such as `subagent_wait`, `subagent_send`, or `subagent_close`
 
 This design replaces that model with a conversation-first architecture:
 
@@ -37,8 +38,11 @@ This design replaces that model with a conversation-first architecture:
 - a new `SubagentThread` row is the durable control aggregate
 - `AgentTaskRun(kind = "subagent_step")` remains the reusable execution
   instance
-- existing mailbox, close-control, close-reconciliation, and conversation
-  lineage infrastructure stay in place
+- subagent behavior is driven by runtime-declared `profile` metadata, not by
+  Core Matrix-owned prompt templates
+- existing capability contracts, config snapshots, conversation override
+  infrastructure, execution snapshots, mailbox control, and close
+  reconciliation infrastructure stay in place
 
 This batch is intentionally breaking:
 
@@ -50,20 +54,31 @@ This batch is intentionally breaking:
 ## Design Constraints
 
 - `references/` informed the discussion, but the landed design is defined only
-  by `core_matrix` contracts, tests, and behavior docs.
+  by `core_matrix`, `agents/fenix`, local tests, and local behavior docs.
 - External and agent-facing boundaries continue to use `public_id`; no raw
   `bigint` identifiers may leak.
 - Fork, branch, thread, and checkpoint creation remain conversation-lineage
   operations only. They do not inherit, share, or reveal parent subagent
   threads in this batch.
 - Human callers may not directly address subagent conversations in this batch.
-- The implementation must reuse existing close-control and capability-composer
-  infrastructure instead of inventing parallel protocol stacks.
+- `selector` remains the model-selection axis. `profile` is a separate
+  agent-program axis and does not replace selector resolution.
+- This batch does not add a Codex-style `personality` axis. Future tone or
+  `SOUL.md` work remains agent-program configuration, not kernel design.
+- Root interactive conversations remain fixed to `profile = "main"` in this
+  batch. The internal model should remain extensible, but no product or tool
+  surface is introduced for switching the root profile.
+- The implementation must reuse existing close-control, capability-composer,
+  conversation-override, and execution-snapshot infrastructure instead of
+  inventing parallel protocol stacks.
 
-## Four Scan Passes
+## Six Scan Passes
 
-The repository was scanned in four focused passes before writing this design.
-No new architectural areas appeared after the fourth pass.
+The repository was scanned in six focused passes before writing this revision.
+The sixth pass surfaced the last missing architectural seam:
+`agent_context` must freeze on `TurnExecutionSnapshot` rather than being
+assembled ad hoc inside mailbox assignment creation. No new architectural areas
+appeared after the sixth pass.
 
 ### Pass 1: Existing Subagent Surface
 
@@ -78,77 +93,112 @@ Scanned:
 Findings:
 
 - current subagent coordination is workflow-owned, not conversation-owned
-- `SubagentRun` carries speculative fields (`depth`, `batch_key`,
-  `coordination_key`) that do not belong in the approved conversation-first
-  model
+- `SubagentRun` already carries nested-fanout fields (`parent_subagent_run_id`
+  and `depth`) that should move to `SubagentThread`, not be dropped
 - `AgentTaskRun(kind = "subagent_step")` already exists and should be reused
 
-### Pass 2: Control Plane, Capability Surface, And Close Routing
+### Pass 2: Capability Surface And Config Contracts
 
 Scanned:
 
-- `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
-- `core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb`
+- `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
+- `core_matrix/app/models/capability_snapshot.rb`
 - `core_matrix/app/models/runtime_capability_contract.rb`
-- `core_matrix/app/services/agent_control/closable_resource_registry.rb`
-- `core_matrix/app/services/agent_control/apply_close_outcome.rb`
-- `core_matrix/test/requests/agent_api/capabilities_test.rb`
-- `core_matrix/test/services/agent_deployments/handshake_test.rb`
+- `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
+- `core_matrix/app/services/agent_deployments/reconcile_config.rb`
+- `core_matrix/app/services/agent_deployments/handshake.rb`
+- `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`
 
 Findings:
 
-- `CORE_MATRIX_TOOL_CATALOG` is already the correct insertion point for
-  reserved platform tools
-- close control already has one reusable mailbox protocol and one
-  `ClosableRuntimeResource` concern
-- `SubagentRun` is wired into close registry and close outcome handling and
-  must be cleanly replaced there
+- `RuntimeCapabilityContract` is already the right projection seam for adding
+  `profile_catalog`
+- `CapabilitySnapshot` must persist `profile_catalog`; it cannot remain only a
+  transient manifest field
+- `default_config_snapshot` and `conversation_override_schema_snapshot` are
+  already the right places for runtime-declared configuration
+- config reconciliation currently retains `interactive`, `model_slots`, and
+  `model_roles`; this batch must extend the same pattern to `subagents`
+- `ComposeForConversation` currently has no conversation-aware tool filtering
+  and must grow one instead of introducing a second capability plane
 
-### Pass 3: Conversation Lifecycle, Purge, And Lineage
-
-Scanned:
-
-- `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
-- `core_matrix/app/services/conversations/archive.rb`
-- `core_matrix/app/services/conversations/request_turn_interrupt.rb`
-- `core_matrix/app/services/conversations/purge_plan.rb`
-- `core_matrix/app/services/conversations/finalize_deletion.rb`
-- `core_matrix/app/queries/conversations/blocker_snapshot_query.rb`
-- `core_matrix/test/services/conversations/archive_test.rb`
-- `core_matrix/test/services/conversations/purge_deleted_test.rb`
-
-Findings:
-
-- subagent lifecycle must plug into the existing owner-conversation close,
-  archive, delete, and purge model rather than creating a second resource
-  ownership graph
-- purge currently explicitly tears down `SubagentRun`; the purge graph must be
-  rewritten around owned subagent conversations and `SubagentThread`
-- blocker queries already expose the right extension seam for replacing running
-  subagent counts
-
-### Pass 4: Audit Surface, Events, Schema, And Exhaustiveness
+### Pass 3: Conversation Override, Selector State, And Turn Context
 
 Scanned:
 
-- `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
+- `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- `core_matrix/app/services/conversations/update_override.rb`
 - `core_matrix/app/models/conversation.rb`
-- `core_matrix/app/models/message.rb`
-- `core_matrix/app/models/workflow_artifact.rb`
-- `core_matrix/db/migrate/20260324090038_create_subagent_runs.rb`
-- `core_matrix/db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb`
-- exhaustive `rg` across `core_matrix/app`, `core_matrix/test`,
-  `core_matrix/docs`, and `core_matrix/db`
+- `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
 
 Findings:
 
-- `ConversationEvent` is the right existing projection surface for operational
-  subagent notifications and sender audit; no second audit log should be added
-- `Conversation` currently lacks an addressability axis and needs one
-- migration history can be rewritten directly because the database will be
-  rebuilt for this batch
-- no additional hidden `SubagentRun` ownership surfaces appeared after the
-  exhaustive grep
+- `selector` persistence and `override_payload` persistence already give the
+  correct structural model for runtime-owned configuration without persisting
+  prompt text in Core Matrix
+- `Conversation` still lacks an addressability axis
+- root conversation profile should stay in runtime config, not on the
+  conversation row
+- execution snapshots currently freeze model and provider context, but not
+  agent-program context
+
+### Pass 4: Fenix Runtime Manifest And Execution Boundary
+
+Scanned:
+
+- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
+- `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- `agents/fenix/README.md`
+
+Findings:
+
+- Fenix already declares runtime config through manifest snapshots and should
+  declare `profile_catalog` the same way
+- the current execution context has no `profile`, `is_subagent`, or
+  `allowed_tool_names` input
+- the main-agent and subagent loops can stay identical if those values are
+  carried through `agent_context`
+- prompt templates and model-slot switching belong inside Fenix, not in Core
+  Matrix
+
+### Pass 5: Existing Design, Cleanup Map, And Nested-Subagent Gaps
+
+Scanned:
+
+- `docs/plans/2026-03-28-core-matrix-phase-2-conversation-first-subagent-threads-design.md`
+- `docs/plans/2026-03-28-core-matrix-phase-2-plan-conversation-first-subagent-threads.md`
+- `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+- `core_matrix/test/services/subagents/spawn_test.rb`
+
+Findings:
+
+- the first design draft incorrectly excluded nested subagent spawning from the
+  batch
+- the first design draft incorrectly dropped parent and depth from the durable
+  control aggregate
+- the first implementation plan did not account for `profile_catalog`,
+  `subagents.*` policy, Fenix manifest changes, or `agent_context`
+
+### Pass 6: Runtime Contract Refresh And Execution Snapshot Freeze
+
+Scanned:
+
+- `core_matrix/app/services/conversations/refresh_runtime_contract.rb`
+- `core_matrix/test/services/runtime_capabilities/compose_for_conversation_test.rb`
+- `core_matrix/app/services/workflows/build_execution_snapshot.rb`
+- `core_matrix/app/models/turn_execution_snapshot.rb`
+- `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
+
+Findings:
+
+- conversation runtime contracts are already read through one service boundary,
+  so conversation-aware tool filtering should extend that path rather than
+  bypass it
+- `agent_context` must freeze on `TurnExecutionSnapshot`
+- mailbox assignment creation should read the frozen `agent_context` rather
+  than recomputing runtime-visible tool policy on the fly
 
 ## Test Scenario Matrix
 
@@ -158,103 +208,170 @@ approximate order.
 
 ### Model And Schema Scenarios
 
-1. `Conversation` supports `addressability = owner_addressable | agent_addressable`.
-2. `SubagentThread` requires one owner conversation and one child conversation.
+1. `Conversation` supports
+   `addressability = owner_addressable | agent_addressable`.
+2. `SubagentThread` requires one owner conversation and one child
+   conversation.
 3. `SubagentThread` rejects owner or child conversations from a different
    installation.
 4. `SubagentThread` rejects `scope = turn` without `origin_turn_id`.
-5. `SubagentThread` uses `ClosableRuntimeResource` and enforces close metadata
+5. `SubagentThread` requires `depth = 0` when `parent_subagent_thread_id` is
+   blank.
+6. `SubagentThread` requires `depth = parent.depth + 1` when a parent thread
+   exists.
+7. `SubagentThread` requires `profile_key`.
+8. `SubagentThread` uses `ClosableRuntimeResource` and enforces close metadata
    pairings without inventing a second close-state machine.
-6. `AgentTaskRun(kind = "subagent_step")` may reference one `subagent_thread`
-   and one `requested_by_turn` in addition to its child conversation turn.
-7. `ExecutionLease` accepts `SubagentThread` instead of `SubagentRun` in the
-   leased-resource allowlist.
+9. `AgentTaskRun(kind = "subagent_step")` may reference one
+   `subagent_thread_id` and one `requested_by_turn_id` in addition to its child
+   conversation turn.
+10. `ExecutionLease` accepts `SubagentThread` instead of `SubagentRun` in the
+    leased-resource allowlist.
 
-### Capability And Protocol Scenarios
+### Capability, Manifest, And Config Scenarios
 
-8. capabilities always expose reserved Core Matrix tools
-   (`subagent_spawn`, `subagent_send`, `subagent_wait`, `subagent_close`,
-   `subagent_list`) through `effective_tool_catalog`
-9. environment and agent snapshots cannot shadow or redefine those reserved
-   tool names
-10. registration and handshake flows still return a stable combined capability
-    contract after the reserved tools are injected
+11. capability snapshots and Fenix manifests expose `profile_catalog`.
+12. `default_config_snapshot` exposes:
+    - `interactive.selector`
+    - `interactive.profile`
+    - `subagents.enabled`
+    - `subagents.allow_nested`
+    - `subagents.max_depth`
+    - optional `subagents.default_profile`
+13. `conversation_override_schema_snapshot` exposes subagent-policy keys but
+    does not expose root interactive profile switching in this batch.
+14. config reconciliation retains `subagents` when the next schema still
+    declares it.
+15. reserved Core Matrix subagent tools always appear in the base effective
+    catalog and runtime snapshots may not redefine them.
+16. conversation runtime contracts filter that base catalog through
+    conversation policy and profile mask before returning visible tools.
 
-### Spawn And Message Flow Scenarios
+### Root Profile And Spawn Scenarios
 
-11. `subagent_spawn(scope: "turn")` creates:
+17. root interactive conversations resolve to `profile = "main"` without
+    storing a separate root-profile column.
+18. `subagent_spawn(scope: "turn")` creates:
     - one child conversation with `kind = "thread"`
     - `purpose = "interactive"`
     - `addressability = "agent_addressable"`
     - one `SubagentThread`
+    - `profile_key`
+    - `depth`
     - one initial child turn/workflow/task dispatch
-12. `subagent_spawn(scope: "conversation")` creates the same structure but
+19. `subagent_spawn(scope: "conversation")` creates the same structure but
     remains reusable across later owner turns.
-13. standard human turn-entry APIs reject writes to an
+20. `subagent_spawn` defaults to the runtime-declared default subagent profile
+    when the call omits one.
+21. `subagent_list` returns only threads owned by the current conversation and
+    only by `public_id`.
+
+### Tool Filtering And Nested-Subagent Scenarios
+
+22. `subagents.enabled = false` removes the entire subagent tool family from
+    the visible tool catalog.
+23. `allow_nested = false` keeps subagent tools hidden in child conversations
+    even when the parent conversation can use them.
+24. `depth >= max_depth` hides `subagent_spawn` while leaving the rest of the
+    allowed tool set intact.
+25. profile mask may hide ordinary runtime tools and reserved subagent tools.
+26. the child conversation visible tool set is always a subset of the parent
+    visible tool set.
+27. masked tools reject direct invocation even if the caller guesses the tool
+    name.
+
+### Message Entry And Audit Scenarios
+
+28. standard human turn-entry APIs reject writes to an
     `agent_addressable` conversation.
-14. `subagent_send` rejects senders other than:
+29. `subagent_send` rejects senders other than:
     - the owner conversation agent
     - the subagent itself
     - the system
-15. every accepted agent-authored subagent message produces one
+30. every accepted agent-authored subagent message produces one
     `ConversationEvent` audit projection on the child conversation.
-16. `subagent_list` returns only threads owned by the current conversation and
-    only by `public_id`.
+31. nested subagent spawn projections record parent thread linkage and depth in
+    audit payload.
+
+### Execution Snapshot And Assignment Scenarios
+
+32. `TurnExecutionSnapshot` freezes `agent_context`.
+33. root execution snapshots freeze:
+    - `profile = "main"`
+    - `is_subagent = false`
+    - no parent thread id
+34. child execution snapshots freeze:
+    - `profile`
+    - `is_subagent = true`
+    - `subagent_thread_id`
+    - `parent_subagent_thread_id`
+    - `subagent_depth`
+    - `allowed_tool_names`
+35. `AgentControl::CreateExecutionAssignment` transports frozen `agent_context`
+    into the mailbox payload instead of recomputing it.
+36. Fenix runtime execution reads `agent_context` and keeps one shared loop for
+    root and subagent execution.
 
 ### Wait, Close, And Notification Scenarios
 
-17. `subagent_wait` returns immediately for a terminal durable state and
+37. `subagent_wait` returns immediately for a terminal durable state and
     returns a timeout result without mutating state otherwise.
-18. `subagent_close` is idempotent for an already closed thread.
-19. a close request for a running subagent thread routes through the existing
+38. `subagent_close` is idempotent for an already closed thread.
+39. a close request for a running subagent thread routes through the existing
     mailbox close-control protocol and updates `SubagentThread.close_state`.
-20. terminal close reports re-enter
+40. terminal close reports re-enter
     `Conversations::ReconcileCloseOperation` through the owner conversation.
-21. owner-conversation event projection records `subagent_thread.opened`,
-    terminal completion or failure, and close outcomes through
-    `ConversationEvent` rather than transcript messages.
+41. owner-conversation event projection records `subagent_thread.opened`,
+    `subagent_thread.completed`, `subagent_thread.failed`, and
+    `subagent_thread.closed` through `ConversationEvent`.
 
 ### Turn Interrupt, Archive, Delete, And Purge Scenarios
 
-22. turn interrupt closes turn-scoped subagent threads created by that turn.
-23. turn interrupt interrupts in-flight `subagent_step` work requested by the
+42. turn interrupt closes turn-scoped subagent threads created by that turn.
+43. turn interrupt interrupts in-flight `subagent_step` work requested by the
     interrupted owner turn even when the thread itself is
     `scope = "conversation"`.
-24. turn interrupt leaves a conversation-scoped thread reusable after its
+44. turn interrupt leaves a conversation-scoped thread reusable after its
     in-flight work has been interrupted.
-25. archive without force rejects while any owned subagent thread remains open.
-26. archive force blocks new `spawn` and `send` requests immediately and
+45. archive without force rejects while any owned subagent thread remains
+    open.
+46. archive force blocks new `spawn` and `send` requests immediately and
     issues close requests for owned open subagent threads.
-27. delete and purge fail closed if an owner conversation still has open or
+47. delete and purge fail closed if an owner conversation still has open or
     close-pending subagent threads.
-28. purge deletes owned child subagent conversations, their task runs, mailbox
-    rows, report receipts, and event projections without leaking residue.
+48. purge deletes owned child subagent conversations, their task runs, mailbox
+    rows, report receipts, and event projections without leaking residue across
+    nested subagent trees.
 
 ### Lineage And Cleanup Scenarios
 
-29. branch, thread, checkpoint, and fork creation do not inherit or expose
+49. branch, thread, checkpoint, and fork creation do not inherit or expose
     parent `SubagentThread` rows or subagent conversations.
-30. no remaining code, tests, docs, migrations, or schema references mention
+50. no remaining code, tests, docs, migrations, or schema references mention
     `SubagentRun`.
+51. no remaining design text in the current plan docs says nested subagents are
+    out of scope for this batch.
 
 ## Impacted Files And Cleanup Map
 
 This is the minimum file set the implementation plan must cover. Delete or
 rewrite obsolete surfaces; do not leave stale terminology behind.
 
-### Schema And Models
+### Core Matrix Schema And Models
 
+- Modify: `core_matrix/app/models/capability_snapshot.rb`
 - Create: `core_matrix/app/models/subagent_thread.rb`
 - Modify: `core_matrix/app/models/conversation.rb`
 - Modify: `core_matrix/app/models/agent_task_run.rb`
 - Modify: `core_matrix/app/models/execution_lease.rb`
-- Modify: `core_matrix/app/models/workflow_artifact.rb`
+- Modify: `core_matrix/app/models/turn_execution_snapshot.rb`
 - Delete: `core_matrix/app/models/subagent_run.rb`
+- Rewrite: `core_matrix/db/migrate/20260324090010_create_capability_snapshots.rb`
 - Rewrite: `core_matrix/db/migrate/20260324090038_create_subagent_runs.rb`
 - Rewrite: `core_matrix/db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb`
 - Regenerate: `core_matrix/db/schema.rb`
 
-### Services And Queries
+### Core Matrix Services And Queries
 
 - Create: `core_matrix/app/services/subagent_threads/spawn.rb`
 - Create: `core_matrix/app/services/subagent_threads/send_message.rb`
@@ -263,11 +380,21 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Create: `core_matrix/app/services/subagent_threads/request_close.rb`
 - Create: `core_matrix/app/services/subagent_threads/validate_addressability.rb`
 - Create: `core_matrix/app/services/turns/start_agent_turn.rb`
+- Modify: `core_matrix/app/models/runtime_capability_contract.rb`
 - Modify: `core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb`
+- Modify: `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
+- Modify: `core_matrix/app/services/conversations/refresh_runtime_contract.rb`
+- Modify: `core_matrix/app/controllers/agent_api/registrations_controller.rb`
+- Modify: `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
+- Modify: `core_matrix/app/services/agent_deployments/register.rb`
+- Modify: `core_matrix/app/services/agent_deployments/handshake.rb`
+- Modify: `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`
+- Modify: `core_matrix/app/services/agent_control/create_execution_assignment.rb`
 - Modify: `core_matrix/app/services/agent_control/closable_resource_registry.rb`
 - Modify: `core_matrix/app/services/agent_control/apply_close_outcome.rb`
 - Modify: `core_matrix/app/services/agent_control/create_resource_close_request.rb`
 - Modify: `core_matrix/app/services/agent_control/report.rb`
+- Modify: `core_matrix/app/services/conversations/update_override.rb`
 - Modify: `core_matrix/app/services/conversations/request_turn_interrupt.rb`
 - Modify: `core_matrix/app/services/conversations/request_resource_closes.rb`
 - Modify: `core_matrix/app/services/conversations/progress_close_requests.rb`
@@ -278,8 +405,17 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Modify: `core_matrix/app/queries/conversations/blocker_snapshot_query.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
 - Modify: `core_matrix/app/services/turns/queue_follow_up.rb`
+- Modify: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - Modify: `core_matrix/app/services/workflows/create_for_turn.rb`
 - Delete: `core_matrix/app/services/subagents/spawn.rb`
+
+### Fenix Runtime Surface
+
+- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- Modify: `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
+- Modify: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- Modify: `agents/fenix/README.md`
 
 ### Tests
 
@@ -292,28 +428,40 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Modify: `core_matrix/test/models/agent_task_run_test.rb`
 - Modify: `core_matrix/test/models/conversation_test.rb`
 - Modify: `core_matrix/test/models/execution_lease_test.rb`
-- Delete: `core_matrix/test/models/subagent_run_test.rb`
-- Delete: `core_matrix/test/services/subagents/spawn_test.rb`
+- Modify: `core_matrix/test/models/capability_snapshot_test.rb`
+- Modify: `core_matrix/test/services/runtime_capabilities/compose_effective_tool_catalog_test.rb`
+- Modify: `core_matrix/test/services/runtime_capabilities/compose_for_conversation_test.rb`
+- Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
+- Modify: `core_matrix/test/services/workflows/create_for_turn_test.rb`
 - Modify: `core_matrix/test/services/conversations/archive_test.rb`
 - Modify: `core_matrix/test/services/conversations/request_turn_interrupt_test.rb`
 - Modify: `core_matrix/test/services/conversations/purge_deleted_test.rb`
 - Modify: `core_matrix/test/services/agent_control/report_test.rb`
 - Modify: `core_matrix/test/services/agent_deployments/handshake_test.rb`
+- Modify: `core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
 - Modify: `core_matrix/test/services/turns/start_user_turn_test.rb`
 - Modify: `core_matrix/test/services/turns/queue_follow_up_test.rb`
-- Modify: `core_matrix/test/services/workflows/create_for_turn_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
 - Modify: `core_matrix/test/test_helper.rb`
+- Delete: `core_matrix/test/models/subagent_run_test.rb`
+- Delete: `core_matrix/test/services/subagents/spawn_test.rb`
+- Modify: `agents/fenix/test/integration/runtime_flow_test.rb`
+- Modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
+- Modify: `agents/fenix/test/test_helper.rb`
 
 ### Behavior Docs
 
 - Rewrite: `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+- Modify: `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
+- Modify: `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
 - Modify: `core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 - Modify: `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
+- Modify: `agents/fenix/README.md`
 
 ## Approved Design
 
@@ -332,17 +480,19 @@ The child conversation reuses existing conversation infrastructure:
 
 - conversation lineage
 - transcript storage
-- turn/workflow/task orchestration
+- turn and workflow orchestration
 - canonical store reference
 - runtime binding to the same execution environment as the owner conversation
 
-The new `SubagentThread` row exists only to hold control-plane facts that do
-not belong on `Conversation` itself:
+`SubagentThread` exists only to hold control-plane facts that do not belong on
+`Conversation` itself:
 
 - owner conversation
 - origin turn
 - scope
-- requested role or slot
+- frozen profile
+- parent thread linkage
+- nested depth
 - durable open or closed availability
 - close-control state
 - last known execution status
@@ -350,7 +500,67 @@ not belong on `Conversation` itself:
 This keeps transcript history and control lifecycle orthogonal instead of
 putting both concerns on one model.
 
-### 2. Conversation Rules
+### 2. Configuration Axes
+
+The runtime model now has two explicit axes in this batch:
+
+- `selector`
+  - owned by Core Matrix selector resolution
+  - expresses external provider and model choice
+- `profile`
+  - owned by the agent program
+  - expresses prompt building, behavioral responsibility, default tool
+    filtering, and nested-subagent masking
+
+This batch explicitly does not add a third `personality` axis.
+
+Rules:
+
+- `selector` and `profile` are orthogonal
+- Fenix may internally switch model slots while running a profile, but that
+  behavior remains inside Fenix
+- root interactive conversations use `profile = "main"`
+- subagent profile selection happens only at spawn time
+- existing subagent threads never change profile after creation
+
+### 3. Capability Contract And Profile Catalog
+
+`RuntimeCapabilityContract` and the Fenix manifest grow one new
+runtime-declared metadata section:
+
+- `profile_catalog`
+
+Each catalog entry must be lightweight and stable:
+
+- `key`
+- `display_name`
+- `description`
+- optional advisory metadata such as `spawnable` or
+  `recommended_for_subagents`
+
+The catalog does not expose prompt text or template internals.
+
+`default_config_snapshot` becomes the runtime-owned default configuration
+surface for this batch. It should declare at least:
+
+- `interactive.selector`
+- `interactive.profile`
+- `subagents.enabled`
+- `subagents.allow_nested`
+- `subagents.max_depth`
+- optional `subagents.default_profile`
+
+`conversation_override_schema_snapshot` remains the runtime-owned override
+surface. In this batch it should continue to expose selector override and may
+also expose subagent policy override keys, but it must not expose root
+interactive profile switching.
+
+Config reconciliation should continue to retain runtime-owned configuration
+keys across capability refresh. `interactive` already remains retained through
+the existing merge behavior; this batch adds `subagents` to the retained-key
+family.
+
+### 4. Conversation Rules
 
 The child subagent conversation uses existing conversation axes wherever
 possible:
@@ -375,7 +585,7 @@ Rules:
 No new conversation kind is introduced. `kind` continues to describe lineage
 shape only.
 
-### 3. `SubagentThread` Contract
+### 5. `SubagentThread` Contract
 
 `SubagentThread` is the durable control aggregate. Its fields should be kept
 minimal and should reuse existing close-control conventions:
@@ -386,8 +596,11 @@ minimal and should reuse existing close-control conventions:
 - `conversation_id`
 - `origin_turn_id`
 - `scope = "turn" | "conversation"`
-- `requested_role_or_slot`
+- `profile_key`
+- optional `requested_role_or_slot`
 - optional `nickname`
+- optional `parent_subagent_thread_id`
+- `depth`
 - `lifecycle_state = "open" | "closed"`
 - `last_known_status = "idle" | "running" | "waiting" | "completed" | "failed" | "interrupted"`
 - `closed_at`
@@ -401,52 +614,107 @@ minimal and should reuse existing close-control conventions:
   - `close_outcome_kind`
   - `close_outcome_payload`
 
+Rules:
+
+- root subagent threads use `depth = 0`
+- child threads use `depth = parent.depth + 1`
+- `parent_subagent_thread_id` never crosses conversation ownership or
+  installation boundaries
+- `profile_key` is always required
+
 Deliberately not carried forward from `SubagentRun`:
 
-- `depth`
 - `batch_key`
 - `coordination_key`
-- `parent_subagent_run_id`
 - `terminal_summary_artifact_id`
-- any `agent_path` tree
 
-Those fields were tied to workflow fan-out semantics. They are not required by
-the approved conversation-first model.
+Those fields were tied to workflow fan-out semantics and do not belong in the
+conversation-first control model.
 
-### 4. Execution Model
+### 6. Tool Visibility Pipeline
 
-`SubagentThread` does not replace `AgentTaskRun`. It reuses it.
+Tool visibility now has one path, not separate root versus subagent catalogs.
 
-Each accepted `subagent_spawn` or `subagent_send` request allocates work in the
-child conversation using the existing turn and workflow machinery:
+The pipeline is:
 
-- append the agent-authored input to the child conversation
-- create or reuse the child thread conversation through
-  `Conversations::CreateThread`
-- allocate child execution through a dedicated `Turns::StartAgentTurn`
-  service plus the existing workflow builders
-- create `AgentTaskRun(kind = "subagent_step")`
+1. build the base effective catalog from:
+   - `ExecutionEnvironment`
+   - agent runtime tool catalog
+   - reserved Core Matrix tools
+2. apply conversation capability policy from the runtime config and any
+   allowed conversation override
+3. apply the frozen profile mask using:
+   - `profile`
+   - `is_subagent`
+   - `subagent_depth`
+   - parent visible tool set when a parent thread exists
 
-For `subagent_step`, `AgentTaskRun` must carry both:
+Rules:
 
-- `turn_id`: the child conversation turn being executed
-- `requested_by_turn_id`: the owner conversation turn that requested this
-  dispatch
-- `subagent_thread_id`: the thread whose child work is being executed
+- reserved Core Matrix subagent tools remain platform-owned and may not be
+  redefined by runtime snapshots
+- reserved tools may still be hidden by policy or masked by profile
+- masked tools are omitted from the visible catalog and also reject direct
+  invocation if called by guessed name
+- child visible tools must always be a subset of the parent visible tools
+- nested subagent availability is controlled by:
+  - `subagents.enabled`
+  - `subagents.allow_nested`
+  - `subagents.max_depth`
+  - profile mask
 
-This distinction is required for turn interrupt correctness:
+### 7. Execution Snapshot And Assignment Contract
 
-- a turn interrupt must close turn-scoped threads created by the interrupted
-  owner turn
-- the same interrupt must also stop in-flight child work requested by that
-  owner turn even if the thread itself is conversation-scoped
-- the conversation-scoped thread remains reusable after that child work is
-  interrupted
+`agent_context` becomes part of the frozen execution contract.
 
-### 5. Reserved Platform Tool Surface
+`TurnExecutionSnapshot` grows:
 
-Subagent control becomes a platform-owned capability, not an environment or
-agent-program capability.
+- `agent_context`
+
+The frozen `agent_context` must include at least:
+
+- `profile`
+- `is_subagent`
+- `subagent_thread_id`
+- `parent_subagent_thread_id`
+- `subagent_depth`
+- `allowed_tool_names`
+- `addressability`
+- `owner_conversation_id` when the turn belongs to a subagent thread
+
+Rules:
+
+- root turns freeze `profile = "main"` and `is_subagent = false`
+- subagent turns freeze their thread profile and nested metadata
+- mailbox assignment creation transports the frozen `agent_context`; it does
+  not recompute conversation-visible tools at dispatch time
+
+This keeps retries, manual resume, and recovery-time execution working against
+one stable runtime contract.
+
+### 8. Fenix Responsibility Boundary
+
+Fenix owns:
+
+- `profile_catalog`
+- prompt building
+- profile-specific system prompt or `SOUL.md` composition
+- internal model-slot switching
+- profile-based tool filtering rules
+
+Core Matrix owns:
+
+- selector resolution
+- capability snapshot persistence
+- conversation-visible tool projection
+- nested depth and ownership enforcement
+- lifecycle, close, archive, delete, and purge
+
+This batch keeps one shared Fenix loop for root and subagent execution.
+Subagent behavior comes entirely from frozen `agent_context`, not from a second
+executor class.
+
+### 9. Spawn, Send, Wait, And Close
 
 Reserved tool names:
 
@@ -456,19 +724,27 @@ Reserved tool names:
 - `subagent_close`
 - `subagent_list`
 
-Rules:
+`subagent_spawn` must:
 
-- these tool definitions are injected through
-  `RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG`
-- agent and environment tool snapshots may not redefine or override those
-  names
-- registration and handshake still record the agent's own tool catalog, but
-  the effective catalog always includes the reserved Core Matrix entries
-- this batch does not add nested subagent spawning from inside subagent
-  conversations; reserved tools are exposed only on owner conversations that
-  remain `owner_addressable`
+- resolve the requested or default profile from the runtime-declared catalog
+- enforce nested policy before creation
+- create or reuse the child conversation through `Conversations::CreateThread`
+- create the `SubagentThread`
+- append the initial delegated input
+- allocate child turn and workflow work through `Turns::StartAgentTurn`,
+  `Workflows::CreateForTurn`, and `AgentTaskRun(kind = "subagent_step")`
 
-### 6. Message Entry And Audit
+`subagent_send` must:
+
+- validate sender kind
+- validate visible-tool policy for the target conversation
+- append agent-authored input to the child conversation
+- allocate one new child turn/work item when needed
+
+`subagent_wait` and `subagent_close` must reuse the existing close-control
+protocol and durable state transitions.
+
+### 10. Message Entry And Audit
 
 All writes to an `agent_addressable` conversation must pass through dedicated
 services. There is no UI-only or controller-only guard.
@@ -500,14 +776,7 @@ Required event families:
 - `subagent_thread.failed`
 - `subagent_thread.closed`
 
-Each event must record enough payload to audit:
-
-- `subagent_thread_public_id`
-- `sender_kind`
-- `sender_conversation_public_id` when applicable
-- `causation_message_public_id` or task `public_id` when applicable
-
-### 7. Close, Wait, Archive, Delete, And Purge
+### 11. Lifecycle, Archive, Delete, And Purge
 
 `SubagentThread` must plug into existing close-control infrastructure rather
 than inventing a second lifecycle protocol.
@@ -520,91 +789,48 @@ Reuse:
 - `AgentControl::ApplyCloseOutcome`
 - `Conversations::ReconcileCloseOperation`
 
-Behavior:
+Lifecycle rules:
 
-- `subagent_wait` reads durable state first and only waits while the thread is
-  still open and non-terminal
-- `subagent_close` is idempotent and targets the child runtime through the
-  existing close mailbox contract
-- archive without force rejects while any owned thread remains open
-- archive force blocks new `spawn` and `send` requests and requests close for
-  owned open threads
-- delete and purge refuse to finalize while owned subagent threads remain open
-  or close-pending
-- purge removes:
-  - owned `SubagentThread` rows
-  - owned child subagent conversations
-  - owned child turns and messages
-  - owned child `AgentTaskRun` rows
-  - owned mailbox items and report receipts
-  - owned `ConversationEvent` rows
+- turn-scoped threads close when the owning turn is interrupted or ends under
+  close conditions
+- conversation-scoped threads stay reusable across owner turns until explicitly
+  closed or conversation lifecycle demands closure
+- archive without force blocks on any owned open subagent thread
+- archive force and delete request close on the entire owned subagent tree
+- purge fails closed if any owned thread still has open or close-pending
+  residue
+- nested-subagent purge deletes owned child conversations and mailbox residue
+  depth-first
 
-### 8. Fork And Lineage
+### 12. Explicit Non-Goals
 
-This batch explicitly adopts the same high-level rule as other owned runtime
-residue:
+This batch does not do any of the following:
 
-- fork, branch, thread, and checkpoint creation do not inherit live subagent
-  threads
-- descendant conversations do not even see parent-owned subagent threads
-- the child conversation created for a subagent thread belongs only to the
-  owner conversation and its purge graph
+- introduce a `personality` axis
+- expose product-level root profile switching
+- share or inherit live subagent threads across fork or branch operations
+- create a Core Matrix-owned cross-runtime profile taxonomy beyond reserving
+  `main`
+- move prompt template ownership out of Fenix
 
-This is intentional. It prevents branch pollution, shared live workers, and
-ambiguous close ownership.
+### 13. Orthogonality And Reuse Rationale
 
-### 9. Orthogonality And Reuse Check
+This design stays orthogonal with the existing system because it reuses the
+already-approved primitives instead of creating a second stack:
 
-The new design is acceptable only if it stays orthogonal to the rest of Core
-Matrix and reuses existing infrastructure.
-
-Required reuse points:
-
-- `Conversation` remains the single transcript, lineage, and canonical-store
-  aggregate
-- `AgentTaskRun` remains the single execution-instance aggregate
-- `ConversationEvent` remains the single non-transcript operational projection
+- `Conversation` still owns transcript and lineage
+- `SubagentThread` owns only control-plane facts
+- `TurnExecutionSnapshot` remains the one frozen runtime-facing execution
+  contract
+- `AgentTaskRun` remains the execution instance
+- `RuntimeCapabilityContract` remains the one manifest and capability
+  formatter
+- `ComposeForConversation` remains the conversation runtime-contract entry
+  point
+- `ConversationEvent` remains the lightweight audit and lifecycle projection
   surface
-- `ConversationCloseOperation` remains the single owner-conversation close
-  orchestration state machine
-- `AgentControlMailboxItem` and `AgentControlReportReceipt` remain the single
-  durable control-plane transport
-- `ClosableRuntimeResource` remains the single close metadata contract
+- close control, archive, delete, and purge reuse existing conversation
+  lifecycle infrastructure
 
-Required non-goals:
-
-- no second subagent-only mailbox protocol
-- no second subagent-only event store
-- no `SubagentRun` compatibility shell
-- no special lineage rules just for subagent conversations
-- no speculative nested-agent tree metadata
-
-### 10. Acceptance Criteria
-
-The batch is complete only when all of the following are true:
-
-1. `SubagentRun` no longer exists in `core_matrix/app`, `core_matrix/test`,
-   `core_matrix/docs`, `core_matrix/db`, or `core_matrix/db/schema.rb`.
-2. All subagent conversations are ordinary `Conversation` rows with
-   `addressability = "agent_addressable"`.
-3. All subagent control state is carried by `SubagentThread`.
-4. All child execution work reuses `AgentTaskRun(kind = "subagent_step")`.
-5. All owner-conversation close, archive, delete, and purge flows work
-   without leaking subagent residue.
-6. Reserved subagent tool names are injected by Core Matrix and cannot be
-   overridden by runtime snapshots.
-7. Human callers cannot directly write to subagent conversations.
-8. The behavior docs, tests, schema, and code all use the same terminology.
-
-## Blockers
-
-No unresolved blockers remain at the design level.
-
-Two scope boundaries are intentional and must not be reopened during
-implementation:
-
-- nested subagent spawning is out of scope for this batch
-- fork inheritance of subagent threads is out of scope for this batch
-
-If implementation work discovers a requirement that violates either boundary,
-stop and reopen design discussion instead of ad hoc extending the model.
+The only new first-class domain concept is `SubagentThread`. Everything else
+extends existing seams.
