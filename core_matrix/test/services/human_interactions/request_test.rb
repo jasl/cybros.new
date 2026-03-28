@@ -43,6 +43,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
       )
     end
 
+    assert_equal context[:workflow_run].id, error.record.id
     assert_includes error.record.errors[:deletion_state], "must be retained before opening human interaction"
   end
 
@@ -59,6 +60,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
       )
     end
 
+    assert_equal context[:workflow_run].id, error.record.id
     assert_includes error.record.errors[:lifecycle_state], "must be active before opening human interaction"
   end
 
@@ -82,6 +84,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
       )
     end
 
+    assert_equal context[:workflow_run].id, error.record.id
     assert_includes error.record.errors[:base], "must not open human interaction while close is in progress"
   end
 

@@ -1,7 +1,5 @@
 module HumanInteractions
   class Request
-    include HumanInteractions::LockedContext
-
     REQUEST_TYPES = {
       "ApprovalRequest" => ApprovalRequest,
       "HumanFormRequest" => HumanFormRequest,
@@ -24,25 +22,24 @@ module HumanInteractions
       klass = REQUEST_TYPES[@request_type]
       raise_invalid_type! if klass.blank?
 
-      with_locked_workflow_context(@workflow_node.id) do |workflow_node, workflow_run, conversation|
-        Conversations::ValidateMutableState.call(
-          conversation: conversation,
-          record: conversation,
-          retained_message: "must be retained before opening human interaction",
-          active_message: "must be active before opening human interaction",
-          closing_message: "must not open human interaction while close is in progress"
-        )
+      Workflows::WithMutableWorkflowContext.call(
+        workflow_run: current_workflow_run,
+        retained_message: "must be retained before opening human interaction",
+        active_message: "must be active before opening human interaction",
+        closing_message: "must not open human interaction while close is in progress"
+      ) do |conversation, workflow_run, turn|
         if workflow_run.turn.cancellation_reason_kind == "turn_interrupted"
           raise_invalid!(workflow_run, :turn, "must not be fenced by turn interrupt")
         end
         raise_invalid!(workflow_run, :wait_state, "must be ready before opening another blocking human interaction") if @blocking && workflow_run.waiting?
 
+        workflow_node = current_workflow_node(workflow_run)
         request = klass.create!(
           installation: workflow_node.installation,
           workflow_run: workflow_run,
           workflow_node: workflow_node,
           conversation: conversation,
-          turn: workflow_run.turn,
+          turn: turn,
           lifecycle_state: "open",
           blocking: @blocking,
           request_payload: @request_payload,
@@ -100,6 +97,14 @@ module HumanInteractions
         payload["resolution_kind"] = request.resolution_kind if request.resolution_kind.present?
         payload["result_payload"] = request.result_payload if request.result_payload.present?
       end
+    end
+
+    def current_workflow_run
+      @current_workflow_run ||= WorkflowRun.find(@workflow_node.workflow_run_id)
+    end
+
+    def current_workflow_node(workflow_run)
+      WorkflowNode.find_by!(id: @workflow_node.id, workflow_run_id: workflow_run.id)
     end
 
     def stream_key_for(request)
