@@ -224,6 +224,91 @@ class SubagentSessionTest < ActiveSupport::TestCase
     assert session.valid?
   end
 
+  test "derives lifecycle projection and predicates from close_state" do
+    assert_not_includes SubagentSession.attribute_names, "lifecycle_state"
+
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+
+    open_session = build_subagent_session(context:, owner_conversation:)
+    requested_session = build_subagent_session(
+      context:,
+      owner_conversation:,
+      close_state: "requested",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      last_known_status: "running"
+    )
+    acknowledged_session = build_subagent_session(
+      context:,
+      owner_conversation:,
+      close_state: "acknowledged",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      last_known_status: "running"
+    )
+    closed_session = build_subagent_session(
+      context:,
+      owner_conversation:,
+      close_state: "closed",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      close_outcome_kind: "graceful",
+      last_known_status: "completed"
+    )
+    failed_session = build_subagent_session(
+      context:,
+      owner_conversation:,
+      close_state: "failed",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      close_outcome_kind: "timed_out_forced",
+      last_known_status: "failed"
+    )
+
+    assert_equal "open", open_session.lifecycle_state
+    assert_equal "close_requested", requested_session.lifecycle_state
+    assert_equal "close_requested", acknowledged_session.lifecycle_state
+    assert_equal "closed", closed_session.lifecycle_state
+    assert_equal "closed", failed_session.lifecycle_state
+
+    assert open_session.close_open?
+    refute open_session.close_pending?
+    refute open_session.terminal_close?
+
+    assert requested_session.close_pending?
+    refute requested_session.terminal_close?
+    assert requested_session.running_for_barriers?
+
+    assert acknowledged_session.close_pending?
+    refute acknowledged_session.terminal_close?
+    assert acknowledged_session.running_for_barriers?
+
+    refute closed_session.close_pending?
+    assert closed_session.terminal_close?
+    refute closed_session.running_for_barriers?
+
+    refute failed_session.close_pending?
+    assert failed_session.terminal_close?
+    refute failed_session.running_for_barriers?
+    assert_equal "failed", failed_session.last_known_status
+  end
+
   test "exposes canonical close and running scopes for reader-side guards" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
@@ -247,7 +332,6 @@ class SubagentSessionTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
-      lifecycle_state: "open",
       close_state: "open",
       last_known_status: "running"
     )
@@ -265,7 +349,6 @@ class SubagentSessionTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
-      lifecycle_state: "close_requested",
       close_state: "requested",
       close_reason_kind: "turn_interrupt",
       close_requested_at: Time.current,
@@ -287,7 +370,6 @@ class SubagentSessionTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
-      lifecycle_state: "close_requested",
       close_state: "acknowledged",
       close_reason_kind: "turn_interrupt",
       close_requested_at: Time.current,
@@ -310,7 +392,6 @@ class SubagentSessionTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
-      lifecycle_state: "closed",
       close_state: "closed",
       close_reason_kind: "turn_interrupt",
       close_requested_at: Time.current,
@@ -334,7 +415,6 @@ class SubagentSessionTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
-      lifecycle_state: "closed",
       close_state: "failed",
       close_reason_kind: "turn_interrupt",
       close_requested_at: Time.current,
@@ -351,5 +431,41 @@ class SubagentSessionTest < ActiveSupport::TestCase
       SubagentSession.running_for_barriers.order(:id).pluck(:id).sort
     refute_includes SubagentSession.close_pending_or_open.pluck(:id), closed_session.id
     refute_includes SubagentSession.close_pending_or_open.pluck(:id), failed_session.id
+    assert_equal "open", open_session.reload.lifecycle_state
+    assert_equal "close_requested", requested_session.reload.lifecycle_state
+    assert_equal "close_requested", acknowledged_session.reload.lifecycle_state
+    assert_equal "closed", closed_session.reload.lifecycle_state
+    assert_equal "closed", failed_session.reload.lifecycle_state
+  end
+
+  private
+
+  def build_subagent_session(context: create_workspace_context!, owner_conversation: nil, **overrides)
+    owner_conversation ||= Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+
+    SubagentSession.new(
+      {
+        installation: context[:installation],
+        owner_conversation: owner_conversation,
+        conversation: child_conversation,
+        scope: "conversation",
+        profile_key: "worker",
+        depth: 0,
+        close_state: "open",
+        last_known_status: "idle"
+      }.merge(overrides)
+    )
   end
 end

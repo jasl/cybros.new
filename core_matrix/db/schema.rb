@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_29_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -784,7 +784,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.integer "depth", default: 0, null: false
     t.bigint "installation_id", null: false
     t.string "last_known_status", default: "idle", null: false
-    t.string "lifecycle_state", default: "open", null: false
     t.string "nickname"
     t.bigint "origin_turn_id"
     t.bigint "owner_conversation_id", null: false

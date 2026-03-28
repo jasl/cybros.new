@@ -2,20 +2,20 @@ class SubagentSession < ApplicationRecord
   include HasPublicId
   include ClosableRuntimeResource
 
+  LIFECYCLE_STATE_BY_CLOSE_STATE = {
+    "open" => "open",
+    "requested" => "close_requested",
+    "acknowledged" => "close_requested",
+    "closed" => "closed",
+    "failed" => "closed",
+  }.freeze
+
   enum :scope,
     {
       turn: "turn",
       conversation: "conversation",
     },
     prefix: :scope,
-    validate: true
-  enum :lifecycle_state,
-    {
-      open: "open",
-      close_requested: "close_requested",
-      closed: "closed",
-    },
-    prefix: :lifecycle,
     validate: true
   enum :last_known_status,
     {
@@ -43,7 +43,7 @@ class SubagentSession < ApplicationRecord
   has_many :agent_task_runs, dependent: :restrict_with_exception
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
-  scope :close_pending_or_open, -> { where.not(close_state: %w[closed failed]) }
+  scope :close_pending_or_open, -> { where(close_state: %w[open requested acknowledged]) }
   scope :running_for_barriers, -> { close_pending_or_open.where(last_known_status: "running") }
 
   validates :profile_key, presence: true
@@ -54,6 +54,28 @@ class SubagentSession < ApplicationRecord
   validate :parent_subagent_session_installation_match
   validate :scope_requires_origin_turn
   validate :depth_consistency
+
+  def lifecycle_state
+    LIFECYCLE_STATE_BY_CLOSE_STATE.fetch(close_state) do
+      raise ArgumentError, "unsupported subagent session close state #{close_state.inspect}"
+    end
+  end
+
+  def close_pending?
+    close_requested? || close_acknowledged?
+  end
+
+  def terminal_close?
+    close_closed? || close_failed?
+  end
+
+  def close_pending_or_open?
+    close_open? || close_pending?
+  end
+
+  def running_for_barriers?
+    close_pending_or_open? && last_known_status_running?
+  end
 
   private
 
