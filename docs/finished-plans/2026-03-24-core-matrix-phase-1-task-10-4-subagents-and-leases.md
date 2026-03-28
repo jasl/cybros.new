@@ -22,19 +22,19 @@ Reference capture for this task:
 **Files:**
 - Create: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
 - Create: `core_matrix/db/migrate/20260324090039_create_execution_leases.rb`
-- Create: `core_matrix/app/models/subagent_run.rb`
+- Create: `core_matrix/app/models/subagent_session.rb`
 - Create: `core_matrix/app/models/execution_lease.rb`
-- Create: `core_matrix/app/services/subagents/spawn.rb`
+- Create: `core_matrix/app/services/subagent_sessions/spawn.rb`
 - Create: `core_matrix/app/services/leases/acquire.rb`
 - Create: `core_matrix/app/services/leases/heartbeat.rb`
 - Create: `core_matrix/app/services/leases/release.rb`
-- Create: `core_matrix/test/models/subagent_run_test.rb`
+- Create: `core_matrix/test/models/subagent_session_test.rb`
 - Create: `core_matrix/test/models/execution_lease_test.rb`
-- Create: `core_matrix/test/services/subagents/spawn_test.rb`
+- Create: `core_matrix/test/services/subagent_sessions/spawn_test.rb`
 - Create: `core_matrix/test/services/leases/acquire_test.rb`
 - Create: `core_matrix/test/services/leases/heartbeat_test.rb`
 - Create: `core_matrix/test/services/leases/release_test.rb`
-- Create: `core_matrix/test/integration/subagent_lease_flow_test.rb`
+- Create: focused integration coverage for subagent lease lifecycle
 
 **Step 1: Write failing model, service, and integration tests**
 
@@ -51,7 +51,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/models/subagent_run_test.rb test/models/execution_lease_test.rb test/services/subagents/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb test/integration/subagent_lease_flow_test.rb
+bin/rails test test/models/subagent_session_test.rb test/models/execution_lease_test.rb test/services/subagent_sessions/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb
 ```
 
 Expected:
@@ -74,7 +74,7 @@ Run:
 ```bash
 cd core_matrix
 bin/rails db:migrate
-bin/rails test test/models/subagent_run_test.rb test/models/execution_lease_test.rb test/services/subagents/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb test/integration/subagent_lease_flow_test.rb
+bin/rails test test/models/subagent_session_test.rb test/models/execution_lease_test.rb test/services/subagent_sessions/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb
 ```
 
 Expected:
@@ -84,7 +84,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add core_matrix/db/migrate core_matrix/app/models/subagent_run.rb core_matrix/app/models/execution_lease.rb core_matrix/app/services/subagents core_matrix/app/services/leases core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/db/schema.rb
+git -C .. add core_matrix/db/migrate core_matrix/app/models/subagent_session.rb core_matrix/app/models/execution_lease.rb core_matrix/app/services/subagent_sessions core_matrix/app/services/leases core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/db/schema.rb
 git -C .. commit -m "feat: add subagent coordination and leases"
 ```
 

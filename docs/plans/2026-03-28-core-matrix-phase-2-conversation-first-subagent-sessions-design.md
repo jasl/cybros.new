@@ -105,10 +105,10 @@ No new architectural areas appeared after Pass 8.
 Scanned:
 
 - `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
-- `core_matrix/app/models/subagent_run.rb`
-- `core_matrix/app/services/subagents/spawn.rb`
+- the legacy workflow-owned subagent coordination model
+- the legacy workflow-owned spawn service
 - `core_matrix/app/models/agent_task_run.rb`
-- `core_matrix/test/services/subagents/spawn_test.rb`
+- the legacy workflow-owned spawn service tests
 
 Findings:
 
@@ -214,7 +214,7 @@ Scanned:
 
 - the first thread-named draft of this design and plan
 - `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
-- `core_matrix/test/services/subagents/spawn_test.rb`
+- the legacy workflow-owned spawn service tests
 
 Findings:
 
@@ -402,7 +402,7 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
   - anchors: closable target allowlist
 - Modify: `core_matrix/app/models/turn_execution_snapshot.rb`
   - anchors: initializer, `to_h`, reader for `agent_context`
-- Delete: `core_matrix/app/models/subagent_run.rb`
+- Delete: the legacy workflow-owned subagent coordination model file
 - Rewrite: `core_matrix/db/migrate/20260324090010_create_capability_snapshots.rb`
 - Rewrite: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
   - result: `subagent_sessions` table
@@ -467,7 +467,7 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Modify: `core_matrix/app/services/workflows/create_for_turn.rb`
 - Modify: `core_matrix/app/services/conversation_events/project.rb`
   - anchors: event projection call path
-- Delete: `core_matrix/app/services/subagents/spawn.rb`
+- Delete: the legacy workflow-owned spawn service namespace
 
 ### Fenix Runtime Surface
 
@@ -510,8 +510,8 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Modify: `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
 - Modify: `core_matrix/test/test_helper.rb`
-- Delete: `core_matrix/test/models/subagent_run_test.rb`
-- Delete: `core_matrix/test/services/subagents/spawn_test.rb`
+- Delete: the legacy workflow-owned subagent model tests
+- Delete: the legacy workflow-owned spawn service tests
 - Modify: `agents/fenix/test/integration/runtime_flow_test.rb`
 - Modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 - Modify: `agents/fenix/test/test_helper.rb`

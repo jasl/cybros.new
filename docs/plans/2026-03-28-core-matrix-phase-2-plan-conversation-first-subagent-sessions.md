@@ -169,10 +169,10 @@ Start from this list and keep it current while implementing.
 
 ### Cleanup Targets
 
-- delete `core_matrix/app/models/subagent_run.rb`
-- delete `core_matrix/app/services/subagents/spawn.rb`
-- delete `core_matrix/test/models/subagent_run_test.rb`
-- delete `core_matrix/test/services/subagents/spawn_test.rb`
+- delete the legacy workflow-owned subagent coordination model file
+- delete the legacy workflow-owned spawn service namespace
+- delete the legacy workflow-owned subagent model tests
+- delete the legacy workflow-owned spawn service tests
 - remove all stale legacy thread-style subagent terminology from:
   - plan docs
   - behavior docs
@@ -566,7 +566,7 @@ bin/rails test \
 - create the child conversation and `SubagentSession`
 - append the initial delegated message
 - allocate child turn, workflow, and task work through existing services
-- delete `core_matrix/app/services/subagents/spawn.rb`
+- delete the legacy workflow-owned spawn service namespace
 
 ## Task 12: Implement `subagent_wait` And `subagent_close`
 

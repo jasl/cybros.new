@@ -34,16 +34,16 @@ Reference capture for this task:
 - Modify: `core_matrix/app/services/human_interactions/request.rb`
 - Modify: `core_matrix/app/services/human_interactions/submit_form.rb`
 - Modify: `core_matrix/app/services/human_interactions/complete_task.rb`
-- Modify: `core_matrix/app/services/subagents/spawn.rb`
+- Modify: `core_matrix/app/services/subagent_sessions/spawn.rb`
 - Modify: `core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `core_matrix/app/services/workflows/manual_retry.rb`
 - Modify: `core_matrix/app/models/human_interaction_request.rb`
-- Modify: `core_matrix/app/models/subagent_run.rb`
+- Modify: `core_matrix/app/models/subagent_session.rb`
 - Modify: `core_matrix/app/models/workflow_run.rb`
 - Modify: `core_matrix/app/models/workflow_node.rb`
 - Create or modify: `core_matrix/test/services/human_interactions/request_test.rb`
 - Create or modify: `core_matrix/test/services/human_interactions/submit_form_test.rb`
-- Create or modify: `core_matrix/test/services/subagents/spawn_test.rb`
+- Create or modify: `core_matrix/test/services/subagent_sessions/spawn_test.rb`
 - Create or modify: `core_matrix/test/services/workflows/manual_resume_test.rb`
 - Create or modify: `core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb`
 - Modify: `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
@@ -68,7 +68,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/human_interactions test/services/subagents test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
+bin/rails test test/services/human_interactions test/services/subagent_sessions test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
 ```
 
 Expected:
@@ -104,7 +104,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/human_interactions test/services/subagents test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
+bin/rails test test/services/human_interactions test/services/subagent_sessions test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
 ```
 
 Expected:
@@ -114,7 +114,7 @@ Expected:
 **Step 6: Commit**
 
 ```bash
-git -C .. add core_matrix/app/services/human_interactions core_matrix/app/services/subagents core_matrix/app/services/workflows/manual_resume.rb core_matrix/app/services/workflows/manual_retry.rb core_matrix/app/models/human_interaction_request.rb core_matrix/app/models/subagent_run.rb core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/test/services/human_interactions core_matrix/test/services/subagents core_matrix/test/services/workflows/manual_resume_test.rb core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb core_matrix/docs/behavior/human-interactions-and-conversation-events.md core_matrix/docs/behavior/subagent-runs-and-execution-leases.md core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md
+git -C .. add core_matrix/app/services/human_interactions core_matrix/app/services/subagent_sessions core_matrix/app/services/workflows/manual_resume.rb core_matrix/app/services/workflows/manual_retry.rb core_matrix/app/models/human_interaction_request.rb core_matrix/app/models/subagent_session.rb core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/test/services/human_interactions core_matrix/test/services/subagent_sessions core_matrix/test/services/workflows/manual_resume_test.rb core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb core_matrix/docs/behavior/human-interactions-and-conversation-events.md core_matrix/docs/behavior/subagent-runs-and-execution-leases.md core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md
 git -C .. commit -m "feat: add workflow wait-state handoff"
 ```
 
