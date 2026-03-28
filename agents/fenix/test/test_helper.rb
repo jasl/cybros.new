@@ -13,7 +13,7 @@ module ActiveSupport
     # Add more helper methods to be used by all tests here...
     private
 
-    def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {})
+    def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context)
       {
         "item_id" => "mailbox-item-#{SecureRandom.uuid}",
         "message_id" => "kernel-assignment-#{SecureRandom.uuid}",
@@ -33,6 +33,7 @@ module ActiveSupport
             "reserved_output_tokens" => 256,
             "advisory_compaction_threshold_tokens" => 120,
           }.merge(budget_hints),
+          "agent_context" => agent_context,
           "provider_execution" => {
             "provider_handle" => "openai",
             "model_ref" => "gpt-4.1-mini",
@@ -49,6 +50,14 @@ module ActiveSupport
         { "role" => "system", "content" => "You are Fenix." },
         { "role" => "user", "content" => "Please calculate 2 + 2." },
       ]
+    end
+
+    def default_agent_context
+      {
+        "profile" => "main",
+        "is_subagent" => false,
+        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_spawn subagent_send subagent_wait subagent_close subagent_list],
+      }
     end
   end
 end

@@ -27,6 +27,7 @@ module Fenix
           "task_payload" => payload.fetch("task_payload", {}),
           "context_messages" => payload.fetch("context_messages", []),
           "budget_hints" => payload.fetch("budget_hints", {}),
+          "agent_context" => payload.fetch("agent_context", {}),
           "provider_execution" => payload.fetch("provider_execution", {}),
           "model_context" => payload.fetch("model_context", {}),
         }
