@@ -91,6 +91,40 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     assert_equal "Queued from node metadata", queued.selected_input_message.content
   end
 
+  test "detects side-effect boundaries from a freshly persisted workflow run on a stale turn" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_nil turn.workflow_run
+
+    workflow_run = create_workflow_run!(turn: Turn.find(turn.id))
+    create_workflow_node!(
+      workflow_run: workflow_run,
+      node_key: "first_side_effect",
+      metadata: { "transcript_side_effect_committed" => true }
+    )
+
+    queued = Turns::SteerCurrentInput.call(
+      turn: turn,
+      content: "Queued from stale turn workflow",
+      policy_mode: "queue"
+    )
+
+    assert queued.queued?
+    assert_equal "Queued from stale turn workflow", queued.selected_input_message.content
+  end
+
   test "rejects steering current input after the turn has been interrupted" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

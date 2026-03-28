@@ -98,6 +98,37 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
     assert_not_nil workflow_run.waiting_since_at
   end
 
+  test "restart policy reloads a cached-nil workflow association" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_nil turn.workflow_run
+
+    workflow_run = create_workflow_run!(turn: Turn.find(turn.id))
+    attach_selected_output!(turn, content: "Committed output")
+
+    restart_turn = Workflows::Scheduler.apply_during_generation_policy(
+      turn: turn,
+      content: "Restart from stale turn",
+      policy_mode: "restart"
+    )
+
+    assert restart_turn.queued?
+    assert workflow_run.reload.waiting?
+    assert_equal restart_turn.public_id, workflow_run.blocking_resource_id
+  end
+
   test "cancels stale queued work when expected tail no longer matches" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

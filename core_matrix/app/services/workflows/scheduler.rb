@@ -89,7 +89,7 @@ module Workflows
           )
 
           if wait_for_restart
-            workflow_run = @turn.workflow_run
+            workflow_run = WorkflowRun.find_by(turn_id: @turn.id)
             raise_invalid!(@turn, :workflow_run, "must exist for restart policy") if workflow_run.blank?
 
             workflow_run.update!(
