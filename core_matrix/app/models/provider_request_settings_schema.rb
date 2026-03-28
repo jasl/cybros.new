@@ -58,6 +58,10 @@ class ProviderRequestSettingsSchema
     defaults = normalize_hash(request_defaults, "request_defaults").slice(*allowed_keys)
     overrides = normalize_hash(runtime_overrides, "runtime_overrides").slice(*allowed_keys)
 
+    overrides.each do |key, value|
+      validate_value!(key, value, "runtime_override #{key}")
+    end
+
     defaults.merge(overrides)
   end
 

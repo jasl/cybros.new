@@ -243,6 +243,8 @@ module Workflows
           request_defaults: model_definition.fetch(:request_defaults, {}),
           runtime_overrides: @turn.resolved_config_snapshot
         )
+    rescue ProviderRequestSettingsSchema::InvalidSettings => error
+      raise_invalid!(error.message)
     end
 
     def deep_stringify(value)

@@ -254,4 +254,25 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       snapshot.provider_execution.fetch("execution_settings")
     )
   end
+
+  test "rejects invalid runtime request overrides while building the execution snapshot" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: { "reasoning_effort" => "" },
+      resolved_model_selection_snapshot: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) { build_execution_snapshot_for!(turn: turn) }
+
+    assert_equal turn, error.record
+    assert_includes error.record.errors[:resolved_config_snapshot], "runtime_override reasoning_effort must be present"
+  end
 end

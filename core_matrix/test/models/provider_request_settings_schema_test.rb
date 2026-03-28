@@ -37,4 +37,22 @@ class ProviderRequestSettingsSchemaTest < ActiveSupport::TestCase
       settings
     )
   end
+
+  test "rejects invalid runtime override values while still filtering unknown keys" do
+    schema = ProviderRequestSettingsSchema.for("responses")
+
+    error = assert_raises(ProviderRequestSettingsSchema::InvalidSettings) do
+      schema.merge_execution_settings(
+        request_defaults: {
+          "reasoning_effort" => "medium",
+        },
+        runtime_overrides: {
+          "temperature" => "hot",
+          "sandbox" => "workspace-write",
+        }
+      )
+    end
+
+    assert_includes error.message, "runtime_override temperature"
+  end
 end
