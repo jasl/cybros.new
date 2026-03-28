@@ -12,12 +12,10 @@ module Conversations
     def call
       raise_invalid!(@turn, :conversation, "must belong to the target conversation") unless @turn.conversation_id == @conversation.id
 
-      Turns::WithTimelineMutationLock.call(
+      Turns::WithTimelineActionLock.call(
         turn: @turn,
-        retained_message: "must be retained before rolling back the conversation",
-        active_message: "must belong to an active conversation to roll back the timeline",
-        closing_message: "must not roll back the timeline while close is in progress",
-        interrupted_message: "must not roll back the timeline after turn interruption"
+        before_phrase: "rolling back the conversation",
+        action_phrase: "roll back the timeline"
       ) do |turn|
         ApplicationRecord.transaction do
           Conversations::ValidateTimelineSuffixSupersession.call(

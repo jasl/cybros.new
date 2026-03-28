@@ -12,12 +12,10 @@ module Turns
       turn = @message.turn
 
       raise_invalid!(turn, :slot, "must target an output message") unless @message.output?
-      Turns::WithTimelineMutationLock.call(
+      Turns::WithTimelineActionLock.call(
         turn: turn,
-        retained_message: "must be retained before selecting an output variant",
-        active_message: "must belong to an active conversation to select an output variant",
-        closing_message: "must not select an output variant while close is in progress",
-        interrupted_message: "must not select an output variant after turn interruption"
+        before_phrase: "selecting an output variant",
+        action_phrase: "select an output variant"
       ) do |locked_turn|
         raise_invalid!(locked_turn, :lifecycle_state, "must be completed to select an output variant") unless locked_turn.completed?
         raise_invalid!(locked_turn, :base, "must target the selected tail output") unless locked_turn.tail_in_active_timeline?

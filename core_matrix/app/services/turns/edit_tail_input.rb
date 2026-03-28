@@ -10,12 +10,10 @@ module Turns
     end
 
     def call
-      Turns::WithTimelineMutationLock.call(
+      Turns::WithTimelineActionLock.call(
         turn: @turn,
-        retained_message: "must be retained before editing tail input",
-        active_message: "must belong to an active conversation to edit tail input",
-        closing_message: "must not edit tail input while close is in progress",
-        interrupted_message: "must not edit tail input after turn interruption"
+        before_phrase: "editing tail input",
+        action_phrase: "edit tail input"
       ) do |turn|
         raise_invalid!(turn, :base, "must target the selected tail input") unless turn.tail_in_active_timeline?
         raise_invalid!(turn, :selected_input_message, "must exist") if turn.selected_input_message.blank?

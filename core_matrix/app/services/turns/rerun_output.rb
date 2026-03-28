@@ -12,12 +12,10 @@ module Turns
     def call
       turn = @message.turn
 
-      Turns::WithTimelineMutationLock.call(
+      Turns::WithTimelineActionLock.call(
         turn: turn,
-        retained_message: "must be retained before rewriting output",
-        active_message: "must belong to an active conversation to rewrite output",
-        closing_message: "must not rewrite output while close is in progress",
-        interrupted_message: "must not rewrite output after turn interruption"
+        before_phrase: "rewriting output",
+        action_phrase: "rewrite output"
       ) do |locked_turn|
         raise_invalid!(locked_turn, :lifecycle_state, "must be completed to rerun output") unless locked_turn.completed?
         if locked_turn.tail_in_active_timeline? && locked_turn.selected_output_message_id == @message.id && @message.reload.fork_point?
