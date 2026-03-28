@@ -677,12 +677,17 @@ Subclass rules:
 
 ## Subagent Orchestration Model
 
-`SubagentSession` is a workflow-owned runtime resource, not a second orchestration system.
+`SubagentSession` is the subagent control resource, not a second
+orchestration system.
 
 Rules:
 
-- every `SubagentSession` belongs to one `WorkflowNode` and one `WorkflowRun`
-- swarm or multi-agent behavior is expressed as dynamic DAG fan-out, fan-in, and join scheduling inside the parent turn's workflow
+- every `SubagentSession` belongs to one owner `Conversation` and one child
+  `Conversation`
+- turn-scoped delegated execution still re-enters parent workflow scheduling
+  through the originating turn when needed
+- swarm or multi-agent behavior is expressed as child-conversation fan-out,
+  fan-in, and join scheduling inside the parent turn's workflow
 - do not introduce a separate `SwarmRun` or `SwarmPlan` aggregate in v1
 - `SubagentSession` should retain lightweight coordination metadata for later orchestration growth, including at minimum:
   - `parent_subagent_session_id` when the run descends from another subagent

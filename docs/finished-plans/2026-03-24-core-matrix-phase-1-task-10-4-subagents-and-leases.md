@@ -62,7 +62,8 @@ Expected:
 
 Rules:
 
-- `SubagentSession` remains a workflow-node-backed runtime resource
+- at this phase, `SubagentSession` remained the initial coordination resource;
+  later conversation-first ownership was deferred
 - swarm or multi-agent behavior must stay expressed through workflow DAG fan-out or fan-in rather than a separate `SwarmRun` aggregate
 - `SubagentSession` must retain lightweight coordination metadata for parentage, depth, batching, coordination, requested role or slot, and terminal result artifact linkage
 - execution leases must enforce uniqueness, heartbeat freshness, and explicit release semantics
@@ -106,11 +107,11 @@ Do not implement these items in this task:
   - included in the accompanying `feat: add subagent coordination and leases`
     task commit
 - actual landed scope:
-  - added `SubagentSession` as a workflow-owned coordination resource with
+  - added `SubagentSession` as the initial coordination resource with
     lightweight parentage, depth, batch, coordination, requested-role, and
     terminal-summary linkage
   - added `ExecutionLease` as the explicit active-resource ownership row for
-    workflow-bound `ProcessRun` and `SubagentSession` resources
+    the then-supported `ProcessRun` and `SubagentSession` resources
   - added `SubagentSessions::Spawn`, `Leases::Acquire`,
     `Leases::Heartbeat`, and `Leases::Release` as the kernel-owned
     application-service boundaries for subagent coordination and lease
@@ -119,9 +120,10 @@ Do not implement these items in this task:
     metadata, stale-lease replacement, heartbeat freshness, and explicit
     release semantics
   - added
-    `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+    `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
 - plan alignment notes:
-  - subagent fan-out remains expressed through workflow-owned runtime rows; no
+  - subagent fan-out remains expressed through the initial coordination rows;
+    no
     `SwarmRun` or parallel orchestration aggregate was introduced
   - lease ownership remains explicit and heartbeat-based, with stale leases
     timing out in-place before replacement acquisition is allowed

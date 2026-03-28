@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Phase 2 replaces legacy workflow-owned subagent coordination with
-conversation-first `SubagentSession` control while keeping `ExecutionLease`
-as the shared durable heartbeat and holder-tracking primitive.
+Current delegated execution uses conversation-first `SubagentSession`
+control while `ExecutionLease` remains the shared durable heartbeat and
+holder-tracking primitive.
 
 The landed model separates concerns cleanly:
 

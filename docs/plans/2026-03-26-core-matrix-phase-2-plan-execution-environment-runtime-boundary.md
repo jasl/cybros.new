@@ -529,7 +529,7 @@ git commit -m "feat: publish environment-first tool precedence and dual-plane ru
 - Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
 - Modify: `core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md`
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
-- Modify: `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+- Modify: `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
 - Modify: `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 - Modify: `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 - Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
@@ -636,7 +636,7 @@ git add core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md
   core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md \
   core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md \
   core_matrix/docs/behavior/agent-runtime-resource-apis.md \
-  core_matrix/docs/behavior/subagent-runs-and-execution-leases.md \
+  core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md \
   docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md \
   docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md \
   docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md \

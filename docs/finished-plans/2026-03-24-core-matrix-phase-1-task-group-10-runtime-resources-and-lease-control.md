@@ -42,7 +42,7 @@ Execution rules:
   - Task 10.2 landed human-interaction runtime resources and conversation-event
     projection
   - Task 10.3 landed canonical-variable history and explicit promotion
-  - Task 10.4 landed workflow-owned subagent coordination rows and execution
+  - Task 10.4 landed the initial subagent coordination rows and execution
     leases
 - verification carry-forward:
   - each child task completed with targeted automated coverage plus broader

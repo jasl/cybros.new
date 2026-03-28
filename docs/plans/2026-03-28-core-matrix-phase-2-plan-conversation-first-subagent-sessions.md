@@ -3,11 +3,10 @@
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to
 > implement this plan task-by-task.
 
-**Goal:** Replace legacy workflow-owned subagent coordination with
-profile-aware, conversation-first `SubagentSession` control, runtime-declared
-profile catalogs, nested-subagent policy filtering, and owner-conversation
-lifecycle handling that archives, deletes, and purges without leaking runtime
-residue.
+**Goal:** Replace the earlier subagent coordination model with profile-aware,
+conversation-first `SubagentSession` control, runtime-declared profile
+catalogs, nested-subagent policy filtering, and owner-conversation lifecycle
+handling that archives, deletes, and purges without leaking runtime residue.
 
 **Architecture:** Reuse the existing Core Matrix primitives instead of
 inventing a parallel stack. `Conversation` remains the transcript and lineage
@@ -169,11 +168,11 @@ Start from this list and keep it current while implementing.
 
 ### Cleanup Targets
 
-- delete the legacy workflow-owned subagent coordination model file
-- delete the legacy workflow-owned spawn service namespace
-- delete the legacy workflow-owned subagent model tests
-- delete the legacy workflow-owned spawn service tests
-- remove all stale legacy thread-style subagent terminology from:
+- delete the pre-Phase-2 subagent coordination model file
+- delete the pre-Phase-2 spawn service namespace
+- delete the pre-Phase-2 subagent model tests
+- delete the pre-Phase-2 spawn service tests
+- remove all stale pre-Phase-2 subagent terminology from:
   - plan docs
   - behavior docs
   - schema
@@ -224,7 +223,7 @@ bin/rails test \
 - define associations and validations
 - regenerate `db/schema.rb`
 
-## Task 2: Move Close-Control Identity From `SubagentSession` To `SubagentSession`
+## Task 2: Move Close-Control Identity Onto `SubagentSession`
 
 **Files and locations**
 
@@ -239,7 +238,8 @@ bin/rails test \
 **Write failing tests**
 
 - `SubagentSession` participates in `ClosableRuntimeResource`
-- `ExecutionLease` accepts `SubagentSession` and rejects `SubagentSession`
+- `ExecutionLease` keeps `SubagentSession` in its allowlist without owning
+  session close state
 
 **Run**
 
@@ -254,7 +254,7 @@ bin/rails test \
 
 - move close-control columns and behavior to `SubagentSession`
 - update lease allowlists and model support
-- remove any schema- or model-level `SubagentSession` assumptions
+- remove any schema- or model-level lease-owned close assumptions
 
 ## Task 3: Persist Profile Catalog On `CapabilitySnapshot`
 
@@ -566,7 +566,7 @@ bin/rails test \
 - create the child conversation and `SubagentSession`
 - append the initial delegated message
 - allocate child turn, workflow, and task work through existing services
-- delete the legacy workflow-owned spawn service namespace
+- delete the pre-Phase-2 spawn service namespace
 
 ## Task 12: Implement `subagent_wait` And `subagent_close`
 
@@ -650,7 +650,7 @@ bin/rails test \
 
 **Files and locations**
 
-- `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+- `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
 - `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
 - `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - `core_matrix/docs/behavior/conversation-structure-and-lineage.md`

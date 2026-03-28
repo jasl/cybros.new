@@ -1,7 +1,7 @@
 # Core Matrix Phase 2 Design: Profile-Aware Conversation-First Subagent Sessions
 
 Use this design document before starting the Phase 2 restructuring batch that
-replaces legacy workflow-owned subagent coordination with profile-aware,
+replaces the earlier subagent coordination model with profile-aware,
 conversation-first `SubagentSession` control.
 
 Read together with:
@@ -18,7 +18,7 @@ Read together with:
 
 ## Purpose
 
-Phase 2 currently models subagents as workflow-owned runtime rows and exposes
+Before this batch, Phase 2 still modeled subagents as pre-session runtime rows and exposed
 `subagent_spawn` as an ordinary runtime tool. That shape is materially worse
 than the approved target:
 
@@ -104,16 +104,16 @@ No new architectural areas appeared after Pass 8.
 
 Scanned:
 
-- `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
-- the legacy workflow-owned subagent coordination model
-- the legacy workflow-owned spawn service
+- `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+- the earlier subagent coordination model
+- the earlier spawn service
 - `core_matrix/app/models/agent_task_run.rb`
-- the legacy workflow-owned spawn service tests
+- the earlier spawn service tests
 
 Findings:
 
 - current subagent coordination is workflow-owned, not conversation-owned
-- the legacy workflow-owned model already proved that nested parentage and
+- the earlier coordination model already proved that nested parentage and
   depth are required, and those fields now live on `SubagentSession`
 - `AgentTaskRun(kind = "subagent_step")` already exists and should be reused
 
@@ -213,8 +213,8 @@ Findings:
 Scanned:
 
 - the first thread-named draft of this design and plan
-- `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
-- the legacy workflow-owned spawn service tests
+- `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+- the earlier spawn service tests
 
 Findings:
 
@@ -379,7 +379,7 @@ Keep them visible near the top of the implementation plan.
 46. branch, thread, checkpoint, and fork creation do not inherit or expose
     parent `SubagentSession` rows or subagent conversations.
 47. no remaining code, tests, docs, migrations, or schema references mention
-    legacy workflow-owned or thread-style subagent terminology.
+    pre-Phase-2 subagent terminology.
 
 ## Impacted Files And Cleanup Map
 
@@ -402,7 +402,7 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
   - anchors: closable target allowlist
 - Modify: `core_matrix/app/models/turn_execution_snapshot.rb`
   - anchors: initializer, `to_h`, reader for `agent_context`
-- Delete: the legacy workflow-owned subagent coordination model file
+- Delete: the pre-Phase-2 subagent coordination model file
 - Rewrite: `core_matrix/db/migrate/20260324090010_create_capability_snapshots.rb`
 - Rewrite: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
   - result: `subagent_sessions` table
@@ -467,7 +467,7 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Modify: `core_matrix/app/services/workflows/create_for_turn.rb`
 - Modify: `core_matrix/app/services/conversation_events/project.rb`
   - anchors: event projection call path
-- Delete: the legacy workflow-owned spawn service namespace
+- Delete: the pre-Phase-2 spawn service namespace
 
 ### Fenix Runtime Surface
 
@@ -510,15 +510,15 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 - Modify: `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
 - Modify: `core_matrix/test/test_helper.rb`
-- Delete: the legacy workflow-owned subagent model tests
-- Delete: the legacy workflow-owned spawn service tests
+- Delete: the pre-Phase-2 subagent model tests
+- Delete: the pre-Phase-2 spawn service tests
 - Modify: `agents/fenix/test/integration/runtime_flow_test.rb`
 - Modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 - Modify: `agents/fenix/test/test_helper.rb`
 
 ### Behavior Docs
 
-- Rewrite: `core_matrix/docs/behavior/subagent-runs-and-execution-leases.md`
+- Rewrite: `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
 - Modify: `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
@@ -811,7 +811,7 @@ Rejected alternatives:
 - no second capability plane
 - no Core Matrix prompt-template ownership
 - no legacy coordination compatibility layer
-- no legacy thread-style subagent terminology alongside
+- no pre-Phase-2 alternate subagent terminology alongside
   `Conversation.kind = "thread"`
 - no separate event-sourcing stack for subagent audit
 
@@ -820,9 +820,9 @@ Rejected alternatives:
 The design is only considered landed when all of the following are true:
 
 - `SubagentSession` is the only durable subagent control aggregate
-- legacy workflow-owned subagent naming is removed from code, docs, tests,
+- pre-Phase-2 subagent naming is removed from code, docs, tests,
   migrations, and schema
-- legacy thread-style subagent naming is removed from code, docs, tests, and
+- older alternate subagent naming is removed from code, docs, tests, and
   machine contracts
 - root interactive profile is fixed to `main`
 - nested subagents work through child conversations plus parent-depth policy
