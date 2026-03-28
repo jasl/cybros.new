@@ -37,7 +37,7 @@ runtime capability preservation, subagent close control, and the
 
 - [x] Runtime capability preservation and reuse rules
 - [x] `SubagentSession` close progression and neighboring close-control readers
-- [ ] `core_matrix <-> fenix` execution-context contract, including model hints
+- [x] `core_matrix <-> fenix` execution-context contract, including model hints
   and visible-tool semantics
 - [ ] Wrapper and payload drift around the archived hotspots
 
@@ -111,7 +111,69 @@ runtime capability preservation, subagent close control, and the
   already-archived split-authority problem instead of exposing a second,
   separate owner or reader contract failure.
 
+### `core_matrix <-> fenix` execution-context boundary
+
+- Files reviewed:
+  `core_matrix/app/services/agent_control/create_execution_assignment.rb`,
+  `core_matrix/app/services/provider_execution/build_request_context.rb`,
+  `core_matrix/app/services/workflows/build_execution_snapshot.rb`,
+  `core_matrix/app/services/workflows/create_for_turn.rb`,
+  `core_matrix/app/services/workflows/step_retry.rb`,
+  `contracts/core_matrix_fenix_execution_assignment_v1.json`,
+  `core_matrix/test/services/agent_control/create_execution_assignment_test.rb`,
+  `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`,
+  `core_matrix/test/services/workflows/create_for_turn_test.rb`,
+  `core_matrix/test/services/workflows/step_retry_test.rb`,
+  `agents/fenix/app/services/fenix/context/build_execution_context.rb`,
+  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`,
+  `agents/fenix/app/services/fenix/hooks/review_tool_call.rb`,
+  `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`,
+  `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`,
+  `agents/fenix/test/integration/runtime_flow_test.rb`,
+  `agents/fenix/test/services/fenix/hooks/runtime_hooks_test.rb`,
+  `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`,
+  and `agents/fenix/README.md`.
+- Result:
+  one additional high-confidence boundary issue exists. The normal
+  create-for-turn path and the shared contract fixture now agree on model hints
+  and visible-tool semantics, and `Fenix::Hooks::ReviewToolCall` does consume
+  `allowed_tool_names` as a real policy input. The remaining adjacent leak is
+  the retry assignment family, which bypasses the frozen execution-snapshot
+  envelope.
+
 ## New High-Confidence Findings
+
+### Step-retry assignments bypass the frozen execution-snapshot contract
+
+- Why it matters:
+  `Workflows::CreateForTurn` builds assignments with `context_messages`,
+  `budget_hints`, `provider_execution`, and `model_context` from the turn's
+  frozen execution snapshot, but `Workflows::StepRetry` requeues work by
+  passing only task-payload data into `AgentControl::CreateExecutionAssignment`.
+  That means a real Core Matrix retry path can send Fenix an execution
+  assignment without the frozen model and budget context that the boundary now
+  claims to preserve.
+- Evidence:
+  `core_matrix/app/services/workflows/create_for_turn.rb`,
+  `core_matrix/app/services/workflows/step_retry.rb`,
+  `core_matrix/app/services/agent_control/create_execution_assignment.rb`,
+  `core_matrix/test/services/workflows/create_for_turn_test.rb`,
+  `core_matrix/test/services/workflows/step_retry_test.rb`,
+  `contracts/core_matrix_fenix_execution_assignment_v1.json`,
+  `agents/fenix/app/services/fenix/context/build_execution_context.rb`, and
+  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`.
+- Structural impact:
+  the `core_matrix <-> fenix` execution contract is still inconsistent across
+  assignment families. Initial and subagent executions carry a rich frozen
+  envelope, while retry-generated executions silently degrade to task payload
+  plus agent context. Any model-sensitive compaction, budgeting, or future
+  provider-backed retry behavior therefore cannot trust the mailbox payload
+  shape across real execution paths.
+- Action direction:
+  make execution assignments derive the frozen execution-context envelope from
+  one shared source such as `agent_task_run.turn.execution_snapshot` for every
+  assignment family, then add cross-project contract coverage for a real
+  step-retry assignment payload instead of only the create-for-turn fixture.
 
 ## No-New-Finding Judgment
 
