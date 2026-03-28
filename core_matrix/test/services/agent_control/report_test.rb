@@ -349,7 +349,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
-      resource_id: process_run.public_id
+      resource_id: process_run.public_id,
+      occurred_at: occurred_at
     )
 
     assert_equal "accepted", ack_result.code
@@ -374,7 +375,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       resource_type: "ProcessRun",
       resource_id: process_run.public_id,
       close_outcome_kind: "graceful",
-      close_outcome_payload: {}
+      close_outcome_payload: {},
+      occurred_at: occurred_at + 31.seconds
     )
 
     assert_equal "accepted", terminal_result.code
@@ -412,7 +414,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
-      resource_id: process_run.public_id
+      resource_id: process_run.public_id,
+      occurred_at: occurred_at
     )
 
     assert_equal "accepted", ack_result.code
@@ -439,7 +442,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       resource_type: "ProcessRun",
       resource_id: process_run.public_id,
       close_outcome_kind: "graceful",
-      close_outcome_payload: {}
+      close_outcome_payload: {},
+      occurred_at: occurred_at + 61.seconds
     )
 
     assert_equal "stale", terminal_result.code
