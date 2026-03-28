@@ -3,44 +3,19 @@ module Conversations
     private
 
     def ensure_mainline_stop_barrier_clear!(conversation, stage:)
-      barrier = barrier_for(conversation)
-
-      ensure_owned_subagent_sessions_closed!(conversation, stage: stage)
-      raise_invalid!(conversation, :base, "must not have active turns before #{stage}") if barrier[:active_turn_count].positive?
-      raise_invalid!(conversation, :base, "must not have active workflow runs before #{stage}") if barrier[:active_workflow_count].positive?
-      raise_invalid!(conversation, :base, "must not have active agent task execution before #{stage}") if barrier[:active_agent_task_count].positive?
-      raise_invalid!(conversation, :base, "must not have open blocking human interaction before #{stage}") if barrier[:open_blocking_interaction_count].positive?
-      raise_invalid!(conversation, :base, "must not have active turn-command process execution before #{stage}") if barrier[:running_turn_command_count].positive?
-      raise_invalid!(conversation, :base, "must not have active subagent execution before #{stage}") if barrier[:running_subagent_count].positive?
+      Conversations::ValidateQuiescence.call(
+        conversation: conversation,
+        stage: stage,
+        mainline_only: true
+      )
     end
 
     def ensure_conversation_quiescent!(conversation, stage:)
-      barrier = barrier_for(conversation)
-
-      raise_invalid!(conversation, :base, "must not have queued turns before #{stage}") if barrier[:queued_turn_count].positive?
-      ensure_owned_subagent_sessions_closed!(conversation, stage: stage)
-      ensure_mainline_stop_barrier_clear!(conversation, stage: stage)
-      raise_invalid!(conversation, :base, "must not have active execution leases before #{stage}") if barrier[:active_execution_lease_count].positive?
-      raise_invalid!(conversation, :base, "must not have open human interaction before #{stage}") if barrier[:open_interaction_count].positive?
-      raise_invalid!(conversation, :base, "must not have active process execution before #{stage}") if barrier[:running_process_count].positive?
-      raise_invalid!(conversation, :base, "must not have active subagent execution before #{stage}") if barrier[:running_subagent_count].positive?
-    end
-
-    def barrier_for(conversation)
-      Conversations::WorkBarrierQuery.call(conversation: conversation)
-    end
-
-    def ensure_owned_subagent_sessions_closed!(conversation, stage:)
-      session_ids = SubagentSessions::OwnedTree.session_ids_for(owner_conversation: conversation)
-      return if session_ids.empty?
-
-      pending_sessions = SubagentSession
-        .where(id: session_ids)
-        .merge(SubagentSession.close_pending_or_open)
-      return unless pending_sessions.exists?
-
-      qualifier = stage == "archival" ? "open" : "open or close-pending"
-      raise_invalid!(conversation, :base, "must not have #{qualifier} subagent sessions before #{stage}")
+      Conversations::ValidateQuiescence.call(
+        conversation: conversation,
+        stage: stage,
+        mainline_only: false
+      )
     end
   end
 end
