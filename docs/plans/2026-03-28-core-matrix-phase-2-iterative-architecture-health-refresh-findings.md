@@ -97,6 +97,20 @@
   provider request-setting validation and request-context shaping are now
   separated cleanly enough from provider execution to drop them as a
   standalone runtime-boundary finding.
+- Round 4 `Hotspot Deep Dive`
+- Coverage:
+  deep-read `SubagentSession`, the full `subagent_sessions` service family and
+  tests, runtime capability composition and execution-snapshot shaping,
+  close-reconcile and resource-close request services, plus the neighboring
+  `agents/fenix` runtime manifest, execution-context builder, prepare-turn
+  hook, and assignment executor.
+- Candidate movement:
+  this round added `2` new high-confidence candidates and carried forward the
+  residual recovery-breadth concern for counter-evidence.
+- Neighboring-surface expansion:
+  expanded from the requested `fenix` boundary files into `fenix` execution
+  hooks because the boundary mismatch only became concrete when the runtime
+  consumer path was read end to end.
 
 ## Completeness Check
 
@@ -105,4 +119,5 @@
 - Round 1 baseline reconciliation is complete.
 - Round 2 boundary review is complete.
 - Round 3 boundary review is complete.
+- Round 4 hotspot deep dive is complete.
 - The audit still owes round-by-round code review and counter-evidence.
