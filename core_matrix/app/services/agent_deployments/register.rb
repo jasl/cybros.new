@@ -70,17 +70,10 @@ module AgentDeployments
           health_metadata: {},
           bootstrap_state: "pending"
         )
-        capability_snapshot = CapabilitySnapshot.create!(
-          agent_deployment: deployment,
-          version: 1,
-          protocol_methods: runtime_capability_contract.protocol_methods,
-          tool_catalog: runtime_capability_contract.agent_tool_catalog,
-          profile_catalog: runtime_capability_contract.profile_catalog,
-          config_schema_snapshot: runtime_capability_contract.config_schema_snapshot,
-          conversation_override_schema_snapshot: runtime_capability_contract.conversation_override_schema_snapshot,
-          default_config_snapshot: runtime_capability_contract.default_config_snapshot
+        capability_snapshot = CapabilitySnapshots::Reconcile.call(
+          deployment: deployment,
+          runtime_capability_contract: runtime_capability_contract
         )
-        deployment.update!(active_capability_snapshot: capability_snapshot)
         deployment.instance_variable_set(:@plaintext_machine_credential, machine_credential)
         enrollment.consume!
 

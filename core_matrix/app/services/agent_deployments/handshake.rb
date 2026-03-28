@@ -43,11 +43,14 @@ module AgentDeployments
           @deployment.reload
           record_environment_capabilities!
 
-          capability_snapshot = find_matching_snapshot(reconciliation.reconciled_config) || create_snapshot!(reconciliation.reconciled_config)
+          capability_snapshot = CapabilitySnapshots::Reconcile.call(
+            deployment: @deployment,
+            runtime_capability_contract: reconciled_contract(reconciliation.reconciled_config),
+            deployment_locked: true
+          )
           @deployment.update!(
             protocol_version: @protocol_version,
-            sdk_version: @sdk_version,
-            active_capability_snapshot: capability_snapshot
+            sdk_version: @sdk_version
           )
           runtime_capability_contract = RuntimeCapabilityContract.build(
             execution_environment: @deployment.execution_environment,
@@ -73,26 +76,6 @@ module AgentDeployments
         execution_environment: @deployment.execution_environment,
         capability_payload: incoming_contract.environment_capability_payload,
         tool_catalog: incoming_contract.environment_tool_catalog
-      )
-    end
-
-    def find_matching_snapshot(reconciled_default_config_snapshot)
-      @deployment.capability_snapshots.detect do |snapshot|
-        snapshot.matches_runtime_capability_contract?(
-          reconciled_contract(reconciled_default_config_snapshot)
-        )
-      end
-    end
-
-    def create_snapshot!(reconciled_default_config_snapshot)
-      @deployment.capability_snapshots.create!(
-        version: @deployment.capability_snapshots.maximum(:version).to_i + 1,
-        protocol_methods: incoming_contract.protocol_methods,
-        tool_catalog: incoming_contract.agent_tool_catalog,
-        profile_catalog: incoming_contract.profile_catalog,
-        config_schema_snapshot: incoming_contract.config_schema_snapshot,
-        conversation_override_schema_snapshot: incoming_contract.conversation_override_schema_snapshot,
-        default_config_snapshot: reconciled_default_config_snapshot
       )
     end
 
