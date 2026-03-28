@@ -14,12 +14,11 @@ module Conversations
 
     def call
       ApplicationRecord.transaction do
-        Conversations::WithMutableStateLock.call(
+        Conversations::WithEntryLock.call(
           conversation: @conversation,
           record: @conversation,
-          retained_message: "must be retained before adding imports",
-          active_message: "must be active before adding imports",
-          closing_message: "must not add imports while close is in progress"
+          entry_label: "adding imports",
+          closing_action: "add imports"
         ) do |conversation|
           attributes = {
             installation: conversation.installation,
