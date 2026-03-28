@@ -71,6 +71,27 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal true, body.fetch("trace").first.fetch("is_subagent")
   end
 
+  test "runtime execution endpoint rejects masked direct tool invocation from the frozen visible tool set" do
+    post "/runtime/executions",
+      params: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens]
+        )
+      ),
+      as: :json
+
+    assert_response :unprocessable_entity
+
+    body = JSON.parse(response.body)
+
+    assert_equal %w[execution_started execution_fail],
+      body.fetch("reports").map { |report| report.fetch("method_id") }
+    assert_equal "failed", body.fetch("status")
+    assert_equal "runtime_error", body.fetch("error").fetch("failure_kind")
+    assert_match(/calculator/, body.fetch("error").fetch("last_error_summary"))
+  end
+
   test "runtime execution endpoint reports failures through handle_error" do
     post "/runtime/executions",
       params: runtime_assignment_payload(mode: "raise_error"),

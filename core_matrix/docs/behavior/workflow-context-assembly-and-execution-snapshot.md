@@ -36,6 +36,7 @@ freezes a per-turn execution snapshot that preserves:
   - `model_context`
   - `provider_execution`
   - `budget_hints`
+  - `agent_context`
   - `turn_origin`
   - `context_messages`
   - `context_imports`
@@ -103,6 +104,23 @@ freezes a per-turn execution snapshot that preserves:
 - provider-backed turn execution now keeps a stable public entrypoint
   (`ProviderExecution::ExecuteTurnStep`) but splits dispatch, freshness
   locking, and terminal persistence into narrower collaborators
+
+## Agent Context
+
+- `agent_context` freezes the runtime-owned execution metadata that agent
+  programs consume directly:
+  - `profile`
+  - `is_subagent`
+  - `subagent_session_id`
+  - `parent_subagent_session_id`
+  - `subagent_depth`
+  - `allowed_tool_names`
+- `profile` is resolved from the runtime-declared `profile_catalog` before the
+  turn executes
+- `allowed_tool_names` is the conversation-visible tool set for that turn and
+  must be treated as an execution-time constraint, not as advisory trace data
+- mailbox execution assignment creation copies `agent_context` from the frozen
+  execution snapshot rather than recomputing it later from mutable aggregates
 
 ## Context Messages And Imports
 

@@ -43,4 +43,21 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal "unsupported_runtime_plane", result.error.fetch("failure_kind")
     assert_equal %w[execution_fail], result.reports.map { |report| report.fetch("method_id") }
   end
+
+  test "deterministic tool execution fails when the calculator tool is masked out of the assignment context" do
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens]
+        )
+      )
+    )
+
+    assert_equal "failed", result.status
+    assert_equal "runtime_error", result.error.fetch("failure_kind")
+    assert_match(/calculator/, result.error.fetch("last_error_summary"))
+    assert_equal %w[execution_started execution_fail], result.reports.map { |report| report.fetch("method_id") }
+    assert_equal %w[prepare_turn compact_context handle_error], result.trace.map { |entry| entry.fetch("hook") }
+  end
 end

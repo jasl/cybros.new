@@ -126,6 +126,11 @@ Planned replacement design:
   authenticated deployment fingerprint
 - handshake reuses an identical capability snapshot when one already exists on
   the deployment; otherwise it appends a new versioned snapshot
+- identical snapshot reuse compares the normalized runtime capability contract
+  rather than a narrow tool-name subset
+- that comparison surface includes `agent_plane`, `environment_plane`,
+  `effective_tool_catalog`, `profile_catalog`, and the config, override, and
+  default schema snapshots that shape runtime-visible behavior
 - capability-snapshot version allocation is serialized at the deployment
   boundary so concurrent handshakes either reuse the same snapshot or append
   exactly one new version

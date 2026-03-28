@@ -148,8 +148,10 @@ code-plus-LLM execution without forcing prompt building or provider transport
 back into the kernel.
 
 Prompt building, prompt-template choice, and profile-specific tool semantics
-remain inside `Fenix`. Core Matrix only persists the manifest contract and
-enforces the visible tool set derived from it.
+remain inside `Fenix`. Core Matrix computes and freezes the
+conversation-visible tool set into `agent_context.allowed_tool_names`, and
+`Fenix::Hooks::ReviewToolCall` treats that frozen set as a real execution-time
+constraint rather than trace-only metadata.
 
 ## Deployment Rotation
 

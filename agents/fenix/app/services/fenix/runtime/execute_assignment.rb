@@ -59,7 +59,10 @@ module Fenix
           "tool_name" => "calculator",
           "arguments" => { "expression" => expression },
         }
-        reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(tool_call: tool_call)
+        reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
+          tool_call: tool_call,
+          allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
+        )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
 
         @collector.progress!(progress_payload: { "stage" => "tool_reviewed" })

@@ -14,11 +14,24 @@ class Fenix::Hooks::RuntimeHooksTest < ActiveSupport::TestCase
   test "review_tool_call rejects unsupported tool names" do
     error = assert_raises(Fenix::Hooks::ReviewToolCall::UnsupportedToolError) do
       Fenix::Hooks::ReviewToolCall.call(
-        tool_call: { "tool_name" => "workspace_delete", "arguments" => {} }
+        tool_call: { "tool_name" => "workspace_delete", "arguments" => {} },
+        allowed_tool_names: %w[calculator]
       )
     end
 
     assert_match(/workspace_delete/, error.message)
+  end
+
+  test "review_tool_call rejects masked tool names" do
+    error = assert_raises(Fenix::Hooks::ReviewToolCall::UnsupportedToolError) do
+      Fenix::Hooks::ReviewToolCall.call(
+        tool_call: { "tool_name" => "calculator", "arguments" => { "expression" => "2 + 2" } },
+        allowed_tool_names: %w[compact_context]
+      )
+    end
+
+    assert_match(/calculator/, error.message)
+    assert_match(/not visible/, error.message)
   end
 
   test "handle_error produces a terminal failure payload" do

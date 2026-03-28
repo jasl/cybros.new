@@ -44,6 +44,9 @@ The landed model separates concerns cleanly:
   - `failed`
   - `interrupted`
 - close-control metadata comes from `ClosableRuntimeResource`
+- `SubagentSessions::RequestClose` advances `lifecycle_state` from `open` to
+  `close_requested` immediately; terminal close reports then settle the session
+  into `closed`
 
 ## Session Boundaries
 
