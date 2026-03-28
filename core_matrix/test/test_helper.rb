@@ -842,18 +842,6 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_subagent_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, requested_role_or_slot: "worker", lifecycle_state: "running", metadata: {}, depth: 0, **attrs)
-      SubagentRun.create!({
-        installation: installation,
-        workflow_run: workflow_run,
-        workflow_node: workflow_node,
-        requested_role_or_slot: requested_role_or_slot,
-        lifecycle_state: lifecycle_state,
-        metadata: metadata,
-        depth: depth,
-      }.merge(attrs))
-    end
-
     def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_installation: turn.agent_deployment.agent_installation, task_kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
       AgentTaskRun.create!({
         installation: installation,

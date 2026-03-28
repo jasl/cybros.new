@@ -87,11 +87,8 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       execution_environment: context[:execution_environment],
       kind: "turn_command"
     )
-    subagent_run = create_subagent_run!(
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running"
-    )
-    [agent_task_run, process_run, subagent_run].each do |resource|
+    subagent_session = create_turn_scoped_subagent_session!(context: context)
+    [agent_task_run, process_run].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
         holder_key: context[:deployment].public_id,
@@ -151,10 +148,34 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     assert context[:turn].reload.canceled?
     assert context[:workflow_run].reload.canceled?
     assert process_run.reload.stopped?
-    assert subagent_run.reload.canceled?
+    assert subagent_session.reload.lifecycle_closed?
+    assert subagent_session.close_closed?
   end
 
   private
+
+  def create_turn_scoped_subagent_session!(context:)
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: context[:conversation],
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:deployment],
+      addressability: "agent_addressable"
+    )
+
+    SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      origin_turn: context[:turn],
+      scope: "turn",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
+    )
+  end
 
   def report_resource_closed!(harness:, mailbox_item:, close_outcome_kind:)
     harness.report!(

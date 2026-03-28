@@ -103,15 +103,29 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal context[:execution_environment].public_id, mailbox_item.target_ref
   end
 
-  test "agent-plane subagent close work falls back to the workflow turn agent installation when no lease holder exists" do
+  test "agent-plane subagent session close work falls back to the owner conversation agent installation when no lease holder exists" do
     context = build_agent_control_context!
-    subagent_run = create_subagent_run!(
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running"
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: context[:conversation],
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:deployment],
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
     )
 
     mailbox_item = AgentControl::CreateResourceCloseRequest.call(
-      resource: subagent_run,
+      resource: subagent_session,
       request_kind: "turn_interrupt",
       reason_kind: "turn_interrupted",
       strictness: "graceful",
@@ -123,15 +137,29 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal "agent_installation", mailbox_item.target_kind
     assert_equal context[:agent_installation].public_id, mailbox_item.target_ref
     assert_equal "agent", mailbox_item.attributes["runtime_plane"]
-    assert_equal "SubagentRun", mailbox_item.payload.fetch("resource_type")
-    assert_equal subagent_run.public_id, mailbox_item.payload.fetch("resource_id")
+    assert_equal "SubagentSession", mailbox_item.payload.fetch("resource_type")
+    assert_equal subagent_session.public_id, mailbox_item.payload.fetch("resource_id")
   end
 
   test "close request creation rolls back resource state when mailbox persistence fails" do
     context = build_agent_control_context!
-    subagent_run = create_subagent_run!(
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running"
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: context[:conversation],
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:deployment],
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
     )
     message_id = "duplicate-close-message"
 
@@ -150,7 +178,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     assert_raises(ActiveRecord::RecordInvalid) do
       AgentControl::CreateResourceCloseRequest.call(
-        resource: subagent_run,
+        resource: subagent_session,
         request_kind: "turn_interrupt",
         reason_kind: "turn_interrupted",
         strictness: "graceful",
@@ -160,9 +188,9 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       )
     end
 
-    assert subagent_run.reload.close_open?
-    assert_nil subagent_run.close_reason_kind
-    assert_nil subagent_run.close_requested_at
+    assert subagent_session.reload.close_open?
+    assert_nil subagent_session.close_reason_kind
+    assert_nil subagent_session.close_requested_at
   end
 
   test "requires runtime_plane to be declared explicitly instead of inferring it from payload conventions" do

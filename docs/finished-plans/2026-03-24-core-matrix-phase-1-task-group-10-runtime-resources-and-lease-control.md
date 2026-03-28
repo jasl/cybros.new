@@ -24,7 +24,7 @@ Task group boundaries:
 - Task 10.1 owns workflow artifacts, workflow node events, and process runs.
 - Task 10.2 owns human-interaction resources and conversation-event projection.
 - Task 10.3 owns canonical variable history and promotion.
-- Task 10.4 owns `SubagentRun` coordination metadata and execution leases.
+- Task 10.4 owns `SubagentSession` coordination metadata and execution leases.
 
 Execution rules:
 

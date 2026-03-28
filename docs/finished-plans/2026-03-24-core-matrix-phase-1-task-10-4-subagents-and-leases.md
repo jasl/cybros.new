@@ -20,7 +20,7 @@ Reference capture for this task:
 ---
 
 **Files:**
-- Create: `core_matrix/db/migrate/20260324090038_create_subagent_runs.rb`
+- Create: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
 - Create: `core_matrix/db/migrate/20260324090039_create_execution_leases.rb`
 - Create: `core_matrix/app/models/subagent_run.rb`
 - Create: `core_matrix/app/models/execution_lease.rb`
@@ -40,9 +40,9 @@ Reference capture for this task:
 
 Cover at least:
 
-- `SubagentRun` coordination metadata for parentage, depth, batch or coordination keys, requested role or slot, and final result artifact reference
+- `SubagentSession` coordination metadata for parentage, depth, batch or coordination keys, requested role or slot, and final result artifact reference
 - lease uniqueness, heartbeat freshness, and release semantics
-- spawning multiple coordinated subagent runs under one workflow without introducing a second orchestration aggregate
+- spawning multiple coordinated subagent sessions under one workflow without introducing a second orchestration aggregate
 - acquiring, heartbeating, and releasing an execution lease
 
 **Step 2: Run the targeted tests to confirm failure**
@@ -62,9 +62,9 @@ Expected:
 
 Rules:
 
-- `SubagentRun` remains a workflow-node-backed runtime resource
+- `SubagentSession` remains a workflow-node-backed runtime resource
 - swarm or multi-agent behavior must stay expressed through workflow DAG fan-out or fan-in rather than a separate `SwarmRun` aggregate
-- `SubagentRun` must retain lightweight coordination metadata for parentage, depth, batching, coordination, requested role or slot, and terminal result artifact linkage
+- `SubagentSession` must retain lightweight coordination metadata for parentage, depth, batching, coordination, requested role or slot, and terminal result artifact linkage
 - execution leases must enforce uniqueness, heartbeat freshness, and explicit release semantics
 
 **Step 4: Run migrations and targeted tests**
@@ -106,14 +106,15 @@ Do not implement these items in this task:
   - included in the accompanying `feat: add subagent coordination and leases`
     task commit
 - actual landed scope:
-  - added `SubagentRun` as a workflow-owned coordination resource with
+  - added `SubagentSession` as a workflow-owned coordination resource with
     lightweight parentage, depth, batch, coordination, requested-role, and
     terminal-summary linkage
   - added `ExecutionLease` as the explicit active-resource ownership row for
-    workflow-bound `ProcessRun` and `SubagentRun` resources
-  - added `Subagents::Spawn`, `Leases::Acquire`, `Leases::Heartbeat`, and
-    `Leases::Release` as the kernel-owned application-service boundaries for
-    subagent coordination and lease lifecycle
+    workflow-bound `ProcessRun` and `SubagentSession` resources
+  - added `SubagentSessions::Spawn`, `Leases::Acquire`,
+    `Leases::Heartbeat`, and `Leases::Release` as the kernel-owned
+    application-service boundaries for subagent coordination and lease
+    lifecycle
   - added targeted model, service, and integration coverage for coordination
     metadata, stale-lease replacement, heartbeat freshness, and explicit
     release semantics
@@ -127,7 +128,7 @@ Do not implement these items in this task:
   - active-lease uniqueness is enforced in both the Rails model layer and the
     database through a partial unique index
 - verification evidence:
-  - `cd core_matrix && bin/rails test test/models/subagent_run_test.rb test/models/execution_lease_test.rb test/services/subagents/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb test/integration/subagent_lease_flow_test.rb`
+  - `cd core_matrix && bin/rails test test/models/subagent_session_test.rb test/models/execution_lease_test.rb test/services/subagent_sessions/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb`
     passed with `7 runs, 42 assertions, 0 failures, 0 errors`
 - checklist notes:
   - no manual-checklist delta was retained for this task because the landed

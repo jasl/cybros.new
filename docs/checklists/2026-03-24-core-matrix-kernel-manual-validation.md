@@ -59,7 +59,7 @@ ApplicationRecord.with_connection do |conn|
       PublicationAccessEvent,
       Publication,
       ExecutionLease,
-      SubagentRun,
+      SubagentSession,
       ProcessRun,
       WorkflowArtifact,
       WorkflowNodeEvent,

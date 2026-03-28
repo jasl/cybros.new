@@ -35,7 +35,7 @@ orchestration are still defined in:
 - deleted or pending-delete conversations are therefore hidden from
   agent-facing transcript and variable endpoints
 - control-plane resources such as `AgentTaskRun`, `ProcessRun`, and
-  `SubagentRun` also resolve by `public_id`
+  `SubagentSession` also resolve by `public_id`
 
 ## Control Plane
 
@@ -79,8 +79,9 @@ orchestration are still defined in:
 - for `agent` plane close work, the durable owner fallback is resolved from the
   resource type rather than the current delivery lease:
   - `AgentTaskRun` falls back to its own `agent_installation`
-  - `SubagentRun` falls back to the owning workflow turn deployment's logical
-    `agent_installation`
+  - `SubagentSession` falls back to the logical `agent_installation`
+    associated with its owner conversation, or its origin turn when that turn
+    exists
 - for `environment` plane work:
   - `target_ref` is the owning `ExecutionEnvironment.public_id`
   - `target_execution_environment_id` stores the owning
@@ -124,10 +125,10 @@ orchestration are still defined in:
   accepted the close request, sibling deployments in the same installation must
   be treated as stale reporters for that request
 - terminal close reports for `AgentTaskRun`, `ProcessRun`, and
-  `SubagentRun` must also re-enter
+  `SubagentSession` must also re-enter
   `Conversations::ReconcileCloseOperation` through the resource's owning
-  conversation (`conversation`, `turn.conversation`, or
-  `workflow_run.conversation`)
+  conversation. `SubagentSession` close reports also refresh the child
+  conversation because the session itself owns that transcript container.
 - environment-owned close reports are only accepted from deployments attached
   to the owning execution environment
 - `deployment_health_report` now routes through `HandleHealthReport` and

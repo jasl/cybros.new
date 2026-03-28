@@ -134,7 +134,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - running `AgentTaskRun`
   - blocking `HumanInteractionRequest`
   - running `ProcessRun(kind = "turn_command")`
-  - running turn-bound `SubagentRun`
+  - running turn-bound `SubagentSession`
 - turn interrupt does not target detached
   `ProcessRun(kind = "background_service")`
 - the turn and workflow move to `canceled` only after those mainline blockers
@@ -149,6 +149,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - the archive close operation immediately blocks new turn entry even while the
   conversation row is still `active`
 - active mainline work is stopped through `turn_interrupt`
+- owned open subagent sessions also receive mailbox-driven close requests
 - detached background processes are closed through mailbox
   `resource_close_request(request_kind = "archive_force_quiesce")`
 - close-request delivery for both archive and interrupt now follows the durable

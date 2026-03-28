@@ -57,7 +57,7 @@ Cover at least:
 - canonical wait handoff through a payload such as
   `wait_transition_requested`
 - one `HumanFormRequest` or `HumanTaskRequest` path
-- one `SubagentRun` path
+- one `SubagentSession` path
 - workflow wait-state entry and exit for both
 - successor `AgentTaskRun` re-entry after wait resolution
 - bounded parallel subagent spawn under `completion_barrier = wait_all`

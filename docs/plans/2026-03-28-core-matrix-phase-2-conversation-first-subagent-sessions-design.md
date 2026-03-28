@@ -1,7 +1,7 @@
 # Core Matrix Phase 2 Design: Profile-Aware Conversation-First Subagent Sessions
 
 Use this design document before starting the Phase 2 restructuring batch that
-replaces workflow-owned `SubagentRun` rows with profile-aware,
+replaces legacy workflow-owned subagent coordination with profile-aware,
 conversation-first `SubagentSession` control.
 
 Read together with:
@@ -46,7 +46,7 @@ This batch replaces that model with a conversation-first architecture:
 This batch is intentionally breaking:
 
 - no compatibility shims
-- no dual-track `SubagentRun` and `SubagentSession` model
+- no dual-track legacy coordination row and `SubagentSession` model
 - no data backfill
 - no legacy docs kept alive for transition wording
 
@@ -113,8 +113,8 @@ Scanned:
 Findings:
 
 - current subagent coordination is workflow-owned, not conversation-owned
-- `SubagentRun` already carries nested-fanout fields (`parent_subagent_run_id`
-  and `depth`) that should move to `SubagentSession`, not be dropped
+- the legacy workflow-owned model already proved that nested parentage and
+  depth are required, and those fields now live on `SubagentSession`
 - `AgentTaskRun(kind = "subagent_step")` already exists and should be reused
 
 ### Pass 2: Capability Surface And Config Contracts
@@ -237,8 +237,8 @@ Findings:
 
 - `ProcessRun`, `AgentTaskRun`, and `ConversationEvent` already have correct
   semantics and should keep their names
-- `SubagentThread` collides conceptually with `Conversation.kind = "thread"`
-  and should be renamed to `SubagentSession`
+- the old thread-style internal name collides conceptually with
+  `Conversation.kind = "thread"` and should converge on `SubagentSession`
 - internal names should converge to `SubagentSession`, while tool names should
   stay `subagent_*`
 
@@ -284,7 +284,7 @@ Keep them visible near the top of the implementation plan.
    through the same contract style as `ProcessRun`.
 9. `AgentTaskRun(kind = "subagent_step")` stores one
    `subagent_session_id` and one `requested_by_turn_id`.
-10. `ExecutionLease` allowlists `SubagentSession` instead of `SubagentRun`.
+10. `ExecutionLease` allowlists `SubagentSession` instead of `SubagentSession`.
 
 ### Capability And Manifest Scenarios
 
@@ -379,7 +379,7 @@ Keep them visible near the top of the implementation plan.
 46. branch, thread, checkpoint, and fork creation do not inherit or expose
     parent `SubagentSession` rows or subagent conversations.
 47. no remaining code, tests, docs, migrations, or schema references mention
-    `SubagentRun`, `SubagentThread`, or `subagent_thread`.
+    legacy workflow-owned or thread-style subagent terminology.
 
 ## Impacted Files And Cleanup Map
 
@@ -404,7 +404,7 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
   - anchors: initializer, `to_h`, reader for `agent_context`
 - Delete: `core_matrix/app/models/subagent_run.rb`
 - Rewrite: `core_matrix/db/migrate/20260324090010_create_capability_snapshots.rb`
-- Rewrite: `core_matrix/db/migrate/20260324090038_create_subagent_runs.rb`
+- Rewrite: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
   - result: `subagent_sessions` table
 - Rewrite: `core_matrix/db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb`
 - Regenerate: `core_matrix/db/schema.rb`
@@ -810,18 +810,20 @@ Rejected alternatives:
 
 - no second capability plane
 - no Core Matrix prompt-template ownership
-- no `SubagentRun` compatibility layer
-- no `SubagentThread` terminology alongside `Conversation.kind = "thread"`
+- no legacy coordination compatibility layer
+- no legacy thread-style subagent terminology alongside
+  `Conversation.kind = "thread"`
 - no separate event-sourcing stack for subagent audit
 
 ## Acceptance Conditions
 
 The design is only considered landed when all of the following are true:
 
-- `SubagentRun` is removed from code, docs, tests, migrations, and schema
-- `SubagentThread` and `subagent_thread` are removed from code, docs, tests,
-  and machine contracts
 - `SubagentSession` is the only durable subagent control aggregate
+- legacy workflow-owned subagent naming is removed from code, docs, tests,
+  migrations, and schema
+- legacy thread-style subagent naming is removed from code, docs, tests, and
+  machine contracts
 - root interactive profile is fixed to `main`
 - nested subagents work through child conversations plus parent-depth policy
 - `profile_catalog` persists through manifest, snapshot, registration,

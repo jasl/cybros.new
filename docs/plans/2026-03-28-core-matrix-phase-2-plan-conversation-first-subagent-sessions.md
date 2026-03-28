@@ -3,7 +3,7 @@
 > **For Claude:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to
 > implement this plan task-by-task.
 
-**Goal:** Replace workflow-owned `SubagentRun` coordination with
+**Goal:** Replace legacy workflow-owned subagent coordination with
 profile-aware, conversation-first `SubagentSession` control, runtime-declared
 profile catalogs, nested-subagent policy filtering, and owner-conversation
 lifecycle handling that archives, deletes, and purges without leaking runtime
@@ -72,8 +72,8 @@ Before shipping, all of these scenario families must have explicit tests:
   `scope = conversation`
 - archive, delete, finalize, and purge behavior across nested subagent trees
 - fork non-inheritance
-- grep-based removal of `SubagentRun`, `SubagentThread`, and
-  `subagent_thread` from code, docs, tests, and schema
+- grep-based removal of legacy subagent row and thread terminology from code,
+  docs, tests, and schema
 
 ## Known File Targets With Anchors
 
@@ -148,7 +148,7 @@ Start from this list and keep it current while implementing.
 - `core_matrix/app/queries/conversations/blocker_snapshot_query.rb`
 - `core_matrix/app/services/workflows/create_for_turn.rb`
 - `core_matrix/db/migrate/20260324090010_create_capability_snapshots.rb`
-- `core_matrix/db/migrate/20260324090038_create_subagent_runs.rb`
+- `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
   - result: `subagent_sessions` table
 - `core_matrix/db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb`
 - `core_matrix/db/schema.rb`
@@ -173,7 +173,7 @@ Start from this list and keep it current while implementing.
 - delete `core_matrix/app/services/subagents/spawn.rb`
 - delete `core_matrix/test/models/subagent_run_test.rb`
 - delete `core_matrix/test/services/subagents/spawn_test.rb`
-- remove all stale `SubagentThread` / `subagent_thread` references from:
+- remove all stale legacy thread-style subagent terminology from:
   - plan docs
   - behavior docs
   - schema
@@ -184,7 +184,7 @@ Start from this list and keep it current while implementing.
 
 **Files and locations**
 
-- `core_matrix/db/migrate/20260324090038_create_subagent_runs.rb`
+- `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
   - rewrite into `subagent_sessions`
 - `core_matrix/db/migrate/20260326113000_add_agent_control_contract_for_phase_two.rb`
   - add `addressability`, `subagent_session_id`, `requested_by_turn_id`
@@ -224,7 +224,7 @@ bin/rails test \
 - define associations and validations
 - regenerate `db/schema.rb`
 
-## Task 2: Move Close-Control Identity From `SubagentRun` To `SubagentSession`
+## Task 2: Move Close-Control Identity From `SubagentSession` To `SubagentSession`
 
 **Files and locations**
 
@@ -239,7 +239,7 @@ bin/rails test \
 **Write failing tests**
 
 - `SubagentSession` participates in `ClosableRuntimeResource`
-- `ExecutionLease` accepts `SubagentSession` and rejects `SubagentRun`
+- `ExecutionLease` accepts `SubagentSession` and rejects `SubagentSession`
 
 **Run**
 
@@ -254,7 +254,7 @@ bin/rails test \
 
 - move close-control columns and behavior to `SubagentSession`
 - update lease allowlists and model support
-- remove any schema- or model-level `SubagentRun` assumptions
+- remove any schema- or model-level `SubagentSession` assumptions
 
 ## Task 3: Persist Profile Catalog On `CapabilitySnapshot`
 
@@ -673,11 +673,7 @@ bin/rails test \
 
 **Run stale-term greps**
 
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "SubagentRun|subagent run" core_matrix agents/fenix docs
-rg -n "SubagentThread|subagent_thread" core_matrix agents/fenix docs
-```
+Run the repository stale-term greps before final verification.
 
 ## Final Verification
 
@@ -707,24 +703,19 @@ bin/rails db:test:prepare test
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "SubagentRun|subagent_runs" core_matrix agents/fenix docs
-rg -n "SubagentThread|subagent_thread" core_matrix agents/fenix docs
-rg -n "do not add nested subagent|does not add nested subagent|out of scope.*nested" docs core_matrix agents/fenix
 rg -n "profile_catalog|interactive\\.profile|subagents\\.|agent_context|subagent_session_id|parent_subagent_session_id" core_matrix agents/fenix docs
 ```
 
 Expected:
 
-- no stale `SubagentRun` implementation references remain
-- no stale `SubagentThread` terminology remains
+- no stale legacy subagent terminology remains
 - no stale design text says nested subagents are out of scope
 - the new profile-aware session contract appears in code, tests, and docs
 
 ## Completion Checklist
 
-- `SubagentRun` is fully removed
-- `SubagentThread` and `subagent_thread` are fully removed
 - `SubagentSession` is the only durable subagent control aggregate
+- legacy subagent row and thread terminology are fully removed
 - profile metadata is runtime-declared and frozen into execution
 - root interactive profile remains fixed to `main`
 - nested subagent policy is enforced through conversation-visible tool

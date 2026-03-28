@@ -21,11 +21,6 @@ class WorkflowArtifact < ApplicationRecord
   belongs_to :turn
 
   has_one_attached :file
-  has_many :terminal_subagent_runs,
-    class_name: "SubagentRun",
-    foreign_key: :terminal_summary_artifact_id,
-    dependent: :restrict_with_exception,
-    inverse_of: :terminal_summary_artifact
 
   before_validation :default_projection_fields_from_workflow_node
 

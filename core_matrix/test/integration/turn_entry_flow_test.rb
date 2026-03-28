@@ -11,7 +11,7 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
 
     Conversations::UpdateOverride.call(
       conversation: conversation,
-      payload: { "temperature" => 0.3 },
+      payload: {},
       schema_fingerprint: "schema-v1",
       selector_mode: "explicit_candidate",
       selector_provider_handle: "codex_subscription",

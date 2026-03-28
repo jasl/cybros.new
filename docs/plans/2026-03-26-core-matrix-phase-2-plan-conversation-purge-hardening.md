@@ -50,7 +50,7 @@ Add a regression that creates a deleted conversation with:
 
 - an `AgentTaskRun`
 - an execution-assignment mailbox item for that task
-- a `ProcessRun` and `SubagentRun`
+- a `ProcessRun` and `SubagentSession`
 - resource-close mailbox items for those resources
 - report receipts that point to the mailbox items
 
@@ -230,7 +230,7 @@ Resolve mailbox items from both:
 
 - `agent_task_run_id` for execution assignments and task-owned close requests
 - `payload["resource_type"]` + `payload["resource_id"]` for close requests on
-  `ProcessRun` and `SubagentRun`
+  `ProcessRun` and `SubagentSession`
 
 Use public ids when matching payload-backed resource ownership.
 

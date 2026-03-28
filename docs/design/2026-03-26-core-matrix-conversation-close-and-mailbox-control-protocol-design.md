@@ -364,7 +364,7 @@ The kernel result is:
 - turn-scoped tool call
 - user shell command
 - `ProcessRun(kind = turn_command)`
-- turn-bound `SubagentRun`
+- turn-bound `SubagentSession`
 
 It does not, by itself, guarantee termination of detached background resources.
 
@@ -452,7 +452,7 @@ Add durable close fields to closable runtime resources:
 
 - `AgentTaskRun`
 - `ProcessRun`
-- `SubagentRun`
+- `SubagentSession`
 
 Recommended fields:
 

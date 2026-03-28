@@ -521,7 +521,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "occurred_at", null: false
     t.bigint "process_run_id"
-    t.bigint "subagent_run_id"
+    t.bigint "subagent_session_id"
     t.boolean "success"
     t.bigint "turn_id"
     t.datetime "updated_at", null: false

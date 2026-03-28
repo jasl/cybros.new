@@ -2,13 +2,14 @@ require "test_helper"
 
 class LeasesHeartbeatTest < ActiveSupport::TestCase
   test "refreshes a matching lease heartbeat and rejects stale heartbeats" do
-    context = build_subagent_context!
-    subagent_run = Subagents::Spawn.call(
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
-      requested_role_or_slot: "researcher"
+      lifecycle_state: "running",
+      started_at: Time.current
     )
     lease = Leases::Acquire.call(
-      leased_resource: subagent_run,
+      leased_resource: agent_task_run,
       holder_key: "worker-1",
       heartbeat_timeout_seconds: 30
     )

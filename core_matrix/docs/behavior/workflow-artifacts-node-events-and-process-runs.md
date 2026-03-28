@@ -14,7 +14,7 @@ runtime resources that later tasks now build on are:
 - `WorkflowNodeEvent`
 - `AgentTaskRun`
 - `ProcessRun`
-- `SubagentRun`
+- `SubagentSession`
 
 ## Workflow Artifacts
 
@@ -144,15 +144,16 @@ runtime resources that later tasks now build on are:
   runtime resources so later interrupt and close orchestration can target one
   stable execution aggregate
 
-## Subagent Runs
+## Subagent Sessions
 
-- `SubagentRun` remains a workflow-owned runtime resource for nested agent
-  work
-- subagent runs now also carry `public_id` plus the shared durable close
-  fields used by mailbox-driven resource close handling
-- when a subagent close request has no active lease holder, the mailbox target
-  falls back to the owning workflow turn deployment's logical
-  `agent_installation` rather than failing the close request
+- delegated subagent work now owns a child conversation plus a
+  `SubagentSession`
+- the durable execution instance remains
+  `AgentTaskRun(kind = "subagent_step")`
+- session close requests use the same mailbox-driven close machinery as other
+  closable runtime resources
+- when a session close request has no active lease holder, delivery falls back
+  to the owner conversation's logical `agent_installation`
 
 ## Timeout And Ownership Rules
 

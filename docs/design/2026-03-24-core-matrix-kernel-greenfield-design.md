@@ -211,7 +211,7 @@ Primary objects:
 - `WorkflowArtifact`
 - `ProcessRun`
 - `HumanInteractionRequest`
-- `SubagentRun`
+- `SubagentSession`
 - `ApprovalRequest`
 - `ExecutionLease`
 - `CanonicalVariable`
@@ -441,7 +441,7 @@ Rules:
 - a workspace has many conversations
 - a conversation is branchable and tree-navigable
 - a turn owns one workflow run plus selected input and output transcript pointers
-- a workflow run owns nodes, artifacts, human-interaction requests including approvals, processes, and subagent runs
+- a workflow run owns nodes, artifacts, human-interaction requests including approvals, processes, and subagent sessions
 - a workflow run is a turn-scoped dynamic DAG, not a fixed template and not a conversation-wide graph
 - workflow mutation may append nodes and edges at runtime, but the graph must remain acyclic at every step
 - a conversation may project visible runtime state through append-only `ConversationEvent` rows without changing transcript ownership
@@ -677,15 +677,15 @@ Subclass rules:
 
 ## Subagent Orchestration Model
 
-`SubagentRun` is a workflow-owned runtime resource, not a second orchestration system.
+`SubagentSession` is a workflow-owned runtime resource, not a second orchestration system.
 
 Rules:
 
-- every `SubagentRun` belongs to one `WorkflowNode` and one `WorkflowRun`
+- every `SubagentSession` belongs to one `WorkflowNode` and one `WorkflowRun`
 - swarm or multi-agent behavior is expressed as dynamic DAG fan-out, fan-in, and join scheduling inside the parent turn's workflow
 - do not introduce a separate `SwarmRun` or `SwarmPlan` aggregate in v1
-- `SubagentRun` should retain lightweight coordination metadata for later orchestration growth, including at minimum:
-  - `parent_subagent_run_id` when the run descends from another subagent
+- `SubagentSession` should retain lightweight coordination metadata for later orchestration growth, including at minimum:
+  - `parent_subagent_session_id` when the run descends from another subagent
   - `depth`
   - `batch_key`
   - `coordination_key`

@@ -44,6 +44,7 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
           "idempotency_policy" => "best_effort",
         },
       ],
+      profile_catalog: default_profile_catalog,
       config_schema_snapshot: {
         "type" => "object",
         "properties" => {},

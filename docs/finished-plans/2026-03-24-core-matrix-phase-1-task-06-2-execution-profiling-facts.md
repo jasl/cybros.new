@@ -33,7 +33,7 @@ Cover at least:
 
 - execution profile facts for generic operation kinds such as tool calls, subagent outcomes, approval wait time, and process failures
 - profile facts remaining separated from provider billing facts
-- generic fact dimensions and nullable references so later runtime resources such as `ProcessRun`, `SubagentRun`, or `HumanInteractionRequest` can attach without forcing schema redesign
+- generic fact dimensions and nullable references so later runtime resources such as `ProcessRun`, `SubagentSession`, or `HumanInteractionRequest` can attach without forcing schema redesign
 - recording separate execution profile facts without polluting provider usage rows
 
 **Step 2: Run the targeted tests to confirm failure**

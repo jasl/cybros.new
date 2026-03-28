@@ -216,7 +216,7 @@ Examples:
   materializes one workflow node plus `HumanInteractionRequest`, usually with
   `presentation_policy = user_projectable`
 - `subagent_spawn`
-  materializes one workflow node plus `SubagentRun`, usually with
+  materializes one workflow node plus `SubagentSession`, usually with
   `presentation_policy = ops_trackable`
 
 Rejected intents should:

@@ -214,7 +214,7 @@
      once it is allowed to run it only does
      `later_turn.update!(lifecycle_state: "canceled")`. If any later turn owns
      an active `WorkflowRun`, `AgentTaskRun`, `HumanInteractionRequest`,
-     `ProcessRun`, or `SubagentRun`, those resources remain live on a canceled
+     `ProcessRun`, or `SubagentSession`, those resources remain live on a canceled
      turn. That creates a split-brain runtime state where the visible timeline
      says the turn is gone but scheduler, close, and mailbox logic can still see
      active owned work.

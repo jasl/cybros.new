@@ -49,6 +49,7 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
           "idempotency_policy" => "best_effort",
         },
       ],
+      profile_catalog: default_profile_catalog,
       config_schema_snapshot: {
         "type" => "object",
         "properties" => {},
@@ -117,6 +118,7 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
           idempotency_policy: "best_effort",
         },
       ],
+      profile_catalog: default_profile_catalog,
       config_schema_snapshot: {
         type: "object",
         properties: {},

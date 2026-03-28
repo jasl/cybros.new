@@ -94,6 +94,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
           sdk_version: "fenix-0.2.0",
           protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "capabilities_refresh"),
           tool_catalog: expected_tool_catalog,
+          profile_catalog: default_profile_catalog,
           config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
           conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
           default_config_snapshot: {

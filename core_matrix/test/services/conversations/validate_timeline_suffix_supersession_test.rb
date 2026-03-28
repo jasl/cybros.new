@@ -90,10 +90,25 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
         "running subagent",
         "must not roll back the timeline while later subagent execution remains active",
         lambda do |context|
-          create_subagent_run!(
-            workflow_node: context[:workflow_node],
-            workflow_run: context[:workflow_run],
-            lifecycle_state: "running"
+          child_conversation = create_conversation_record!(
+            installation: context[:installation],
+            workspace: context[:workspace],
+            parent_conversation: context[:conversation],
+            kind: "thread",
+            execution_environment: context[:execution_environment],
+            agent_deployment: context[:agent_deployment],
+            addressability: "agent_addressable"
+          )
+
+          SubagentSession.create!(
+            installation: context[:installation],
+            owner_conversation: context[:conversation],
+            conversation: child_conversation,
+            origin_turn: context[:later_turn],
+            scope: "turn",
+            profile_key: "researcher",
+            depth: 0,
+            last_known_status: "running"
           )
         end,
       ],

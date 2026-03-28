@@ -322,9 +322,11 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       depth: 1,
       profile_key: "researcher"
     )
-    turn = Turns::StartUserTurn.call(
+    turn = Turns::StartAgentTurn.call(
       conversation: child_chain.fetch(:conversation),
       content: "Delegated input",
+      sender_kind: "owner_agent",
+      sender_conversation: child_chain.fetch(:subagent_session).owner_conversation,
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}

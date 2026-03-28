@@ -47,7 +47,7 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
       installation: installation,
       fact_kind: "subagent_outcome",
       fact_key: "planner",
-      subagent_run_id: 303,
+      subagent_session_id: 303,
       success: false,
       occurred_at: Time.utc(2026, 3, 24, 12, 5, 0),
       metadata: { "reason" => "timeout" }
