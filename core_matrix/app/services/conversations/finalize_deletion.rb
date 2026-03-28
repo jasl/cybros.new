@@ -11,28 +11,35 @@ module Conversations
     end
 
     def call
-      return @conversation if @conversation.deleted? && @conversation.canonical_store_reference.blank?
+      conversation = current_conversation
 
-      raise_invalid!(@conversation, :deletion_state, "must be pending delete before finalization") unless @conversation.pending_delete?
+      return conversation if conversation.deleted? && conversation.canonical_store_reference.blank?
+
+      raise_invalid!(conversation, :deletion_state, "must be pending delete before finalization") unless conversation.pending_delete?
 
       ApplicationRecord.transaction do
-        @conversation.with_lock do
-          validate_quiescent!
-          @conversation.canonical_store_reference&.destroy!
-          @conversation.update!(deletion_state: "deleted")
+        conversation.with_lock do
+          locked_conversation = conversation.reload
+          validate_quiescent!(locked_conversation)
+          locked_conversation.canonical_store_reference&.destroy!
+          locked_conversation.update!(deletion_state: "deleted")
         end
 
-        Conversations::ReconcileCloseOperation.call(conversation: @conversation)
+        Conversations::ReconcileCloseOperation.call(conversation: conversation)
       end
 
       CanonicalStores::GarbageCollectJob.perform_later
-      @conversation.reload
+      conversation.reload
     end
 
     private
 
-    def validate_quiescent!
-      ensure_mainline_stop_barrier_clear!(@conversation, stage: "final deletion")
+    def current_conversation
+      @current_conversation ||= Conversation.find(@conversation.id)
+    end
+
+    def validate_quiescent!(conversation)
+      ensure_mainline_stop_barrier_clear!(conversation, stage: "final deletion")
     end
 
     def raise_invalid!(record, attribute, message)

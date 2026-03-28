@@ -357,6 +357,34 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert Conversation.exists?(conversation.id)
   end
 
+  test "purges from a stale deleted shell by reloading deletion state" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    stale_conversation = Conversation.find(conversation.id)
+
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Purge me",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    Conversations::RequestDeletion.call(conversation: conversation)
+    Conversations::FinalizeDeletion.call(conversation: conversation.reload)
+    perform_enqueued_jobs
+
+    assert_difference("Conversation.count", -1) do
+      Conversations::PurgeDeleted.call(conversation: stale_conversation)
+    end
+
+    assert_not Conversation.exists?(conversation.id)
+  end
+
   test "rejects purge while a deleted conversation still has its live canonical store reference" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(

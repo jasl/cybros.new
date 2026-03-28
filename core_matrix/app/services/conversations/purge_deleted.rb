@@ -13,74 +13,80 @@ module Conversations
     end
 
     def call
-      return @conversation unless @conversation.deleted?
+      conversation = current_conversation
+      return conversation unless conversation.deleted?
 
       purged = false
       affected_conversation_ids = []
 
       ApplicationRecord.transaction do
-        @conversation.with_lock do
-          affected_conversation_ids = reconcile_target_ids
-          ensure_finalized_state!
+        conversation.with_lock do
+          locked_conversation = conversation.reload
+          affected_conversation_ids = reconcile_target_ids(locked_conversation)
+          ensure_finalized_state!(locked_conversation)
           if @force
-            force_quiesce!
-            next if quiescence_pending_after_force?
+            force_quiesce!(locked_conversation)
+            next if quiescence_pending_after_force?(locked_conversation)
           else
-            ensure_conversation_quiescent!(@conversation, stage: "purge")
+            ensure_conversation_quiescent!(locked_conversation, stage: "purge")
           end
-          next if purge_blocked?
+          next if purge_blocked?(locked_conversation)
 
-          plan = Conversations::PurgePlan.new(conversation: @conversation)
+          plan = Conversations::PurgePlan.new(conversation: locked_conversation)
           plan.execute!
-          raise_invalid!(@conversation, :base, "must not purge while owned rows remain") if plan.remaining_owned_rows?
+          raise_invalid!(locked_conversation, :base, "must not purge while owned rows remain") if plan.remaining_owned_rows?
 
-          @conversation.delete
+          locked_conversation.delete
           purged = true
         end
       end
 
       reconcile_affected_conversations!(affected_conversation_ids) if purged
-      purged ? @conversation : @conversation.reload
+      purged ? conversation : conversation.reload
     end
 
     private
 
-    def reconcile_target_ids
+    def current_conversation
+      @current_conversation ||= Conversation.find(@conversation.id)
+    end
+
+    def reconcile_target_ids(conversation)
       (
-        ancestor_conversation_ids +
-        import_source_conversation_ids
+        ancestor_conversation_ids(conversation) +
+        import_source_conversation_ids(conversation)
       ).uniq
     end
 
-    def ensure_finalized_state!
-      raise_invalid!(@conversation, :base, "must not purge before final deletion removes the canonical store reference") if @conversation.canonical_store_reference.present?
+    def ensure_finalized_state!(conversation)
+      raise_invalid!(conversation, :base, "must not purge before final deletion removes the canonical store reference") if conversation.canonical_store_reference.present?
     end
 
-    def force_quiesce!
+    def force_quiesce!(conversation)
       Conversations::RequestClose.call(
-        conversation: @conversation,
+        conversation: conversation,
         intent_kind: "delete",
         occurred_at: @occurred_at
       )
     end
 
-    def quiescence_pending_after_force?
-      ensure_conversation_quiescent!(@conversation, stage: "purge")
+    def quiescence_pending_after_force?(conversation)
+      ensure_conversation_quiescent!(conversation, stage: "purge")
       false
     rescue ActiveRecord::RecordInvalid
       true
     end
 
-    def purge_blocked?
-      Conversations::DependencyBlockersQuery.call(conversation: @conversation).blocked?
+    def purge_blocked?(conversation)
+      Conversations::DependencyBlockersQuery.call(conversation: conversation).blocked?
     end
 
-    def ancestor_conversation_ids
-      @conversation.ancestor_closures.where.not(ancestor_conversation_id: @conversation.id).pluck(:ancestor_conversation_id)
+    def ancestor_conversation_ids(conversation)
+      conversation.ancestor_closures.where.not(ancestor_conversation_id: conversation.id).pluck(:ancestor_conversation_id)
     end
 
-    def import_source_conversation_ids
-      ConversationImport.where(conversation: @conversation).where.not(source_conversation_id: nil).distinct.pluck(:source_conversation_id)
+    def import_source_conversation_ids(conversation)
+      ConversationImport.where(conversation: conversation).where.not(source_conversation_id: nil).distinct.pluck(:source_conversation_id)
     end
 
     def reconcile_affected_conversations!(conversation_ids)

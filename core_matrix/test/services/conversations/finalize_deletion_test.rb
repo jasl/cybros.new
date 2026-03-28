@@ -81,4 +81,23 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:base], "must not have active turns before final deletion"
   end
+
+  test "finalizes from a stale conversation object by reloading pending delete state" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    stale_conversation = Conversation.find(conversation.id)
+
+    Conversations::RequestDeletion.call(conversation: conversation)
+
+    assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do
+      finalized = Conversations::FinalizeDeletion.call(conversation: stale_conversation)
+
+      assert finalized.deleted?
+      assert_nil finalized.canonical_store_reference
+    end
+  end
 end
