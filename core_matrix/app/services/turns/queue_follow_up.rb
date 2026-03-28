@@ -13,18 +13,15 @@ module Turns
 
     def call
       @conversation.with_lock do
-        raise_invalid!(@conversation, :purpose, "must be interactive for user turn entry") unless @conversation.interactive?
+        raise_invalid!(@conversation, :purpose, "must be interactive for follow up turn entry") unless @conversation.interactive?
         SubagentSessions::ValidateAddressability.call(
           conversation: @conversation,
           sender_kind: "human",
           rejection_message: "must be owner_addressable for follow up turn entry"
         )
-        Conversations::ValidateMutableState.call(
+        Turns::ValidateConversationTurnEntry.call(
           conversation: @conversation,
-          record: @conversation,
-          retained_message: "must be retained for follow up turn entry",
-          active_message: "must be active for user turn entry",
-          closing_message: "must not accept new turn entry while close is in progress"
+          entry_label: "follow up turn entry"
         )
 
         unless @conversation.turns.where(lifecycle_state: %w[queued active]).exists?

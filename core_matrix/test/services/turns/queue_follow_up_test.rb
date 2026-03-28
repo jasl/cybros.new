@@ -86,6 +86,27 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     end
   end
 
+  test "rejects automation purpose conversations with follow up turn entry messaging" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::QueueFollowUp.call(
+        conversation: conversation,
+        content: "Should not queue",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+
+    assert_includes error.record.errors[:purpose], "must be interactive for follow up turn entry"
+  end
+
   test "rejects queueing follow up on agent addressable conversations before active work checks" do
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
@@ -179,7 +200,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:lifecycle_state], "must be active for user turn entry"
+    assert_includes error.record.errors[:lifecycle_state], "must be active for follow up turn entry"
     assert_equal 1, conversation.reload.turns.count
   end
 

@@ -19,12 +19,9 @@ module Turns
           sender_kind: "human",
           rejection_message: "must be owner_addressable for user turn entry"
         )
-        Conversations::ValidateMutableState.call(
+        Turns::ValidateConversationTurnEntry.call(
           conversation: @conversation,
-          record: @conversation,
-          retained_message: "must be retained for user turn entry",
-          active_message: "must be active for user turn entry",
-          closing_message: "must not accept new turn entry while close is in progress"
+          entry_label: "user turn entry"
         )
         agent_deployment = @conversation.agent_deployment
 

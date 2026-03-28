@@ -23,11 +23,9 @@ module Turns
           sender_kind: @sender_kind,
           rejection_message: "must be agent_addressable for agent turn entry"
         )
-        Conversations::ValidateMutableState.call(
+        Turns::ValidateConversationTurnEntry.call(
           conversation: @conversation,
-          record: @conversation,
-          retained_message: "must be retained for agent turn entry",
-          active_message: "must be active for agent turn entry",
+          entry_label: "agent turn entry",
           closing_message: "must not accept agent turn entry while close is in progress"
         )
         validate_sender_kind!
