@@ -75,6 +75,30 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
   end
 
+  test "rejects manual retry when the frozen selector can no longer be resolved" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
+    )
+    ProviderEntitlement.where(installation: context[:installation]).update_all(active: false)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ManualRetry.call(
+        workflow_run: context[:workflow_run],
+        deployment: replacement,
+        actor: create_user!(installation: context[:installation], role: "admin")
+      )
+    end
+
+    assert_equal context[:turn].id, error.record.id
+    assert_includes error.record.errors[:resolved_model_selection_snapshot], "must remain resolvable for the recovery action"
+    assert context[:workflow_run].reload.waiting?
+    assert context[:turn].reload.active?
+    assert_equal context[:agent_deployment], context[:conversation].reload.agent_deployment
+  end
+
   test "rechecks paused recovery state after acquiring the conversation lock" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(

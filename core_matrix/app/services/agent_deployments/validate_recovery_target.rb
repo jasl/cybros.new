@@ -11,7 +11,11 @@ module AgentDeployments
       record: turn,
       selector_source:,
       selector: nil,
-      require_auto_resume_eligible: false
+      require_auto_resume_eligible: false,
+      same_logical_agent_as: turn.agent_deployment,
+      capability_contract_turn: turn,
+      scheduling_error_message: "must be eligible for scheduling to continue paused work",
+      resolution_error_message: "must remain resolvable for the recovery action"
     )
       @conversation = conversation
       @turn = turn
@@ -20,6 +24,10 @@ module AgentDeployments
       @selector_source = selector_source
       @selector = selector
       @require_auto_resume_eligible = require_auto_resume_eligible
+      @same_logical_agent_as = same_logical_agent_as
+      @capability_contract_turn = capability_contract_turn
+      @scheduling_error_message = scheduling_error_message
+      @resolution_error_message = resolution_error_message
     end
 
     def call
@@ -30,8 +38,8 @@ module AgentDeployments
         conversation: @conversation,
         agent_deployment: @agent_deployment,
         record: @record,
-        same_logical_agent_as: @turn.agent_deployment,
-        capability_contract_turn: @turn
+        same_logical_agent_as: @same_logical_agent_as,
+        capability_contract_turn: @capability_contract_turn
       )
 
       resolve_model_selection_snapshot
@@ -42,7 +50,7 @@ module AgentDeployments
     def validate_schedulable!
       return if @agent_deployment.eligible_for_scheduling?
 
-      raise_invalid!(:agent_deployment, "must be eligible for scheduling to continue paused work")
+      raise_invalid!(:agent_deployment, @scheduling_error_message)
     end
 
     def validate_auto_resume_eligible!
@@ -58,7 +66,7 @@ module AgentDeployments
         selector: @selector
       )
     rescue ActiveRecord::RecordInvalid
-      raise_invalid!(:resolved_model_selection_snapshot, "must remain resolvable for the recovery action")
+      raise_invalid!(:resolved_model_selection_snapshot, @resolution_error_message)
     end
 
     def probe_turn
