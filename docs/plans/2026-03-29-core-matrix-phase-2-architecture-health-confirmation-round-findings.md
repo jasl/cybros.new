@@ -198,6 +198,14 @@ execution-snapshot envelope that the normal `core_matrix <-> fenix` boundary
 now expects. The archived iterative audit therefore remains the baseline, but
 it should not yet be treated as exhaustive.
 
+Post-fix narrow recheck:
+after `fix: preserve execution snapshot on retry assignments` (`661afb5`), the
+specific boundary leak identified in this round no longer reproduces in current
+code. `AgentControl::CreateExecutionAssignment` now derives the frozen
+execution-context envelope from `turn.execution_snapshot` across assignment
+families, and `Workflows::StepRetry` now passes a standard `task_payload`
+wrapper instead of bypassing the contract.
+
 ## Completeness Check
 
 - The archived iterative findings and the archived iterative plan were re-read
@@ -210,3 +218,9 @@ it should not yet be treated as exhaustive.
   families in `core_matrix` and `agents/fenix`.
 - This report explicitly states that one new high-confidence finding exists, so
   the result is not `no new high-confidence findings`.
+- Post-fix narrow recheck ran on the repaired boundary and re-verified:
+  `core_matrix/test/services/workflows/step_retry_test.rb`,
+  `core_matrix/test/services/agent_control/create_execution_assignment_test.rb`,
+  `core_matrix/test/services/workflows/create_for_turn_test.rb`,
+  `agents/fenix/test/integration/runtime_flow_test.rb`, and
+  `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`.
