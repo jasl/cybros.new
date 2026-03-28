@@ -25,7 +25,7 @@ module Conversations
         running_process_count: process_scope.where(lifecycle_state: "running").count,
         running_background_process_count: process_scope.where(lifecycle_state: "running", kind: "background_service").count,
         detached_tool_process_count: 0,
-        running_subagent_count: subagent_scope.where(lifecycle_state: %w[open close_requested], last_known_status: "running").count,
+        running_subagent_count: subagent_scope.merge(SubagentSession.running_for_barriers).count,
         active_execution_lease_count: execution_lease_scope.where(released_at: nil).count,
         degraded_close_count: degraded_close_count,
         descendant_lineage_blockers: descendant_lineage_blockers,

@@ -117,7 +117,7 @@ module Conversations
         HumanInteractionRequest.where(conversation: @turn.conversation, turn: @turn, lifecycle_state: "open", blocking: true).none? &&
         ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command").none? &&
         reusable_subagent_step_scope.none? &&
-        turn_scoped_subagent_session_scope.where(lifecycle_state: %w[open close_requested]).none?
+        turn_scoped_subagent_session_scope.merge(SubagentSession.close_pending_or_open).none?
     end
 
     def reusable_subagent_step_scope
@@ -134,8 +134,7 @@ module Conversations
     def turn_scoped_subagent_session_scope
       SubagentSession.where(
         owner_conversation: @turn.conversation,
-        origin_turn: @turn,
-        lifecycle_state: %w[open close_requested]
+        origin_turn: @turn
       )
     end
 

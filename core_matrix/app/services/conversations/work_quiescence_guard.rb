@@ -36,11 +36,7 @@ module Conversations
 
       pending_sessions = SubagentSession
         .where(id: session_ids)
-        .where(
-          SubagentSession.arel_table[:lifecycle_state].in(%w[open close_requested]).or(
-            SubagentSession.arel_table[:close_state].in(%w[requested acknowledged])
-          )
-        )
+        .merge(SubagentSession.close_pending_or_open)
       return unless pending_sessions.exists?
 
       qualifier = stage == "archival" ? "open" : "open or close-pending"

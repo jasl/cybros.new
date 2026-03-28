@@ -27,7 +27,7 @@ module SubagentSessions
     private
 
     def terminal?(session)
-      session.lifecycle_closed? ||
+      session.close_closed? ||
         session.close_failed? ||
         TERMINAL_LAST_KNOWN_STATUSES.include?(session.last_known_status)
     end

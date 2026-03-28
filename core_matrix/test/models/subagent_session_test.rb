@@ -223,4 +223,133 @@ class SubagentSessionTest < ActiveSupport::TestCase
 
     assert session.valid?
   end
+
+  test "exposes canonical close and running scopes for reader-side guards" do
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+
+    open_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0,
+      lifecycle_state: "open",
+      close_state: "open",
+      last_known_status: "running"
+    )
+    requested_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: create_conversation_record!(
+        workspace: context[:workspace],
+        parent_conversation: owner_conversation,
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        kind: "thread",
+        addressability: "agent_addressable"
+      ),
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0,
+      lifecycle_state: "close_requested",
+      close_state: "requested",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      last_known_status: "running"
+    )
+    acknowledged_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: create_conversation_record!(
+        workspace: context[:workspace],
+        parent_conversation: owner_conversation,
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        kind: "thread",
+        addressability: "agent_addressable"
+      ),
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0,
+      lifecycle_state: "close_requested",
+      close_state: "acknowledged",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      last_known_status: "running"
+    )
+    closed_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: create_conversation_record!(
+        workspace: context[:workspace],
+        parent_conversation: owner_conversation,
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        kind: "thread",
+        addressability: "agent_addressable"
+      ),
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0,
+      lifecycle_state: "closed",
+      close_state: "closed",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      close_outcome_kind: "graceful",
+      last_known_status: "completed"
+    )
+    failed_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: create_conversation_record!(
+        workspace: context[:workspace],
+        parent_conversation: owner_conversation,
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        kind: "thread",
+        addressability: "agent_addressable"
+      ),
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0,
+      lifecycle_state: "closed",
+      close_state: "failed",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      close_outcome_kind: "timed_out_forced",
+      last_known_status: "failed"
+    )
+
+    assert_equal [open_session.id, requested_session.id, acknowledged_session.id].sort,
+      SubagentSession.close_pending_or_open.order(:id).pluck(:id).sort
+    assert_equal [open_session.id, requested_session.id, acknowledged_session.id].sort,
+      SubagentSession.running_for_barriers.order(:id).pluck(:id).sort
+    refute_includes SubagentSession.close_pending_or_open.pluck(:id), closed_session.id
+    refute_includes SubagentSession.close_pending_or_open.pluck(:id), failed_session.id
+  end
 end

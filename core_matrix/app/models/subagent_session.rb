@@ -43,6 +43,9 @@ class SubagentSession < ApplicationRecord
   has_many :agent_task_runs, dependent: :restrict_with_exception
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
+  scope :close_pending_or_open, -> { where.not(close_state: %w[closed failed]) }
+  scope :running_for_barriers, -> { close_pending_or_open.where(last_known_status: "running") }
+
   validates :profile_key, presence: true
   validates :depth, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validate :conversation_installation_match
