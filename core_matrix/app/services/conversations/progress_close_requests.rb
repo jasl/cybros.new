@@ -31,7 +31,10 @@ module Conversations
       [
         AgentTaskRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
         ProcessRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
-        SubagentSession.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
+        SubagentSession.where(
+          id: SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation),
+          close_state: CLOSE_PENDING_STATES
+        ),
       ]
     end
 

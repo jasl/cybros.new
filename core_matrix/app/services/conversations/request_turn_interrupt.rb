@@ -89,8 +89,9 @@ module Conversations
       relations = [
         AgentTaskRun.where(turn: @turn, lifecycle_state: "running"),
         ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command"),
+        reusable_subagent_step_scope,
+        turn_scoped_subagent_session_scope,
       ]
-      relations << SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running") if @workflow_run.present?
 
       Conversations::RequestResourceCloses.call(
         relations: relations,
@@ -115,7 +116,27 @@ module Conversations
       AgentTaskRun.where(turn: @turn, lifecycle_state: "running").none? &&
         HumanInteractionRequest.where(conversation: @turn.conversation, turn: @turn, lifecycle_state: "open", blocking: true).none? &&
         ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command").none? &&
-        (@workflow_run.blank? || SubagentRun.where(workflow_run: @workflow_run, lifecycle_state: "running").none?)
+        reusable_subagent_step_scope.none? &&
+        turn_scoped_subagent_session_scope.where(lifecycle_state: %w[open close_requested]).none?
+    end
+
+    def reusable_subagent_step_scope
+      AgentTaskRun
+        .joins(:subagent_session)
+        .where(
+          requested_by_turn: @turn,
+          task_kind: "subagent_step",
+          lifecycle_state: "running",
+          subagent_sessions: { scope: "conversation" }
+        )
+    end
+
+    def turn_scoped_subagent_session_scope
+      SubagentSession.where(
+        owner_conversation: @turn.conversation,
+        origin_turn: @turn,
+        lifecycle_state: %w[open close_requested]
+      )
     end
 
     def reconcile_close_operation!

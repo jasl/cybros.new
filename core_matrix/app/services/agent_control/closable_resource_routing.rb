@@ -9,6 +9,7 @@ module AgentControl
     end
 
     def conversation_for(resource)
+      return resource.owner_conversation if resource.is_a?(SubagentSession)
       return resource.conversation if resource.respond_to?(:conversation)
 
       turn = turn_for(resource)
@@ -18,6 +19,7 @@ module AgentControl
     end
 
     def turn_for(resource)
+      return resource.origin_turn if resource.respond_to?(:origin_turn) && resource.origin_turn.present?
       return resource.turn if resource.respond_to?(:turn)
 
       resource.workflow_run&.turn if resource.respond_to?(:workflow_run)

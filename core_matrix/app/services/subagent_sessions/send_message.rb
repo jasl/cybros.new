@@ -23,6 +23,7 @@ module SubagentSessions
           active_message: "must be active for subagent delivery",
           closing_message: "must not accept subagent delivery while close is in progress"
         )
+        validate_session_mutable!
         SubagentSessions::ValidateAddressability.call(
           conversation: @conversation,
           sender_kind: @sender_kind,
@@ -106,6 +107,13 @@ module SubagentSessions
       return @sender_conversation.public_id if @sender_conversation.present?
 
       "system"
+    end
+
+    def validate_session_mutable!
+      session = @conversation.subagent_session
+      return if session.blank? || session.close_open?
+
+      raise_invalid!(:base, "must not accept subagent delivery while session close is in progress")
     end
 
     def raise_invalid!(attribute, message)

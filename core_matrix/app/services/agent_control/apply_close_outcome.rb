@@ -120,13 +120,12 @@ module AgentControl
     end
 
     def reconcile_close_operation!
-      conversation = ClosableResourceRouting.conversation_for(@resource)
-      return if conversation.blank?
-
-      Conversations::ReconcileCloseOperation.call(
-        conversation: conversation,
-        occurred_at: @occurred_at
-      )
+      conversations_for_close_reconciliation.each do |conversation|
+        Conversations::ReconcileCloseOperation.call(
+          conversation: conversation,
+          occurred_at: @occurred_at
+        )
+      end
     end
 
     def close_failed?
@@ -137,6 +136,13 @@ module AgentControl
       return "interrupted" if @mailbox_item.payload["request_kind"] == "turn_interrupt"
 
       "completed"
+    end
+
+    def conversations_for_close_reconciliation
+      conversations = [ClosableResourceRouting.conversation_for(@resource)]
+      conversations << @resource.conversation if @resource.is_a?(SubagentSession)
+
+      conversations.compact.uniq
     end
   end
 end

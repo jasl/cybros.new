@@ -41,6 +41,30 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     assert root.reload.active?
   end
 
+  test "rejects archiving while an owned subagent session remains open" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    open_session = create_open_owned_subagent_session!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      owner_conversation: root,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      last_known_status: "idle"
+    ).fetch(:session)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::Archive.call(conversation: root)
+    end
+
+    assert_includes error.record.errors[:base], "must not have open subagent sessions before archival"
+    assert open_session.reload.lifecycle_open?
+  end
+
   test "rejects archiving while any open human interaction remains" do
     context = build_human_interaction_context!
     request = HumanInteractions::Request.call(
@@ -94,7 +118,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
   end
 
   test "force archive creates a close operation and waits only for mainline blockers before archiving" do
-    context = build_agent_control_context!
+    context = build_profile_aware_agent_control_context!
     blocking_request = HumanInteractions::Request.call(
       request_type: "HumanTaskRequest",
       workflow_node: context[:workflow_node],
@@ -122,11 +146,14 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       kind: "background_service",
       timeout_seconds: nil
     )
-    subagent_run = create_subagent_run!(
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running"
+    child_session = create_open_owned_subagent_session!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      owner_conversation: context[:conversation],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:deployment]
     )
-    [turn_command, background_service, subagent_run].each do |resource|
+    [turn_command, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
         holder_key: context[:deployment].public_id,
@@ -149,19 +176,29 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     assert blocking_request.reload.canceled?
 
     assert_raises(ActiveRecord::RecordInvalid) do
-      Turns::StartUserTurn.call(
+      SubagentSessions::Spawn.call(
         conversation: context[:conversation].reload,
+        requested_by_turn: context[:turn].reload,
         content: "Blocked while archive close is in progress",
-        agent_deployment: context[:deployment],
-        resolved_config_snapshot: {},
-        resolved_model_selection_snapshot: {}
+        scope: "conversation"
       )
     end
+
+    send_error = assert_raises(ActiveRecord::RecordInvalid) do
+      SubagentSessions::SendMessage.call(
+        conversation: child_session.fetch(:conversation).reload,
+        content: "Blocked while archive close is in progress",
+        sender_kind: "owner_agent",
+        sender_conversation: context[:conversation].reload
+      )
+    end
+
+    assert_includes send_error.record.errors[:base], "must not accept subagent delivery while session close is in progress"
 
     close_requests = AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
     task_close = close_requests.find { |item| item.payload["resource_id"] == agent_task_run.public_id }
     command_close = close_requests.find { |item| item.payload["resource_id"] == turn_command.public_id }
-    subagent_close = close_requests.find { |item| item.payload["resource_id"] == subagent_run.public_id }
+    subagent_close = close_requests.find { |item| item.payload["resource_id"] == child_session.fetch(:session).public_id }
 
     assert task_close.present?
     assert command_close.present?
@@ -170,7 +207,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     [
       [task_close, "AgentTaskRun", agent_task_run.public_id],
       [command_close, "ProcessRun", turn_command.public_id],
-      [subagent_close, "SubagentRun", subagent_run.public_id],
+      [subagent_close, "SubagentSession", child_session.fetch(:session).public_id],
     ].each do |mailbox_item, resource_type, resource_id|
       result = AgentControl::Report.call(
         deployment: context[:deployment],
@@ -215,5 +252,48 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     assert_not_nil close_operation.completed_at
     assert_equal 0, close_operation.summary_payload.dig("mainline", "active_turn_count")
     assert_equal 0, close_operation.summary_payload.dig("tail", "running_background_process_count")
+  end
+
+  private
+
+  def build_profile_aware_agent_control_context!
+    context = build_agent_control_context!
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:deployment],
+      version: 2,
+      tool_catalog: default_tool_catalog("shell_exec"),
+      profile_catalog: default_profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
+    context
+  end
+
+  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:, last_known_status: "running")
+    child_conversation = create_conversation_record!(
+      installation: installation,
+      workspace: workspace,
+      parent_conversation: owner_conversation,
+      kind: "thread",
+      execution_environment: execution_environment,
+      agent_deployment: agent_deployment,
+      addressability: "agent_addressable"
+    )
+    session = SubagentSession.create!(
+      installation: installation,
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: last_known_status
+    )
+
+    {
+      conversation: child_conversation,
+      session: session,
+    }
   end
 end

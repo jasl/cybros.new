@@ -481,62 +481,51 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert Conversation.exists?(branch.id)
   end
 
-  test "force purge requests mailbox close for deleted active work before later removing the shell" do
+  test "final deletion rejects while owned nested subagent sessions remain open" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    branch = Conversations::CreateThread.call(parent: root)
+    create_nested_subagent_session_tree!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      owner_conversation: branch,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+
+    Conversations::RequestDeletion.call(conversation: branch)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::FinalizeDeletion.call(conversation: branch.reload)
+    end
+
+    assert_includes error.record.errors[:base], "must not have open or close-pending subagent sessions before final deletion"
+    assert branch.reload.pending_delete?
+  end
+
+  test "force purge requests mailbox close for deleted nested subagent session trees before later removing the shell" do
     context = build_agent_control_context!
     root = context[:conversation]
     branch = Conversations::CreateThread.call(parent: root)
-    turn = Turns::StartUserTurn.call(
-      conversation: branch,
-      content: "Still running on branch",
-      agent_deployment: context[:deployment],
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
-    workflow_run = create_workflow_run!(turn: turn)
-    human_node = create_workflow_node!(
-      workflow_run: workflow_run,
-      node_key: "human_gate",
-      node_type: "human_interaction",
-      decision_source: "agent_program",
-      metadata: {}
-    )
-    HumanInteractions::Request.call(
-      request_type: "HumanTaskRequest",
-      workflow_node: human_node,
-      blocking: true,
-      request_payload: { "instructions" => "Need user input" }
-    )
-    process_node = create_workflow_node!(
-      workflow_run: workflow_run,
-      node_key: "process",
-      node_type: "turn_command",
-      decision_source: "agent_program",
-      metadata: {}
-    )
-    process_run = Processes::Start.call(
-      workflow_node: process_node,
+    session_tree = create_nested_subagent_session_tree!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      owner_conversation: branch,
       execution_environment: context[:execution_environment],
-      kind: "turn_command",
-      command_line: "echo hi",
-      timeout_seconds: 30,
-      origin_message: turn.selected_input_message
-    )
-    subagent_run = Subagents::Spawn.call(
-      workflow_node: human_node,
-      requested_role_or_slot: "researcher"
-    )
-    Leases::Acquire.call(
-      leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
-      heartbeat_timeout_seconds: 30
-    )
-    Leases::Acquire.call(
-      leased_resource: subagent_run,
-      holder_key: context[:deployment].public_id,
-      heartbeat_timeout_seconds: 30
+      agent_deployment: context[:deployment]
     )
     branch.canonical_store_reference.destroy!
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::PurgeDeleted.call(conversation: branch.reload)
+    end
+
+    assert_includes error.record.errors[:base], "must not have open or close-pending subagent sessions before purge"
 
     assert_no_difference("Conversation.count") do
       Conversations::PurgeDeleted.call(
@@ -547,31 +536,30 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     end
 
     mailbox_items = AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
-    process_close = mailbox_items.find do |item|
-      item.payload["resource_type"] == "ProcessRun" &&
-        item.payload["resource_id"] == process_run.public_id
+    direct_session_close = mailbox_items.find do |item|
+      item.payload["resource_type"] == "SubagentSession" &&
+        item.payload["resource_id"] == session_tree.fetch(:direct_session).public_id
     end
-    subagent_close = mailbox_items.find do |item|
-      item.payload["resource_type"] == "SubagentRun" &&
-        item.payload["resource_id"] == subagent_run.public_id
+    nested_session_close = mailbox_items.find do |item|
+      item.payload["resource_type"] == "SubagentSession" &&
+        item.payload["resource_id"] == session_tree.fetch(:nested_session).public_id
     end
 
-    assert process_close.present?
-    assert subagent_close.present?
-    assert process_run.reload.close_requested_at.present?
-    assert subagent_run.reload.close_requested_at.present?
-    assert HumanInteractionRequest.where(conversation: branch, lifecycle_state: "open").none?
+    assert direct_session_close.present?
+    assert nested_session_close.present?
+    assert session_tree.fetch(:direct_session).reload.close_requested_at.present?
+    assert session_tree.fetch(:nested_session).reload.close_requested_at.present?
     assert branch.reload.unfinished_close_operation.present?
 
     AgentControl::Report.call(
       deployment: context[:deployment],
       payload: {
         method_id: "resource_closed",
-        message_id: "process-close-#{next_test_sequence}",
-        mailbox_item_id: process_close.public_id,
-        close_request_id: process_close.public_id,
-        resource_type: "ProcessRun",
-        resource_id: process_run.public_id,
+        message_id: "direct-session-close-#{next_test_sequence}",
+        mailbox_item_id: direct_session_close.public_id,
+        close_request_id: direct_session_close.public_id,
+        resource_type: "SubagentSession",
+        resource_id: session_tree.fetch(:direct_session).public_id,
         close_outcome_kind: "graceful",
         close_outcome_payload: { "source" => "force-purge" },
       }
@@ -580,33 +568,31 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       deployment: context[:deployment],
       payload: {
         method_id: "resource_closed",
-        message_id: "subagent-close-#{next_test_sequence}",
-        mailbox_item_id: subagent_close.public_id,
-        close_request_id: subagent_close.public_id,
-        resource_type: "SubagentRun",
-        resource_id: subagent_run.public_id,
+        message_id: "nested-session-close-#{next_test_sequence}",
+        mailbox_item_id: nested_session_close.public_id,
+        close_request_id: nested_session_close.public_id,
+        resource_type: "SubagentSession",
+        resource_id: session_tree.fetch(:nested_session).public_id,
         close_outcome_kind: "graceful",
         close_outcome_payload: { "source" => "force-purge" },
       }
     )
 
-    assert_difference("Conversation.count", -1) do
-      assert_difference("Turn.count", -1) do
-        assert_difference("WorkflowRun.count", -1) do
-          assert_difference("HumanInteractionRequest.count", -1) do
-            assert_difference("ProcessRun.count", -1) do
-              assert_difference("SubagentRun.count", -1) do
-                assert_difference("ExecutionLease.count", -2) do
-                  Conversations::PurgeDeleted.call(conversation: branch.reload)
-                end
-              end
-            end
+    assert_difference("Conversation.count", -3) do
+      assert_difference("SubagentSession.count", -2) do
+        assert_difference("AgentControlMailboxItem.count", -2) do
+          assert_difference("AgentControlReportReceipt.count", -2) do
+            Conversations::PurgeDeleted.call(conversation: branch.reload)
           end
         end
       end
     end
 
     assert_not Conversation.exists?(branch.id)
+    assert_not Conversation.exists?(session_tree.fetch(:direct_conversation).id)
+    assert_not Conversation.exists?(session_tree.fetch(:nested_conversation).id)
+    assert_not SubagentSession.exists?(session_tree.fetch(:direct_session).id)
+    assert_not SubagentSession.exists?(session_tree.fetch(:nested_session).id)
     assert Conversation.exists?(root.id)
   end
 
@@ -628,5 +614,52 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     yield
   rescue StandardError => error
     flunk("expected purge to succeed, but raised #{error.class}: #{error.message}")
+  end
+
+  def create_nested_subagent_session_tree!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:)
+    direct_conversation = create_conversation_record!(
+      installation: installation,
+      workspace: workspace,
+      parent_conversation: owner_conversation,
+      kind: "thread",
+      execution_environment: execution_environment,
+      agent_deployment: agent_deployment,
+      addressability: "agent_addressable"
+    )
+    direct_session = SubagentSession.create!(
+      installation: installation,
+      owner_conversation: owner_conversation,
+      conversation: direct_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
+    )
+    nested_conversation = create_conversation_record!(
+      installation: installation,
+      workspace: workspace,
+      parent_conversation: direct_conversation,
+      kind: "thread",
+      execution_environment: execution_environment,
+      agent_deployment: agent_deployment,
+      addressability: "agent_addressable"
+    )
+    nested_session = SubagentSession.create!(
+      installation: installation,
+      owner_conversation: direct_conversation,
+      conversation: nested_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 1,
+      parent_subagent_session: direct_session,
+      last_known_status: "running"
+    )
+
+    {
+      direct_conversation: direct_conversation,
+      direct_session: direct_session,
+      nested_conversation: nested_conversation,
+      nested_session: nested_session,
+    }
   end
 end

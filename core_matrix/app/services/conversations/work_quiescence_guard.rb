@@ -5,6 +5,7 @@ module Conversations
     def ensure_mainline_stop_barrier_clear!(conversation, stage:)
       barrier = barrier_for(conversation)
 
+      ensure_owned_subagent_sessions_closed!(conversation, stage: stage)
       raise_invalid!(conversation, :base, "must not have active turns before #{stage}") if barrier[:active_turn_count].positive?
       raise_invalid!(conversation, :base, "must not have active workflow runs before #{stage}") if barrier[:active_workflow_count].positive?
       raise_invalid!(conversation, :base, "must not have active agent task execution before #{stage}") if barrier[:active_agent_task_count].positive?
@@ -17,6 +18,7 @@ module Conversations
       barrier = barrier_for(conversation)
 
       raise_invalid!(conversation, :base, "must not have queued turns before #{stage}") if barrier[:queued_turn_count].positive?
+      ensure_owned_subagent_sessions_closed!(conversation, stage: stage)
       ensure_mainline_stop_barrier_clear!(conversation, stage: stage)
       raise_invalid!(conversation, :base, "must not have active execution leases before #{stage}") if barrier[:active_execution_lease_count].positive?
       raise_invalid!(conversation, :base, "must not have open human interaction before #{stage}") if barrier[:open_interaction_count].positive?
@@ -26,6 +28,23 @@ module Conversations
 
     def barrier_for(conversation)
       Conversations::WorkBarrierQuery.call(conversation: conversation)
+    end
+
+    def ensure_owned_subagent_sessions_closed!(conversation, stage:)
+      session_ids = SubagentSessions::OwnedTree.session_ids_for(owner_conversation: conversation)
+      return if session_ids.empty?
+
+      pending_sessions = SubagentSession
+        .where(id: session_ids)
+        .where(
+          SubagentSession.arel_table[:lifecycle_state].in(%w[open close_requested]).or(
+            SubagentSession.arel_table[:close_state].in(%w[requested acknowledged])
+          )
+        )
+      return unless pending_sessions.exists?
+
+      qualifier = stage == "archival" ? "open" : "open or close-pending"
+      raise_invalid!(conversation, :base, "must not have #{qualifier} subagent sessions before #{stage}")
     end
   end
 end

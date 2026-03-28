@@ -58,10 +58,7 @@ module Conversations
     end
 
     def subagent_scope
-      @subagent_scope ||= SubagentSession.where(
-        owner_conversation_id: @conversation.id,
-        origin_turn_id: turn_scope.select(:id)
-      )
+      @subagent_scope ||= SubagentSession.where(id: owned_subagent_session_ids)
     end
 
     def execution_lease_scope
@@ -71,7 +68,11 @@ module Conversations
     end
 
     def descendant_lineage_blockers
-      @conversation.descendant_closures.where.not(descendant_conversation_id: @conversation.id).count
+      descendant_conversation_ids = @conversation.descendant_closures.where.not(
+        descendant_conversation_id: @conversation.id
+      ).pluck(:descendant_conversation_id)
+
+      (descendant_conversation_ids - owned_subagent_conversation_ids).size
     end
 
     def root_store_blocker?
@@ -99,6 +100,14 @@ module Conversations
 
     def subagent_close_failures
       subagent_scope.where(close_state: "failed").count
+    end
+
+    def owned_subagent_session_ids
+      @owned_subagent_session_ids ||= SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation)
+    end
+
+    def owned_subagent_conversation_ids
+      @owned_subagent_conversation_ids ||= SubagentSessions::OwnedTree.conversation_ids_for(owner_conversation: @conversation)
     end
 
     def task_close_failures

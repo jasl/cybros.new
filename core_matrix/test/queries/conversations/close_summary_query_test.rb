@@ -27,9 +27,12 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
       kind: "background_service",
       timeout_seconds: nil
     )
-    subagent_run = create_subagent_run!(
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running"
+    subagent_session = create_open_owned_subagent_session!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      owner_conversation: root,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:deployment]
     )
 
     summary = Conversations::CloseSummaryQuery.call(conversation: root)
@@ -48,7 +51,31 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
     assert running_task.running?
     assert process_run.running?
     assert background_run.running?
-    assert subagent_run.running?
+    assert subagent_session.last_known_status_running?
     assert child.retained?
+  end
+
+  private
+
+  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:)
+    child_conversation = create_conversation_record!(
+      installation: installation,
+      workspace: workspace,
+      parent_conversation: owner_conversation,
+      kind: "thread",
+      execution_environment: execution_environment,
+      agent_deployment: agent_deployment,
+      addressability: "agent_addressable"
+    )
+
+    SubagentSession.create!(
+      installation: installation,
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      last_known_status: "running"
+    )
   end
 end

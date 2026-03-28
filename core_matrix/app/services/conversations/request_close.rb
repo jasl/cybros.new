@@ -39,6 +39,10 @@ module Conversations
           apply_immediate_state!
           cancel_queued_turns!(reason_kind: config.fetch(:queued_turn_reason))
           request_turn_interrupts!
+          request_owned_subagent_session_closes!(
+            request_kind: config.fetch(:background_request_kind),
+            reason_kind: config.fetch(:close_reason_kind)
+          )
           request_background_process_closes!(
             request_kind: config.fetch(:background_request_kind),
             reason_kind: config.fetch(:close_reason_kind)
@@ -110,6 +114,20 @@ module Conversations
         reason_kind: reason_kind,
         occurred_at: @occurred_at
       )
+    end
+
+    def request_owned_subagent_session_closes!(request_kind:, reason_kind:)
+      SubagentSessions::OwnedTree.sessions_for(owner_conversation: @conversation).each do |session|
+        next unless session.close_open?
+
+        SubagentSessions::RequestClose.call(
+          subagent_session: session,
+          request_kind: request_kind,
+          reason_kind: reason_kind,
+          strictness: "graceful",
+          occurred_at: @occurred_at
+        )
+      end
     end
 
     def raise_invalid!(record, attribute, message)
