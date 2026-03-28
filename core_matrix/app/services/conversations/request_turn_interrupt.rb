@@ -6,20 +6,17 @@ module Conversations
 
     def initialize(turn:, occurred_at: Time.current)
       @turn = turn
-      @workflow_run = turn.workflow_run
       @occurred_at = occurred_at
     end
 
     def call
       ApplicationRecord.transaction do
-        @turn.with_lock do
-          with_workflow_lock do
-            fence_turn!
-            cancel_blocking_human_interactions!
-            cancel_queued_retry_work!
-            request_mainline_resource_closes!
-            finalize_if_mainline_cleared!
-          end
+        with_locked_turn_context do |turn, workflow_run|
+          fence_turn!(turn:, workflow_run:)
+          cancel_blocking_human_interactions!(turn:)
+          cancel_queued_retry_work!(turn:)
+          request_mainline_resource_closes!(turn:)
+          finalize_if_mainline_cleared!(turn:, workflow_run:)
         end
 
         reconcile_close_operation!
@@ -30,32 +27,35 @@ module Conversations
 
     private
 
-    def with_workflow_lock(&block)
-      return yield if @workflow_run.blank?
+    def with_locked_turn_context
+      workflow_run = WorkflowRun.find_by(turn_id: @turn.id)
+      return @turn.with_lock { yield @turn.reload, nil } if workflow_run.blank?
 
-      @workflow_run.with_lock(&block)
+      Workflows::WithLockedWorkflowContext.call(workflow_run: workflow_run) do |current_workflow_run, turn|
+        yield turn, current_workflow_run
+      end
     end
 
-    def fence_turn!
-      if @turn.active?
-        @turn.update!(
-          cancellation_requested_at: @turn.cancellation_requested_at || @occurred_at,
+    def fence_turn!(turn:, workflow_run:)
+      if turn.active?
+        turn.update!(
+          cancellation_requested_at: turn.cancellation_requested_at || @occurred_at,
           cancellation_reason_kind: "turn_interrupted"
         )
       end
 
-      return if @workflow_run.blank?
+      return if workflow_run.blank?
 
-      @workflow_run.update!(
-        cancellation_requested_at: @workflow_run.cancellation_requested_at || @occurred_at,
+      workflow_run.update!(
+        cancellation_requested_at: workflow_run.cancellation_requested_at || @occurred_at,
         cancellation_reason_kind: "turn_interrupted",
         **Workflows::WaitState.ready_attributes
       )
     end
 
-    def cancel_blocking_human_interactions!
+    def cancel_blocking_human_interactions!(turn:)
       HumanInteractionRequest
-        .where(conversation: @turn.conversation, turn: @turn, lifecycle_state: "open", blocking: true)
+        .where(conversation: turn.conversation, turn: turn, lifecycle_state: "open", blocking: true)
         .find_each do |request|
           request.update!(
             lifecycle_state: "canceled",
@@ -66,8 +66,8 @@ module Conversations
         end
     end
 
-    def cancel_queued_retry_work!
-      AgentTaskRun.where(turn: @turn, lifecycle_state: "queued").find_each do |task_run|
+    def cancel_queued_retry_work!(turn:)
+      AgentTaskRun.where(turn: turn, lifecycle_state: "queued").find_each do |task_run|
         task_run.update!(
           lifecycle_state: "canceled",
           started_at: task_run.started_at || @occurred_at,
@@ -85,12 +85,12 @@ module Conversations
       end
     end
 
-    def request_mainline_resource_closes!
+    def request_mainline_resource_closes!(turn:)
       relations = [
-        AgentTaskRun.where(turn: @turn, lifecycle_state: "running"),
-        ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command"),
-        reusable_subagent_step_scope,
-        turn_scoped_subagent_session_scope,
+        AgentTaskRun.where(turn: turn, lifecycle_state: "running"),
+        ProcessRun.where(turn: turn, lifecycle_state: "running", kind: "turn_command"),
+        reusable_subagent_step_scope(turn:),
+        turn_scoped_subagent_session_scope(turn:),
       ]
 
       Conversations::RequestResourceCloses.call(
@@ -101,40 +101,40 @@ module Conversations
       )
     end
 
-    def finalize_if_mainline_cleared!
-      return unless mainline_resource_blockers_cleared?
+    def finalize_if_mainline_cleared!(turn:, workflow_run:)
+      return unless mainline_resource_blockers_cleared?(turn:)
 
-      @workflow_run&.update!(
+      workflow_run&.update!(
         lifecycle_state: "canceled",
         **Workflows::WaitState.ready_attributes
       )
 
-      @turn.update!(lifecycle_state: "canceled")
+      turn.update!(lifecycle_state: "canceled")
     end
 
-    def mainline_resource_blockers_cleared?
-      AgentTaskRun.where(turn: @turn, lifecycle_state: "running").none? &&
-        HumanInteractionRequest.where(conversation: @turn.conversation, turn: @turn, lifecycle_state: "open", blocking: true).none? &&
-        ProcessRun.where(turn: @turn, lifecycle_state: "running", kind: "turn_command").none? &&
-        reusable_subagent_step_scope.none? &&
-        turn_scoped_subagent_session_scope.merge(SubagentSession.close_pending_or_open).none?
+    def mainline_resource_blockers_cleared?(turn:)
+      AgentTaskRun.where(turn: turn, lifecycle_state: "running").none? &&
+        HumanInteractionRequest.where(conversation: turn.conversation, turn: turn, lifecycle_state: "open", blocking: true).none? &&
+        ProcessRun.where(turn: turn, lifecycle_state: "running", kind: "turn_command").none? &&
+        reusable_subagent_step_scope(turn:).none? &&
+        turn_scoped_subagent_session_scope(turn:).merge(SubagentSession.close_pending_or_open).none?
     end
 
-    def reusable_subagent_step_scope
+    def reusable_subagent_step_scope(turn:)
       AgentTaskRun
         .joins(:subagent_session)
         .where(
-          requested_by_turn: @turn,
+          requested_by_turn: turn,
           task_kind: "subagent_step",
           lifecycle_state: "running",
           subagent_sessions: { scope: "conversation" }
         )
     end
 
-    def turn_scoped_subagent_session_scope
+    def turn_scoped_subagent_session_scope(turn:)
       SubagentSession.where(
-        owner_conversation: @turn.conversation,
-        origin_turn: @turn
+        owner_conversation: turn.conversation,
+        origin_turn: turn
       )
     end
 

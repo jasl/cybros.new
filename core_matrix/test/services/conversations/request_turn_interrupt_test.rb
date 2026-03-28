@@ -225,6 +225,31 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal 0, close_operation.summary_payload.dig("mainline", "active_workflow_count")
   end
 
+  test "reloads a cached-nil workflow association before fencing interrupt state" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Interrupt me",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_nil turn.workflow_run
+
+    workflow_run = create_workflow_run!(turn: Turn.find(turn.id))
+
+    Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: Time.zone.parse("2026-03-29 10:00:00 UTC"))
+
+    assert_equal "turn_interrupted", turn.reload.cancellation_reason_kind
+    assert_equal "turn_interrupted", workflow_run.reload.cancellation_reason_kind
+  end
+
   private
 
   def create_turn_scoped_subagent_session!(context:, origin_turn:)
