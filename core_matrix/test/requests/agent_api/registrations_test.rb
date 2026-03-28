@@ -43,6 +43,7 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     response_body = JSON.parse(response.body)
     deployment = AgentDeployment.find_by_public_id!(response_body.fetch("deployment_id"))
     execution_environment = deployment.execution_environment
+    contract = RuntimeCapabilityContract.build(capability_snapshot: deployment.active_capability_snapshot)
 
     assert response_body["machine_credential"].present?
     assert_equal "pending", response_body["bootstrap_state"]
@@ -50,8 +51,7 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     assert_equal execution_environment.public_id, response_body["execution_environment_id"]
     assert_equal "fenix-host-a", response_body["environment_fingerprint"]
     assert_equal false, response_body.dig("environment_capability_payload", "conversation_attachment_upload")
-    assert_equal ["agent_health", "capabilities_handshake"], response_body.dig("capability_snapshot", "protocol_methods").map { |entry| entry.fetch("method_id") }
-    assert_equal ["shell_exec"], response_body.dig("capability_snapshot", "tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal contract.contract_payload, response_body.fetch("capability_snapshot")
     assert deployment.matches_machine_credential?(response_body["machine_credential"])
     refute_includes response.body, %("#{deployment.id}")
   end

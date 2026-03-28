@@ -20,6 +20,9 @@ module AgentAPI
         conversation_override_schema_snapshot: request_payload.fetch("conversation_override_schema_snapshot", {}),
         default_config_snapshot: request_payload.fetch("default_config_snapshot", {})
       )
+      capability_snapshot_contract = RuntimeCapabilityContract.build(
+        capability_snapshot: registration.capability_snapshot
+      )
 
       render json: {
         deployment_id: registration.deployment.public_id,
@@ -30,7 +33,7 @@ module AgentAPI
         fingerprint: registration.deployment.fingerprint,
         bootstrap_state: registration.deployment.bootstrap_state,
         machine_credential: registration.machine_credential,
-        capability_snapshot: registration.capability_snapshot.as_contract_payload,
+        capability_snapshot: capability_snapshot_contract.contract_payload,
       }, status: :created
     end
   end

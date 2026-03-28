@@ -30,7 +30,17 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
     )
     contract = RuntimeCapabilityContract.build(capability_snapshot: snapshot)
 
-    assert_equal contract.contract_payload(method_id: "capabilities_refresh"), snapshot.as_contract_payload(method_id: "capabilities_refresh")
-    assert_equal contract.agent_plane, snapshot.as_agent_plane_payload
+    assert_equal(
+      {
+        "agent_capabilities_version" => snapshot.version,
+        "protocol_methods" => snapshot.protocol_methods,
+        "tool_catalog" => snapshot.tool_catalog,
+        "config_schema_snapshot" => snapshot.config_schema_snapshot,
+        "conversation_override_schema_snapshot" => snapshot.conversation_override_schema_snapshot,
+        "default_config_snapshot" => snapshot.default_config_snapshot,
+      },
+      contract.contract_payload
+    )
+    assert_equal snapshot.tool_catalog, contract.agent_plane.fetch("tool_catalog")
   end
 end

@@ -116,8 +116,18 @@ module Installations
     def reconcile_capability_snapshot!(deployment)
       deployment.with_lock do
         deployment.reload
+        runtime_capability_contract = RuntimeCapabilityContract.build(
+          execution_environment: deployment.execution_environment,
+          environment_capability_payload: @configuration[:environment_capability_payload],
+          environment_tool_catalog: @configuration[:environment_tool_catalog],
+          protocol_methods: @configuration[:protocol_methods],
+          tool_catalog: @configuration[:tool_catalog],
+          config_schema_snapshot: @configuration[:config_schema_snapshot],
+          conversation_override_schema_snapshot: @configuration[:conversation_override_schema_snapshot],
+          default_config_snapshot: @configuration[:default_config_snapshot]
+        )
 
-        existing_snapshot = matching_capability_snapshot(deployment)
+        existing_snapshot = matching_capability_snapshot(deployment, runtime_capability_contract)
         if existing_snapshot.present?
           deployment.update!(active_capability_snapshot: existing_snapshot) if deployment.active_capability_snapshot != existing_snapshot
           return existing_snapshot
@@ -126,11 +136,11 @@ module Installations
         version = deployment.capability_snapshots.maximum(:version).to_i + 1
         capability_snapshot = deployment.capability_snapshots.create!(
           version: version,
-          protocol_methods: @configuration[:protocol_methods],
-          tool_catalog: @configuration[:tool_catalog],
-          config_schema_snapshot: @configuration[:config_schema_snapshot],
-          conversation_override_schema_snapshot: @configuration[:conversation_override_schema_snapshot],
-          default_config_snapshot: @configuration[:default_config_snapshot]
+          protocol_methods: runtime_capability_contract.protocol_methods,
+          tool_catalog: runtime_capability_contract.agent_tool_catalog,
+          config_schema_snapshot: runtime_capability_contract.config_schema_snapshot,
+          conversation_override_schema_snapshot: runtime_capability_contract.conversation_override_schema_snapshot,
+          default_config_snapshot: runtime_capability_contract.default_config_snapshot
         )
         deployment.update!(active_capability_snapshot: capability_snapshot)
         capability_snapshot
@@ -157,13 +167,13 @@ module Installations
       AgentDeployment.digest_machine_credential("bundled-runtime:#{@configuration[:fingerprint]}")
     end
 
-    def matching_capability_snapshot(deployment)
+    def matching_capability_snapshot(deployment, runtime_capability_contract)
       deployment.capability_snapshots.detect do |snapshot|
-        snapshot.protocol_methods == @configuration[:protocol_methods] &&
-          snapshot.tool_catalog == @configuration[:tool_catalog] &&
-          snapshot.config_schema_snapshot == @configuration[:config_schema_snapshot] &&
-          snapshot.conversation_override_schema_snapshot == @configuration[:conversation_override_schema_snapshot] &&
-          snapshot.default_config_snapshot == @configuration[:default_config_snapshot]
+        snapshot.protocol_methods == runtime_capability_contract.protocol_methods &&
+          snapshot.tool_catalog == runtime_capability_contract.agent_tool_catalog &&
+          snapshot.config_schema_snapshot == runtime_capability_contract.config_schema_snapshot &&
+          snapshot.conversation_override_schema_snapshot == runtime_capability_contract.conversation_override_schema_snapshot &&
+          snapshot.default_config_snapshot == runtime_capability_contract.default_config_snapshot
       end
     end
   end

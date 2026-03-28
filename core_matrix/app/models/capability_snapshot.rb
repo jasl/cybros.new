@@ -15,17 +15,6 @@ class CapabilitySnapshot < ApplicationRecord
 
   def readonly? = persisted?
 
-  def as_contract_payload(method_id: nil, reconciliation_report: nil)
-    RuntimeCapabilityContract.build(capability_snapshot: self).contract_payload(
-      method_id: method_id,
-      reconciliation_report: reconciliation_report
-    )
-  end
-
-  def as_agent_plane_payload
-    RuntimeCapabilityContract.build(capability_snapshot: self).agent_plane
-  end
-
   def tool_named?(tool_name)
     tool_catalog.any? { |entry| entry["tool_name"] == tool_name }
   end

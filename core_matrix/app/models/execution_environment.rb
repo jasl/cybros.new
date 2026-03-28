@@ -22,10 +22,6 @@ class ExecutionEnvironment < ApplicationRecord
     capability_payload.fetch("conversation_attachment_upload", true) == true
   end
 
-  def as_runtime_plane_payload
-    RuntimeCapabilityContract.build(execution_environment: self).environment_plane
-  end
-
   private
 
   def connection_metadata_must_be_hash

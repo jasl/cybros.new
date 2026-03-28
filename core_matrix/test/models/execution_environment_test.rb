@@ -79,6 +79,7 @@ class ExecutionEnvironmentTest < ActiveSupport::TestCase
     )
     contract = RuntimeCapabilityContract.build(execution_environment: environment)
 
-    assert_equal contract.environment_plane, environment.as_runtime_plane_payload
+    assert_equal environment.capability_payload, contract.environment_plane.fetch("capability_payload")
+    assert_equal environment.tool_catalog, contract.environment_plane.fetch("tool_catalog")
   end
 end

@@ -25,10 +25,6 @@ module AgentDeployments
       snapshot.restore_attributes
     end
 
-    def self.paused_wait_snapshot(workflow_run)
-      WorkflowWaitSnapshot.from_workflow_run(workflow_run)&.to_h
-    end
-
     def self.ready_attributes
       Workflows::WaitState.ready_attributes
     end

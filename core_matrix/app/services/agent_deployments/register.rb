@@ -44,6 +44,16 @@ module AgentDeployments
           capability_payload: @environment_capability_payload,
           tool_catalog: @environment_tool_catalog
         )
+        runtime_capability_contract = RuntimeCapabilityContract.build(
+          execution_environment: execution_environment,
+          environment_capability_payload: @environment_capability_payload,
+          environment_tool_catalog: @environment_tool_catalog,
+          protocol_methods: @protocol_methods,
+          tool_catalog: @tool_catalog,
+          config_schema_snapshot: @config_schema_snapshot,
+          conversation_override_schema_snapshot: @conversation_override_schema_snapshot,
+          default_config_snapshot: @default_config_snapshot
+        )
         machine_credential, machine_credential_digest = AgentDeployment.issue_machine_credential
         deployment = AgentDeployment.create!(
           installation: enrollment.installation,
@@ -61,11 +71,11 @@ module AgentDeployments
         capability_snapshot = CapabilitySnapshot.create!(
           agent_deployment: deployment,
           version: 1,
-          protocol_methods: @protocol_methods,
-          tool_catalog: @tool_catalog,
-          config_schema_snapshot: @config_schema_snapshot,
-          conversation_override_schema_snapshot: @conversation_override_schema_snapshot,
-          default_config_snapshot: @default_config_snapshot
+          protocol_methods: runtime_capability_contract.protocol_methods,
+          tool_catalog: runtime_capability_contract.agent_tool_catalog,
+          config_schema_snapshot: runtime_capability_contract.config_schema_snapshot,
+          conversation_override_schema_snapshot: runtime_capability_contract.conversation_override_schema_snapshot,
+          default_config_snapshot: runtime_capability_contract.default_config_snapshot
         )
         deployment.update!(active_capability_snapshot: capability_snapshot)
         deployment.instance_variable_set(:@plaintext_machine_credential, machine_credential)
