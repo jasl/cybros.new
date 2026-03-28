@@ -131,6 +131,73 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal "main", mailbox_item.payload.dig("agent_context", "profile")
   end
 
+  test "creates queued subagent step work and assignment when initial task parameters are provided" do
+    context = prepare_profile_aware_execution_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Owner input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      kind: "thread",
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      conversation: child_conversation,
+      owner_conversation: owner_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0
+    )
+    turn = Turns::StartAgentTurn.call(
+      conversation: child_conversation,
+      content: "Delegated input",
+      sender_kind: "owner_agent",
+      sender_conversation: owner_conversation,
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    workflow_run = Workflows::CreateForTurn.call(
+      turn: turn,
+      root_node_key: "subagent_step_1",
+      root_node_type: "agent_task_run",
+      decision_source: "system",
+      metadata: {},
+      initial_task_kind: "subagent_step",
+      initial_task_payload: { "delivery_kind" => "subagent_spawn" },
+      requested_by_turn: owner_turn,
+      subagent_session: subagent_session
+    )
+
+    agent_task_run = AgentTaskRun.find_by!(workflow_run: workflow_run, subagent_session: subagent_session)
+    mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: agent_task_run, item_type: "execution_assignment")
+
+    assert_equal "subagent_step", agent_task_run.task_kind
+    assert_equal owner_turn, agent_task_run.requested_by_turn
+    assert_equal({ "delivery_kind" => "subagent_spawn" }, agent_task_run.task_payload)
+    assert_equal turn.execution_snapshot.context_messages, mailbox_item.payload.fetch("context_messages")
+    assert_equal turn.execution_snapshot.budget_hints, mailbox_item.payload.fetch("budget_hints")
+    assert_equal turn.execution_snapshot.provider_execution, mailbox_item.payload.fetch("provider_execution")
+    assert_equal turn.execution_snapshot.model_context, mailbox_item.payload.fetch("model_context")
+    assert_equal "researcher", mailbox_item.payload.dig("agent_context", "profile")
+    assert_equal "subagent_step", mailbox_item.payload.fetch("task_kind")
+  end
+
   private
 
   def prepare_profile_aware_execution_context!

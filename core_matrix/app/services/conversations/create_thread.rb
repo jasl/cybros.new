@@ -6,9 +6,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(parent:, historical_anchor_message_id: nil)
+    def initialize(parent:, historical_anchor_message_id: nil, addressability: "owner_addressable")
       @parent = parent
       @historical_anchor_message_id = historical_anchor_message_id
+      @addressability = addressability
     end
 
     def call
@@ -35,6 +36,7 @@ module Conversations
             parent_conversation: parent,
             kind: "thread",
             purpose: parent.purpose,
+            addressability: @addressability,
             lifecycle_state: "active",
             historical_anchor_message_id: @historical_anchor_message_id
           )
