@@ -42,6 +42,17 @@ module Conversations
       )
     end
 
+    def refresh_child_conversation_from_parent!(conversation:, parent:)
+      conversation.installation = parent.installation
+      conversation.workspace = parent.workspace
+      conversation.execution_environment = parent.execution_environment
+      conversation.agent_deployment = parent.agent_deployment
+      conversation.parent_conversation = parent
+      conversation.purpose = parent.purpose
+      conversation.lifecycle_state = "active"
+      conversation
+    end
+
     def create_parent_closures!(conversation, parent:)
       ConversationClosure.where(descendant_conversation: parent).find_each do |closure|
         ConversationClosure.create!(

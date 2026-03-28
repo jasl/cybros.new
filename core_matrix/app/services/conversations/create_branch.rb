@@ -12,16 +12,21 @@ module Conversations
     end
 
     def call
+      conversation = build_child_conversation(
+        parent: @parent,
+        kind: "branch",
+        historical_anchor_message_id: @historical_anchor_message_id
+      )
+
       ApplicationRecord.transaction do
-        Conversations::WithChildConversationEntryLock.call(
-          parent: @parent,
-          entry_label: "branching"
+        Conversations::WithConversationEntryLock.call(
+          conversation: @parent,
+          record: conversation,
+          retained_message: "must be retained before branching",
+          active_message: "must be active before branching",
+          closing_message: "must not create child conversations while close is in progress"
         ) do |parent|
-          conversation = build_child_conversation(
-            parent: parent,
-            kind: "branch",
-            historical_anchor_message_id: @historical_anchor_message_id
-          )
+          refresh_child_conversation_from_parent!(conversation:, parent:)
           anchor_message = Conversations::ValidateHistoricalAnchor.call(
             parent: parent,
             kind: conversation.kind,

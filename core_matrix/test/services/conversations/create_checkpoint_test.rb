@@ -182,6 +182,10 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
       )
     end
 
+    assert_instance_of Conversation, error.record
+    assert error.record.checkpoint?
+    assert_equal root, error.record.parent_conversation
+    assert_equal anchor_turn.selected_input_message_id, error.record.historical_anchor_message_id
     assert_includes error.record.errors[:deletion_state], "must be retained before checkpointing"
   end
 end

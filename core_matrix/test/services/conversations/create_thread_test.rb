@@ -156,6 +156,9 @@ class Conversations::CreateThreadTest < ActiveSupport::TestCase
       Conversations::CreateThread.call(parent: root)
     end
 
+    assert_instance_of Conversation, error.record
+    assert error.record.thread?
+    assert_equal root, error.record.parent_conversation
     assert_includes error.record.errors[:base], "must not create child conversations while close is in progress"
   end
 end

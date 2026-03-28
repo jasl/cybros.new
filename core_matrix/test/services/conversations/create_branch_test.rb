@@ -177,6 +177,10 @@ class Conversations::CreateBranchTest < ActiveSupport::TestCase
       Conversations::CreateBranch.call(parent: root, historical_anchor_message_id: anchor_turn.selected_input_message_id)
     end
 
+    assert_instance_of Conversation, error.record
+    assert error.record.branch?
+    assert_equal root, error.record.parent_conversation
+    assert_equal anchor_turn.selected_input_message_id, error.record.historical_anchor_message_id
     assert_includes error.record.errors[:lifecycle_state], "must be active before branching"
   end
 end
