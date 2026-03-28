@@ -5,6 +5,7 @@ class CreateCapabilitySnapshots < ActiveRecord::Migration[8.2]
       t.integer :version, null: false
       t.jsonb :protocol_methods, null: false, default: []
       t.jsonb :tool_catalog, null: false, default: []
+      t.jsonb :profile_catalog, null: false, default: {}
       t.jsonb :config_schema_snapshot, null: false, default: {}
       t.jsonb :conversation_override_schema_snapshot, null: false, default: {}
       t.jsonb :default_config_snapshot, null: false, default: {}

@@ -10,6 +10,7 @@ class RuntimeCapabilityContract
     environment_tool_catalog: nil,
     protocol_methods: nil,
     tool_catalog: nil,
+    profile_catalog: nil,
     config_schema_snapshot: nil,
     conversation_override_schema_snapshot: nil,
     default_config_snapshot: nil,
@@ -28,6 +29,9 @@ class RuntimeCapabilityContract
     )
     @agent_tool_catalog = normalize_array(
       tool_catalog.nil? ? capability_snapshot&.tool_catalog : tool_catalog
+    )
+    @profile_catalog = normalize_hash(
+      profile_catalog.nil? ? capability_snapshot&.profile_catalog : profile_catalog
     )
     @config_schema_snapshot = normalize_hash(
       config_schema_snapshot.nil? ? capability_snapshot&.config_schema_snapshot : config_schema_snapshot
@@ -59,6 +63,10 @@ class RuntimeCapabilityContract
 
   def config_schema_snapshot
     @config_schema_snapshot.deep_dup
+  end
+
+  def profile_catalog
+    @profile_catalog.deep_dup
   end
 
   def conversation_override_schema_snapshot

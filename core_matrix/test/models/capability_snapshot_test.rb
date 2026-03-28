@@ -23,6 +23,16 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
     end
   end
 
+  test "round trips profile catalogs through snapshot persistence" do
+    assert_includes CapabilitySnapshot.column_names, "profile_catalog"
+
+    snapshot = create_capability_snapshot!(
+      profile_catalog: default_profile_catalog
+    )
+
+    assert_equal default_profile_catalog, snapshot.reload.profile_catalog
+  end
+
   test "renders outward payloads through the shared runtime capability contract" do
     snapshot = create_capability_snapshot!(
       tool_catalog: default_tool_catalog("shell_exec"),

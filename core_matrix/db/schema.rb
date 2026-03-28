@@ -326,6 +326,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.jsonb "conversation_override_schema_snapshot", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "default_config_snapshot", default: {}, null: false
+    t.jsonb "profile_catalog", default: {}, null: false
     t.jsonb "protocol_methods", default: [], null: false
     t.jsonb "tool_catalog", default: [], null: false
     t.datetime "updated_at", null: false

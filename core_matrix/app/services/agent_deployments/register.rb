@@ -9,7 +9,7 @@ module AgentDeployments
       new(...).call
     end
 
-    def initialize(enrollment_token:, environment_fingerprint:, environment_kind:, environment_connection_metadata:, environment_capability_payload:, environment_tool_catalog:, fingerprint:, endpoint_metadata:, protocol_version:, sdk_version:, protocol_methods:, tool_catalog:, config_schema_snapshot:, conversation_override_schema_snapshot:, default_config_snapshot:)
+    def initialize(enrollment_token:, environment_fingerprint:, environment_kind:, environment_connection_metadata:, environment_capability_payload:, environment_tool_catalog:, fingerprint:, endpoint_metadata:, protocol_version:, sdk_version:, protocol_methods:, tool_catalog:, profile_catalog:, config_schema_snapshot:, conversation_override_schema_snapshot:, default_config_snapshot:)
       @enrollment_token = enrollment_token
       @environment_fingerprint = environment_fingerprint
       @environment_kind = environment_kind
@@ -22,6 +22,7 @@ module AgentDeployments
       @sdk_version = sdk_version
       @protocol_methods = protocol_methods
       @tool_catalog = tool_catalog
+      @profile_catalog = profile_catalog
       @config_schema_snapshot = config_schema_snapshot
       @conversation_override_schema_snapshot = conversation_override_schema_snapshot
       @default_config_snapshot = default_config_snapshot
@@ -50,6 +51,7 @@ module AgentDeployments
           environment_tool_catalog: @environment_tool_catalog,
           protocol_methods: @protocol_methods,
           tool_catalog: @tool_catalog,
+          profile_catalog: @profile_catalog,
           config_schema_snapshot: @config_schema_snapshot,
           conversation_override_schema_snapshot: @conversation_override_schema_snapshot,
           default_config_snapshot: @default_config_snapshot
@@ -73,6 +75,7 @@ module AgentDeployments
           version: 1,
           protocol_methods: runtime_capability_contract.protocol_methods,
           tool_catalog: runtime_capability_contract.agent_tool_catalog,
+          profile_catalog: runtime_capability_contract.profile_catalog,
           config_schema_snapshot: runtime_capability_contract.config_schema_snapshot,
           conversation_override_schema_snapshot: runtime_capability_contract.conversation_override_schema_snapshot,
           default_config_snapshot: runtime_capability_contract.default_config_snapshot

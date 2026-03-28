@@ -8,6 +8,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     installation = create_installation!
     configuration = bundled_agent_configuration(
       enabled: true,
+      profile_catalog: default_profile_catalog,
       environment_capability_payload: {
         conversation_attachment_upload: false,
       },
@@ -59,6 +60,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal 0, UserAgentBinding.count
     assert_equal "active", first.deployment.bootstrap_state
     assert first.deployment.healthy?
+    assert_equal default_profile_catalog, first.capability_snapshot.profile_catalog
     assert_equal ["shell_exec"], first.capability_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal false, first.execution_environment.capability_payload.fetch("conversation_attachment_upload")
   end

@@ -454,6 +454,19 @@ module ActiveSupport
       }
     end
 
+    def default_profile_catalog
+      {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+        },
+        "researcher" => {
+          "label" => "Researcher",
+          "description" => "Delegated research profile",
+        },
+      }
+    end
+
     def agent_api_headers(machine_credential)
       {
         "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(machine_credential),

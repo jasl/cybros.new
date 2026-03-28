@@ -14,7 +14,7 @@ module AgentDeployments
       new(...).call
     end
 
-    def initialize(deployment:, fingerprint:, protocol_version:, sdk_version:, environment_capability_payload: nil, environment_tool_catalog: nil, protocol_methods:, tool_catalog:, config_schema_snapshot:, conversation_override_schema_snapshot:, default_config_snapshot:)
+    def initialize(deployment:, fingerprint:, protocol_version:, sdk_version:, environment_capability_payload: nil, environment_tool_catalog: nil, protocol_methods:, tool_catalog:, profile_catalog:, config_schema_snapshot:, conversation_override_schema_snapshot:, default_config_snapshot:)
       @deployment = deployment
       @fingerprint = fingerprint
       @protocol_version = protocol_version
@@ -23,6 +23,7 @@ module AgentDeployments
       @environment_tool_catalog = environment_tool_catalog
       @protocol_methods = protocol_methods
       @tool_catalog = tool_catalog
+      @profile_catalog = profile_catalog
       @config_schema_snapshot = config_schema_snapshot
       @conversation_override_schema_snapshot = conversation_override_schema_snapshot
       @default_config_snapshot = default_config_snapshot
@@ -79,6 +80,7 @@ module AgentDeployments
       @deployment.capability_snapshots.detect do |snapshot|
         snapshot.protocol_methods == incoming_contract.protocol_methods &&
           snapshot.tool_catalog == incoming_contract.agent_tool_catalog &&
+          snapshot.profile_catalog == incoming_contract.profile_catalog &&
           snapshot.config_schema_snapshot == incoming_contract.config_schema_snapshot &&
           snapshot.conversation_override_schema_snapshot == incoming_contract.conversation_override_schema_snapshot &&
           snapshot.default_config_snapshot == reconciled_default_config_snapshot
@@ -90,6 +92,7 @@ module AgentDeployments
         version: @deployment.capability_snapshots.maximum(:version).to_i + 1,
         protocol_methods: incoming_contract.protocol_methods,
         tool_catalog: incoming_contract.agent_tool_catalog,
+        profile_catalog: incoming_contract.profile_catalog,
         config_schema_snapshot: incoming_contract.config_schema_snapshot,
         conversation_override_schema_snapshot: incoming_contract.conversation_override_schema_snapshot,
         default_config_snapshot: reconciled_default_config_snapshot
@@ -103,6 +106,7 @@ module AgentDeployments
         environment_tool_catalog: @environment_tool_catalog.nil? ? @deployment.execution_environment.tool_catalog : @environment_tool_catalog,
         protocol_methods: @protocol_methods,
         tool_catalog: @tool_catalog,
+        profile_catalog: @profile_catalog,
         config_schema_snapshot: @config_schema_snapshot,
         conversation_override_schema_snapshot: @conversation_override_schema_snapshot,
         default_config_snapshot: @default_config_snapshot

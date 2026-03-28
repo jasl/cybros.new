@@ -16,6 +16,7 @@ module Installations
       sdk_version: "fenix-0.1.0",
       protocol_methods: [],
       tool_catalog: [],
+      profile_catalog: {},
       config_schema_snapshot: {},
       conversation_override_schema_snapshot: {},
       default_config_snapshot: {},
@@ -122,6 +123,7 @@ module Installations
           environment_tool_catalog: @configuration[:environment_tool_catalog],
           protocol_methods: @configuration[:protocol_methods],
           tool_catalog: @configuration[:tool_catalog],
+          profile_catalog: @configuration[:profile_catalog],
           config_schema_snapshot: @configuration[:config_schema_snapshot],
           conversation_override_schema_snapshot: @configuration[:conversation_override_schema_snapshot],
           default_config_snapshot: @configuration[:default_config_snapshot]
@@ -138,6 +140,7 @@ module Installations
           version: version,
           protocol_methods: runtime_capability_contract.protocol_methods,
           tool_catalog: runtime_capability_contract.agent_tool_catalog,
+          profile_catalog: runtime_capability_contract.profile_catalog,
           config_schema_snapshot: runtime_capability_contract.config_schema_snapshot,
           conversation_override_schema_snapshot: runtime_capability_contract.conversation_override_schema_snapshot,
           default_config_snapshot: runtime_capability_contract.default_config_snapshot
@@ -171,6 +174,7 @@ module Installations
       deployment.capability_snapshots.detect do |snapshot|
         snapshot.protocol_methods == runtime_capability_contract.protocol_methods &&
           snapshot.tool_catalog == runtime_capability_contract.agent_tool_catalog &&
+          snapshot.profile_catalog == runtime_capability_contract.profile_catalog &&
           snapshot.config_schema_snapshot == runtime_capability_contract.config_schema_snapshot &&
           snapshot.conversation_override_schema_snapshot == runtime_capability_contract.conversation_override_schema_snapshot &&
           snapshot.default_config_snapshot == runtime_capability_contract.default_config_snapshot

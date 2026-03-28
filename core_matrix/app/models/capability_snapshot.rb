@@ -9,6 +9,7 @@ class CapabilitySnapshot < ApplicationRecord
   validate :tool_catalog_must_be_array
   validate :protocol_methods_contract_shape
   validate :tool_catalog_contract_shape
+  validate :profile_catalog_must_be_hash
   validate :config_schema_snapshot_must_be_hash
   validate :conversation_override_schema_snapshot_must_be_hash
   validate :default_config_snapshot_must_be_hash
@@ -58,6 +59,10 @@ class CapabilitySnapshot < ApplicationRecord
 
   def config_schema_snapshot_must_be_hash
     errors.add(:config_schema_snapshot, "must be a Hash") unless config_schema_snapshot.is_a?(Hash)
+  end
+
+  def profile_catalog_must_be_hash
+    errors.add(:profile_catalog, "must be a Hash") unless profile_catalog.is_a?(Hash)
   end
 
   def conversation_override_schema_snapshot_must_be_hash
