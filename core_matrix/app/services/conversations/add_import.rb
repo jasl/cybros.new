@@ -13,34 +13,47 @@ module Conversations
     end
 
     def call
+      import = build_import_record(conversation: @conversation)
+
       ApplicationRecord.transaction do
-        Conversations::WithEntryLock.call(
+        Conversations::WithConversationEntryLock.call(
           conversation: @conversation,
-          record: @conversation,
-          entry_label: "adding imports",
-          closing_action: "add imports"
+          record: import,
+          retained_message: "must be retained before adding imports",
+          active_message: "must be active before adding imports",
+          closing_message: "must not add imports while close is in progress"
         ) do |conversation|
-          attributes = {
-            installation: conversation.installation,
-            conversation: conversation,
-            kind: @kind,
-            source_conversation: @source_conversation,
-            source_message: @source_message,
-            summary_segment: @summary_segment,
-          }
+          import.assign_attributes(import_attributes(conversation:))
 
-          return ConversationImport.create!(attributes) unless @kind.to_s == "branch_prefix"
+          return import.tap(&:save!) unless @kind.to_s == "branch_prefix"
 
-          import = ConversationImport.find_or_initialize_by(
+          branch_prefix_import = ConversationImport.find_or_initialize_by(
             installation: conversation.installation,
             conversation: conversation,
             kind: "branch_prefix"
           )
-          import.assign_attributes(attributes.except(:installation, :conversation, :kind))
-          import.save!
-          import
+          branch_prefix_import.assign_attributes(import_attributes(conversation:).except(:installation, :conversation, :kind))
+          branch_prefix_import.save!
+          branch_prefix_import
         end
       end
+    end
+
+    private
+
+    def build_import_record(conversation:)
+      ConversationImport.new(import_attributes(conversation:))
+    end
+
+    def import_attributes(conversation:)
+      {
+        installation: conversation.installation,
+        conversation: conversation,
+        kind: @kind,
+        source_conversation: @source_conversation,
+        source_message: @source_message,
+        summary_segment: @summary_segment,
+      }
     end
   end
 end

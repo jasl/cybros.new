@@ -16,11 +16,12 @@ module Conversations
 
     def call
       ApplicationRecord.transaction do
-        Conversations::WithEntryLock.call(
+        Conversations::WithConversationEntryLock.call(
           conversation: @conversation,
           record: @conversation,
-          entry_label: "updating overrides",
-          closing_action: "update overrides"
+          retained_message: "must be retained before updating overrides",
+          active_message: "must be active before updating overrides",
+          closing_message: "must not update overrides while close is in progress"
         ) do |conversation|
           validate_payload!(conversation)
 

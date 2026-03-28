@@ -104,6 +104,10 @@ class Conversations::AddImportTest < ActiveSupport::TestCase
       )
     end
 
+    assert_instance_of ConversationImport, error.record
+    assert error.record.quoted_context?
+    assert_equal conversation, error.record.conversation
+    assert_equal summary_segment, error.record.summary_segment
     assert_includes error.record.errors[:deletion_state], "must be retained before adding imports"
   end
 end
