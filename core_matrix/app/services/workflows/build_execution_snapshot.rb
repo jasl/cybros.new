@@ -20,6 +20,7 @@ module Workflows
         "model_context" => model_context,
         "provider_execution" => provider_execution,
         "budget_hints" => budget_hints,
+        "agent_context" => agent_context,
         "turn_origin" => turn_origin,
         "context_messages" => context_messages,
         "context_imports" => context_imports,
@@ -75,6 +76,18 @@ module Workflows
           "recommended_compaction_threshold" => (context_window_tokens * model_definition.fetch(:context_soft_limit_ratio)).floor,
         },
       }
+    end
+
+    def agent_context
+      {
+        "profile" => current_profile_key,
+        "is_subagent" => subagent_session.present?,
+        "subagent_session_id" => subagent_session&.public_id,
+        "parent_subagent_session_id" => subagent_session&.parent_subagent_session&.public_id,
+        "subagent_depth" => subagent_session&.depth,
+        "allowed_tool_names" => runtime_contract.fetch("tool_catalog", []).map { |entry| entry.fetch("tool_name") },
+        "owner_conversation_id" => subagent_session&.owner_conversation&.public_id,
+      }.compact
     end
 
     def turn_origin
@@ -263,6 +276,20 @@ module Workflows
     def raise_invalid!(message)
       @turn.errors.add(:resolved_config_snapshot, message)
       raise ActiveRecord::RecordInvalid, @turn
+    end
+
+    def runtime_contract
+      @runtime_contract ||= @turn.conversation.runtime_contract
+    end
+
+    def subagent_session
+      @subagent_session ||= @turn.conversation.subagent_session
+    end
+
+    def current_profile_key
+      subagent_session&.profile_key ||
+        @turn.agent_deployment.active_capability_snapshot&.default_config_snapshot&.dig("interactive", "profile") ||
+        "main"
     end
   end
 end

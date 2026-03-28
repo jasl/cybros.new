@@ -275,4 +275,131 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal turn, error.record
     assert_includes error.record.errors[:resolved_config_snapshot], "runtime_override reasoning_effort must be present"
   end
+
+  test "freezes root agent context with the main profile and visible tool names" do
+    context = prepare_profile_aware_execution_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: turn)
+
+    assert_equal "main", snapshot.agent_context.fetch("profile")
+    assert_equal false, snapshot.agent_context.fetch("is_subagent")
+    assert_nil snapshot.agent_context["subagent_session_id"]
+    assert_nil snapshot.agent_context["parent_subagent_session_id"]
+    assert_nil snapshot.agent_context["subagent_depth"]
+    assert_equal(
+      conversation.runtime_contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      snapshot.agent_context.fetch("allowed_tool_names")
+    )
+  end
+
+  test "freezes child agent context with profile session lineage and allowed tool names" do
+    context = prepare_profile_aware_execution_context!(
+      profile_catalog: profile_catalog_with_allowed_tool_names(
+        main_tool_names: %w[shell_exec compact_context] + RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES,
+        researcher_tool_names: %w[shell_exec subagent_send subagent_wait subagent_close subagent_list]
+      )
+    )
+    root_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_chain = create_subagent_conversation_chain!(
+      context: context,
+      parent_conversation: root_conversation,
+      depth: 1,
+      profile_key: "researcher"
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: child_chain.fetch(:conversation),
+      content: "Delegated input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: turn)
+
+    assert_equal "researcher", snapshot.agent_context.fetch("profile")
+    assert_equal true, snapshot.agent_context.fetch("is_subagent")
+    assert_equal child_chain.fetch(:subagent_session).public_id, snapshot.agent_context.fetch("subagent_session_id")
+    assert_equal child_chain.fetch(:parent_subagent_session).public_id, snapshot.agent_context.fetch("parent_subagent_session_id")
+    assert_equal 1, snapshot.agent_context.fetch("subagent_depth")
+    assert_equal(
+      child_chain.fetch(:conversation).runtime_contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      snapshot.agent_context.fetch("allowed_tool_names")
+    )
+  end
+
+  private
+
+  def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:agent_deployment],
+      version: 2,
+      tool_catalog: default_tool_catalog("shell_exec", "compact_context"),
+      profile_catalog: profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+
+    context
+  end
+
+  def create_subagent_conversation_chain!(context:, parent_conversation:, depth:, profile_key:)
+    previous_conversation = parent_conversation
+    previous_session = nil
+
+    (depth + 1).times do |index|
+      conversation = create_conversation_record!(
+        installation: context[:installation],
+        workspace: parent_conversation.workspace,
+        parent_conversation: previous_conversation,
+        kind: "thread",
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        addressability: "agent_addressable"
+      )
+      session = SubagentSession.create!(
+        installation: context[:installation],
+        conversation: conversation,
+        owner_conversation: previous_conversation,
+        parent_subagent_session: previous_session,
+        scope: "conversation",
+        profile_key: profile_key,
+        depth: index
+      )
+
+      previous_conversation = conversation
+      previous_session = session
+    end
+
+    {
+      conversation: previous_conversation,
+      subagent_session: previous_session,
+      parent_subagent_session: previous_session.parent_subagent_session,
+    }
+  end
+
+  def profile_catalog_with_allowed_tool_names(main_tool_names:, researcher_tool_names:)
+    default_profile_catalog.deep_merge(
+      "main" => { "allowed_tool_names" => main_tool_names },
+      "researcher" => { "allowed_tool_names" => researcher_tool_names }
+    )
+  end
 end

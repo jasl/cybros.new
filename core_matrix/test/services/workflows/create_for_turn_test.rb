@@ -90,4 +90,62 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       )
     end
   end
+
+  test "execution assignments transport frozen agent context from the turn snapshot" do
+    context = prepare_profile_aware_execution_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = Workflows::CreateForTurn.call(
+      turn: turn,
+      root_node_key: "root",
+      root_node_type: "turn_root",
+      decision_source: "system",
+      metadata: {}
+    )
+    agent_task_run = create_agent_task_run!(
+      workflow_node: workflow_run.workflow_nodes.first,
+      task_payload: { "mode" => "deterministic_tool" }
+    )
+
+    mailbox_item = AgentControl::CreateExecutionAssignment.call(
+      agent_task_run: agent_task_run,
+      payload: {
+        "task_payload" => agent_task_run.task_payload,
+        "agent_context" => { "profile" => "tampered" },
+      },
+      dispatch_deadline_at: 5.minutes.from_now,
+      execution_hard_deadline_at: 10.minutes.from_now
+    )
+
+    assert_equal turn.execution_snapshot.agent_context, mailbox_item.payload.fetch("agent_context")
+    assert_equal "main", mailbox_item.payload.dig("agent_context", "profile")
+  end
+
+  private
+
+  def prepare_profile_aware_execution_context!
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:agent_deployment],
+      version: 2,
+      tool_catalog: default_tool_catalog("shell_exec", "compact_context"),
+      profile_catalog: default_profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+
+    context
+  end
 end

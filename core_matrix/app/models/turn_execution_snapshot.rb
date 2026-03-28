@@ -27,6 +27,10 @@ class TurnExecutionSnapshot
     read_hash("budget_hints")
   end
 
+  def agent_context
+    read_hash("agent_context")
+  end
+
   def context_messages
     read_array("context_messages")
   end

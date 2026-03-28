@@ -36,7 +36,7 @@ module AgentControl
         dispatch_deadline_at: @dispatch_deadline_at,
         lease_timeout_seconds: @lease_timeout_seconds,
         execution_hard_deadline_at: @execution_hard_deadline_at,
-        payload: base_payload.merge(@payload)
+        payload: @payload.except("agent_context").merge(base_payload)
       )
 
       PublishPending.call(mailbox_item: mailbox_item)
@@ -53,6 +53,7 @@ module AgentControl
         "conversation_id" => @agent_task_run.conversation.public_id,
         "turn_id" => @agent_task_run.turn.public_id,
         "task_kind" => @agent_task_run.task_kind,
+        "agent_context" => @agent_task_run.turn.execution_snapshot.agent_context,
       }
     end
   end
