@@ -1,6 +1,12 @@
 class ProviderRequestContext
   InvalidContext = Class.new(StandardError)
 
+  def self.wrap(payload_or_context)
+    return payload_or_context if payload_or_context.is_a?(self)
+
+    new(payload_or_context)
+  end
+
   REQUIRED_STRING_KEYS = %w[
     provider_handle
     model_ref

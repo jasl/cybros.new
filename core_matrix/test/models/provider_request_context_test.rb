@@ -41,6 +41,24 @@ class ProviderRequestContextTest < ActiveSupport::TestCase
     )
   end
 
+  test "wrap returns the same object for an existing contract" do
+    context = ProviderRequestContext.new(
+      "provider_handle" => "openai",
+      "model_ref" => "gpt-5.4",
+      "api_model" => "gpt-5.4",
+      "wire_api" => "responses",
+      "transport" => "https",
+      "tokenizer_hint" => "o200k_base",
+      "execution_settings" => { "reasoning_effort" => "high" },
+      "hard_limits" => { "context_window_tokens" => 272_000, "max_output_tokens" => 128_000 },
+      "advisory_hints" => { "recommended_compaction_threshold" => 217_600 },
+      "provider_metadata" => {},
+      "model_metadata" => {}
+    )
+
+    assert_same context, ProviderRequestContext.wrap(context)
+  end
+
   test "rejects missing required fields" do
     error = assert_raises(ProviderRequestContext::InvalidContext) do
       ProviderRequestContext.new(

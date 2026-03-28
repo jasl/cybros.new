@@ -28,7 +28,7 @@ module ProviderExecution
 
     def initialize(workflow_run:, request_context:, messages:, adapter: nil, catalog: ProviderCatalog::Load.call, provider_request_id: SecureRandom.uuid)
       @workflow_run = workflow_run
-      @request_context = ProviderRequestContext.new(request_context)
+      @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
       @adapter = adapter
       @catalog = catalog

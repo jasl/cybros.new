@@ -29,7 +29,7 @@ module ProviderExecution
       raise_invalid!(@workflow_run, :wait_state, "must be ready to execute provider work") unless @workflow_run.ready?
       raise_invalid!(@turn, :lifecycle_state, "must be active to execute provider work") unless @turn.active?
       raise_invalid!(@workflow_node, :base, "must provide at least one provider message") if @messages.empty?
-      raise_invalid!(@turn, :resolved_config_snapshot, "must use a supported provider wire API") unless @request_context.fetch("wire_api") == "chat_completions"
+      raise_invalid!(@turn, :resolved_config_snapshot, "must use a supported provider wire API") unless @request_context.wire_api == "chat_completions"
       raise_invalid!(@workflow_node, :base, "already has terminal execution status") if terminal_event_state.present?
 
       append_status_event!("running")

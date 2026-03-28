@@ -41,11 +41,12 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
       )
     end
 
-    assert_equal "dev", request_context.fetch("provider_handle")
-    assert_equal "mock-model", request_context.fetch("model_ref")
-    assert_equal "mock-model", request_context.fetch("api_model")
-    assert_equal "chat_completions", request_context.fetch("wire_api")
-    assert_equal "o200k_base", request_context.fetch("tokenizer_hint")
+    assert_instance_of ProviderRequestContext, request_context
+    assert_equal "dev", request_context.provider_handle
+    assert_equal "mock-model", request_context.model_ref
+    assert_equal "mock-model", request_context.api_model
+    assert_equal "chat_completions", request_context.wire_api
+    assert_equal "o200k_base", request_context.tokenizer_hint
     assert_equal(
       {
         "temperature" => 0.4,
@@ -55,22 +56,22 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
         "presence_penalty" => 0.6,
         "repetition_penalty" => 1.1,
       },
-      request_context.fetch("execution_settings")
+      request_context.execution_settings
     )
     assert_equal(
       {
         "context_window_tokens" => 100,
         "max_output_tokens" => 40,
       },
-      request_context.fetch("hard_limits")
+      request_context.hard_limits
     )
     assert_equal(
       {
         "recommended_compaction_threshold" => 50,
       },
-      request_context.fetch("advisory_hints")
+      request_context.advisory_hints
     )
-    assert_equal request_context, ProviderRequestContext.new(request_context).to_h
+    assert_same request_context, ProviderRequestContext.wrap(request_context)
   end
 
   private

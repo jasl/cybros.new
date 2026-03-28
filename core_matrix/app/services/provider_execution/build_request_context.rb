@@ -29,7 +29,7 @@ module ProviderExecution
         "advisory_hints" => budget_hints.fetch("advisory_hints"),
         "provider_metadata" => deep_stringify(model_context.fetch("provider_metadata", {})),
         "model_metadata" => deep_stringify(model_context.fetch("model_metadata", {})),
-      ).to_h
+      )
     rescue KeyError, ProviderRequestContext::InvalidContext => error
       raise_invalid!(error.message)
     end

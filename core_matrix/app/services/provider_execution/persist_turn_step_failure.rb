@@ -6,7 +6,7 @@ module ProviderExecution
 
     def initialize(workflow_node:, request_context:, error:, provider_request_id:, messages_count:, duration_ms:)
       @workflow_node = workflow_node
-      @request_context = ProviderRequestContext.new(request_context)
+      @request_context = ProviderRequestContext.wrap(request_context)
       @error = error
       @provider_request_id = provider_request_id
       @messages_count = messages_count
