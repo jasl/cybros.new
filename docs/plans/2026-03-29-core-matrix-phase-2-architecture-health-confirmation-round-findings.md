@@ -35,11 +35,45 @@ runtime capability preservation, subagent close control, and the
 
 ## Confirmation Passes
 
-- [ ] Runtime capability preservation and reuse rules
+- [x] Runtime capability preservation and reuse rules
 - [ ] `SubagentSession` close progression and neighboring close-control readers
 - [ ] `core_matrix <-> fenix` execution-context contract, including model hints
   and visible-tool semantics
 - [ ] Wrapper and payload drift around the archived hotspots
+
+### Runtime capability preservation and reuse
+
+- Files reviewed:
+  `core_matrix/app/models/agent_deployment.rb`,
+  `core_matrix/app/models/capability_snapshot.rb`,
+  `core_matrix/app/models/runtime_capability_contract.rb`,
+  `core_matrix/app/services/agent_deployments/build_recovery_plan.rb`,
+  `core_matrix/app/services/agent_deployments/apply_recovery_plan.rb`,
+  `core_matrix/app/services/agent_deployments/validate_recovery_target.rb`,
+  `core_matrix/app/services/agent_deployments/handshake.rb`,
+  `core_matrix/app/services/agent_deployments/register.rb`,
+  `core_matrix/app/services/capability_snapshots/reconcile.rb`,
+  `core_matrix/app/services/conversations/validate_agent_deployment_target.rb`,
+  `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`,
+  `core_matrix/app/services/workflows/manual_resume.rb`,
+  `core_matrix/app/services/workflows/manual_retry.rb`,
+  `core_matrix/test/services/agent_deployments/build_recovery_plan_test.rb`,
+  `core_matrix/test/services/agent_deployments/apply_recovery_plan_test.rb`,
+  `core_matrix/test/services/agent_deployments/handshake_test.rb`,
+  `core_matrix/test/services/capability_snapshots/reconcile_test.rb`,
+  `core_matrix/test/services/conversations/validate_agent_deployment_target_test.rb`,
+  `core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`,
+  `core_matrix/test/services/workflows/manual_resume_test.rb`,
+  and `core_matrix/test/requests/agent_api/registrations_test.rb`.
+- Result:
+  no additional high-confidence issue found beyond the archived
+  capability-preservation finding and the archived snapshot-reuse baseline.
+  Recovery and manual rebinding both converge on
+  `AgentDeployments::ValidateRecoveryTarget` plus the full
+  `CapabilitySnapshot#matches_runtime_capability_contract?` comparison, and the
+  registration paths still reuse `CapabilitySnapshots::Reconcile` for snapshot
+  identity, so this confirmation pass did not surface a separate adjacent
+  structural leak.
 
 ## New High-Confidence Findings
 
