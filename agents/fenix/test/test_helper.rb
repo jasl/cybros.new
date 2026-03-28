@@ -1,6 +1,7 @@
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+require "json"
 
 module ActiveSupport
   class TestCase
@@ -12,6 +13,12 @@ module ActiveSupport
 
     # Add more helper methods to be used by all tests here...
     private
+
+    def shared_contract_fixture(name)
+      ::JSON.parse(
+        File.read(Rails.root.join("..", "..", "contracts", "#{name}.json"))
+      )
+    end
 
     def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context)
       {
@@ -30,9 +37,14 @@ module ActiveSupport
           "task_payload" => { "mode" => mode, "expression" => "2 + 2" },
           "context_messages" => context_messages,
           "budget_hints" => {
-            "reserved_output_tokens" => 256,
-            "advisory_compaction_threshold_tokens" => 120,
-          }.merge(budget_hints),
+            "hard_limits" => {
+              "context_window_tokens" => 1_000_000,
+              "max_output_tokens" => 128_000,
+            },
+            "advisory_hints" => {
+              "recommended_compaction_threshold" => 120,
+            },
+          }.deep_merge(budget_hints),
           "agent_context" => agent_context,
           "provider_execution" => {
             "wire_api" => "responses",
@@ -65,6 +77,7 @@ module ActiveSupport
       {
         "profile" => "main",
         "is_subagent" => false,
+        "owner_conversation_id" => "owner-conversation-#{SecureRandom.uuid}",
         "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_spawn subagent_send subagent_wait subagent_close subagent_list],
       }
     end

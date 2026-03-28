@@ -131,7 +131,8 @@ Assignments primarily carry model hints through:
 `Fenix` also accepts older compatibility fallbacks such as
 `payload.model_context.likely_model` or `payload.provider_execution.model_ref`.
 When the estimated token load exceeds
-`payload.budget_hints.advisory_compaction_threshold_tokens`, `compact_context`
+`payload.budget_hints.advisory_hints.recommended_compaction_threshold`,
+`compact_context`
 uses the resolved model hint to explain why compaction happened and records the
 before or after message counts in the hook trace.
 

@@ -44,6 +44,23 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal "gpt-4.1-mini", prepared.fetch("likely_model")
   end
 
+  test "shared core matrix execution assignment fixture preserves the real model and visible tool contract" do
+    mailbox_item = shared_contract_fixture("core_matrix_fenix_execution_assignment_v1")
+
+    context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
+    prepared = Fenix::Hooks::PrepareTurn.call(context: context)
+
+    assert_equal "gpt-5.4", context.dig("model_context", "model_ref")
+    assert_equal "gpt-5.4", context.dig("model_context", "api_model")
+    assert_equal 900_000, context.dig("budget_hints", "advisory_hints", "recommended_compaction_threshold")
+    assert_equal "researcher", context.dig("agent_context", "profile")
+    assert_equal true, context.dig("agent_context", "is_subagent")
+    assert_equal %w[subagent_send subagent_wait subagent_close subagent_list compact_context estimate_messages estimate_tokens calculator],
+      context.dig("agent_context", "allowed_tool_names")
+    assert_equal "gpt-5.4", prepared.fetch("likely_model")
+    assert_equal "researcher", prepared.dig("trace", "profile")
+  end
+
   test "runtime execution endpoint keeps one shared flow for subagent assignments" do
     post "/runtime/executions",
       params: runtime_assignment_payload(

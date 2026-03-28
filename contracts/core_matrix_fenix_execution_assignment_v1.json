@@ -1,0 +1,94 @@
+{
+  "item_id": "mailbox-item-public-id",
+  "item_type": "execution_assignment",
+  "runtime_plane": "agent",
+  "target_kind": "agent_installation",
+  "target_ref": "agent-installation-public-id",
+  "logical_work_id": "subagent-step:subagent-session-public-id:subagent-turn-public-id",
+  "attempt_no": 1,
+  "delivery_no": 0,
+  "message_id": "kernel-assignment-message-id",
+  "priority": 1,
+  "status": "queued",
+  "available_at": "2026-03-28T10:00:00Z",
+  "dispatch_deadline_at": "2026-03-28T10:05:00Z",
+  "lease_timeout_seconds": 30,
+  "execution_hard_deadline_at": "2026-03-28T10:10:00Z",
+  "payload": {
+    "agent_task_run_id": "agent-task-run-public-id",
+    "workflow_run_id": "workflow-run-public-id",
+    "workflow_node_id": "workflow-node-public-id",
+    "conversation_id": "subagent-conversation-public-id",
+    "turn_id": "subagent-turn-public-id",
+    "task_kind": "subagent_step",
+    "task_payload": {
+      "mode": "deterministic_tool",
+      "expression": "2 + 2"
+    },
+    "context_messages": [
+      {
+        "message_id": "owner-input-message-public-id",
+        "conversation_id": "owner-conversation-public-id",
+        "turn_id": "owner-turn-public-id",
+        "role": "user",
+        "slot": "input",
+        "content": "Delegate work"
+      },
+      {
+        "message_id": "subagent-input-message-public-id",
+        "conversation_id": "subagent-conversation-public-id",
+        "turn_id": "subagent-turn-public-id",
+        "role": "user",
+        "slot": "input",
+        "content": "Please calculate 2 + 2."
+      }
+    ],
+    "budget_hints": {
+      "hard_limits": {
+        "context_window_tokens": 1000000,
+        "max_output_tokens": 128000
+      },
+      "advisory_hints": {
+        "recommended_compaction_threshold": 900000
+      }
+    },
+    "agent_context": {
+      "profile": "researcher",
+      "is_subagent": true,
+      "subagent_session_id": "subagent-session-public-id",
+      "parent_subagent_session_id": "parent-subagent-session-public-id",
+      "subagent_depth": 1,
+      "allowed_tool_names": [
+        "subagent_send",
+        "subagent_wait",
+        "subagent_close",
+        "subagent_list",
+        "compact_context",
+        "estimate_messages",
+        "estimate_tokens",
+        "calculator"
+      ],
+      "owner_conversation_id": "owner-conversation-public-id"
+    },
+    "provider_execution": {
+      "wire_api": "responses",
+      "execution_settings": {
+        "reasoning_effort": "high",
+        "temperature": 0.2
+      }
+    },
+    "model_context": {
+      "provider_handle": "codex_subscription",
+      "model_ref": "gpt-5.4",
+      "api_model": "gpt-5.4",
+      "wire_api": "responses",
+      "transport": "https",
+      "tokenizer_hint": "o200k_base",
+      "provider_metadata": {
+        "access_model": "bundled_subscription",
+        "owner_scope": "installation"
+      },
+      "model_metadata": {}
+    }
+  }
+}

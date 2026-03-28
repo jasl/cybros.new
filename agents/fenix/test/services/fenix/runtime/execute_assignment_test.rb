@@ -23,7 +23,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       mailbox_item: runtime_assignment_payload(
         mode: "deterministic_tool",
         context_messages: long_messages,
-        budget_hints: { "advisory_compaction_threshold_tokens" => 8 }
+        budget_hints: { "advisory_hints" => { "recommended_compaction_threshold" => 8 } }
       )
     )
 
@@ -59,5 +59,16 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_match(/calculator/, result.error.fetch("last_error_summary"))
     assert_equal %w[execution_started execution_fail], result.reports.map { |report| report.fetch("method_id") }
     assert_equal %w[prepare_turn compact_context handle_error], result.trace.map { |entry| entry.fetch("hook") }
+  end
+
+  test "shared core matrix execution assignment fixture completes successfully through the runtime path" do
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: shared_contract_fixture("core_matrix_fenix_execution_assignment_v1")
+    )
+
+    assert_equal "completed", result.status
+    assert_equal "The calculator returned 4.", result.output
+    assert_equal "gpt-5.4", result.trace.first.fetch("likely_model")
+    assert_equal "researcher", result.trace.first.fetch("profile")
   end
 end

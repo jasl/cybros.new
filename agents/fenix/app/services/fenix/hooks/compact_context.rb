@@ -14,10 +14,13 @@ module Fenix
       def call
         before_message_count = EstimateMessages.call(messages: @messages)
         estimated_tokens = EstimateTokens.call(messages: @messages)
-        threshold = @budget_hints.fetch("advisory_compaction_threshold_tokens", 0).to_i
+        threshold =
+          @budget_hints.dig("advisory_hints", "recommended_compaction_threshold") ||
+          @budget_hints["advisory_compaction_threshold_tokens"] ||
+          0
 
         compacted_messages =
-          if threshold.positive? && estimated_tokens > threshold && @messages.size > 2
+          if threshold.to_i.positive? && estimated_tokens > threshold.to_i && @messages.size > 2
             preserved_head = @messages.first["role"] == "system" ? [@messages.first] : []
             preserved_tail = @messages.last(2)
             preserved_head + [
