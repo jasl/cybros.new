@@ -26,7 +26,7 @@ class SubagentSessions::RequestCloseTest < ActiveSupport::TestCase
     close_request = AgentControlMailboxItem.where(item_type: "resource_close_request").order(:created_at).last
 
     assert_equal "requested", session.reload.close_state
-    assert session.lifecycle_close_requested?
+    assert_equal "close_requested", session.lifecycle_state
     assert_equal "SubagentSession", close_request.payload.fetch("resource_type")
     assert_equal session.public_id, close_request.payload.fetch("resource_id")
   end

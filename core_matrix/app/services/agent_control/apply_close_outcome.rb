@@ -61,7 +61,6 @@ module AgentControl
         )
       when SubagentSession
         @resource.update!(
-          lifecycle_state: "closed",
           last_known_status: terminal_subagent_status
         )
       end
@@ -89,7 +88,6 @@ module AgentControl
         )
       when SubagentSession
         @resource.update!(
-          lifecycle_state: "closed",
           last_known_status: "failed"
         )
       end

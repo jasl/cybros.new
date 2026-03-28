@@ -148,7 +148,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     assert context[:turn].reload.canceled?
     assert context[:workflow_run].reload.canceled?
     assert process_run.reload.stopped?
-    assert subagent_session.reload.lifecycle_closed?
+    assert_equal "closed", subagent_session.reload.lifecycle_state
     assert subagent_session.close_closed?
   end
 

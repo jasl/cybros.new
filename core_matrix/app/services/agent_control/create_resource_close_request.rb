@@ -42,7 +42,6 @@ module AgentControl
         close_grace_deadline_at: @grace_deadline_at,
         close_force_deadline_at: @force_deadline_at,
       }
-      resource_updates[:lifecycle_state] = "close_requested" if @resource.is_a?(SubagentSession)
 
       @resource.update!(resource_updates)
 

@@ -87,7 +87,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     assert_equal "degraded", close_operation.lifecycle_state
     assert_equal "residual_abandoned", background_service.reload.close_outcome_kind
     assert background_service.reload.lost?
-    assert subagent_session.reload.lifecycle_closed?
+    assert_equal "closed", subagent_session.reload.lifecycle_state
     assert_equal 200, duplicate_background_close.fetch("http_status")
     assert_equal "duplicate", duplicate_background_close.fetch("result")
     assert_equal close_operation_updated_at, close_operation.reload.updated_at
