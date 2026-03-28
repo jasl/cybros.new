@@ -36,7 +36,7 @@ runtime capability preservation, subagent close control, and the
 ## Confirmation Passes
 
 - [x] Runtime capability preservation and reuse rules
-- [ ] `SubagentSession` close progression and neighboring close-control readers
+- [x] `SubagentSession` close progression and neighboring close-control readers
 - [ ] `core_matrix <-> fenix` execution-context contract, including model hints
   and visible-tool semantics
 - [ ] Wrapper and payload drift around the archived hotspots
@@ -74,6 +74,42 @@ runtime capability preservation, subagent close control, and the
   registration paths still reuse `CapabilitySnapshots::Reconcile` for snapshot
   identity, so this confirmation pass did not surface a separate adjacent
   structural leak.
+
+### `SubagentSession` close progression and adjacent readers
+
+- Files reviewed:
+  `core_matrix/app/models/concerns/closable_runtime_resource.rb`,
+  `core_matrix/app/models/subagent_session.rb`,
+  `core_matrix/app/queries/conversations/blocker_snapshot_query.rb`,
+  `core_matrix/app/queries/conversations/close_summary_query.rb`,
+  `core_matrix/app/services/agent_control/apply_close_outcome.rb`,
+  `core_matrix/app/services/agent_control/closable_resource_routing.rb`,
+  `core_matrix/app/services/agent_control/create_resource_close_request.rb`,
+  `core_matrix/app/services/agent_control/handle_close_report.rb`,
+  `core_matrix/app/services/agent_control/validate_close_report_freshness.rb`,
+  `core_matrix/app/services/conversations/progress_close_requests.rb`,
+  `core_matrix/app/services/conversations/reconcile_close_operation.rb`,
+  `core_matrix/app/services/conversations/request_close.rb`,
+  `core_matrix/app/services/conversations/request_turn_interrupt.rb`,
+  `core_matrix/app/services/conversations/validate_quiescence.rb`,
+  `core_matrix/app/services/subagent_sessions/list_for_conversation.rb`,
+  `core_matrix/app/services/subagent_sessions/owned_tree.rb`,
+  `core_matrix/app/services/subagent_sessions/request_close.rb`,
+  `core_matrix/app/services/subagent_sessions/wait.rb`,
+  `core_matrix/test/models/subagent_session_test.rb`,
+  `core_matrix/test/queries/conversations/blocker_snapshot_query_test.rb`,
+  `core_matrix/test/queries/conversations/close_summary_query_test.rb`,
+  `core_matrix/test/services/agent_control/report_test.rb`,
+  `core_matrix/test/services/conversations/request_turn_interrupt_test.rb`,
+  `core_matrix/test/services/conversations/validate_quiescence_test.rb`,
+  and `core_matrix/test/services/subagent_sessions/request_close_test.rb`.
+- Result:
+  no additional high-confidence issue found beyond the archived
+  `SubagentSession` split-state-machine finding. The adjacent readers and
+  close-control helpers still compensate by consulting `close_state` and
+  `last_known_status`, but in the current code those checks reinforce the
+  already-archived split-authority problem instead of exposing a second,
+  separate owner or reader contract failure.
 
 ## New High-Confidence Findings
 
