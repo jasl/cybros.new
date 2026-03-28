@@ -12,15 +12,14 @@ module Turns
     end
 
     def call
-      @conversation.with_lock do
-        current_conversation = Conversations::ValidateMutableState.call(
-          conversation: @conversation,
-          record: @record,
-          retained_message: "must be retained for #{@entry_label}",
-          active_message: "must be active for #{@entry_label}",
-          closing_message: @closing_message
-        )
-        yield current_conversation
+      Conversations::WithMutableStateLock.call(
+        conversation: @conversation,
+        record: @record,
+        retained_message: "must be retained for #{@entry_label}",
+        active_message: "must be active for #{@entry_label}",
+        closing_message: @closing_message
+      ) do |conversation|
+        yield conversation
       end
     end
   end
