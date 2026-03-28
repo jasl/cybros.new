@@ -117,6 +117,23 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:lifecycle_state], "must be active before archival"
   end
 
+  test "rejects force archiving a non-active conversation" do
+    context = create_workspace_context!
+    root = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    root.update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::Archive.call(conversation: root, force: true)
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active before archival"
+    assert_equal 0, root.reload.conversation_close_operations.count
+  end
+
   test "force archive creates a close operation and waits only for mainline blockers before archiving" do
     context = build_profile_aware_agent_control_context!
     blocking_request = HumanInteractions::Request.call(

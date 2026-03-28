@@ -21,12 +21,10 @@ module Conversations
 
       ApplicationRecord.transaction do
         @conversation.with_lock do
-          Conversations::ValidateRetainedState.call(
+          Conversations::ValidateArchiveTarget.call(
             conversation: @conversation,
-            record: @conversation,
-            message: "must be retained before archival"
+            record: @conversation
           )
-          raise_invalid!(@conversation, :lifecycle_state, "must be active before archival") unless @conversation.active?
           ensure_conversation_quiescent!(@conversation, stage: "archival")
           @conversation.update!(lifecycle_state: "archived")
         end
@@ -36,10 +34,5 @@ module Conversations
     end
 
     private
-
-    def raise_invalid!(record, attribute, message)
-      record.errors.add(attribute, message)
-      raise ActiveRecord::RecordInvalid, record
-    end
   end
 end
