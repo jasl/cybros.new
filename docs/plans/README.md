@@ -2,60 +2,38 @@
 
 This directory contains the active execution plans for `core_matrix`.
 
-`Phase 2` is now active here. The current top-level entry points are:
+`Phase 2` is still active, but Milestones A through C and their completed
+follow-ups are now archived under `docs/finished-plans`.
+
+## Active Entry Points
 
 - [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md)
-- [2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md)
-- [2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md)
-- [2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md)
-- [2026-03-26-core-matrix-phase-2-conversation-purge-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-conversation-purge-hardening-design.md)
-- [2026-03-26-core-matrix-phase-2-plan-conversation-purge-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-conversation-purge-hardening.md)
-- [2026-03-26-core-matrix-phase-2-review-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-review-audit-design.md)
-- [2026-03-26-core-matrix-phase-2-plan-review-audit.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-review-audit.md)
-- [2026-03-26-core-matrix-phase-2-review-audit-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-review-audit-findings.md)
-- [2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-task-execution-environment-runtime-boundary-follow-up.md)
-- [2026-03-26-core-matrix-phase-2-execution-environment-and-agent-runtime-boundary-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-execution-environment-and-agent-runtime-boundary-design.md)
-- [2026-03-26-core-matrix-phase-2-plan-execution-environment-runtime-boundary.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-execution-environment-runtime-boundary.md)
-- [2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md)
-- [2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-close-operation-reconciliation.md)
-- [2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-runtime-binding-and-rewrite-safety-hardening-design.md)
-- [2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-runtime-binding-and-rewrite-safety-hardening.md)
-- [2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-conversation-mutation-contract-unification-design.md)
-- [2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-conversation-mutation-contract-unification.md)
-- [2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-lineage-provenance-and-supersession-hardening-design.md)
-- [2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-lineage-provenance-and-supersession-hardening.md)
-- [2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-anchor-lineage-and-provenance-regression-hardening-design.md)
-- [2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-27-core-matrix-phase-2-plan-anchor-lineage-and-provenance-regression-hardening.md)
-- [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-design.md)
-- [2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-architecture-health-audit-follow-up.md)
-- [2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md)
-- [2026-03-28-core-matrix-phase-2-plan-structural-consolidation-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-structural-consolidation-follow-up.md)
-- [2026-03-28-core-matrix-phase-2-plan-post-consolidation-repair-loop.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-28-core-matrix-phase-2-plan-post-consolidation-repair-loop.md)
+- [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
+- [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
+- [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
+- [2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md)
+- [2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md)
+- [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
+- [2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md)
 
-Use the phase plan for overall ordering, the milestone documents for current
-implementation scope, and the task documents as the executable implementation
-units.
+## Active Execution Order
 
-Active execution order for the current Phase 2 batch:
+1. `Task D1`
+2. `Task D2`
+3. `Task E1`
+4. `Task E2`
+5. `Task F1`
+6. `Task F2`
+7. `Task F3`
 
-1. `Task A1`
-2. `Task A2`
-3. `Task B1`
-4. `Task C1`
-5. `Task C2`
-6. `Task C3`
-7. `Task C4`
-8. `Task C5`
-9. `Task C2 Follow-Up`
-10. `Task C6 Follow-Up`
-11. `Task C7 Follow-Up`
-12. `Task C8 Follow-Up`
-13. `Task C9 Follow-Up`
-14. `Task C10 Follow-Up`
-15. `Task C11 Follow-Up`
-16. `Task C12 Follow-Up`
-17. `Task C13 Follow-Up`
-18. `Task C14 Follow-Up`
+## Completed Phase 2 Archives
 
-`Protocol E2E` belongs to Milestone C. It is distinct from any future browser
-or Web UI end-to-end coverage.
+- `Milestone A`:
+  [2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md)
+- `Milestone B`:
+  [2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md)
+- `Milestone C`:
+  [2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md)
+
+Use the phase plan for active ordering. Use the archived milestone records for
+historical implementation context that has already passed acceptance.

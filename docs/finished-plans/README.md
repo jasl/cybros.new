@@ -12,9 +12,17 @@ of leaving only a volatile reference path behind.
 
 Current Phase 2 finished records:
 
+- Milestone archives:
+  [2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md),
+  [2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md),
+  [2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md)
 - Closeout records:
   [2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md),
   [2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md)
+
+The archived Milestone C record now also serves as the index for the completed
+runtime-boundary, audit, consolidation, subagent-session, and iterative
+refresh follow-ups that were appended after the original milestone scope.
 
 Current Phase 1 finished records:
 

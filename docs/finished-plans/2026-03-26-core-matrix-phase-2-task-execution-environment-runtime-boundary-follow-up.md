@@ -67,7 +67,7 @@ Repair the runtime ownership boundary exposed by Milestone C so that:
 
 The detailed execution steps, test order, and commit boundaries live in:
 
-- [2026-03-26-core-matrix-phase-2-plan-execution-environment-runtime-boundary.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-execution-environment-runtime-boundary.md)
+- [2026-03-26-core-matrix-phase-2-plan-execution-environment-runtime-boundary.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-plan-execution-environment-runtime-boundary.md)
 
 At minimum, verification must include:
 
