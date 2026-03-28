@@ -1,11 +1,32 @@
 class SubagentSession < ApplicationRecord
   include HasPublicId
+  include ClosableRuntimeResource
 
   enum :scope,
     {
       turn: "turn",
       conversation: "conversation",
     },
+    prefix: :scope,
+    validate: true
+  enum :lifecycle_state,
+    {
+      open: "open",
+      close_requested: "close_requested",
+      closed: "closed",
+    },
+    prefix: :lifecycle,
+    validate: true
+  enum :last_known_status,
+    {
+      idle: "idle",
+      running: "running",
+      waiting: "waiting",
+      completed: "completed",
+      failed: "failed",
+      interrupted: "interrupted",
+    },
+    prefix: :last_known_status,
     validate: true
 
   belongs_to :installation
@@ -20,6 +41,7 @@ class SubagentSession < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :parent_subagent_session
   has_many :agent_task_runs, dependent: :restrict_with_exception
+  has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
   validates :profile_key, presence: true
   validates :depth, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -57,7 +79,7 @@ class SubagentSession < ApplicationRecord
   end
 
   def scope_requires_origin_turn
-    return unless turn?
+    return unless scope == "turn"
     return if origin_turn.present?
 
     errors.add(:origin_turn, "must exist for turn-scoped sessions")

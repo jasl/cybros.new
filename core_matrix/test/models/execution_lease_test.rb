@@ -1,23 +1,33 @@
 require "test_helper"
 
 class ExecutionLeaseTest < ActiveSupport::TestCase
-  test "enforces one active lease per runtime resource and tracks heartbeat freshness" do
+  test "accepts subagent sessions as leasable runtime resources and tracks heartbeat freshness" do
     context = build_subagent_context!
-    subagent_run = SubagentRun.create!(
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: context[:conversation],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
       installation: context[:installation],
-      workflow_run: context[:workflow_run],
-      workflow_node: context[:workflow_node],
-      lifecycle_state: "running",
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      origin_turn: context[:turn],
+      scope: "turn",
+      profile_key: "researcher",
       depth: 0,
-      requested_role_or_slot: "researcher",
-      metadata: {}
+      lifecycle_state: "open",
+      last_known_status: "running"
     )
 
     lease = ExecutionLease.new(
       installation: context[:installation],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
-      leased_resource: subagent_run,
+      leased_resource: subagent_session,
       holder_key: "worker-1",
       heartbeat_timeout_seconds: 30,
       acquired_at: Time.current,
@@ -41,5 +51,25 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
 
     lease.update!(released_at: Time.current, release_reason: "completed")
     assert_not lease.reload.active?
+  end
+
+  test "rejects legacy SubagentRun lease types" do
+    context = build_subagent_context!
+
+    lease = ExecutionLease.new(
+      installation: context[:installation],
+      workflow_run: context[:workflow_run],
+      workflow_node: context[:workflow_node],
+      leased_resource_type: "SubagentRun",
+      leased_resource_id: 12_345,
+      holder_key: "worker-1",
+      heartbeat_timeout_seconds: 30,
+      acquired_at: Time.current,
+      last_heartbeat_at: Time.current,
+      metadata: {}
+    )
+
+    assert_not lease.valid?
+    assert_includes lease.errors[:leased_resource], "must be a supported runtime resource"
   end
 end

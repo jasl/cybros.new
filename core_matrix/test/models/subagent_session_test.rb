@@ -175,4 +175,52 @@ class SubagentSessionTest < ActiveSupport::TestCase
     assert_not child_session.valid?
     assert_includes child_session.errors[:owner_conversation], "must belong to the same installation"
   end
+
+  test "participates in closable runtime resource control" do
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment],
+      kind: "thread",
+      addressability: "agent_addressable"
+    )
+
+    session = SubagentSession.new(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0
+    )
+
+    assert_respond_to session, :close_open?
+    assert AgentControl::ClosableResourceRegistry.supported?(session)
+
+    session.assign_attributes(
+      close_state: "requested",
+      close_reason_kind: "turn_interrupt"
+    )
+
+    assert_not session.valid?
+    assert_includes session.errors[:close_requested_at], "must exist when close has been requested"
+
+    session.assign_attributes(
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_state: "closed",
+      close_acknowledged_at: Time.current,
+      close_outcome_kind: "graceful"
+    )
+
+    assert session.valid?
+  end
 end

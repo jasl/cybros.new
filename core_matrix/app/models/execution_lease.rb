@@ -1,16 +1,17 @@
 class ExecutionLease < ApplicationRecord
-  LEASED_RESOURCE_TYPES = %w[AgentTaskRun ProcessRun SubagentRun].freeze
+  LEASED_RESOURCE_TYPES = %w[AgentTaskRun ProcessRun SubagentSession].freeze
 
   belongs_to :installation
   belongs_to :workflow_run
   belongs_to :workflow_node
-  belongs_to :leased_resource, polymorphic: true
+  belongs_to :leased_resource, polymorphic: true, optional: true
 
   validate :metadata_must_be_hash
   validate :workflow_run_installation_match
   validate :workflow_node_installation_match
   validate :workflow_node_workflow_run_match
   validate :leased_resource_type_supported
+  validate :leased_resource_presence_for_supported_type
   validate :leased_resource_installation_match
   validate :leased_resource_workflow_run_match
   validate :leased_resource_workflow_node_match
@@ -75,23 +76,39 @@ class ExecutionLease < ApplicationRecord
     errors.add(:leased_resource, "must be a supported runtime resource")
   end
 
+  def leased_resource_presence_for_supported_type
+    return unless LEASED_RESOURCE_TYPES.include?(leased_resource_type)
+    return if supported_leased_resource.present?
+
+    errors.add(:leased_resource, "must exist")
+  end
+
   def leased_resource_installation_match
-    return if leased_resource.blank?
-    return if leased_resource.installation_id == installation_id
+    resource = supported_leased_resource
+    return if resource.blank?
+    return if resource.installation_id == installation_id
 
     errors.add(:leased_resource, "must belong to the same installation")
   end
 
   def leased_resource_workflow_run_match
-    return if leased_resource.blank? || workflow_run.blank?
-    return if leased_resource.workflow_run == workflow_run
+    resource = supported_leased_resource
+    return if resource.blank? || workflow_run.blank?
+    return unless resource.respond_to?(:workflow_run)
+
+    leased_resource_workflow_run = resource.workflow_run
+    return if leased_resource_workflow_run.blank? || leased_resource_workflow_run == workflow_run
 
     errors.add(:leased_resource, "must belong to the same workflow run")
   end
 
   def leased_resource_workflow_node_match
-    return if leased_resource.blank? || workflow_node.blank?
-    return if leased_resource.workflow_node == workflow_node
+    resource = supported_leased_resource
+    return if resource.blank? || workflow_node.blank?
+    return unless resource.respond_to?(:workflow_node)
+
+    leased_resource_workflow_node = resource.workflow_node
+    return if leased_resource_workflow_node.blank? || leased_resource_workflow_node == workflow_node
 
     errors.add(:leased_resource, "must belong to the same workflow node")
   end
@@ -126,5 +143,11 @@ class ExecutionLease < ApplicationRecord
     return unless existing_lease
 
     errors.add(:leased_resource, "already has an active execution lease")
+  end
+
+  def supported_leased_resource
+    return unless LEASED_RESOURCE_TYPES.include?(leased_resource_type)
+
+    leased_resource
   end
 end
