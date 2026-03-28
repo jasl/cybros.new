@@ -16,7 +16,7 @@ module ActiveSupport
 
     def shared_contract_fixture(name)
       ::JSON.parse(
-        File.read(Rails.root.join("..", "..", "contracts", "#{name}.json"))
+        File.read(Rails.root.join("..", "..", "shared", "fixtures", "contracts", "#{name}.json"))
       )
     end
 

@@ -153,7 +153,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
   def execution_assignment_contract_fixture
     ::JSON.parse(
-      File.read(Rails.root.join("..", "contracts", "core_matrix_fenix_execution_assignment_v1.json"))
+      File.read(Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_fenix_execution_assignment_v1.json"))
     )
   end
 
