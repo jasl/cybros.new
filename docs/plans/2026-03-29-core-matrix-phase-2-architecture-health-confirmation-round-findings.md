@@ -39,7 +39,7 @@ runtime capability preservation, subagent close control, and the
 - [x] `SubagentSession` close progression and neighboring close-control readers
 - [x] `core_matrix <-> fenix` execution-context contract, including model hints
   and visible-tool semantics
-- [ ] Wrapper and payload drift around the archived hotspots
+- [x] Wrapper and payload drift around the archived hotspots
 
 ### Runtime capability preservation and reuse
 
@@ -174,6 +174,21 @@ runtime capability preservation, subagent close control, and the
   one shared source such as `agent_task_run.turn.execution_snapshot` for every
   assignment family, then add cross-project contract coverage for a real
   step-retry assignment payload instead of only the create-for-turn fixture.
+
+### Adjacent anti-pattern sweep
+
+- Search patterns used:
+  in `core_matrix`, `profile_catalog|tool_catalog|allowed_tool_names|close_requested|close_state|recovery_plan|capability_snapshot|default_config_snapshot|conversation_override_schema_snapshot`
+  and `with_lock|transaction|close_operation|request_close|apply_close_outcome`;
+  in `agents/fenix`,
+  `allowed_tool_names|likely_model|model_context|agent_context|profile`.
+- Result:
+  the sweep did not surface a second new high-confidence structural issue. It
+  reinforced the archived capability-preservation and `SubagentSession`
+  hotspots, confirmed that current Fenix runtime code now treats
+  `allowed_tool_names` as an execution-time constraint, and re-confirmed that
+  the only newly promoted issue in this round is the retry-assignment drift
+  away from the frozen execution-snapshot contract.
 
 ## No-New-Finding Judgment
 
