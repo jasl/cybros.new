@@ -1,4 +1,12 @@
 class RuntimeCapabilityContract
+  RESERVED_SUBAGENT_TOOL_NAMES = %w[
+    subagent_spawn
+    subagent_send
+    subagent_wait
+    subagent_close
+    subagent_list
+  ].freeze
+
   def self.build(...)
     new(...)
   end
@@ -112,7 +120,7 @@ class RuntimeCapabilityContract
     reserved_entries = {}
     reserved_order = []
 
-    [environment_tool_catalog, agent_tool_catalog, @core_matrix_tool_catalog].each do |catalog|
+    [@core_matrix_tool_catalog, environment_tool_catalog, agent_tool_catalog].each do |catalog|
       catalog.each do |entry|
         tool_name = entry.fetch("tool_name")
 
@@ -186,6 +194,6 @@ class RuntimeCapabilityContract
   end
 
   def reserved_core_matrix_tool?(tool_name)
-    tool_name.start_with?("core_matrix__")
+    tool_name.start_with?("core_matrix__") || RESERVED_SUBAGENT_TOOL_NAMES.include?(tool_name)
   end
 end

@@ -1,6 +1,19 @@
 module RuntimeCapabilities
   class ComposeEffectiveToolCatalog
-    CORE_MATRIX_TOOL_CATALOG = [].freeze
+    RESERVED_SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
+
+    CORE_MATRIX_TOOL_CATALOG = RESERVED_SUBAGENT_TOOL_NAMES.map do |tool_name|
+      {
+        "tool_name" => tool_name,
+        "tool_kind" => "effect_intent",
+        "implementation_source" => "core_matrix",
+        "implementation_ref" => "core_matrix/#{tool_name}",
+        "input_schema" => { "type" => "object", "properties" => {} },
+        "result_schema" => { "type" => "object", "properties" => {} },
+        "streaming_support" => false,
+        "idempotency_policy" => "best_effort",
+      }
+    end.freeze
 
     def self.call(...)
       new(...).call
