@@ -62,7 +62,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors[:base], "must not have open subagent sessions before archival"
-    assert open_session.reload.lifecycle_open?
+    assert_equal "open", open_session.reload.lifecycle_state
   end
 
   test "rejects archiving while any open human interaction remains" do

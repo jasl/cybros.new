@@ -44,7 +44,6 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment]
     )
     session.update!(
-      lifecycle_state: "close_requested",
       close_state: "requested",
       close_reason_kind: "conversation_deleted",
       close_requested_at: Time.current,
@@ -62,6 +61,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
 
     assert_equal conversation.id, error.record.id
     assert_includes error.record.errors[:base], "must not have open or close-pending subagent sessions before purge"
+    assert_equal "close_requested", session.reload.lifecycle_state
   end
 
   test "final deletion ignores disposing background-service tails once the mainline barrier is clear" do

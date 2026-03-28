@@ -3,7 +3,6 @@ require "test_helper"
 class SubagentSessions::WaitTest < ActiveSupport::TestCase
   test "wait short-circuits on terminal durable state" do
     session = create_terminal_subagent_session!(
-      lifecycle_state: "closed",
       last_known_status: "completed",
       close_state: "closed",
       close_outcome_kind: "graceful"
@@ -24,7 +23,6 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
 
   test "wait times out cleanly" do
     session = create_terminal_subagent_session!(
-      lifecycle_state: "open",
       last_known_status: "running",
       close_state: "open",
       close_outcome_kind: nil,
@@ -48,7 +46,7 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
 
   private
 
-  def create_terminal_subagent_session!(lifecycle_state:, last_known_status:, close_state:, close_outcome_kind:, close_requested_at: Time.current, close_acknowledged_at: Time.current)
+  def create_terminal_subagent_session!(last_known_status:, close_state:, close_outcome_kind:, close_requested_at: Time.current, close_acknowledged_at: Time.current)
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -72,7 +70,6 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      lifecycle_state: lifecycle_state,
       last_known_status: last_known_status,
       close_state: close_state,
       close_reason_kind: close_state == "open" ? nil : "turn_interrupt",

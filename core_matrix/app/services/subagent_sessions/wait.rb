@@ -27,9 +27,7 @@ module SubagentSessions
     private
 
     def terminal?(session)
-      session.close_closed? ||
-        session.close_failed? ||
-        TERMINAL_LAST_KNOWN_STATUSES.include?(session.last_known_status)
+      session.terminal_close? || TERMINAL_LAST_KNOWN_STATUSES.include?(session.last_known_status)
     end
 
     def serialize(session, timed_out:)
