@@ -80,7 +80,7 @@ class DummyAgentRuntime
   def register_payload
     {
       "enrollment_token" => ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      "execution_environment_id" => Integer(ENV.fetch("CORE_MATRIX_EXECUTION_ENVIRONMENT_ID")),
+      "environment_fingerprint" => ENV.fetch("CORE_MATRIX_ENVIRONMENT_FINGERPRINT", "dummy-runtime-environment"),
       "fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
       "endpoint_metadata" => {
         "transport" => "http",
@@ -175,7 +175,7 @@ class DummyAgentRuntime
         CORE_MATRIX_BASE_URL
         CORE_MATRIX_RUNTIME_BASE_URL
         CORE_MATRIX_ENROLLMENT_TOKEN     # required for register
-        CORE_MATRIX_EXECUTION_ENVIRONMENT_ID
+        CORE_MATRIX_ENVIRONMENT_FINGERPRINT
         CORE_MATRIX_MACHINE_CREDENTIAL   # required for heartbeat/capabilities/health
         CORE_MATRIX_FINGERPRINT
         CORE_MATRIX_PROTOCOL_VERSION

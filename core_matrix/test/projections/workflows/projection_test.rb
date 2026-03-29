@@ -83,5 +83,4 @@ class Workflows::ProjectionTest < ActiveSupport::TestCase
     assert_equal "re_enter_agent", projection.workflow_run.resume_policy
     assert_equal "agent_step_2", projection.workflow_run.resume_metadata.dig("successor", "node_key")
   end
-
 end

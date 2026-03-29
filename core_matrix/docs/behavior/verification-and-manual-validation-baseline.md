@@ -15,12 +15,12 @@ substrate, including the provider catalog follow-up.
   and delete the current dependency order from the checklist. Older ad-hoc
   `delete_all` chains became stale once more foreign-key roots were added.
 - `script/manual/dummy_agent_runtime.rb register` is part of the supported
-  registry validation path and must send both the enrollment token and the
-  execution environment id. The required environment variable is
-  `CORE_MATRIX_EXECUTION_ENVIRONMENT_ID`.
+  registry validation path and must send the enrollment token plus a stable
+  `environment_fingerprint`. The manual checklist currently drives that through
+  `CORE_MATRIX_ENVIRONMENT_FINGERPRINT`.
 - Publication validation in phase 1 is intentionally service-level.
   `Publications::PublishLive`, `Publications::RecordAccess`,
-  `Publications::LiveProjectionQuery`, and `Publications::Revoke` are the
+  `Publications::LiveProjection`, and `Publications::Revoke` are the
   authoritative publication surfaces until public HTTP routes exist.
 - Blocking approval requests pause the existing workflow run by moving it to
   `wait_state = "waiting"` with a `HumanInteractionRequest` blocking resource,

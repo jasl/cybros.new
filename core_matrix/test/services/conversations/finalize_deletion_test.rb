@@ -100,5 +100,4 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
       assert_nil finalized.lineage_store_reference
     end
   end
-
 end

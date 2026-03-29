@@ -1,18 +1,19 @@
 require "test_helper"
 
 class DummyAgentRuntimeTest < ActiveSupport::TestCase
-  test "register payload includes the execution environment id required by the registration api" do
+  test "register payload includes a stable environment fingerprint for registration pairing" do
     load_dummy_agent_runtime_class!
 
     payload =
       with_modified_env(
         "CORE_MATRIX_ENROLLMENT_TOKEN" => "manual-enrollment-token",
-        "CORE_MATRIX_EXECUTION_ENVIRONMENT_ID" => "42",
+        "CORE_MATRIX_ENVIRONMENT_FINGERPRINT" => "dummy-host-a",
       ) do
         DummyAgentRuntime.new(["register"]).send(:register_payload)
       end
 
-    assert_equal 42, payload["execution_environment_id"]
+    assert_equal "dummy-host-a", payload["environment_fingerprint"]
+    refute payload.key?("execution_environment_id")
   end
 
   private

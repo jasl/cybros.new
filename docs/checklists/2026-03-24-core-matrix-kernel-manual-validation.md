@@ -19,8 +19,9 @@ Current backend baseline was rerun on `2026-03-25`.
   `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`
   because direct `ApplicationRecord.connection` access is deprecated in the
   current Rails line used here.
-- `script/manual/dummy_agent_runtime.rb register` now requires
-  `CORE_MATRIX_EXECUTION_ENVIRONMENT_ID`.
+- `script/manual/dummy_agent_runtime.rb register` now sends a stable
+  `environment_fingerprint`; this checklist exports it through
+  `CORE_MATRIX_ENVIRONMENT_FINGERPRINT`.
 - Publication validation remains service-level in phase 1 because there are no
   public publication HTTP routes yet.
 
@@ -328,13 +329,6 @@ agent_installation = AgentInstallation.create!(
   lifecycle_state: "active"
 )
 
-execution_environment = ExecutionEnvironment.create!(
-  installation: bootstrap.installation,
-  kind: "local",
-  connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
-  lifecycle_state: "active"
-)
-
 enrollment = AgentEnrollments::Issue.call(
   agent_installation: agent_installation,
   actor: bootstrap.user,
@@ -342,7 +336,6 @@ enrollment = AgentEnrollments::Issue.call(
 )
 
 puts({
-  execution_environment_id: execution_environment.id,
   enrollment_token: enrollment.plaintext_token,
 }.to_json)
 RUBY
@@ -351,7 +344,7 @@ RUBY
 export CORE_MATRIX_BASE_URL=http://127.0.0.1:3000
 export CORE_MATRIX_RUNTIME_BASE_URL=http://127.0.0.1:4100
 export CORE_MATRIX_ENROLLMENT_TOKEN="$(core_matrix_json_field "$STATE_JSON" enrollment_token)"
-export CORE_MATRIX_EXECUTION_ENVIRONMENT_ID="$(core_matrix_json_field "$STATE_JSON" execution_environment_id)"
+export CORE_MATRIX_ENVIRONMENT_FINGERPRINT=manual-regression-environment
 export CORE_MATRIX_FINGERPRINT=manual-regression-runtime
 
 ruby script/manual/dummy_agent_runtime.rb register > /tmp/core_matrix_manual_register.json
@@ -527,13 +520,6 @@ agent_installation = AgentInstallation.create!(
   lifecycle_state: "active"
 )
 
-execution_environment = ExecutionEnvironment.create!(
-  installation: bootstrap.installation,
-  kind: "local",
-  connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
-  lifecycle_state: "active"
-)
-
 enrollment = AgentEnrollments::Issue.call(
   agent_installation: agent_installation,
   actor: bootstrap.user,
@@ -541,7 +527,6 @@ enrollment = AgentEnrollments::Issue.call(
 )
 
 puts({
-  execution_environment_id: execution_environment.id,
   enrollment_token: enrollment.plaintext_token,
 }.to_json)
 RUBY
@@ -550,7 +535,7 @@ RUBY
 export CORE_MATRIX_BASE_URL=http://127.0.0.1:3000
 export CORE_MATRIX_RUNTIME_BASE_URL=http://127.0.0.1:4100
 export CORE_MATRIX_ENROLLMENT_TOKEN="$(core_matrix_json_field "$STATE_JSON" enrollment_token)"
-export CORE_MATRIX_EXECUTION_ENVIRONMENT_ID="$(core_matrix_json_field "$STATE_JSON" execution_environment_id)"
+export CORE_MATRIX_ENVIRONMENT_FINGERPRINT=manual-regression-environment
 export CORE_MATRIX_FINGERPRINT=manual-regression-runtime
 
 ruby script/manual/dummy_agent_runtime.rb register > /tmp/core_matrix_manual_register.json
@@ -2185,7 +2170,7 @@ token_access = Publications::RecordAccess.call(
   access_token: external_publication.plaintext_access_token,
   request_metadata: { "ip" => "127.0.0.2" }
 )
-projection_entries = Publications::LiveProjectionQuery.call(publication: external_publication)
+projection_entries = Publications::LiveProjection.call(publication: external_publication)
 
 Publications::Revoke.call(publication: external_publication, actor: bootstrap.user)
 

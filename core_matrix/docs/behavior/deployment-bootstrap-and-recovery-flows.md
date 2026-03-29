@@ -69,7 +69,7 @@ Planned replacement design:
   - `wait_reason_kind = "agent_unavailable"`
   - `wait_reason_payload["recovery_state"] = "transient_outage"`
   - `blocking_resource_type = "AgentDeployment"`
-  - `blocking_resource_id = <deployment id>`
+  - `blocking_resource_id = <deployment public_id>`
   - audit action `agent_deployment.degraded`
 - prolonged outage behavior:
   - deployment moves to `health_status = "offline"`

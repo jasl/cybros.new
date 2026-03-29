@@ -75,9 +75,9 @@ inventing demo users or UI state.
   - success and failure counts
   - most recent occurrence time
 
-## Workflow Projection Query
+## Workflow Projection
 
-### `Workflows::ProjectionQuery`
+### `Workflows::Projection`
 
 - Reads one workflow run as a proof- and inspection-friendly bundle.
 - Returns:

@@ -31,20 +31,22 @@ Planned replacement design:
 
 ## Identifier Boundary
 
-- registration now resolves `execution_environment_id` by
-  `ExecutionEnvironment.public_id`
+- registration now reconciles the bound `ExecutionEnvironment` from the stable
+  request-side `environment_fingerprint`
+- registration responses still expose `execution_environment_id`, and that
+  field now carries `ExecutionEnvironment.public_id`
 - registration, health, and heartbeat payloads keep the existing field names
   such as `deployment_id`, but those fields now carry public UUIDv7-backed
   `public_id` values
 - internal deployment, installation, and environment relations still use
-  `bigint` after the HTTP boundary lookup
+  `bigint` after the HTTP boundary reconciliation
 
 ## Authentication Model
 
 - registration uses a one-time `AgentEnrollment` token and exchanges it for a
   durable machine credential
-- all follow-up agent API calls authenticate with HTTP bearer token auth using
-  the deployment machine credential
+- all follow-up agent API calls authenticate with HTTP token auth using the
+  deployment machine credential
 - machine credentials are still matched by digest lookup on `AgentDeployment`;
   plaintext credentials are only returned at registration time
 - invalid machine credentials return `401 unauthorized`
@@ -119,10 +121,9 @@ Planned replacement design:
   `AgentDeployments::ResolveRecoveryTarget` compares the replacement
   deployment's active snapshot against the paused turn's pinned snapshot before
   it allows paused work to continue
-- `CapabilitySnapshot#as_contract_payload`,
-  `CapabilitySnapshot#as_agent_plane_payload`, and
-  `ExecutionEnvironment#as_runtime_plane_payload` are thin adapters over that
-  shared contract
+- controllers and recovery paths build the shared contract through
+  `RuntimeCapabilityContract` instead of carrying separate controller-local
+  payload formatters
 
 ## Config Reconciliation
 
@@ -158,8 +159,9 @@ Planned replacement design:
 
 - invalid, consumed, or expired enrollment tokens are rejected during
   registration
-- execution environments from another installation are rejected with a
-  controlled validation-style error rather than bubbling a server exception
+- blank `environment_fingerprint` values are rejected during registration
+- execution-environment reconciliation remains scoped to the enrollment
+  installation instead of trusting caller-provided environment ids
 - fingerprint mismatches are rejected during capability handshake
 - machine-facing endpoints reject unknown deployment credentials before mutating
   deployment health or capability state
