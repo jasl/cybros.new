@@ -1,6 +1,26 @@
 require "test_helper"
 
 class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
+  test "does not reinterpret top-level envelope extras as task payload" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      task_payload: { "mode" => "deterministic_tool", "expression" => "2 + 2" }
+    )
+
+    mailbox_item = AgentControl::CreateExecutionAssignment.call(
+      agent_task_run: agent_task_run,
+      payload: {
+        "delivery_kind" => "poll-only",
+      },
+      dispatch_deadline_at: 5.minutes.from_now,
+      execution_hard_deadline_at: 10.minutes.from_now
+    )
+
+    assert_equal agent_task_run.task_payload.deep_stringify_keys, mailbox_item.payload.fetch("task_payload")
+    assert_equal "poll-only", mailbox_item.payload.fetch("delivery_kind")
+  end
+
   test "serializes the subagent execution assignment envelope that fenix consumes" do
     installation = Installation.first || create_installation!(name: "Execution Assignment Contract #{SecureRandom.uuid}")
     user = create_user!(installation: installation)

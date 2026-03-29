@@ -41,7 +41,6 @@ class Turn < ApplicationRecord
   validates :pinned_deployment_fingerprint, presence: true
   validate :origin_payload_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
-  validate :resolved_config_snapshot_must_not_use_legacy_wrapper
   validate :execution_snapshot_payload_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
@@ -109,13 +108,6 @@ class Turn < ApplicationRecord
 
   def resolved_config_snapshot_must_be_hash
     errors.add(:resolved_config_snapshot, "must be a hash") unless resolved_config_snapshot.is_a?(Hash)
-  end
-
-  def resolved_config_snapshot_must_not_use_legacy_wrapper
-    return unless resolved_config_snapshot.is_a?(Hash)
-    return unless resolved_config_snapshot.key?("config") && resolved_config_snapshot.key?("execution_context")
-
-    errors.add(:resolved_config_snapshot, "must not use legacy wrapped execution context")
   end
 
   def execution_snapshot_payload_must_be_hash

@@ -78,10 +78,8 @@ currently satisfies those declared requirements.
   settings through one audited boundary.
 - Writes `provider_policy.upserted` audit rows.
 
-### `Providers::CheckAvailability`
+### `ProviderCatalog::EffectiveCatalog#availability`
 
-- Remains a thin compatibility wrapper over
-  `ProviderCatalog::EffectiveCatalog#availability`.
 - Resolves one provider-qualified model against both the catalog and the
   installation-scoped governance rows.
 - Returns whether the candidate is currently usable plus a structured

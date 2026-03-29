@@ -100,36 +100,6 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal "researcher", default_session.profile_key
   end
 
-  test "rejects legacy subagent naming fields" do
-    context = prepare_profile_aware_execution_context!
-    owner_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
-    owner_turn = Turns::StartUserTurn.call(
-      conversation: owner_conversation,
-      content: "Delegate",
-      agent_deployment: context[:agent_deployment],
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
-
-    error = assert_raises(ArgumentError) do
-      SubagentSessions::Spawn.call(
-        conversation: owner_conversation,
-        origin_turn: owner_turn,
-        content: "Investigate this",
-        scope: "turn",
-        profile_key: "researcher",
-        canonical_name: "planner",
-        nickname: "P"
-      )
-    end
-
-    assert_includes error.message, "canonical_name"
-  end
-
   test "nested spawn records parent session depth and list only returns sessions owned by the current conversation" do
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(

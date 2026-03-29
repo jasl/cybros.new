@@ -12,7 +12,7 @@ class MailboxScenarioBuilder
     )
     mailbox_item = AgentControl::CreateExecutionAssignment.call(
       agent_task_run: agent_task_run,
-      payload: task_payload,
+      payload: { "task_payload" => task_payload },
       dispatch_deadline_at: 5.minutes.from_now,
       execution_hard_deadline_at: 10.minutes.from_now
     )

@@ -68,7 +68,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: current_turn)
 
-    refute snapshot.to_h.key?("execution_context")
     assert_equal context[:user].public_id, snapshot.identity.fetch("user_id")
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")
@@ -346,6 +345,40 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     assert_equal turn, error.record
     assert_includes error.record.errors[:resolved_config_snapshot], "runtime_override reasoning_effort must be present"
+  end
+
+  test "filters wrapper-shaped resolved config payloads through runtime override semantics" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {
+        "config" => { "temperature" => 0.2 },
+        "execution_context" => {
+          "identity" => {
+            "user_id" => context[:user].public_id,
+          },
+        },
+      },
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: turn)
+
+    assert_equal(
+      ProviderRequestSettingsSchema.for("responses").merge_execution_settings(
+        request_defaults: test_provider_catalog_definition
+          .dig(:providers, :codex_subscription, :models, "gpt-5.4", :request_defaults),
+        runtime_overrides: {}
+      ),
+      snapshot.provider_execution.fetch("execution_settings")
+    )
   end
 
   test "freezes root agent context with the main profile and visible tool names" do

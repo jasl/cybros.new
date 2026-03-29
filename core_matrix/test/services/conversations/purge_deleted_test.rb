@@ -186,7 +186,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     )
     assignment_mailbox_item = AgentControl::CreateExecutionAssignment.call(
       agent_task_run: agent_task_run,
-      payload: { "step" => "execute" },
+      payload: { "task_payload" => { "step" => "execute" } },
       dispatch_deadline_at: 5.minutes.from_now,
       execution_hard_deadline_at: 10.minutes.from_now
     )

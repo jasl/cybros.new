@@ -52,8 +52,7 @@ This boundary does not assemble runtime input or attachment manifests. It only:
 - Unknown roles fail explicitly.
 - Candidate evaluation is ordered and deterministic.
 - Candidate usability is delegated to
-  `ProviderCatalog::EffectiveCatalog#availability`
-  with `Providers::CheckAvailability` retained only as a compatibility wrapper.
+  `ProviderCatalog::EffectiveCatalog#availability`.
 - A candidate is usable only when:
   - the provider exists in the catalog
   - the model exists in that provider entry

@@ -85,9 +85,6 @@ module AgentControl
       explicit_task_payload = @payload["task_payload"]
       return explicit_task_payload.deep_stringify_keys if explicit_task_payload.is_a?(Hash)
 
-      legacy_task_payload = @payload.except(*ENVELOPE_KEYS)
-      return legacy_task_payload.deep_stringify_keys if legacy_task_payload.present?
-
       @agent_task_run.task_payload.deep_stringify_keys
     end
   end

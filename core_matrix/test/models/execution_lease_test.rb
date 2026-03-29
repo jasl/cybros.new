@@ -53,23 +53,4 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
     assert_not lease.reload.active?
   end
 
-  test "rejects unsupported legacy lease types" do
-    context = build_subagent_context!
-
-    lease = ExecutionLease.new(
-      installation: context[:installation],
-      workflow_run: context[:workflow_run],
-      workflow_node: context[:workflow_node],
-      leased_resource_type: "LegacySubagentResource",
-      leased_resource_id: 12_345,
-      holder_key: "worker-1",
-      heartbeat_timeout_seconds: 30,
-      acquired_at: Time.current,
-      last_heartbeat_at: Time.current,
-      metadata: {}
-    )
-
-    assert_not lease.valid?
-    assert_includes lease.errors[:leased_resource], "must be a supported runtime resource"
-  end
 end

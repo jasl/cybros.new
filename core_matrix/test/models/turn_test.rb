@@ -184,38 +184,6 @@ class TurnTest < ActiveSupport::TestCase
     assert_includes turn.errors[:execution_snapshot_payload], "must be a hash"
   end
 
-  test "rejects legacy wrapped resolved config snapshot layout" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
-    turn = Turn.new(
-      installation: context[:installation],
-      conversation: conversation,
-      agent_deployment: context[:agent_deployment],
-      sequence: 1,
-      lifecycle_state: "active",
-      origin_kind: "manual_user",
-      origin_payload: {},
-      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
-      resolved_config_snapshot: {
-        "config" => { "temperature" => 0.2 },
-        "execution_context" => {
-          "identity" => {
-            "user_id" => context[:user].public_id,
-          },
-        },
-      },
-      execution_snapshot_payload: {},
-      resolved_model_selection_snapshot: {}
-    )
-
-    assert turn.invalid?
-    assert_includes turn.errors[:resolved_config_snapshot], "must not use legacy wrapped execution context"
-  end
-
   test "returns an explicit execution snapshot reader" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

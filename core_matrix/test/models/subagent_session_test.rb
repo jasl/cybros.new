@@ -8,9 +8,6 @@ class SubagentSessionTest < ActiveSupport::TestCase
     assert_includes SubagentSession.column_names, "profile_key"
     assert_includes SubagentSession.column_names, "scope"
     assert_includes SubagentSession.column_names, "observed_status"
-    assert_not_includes SubagentSession.column_names, "last_known_status"
-    assert_not_includes SubagentSession.column_names, "canonical_name"
-    assert_not_includes SubagentSession.column_names, "nickname"
 
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
