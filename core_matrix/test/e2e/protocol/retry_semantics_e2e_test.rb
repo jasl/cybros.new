@@ -25,7 +25,7 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
         "retryable" => true,
         "retry_scope" => "step",
         "failure_kind" => "tool_failure",
-        "last_error_summary" => "exit status 1"
+        "last_error_summary" => "exit status 1",
       }
     )
 
@@ -165,7 +165,7 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
         "retryable" => true,
         "retry_scope" => "step",
         "failure_kind" => "tool_failure",
-        "last_error_summary" => "exit status 1"
+        "last_error_summary" => "exit status 1",
       }
     )
   end
