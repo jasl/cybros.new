@@ -183,6 +183,69 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "conversation_attachment_upload_disabled", snapshot.attachment_diagnostics.first.fetch("reason")
   end
 
+  test "skips superseded summary imports while retaining direct source message imports" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    anchor_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Anchor input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    superseded_segment = ConversationSummaries::CreateSegment.call(
+      conversation: conversation,
+      start_message: anchor_turn.selected_input_message,
+      end_message: anchor_turn.selected_input_message,
+      content: "Superseded summary"
+    )
+    retained_segment = ConversationSummaries::CreateSegment.call(
+      conversation: conversation,
+      start_message: anchor_turn.selected_input_message,
+      end_message: anchor_turn.selected_input_message,
+      content: "Retained summary",
+      supersedes: superseded_segment
+    )
+    Conversations::AddImport.call(
+      conversation: conversation,
+      kind: "quoted_context",
+      summary_segment: superseded_segment
+    )
+    Conversations::AddImport.call(
+      conversation: conversation,
+      kind: "quoted_context",
+      summary_segment: retained_segment
+    )
+    Conversations::AddImport.call(
+      conversation: conversation,
+      kind: "quoted_context",
+      source_message: anchor_turn.selected_input_message
+    )
+    current_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: current_turn)
+
+    refute_includes snapshot.context_imports.map { |item| item.fetch("content") }, "Superseded summary"
+    assert_includes snapshot.context_imports.map { |item| item.fetch("content") }, "Retained summary"
+
+    direct_import = snapshot.context_imports.find do |item|
+      item.fetch("source_message_id", nil) == anchor_turn.selected_input_message.public_id
+    end
+
+    assert_equal conversation.public_id, direct_import.fetch("source_conversation_id")
+    assert_equal "Anchor input", direct_import.fetch("content")
+  end
+
   test "filters provider execution settings through the shared schema for chat completions" do
     catalog_definition = test_provider_catalog_definition.deep_dup
     catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
