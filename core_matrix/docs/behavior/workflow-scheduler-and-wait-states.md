@@ -134,6 +134,14 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `conversation.with_lock`
   - `turn.with_lock`
   - re-check `ConversationBlockerSnapshot` plus `not turn_interrupted`
+- the canonical mutation guard family is now:
+  - `Conversations::WithConversationEntryLock` for new turn entry
+  - `Turns::WithTimelineMutationLock` for tail rewrites and rollback
+  - `Conversations::ValidateQuiescence` for archive/delete quiescence checks
+- deleted alias concepts no longer appear in scheduler-facing mutation code:
+  - `Turns::WithConversationEntryLock`
+  - `Turns::WithTimelineActionLock`
+  - `Conversations::WorkQuiescenceGuard`
 - steering current input, editing tail input, selecting output variants,
   retrying or rerunning output, and rollback all fail closed once that
   interrupt fence or a close fence has landed
@@ -200,6 +208,9 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - `Conversations::FinalizeDeletion` now requires only the mainline stop
   barrier to be clear; background disposal tails may still be `disposing` or
   `degraded`
+- archive, finalize deletion, and purge now invoke
+  `Conversations::ValidateQuiescence` directly with the appropriate
+  `mainline_only` contract instead of including a helper module
 - `Conversations::PurgeDeleted` still requires:
   - final deletion to have removed the live lineage store reference
   - no active runtime residue

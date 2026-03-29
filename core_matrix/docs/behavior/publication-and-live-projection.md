@@ -34,6 +34,12 @@ copying transcript data into a second source of truth.
 - publish-live only accepts publishable visibility modes:
   - `internal_public`
   - `external_public`
+- publish-live is guarded by the retained-state mutation contract
+  (`Conversations::WithRetainedStateLock`), not by the broader live-mutation
+  or quiescence wrappers.
+- a retained conversation may therefore still publish or change publication
+  visibility while an archive close operation is in progress; pending-delete
+  conversations are still rejected before publication state changes persist.
 - publish-live keeps the publication slug stable across visibility changes.
 - publish-live rotates the external access token whenever the publication is
   first enabled or its visibility mode changes, and returns the fresh plaintext

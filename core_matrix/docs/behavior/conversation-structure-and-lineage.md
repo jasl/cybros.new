@@ -226,6 +226,21 @@ deployment may rotate or be switched within that bound environment.
 - `DependencyBlockersQuery`, `WorkBarrierQuery`, and `CloseSummaryQuery` are
   thin projections over that shared blocker snapshot instead of separate
   counter families
+- live-mutation guard contracts are intent-shaped rather than namespace aliases:
+  - `Conversations::ValidateMutableState`
+  - `Conversations::WithMutableStateLock`
+  - `Conversations::WithConversationEntryLock`
+  - `Conversations::WithRetainedStateLock`
+  - `Conversations::WithRetainedLifecycleLock`
+  - `Turns::ValidateTimelineMutationTarget`
+  - `Turns::WithTimelineMutationLock`
+- legacy wrapper names removed from the mutation surface:
+  - `Turns::WithConversationEntryLock`
+  - `Turns::WithTimelineActionLock`
+  - `Conversations::WorkQuiescenceGuard`
+- archival and deletion flows now call `Conversations::ValidateQuiescence`
+  directly at each service boundary instead of routing through a private helper
+  module
 
 ## Invariants
 
