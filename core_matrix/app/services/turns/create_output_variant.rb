@@ -19,13 +19,18 @@ module Turns
         turn: @turn,
         role: "agent",
         slot: "output",
-        variant_index: @turn.messages.where(slot: "output").maximum(:variant_index).to_i + 1,
+        variant_index: next_variant_index,
         content: @content,
         source_input_message: @source_input_message
       )
     end
 
     private
+
+    def next_variant_index
+      existing_max = @turn.messages.where(slot: "output").maximum(:variant_index)
+      existing_max.present? ? existing_max + 1 : 0
+    end
 
     def validate_source_input_message!
       return if @source_input_message.blank?

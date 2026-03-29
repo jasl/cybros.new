@@ -22,7 +22,7 @@ module AgentDeployments
       return ready_attributes if snapshot.blank?
       return ready_attributes if snapshot.resolved_for?(workflow_run)
 
-      snapshot.restore_attributes
+      snapshot.restore_attributes.transform_keys(&:to_sym)
     end
 
     def self.ready_attributes
