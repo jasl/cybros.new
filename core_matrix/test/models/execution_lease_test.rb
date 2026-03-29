@@ -52,5 +52,4 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
     lease.update!(released_at: Time.current, release_reason: "completed")
     assert_not lease.reload.active?
   end
-
 end
