@@ -1,6 +1,13 @@
 require "test_helper"
 
 class AgentEnrollmentTest < ActiveSupport::TestCase
+  test "attaches plaintext token explicitly" do
+    enrollment = AgentEnrollment.new
+
+    assert_equal enrollment, enrollment.attach_plaintext_token("plaintext-token")
+    assert_equal "plaintext-token", enrollment.plaintext_token
+  end
+
   test "tracks token lifecycle" do
     installation = create_installation!
     agent_installation = create_agent_installation!(installation: installation)

@@ -74,7 +74,6 @@ module AgentDeployments
           deployment: deployment,
           runtime_capability_contract: runtime_capability_contract
         )
-        deployment.instance_variable_set(:@plaintext_machine_credential, machine_credential)
         enrollment.consume!
 
         AuditLog.record!(

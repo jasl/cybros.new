@@ -1,6 +1,13 @@
 require "test_helper"
 
 class SessionTest < ActiveSupport::TestCase
+  test "attaches plaintext token explicitly" do
+    session = Session.new
+
+    assert_equal session, session.attach_plaintext_token("plaintext-token")
+    assert_equal "plaintext-token", session.plaintext_token
+  end
+
   test "generates and resolves a public id" do
     user = create_user!
     session = Session.issue_for!(

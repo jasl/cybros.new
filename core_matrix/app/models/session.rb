@@ -3,8 +3,7 @@ require "securerandom"
 
 class Session < ApplicationRecord
   include HasPublicId
-
-  attr_reader :plaintext_token
+  include HasPlaintextToken
 
   belongs_to :identity
   belongs_to :user
@@ -15,15 +14,13 @@ class Session < ApplicationRecord
 
   def self.issue_for!(identity:, user:, expires_at:, metadata: {})
     token, digest = generate_unique_token_pair
-    session = create!(
+    create!(
       identity: identity,
       user: user,
       token_digest: digest,
       expires_at: expires_at,
       metadata: metadata
-    )
-    session.instance_variable_set(:@plaintext_token, token)
-    session
+    ).attach_plaintext_token(token)
   end
 
   def matches_token?(token)

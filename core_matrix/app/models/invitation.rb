@@ -3,8 +3,7 @@ require "securerandom"
 
 class Invitation < ApplicationRecord
   include HasPublicId
-
-  attr_reader :plaintext_token
+  include HasPlaintextToken
 
   belongs_to :installation
   belongs_to :inviter, class_name: "User", inverse_of: :issued_invitations
@@ -17,15 +16,13 @@ class Invitation < ApplicationRecord
 
   def self.issue!(installation:, inviter:, email:, expires_at:)
     token, digest = generate_unique_token_pair
-    invitation = create!(
+    create!(
       installation: installation,
       inviter: inviter,
       email: email,
       token_digest: digest,
       expires_at: expires_at
-    )
-    invitation.instance_variable_set(:@plaintext_token, token)
-    invitation
+    ).attach_plaintext_token(token)
   end
 
   def self.find_by_plaintext_token(token)

@@ -2,7 +2,7 @@ require "digest"
 require "securerandom"
 
 class AgentEnrollment < ApplicationRecord
-  attr_reader :plaintext_token
+  include HasPlaintextToken
 
   belongs_to :installation
   belongs_to :agent_installation
@@ -13,14 +13,12 @@ class AgentEnrollment < ApplicationRecord
 
   def self.issue!(installation:, agent_installation:, expires_at:)
     token, digest = generate_unique_token_pair
-    enrollment = create!(
+    create!(
       installation: installation,
       agent_installation: agent_installation,
       token_digest: digest,
       expires_at: expires_at
-    )
-    enrollment.instance_variable_set(:@plaintext_token, token)
-    enrollment
+    ).attach_plaintext_token(token)
   end
 
   def self.find_by_plaintext_token(token)

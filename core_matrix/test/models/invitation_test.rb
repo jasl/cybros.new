@@ -1,6 +1,13 @@
 require "test_helper"
 
 class InvitationTest < ActiveSupport::TestCase
+  test "attaches plaintext token explicitly" do
+    invitation = Invitation.new
+
+    assert_equal invitation, invitation.attach_plaintext_token("plaintext-token")
+    assert_equal "plaintext-token", invitation.plaintext_token
+  end
+
   test "generates and resolves a public id" do
     installation = create_installation!
     inviter = create_user!(installation: installation, role: "admin")
