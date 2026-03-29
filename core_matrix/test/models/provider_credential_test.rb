@@ -16,16 +16,16 @@ class ProviderCredentialTest < ActiveSupport::TestCase
     assert_not_equal "sk-live-123", credential.ciphertext_for(:secret)
   end
 
-  test "rejects unknown provider handles" do
+  test "does not validate provider handle membership in the static catalog" do
     credential = ProviderCredential.new(
       installation: create_installation!,
       provider_handle: "unknown_provider",
       credential_kind: "api_key",
       secret: "sk-live-123",
-      metadata: {}
+      metadata: {},
+      last_rotated_at: Time.current
     )
 
-    assert_not credential.valid?
-    assert_includes credential.errors[:provider_handle], "must exist in the provider catalog"
+    assert credential.valid?
   end
 end

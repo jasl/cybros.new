@@ -1,20 +1,7 @@
 module ProviderCatalog
   class Load
     MissingCatalog = Class.new(StandardError)
-
-    Catalog = Struct.new(:providers, :model_roles, keyword_init: true) do
-      def provider(handle)
-        providers.fetch(handle.to_s)
-      end
-
-      def model(provider_handle, model_ref)
-        provider(provider_handle).fetch(:models).fetch(model_ref.to_s)
-      end
-
-      def role_candidates(role_name)
-        model_roles.fetch(role_name.to_s)
-      end
-    end
+    Catalog = ProviderCatalog::Snapshot
 
     DEFAULT_PATH = Rails.root.join("config/llm_catalog.yml")
     DEFAULT_OVERRIDE_DIR = Rails.root.join("config.d")

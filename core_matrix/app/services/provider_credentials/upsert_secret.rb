@@ -21,6 +21,10 @@ module ProviderCredentials
           provider_handle: @provider_handle,
           credential_kind: @credential_kind
         )
+        ProviderCatalog::Assertions.assert_provider_exists!(
+          record: credential,
+          provider_handle: @provider_handle
+        )
         credential.assign_attributes(
           secret: @secret,
           metadata: @metadata,

@@ -39,16 +39,29 @@ module ActiveSupport
     private
 
     def with_stubbed_provider_catalog(catalog)
-      singleton = ProviderCatalog::Load.singleton_class
-      original_call = ProviderCatalog::Load.method(:call)
+      load_singleton = ProviderCatalog::Load.singleton_class
+      registry_singleton = ProviderCatalog::Registry.singleton_class
+      original_load_call = ProviderCatalog::Load.method(:call)
+      original_registry_current = ProviderCatalog::Registry.method(:current)
+      original_registry_ensure_fresh = ProviderCatalog::Registry.method(:ensure_fresh!)
+      original_registry_reload = ProviderCatalog::Registry.method(:reload!)
 
-      singleton.send(:define_method, :call) do |*args, **kwargs, &block|
+      ProviderCatalog::Registry.reset_default!
+
+      load_singleton.send(:define_method, :call) do |*args, **kwargs, &block|
         catalog
       end
+      registry_singleton.send(:define_method, :current) { catalog }
+      registry_singleton.send(:define_method, :ensure_fresh!) { catalog }
+      registry_singleton.send(:define_method, :reload!) { catalog }
 
       yield
     ensure
-      singleton.send(:define_method, :call, original_call)
+      load_singleton.send(:define_method, :call, original_load_call)
+      registry_singleton.send(:define_method, :current, original_registry_current)
+      registry_singleton.send(:define_method, :ensure_fresh!, original_registry_ensure_fresh)
+      registry_singleton.send(:define_method, :reload!, original_registry_reload)
+      ProviderCatalog::Registry.reset_default!
     end
 
     def build_test_provider_catalog

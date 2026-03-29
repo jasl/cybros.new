@@ -24,6 +24,7 @@ module Conversations
           closing_message: "must not update overrides while close is in progress"
         ) do |conversation|
           validate_payload!(conversation)
+          validate_selector!(conversation)
 
           conversation.update!(
             override_payload: @payload,
@@ -78,6 +79,19 @@ module Conversations
 
     def override_schema
       @override_schema ||= @conversation.agent_deployment.active_capability_snapshot&.conversation_override_schema_snapshot || {}
+    end
+
+    def validate_selector!(conversation)
+      return unless @selector_mode.to_s == "explicit_candidate"
+      return if @selector_provider_handle.blank? || @selector_model_ref.blank?
+
+      ProviderCatalog::Assertions.assert_model_exists!(
+        record: conversation,
+        provider_handle: @selector_provider_handle,
+        model_ref: @selector_model_ref,
+        provider_attribute: :interactive_selector_provider_handle,
+        model_attribute: :interactive_selector_model_ref
+      )
     end
   end
 end

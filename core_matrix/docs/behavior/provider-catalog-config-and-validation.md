@@ -24,6 +24,35 @@ minimal directory into the shipped non-secret runtime catalog.
 - Successful loads return a catalog object with provider lookup, model lookup,
   and ordered role-candidate lookup helpers.
 
+## Registry Behavior
+
+- `ProviderCatalog::Registry.current` is the ordinary runtime entry point for
+  static catalog reads.
+- `ProviderCatalog::Registry` keeps one immutable snapshot per process and uses
+  `ProviderCatalog::Load` only when it needs to build or refresh that snapshot.
+- `ProviderCatalog::Registry.reload!` reloads the current process immediately,
+  then publishes the new revision to shared cache when available.
+- `ProviderCatalog::Registry.ensure_fresh!` gives other processes eventual
+  consistency by reloading after they observe a changed shared revision.
+- `ProviderCatalog::EffectiveCatalog` builds installation-scoped availability,
+  selector resolution, and UI-facing selector option helpers on top of the
+  current registry snapshot.
+- Ordinary application code should depend on `Registry` or `EffectiveCatalog`,
+  not call `Load` directly.
+
+## Write-Boundary Behavior
+
+- Provider catalog membership is not enforced by governance models themselves.
+- `ProviderCredentials::UpsertSecret`,
+  `ProviderEntitlements::Upsert`,
+  `ProviderPolicies::Upsert`, and
+  `Conversations::UpdateOverride`
+  are the application write boundaries that validate provider and model
+  references against the current catalog snapshot.
+- This keeps YAML parsing and reload sensitivity out of ordinary Active Record
+  model validation while preserving catalog-backed invariants at supported write
+  entry points.
+
 ## Merge Rules
 
 - hashes deep-merge

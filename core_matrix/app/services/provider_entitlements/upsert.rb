@@ -29,6 +29,10 @@ module ProviderEntitlements
           provider_handle: @provider_handle,
           entitlement_key: @entitlement_key
         )
+        ProviderCatalog::Assertions.assert_provider_exists!(
+          record: entitlement,
+          provider_handle: @provider_handle
+        )
         entitlement.assign_attributes(
           window_kind: @window_kind,
           window_seconds: WINDOW_SECONDS_BY_KIND[@window_kind.to_s],

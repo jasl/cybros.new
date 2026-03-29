@@ -56,4 +56,22 @@ class ProviderCredentials::UpsertSecretTest < ActiveSupport::TestCase
     assert_equal "sk-rotated", updated.secret
     assert_equal "rotated", updated.metadata["label"]
   end
+
+  test "rejects unknown provider handles at the service boundary" do
+    installation = create_installation!
+    actor = create_user!(installation: installation, role: "admin")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      ProviderCredentials::UpsertSecret.call(
+        installation: installation,
+        actor: actor,
+        provider_handle: "unknown_provider",
+        credential_kind: "api_key",
+        secret: "sk-invalid",
+        metadata: {}
+      )
+    end
+
+    assert_includes error.record.errors[:provider_handle], "must exist in the provider catalog"
+  end
 end

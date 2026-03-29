@@ -9,13 +9,13 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, messages:, adapter: nil, catalog: ProviderCatalog::Load.call)
+    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @turn = workflow_node.turn
       @messages = normalize_messages(messages)
       @adapter = adapter
-      @catalog = catalog
+      @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
       @request_context = BuildRequestContext.call(
         turn: @turn,
         execution_snapshot: @workflow_run.execution_snapshot
@@ -39,7 +39,7 @@ module ProviderExecution
         request_context: @request_context,
         messages: @messages,
         adapter: @adapter,
-        catalog: @catalog,
+        effective_catalog: @effective_catalog,
         provider_request_id: @provider_request_id
       )
 

@@ -17,6 +17,9 @@ This boundary does not assemble runtime input or attachment manifests. It only:
 
 - `Workflows::ResolveModelSelector` is the required application-service
   boundary for workflow model selection.
+- `ProviderCatalog::EffectiveCatalog` owns selector normalization, selector
+  candidate expansion, availability filtering, and selector-option hydration for
+  both runtime resolution and later UI picker use cases.
 - `Workflows::CreateForTurn` resolves and freezes the selector snapshot before
   it creates the workflow run and root node.
 - The canonical durable execution snapshot lives on
@@ -48,7 +51,9 @@ This boundary does not assemble runtime input or attachment manifests. It only:
 - `candidate:*` expands to exactly one provider-qualified candidate.
 - Unknown roles fail explicitly.
 - Candidate evaluation is ordered and deterministic.
-- Candidate usability is delegated to `Providers::CheckAvailability`.
+- Candidate usability is delegated to
+  `ProviderCatalog::EffectiveCatalog#availability`
+  with `Providers::CheckAvailability` retained only as a compatibility wrapper.
 - A candidate is usable only when:
   - the provider exists in the catalog
   - the model exists in that provider entry
@@ -84,6 +89,18 @@ later UI-facing diagnostics:
 
 Explicit candidate failures surface the unavailable reason in the validation
 error instead of silently trying unrelated models.
+
+## UI Selector Helpers
+
+- `ProviderCatalog::EffectiveCatalog#selector_options` returns a unified option
+  list for selector dropdowns and autocomplete, spanning both role selectors and
+  explicit candidate selectors.
+- `ProviderCatalog::EffectiveCatalog#selector_option` hydrates one stored or
+  user-entered selector into display metadata, normalized selector shape, and
+  current usability state.
+- Role options can surface their currently resolved candidate, fallback count,
+  and resolution reason so UI does not need to duplicate selector resolution
+  rules client-side.
 
 ## Frozen Snapshot Fields
 

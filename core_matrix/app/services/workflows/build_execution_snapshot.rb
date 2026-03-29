@@ -232,21 +232,20 @@ module Workflows
     end
 
     def modality_supported?(modality)
-      catalog
-        .model(@turn.resolved_provider_handle, @turn.resolved_model_ref)
+      effective_catalog.model(@turn.resolved_provider_handle, @turn.resolved_model_ref)
         .dig(:capabilities, :multimodal_inputs, modality.to_sym) == true
     end
 
-    def catalog
-      @catalog ||= ProviderCatalog::Load.call
+    def effective_catalog
+      @effective_catalog ||= ProviderCatalog::EffectiveCatalog.new(installation: @turn.installation)
     end
 
     def provider_definition
-      @provider_definition ||= catalog.provider(@turn.resolved_provider_handle)
+      @provider_definition ||= effective_catalog.provider(@turn.resolved_provider_handle)
     end
 
     def model_definition
-      @model_definition ||= catalog.model(@turn.resolved_provider_handle, @turn.resolved_model_ref)
+      @model_definition ||= effective_catalog.model(@turn.resolved_provider_handle, @turn.resolved_model_ref)
     end
 
     def execution_settings

@@ -17,7 +17,7 @@ class ProviderEntitlementTest < ActiveSupport::TestCase
     assert_equal 5.hours.to_i, entitlement.window_seconds
   end
 
-  test "rejects unknown provider handles" do
+  test "does not validate provider handle membership in the static catalog" do
     entitlement = ProviderEntitlement.new(
       installation: create_installation!,
       provider_handle: "unknown_provider",
@@ -29,7 +29,6 @@ class ProviderEntitlementTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    assert_not entitlement.valid?
-    assert_includes entitlement.errors[:provider_handle], "must exist in the provider catalog"
+    assert entitlement.valid?
   end
 end

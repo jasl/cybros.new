@@ -232,14 +232,6 @@ class Conversation < ApplicationRecord
     if interactive_selector_model_ref.blank?
       errors.add(:interactive_selector_model_ref, "must exist for explicit candidate selector mode")
     end
-    return if errors.any?
-
-    ProviderCatalog::Load.call.model(
-      interactive_selector_provider_handle,
-      interactive_selector_model_ref
-    )
-  rescue KeyError
-    errors.add(:interactive_selector_model_ref, "must exist in the provider catalog")
   end
 
   def deleted_at_consistency

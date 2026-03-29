@@ -20,6 +20,8 @@ currently satisfies those declared requirements.
 - Credential rows track rotation time separately from general metadata.
 - One installation cannot hold duplicate rows for the same
   `provider_handle + credential_kind` pair.
+- The model itself keeps only structural validation; provider-handle membership
+  in the catalog is enforced at the write-service boundary.
 
 ### ProviderEntitlement
 
@@ -31,6 +33,8 @@ currently satisfies those declared requirements.
   `rolling_five_hours`.
 - Rolling five-hour entitlements persist their derived `window_seconds`
   explicitly as `18_000`.
+- The model itself keeps only structural validation; provider-handle membership
+  in the catalog is enforced at the write-service boundary.
 
 ### ProviderPolicy
 
@@ -41,6 +45,8 @@ currently satisfies those declared requirements.
   disabling an otherwise catalog-visible provider.
 - Throttling remains explicit through paired limit and period fields instead of
   hidden rate-limit heuristics.
+- The model itself keeps only structural validation; provider-handle membership
+  in the catalog is enforced at the write-service boundary.
 
 ## Services
 
@@ -48,6 +54,8 @@ currently satisfies those declared requirements.
 
 - Upserts one `ProviderCredential` by installation, provider handle, and
   credential kind.
+- Validates the provider handle against the current catalog snapshot before the
+  row is saved.
 - Rotates the encrypted secret and `last_rotated_at` timestamp together.
 - Writes `provider_credential.upserted` audit rows without storing plaintext
   secret material in audit metadata.
@@ -56,18 +64,24 @@ currently satisfies those declared requirements.
 
 - Upserts one `ProviderEntitlement` by installation, provider handle, and
   entitlement key.
+- Validates the provider handle against the current catalog snapshot before the
+  row is saved.
 - Derives `window_seconds` from the declared `window_kind`.
 - Writes `provider_entitlement.upserted` audit rows.
 
 ### `ProviderPolicies::Upsert`
 
 - Upserts one `ProviderPolicy` by installation and provider handle.
+- Validates the provider handle against the current catalog snapshot before the
+  row is saved.
 - Persists provider enablement, concurrency, throttling, and selection-default
   settings through one audited boundary.
 - Writes `provider_policy.upserted` audit rows.
 
 ### `Providers::CheckAvailability`
 
+- Remains a thin compatibility wrapper over
+  `ProviderCatalog::EffectiveCatalog#availability`.
 - Resolves one provider-qualified model against both the catalog and the
   installation-scoped governance rows.
 - Returns whether the candidate is currently usable plus a structured
@@ -86,8 +100,11 @@ currently satisfies those declared requirements.
 
 - provider governance rows stay installation-scoped and `global`; they are not
   user-private records
-- governance rows validate against known provider handles from the config-backed
-  catalog instead of inventing provider or model SQL entities
+- governance models stay independent from YAML loading and only enforce SQL and
+  structural invariants
+- known provider handles are validated at the application write boundary against
+  the config-backed catalog snapshot instead of inventing provider or model SQL
+  entities
 - catalog volatility stays in config; mutable installation facts stay in SQL
 - audited mutations flow through explicit services rather than ad hoc model
   saves in controllers or later runtime code

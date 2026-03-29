@@ -18,7 +18,7 @@ class ProviderPolicyTest < ActiveSupport::TestCase
     assert_equal 60, policy.throttle_period_seconds
   end
 
-  test "rejects unknown provider handles" do
+  test "does not validate provider handle membership in the static catalog" do
     policy = ProviderPolicy.new(
       installation: create_installation!,
       provider_handle: "unknown_provider",
@@ -26,7 +26,6 @@ class ProviderPolicyTest < ActiveSupport::TestCase
       selection_defaults: {}
     )
 
-    assert_not policy.valid?
-    assert_includes policy.errors[:provider_handle], "must exist in the provider catalog"
+    assert policy.valid?
   end
 end

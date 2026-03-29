@@ -1,4 +1,4 @@
-catalog = ProviderCatalog::Load.call
+catalog = ProviderCatalog::Registry.current
 puts "Loaded provider catalog with #{catalog.providers.size} providers and #{catalog.model_roles.size} model roles."
 
 seed_secret = lambda do |env_key|

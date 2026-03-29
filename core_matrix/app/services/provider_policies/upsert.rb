@@ -21,6 +21,10 @@ module ProviderPolicies
           installation: @installation,
           provider_handle: @provider_handle
         )
+        ProviderCatalog::Assertions.assert_provider_exists!(
+          record: policy,
+          provider_handle: @provider_handle
+        )
         policy.assign_attributes(
           enabled: @enabled,
           max_concurrent_requests: @max_concurrent_requests,

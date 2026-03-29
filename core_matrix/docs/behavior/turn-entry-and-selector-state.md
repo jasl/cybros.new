@@ -17,7 +17,13 @@ execution-snapshot persistence on the turn row.
   - `explicit_candidate`
 - `auto` means the conversation stores no explicit provider or model pin
 - `explicit_candidate` stores one exact `provider_handle/model_ref` pair and
-  validates that pair against the provider catalog
+  requires that pair to be present
+- `Conversation` model validation only enforces selector-shape rules:
+  - `auto` must leave provider and model fields blank
+  - `explicit_candidate` must provide both fields together
+- provider and model membership in the catalog is enforced at the application
+  write boundary through `Conversations::UpdateOverride`, not by the model
+  itself
 - `Conversation` also persists:
   - `override_payload`
   - `override_last_schema_fingerprint`
@@ -26,6 +32,8 @@ execution-snapshot persistence on the turn row.
 - override persistence is execution state, not unsent draft state
 - `Conversations::UpdateOverride` updates override state and interactive
   selector state together
+- `Conversations::UpdateOverride` is also the catalog-validation boundary for
+  explicit candidate selector updates
 - override updates now use the same live conversation mutation contract as turn
   entry:
   - `deletion_state = retained`
@@ -127,8 +135,9 @@ execution-snapshot persistence on the turn row.
 ## Failure Modes
 
 - duplicate turn sequences inside one conversation are rejected
-- invalid selector modes or explicit candidates outside the provider catalog are
-  rejected
+- invalid selector modes are rejected by `Conversation` shape validation
+- explicit candidates outside the provider catalog are rejected by
+  `Conversations::UpdateOverride`
 - base `Message` rows that are not transcript-bearing subclasses are rejected
 - invalid role or slot combinations on `UserMessage` and `AgentMessage` are
   rejected

@@ -38,6 +38,40 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     assert_equal "gpt-5.4", updated.interactive_selector_model_ref
   end
 
+  test "rejects an explicit selector with an unknown provider" do
+    conversation = create_profile_aware_conversation!
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::UpdateOverride.call(
+        conversation: conversation,
+        payload: {},
+        schema_fingerprint: "schema-v1",
+        selector_mode: "explicit_candidate",
+        selector_provider_handle: "unknown_provider",
+        selector_model_ref: "gpt-5.4"
+      )
+    end
+
+    assert_includes error.record.errors[:interactive_selector_provider_handle], "must exist in the provider catalog"
+  end
+
+  test "rejects an explicit selector with an unknown model" do
+    conversation = create_profile_aware_conversation!
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::UpdateOverride.call(
+        conversation: conversation,
+        payload: {},
+        schema_fingerprint: "schema-v1",
+        selector_mode: "explicit_candidate",
+        selector_provider_handle: "codex_subscription",
+        selector_model_ref: "unknown_model"
+      )
+    end
+
+    assert_includes error.record.errors[:interactive_selector_model_ref], "must exist in the provider catalog"
+  end
+
   test "rejects override updates for archived conversations" do
     conversation = create_profile_aware_conversation!
     conversation.update!(lifecycle_state: "archived")

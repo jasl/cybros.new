@@ -26,12 +26,13 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_run:, request_context:, messages:, adapter: nil, catalog: ProviderCatalog::Load.call, provider_request_id: SecureRandom.uuid)
+    def initialize(workflow_run:, request_context:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid)
       @workflow_run = workflow_run
       @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
       @adapter = adapter
-      @catalog = catalog
+      @effective_catalog = ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog)
+      @effective_catalog = effective_catalog if effective_catalog.present?
       @provider_request_id = provider_request_id
     end
 
@@ -62,7 +63,7 @@ module ProviderExecution
     private
 
     def build_client
-      provider_definition = @catalog.provider(@request_context.provider_handle)
+      provider_definition = @effective_catalog.provider(@request_context.provider_handle)
 
       SimpleInference::Client.new(
         base_url: provider_definition.fetch(:base_url),
