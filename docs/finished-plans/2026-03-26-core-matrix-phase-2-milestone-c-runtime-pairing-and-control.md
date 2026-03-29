@@ -7,8 +7,9 @@ Part of `Core Matrix Phase 2: Agent Loop Execution`.
 Completed and archived on `2026-03-29`.
 
 Milestone C now includes the original runtime pairing and control task set plus
-the later hardening, audit, consolidation, and repair follow-ups that were
-executed as appended tasks before Phase 2 moved on to post-Milestone-C breadth.
+the later hardening, audit, consolidation, repair, naming-alignment,
+orthogonality-refactor, and boundary-coverage follow-ups that were executed as
+appended tasks before Phase 2 moved on to post-Milestone-C breadth.
 
 ## Purpose
 
@@ -109,6 +110,27 @@ end-to-end stack.
 - [2026-03-28-core-matrix-phase-2-iterative-architecture-health-refresh-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-iterative-architecture-health-refresh-design.md)
 - [2026-03-28-core-matrix-phase-2-plan-iterative-architecture-health-refresh.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-plan-iterative-architecture-health-refresh.md)
 - [2026-03-28-core-matrix-phase-2-iterative-architecture-health-refresh-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-iterative-architecture-health-refresh-findings.md)
+
+### Task C18 Follow-Up
+
+- [2026-03-29-core-matrix-phase2-destructive-naming-alignment.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase2-destructive-naming-alignment.md)
+
+### Task C19 Follow-Up
+
+- [2026-03-29-core-matrix-test-suite-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-test-suite-audit-design.md)
+- [2026-03-29-core-matrix-test-suite-audit.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-test-suite-audit.md)
+- [2026-03-29-core-matrix-test-suite-audit-findings.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-test-suite-audit-findings.md)
+
+### Task C20 Follow-Up
+
+- [2026-03-29-core-matrix-boundary-coverage-campaign-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-boundary-coverage-campaign-design.md)
+- [2026-03-29-core-matrix-boundary-coverage-campaign.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-boundary-coverage-campaign.md)
+- [2026-03-29-core-matrix-boundary-coverage-working-ledger.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-boundary-coverage-working-ledger.md)
+
+### Task C21 Follow-Up
+
+- [2026-03-29-core-matrix-phase-2-destructive-orthogonality-refactor-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-destructive-orthogonality-refactor-design.md)
+- [2026-03-29-core-matrix-phase-2-destructive-orthogonality-refactor-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-destructive-orthogonality-refactor-plan.md)
 
 ## Exit Criteria
 
