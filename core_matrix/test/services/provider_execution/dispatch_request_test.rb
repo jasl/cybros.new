@@ -62,4 +62,45 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
     )
     assert_operator result.duration_ms, :>=, 0
   end
+
+  test "streams provider chat requests and yields output deltas while returning the aggregated result" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+        "presence_penalty" => 0.6,
+      },
+      catalog: catalog
+    )
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    adapter = ProviderExecutionTestSupport::FakeStreamingChatCompletionsAdapter.new(
+      chunks: ["Hel", "lo"]
+    )
+    deltas = []
+
+    result = ProviderExecution::DispatchRequest.call(
+      workflow_run: workflow_run,
+      request_context: request_context,
+      messages: turn_step_messages_for(workflow_run),
+      adapter: adapter,
+      catalog: catalog,
+      provider_request_id: "provider-request-stream-1",
+      on_delta: ->(delta) { deltas << delta }
+    )
+
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+
+    assert_equal true, request_body.fetch("stream")
+    assert_equal ["Hel", "lo"], deltas
+    assert_equal "Hello", result.content
+    assert_equal "execute-turn-step-request-1", result.provider_request_id
+    assert_equal(
+      {
+        "input_tokens" => 12,
+        "output_tokens" => 8,
+        "total_tokens" => 20,
+      },
+      result.usage
+    )
+  end
 end

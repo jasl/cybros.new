@@ -98,6 +98,28 @@ hatches, or runtime-private wait state. It establishes:
 - Events may carry an optional polymorphic `source`, which Task 10.2 uses to
   point back to the originating `HumanInteractionRequest`.
 
+## Temporary Runtime Stream
+
+- `ConversationEvent` is durable and replayable; it is not the only live
+  delivery mechanism.
+- Phase 2 also exposes a temporary Action Cable runtime stream per
+  conversation:
+  - stream name is derived from `Conversation.public_id`
+  - payloads are emitted through `ConversationRuntime::Broadcast`
+  - current event families include:
+    - `runtime.assistant_output.*`
+    - `runtime.workflow_node.*`
+    - `runtime.agent_task.*`
+    - `runtime.tool_invocation.*`
+- Assistant-output deltas are transport-only. The durable transcript remains
+  the final persisted `AgentMessage` written after the producing node or task
+  completes.
+- Runtime-stream payloads therefore help web/app clients render in-flight work
+  without turning partial output into append-only transcript history.
+- The first consumer surface is `PublicationRuntimeChannel`, which allows
+  `external_public` publications with a valid `publication_token` to subscribe
+  to the owning conversation runtime stream.
+
 ## Projection Ordering And Replaceable Streams
 
 - `projection_sequence` is unique per conversation and defines deterministic

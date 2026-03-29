@@ -19,6 +19,39 @@ module ProviderExecutionTestSupport
     end
   end
 
+  class FakeStreamingChatCompletionsAdapter < SimpleInference::HTTPAdapter
+    attr_reader :last_request
+
+    def initialize(chunks:, response_id: "chatcmpl-direct-step-1", request_id: "execute-turn-step-request-1", usage: { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20 })
+      @chunks = chunks
+      @response_id = response_id
+      @request_id = request_id
+      @usage = usage
+    end
+
+    def call_stream(env)
+      @last_request = env
+      sse = +""
+      sse << %(data: {"id":"#{@response_id}","choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}\n\n)
+      @chunks.each do |chunk|
+        sse << %(data: {"id":"#{@response_id}","choices":[{"delta":{"content":"#{chunk}"},"finish_reason":null}]}\n\n)
+      end
+      sse << %(data: {"id":"#{@response_id}","choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":#{@usage[:prompt_tokens]},"completion_tokens":#{@usage[:completion_tokens]},"total_tokens":#{@usage[:total_tokens]}}}\n\n)
+      sse << "data: [DONE]\n\n"
+
+      yield sse
+
+      {
+        status: 200,
+        headers: {
+          "content-type" => "text/event-stream",
+          "x-request-id" => @request_id,
+        },
+        body: nil,
+      }
+    end
+  end
+
   def build_mock_chat_catalog
     catalog_definition = test_provider_catalog_definition.deep_dup
     catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(

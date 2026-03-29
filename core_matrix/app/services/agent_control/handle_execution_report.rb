@@ -66,12 +66,24 @@ module AgentControl
       end
 
       mailbox_item.update!(status: "acked", acked_at: @occurred_at)
+      broadcast_runtime_event!(
+        "runtime.agent_task.started",
+        base_runtime_payload.merge(
+          "expected_duration_seconds" => @payload["expected_duration_seconds"]
+        )
+      )
     end
 
     def handle_execution_progress!
       heartbeat_task_lease!
       progress_payload = @payload.fetch("progress_payload", {})
       agent_task_run.update!(progress_payload: progress_payload)
+      broadcast_runtime_event!(
+        "runtime.agent_task.progress",
+        base_runtime_payload.merge(
+          "progress_payload" => progress_payload
+        )
+      )
       apply_tool_invocation_progress!(progress_payload)
     end
 
@@ -112,6 +124,13 @@ module AgentControl
       end
 
       mailbox_item.update!(status: "completed", completed_at: @occurred_at)
+      broadcast_runtime_event!(
+        "runtime.agent_task.#{lifecycle_state}",
+        base_runtime_payload.merge(
+          "terminal_payload" => agent_task_run.terminal_payload,
+          "lifecycle_state" => lifecycle_state
+        )
+      )
     end
 
     def apply_wait_transition!
@@ -151,12 +170,30 @@ module AgentControl
               "reported_via" => @method_id,
             }
           )
+          broadcast_tool_invocation_event!(
+            "runtime.tool_invocation.completed",
+            tool_invocation: invocation.reload,
+            payload: {
+              "call_id" => invocation_payload["call_id"],
+              "tool_name" => invocation_payload["tool_name"],
+              "response_payload" => invocation_payload.fetch("response_payload", {}),
+            }
+          )
         when "failed"
           ToolInvocations::Fail.call(
             tool_invocation: invocation,
             error_payload: invocation_payload.fetch("error_payload", {}),
             metadata: {
               "reported_via" => @method_id,
+            }
+          )
+          broadcast_tool_invocation_event!(
+            "runtime.tool_invocation.failed",
+            tool_invocation: invocation.reload,
+            payload: {
+              "call_id" => invocation_payload["call_id"],
+              "tool_name" => invocation_payload["tool_name"],
+              "error_payload" => invocation_payload.fetch("error_payload", {}),
             }
           )
         end
@@ -168,7 +205,7 @@ module AgentControl
       existing = binding.tool_invocations.find_by(idempotency_key: invocation_payload["call_id"])
       return existing if existing.present?
 
-      ToolInvocations::Start.call(
+      invocation = ToolInvocations::Start.call(
         tool_binding: binding,
         request_payload: invocation_payload.fetch("request_payload", {}),
         idempotency_key: invocation_payload["call_id"],
@@ -176,12 +213,32 @@ module AgentControl
           "reported_via" => @method_id,
         }
       )
+      broadcast_tool_invocation_event!(
+        "runtime.tool_invocation.started",
+        tool_invocation: invocation,
+        payload: {
+          "call_id" => invocation_payload["call_id"],
+          "tool_name" => invocation_payload["tool_name"],
+          "request_payload" => invocation_payload.fetch("request_payload", {}),
+        }
+      )
+      invocation
     end
 
     def tool_binding_for!(tool_name)
       agent_task_run.tool_bindings
         .joins(:tool_definition)
         .find_by!(tool_definitions: { tool_name: tool_name })
+    end
+
+    def broadcast_tool_invocation_event!(event_kind, tool_invocation:, payload:)
+      broadcast_runtime_event!(
+        event_kind,
+        base_runtime_payload.merge(
+          "tool_invocation_id" => tool_invocation.public_id,
+          "tool_name" => tool_invocation.tool_definition.tool_name
+        ).merge(payload)
+      )
     end
 
     def heartbeat_task_lease!
@@ -274,6 +331,24 @@ module AgentControl
       @agent_task_run ||= AgentTaskRun.find_by!(
         installation_id: @deployment.installation_id,
         public_id: @payload.fetch("agent_task_run_id")
+      )
+    end
+
+    def base_runtime_payload
+      {
+        "agent_task_run_id" => agent_task_run.public_id,
+        "workflow_run_id" => agent_task_run.workflow_run.public_id,
+        "workflow_node_id" => agent_task_run.workflow_node.public_id,
+      }
+    end
+
+    def broadcast_runtime_event!(event_kind, payload)
+      ConversationRuntime::Broadcast.call(
+        conversation: agent_task_run.conversation,
+        turn: agent_task_run.turn,
+        event_kind: event_kind,
+        payload: payload,
+        occurred_at: @occurred_at
       )
     end
   end

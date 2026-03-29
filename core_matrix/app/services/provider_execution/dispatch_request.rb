@@ -26,7 +26,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_run:, request_context:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid)
+    def initialize(workflow_run:, request_context:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil)
       @workflow_run = workflow_run
       @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
@@ -34,16 +34,30 @@ module ProviderExecution
       @effective_catalog = ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog)
       @effective_catalog = effective_catalog if effective_catalog.present?
       @provider_request_id = provider_request_id
+      @on_delta = on_delta
     end
 
     def call
       started_monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      provider_result = build_client.chat(
-        model: @request_context.api_model,
-        messages: @messages,
-        max_tokens: @request_context.hard_limits["max_output_tokens"],
-        **@request_context.execution_settings.symbolize_keys
-      )
+      provider_result = if @on_delta.present?
+        build_client.chat(
+          model: @request_context.api_model,
+          messages: @messages,
+          max_tokens: @request_context.hard_limits["max_output_tokens"],
+          stream: true,
+          include_usage: true,
+          **@request_context.execution_settings.symbolize_keys
+        ) do |delta|
+          @on_delta.call(delta)
+        end
+      else
+        build_client.chat(
+          model: @request_context.api_model,
+          messages: @messages,
+          max_tokens: @request_context.hard_limits["max_output_tokens"],
+          **@request_context.execution_settings.symbolize_keys
+        )
+      end
 
       Result.new(
         provider_result: provider_result,

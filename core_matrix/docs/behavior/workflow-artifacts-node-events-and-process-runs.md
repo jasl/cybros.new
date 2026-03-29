@@ -66,6 +66,11 @@ runtime resources that later tasks now build on are:
 - `WorkflowNodeEvent` remains the kernel trace surface; later tasks may project
   selected runtime state into `ConversationEvent` only when that state is
   intentionally user-visible.
+- Phase 2 also exposes a separate temporary runtime stream for live consumers:
+  - `ConversationRuntime::Broadcast` publishes ephemeral Action Cable payloads
+  - these payloads may mirror node lifecycle changes or assistant-output deltas
+  - they are transport only and must not be treated as scheduler truth,
+    transcript history, or proof material
 - scheduler selection reads the persisted graph plus
   `WorkflowNode.lifecycle_state`; node events are trace, not the runnable-node
   cursor.
@@ -164,6 +169,11 @@ runtime resources that later tasks now build on are:
   - `WorkflowNode` models scheduler-visible DAG progress and does not use
     `interrupted`
 - progress and terminal summaries are persisted directly on the task run
+- mailbox-driven execution may also emit temporary runtime-stream events such
+  as:
+  - `runtime.agent_task.*`
+  - `runtime.tool_invocation.*`
+  for frontend progress display without mutating transcript or workflow truth
 - agent task runs persist the same durable close fields as other closable
   runtime resources so later interrupt and close orchestration can target one
   stable execution aggregate

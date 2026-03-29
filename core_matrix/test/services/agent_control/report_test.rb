@@ -1,6 +1,9 @@
 require "test_helper"
+require "action_cable/test_helper"
 
 class AgentControlReportTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
+
   test "report rolls back the receipt and mailbox mutations when handler processing blows up" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -142,6 +145,91 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal call_id, invocation.idempotency_key
     assert_equal "2 + 2", invocation.request_payload.dig("arguments", "expression")
     assert_equal "The calculator returned 4.", invocation.response_payload.fetch("content")
+  end
+
+  test "execution reports broadcast runtime progress and tool invocation events on the conversation stream" do
+    context = build_calculator_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    stream_name = ConversationRuntime::StreamName.for_conversation(agent_task_run.conversation)
+    call_id = "tool-call-#{next_test_sequence}"
+
+    broadcasts = capture_broadcasts(stream_name) do
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 15
+      )
+
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_progress",
+        protocol_message_id: "agent-progress-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: {
+          "state" => "tool_reviewed",
+          "tool_invocation" => {
+            "event" => "started",
+            "call_id" => call_id,
+            "tool_name" => "calculator",
+            "request_payload" => {
+              "tool_name" => "calculator",
+              "arguments" => { "expression" => "2 + 2" },
+            },
+          },
+        }
+      )
+
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_complete",
+        protocol_message_id: "agent-complete-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        terminal_payload: {
+          "output" => "The calculator returned 4.",
+          "tool_invocations" => [
+            {
+              "event" => "completed",
+              "call_id" => call_id,
+              "tool_name" => "calculator",
+              "response_payload" => { "content" => "The calculator returned 4." },
+            },
+          ],
+        }
+      )
+    end
+
+    assert_equal(
+      [
+        "runtime.agent_task.started",
+        "runtime.agent_task.progress",
+        "runtime.tool_invocation.started",
+        "runtime.tool_invocation.completed",
+        "runtime.agent_task.completed",
+      ],
+      broadcasts.map { |payload| payload.fetch("event_kind") }
+    )
+
+    started_tool_payload = broadcasts.third.fetch("payload")
+    completed_tool_payload = broadcasts.fourth.fetch("payload")
+
+    assert_equal agent_task_run.conversation.public_id, broadcasts.first.fetch("conversation_id")
+    assert_equal "calculator", started_tool_payload.fetch("tool_name")
+    assert_equal call_id, started_tool_payload.fetch("call_id")
+    assert_equal "The calculator returned 4.", completed_tool_payload.dig("response_payload", "content")
   end
 
   test "execution_fail materializes denied agent-owned tool invocations with explicit rejection details" do

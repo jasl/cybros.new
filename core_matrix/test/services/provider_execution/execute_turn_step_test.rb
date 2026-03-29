@@ -1,6 +1,9 @@
 require "test_helper"
+require "action_cable/test_helper"
 
 class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
+
   test "uses the persisted execution snapshot contract for provider request context" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
@@ -48,5 +51,51 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal 40, request_body.fetch("max_tokens")
     refute request_body.key?("sandbox")
     assert_equal "Direct provider result", workflow_run.turn.reload.selected_output_message.content
+  end
+
+  test "broadcasts runtime process events and a temporary assistant output stream for provider execution" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeStreamingChatCompletionsAdapter.new(
+      chunks: ["The calculator ", "returned 4."]
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
+
+    broadcasts = capture_broadcasts(stream_name) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
+          messages: turn_step_messages_for(workflow_run),
+          adapter: adapter
+        )
+      end
+    end
+
+    assert_equal(
+      [
+        "runtime.workflow_node.started",
+        "runtime.assistant_output.started",
+        "runtime.assistant_output.delta",
+        "runtime.assistant_output.completed",
+        "runtime.workflow_node.completed",
+      ],
+      broadcasts.map { |payload| payload.fetch("event_kind") }
+    )
+
+    started_payload = broadcasts.first.fetch("payload")
+    delta_payload = broadcasts.third.fetch("payload")
+    completed_payload = broadcasts.fourth.fetch("payload")
+
+    assert_equal workflow_run.conversation.public_id, broadcasts.first.fetch("conversation_id")
+    assert_equal workflow_run.turn.public_id, broadcasts.first.fetch("turn_id")
+    assert_equal workflow_run.workflow_nodes.find_by!(node_key: "turn_step").public_id, started_payload.fetch("workflow_node_id")
+    assert_equal "The calculator returned 4.", delta_payload.fetch("delta")
+    assert_equal "The calculator returned 4.", completed_payload.fetch("content")
+    assert_equal workflow_run.turn.reload.selected_output_message.public_id, completed_payload.fetch("message_id")
   end
 end

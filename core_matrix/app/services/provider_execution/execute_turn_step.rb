@@ -36,6 +36,8 @@ module ProviderExecution
       end
 
       append_status_event!("running")
+      broadcast_workflow_node_event!("runtime.workflow_node.started", state: "running")
+      output_stream.start!
 
       dispatch_result = ProviderExecution::DispatchRequest.call(
         workflow_run: @workflow_run,
@@ -43,10 +45,11 @@ module ProviderExecution
         messages: @messages,
         adapter: @adapter,
         effective_catalog: @effective_catalog,
-        provider_request_id: @provider_request_id
+        provider_request_id: @provider_request_id,
+        on_delta: ->(delta) { output_stream.push(delta) }
       )
 
-      ProviderExecution::PersistTurnStepSuccess.call(
+      result = ProviderExecution::PersistTurnStepSuccess.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
         provider_result: dispatch_result.provider_result,
@@ -54,6 +57,14 @@ module ProviderExecution
         messages_count: @messages.length,
         duration_ms: dispatch_result.duration_ms
       )
+      output_stream.complete!(message: result.output_message)
+      broadcast_workflow_node_event!(
+        "runtime.workflow_node.completed",
+        state: "completed",
+        provider_request_id: dispatch_result.provider_request_id,
+        output_message_id: result.output_message.public_id
+      )
+      result
     rescue ProviderExecution::DispatchRequest::RequestFailed => dispatch_error
       ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
@@ -63,10 +74,30 @@ module ProviderExecution
         messages_count: @messages.length,
         duration_ms: dispatch_error.duration_ms
       )
+      output_stream.fail!(code: "provider_request_failed", message: dispatch_error.error.message)
+      broadcast_workflow_node_event!(
+        "runtime.workflow_node.failed",
+        state: "failed",
+        provider_request_id: dispatch_error.provider_request_id,
+        error_message: dispatch_error.error.message
+      )
       raise dispatch_error.error
+    rescue StaleExecutionError
+      output_stream.fail!(code: "stale_execution", message: "provider execution result is stale")
+      broadcast_workflow_node_event!(
+        "runtime.workflow_node.canceled",
+        state: "canceled",
+        code: "stale_execution",
+        error_message: "provider execution result is stale"
+      )
+      raise
     end
 
     private
+
+    def output_stream
+      @output_stream ||= ProviderExecution::OutputStream.new(workflow_node: @workflow_node)
+    end
 
     def normalize_messages(messages)
       Array(messages).filter_map do |message|
@@ -108,6 +139,18 @@ module ProviderExecution
           payload: payload.merge("state" => state)
         )
       end
+    end
+
+    def broadcast_workflow_node_event!(event_kind, **payload)
+      ConversationRuntime::Broadcast.call(
+        conversation: @workflow_run.conversation,
+        turn: @turn,
+        event_kind: event_kind,
+        payload: payload.merge(
+          "workflow_run_id" => @workflow_run.public_id,
+          "workflow_node_id" => @workflow_node.public_id
+        )
+      )
     end
 
     def raise_invalid!(record, attribute, message)
