@@ -16,7 +16,7 @@ class ConversationBlockerSnapshot
 
   DEPENDENCY_KEYS = %i[
     descendant_lineage_blockers
-    root_store_blocker
+    root_lineage_store_blocker
     variable_provenance_blocker
     import_provenance_blocker
   ].freeze
@@ -86,7 +86,7 @@ class ConversationBlockerSnapshot
     :active_execution_lease_count,
     :degraded_close_count,
     :descendant_lineage_blockers,
-    :root_store_blocker,
+    :root_lineage_store_blocker,
     :variable_provenance_blocker,
     :import_provenance_blocker
 
@@ -109,7 +109,7 @@ class ConversationBlockerSnapshot
     active_execution_lease_count: 0,
     degraded_close_count: 0,
     descendant_lineage_blockers: 0,
-    root_store_blocker: false,
+    root_lineage_store_blocker: false,
     variable_provenance_blocker: false,
     import_provenance_blocker: false
   )
@@ -131,7 +131,7 @@ class ConversationBlockerSnapshot
     @active_execution_lease_count = active_execution_lease_count
     @degraded_close_count = degraded_close_count
     @descendant_lineage_blockers = descendant_lineage_blockers
-    @root_store_blocker = root_store_blocker
+    @root_lineage_store_blocker = root_lineage_store_blocker
     @variable_provenance_blocker = variable_provenance_blocker
     @import_provenance_blocker = import_provenance_blocker
   end
@@ -170,7 +170,7 @@ class ConversationBlockerSnapshot
 
   def dependency_blocked?
     descendant_lineage_blockers.positive? ||
-      root_store_blocker ||
+      root_lineage_store_blocker ||
       variable_provenance_blocker ||
       import_provenance_blocker
   end

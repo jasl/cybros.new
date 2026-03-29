@@ -34,7 +34,7 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
     assert_equal(
       {
         descendant_lineage_blockers: 2,
-        root_store_blocker: true,
+        root_lineage_store_blocker: true,
         variable_provenance_blocker: true,
         import_provenance_blocker: true,
       },
@@ -57,7 +57,7 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
     assert_equal(
       {
         descendant_lineage_blockers: 0,
-        root_store_blocker: false,
+        root_lineage_store_blocker: false,
         variable_provenance_blocker: false,
         import_provenance_blocker: false,
       },

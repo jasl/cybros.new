@@ -142,7 +142,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     assert_equal "disposing", close_operation.reload.lifecycle_state
     assert_nil close_operation.completed_at
     assert_equal 1, close_operation.summary_payload.dig("dependencies", "descendant_lineage_blockers")
-    assert_equal false, close_operation.summary_payload.dig("dependencies", "root_store_blocker")
+    assert_equal false, close_operation.summary_payload.dig("dependencies", "root_lineage_store_blocker")
   end
 
   test "delete reconcile moves to degraded after deletion finalization when close failures remain" do
@@ -277,7 +277,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
         },
         dependencies: {
           descendant_lineage_blockers: 0,
-          root_store_blocker: false,
+          root_lineage_store_blocker: false,
           variable_provenance_blocker: false,
           import_provenance_blocker: false,
         },

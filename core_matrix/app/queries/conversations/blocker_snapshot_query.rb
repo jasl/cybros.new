@@ -29,7 +29,7 @@ module Conversations
         active_execution_lease_count: execution_lease_scope.where(released_at: nil).count,
         degraded_close_count: degraded_close_count,
         descendant_lineage_blockers: descendant_lineage_blockers,
-        root_store_blocker: root_store_blocker?,
+        root_lineage_store_blocker: root_lineage_store_blocker?,
         variable_provenance_blocker: variable_provenance_blocker?,
         import_provenance_blocker: import_provenance_blocker?
       )
@@ -75,7 +75,7 @@ module Conversations
       (descendant_conversation_ids - owned_subagent_conversation_ids).size
     end
 
-    def root_store_blocker?
+    def root_lineage_store_blocker?
       LineageStore.where(root_conversation: @conversation).exists?
     end
 

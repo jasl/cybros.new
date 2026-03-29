@@ -251,7 +251,7 @@ deployment may rotate or be switched within that bound environment.
 - archive is rejected for non-retained or non-active conversations
 - archive without force is rejected while unfinished runtime work remains
 - unarchive is rejected for non-retained or non-archived conversations
-- purge is rejected until final deletion has already removed the live canonical
+- purge is rejected until final deletion has already removed the live lineage
   store reference, even when force is requested
 - new turn entry is rejected while an archive or delete close operation is
   still in progress

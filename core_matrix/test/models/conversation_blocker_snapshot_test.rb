@@ -8,7 +8,7 @@ class ConversationBlockerSnapshotTest < ActiveSupport::TestCase
       closing: false,
       running_background_process_count: 1,
       degraded_close_count: 1,
-      root_store_blocker: true
+      root_lineage_store_blocker: true
     )
 
     assert snapshot.mainline_clear?
@@ -20,7 +20,7 @@ class ConversationBlockerSnapshotTest < ActiveSupport::TestCase
     assert_equal(
       {
         descendant_lineage_blockers: 0,
-        root_store_blocker: true,
+        root_lineage_store_blocker: true,
         variable_provenance_blocker: false,
         import_provenance_blocker: false,
       },
