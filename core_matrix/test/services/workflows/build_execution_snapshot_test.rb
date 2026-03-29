@@ -101,10 +101,19 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       snapshot.context_messages.map { |message| message.fetch("message_id") }
     )
     assert_equal ["quoted_context"], snapshot.context_imports.map { |item| item.fetch("kind") }
+    assert_equal conversation.public_id, snapshot.context_imports.first.fetch("source_conversation_id")
+    assert_equal "Earlier summary", snapshot.context_imports.first.fetch("content")
     expected_attachment_ids = [unsupported_audio.public_id, supported_file.public_id].sort
 
     assert_equal expected_attachment_ids, snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
     assert_equal expected_attachment_ids, snapshot.runtime_attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
+    assert_equal(
+      {
+        "kind" => "message_attachment",
+        "attachment_id" => supported_file.public_id,
+      },
+      snapshot.runtime_attachment_manifest.find { |item| item.fetch("attachment_id") == supported_file.public_id }.fetch("runtime_ref")
+    )
     assert_equal [supported_file.public_id], snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert_equal [unsupported_audio.public_id], snapshot.attachment_diagnostics.map { |item| item.fetch("attachment_id") }
     assert_equal "unsupported_modality", snapshot.attachment_diagnostics.first.fetch("reason")

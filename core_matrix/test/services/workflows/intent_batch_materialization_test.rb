@@ -74,9 +74,16 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     assert_equal 0, accepted_node.stage_index
     assert_equal 0, accepted_node.stage_position
     assert_equal "conversation_title_update", accepted_node.intent_kind
+    assert_equal({ "title" => "Retitled" }, accepted_node.metadata["payload"])
+    assert_equal "intent-1", accepted_node.metadata["idempotency_key"]
     assert_equal "batch-1", batch_manifest.payload["batch_id"]
+    assert_equal 1, batch_manifest.payload["accepted_intent_count"]
+    assert_equal 0, batch_manifest.payload["rejected_intent_count"]
+    assert_equal yielding_node.node_key, batch_manifest.workflow_node_key
     assert_equal "wait_all", barrier_summary.payload.dig("stage", "completion_barrier")
     assert_equal "batch-1", yield_event.payload["batch_id"]
+    assert_equal ["title-update"], yield_event.payload["accepted_node_keys"]
+    assert_equal [barrier_summary.artifact_key], yield_event.payload["barrier_artifact_keys"]
   end
 
   test "records rejected intents as audit-only workflow node events without durable mutation nodes" do

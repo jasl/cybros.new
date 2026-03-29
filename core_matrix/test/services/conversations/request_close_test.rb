@@ -30,6 +30,29 @@ class Conversations::RequestCloseTest < ActiveSupport::TestCase
     assert closed.pending_delete?
     assert closed.archived?
     assert_equal "delete", close_operation.intent_kind
+    assert_equal Time.zone.parse("2026-03-29 08:00:00 UTC"), close_operation.requested_at
+    assert_equal Time.zone.parse("2026-03-29 08:00:00 UTC"), closed.deleted_at
+  end
+
+  test "rejects switching intent while a close operation is unfinished" do
+    conversation = create_conversation!
+    ConversationCloseOperation.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::RequestClose.call(
+        conversation: conversation,
+        intent_kind: "delete"
+      )
+    end
+
+    assert_includes error.record.errors[:intent_kind], "must not change while a close operation is unfinished"
   end
 
   private

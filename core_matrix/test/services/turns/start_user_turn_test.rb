@@ -30,6 +30,8 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal "role:main", turn.resolved_model_selection_snapshot.fetch("normalized_selector")
     assert_instance_of UserMessage, turn.selected_input_message
     assert_equal "Hello world", turn.selected_input_message.content
+    assert_equal 0, turn.selected_input_message.variant_index
+    assert_nil turn.selected_input_message.source_input_message
     assert_nil turn.selected_output_message
   end
 
@@ -137,6 +139,36 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors[:deletion_state], "must be retained for user turn entry"
+  end
+
+  test "rejects close in progress conversations before creating a user turn" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    ConversationCloseOperation.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Blocked by close",
+        agent_deployment: context[:agent_deployment],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not accept new turn entry while close is in progress"
+    assert_equal 0, conversation.reload.turns.count
   end
 
   test "rechecks active lifecycle state after acquiring the conversation lock" do
