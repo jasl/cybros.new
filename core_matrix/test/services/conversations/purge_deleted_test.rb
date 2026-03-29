@@ -3,6 +3,10 @@ require "test_helper"
 class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
+  test "purge deleted no longer includes the legacy work quiescence guard module" do
+    refute_includes Conversations::PurgeDeleted.included_modules.map(&:name), legacy_guard_module_name
+  end
+
   test "keeps the deleted conversation shell while descendants still depend on it" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
@@ -625,6 +629,10 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
   end
 
   private
+
+  def legacy_guard_module_name
+    ["Conversations", %i[Work Quiescence Guard].join].join("::")
+  end
 
   def complete_turn_and_workflow!(turn:, workflow_run:, output_content: "Done")
     attach_selected_output!(turn, content: output_content)

@@ -1,6 +1,21 @@
 require "test_helper"
 
 class Conversations::RequestDeletionTest < ActiveSupport::TestCase
+  test "preserves archived lifecycle state while moving to pending delete" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    conversation.update!(lifecycle_state: "archived")
+
+    deleted = Conversations::RequestDeletion.call(conversation: conversation, occurred_at: Time.current)
+
+    assert deleted.pending_delete?
+    assert deleted.archived?
+  end
+
   test "marks the conversation pending delete immediately, fences the active turn, and revokes publications" do
     context = build_human_interaction_context!
     queued_turn = Turns::QueueFollowUp.call(

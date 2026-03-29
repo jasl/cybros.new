@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Conversations::WithConversationEntryLockTest < ActiveSupport::TestCase
+  test "legacy turn entry alias is removed" do
+    refute Turns.const_defined?(:WithConversationEntryLock, false)
+  end
+
   test "yields an active retained conversation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

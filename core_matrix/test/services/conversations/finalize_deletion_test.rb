@@ -3,6 +3,10 @@ require "test_helper"
 class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
+  test "finalize deletion no longer includes the legacy work quiescence guard module" do
+    refute_includes Conversations::FinalizeDeletion.included_modules.map(&:name), legacy_guard_module_name
+  end
+
   test "marks a pending deletion deleted, removes the lineage store reference, and enqueues gc" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -99,5 +103,11 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
       assert finalized.deleted?
       assert_nil finalized.lineage_store_reference
     end
+  end
+
+  private
+
+  def legacy_guard_module_name
+    ["Conversations", %i[Work Quiescence Guard].join].join("::")
   end
 end

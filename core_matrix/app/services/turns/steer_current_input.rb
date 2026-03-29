@@ -11,10 +11,12 @@ module Turns
     end
 
     def call
-      Turns::WithTimelineActionLock.call(
+      Turns::WithTimelineMutationLock.call(
         turn: @turn,
-        before_phrase: "steering current input",
-        action_phrase: "steer current input"
+        retained_message: "must be retained before steering current input",
+        active_message: "must belong to an active conversation to steer current input",
+        closing_message: "must not steer current input while close is in progress",
+        interrupted_message: "must not steer current input after turn interruption"
       ) do |turn|
         raise_invalid!(turn, :lifecycle_state, "must be active to steer current input") unless turn.active?
         if side_effect_boundary_crossed?(turn)

@@ -1,7 +1,5 @@
 module Conversations
   class FinalizeDeletion
-    include Conversations::WorkQuiescenceGuard
-
     def self.call(...)
       new(...).call
     end
@@ -20,7 +18,11 @@ module Conversations
       ApplicationRecord.transaction do
         conversation.with_lock do
           locked_conversation = conversation.reload
-          validate_quiescent!(locked_conversation)
+          Conversations::ValidateQuiescence.call(
+            conversation: locked_conversation,
+            stage: "final deletion",
+            mainline_only: true
+          )
           locked_conversation.lineage_store_reference&.destroy!
           locked_conversation.update!(deletion_state: "deleted")
         end
@@ -36,10 +38,6 @@ module Conversations
 
     def current_conversation
       @current_conversation ||= Conversation.find(@conversation.id)
-    end
-
-    def validate_quiescent!(conversation)
-      ensure_mainline_stop_barrier_clear!(conversation, stage: "final deletion")
     end
 
     def raise_invalid!(record, attribute, message)

@@ -16,9 +16,10 @@ module Turns
     end
 
     def call
-      Turns::WithConversationEntryLock.call(
+      Conversations::WithConversationEntryLock.call(
         conversation: @conversation,
-        entry_label: "agent turn entry",
+        retained_message: "must be retained for agent turn entry",
+        active_message: "must be active for agent turn entry",
         closing_message: "must not accept agent turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for agent turn entry") unless conversation.interactive?

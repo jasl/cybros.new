@@ -249,6 +249,7 @@ which contract is being used without adding an extra alias class.
 - `core_matrix/test/services/conversations/with_conversation_entry_lock_test.rb`
 - `core_matrix/test/services/conversations/with_retained_lifecycle_lock_test.rb`
 - `core_matrix/test/services/conversations/validate_quiescence_test.rb`
+- `core_matrix/test/services/conversations/finalize_deletion_test.rb`
 - `core_matrix/test/services/turns/validate_timeline_mutation_target_test.rb`
 - `core_matrix/test/services/workflows/manual_resume_test.rb`
 - `core_matrix/test/services/conversations/archive_test.rb`

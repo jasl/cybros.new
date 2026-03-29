@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Conversations::ArchiveTest < ActiveSupport::TestCase
+  test "archive no longer includes the legacy work quiescence guard module" do
+    refute_includes Conversations::Archive.included_modules.map(&:name), legacy_guard_module_name
+  end
+
   test "archives a conversation without changing lineage" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
@@ -272,6 +276,10 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
   end
 
   private
+
+  def legacy_guard_module_name
+    ["Conversations", %i[Work Quiescence Guard].join].join("::")
+  end
 
   def build_profile_aware_agent_control_context!
     context = build_agent_control_context!

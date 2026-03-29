@@ -17,9 +17,11 @@ module Turns
     end
 
     def call
-      Turns::WithConversationEntryLock.call(
+      Conversations::WithConversationEntryLock.call(
         conversation: @conversation,
-        entry_label: "automation turn entry"
+        retained_message: "must be retained for automation turn entry",
+        active_message: "must be active for automation turn entry",
+        closing_message: "must not accept new turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be automation for automation turn entry") unless conversation.automation?
         agent_deployment = conversation.agent_deployment

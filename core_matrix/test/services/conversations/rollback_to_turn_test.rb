@@ -1,6 +1,31 @@
 require "test_helper"
 
 class Conversations::RollbackToTurnTest < ActiveSupport::TestCase
+  test "rejects rollback when the conversation is pending delete" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    first_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(first_turn, content: "First output")
+    first_turn.update!(lifecycle_state: "completed")
+    conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::RollbackToTurn.call(conversation: conversation, turn: first_turn)
+    end
+
+    assert_includes error.record.errors[:deletion_state], "must be retained before rolling back the conversation"
+  end
+
   test "cancels later turns so the target turn becomes the active tail" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

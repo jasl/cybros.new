@@ -1,7 +1,5 @@
 module Conversations
   class PurgeDeleted
-    include Conversations::WorkQuiescenceGuard
-
     def self.call(...)
       new(...).call
     end
@@ -28,7 +26,11 @@ module Conversations
             force_quiesce!(locked_conversation)
             next if quiescence_pending_after_force?(locked_conversation)
           else
-            ensure_conversation_quiescent!(locked_conversation, stage: "purge")
+            Conversations::ValidateQuiescence.call(
+              conversation: locked_conversation,
+              stage: "purge",
+              mainline_only: false
+            )
           end
           next if purge_blocked?(locked_conversation)
 
@@ -71,7 +73,11 @@ module Conversations
     end
 
     def quiescence_pending_after_force?(conversation)
-      ensure_conversation_quiescent!(conversation, stage: "purge")
+      Conversations::ValidateQuiescence.call(
+        conversation: conversation,
+        stage: "purge",
+        mainline_only: false
+      )
       false
     rescue ActiveRecord::RecordInvalid
       true

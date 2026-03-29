@@ -251,6 +251,7 @@ git commit -m "docs: describe centralized recovery ownership"
 - Modify: `core_matrix/test/services/conversations/with_conversation_entry_lock_test.rb`
 - Modify: `core_matrix/test/services/conversations/with_retained_lifecycle_lock_test.rb`
 - Modify: `core_matrix/test/services/conversations/validate_quiescence_test.rb`
+- Modify: `core_matrix/test/services/conversations/finalize_deletion_test.rb`
 - Create: `core_matrix/test/services/turns/with_timeline_mutation_lock_test.rb`
 - Modify: `core_matrix/test/services/turns/validate_timeline_mutation_target_test.rb`
 - Modify: `core_matrix/test/services/conversations/archive_test.rb`
@@ -302,6 +303,7 @@ Expected: FAIL because alias wrappers and helper modules still exist.
 - Delete: `core_matrix/test/services/turns/with_conversation_entry_lock_test.rb`
 - Delete: `core_matrix/test/services/turns/with_timeline_action_lock_test.rb`
 - Modify: `core_matrix/app/models/conversation_blocker_snapshot.rb`
+- Modify if needed: `core_matrix/test/models/conversation_blocker_snapshot_test.rb`
 - Modify: `core_matrix/app/services/conversations/validate_mutable_state.rb`
 - Modify: `core_matrix/app/services/conversations/with_mutable_state_lock.rb`
 - Modify: `core_matrix/app/services/conversations/with_conversation_entry_lock.rb`
@@ -388,6 +390,7 @@ git add core_matrix/app/models/conversation_blocker_snapshot.rb \
   core_matrix/test/services/conversations/with_conversation_entry_lock_test.rb \
   core_matrix/test/services/conversations/with_retained_lifecycle_lock_test.rb \
   core_matrix/test/services/conversations/validate_quiescence_test.rb \
+  core_matrix/test/services/conversations/finalize_deletion_test.rb \
   core_matrix/test/services/turns/with_timeline_mutation_lock_test.rb \
   core_matrix/test/services/turns/validate_timeline_mutation_target_test.rb \
   core_matrix/test/services/conversations/archive_test.rb \

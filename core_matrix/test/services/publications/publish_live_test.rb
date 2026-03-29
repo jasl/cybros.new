@@ -1,6 +1,32 @@
 require "test_helper"
 
 class Publications::PublishLiveTest < ActiveSupport::TestCase
+  test "allows publishing while close is in progress because publication only requires retained state" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    ConversationCloseOperation.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    publication = Publications::PublishLive.call(
+      conversation: conversation,
+      actor: context[:user],
+      visibility_mode: "internal_public"
+    )
+
+    assert publication.internal_public?
+    assert_equal conversation.id, publication.conversation_id
+  end
+
   test "publishes a conversation live and records the enable audit row" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

@@ -1,7 +1,5 @@
 module Conversations
   class Archive
-    include Conversations::WorkQuiescenceGuard
-
     def self.call(...)
       new(...).call
     end
@@ -28,7 +26,11 @@ module Conversations
         expected_state: "active",
         lifecycle_message: "must be active before archival"
       ) do |locked_conversation|
-        ensure_conversation_quiescent!(locked_conversation, stage: "archival")
+        Conversations::ValidateQuiescence.call(
+          conversation: locked_conversation,
+          stage: "archival",
+          mainline_only: false
+        )
         locked_conversation.update!(lifecycle_state: "archived")
       end
 

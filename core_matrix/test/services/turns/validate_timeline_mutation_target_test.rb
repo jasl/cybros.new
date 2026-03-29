@@ -1,6 +1,20 @@
 require "test_helper"
 
 class Turns::ValidateTimelineMutationTargetTest < ActiveSupport::TestCase
+  test "returns the turn when timeline mutation is allowed and the turn is uninterrupted" do
+    turn = build_completed_turn_with_output!
+
+    validated = Turns::ValidateTimelineMutationTarget.call(
+      turn: turn,
+      retained_message: "must be retained before rewriting output",
+      active_message: "must belong to an active conversation to rewrite output",
+      closing_message: "must not rewrite output while close is in progress",
+      interrupted_message: "must not rewrite output after turn interruption"
+    )
+
+    assert_same turn, validated
+  end
+
   test "rejects timeline mutation when the conversation is pending delete" do
     turn = build_completed_turn_with_output!
     turn.conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)

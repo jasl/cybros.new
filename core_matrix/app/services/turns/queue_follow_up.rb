@@ -12,9 +12,11 @@ module Turns
     end
 
     def call
-      Turns::WithConversationEntryLock.call(
+      Conversations::WithConversationEntryLock.call(
         conversation: @conversation,
-        entry_label: "follow up turn entry"
+        retained_message: "must be retained for follow up turn entry",
+        active_message: "must be active for follow up turn entry",
+        closing_message: "must not accept new turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for follow up turn entry") unless conversation.interactive?
         SubagentSessions::ValidateAddressability.call(

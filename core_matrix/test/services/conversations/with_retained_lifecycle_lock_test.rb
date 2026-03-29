@@ -1,6 +1,35 @@
 require "test_helper"
 
 class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
+  test "allows close in progress while the retained lifecycle contract still matches" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    ConversationCloseOperation.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
+    )
+
+    yielded = Conversations::WithRetainedLifecycleLock.call(
+      conversation: conversation,
+      record: conversation,
+      retained_message: "must be retained before archival",
+      expected_state: "active",
+      lifecycle_message: "must be active before archival"
+    ) do |current_conversation|
+      current_conversation
+    end
+
+    assert_equal conversation.id, yielded.id
+  end
+
   test "yields a retained conversation in the expected lifecycle state" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
