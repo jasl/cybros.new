@@ -273,10 +273,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
 
   private
 
-  def legacy_guard_module_name
-    ["Conversations", %i[Work Quiescence Guard].join].join("::")
-  end
-
   def build_profile_aware_agent_control_context!
     context = build_agent_control_context!
     capability_snapshot = create_capability_snapshot!(

@@ -73,7 +73,7 @@ class Workflows::ProjectionTest < ActiveSupport::TestCase
 
     projection = nil
     queries = capture_sql_queries do
-      projection = workflow_projection_class.call(workflow_run: workflow_run)
+      projection = Workflows::Projection.call(workflow_run: workflow_run)
     end
 
     assert_operator queries.size, :<=, 5
@@ -84,11 +84,4 @@ class Workflows::ProjectionTest < ActiveSupport::TestCase
     assert_equal "agent_step_2", projection.workflow_run.resume_metadata.dig("successor", "node_key")
   end
 
-  private
-
-  def workflow_projection_class
-    @workflow_projection_class ||= Workflows.const_get(:Projection, false)
-  rescue NameError
-    flunk "Workflows::Projection must exist"
-  end
 end

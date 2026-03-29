@@ -24,7 +24,7 @@ class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
       excluded_from_context: false
     )
 
-    first_page = page_projection_class.call(
+    first_page = ConversationTranscripts::PageProjection.call(
       conversation: context[:conversation],
       limit: 2
     )
@@ -35,7 +35,7 @@ class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
     )
     assert_equal second_turn.selected_input_message.public_id, first_page.next_cursor
 
-    second_page = page_projection_class.call(
+    second_page = ConversationTranscripts::PageProjection.call(
       conversation: context[:conversation],
       cursor: first_page.next_cursor,
       limit: 2
@@ -43,13 +43,5 @@ class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
 
     assert_equal [second_output], second_page.messages
     assert_nil second_page.next_cursor
-  end
-
-  private
-
-  def page_projection_class
-    @page_projection_class ||= ConversationTranscripts.const_get(:PageProjection, false)
-  rescue NameError
-    flunk "ConversationTranscripts::PageProjection must exist"
   end
 end

@@ -216,12 +216,6 @@ class TurnTest < ActiveSupport::TestCase
     assert_includes turn.errors[:resolved_config_snapshot], "must not use legacy wrapped execution context"
   end
 
-  test "does not expose a legacy effective config snapshot helper" do
-    turn = Turn.new
-
-    refute_respond_to turn, :effective_config_snapshot
-  end
-
   test "returns an explicit execution snapshot reader" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

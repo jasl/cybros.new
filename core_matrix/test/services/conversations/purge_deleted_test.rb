@@ -626,10 +626,6 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
 
   private
 
-  def legacy_guard_module_name
-    ["Conversations", %i[Work Quiescence Guard].join].join("::")
-  end
-
   def complete_turn_and_workflow!(turn:, workflow_run:, output_content: "Done")
     attach_selected_output!(turn, content: output_content)
     turn.update!(lifecycle_state: "completed")

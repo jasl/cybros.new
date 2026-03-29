@@ -21,7 +21,7 @@ class CanonicalVariableFlowTest < ActionDispatch::IntegrationTest
       typed_value_payload: { "type" => "string", "value" => "Acme China" },
     )
 
-    resolved = visible_values_resolver_class.call(
+    resolved = ConversationVariables::VisibleValuesResolver.call(
       workspace: context[:workspace],
       conversation: context[:conversation]
     )
@@ -38,13 +38,5 @@ class CanonicalVariableFlowTest < ActionDispatch::IntegrationTest
     assert_equal promoted, CanonicalVariable.effective_for(workspace: context[:workspace], key: "customer_name")
     assert workspace_variable.reload.superseded?
     assert_equal 2, CanonicalVariable.where(key: "customer_name").count
-  end
-
-  private
-
-  def visible_values_resolver_class
-    ConversationVariables.const_get(:VisibleValuesResolver, false)
-  rescue NameError
-    flunk "ConversationVariables::VisibleValuesResolver must exist"
   end
 end

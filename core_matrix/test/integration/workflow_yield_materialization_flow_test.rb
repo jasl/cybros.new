@@ -73,7 +73,7 @@ class WorkflowYieldMaterializationFlowTest < ActionDispatch::IntegrationTest
 
     projection = nil
     queries = capture_sql_queries do
-      projection = workflow_projection_class.call(workflow_run: workflow_run)
+      projection = Workflows::Projection.call(workflow_run: workflow_run)
     end
 
     assert_operator queries.size, :<=, 5
@@ -82,13 +82,5 @@ class WorkflowYieldMaterializationFlowTest < ActionDispatch::IntegrationTest
     assert_equal %w[intent_rejected yield_requested], projection.events_by_node_key.fetch("agent_step_1").map(&:event_kind).sort
     assert_equal "re_enter_agent", projection.workflow_run.resume_policy
     assert_equal "agent_step_2", projection.workflow_run.resume_metadata.dig("successor", "node_key")
-  end
-
-  private
-
-  def workflow_projection_class
-    Workflows.const_get(:Projection, false)
-  rescue NameError
-    flunk "Workflows::Projection must exist"
   end
 end

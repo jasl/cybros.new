@@ -41,7 +41,7 @@ class Publications::LiveProjectionTest < ActiveSupport::TestCase
       visibility_mode: "external_public"
     )
 
-    entries = live_projection_class.call(publication: publication)
+    entries = Publications::LiveProjection.call(publication: publication)
 
     assert_equal %w[message conversation_event message conversation_event], entries.map(&:entry_type)
     assert_equal turn.selected_input_message, entries[0].record
@@ -49,13 +49,5 @@ class Publications::LiveProjectionTest < ActiveSupport::TestCase
     assert_equal output, entries[2].record
     assert_equal plain, entries[3].record
     assert_equal "resolved", entries[1].record.payload["state"]
-  end
-
-  private
-
-  def live_projection_class
-    @live_projection_class ||= Publications.const_get(:LiveProjection, false)
-  rescue NameError
-    flunk "Publications::LiveProjection must exist"
   end
 end

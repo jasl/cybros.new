@@ -37,7 +37,7 @@ class ConversationVariables::VisibleValuesResolverTest < ActiveSupport::TestCase
       typed_value_payload: { "type" => "string", "value" => "direct" },
     )
 
-    result = visible_values_resolver_class.call(
+    result = ConversationVariables::VisibleValuesResolver.call(
       workspace: context[:workspace],
       conversation: context[:conversation]
     )
@@ -45,13 +45,5 @@ class ConversationVariables::VisibleValuesResolverTest < ActiveSupport::TestCase
     assert_equal "Acme China", result["customer_name"].typed_value_payload["value"]
     assert_equal support_tier, result["support_tier"]
     assert_equal "direct", result["tone"].typed_value_payload["value"]
-  end
-
-  private
-
-  def visible_values_resolver_class
-    @visible_values_resolver_class ||= ConversationVariables.const_get(:VisibleValuesResolver, false)
-  rescue NameError
-    flunk "ConversationVariables::VisibleValuesResolver must exist"
   end
 end
