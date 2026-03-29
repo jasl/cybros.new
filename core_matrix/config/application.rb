@@ -64,5 +64,12 @@ module CoreMatrix
       g.assets false
       g.test_framework nil
     end
+
+    if defined?(Rails::CodeStatistics)
+      Rails::CodeStatistics.register_directory("Projections", "app/projections")
+      Rails::CodeStatistics.register_directory("Queries", "app/queries")
+      Rails::CodeStatistics.register_directory("Resolvers", "app/resolvers")
+      Rails::CodeStatistics.register_directory("Services", "app/services")
+    end
   end
 end

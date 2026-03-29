@@ -1,3 +1,6 @@
+require "simplecov"
+SimpleCov.start "rails"
+
 require "active_support/testing/time_helpers"
 require "action_controller"
 require "digest"
