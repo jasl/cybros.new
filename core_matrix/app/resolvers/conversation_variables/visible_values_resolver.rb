@@ -1,5 +1,5 @@
 module ConversationVariables
-  class ResolveQuery
+  class VisibleValuesResolver
     def self.call(...)
       new(...).call
     end

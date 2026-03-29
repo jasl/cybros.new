@@ -55,7 +55,7 @@ class PublicationFlowTest < ActionDispatch::IntegrationTest
       access_token: publication.plaintext_access_token,
       request_metadata: { "ip" => "127.0.0.2" }
     )
-    entries = Publications::LiveProjectionQuery.call(publication: publication)
+    entries = live_projection_class.call(publication: publication)
 
     assert_nil slug_access.viewer_user
     assert_nil token_access.viewer_user
@@ -75,5 +75,13 @@ class PublicationFlowTest < ActionDispatch::IntegrationTest
       AuditLog.where(installation: context[:installation]).order(:created_at).pluck(:action).last(3)
     )
     assert_equal 3, PublicationAccessEvent.where(publication: publication).count
+  end
+
+  private
+
+  def live_projection_class
+    Publications.const_get(:LiveProjection, false)
+  rescue NameError
+    flunk "Publications::LiveProjection must exist"
   end
 end

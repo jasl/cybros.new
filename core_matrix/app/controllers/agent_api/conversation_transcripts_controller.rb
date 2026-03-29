@@ -2,7 +2,7 @@ module AgentAPI
   class ConversationTranscriptsController < BaseController
     def index
       conversation = find_conversation!(params.fetch(:conversation_id))
-      result = ConversationTranscripts::ListQuery.call(
+      result = ConversationTranscripts::PageProjection.call(
         conversation: conversation,
         cursor: params[:cursor],
         limit: params[:limit]

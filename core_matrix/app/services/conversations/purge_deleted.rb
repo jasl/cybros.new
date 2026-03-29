@@ -84,7 +84,7 @@ module Conversations
     end
 
     def purge_blocked?(conversation)
-      Conversations::DependencyBlockersQuery.call(conversation: conversation).blocked?
+      Conversations::BlockerSnapshotQuery.call(conversation: conversation).dependency_blockers.blocked?
     end
 
     def ancestor_conversation_ids(conversation)

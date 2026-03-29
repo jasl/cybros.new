@@ -1,6 +1,6 @@
 module Workflows
-  class ProjectionQuery
-    ProjectionBundle = Struct.new(
+  class Projection
+    Bundle = Struct.new(
       :workflow_run,
       :nodes,
       :edges,
@@ -29,7 +29,7 @@ module Workflows
         .order(:workflow_node_ordinal, :artifact_kind, :artifact_key)
         .group_by(&:workflow_node_key)
 
-      ProjectionBundle.new(
+      Bundle.new(
         workflow_run: @workflow_run.reload,
         nodes: nodes,
         edges: edges,

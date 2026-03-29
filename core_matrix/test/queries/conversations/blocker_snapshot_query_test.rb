@@ -2,6 +2,10 @@ require "test_helper"
 
 class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
   test "builds one snapshot that drives work barriers, close summaries, and dependency blockers" do
+    refute Conversations.constants.include?(legacy_work_barrier_query_constant_name)
+    refute Conversations.constants.include?(legacy_close_summary_query_constant_name)
+    refute Conversations.constants.include?(legacy_dependency_blockers_query_constant_name)
+
     context = build_agent_control_context!
     root = context[:conversation]
     child = Conversations::CreateFork.call(parent: root)
@@ -38,6 +42,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     snapshot = Conversations::BlockerSnapshotQuery.call(conversation: root)
 
     assert_equal 1, snapshot.work_barrier.active_turn_count
+    assert_equal 1, snapshot.work_barrier[:active_turn_count]
     assert_equal 1, snapshot.work_barrier.active_workflow_count
     assert_equal 1, snapshot.work_barrier.active_agent_task_count
     assert_equal 1, snapshot.work_barrier.open_blocking_interaction_count
@@ -45,6 +50,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     assert_equal 1, snapshot.work_barrier.running_subagent_count
     assert_equal 1, snapshot.close_summary.dig(:tail, :running_background_process_count)
     assert_equal 1, snapshot.dependency_blockers.descendant_lineage_blockers
+    assert_equal snapshot.dependency_blockers.to_h, snapshot.close_summary[:dependencies]
     assert request.open?
     assert child.retained?
     refute snapshot.mainline_clear?
@@ -53,6 +59,18 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
   end
 
   private
+
+  def legacy_work_barrier_query_constant_name
+    %i[Work Barrier Query].join.to_sym
+  end
+
+  def legacy_close_summary_query_constant_name
+    %i[Close Summary Query].join.to_sym
+  end
+
+  def legacy_dependency_blockers_query_constant_name
+    %i[Dependency Blockers Query].join.to_sym
+  end
 
   def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:)
     child_conversation = create_conversation_record!(

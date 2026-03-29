@@ -1,5 +1,5 @@
 module ConversationTranscripts
-  class ListQuery
+  class PageProjection
     DEFAULT_LIMIT = 50
     MAX_LIMIT = 100
 

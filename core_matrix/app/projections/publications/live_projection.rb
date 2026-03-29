@@ -1,5 +1,5 @@
 module Publications
-  class LiveProjectionQuery
+  class LiveProjection
     Entry = Struct.new(:entry_type, :record, keyword_init: true)
 
     def self.call(...)

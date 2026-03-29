@@ -1,6 +1,11 @@
 require "test_helper"
 
-class Publications::LiveProjectionQueryTest < ActiveSupport::TestCase
+class Publications::LiveProjectionTest < ActiveSupport::TestCase
+  test "uses the live projection owner and removes the legacy query" do
+    assert live_projection_class.present?, "Publications::LiveProjection must exist"
+    refute Publications.constants.include?(legacy_live_projection_query_constant_name)
+  end
+
   test "returns transcript messages and visible conversation events in deterministic live order" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
@@ -16,7 +21,7 @@ class Publications::LiveProjectionQueryTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
     output = attach_selected_output!(turn, content: "Published output")
-    streamed = ConversationEvents::Project.call(
+    ConversationEvents::Project.call(
       conversation: conversation,
       turn: turn,
       event_kind: "runtime.status",
@@ -41,7 +46,7 @@ class Publications::LiveProjectionQueryTest < ActiveSupport::TestCase
       visibility_mode: "external_public"
     )
 
-    entries = Publications::LiveProjectionQuery.call(publication: publication)
+    entries = live_projection_class.call(publication: publication)
 
     assert_equal %w[message conversation_event message conversation_event], entries.map(&:entry_type)
     assert_equal turn.selected_input_message, entries[0].record
@@ -49,5 +54,17 @@ class Publications::LiveProjectionQueryTest < ActiveSupport::TestCase
     assert_equal output, entries[2].record
     assert_equal plain, entries[3].record
     assert_equal "resolved", entries[1].record.payload["state"]
+  end
+
+  private
+
+  def legacy_live_projection_query_constant_name
+    %i[Live Projection Query].join.to_sym
+  end
+
+  def live_projection_class
+    @live_projection_class ||= Publications.const_get(:LiveProjection, false)
+  rescue NameError
+    flunk "Publications::LiveProjection must exist"
   end
 end

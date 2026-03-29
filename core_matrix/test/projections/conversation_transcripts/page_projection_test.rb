@@ -3,7 +3,12 @@ require "test_helper"
 module ConversationTranscripts
 end
 
-class ConversationTranscripts::ListQueryTest < ActiveSupport::TestCase
+class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
+  test "uses the page projection owner and removes the legacy list query" do
+    assert page_projection_class.present?, "ConversationTranscripts::PageProjection must exist"
+    refute ConversationTranscripts.constants.include?(legacy_list_query_constant_name)
+  end
+
   test "returns the canonical visible transcript with cursor pagination" do
     context = build_canonical_variable_context!
     first_turn = context[:turn]
@@ -24,7 +29,7 @@ class ConversationTranscripts::ListQueryTest < ActiveSupport::TestCase
       excluded_from_context: false
     )
 
-    first_page = ConversationTranscripts::ListQuery.call(
+    first_page = page_projection_class.call(
       conversation: context[:conversation],
       limit: 2
     )
@@ -35,7 +40,7 @@ class ConversationTranscripts::ListQueryTest < ActiveSupport::TestCase
     )
     assert_equal second_turn.selected_input_message.public_id, first_page.next_cursor
 
-    second_page = ConversationTranscripts::ListQuery.call(
+    second_page = page_projection_class.call(
       conversation: context[:conversation],
       cursor: first_page.next_cursor,
       limit: 2
@@ -43,5 +48,17 @@ class ConversationTranscripts::ListQueryTest < ActiveSupport::TestCase
 
     assert_equal [second_output], second_page.messages
     assert_nil second_page.next_cursor
+  end
+
+  private
+
+  def legacy_list_query_constant_name
+    %i[List Query].join.to_sym
+  end
+
+  def page_projection_class
+    @page_projection_class ||= ConversationTranscripts.const_get(:PageProjection, false)
+  rescue NameError
+    flunk "ConversationTranscripts::PageProjection must exist"
   end
 end

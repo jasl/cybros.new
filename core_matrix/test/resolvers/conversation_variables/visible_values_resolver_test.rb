@@ -3,7 +3,12 @@ require "test_helper"
 module ConversationVariables
 end
 
-class ConversationVariables::ResolveQueryTest < ActiveSupport::TestCase
+class ConversationVariables::VisibleValuesResolverTest < ActiveSupport::TestCase
+  test "uses the visible values resolver owner and removes the legacy resolve query" do
+    assert visible_values_resolver_class.present?, "ConversationVariables::VisibleValuesResolver must exist"
+    refute ConversationVariables.constants.include?(legacy_resolve_query_constant_name)
+  end
+
   test "returns the effective merged view with conversation values overriding workspace defaults" do
     context = build_canonical_variable_context!
     Variables::Write.call(
@@ -37,7 +42,7 @@ class ConversationVariables::ResolveQueryTest < ActiveSupport::TestCase
       typed_value_payload: { "type" => "string", "value" => "direct" },
     )
 
-    result = ConversationVariables::ResolveQuery.call(
+    result = visible_values_resolver_class.call(
       workspace: context[:workspace],
       conversation: context[:conversation]
     )
@@ -45,5 +50,17 @@ class ConversationVariables::ResolveQueryTest < ActiveSupport::TestCase
     assert_equal "Acme China", result["customer_name"].typed_value_payload["value"]
     assert_equal support_tier, result["support_tier"]
     assert_equal "direct", result["tone"].typed_value_payload["value"]
+  end
+
+  private
+
+  def legacy_resolve_query_constant_name
+    %i[Resolve Query].join.to_sym
+  end
+
+  def visible_values_resolver_class
+    @visible_values_resolver_class ||= ConversationVariables.const_get(:VisibleValuesResolver, false)
+  rescue NameError
+    flunk "ConversationVariables::VisibleValuesResolver must exist"
   end
 end

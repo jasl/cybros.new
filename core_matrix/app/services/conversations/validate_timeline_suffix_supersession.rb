@@ -13,10 +13,10 @@ module Conversations
     def call
       raise_invalid!(:conversation, "must belong to the target conversation") unless @turn.conversation_id == @conversation.id
 
-      barrier = Conversations::WorkBarrierQuery.call(
+      barrier = Conversations::BlockerSnapshotQuery.call(
         conversation: @conversation,
         turns: suffix_turn_scope
-      )
+      ).work_barrier
 
       raise_invalid!(:base, "must not roll back the timeline while later queued turns remain") if barrier[:queued_turn_count].positive?
       raise_invalid!(:base, "must not roll back the timeline while later active turns remain") if barrier[:active_turn_count].positive?

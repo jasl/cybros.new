@@ -1,6 +1,11 @@
 require "test_helper"
 
-class WorkflowYieldMaterializationFlowTest < ActionDispatch::IntegrationTest
+class Workflows::ProjectionTest < ActiveSupport::TestCase
+  test "uses the projection owner and removes the legacy projection query" do
+    assert workflow_projection_class.present?, "Workflows::Projection must exist"
+    refute Workflows.constants.include?(legacy_projection_query_constant_name)
+  end
+
   test "reads yielded workflow state through projection metadata without graph reconstruction queries" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
@@ -86,8 +91,12 @@ class WorkflowYieldMaterializationFlowTest < ActionDispatch::IntegrationTest
 
   private
 
+  def legacy_projection_query_constant_name
+    %i[Projection Query].join.to_sym
+  end
+
   def workflow_projection_class
-    Workflows.const_get(:Projection, false)
+    @workflow_projection_class ||= Workflows.const_get(:Projection, false)
   rescue NameError
     flunk "Workflows::Projection must exist"
   end

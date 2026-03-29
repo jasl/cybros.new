@@ -34,7 +34,7 @@ module Conversations
     private
 
     def barrier
-      @barrier ||= Conversations::WorkBarrierQuery.call(conversation: @conversation)
+      @barrier ||= Conversations::BlockerSnapshotQuery.call(conversation: @conversation).work_barrier
     end
 
     def ensure_owned_subagent_sessions_closed!

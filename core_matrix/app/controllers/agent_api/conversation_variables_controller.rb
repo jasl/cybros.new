@@ -60,7 +60,7 @@ module AgentAPI
 
     def resolve
       workspace, conversation = workspace_and_conversation_from_params
-      variables = ConversationVariables::ResolveQuery.call(
+      variables = ConversationVariables::VisibleValuesResolver.call(
         workspace: workspace,
         conversation: conversation
       )
