@@ -464,7 +464,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         profile_key: "worker",
         depth: 0,
         close_state: "open",
-        last_known_status: "idle"
+        last_known_status: "idle",
       }.merge(overrides)
     )
   end

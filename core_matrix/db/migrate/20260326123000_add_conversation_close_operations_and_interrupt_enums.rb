@@ -1,4 +1,4 @@
-class AddConversationCloseOperationsAndInterruptEnums < ActiveRecord::Migration[8.0]
+class AddConversationCloseOperationsAndInterruptEnums < ActiveRecord::Migration[8.2]
   def up
     create_table :conversation_close_operations do |t|
       t.references :installation, null: false, foreign_key: true

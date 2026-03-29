@@ -1,4 +1,4 @@
-class AddAgentControlContractForPhaseTwo < ActiveRecord::Migration[8.0]
+class AddAgentControlContract < ActiveRecord::Migration[8.2]
   def change
     create_table :agent_task_runs do |t|
       t.references :installation, null: false, foreign_key: true

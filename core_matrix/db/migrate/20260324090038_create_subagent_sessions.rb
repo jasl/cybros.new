@@ -11,7 +11,6 @@ class CreateSubagentSessions < ActiveRecord::Migration[8.2]
       t.string :canonical_name
       t.string :nickname
       t.integer :depth, null: false, default: 0
-      t.string :lifecycle_state, null: false, default: "open"
       t.string :last_known_status, null: false, default: "idle"
 
       t.timestamps

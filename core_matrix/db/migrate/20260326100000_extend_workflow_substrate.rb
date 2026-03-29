@@ -1,4 +1,4 @@
-class ExtendWorkflowSubstrateForPhaseTwo < ActiveRecord::Migration[8.2]
+class ExtendWorkflowSubstrate < ActiveRecord::Migration[8.2]
   def change
     change_table :workflow_runs, bulk: true do |t|
       t.references :workspace, foreign_key: true

@@ -1,4 +1,4 @@
-class AddSourceInputMessageToMessages < ActiveRecord::Migration[8.0]
+class AddSourceInputMessageToMessages < ActiveRecord::Migration[8.2]
   def change
     add_reference :messages, :source_input_message, foreign_key: { to_table: :messages }
   end
