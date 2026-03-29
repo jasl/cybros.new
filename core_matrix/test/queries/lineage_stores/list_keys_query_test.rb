@@ -105,4 +105,43 @@ class LineageStores::ListKeysQueryTest < ActiveSupport::TestCase
     assert_equal ["gamma"], second_page.items.map(&:key)
     assert_nil second_page.next_cursor
   end
+
+  test "applies an exclusive cursor and clamps invalid limits" do
+    context = build_lineage_store_context!
+    %w[alpha beta gamma].each do |key|
+      value = create_lineage_store_value!(typed_value_payload: { "type" => "string", "value" => key.upcase })
+      base_snapshot = context[:lineage_store_reference].lineage_store_snapshot
+      snapshot = create_lineage_store_snapshot!(
+        lineage_store: context[:lineage_store],
+        snapshot_kind: "write",
+        base_snapshot: base_snapshot,
+        depth: base_snapshot.depth + 1
+      )
+      create_lineage_store_entry!(
+        lineage_store_snapshot: snapshot,
+        key: key,
+        entry_kind: "set",
+        lineage_store_value: value,
+        value_type: "string",
+        value_bytesize: value.payload_bytesize
+      )
+      context[:lineage_store_reference].update!(lineage_store_snapshot: snapshot)
+    end
+
+    first_page = LineageStores::ListKeysQuery.call(
+      reference_owner: context[:conversation],
+      cursor: "alpha",
+      limit: 0
+    )
+    second_page = LineageStores::ListKeysQuery.call(
+      reference_owner: context[:conversation],
+      cursor: first_page.next_cursor,
+      limit: "not-a-number"
+    )
+
+    assert_equal ["beta"], first_page.items.map(&:key)
+    assert_equal "beta", first_page.next_cursor
+    assert_equal ["gamma"], second_page.items.map(&:key)
+    assert_nil second_page.next_cursor
+  end
 end

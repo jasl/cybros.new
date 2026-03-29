@@ -21,7 +21,11 @@ class AgentApiHealthTest < ActionDispatch::IntegrationTest
     assert_equal registration[:execution_environment].environment_fingerprint, response_body["environment_fingerprint"]
     assert_equal registration[:deployment].fingerprint, response_body["fingerprint"]
     assert_equal "healthy", response_body["health_status"]
+    assert_equal registration[:deployment].bootstrap_state, response_body["bootstrap_state"]
+    assert_equal registration[:deployment].protocol_version, response_body["protocol_version"]
+    assert_equal registration[:deployment].sdk_version, response_body["sdk_version"]
     assert_equal registration[:capability_snapshot].version, response_body["agent_capabilities_version"]
+    assert_equal registration[:deployment].reload.last_heartbeat_at.iso8601, response_body["last_heartbeat_at"]
     refute_includes response.body, %("#{registration[:deployment].id}")
   end
 end

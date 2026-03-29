@@ -105,6 +105,7 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
         entry.model_ref == "gpt-5.4-mini"
     end
 
+    assert_equal window_key, primary_summary.window_key
     assert_equal 2, primary_summary.event_count
     assert_equal 1, primary_summary.success_count
     assert_equal 1, primary_summary.failure_count
@@ -114,7 +115,19 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
     assert_equal BigDecimal("0.03"), primary_summary.estimated_cost_total
 
     assert_equal 1, secondary_summary.event_count
+    assert_equal window_key, secondary_summary.window_key
     assert_equal 30, secondary_summary.input_tokens_total
     assert_equal 10, secondary_summary.output_tokens_total
+  end
+
+  test "returns an empty result when no rollups match the requested window" do
+    installation = create_installation!
+
+    result = ProviderUsage::WindowUsageQuery.call(
+      installation: installation,
+      window_key: "codex:2026-03-24T10"
+    )
+
+    assert_equal [], result
   end
 end

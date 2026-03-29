@@ -86,4 +86,45 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_equal "environment fingerprint must be provided", JSON.parse(response.body).fetch("error")
   end
+
+  test "registration defaults the environment kind and connection metadata from endpoint metadata" do
+    installation = create_installation!
+    actor = create_user!(installation: installation, role: "admin")
+    agent_installation = create_agent_installation!(installation: installation)
+    enrollment = AgentEnrollments::Issue.call(
+      agent_installation: agent_installation,
+      actor: actor,
+      expires_at: 2.hours.from_now
+    )
+
+    post "/agent_api/registrations",
+      params: {
+        enrollment_token: enrollment.plaintext_token,
+        environment_fingerprint: "fenix-host-b",
+        fingerprint: "fenix-release-0.2.0",
+        endpoint_metadata: {
+          transport: "http",
+          base_url: "https://agents.example.test",
+        },
+        protocol_version: "2026-03-24",
+        sdk_version: "fenix-0.2.0",
+        protocol_methods: default_protocol_methods("agent_health"),
+        tool_catalog: default_tool_catalog("shell_exec"),
+        config_schema_snapshot: default_config_schema_snapshot,
+        conversation_override_schema_snapshot: { type: "object", properties: {} },
+        default_config_snapshot: default_default_config_snapshot,
+      },
+      as: :json
+
+    assert_response :created
+
+    response_body = JSON.parse(response.body)
+    deployment = AgentDeployment.find_by_public_id!(response_body.fetch("deployment_id"))
+    execution_environment = deployment.execution_environment
+
+    assert_equal "local", execution_environment.kind
+    assert_equal deployment.endpoint_metadata, execution_environment.connection_metadata
+    assert_equal({}, response_body.fetch("environment_capability_payload"))
+    refute_includes response.body, %("#{execution_environment.id}")
+  end
 end

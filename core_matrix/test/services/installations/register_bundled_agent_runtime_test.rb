@@ -64,4 +64,52 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal ["shell_exec"], first.capability_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal false, first.execution_environment.capability_payload.fetch("conversation_attachment_upload")
   end
+
+  test "supersedes the previous active deployment when the bundled fingerprint changes" do
+    installation = create_installation!
+
+    first = Installations::RegisterBundledAgentRuntime.call(
+      installation: installation,
+      configuration: bundled_agent_configuration(
+        enabled: true,
+        fingerprint: "bundled-fenix-runtime-v1",
+        environment_capability_payload: {
+          conversation_attachment_upload: false,
+        }
+      )
+    )
+    second = Installations::RegisterBundledAgentRuntime.call(
+      installation: installation,
+      configuration: bundled_agent_configuration(
+        enabled: true,
+        fingerprint: "bundled-fenix-runtime-v2",
+        sdk_version: "fenix-0.2.0",
+        connection_metadata: {
+          "transport" => "http",
+          "base_url" => "http://127.0.0.1:4200",
+        },
+        environment_capability_payload: {
+          conversation_attachment_upload: true,
+        }
+      )
+    )
+
+    assert_equal first.agent_installation, second.agent_installation
+    assert_equal first.execution_environment, second.execution_environment
+    refute_equal first.deployment, second.deployment
+    assert_equal "superseded", first.deployment.reload.bootstrap_state
+    assert_equal "active", second.deployment.bootstrap_state
+    assert second.deployment.healthy?
+    assert_equal "fenix-0.2.0", second.deployment.sdk_version
+    assert_equal({"source" => "bundled_runtime"}, second.deployment.health_metadata)
+    assert_equal second.execution_environment.connection_metadata, second.deployment.endpoint_metadata
+    assert_equal "http://127.0.0.1:4200", second.execution_environment.connection_metadata.fetch("base_url")
+    assert_equal true, second.execution_environment.capability_payload.fetch("conversation_attachment_upload")
+    assert_equal(
+      AgentDeployment.digest_machine_credential("bundled-runtime:bundled-fenix-runtime-v2"),
+      second.deployment.machine_credential_digest
+    )
+    assert_equal 2, AgentDeployment.where(agent_installation: first.agent_installation).count
+    assert_equal 2, CapabilitySnapshot.where(agent_deployment: [first.deployment, second.deployment]).count
+  end
 end

@@ -39,4 +39,32 @@ class AgentDeployments::BootstrapTest < ActiveSupport::TestCase
     assert_equal workflow_run.id, audit_log.metadata["workflow_run_id"]
     assert_equal result.turn.id, audit_log.metadata["turn_id"]
   end
+
+  test "rejects workspaces outside the deployment installation without creating side effects" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    other_workspace = context[:workspace].dup
+    other_workspace.installation_id = context[:installation].id + 1
+    counts_before = [
+      Conversation.count,
+      Turn.count,
+      WorkflowRun.count,
+      AuditLog.where(action: "agent_deployment.bootstrap_started").count,
+    ]
+
+    error = assert_raises(ArgumentError) do
+      AgentDeployments::Bootstrap.call(
+        deployment: context[:agent_deployment],
+        workspace: other_workspace,
+        manifest_snapshot: {}
+      )
+    end
+
+    assert_equal "workspace must belong to the same installation", error.message
+    assert_equal counts_before, [
+      Conversation.count,
+      Turn.count,
+      WorkflowRun.count,
+      AuditLog.where(action: "agent_deployment.bootstrap_started").count,
+    ]
+  end
 end

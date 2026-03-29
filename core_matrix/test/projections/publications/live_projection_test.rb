@@ -1,11 +1,6 @@
 require "test_helper"
 
 class Publications::LiveProjectionTest < ActiveSupport::TestCase
-  test "uses the live projection owner and removes the legacy query" do
-    assert live_projection_class.present?, "Publications::LiveProjection must exist"
-    refute Publications.constants.include?(legacy_live_projection_query_constant_name)
-  end
-
   test "returns transcript messages and visible conversation events in deterministic live order" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
@@ -57,10 +52,6 @@ class Publications::LiveProjectionTest < ActiveSupport::TestCase
   end
 
   private
-
-  def legacy_live_projection_query_constant_name
-    %i[Live Projection Query].join.to_sym
-  end
 
   def live_projection_class
     @live_projection_class ||= Publications.const_get(:LiveProjection, false)

@@ -121,3 +121,125 @@
   - stale replay rejection under the shared execution lock
 - Remaining:
   - no direct coverage yet for alternative provider error classes beyond HTTP failures
+
+## Batch 2
+
+### Directory Summary
+
+- `agent_control`
+  - Result: `keep_and_strengthen`
+  - Notes: mailbox publication, delivery, and polling tests already protect lease semantics and public envelopes. No refactor-residue cleanup was needed here.
+- `agent_deployments`
+  - Result: `keep_and_strengthen`
+  - Notes: bootstrap, registration, handshake, and recovery tests all encode real deployment lifecycle behavior. Bootstrap specifically needed a stronger failure-path assertion.
+- `subagent_sessions`
+  - Result: `keep_and_strengthen`
+  - Notes: spawn and listing tests protect ownership scoping, nested depth, and public-id-only boundaries. The legacy naming rejection remains valuable because it guards an agent-facing input contract, not an internal alias.
+- `installations`
+  - Result: `keep_and_strengthen`
+  - Notes: bundled-runtime registration and bootstrap tests protect idempotent reconciliation and deployment selection. Registration now covers supersession behavior explicitly.
+- `execution_environments`
+  - Result: `keep`
+  - Notes: environment reconciliation and capability recording tests are already behavior-oriented and did not warrant cleanup in this pass.
+
+### Low-Value Tests Removed In This Batch
+
+- None.
+- Reason:
+  - The surviving Batch 2 "legacy" checks were reviewed and kept only where they still protect current external contracts.
+
+### `test/services/agent_deployments/bootstrap_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - deployment bootstrap creates a system-owned automation conversation, turn, workflow, and audit trail
+- Closed In Current Batch:
+  - mismatched workspace and deployment installation rejection
+  - proof that the installation guard fails before any write-side side effects occur
+- Remaining:
+  - bootstrap idempotency keys remain intentionally unasserted because they are implementation detail, not product contract
+
+### `test/services/installations/register_bundled_agent_runtime_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - bundled runtime registration reconciles agent installation, execution environment, deployment, and capability snapshot without duplicate rows
+- Closed In Current Batch:
+  - fingerprint-change supersession of the previous active deployment
+  - endpoint and environment connection metadata refresh
+  - machine credential digest rotation for the new bundled fingerprint
+- Remaining:
+  - no multi-revision stress case yet for large profile and tool catalog diffs across successive bundled runtime updates
+
+## Batch 3
+
+### Directory Summary
+
+- `queries`
+  - Result: `mixed, mostly keep_and_strengthen`
+  - Notes: blocker snapshots, key listing, and provider usage tests all protect real read-side behavior. One blocker snapshot test carried refactor-residue constant checks that were removed.
+- `projections`
+  - Result: `keep_and_strengthen`
+  - Notes: workflow, publication, and transcript projection tests protect ordering, visibility, and pagination. Refactor-residue owner/query assertions were removed.
+- `resolvers`
+  - Result: `keep_and_strengthen`
+  - Notes: visible-values resolution protects the merged read contract; the legacy resolver alias check was removed.
+- `agent_api` controllers and requests
+  - Result: `keep_and_strengthen`
+  - Notes: request tests protect external public-id contracts, handshake payload shape, and machine-facing health responses. Registration and health checks benefitted from stronger default-path assertions.
+
+### Low-Value Tests Removed In This Batch
+
+- Removed refactor-residue owner/query assertions from:
+  - `test/projections/workflows/projection_test.rb`
+  - `test/projections/publications/live_projection_test.rb`
+  - `test/projections/conversation_transcripts/page_projection_test.rb`
+  - `test/resolvers/conversation_variables/visible_values_resolver_test.rb`
+- Removed refactor-residue constant checks from:
+  - `test/queries/conversations/blocker_snapshot_query_test.rb`
+- Reason:
+  - These checks only recorded the absence of deleted query owners and did not add behavioral protection for the current read path.
+
+### `test/queries/lineage_stores/list_keys_query_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - visible lineage keys page in stable key order without loading value payload rows
+- Closed In Current Batch:
+  - exclusive cursor semantics
+  - zero and invalid limit clamping behavior
+- Remaining:
+  - no direct coverage yet for very deep snapshot chains with hundreds of keys
+
+### `test/queries/provider_usage/window_usage_query_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - rolling-window usage aggregation across provider, model, and operation dimensions
+- Closed In Current Batch:
+  - explicit `window_key` contract on returned entries
+  - empty-window behavior
+- Remaining:
+  - no direct read-side assertion yet for mixed media usage rows beyond token-centric cases
+
+### `test/requests/agent_api/registrations_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - registration exchanges enrollment tokens for a public-id deployment contract and separated capability snapshot
+- Closed In Current Batch:
+  - default environment kind fallback
+  - endpoint metadata fallback into execution environment connection metadata
+  - empty environment capability payload default path
+- Remaining:
+  - no request-level coverage yet for malformed profile catalog payloads
+
+### `test/requests/agent_api/health_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - machine-facing health endpoint returns deployment identity and liveness state without leaking internal ids
+- Closed In Current Batch:
+  - bootstrap state, protocol version, sdk version, and heartbeat timestamp response shape
+- Remaining:
+  - no explicit offline or degraded health response case yet

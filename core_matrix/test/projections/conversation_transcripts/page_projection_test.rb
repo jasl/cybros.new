@@ -4,11 +4,6 @@ module ConversationTranscripts
 end
 
 class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
-  test "uses the page projection owner and removes the legacy list query" do
-    assert page_projection_class.present?, "ConversationTranscripts::PageProjection must exist"
-    refute ConversationTranscripts.constants.include?(legacy_list_query_constant_name)
-  end
-
   test "returns the canonical visible transcript with cursor pagination" do
     context = build_canonical_variable_context!
     first_turn = context[:turn]
@@ -51,10 +46,6 @@ class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
   end
 
   private
-
-  def legacy_list_query_constant_name
-    %i[List Query].join.to_sym
-  end
 
   def page_projection_class
     @page_projection_class ||= ConversationTranscripts.const_get(:PageProjection, false)
