@@ -8,6 +8,14 @@ This document complements the platform-wide phase design. It narrows Phase 2
 down to the `Fenix`-specific validation shape, deployment topology, and
 agent-program-owned skill boundary.
 
+Implementation status refresh (`2026-03-30`):
+
+- the runtime-surface and external-pairing substrate this design depends on is
+  already represented by archived Phase 2 task records
+- the `agents/fenix` repository still does not contain the planned skills
+  directories, services, or tests, so the skill-compatibility half of this
+  design remains greenfield
+
 ## Purpose
 
 Use this document to define:

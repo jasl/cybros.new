@@ -8,6 +8,13 @@ This document narrows one question only: how Phase 2 should export workflow
 execution into Mermaid and proof records so manual validation has durable,
 inspectable evidence.
 
+Implementation status refresh (`2026-03-30`):
+
+- the repository already contains `docs/reports/phase-2/` as the committed
+  artifact root
+- the exporter implementation described below is still pending: the query
+  object, renderers, manual script, and proof-export tests have not landed yet
+
 ## Purpose
 
 Use this document to define:
@@ -330,4 +337,4 @@ truth:
 
 - [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
 - [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md)
-- [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md)
+- [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)

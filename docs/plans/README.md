@@ -5,6 +5,25 @@ This directory contains the active execution plans for `core_matrix`.
 `Phase 2` is still active, but Milestones A through C and their completed
 follow-ups are now archived under `docs/finished-plans`.
 
+## Current Code Scan Summary (`2026-03-30`)
+
+- `Task D1` is partially landed. During-generation `reject`, `restart`, and
+  `queue` behavior plus stale-tail guards already exist, but persisted
+  conversation feature policy and feature snapshots on active work do not.
+- `Task D2` is partially landed. Human-interaction services, subagent spawn,
+  wait-state persistence, and bounded `wait_all` batch artifacts already exist,
+  but yielded runtime requests are not yet wired into a full end-to-end
+  workflow-owned wait/subagent handoff.
+- `Task E1` still needs the durable governance model. Capability snapshots and
+  effective tool-catalog composition exist, but `ToolBinding`,
+  `ToolInvocation`, and related audited binding-freeze records do not.
+- `Task E2` remains greenfield after the current scan.
+- `Task F1` remains greenfield in `agents/fenix`; the repo currently has no
+  skill directories or skill-surface services/tests.
+- `Task F2` remains unimplemented beyond the committed
+  `docs/reports/phase-2/` artifact scaffolding.
+- `Task F3` remains blocked on the unfinished D/E/F execution work.
+
 ## Active Entry Points
 
 - [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md)
@@ -18,8 +37,8 @@ follow-ups are now archived under `docs/finished-plans`.
 
 ## Active Execution Order
 
-1. `Task D1`
-2. `Task D2`
+1. `Task D1` remaining feature-policy work
+2. `Task D2` remaining yield-owned wait and subagent orchestration
 3. `Task E1`
 4. `Task E2`
 5. `Task F1`

@@ -8,6 +8,25 @@ This document does not replace the current frozen phase-one execution documents.
 It defines the next platform phases, the durable product boundaries, and the
 validation strategy that should govern work after the current substrate batch.
 
+Implementation status refresh (`2026-03-30`):
+
+- Phase 2 is no longer a greenfield follow-up; Milestones A through C are
+  landed and the active work is the remaining D/E/F breadth and validation
+  batch.
+- Current code already lands a substantial part of the Phase 2 runtime
+  substrate: provider-backed turns, mailbox control, close semantics,
+  wait-state persistence, human-interaction services, subagent spawn services,
+  and yielded intent-batch artifacts.
+- The main remaining gaps against this design are:
+  - persisted conversation feature policy and feature snapshots on active work
+  - end-to-end yielded wait/subagent handoff under real loop execution
+  - durable tool governance and invocation audit
+  - governed MCP execution
+  - `agents/fenix` skill compatibility, proof export, and final acceptance
+    evidence
+- Use `docs/plans/` for execution ordering. Use `core_matrix/docs/behavior/`
+  for the current landed backend truth.
+
 ## Purpose
 
 Use this document to:

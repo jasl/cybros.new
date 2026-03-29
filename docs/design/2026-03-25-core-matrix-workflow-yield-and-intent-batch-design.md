@@ -8,6 +8,17 @@ This document narrows one question only: how `AgentTaskRun` should yield
 kernel-governed intentions into workflow-owned execution without collapsing the
 workflow model into ad hoc side effects.
 
+Implementation status refresh (`2026-03-30`):
+
+- `IntentBatchMaterialization` and the workflow-owned batch artifacts described
+  here are already partially landed
+- current code already records accepted intent nodes, rejected-intent events,
+  `yield_requested`, and `wait_all` barrier artifacts
+- the remaining implementation gap is the bridge from yielded runtime requests
+  into the real workflow-owned resources described here, especially
+  `human_interaction_request` and `subagent_spawn` orchestration under a live
+  agent loop
+
 ## Purpose
 
 Use this document to define:
@@ -323,4 +334,4 @@ proven.
 - [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 - [2026-03-25-core-matrix-platform-phases-and-validation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md)
 - [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md)
-- [2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md)
+- [2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md)

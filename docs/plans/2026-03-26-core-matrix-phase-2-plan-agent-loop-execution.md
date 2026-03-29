@@ -64,12 +64,37 @@ complete and archived under `docs/finished-plans`.
 The current implementation focus should now continue with the later breadth and
 validation milestones.
 
+## Status Refresh (`2026-03-30`)
+
+Current code scan summary:
+
+- `Task D1` is partially landed.
+  Current code already proves during-generation `reject`, `restart`, and
+  `queue` handling plus stale queued-tail cancellation, but it does not yet
+  persist a conversation feature policy or freeze feature snapshots onto active
+  work.
+- `Task D2` is partially landed.
+  Current code already includes workflow wait-state storage,
+  `HumanInteractions::*`, `SubagentSessions::*`, `Workflows::ManualResume`,
+  and `IntentBatchMaterialization`, but the runtime-to-kernel handoff from
+  yielded agent requests into those workflow-owned resources is still missing.
+- `Task E1` still lacks the durable governance layer.
+  `CapabilitySnapshot`, `RuntimeCapabilityContract`, and effective tool-catalog
+  composition are in place, but the planned `ToolDefinition`,
+  `ToolImplementation`, `ToolBinding`, and `ToolInvocation` model boundary is
+  not.
+- `Task E2` is still greenfield after the current scan.
+- `Task F1` is still greenfield inside `agents/fenix`.
+- `Task F2` and `Task F3` still depend on unfinished D/E/F behavior, although
+  `docs/reports/phase-2/` has already been created as the acceptance-artifact
+  root.
+
 ## Active Execution Order
 
 The active unattended execution batch for the current phase is:
 
-1. `Task D1`
-2. `Task D2`
+1. `Task D1` remaining feature-policy and feature-snapshot work
+2. `Task D2` remaining yield-owned wait and subagent orchestration
 3. `Task E1`
 4. `Task E2`
 5. `Task F1`

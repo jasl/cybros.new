@@ -6,6 +6,17 @@ Focused design note aligned with the 2026-03-24 kernel greenfield design.
 
 Use this document to normalize public-contract naming, capability-snapshot structure, and the boundary between kernel-owned execution authority and agent-owned tool surfaces.
 
+Implementation status refresh (`2026-03-30`):
+
+- capability publication has already landed around `CapabilitySnapshot`,
+  `RuntimeCapabilityContract`, `agent_plane`, `environment_plane`, and
+  `effective_tool_catalog`
+- the design sections below about per-execution binding freeze and stable tool
+  invocation envelopes remain forward-looking implementation targets
+- the current missing gap is not contract naming; it is the durable
+  `ToolDefinition`/`ToolBinding`/`ToolInvocation` model layer and invocation
+  audit that should realize this design
+
 ## Purpose
 
 Core Matrix needs a stable public contract between the kernel and external agent runtimes. That contract must be:

@@ -8,12 +8,18 @@ Use this task document together with:
 2. `docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md`
 3. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 4. `docs/plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
+5. `docs/finished-plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
 
 Load this file as the detailed execution unit for the Streamable HTTP MCP task
 inside Phase 2.
 Treat the milestone, sequencing, governance, and `Fenix` runtime documents as
 ordering indexes, not as the full task body.
+
+Status note (`2026-03-30`):
+
+- current code scan did not find an MCP service layer, governed MCP invocation
+  history, or Streamable HTTP MCP integration tests
+- treat this task as still greenfield after `Task E1` lands
 
 Reference capture for this task:
 
@@ -32,7 +38,7 @@ Reference capture for this task:
 **Files:**
 - Create or modify: `core_matrix/app/services/mcp/*`
 - Create or modify: `core_matrix/app/models/tool_invocation.rb`
-- Modify: `core_matrix/app/models/tool_binding.rb`
+- Create or modify: `core_matrix/app/models/tool_binding.rb`
 - Modify: `core_matrix/app/services/tool_invocations/*`
 - Modify: `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
 - Create or modify: `core_matrix/test/services/mcp/*`

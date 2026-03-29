@@ -72,7 +72,7 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
-cd ../agents/fenix
+cd agents/fenix
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github

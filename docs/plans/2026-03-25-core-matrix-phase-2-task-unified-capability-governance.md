@@ -8,12 +8,20 @@ Use this task document together with:
 2. `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 3. `docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
-5. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
+5. `docs/finished-plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
 
 Load this file as the detailed execution unit for the unified capability
 governance task inside Phase 2.
 Treat the milestone, sequencing, and execution-contract documents as ordering
 indexes, not as the full task body.
+
+Status note (`2026-03-30`):
+
+- current code already has `CapabilitySnapshot`, `RuntimeCapabilityContract`,
+  and effective tool-catalog composition
+- the remaining scope for this task is the planned durable governance model:
+  `ToolDefinition`, `ToolImplementation`, `ToolBinding`, `ToolInvocation`, and
+  binding freeze or audit at `AgentTaskRun` boundaries
 
 Reference capture for this task:
 

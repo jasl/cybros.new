@@ -14,6 +14,13 @@ Load this file as the detailed execution unit for the workflow-proof export
 task inside Phase 2. Treat the broader Phase 2 plan as the ordering index, not
 as the full task body.
 
+Status note (`2026-03-30`):
+
+- `docs/reports/phase-2/` and its README already exist as the committed
+  acceptance-artifact root
+- the proof-export query, renderers, script, and tests described below are not
+  yet present in `core_matrix`
+
 Reference capture for this task:
 
 - if this task consults `references/` or external implementations, record the

@@ -8,13 +8,21 @@ Use this task document together with:
 2. `docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 3. `docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`
 4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
-5. `docs/plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
-6. `docs/plans/2026-03-26-core-matrix-phase-2-task-turn-interrupt-and-conversation-close-semantics.md`
+5. `docs/finished-plans/2026-03-25-core-matrix-phase-2-task-provider-backed-turn-execution.md`
+6. `docs/finished-plans/2026-03-26-core-matrix-phase-2-task-turn-interrupt-and-conversation-close-semantics.md`
 
 Load this file as the detailed execution unit for the conversation
 feature-policy and stale-work task inside Phase 2.
 Treat the milestone, sequencing, and provider-execution documents as ordering
 indexes, not as the full task body.
+
+Status note (`2026-03-30`):
+
+- current code already contains during-generation `reject`, `restart`, and
+  `queue` behavior plus stale queued-tail cancellation
+- the remaining scope for this task is persisted conversation feature policy,
+  frozen feature snapshots on active work, and disabled-feature rejection
+  behavior
 
 Reference capture for this task:
 

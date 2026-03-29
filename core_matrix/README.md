@@ -13,9 +13,18 @@ built-in home for every memory, knowledge, or web capability.
 
 ## Current Status
 
-The current active batch is the substrate rebuild. It establishes the durable
-roots that later phases will use for real loop execution and user-facing
-surfaces.
+The current active batch is `Phase 2: Agent Loop Execution`.
+
+Milestones A through C and the close-state consolidation follow-up are already
+landed. The remaining active work is the post-Milestone-C breadth and
+validation batch:
+
+- finish conversation feature policy and durable stale-work safety
+- finish workflow-owned wait/subagent handoff from yielded runtime requests
+- add durable tool governance and invocation audit
+- add one governed Streamable HTTP MCP path
+- validate bundled and external `Fenix` skill flows
+- add workflow proof export and final acceptance evidence
 
 Current authoritative project documents:
 
@@ -23,7 +32,8 @@ Current authoritative project documents:
 - Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 - Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md`
-- Next-phase loop follow-up: `../docs/future-plans/2026-03-25-core-matrix-phase-2-agent-loop-execution-follow-up.md`
+- Active Phase 2 plan: `../docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+- Active Phase 2 index: `../docs/plans/README.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Behavior notes for landed backend modules: `docs/behavior/`
