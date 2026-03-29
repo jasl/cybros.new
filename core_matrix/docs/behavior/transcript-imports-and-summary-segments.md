@@ -44,6 +44,9 @@ state is removed.
   at start and end messages that come from that conversation's visible
   transcript projection, including inherited branch-prefix history.
 - A summary segment must reference messages in transcript order.
+- `ConversationSummarySegment` model validation keeps only installation and
+  self-reference invariants; transcript projection membership and ordering are
+  enforced by `ConversationSummaries::CreateSegment`.
 - Summary segments are immutable content rows; replacement is modeled through
   `superseded_by`.
 - A later segment can supersede an earlier segment without deleting the earlier
@@ -53,8 +56,14 @@ state is removed.
 
 - `Conversations::AddImport` creates transcript-support imports and treats
   `branch_prefix` as a one-row-per-branch support record.
+- `Conversations::AddImport` is the write boundary that validates imported
+  source-message membership against the source conversation projection or
+  branch anchor projection before saving the support row.
 - `ConversationSummaries::CreateSegment` creates a new summary segment and can
   mark an earlier segment as superseded in the same transaction.
+- `ConversationSummaries::CreateSegment` is also the write boundary that checks
+  summary range membership and transcript ordering before persisting the
+  segment.
 - `Conversations::RollbackToTurn` now prunes conversation-local summary
   segments and imports that only describe state beyond the rollback boundary.
 - When rollback drops a superseding summary segment, any retained earlier

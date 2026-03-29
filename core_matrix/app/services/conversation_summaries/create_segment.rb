@@ -21,13 +21,20 @@ module ConversationSummaries
           active_message: "must be active before mutating summary state",
           closing_message: "must not mutate summary state while close is in progress"
         ) do |conversation|
-          segment = ConversationSummarySegment.create!(
+          segment = ConversationSummarySegment.new(
             installation: conversation.installation,
             conversation: conversation,
             start_message: @start_message,
             end_message: @end_message,
             content: @content
           )
+          Conversations::ProjectionAssertions.assert_summary_range!(
+            record: segment,
+            conversation: conversation,
+            start_message: @start_message,
+            end_message: @end_message
+          )
+          segment.save!
 
           @supersedes&.update!(superseded_by: segment)
           segment

@@ -20,7 +20,6 @@ class ConversationImport < ApplicationRecord
   validate :source_conversation_installation_match
   validate :source_message_installation_match
   validate :summary_segment_installation_match
-  validate :source_message_belongs_to_source_conversation
   validate :kind_requirements
 
   private
@@ -55,24 +54,6 @@ class ConversationImport < ApplicationRecord
     return if summary_segment.installation_id == installation_id
 
     errors.add(:summary_segment, "must belong to the same installation")
-  end
-
-  def source_message_belongs_to_source_conversation
-    return if source_message.blank? || source_conversation.blank?
-
-    if branch_prefix?
-      Conversations::HistoricalAnchorProjection.call(
-        conversation: source_conversation,
-        message: source_message
-      )
-      return
-    elsif Conversations::TranscriptProjection.base_messages_for(conversation: source_conversation).any? { |candidate| candidate.id == source_message.id }
-      return
-    end
-
-    errors.add(:source_message, "must be present in the source conversation transcript projection")
-  rescue ActiveRecord::RecordNotFound
-    errors.add(:source_message, "must be present in the source conversation transcript projection")
   end
 
   def kind_requirements

@@ -96,4 +96,40 @@ class ConversationImportTest < ActiveSupport::TestCase
 
     assert_predicate quoted_context.reload, :valid?
   end
+
+  test "does not validate source message projection membership in the model layer" do
+    context = create_workspace_context!
+    source_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    target_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_turn = Turns::StartUserTurn.call(
+      conversation: foreign_conversation,
+      content: "Foreign input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    import = ConversationImport.new(
+      installation: target_conversation.installation,
+      conversation: target_conversation,
+      kind: "quoted_context",
+      source_conversation: source_conversation,
+      source_message: foreign_turn.selected_input_message
+    )
+
+    assert_predicate import, :valid?
+  end
 end

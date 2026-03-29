@@ -147,7 +147,7 @@ module Workflows
     end
 
     def build_attachment_manifest(raw_attachment_manifest)
-      return [] unless @turn.conversation.conversation_attachment_upload?
+      return [] unless conversation_attachment_upload_enabled?
 
       raw_attachment_manifest
     end
@@ -181,7 +181,7 @@ module Workflows
     end
 
     def build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
-      unless @turn.conversation.conversation_attachment_upload?
+      unless conversation_attachment_upload_enabled?
         return raw_attachment_manifest.map do |entry|
           {
             "attachment_id" => entry.fetch("attachment_id"),
@@ -278,7 +278,11 @@ module Workflows
     end
 
     def runtime_contract
-      @runtime_contract ||= @turn.conversation.runtime_contract
+      @runtime_contract ||= Conversations::RefreshRuntimeContract.call(conversation: @turn.conversation)
+    end
+
+    def conversation_attachment_upload_enabled?
+      runtime_contract.fetch("conversation_attachment_upload", false) == true
     end
 
     def subagent_session

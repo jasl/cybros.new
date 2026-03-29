@@ -19,8 +19,6 @@ class ConversationSummarySegment < ApplicationRecord
   validate :conversation_installation_match
   validate :start_message_installation_match
   validate :end_message_installation_match
-  validate :messages_present_in_transcript_projection
-  validate :transcript_range_order
   validate :superseded_by_rules
 
   private
@@ -44,27 +42,6 @@ class ConversationSummarySegment < ApplicationRecord
     return if end_message.installation_id == installation_id
 
     errors.add(:end_message, "must belong to the same installation")
-  end
-
-  def messages_present_in_transcript_projection
-    return if conversation.blank? || start_message.blank? || end_message.blank?
-
-    projection_message_ids = Conversations::TranscriptProjection.call(conversation: conversation).map(&:id)
-
-    errors.add(:start_message, "must be present in the conversation transcript projection") unless projection_message_ids.include?(start_message_id)
-    errors.add(:end_message, "must be present in the conversation transcript projection") unless projection_message_ids.include?(end_message_id)
-  end
-
-  def transcript_range_order
-    return if conversation.blank? || start_message.blank? || end_message.blank?
-
-    projection_message_ids = Conversations::TranscriptProjection.call(conversation: conversation).map(&:id)
-    start_index = projection_message_ids.index(start_message_id)
-    end_index = projection_message_ids.index(end_message_id)
-    return if start_index.blank? || end_index.blank?
-    return if start_index <= end_index
-
-    errors.add(:end_message, "must come after the start message in transcript order")
   end
 
   def superseded_by_rules

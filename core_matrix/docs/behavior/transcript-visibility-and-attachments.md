@@ -22,6 +22,9 @@ into descendant conversation support surfaces.
 - A conversation can store at most one overlay row for a given message.
 - Overlay rows only apply to messages that are present in the target
   conversation's transcript projection.
+- `ConversationMessageVisibility` model validation keeps only overlay-state and
+  installation-consistency rules; projection membership is enforced by
+  `Messages::UpdateVisibility`.
 
 ## Transcript Projection Behavior
 
@@ -76,6 +79,9 @@ into descendant conversation support surfaces.
 ## Service Behavior
 
 - `Messages::UpdateVisibility` upserts one conversation-message overlay row.
+- `Messages::UpdateVisibility` is the write boundary that checks message
+  membership against the target conversation's base transcript path before it
+  saves or deletes the overlay row.
 - Visibility updates never mutate or delete the historical `Message` row.
 - Fork-point messages cannot be hidden or excluded from context in any
   conversation projection that depends on them, including descendant branch and

@@ -45,7 +45,7 @@ class ConversationSummarySegmentTest < ActiveSupport::TestCase
     assert_nil replacement.superseded_by
   end
 
-  test "requires the summarized range to follow transcript order" do
+  test "does not validate transcript ordering in the model layer" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -75,7 +75,6 @@ class ConversationSummarySegmentTest < ActiveSupport::TestCase
       content: "Invalid summary"
     )
 
-    assert_not invalid.valid?
-    assert_includes invalid.errors[:end_message], "must come after the start message in transcript order"
+    assert_predicate invalid, :valid?
   end
 end

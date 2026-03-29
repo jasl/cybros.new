@@ -7,7 +7,6 @@ class ConversationMessageVisibility < ApplicationRecord
   validate :overlay_state_present
   validate :conversation_installation_match
   validate :message_installation_match
-  validate :message_present_in_conversation_projection
 
   private
 
@@ -29,12 +28,5 @@ class ConversationMessageVisibility < ApplicationRecord
     return if message.installation_id == installation_id
 
     errors.add(:message, "must belong to the same installation")
-  end
-
-  def message_present_in_conversation_projection
-    return if conversation.blank? || message.blank?
-    return if Conversations::TranscriptProjection.base_messages_for(conversation: conversation).any? { |candidate| candidate.id == message.id }
-
-    errors.add(:message, "must be present in the conversation transcript projection")
   end
 end

@@ -371,7 +371,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_nil snapshot.agent_context["parent_subagent_session_id"]
     assert_nil snapshot.agent_context["subagent_depth"]
     assert_equal(
-      conversation.runtime_contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      Conversations::RefreshRuntimeContract.call(conversation: conversation).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
       snapshot.agent_context.fetch("allowed_tool_names")
     )
   end
@@ -412,7 +412,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal child_chain.fetch(:parent_subagent_session).public_id, snapshot.agent_context.fetch("parent_subagent_session_id")
     assert_equal 1, snapshot.agent_context.fetch("subagent_depth")
     assert_equal(
-      child_chain.fetch(:conversation).runtime_contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      Conversations::RefreshRuntimeContract.call(conversation: child_chain.fetch(:conversation)).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
       snapshot.agent_context.fetch("allowed_tool_names")
     )
   end

@@ -110,4 +110,41 @@ class Conversations::AddImportTest < ActiveSupport::TestCase
     assert_equal summary_segment, error.record.summary_segment
     assert_includes error.record.errors[:deletion_state], "must be retained before adding imports"
   end
+
+  test "rejects quoted context imports whose source message is outside the source transcript projection" do
+    context = create_workspace_context!
+    source_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    target_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    foreign_turn = Turns::StartUserTurn.call(
+      conversation: foreign_conversation,
+      content: "Foreign input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::AddImport.call(
+        conversation: target_conversation,
+        kind: "quoted_context",
+        source_conversation: source_conversation,
+        source_message: foreign_turn.selected_input_message
+      )
+    end
+
+    assert_includes error.record.errors[:source_message], "must be present in the source conversation transcript projection"
+  end
 end

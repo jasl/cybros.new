@@ -63,6 +63,13 @@ class ConversationTest < ActiveSupport::TestCase
     assert_not_includes Conversation.column_names, "agent_installation_id"
   end
 
+  test "does not expose runtime contract readers on the model" do
+    conversation = Conversation.new
+
+    refute_respond_to conversation, :runtime_contract
+    refute_respond_to conversation, :conversation_attachment_upload?
+  end
+
   test "supports owner and agent addressability" do
     assert_respond_to Conversation, :addressabilities
     assert_includes Conversation.addressabilities.keys, "owner_addressable"

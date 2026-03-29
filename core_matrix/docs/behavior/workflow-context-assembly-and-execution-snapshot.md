@@ -119,6 +119,9 @@ freezes a per-turn execution snapshot that preserves:
   turn executes
 - `allowed_tool_names` is the conversation-visible tool set for that turn and
   must be treated as an execution-time constraint, not as advisory trace data
+- `Workflows::BuildExecutionSnapshot` refreshes that conversation runtime
+  contract through `Conversations::RefreshRuntimeContract`; `Conversation` does
+  not expose a cheap-looking runtime-contract reader anymore
 - mailbox execution assignment creation copies `agent_context` from the frozen
   execution snapshot rather than recomputing it later from mutable aggregates
 
@@ -188,6 +191,8 @@ freezes a per-turn execution snapshot that preserves:
   entirely, the builder emits empty attachment projections and records
   `attachment_diagnostics` with
   `reason=conversation_attachment_upload_disabled`
+- attachment-upload gating is therefore an explicit service call boundary, not a
+  model reader on `Conversation`
 
 ## Aggregate And Read-Side Boundaries
 
@@ -204,6 +209,9 @@ freezes a per-turn execution snapshot that preserves:
 - `Conversation` no longer owns transcript/context projection helpers; the
   projection services under `app/services/conversations/` are the read-side
   owners for transcript, context, and historical-anchor projection logic
+- `Conversation` also does not own runtime-contract assembly; services that need
+  conversation runtime capabilities must call
+  `Conversations::RefreshRuntimeContract`
 
 ## Failure Modes
 
