@@ -4,7 +4,7 @@
 
 Task 12.1 adds the first durable publication root for Core Matrix:
 publication state, publication access-event recording, and a read-only live
-projection query that follows the current canonical conversation state without
+projection that follows the current canonical conversation state without
 copying transcript data into a second source of truth.
 
 ## Publication State
@@ -85,14 +85,20 @@ copying transcript data into a second source of truth.
 - visibility lifecycle audit metadata carries both the current visibility mode
   and the previous mode when one existed
 
-## Live Projection Query
+## Live Projection Read Side
 
-- `Publications::LiveProjectionQuery` reads directly from the current
-  conversation state instead of duplicating transcript rows into publication
-  storage.
-- the query combines:
+- `Publications::LiveProjection` is the projection owner for published
+  read-side assembly.
+- it reads directly from the current conversation state instead of duplicating
+  transcript rows into publication storage.
+- the projection combines:
   - `Conversations::TranscriptProjection.call(conversation: conversation)`
   - `ConversationEvent.live_projection(conversation: ...)`
+- `ConversationTranscripts::PageProjection` is the paginated conversation
+  transcript projection used by the agent API conversation transcript surface.
+- `Conversations::BlockerSnapshotQuery` remains the query-shaped owner for
+  database-backed close-state facts; publication read-side assembly itself is
+  no longer named as a query.
 - projection entries preserve type distinction explicitly:
   - `entry_type = "message"`
   - `entry_type = "conversation_event"`
@@ -111,7 +117,7 @@ copying transcript data into a second source of truth.
 - internal-public access rejects anonymous viewers
 - revoked publications reject later slug or token reads
 - publication access events reject viewer users from another installation
-- live projection query rejects inactive publications instead of guessing a
+- live projection rejects inactive publications instead of guessing a
   public view for disabled state
 
 ## Retained Implementation Notes

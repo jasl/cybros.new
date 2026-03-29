@@ -210,22 +210,27 @@ deployment may rotate or be switched within that bound environment.
 - `include_descendants: true` widens the check across descendant lineage so UI
   or operator flows can warn about running child work before destructive
   actions
-- `Conversations::CloseSummaryQuery` is the operator-facing query for close
-  state and separates:
-  - mainline blockers
-  - disposal-tail blockers
-  - lineage and provenance blockers
 - `Conversations::BlockerSnapshotQuery` is now the canonical read-side builder
   for those blocker facts
+- read-side boundaries now split by type:
+  - `app/queries` for database-backed query objects such as
+    `Conversations::BlockerSnapshotQuery`
+  - `app/projections` for assembled visible read models such as
+    `ConversationTranscripts::PageProjection`
+  - `app/resolvers` for effective-value merges such as
+    `ConversationVariables::VisibleValuesResolver`
 - `ConversationBlockerSnapshot` owns the derived predicates that answer:
   - whether the mainline stop barrier is clear
   - whether disposal tail work is still pending
   - whether disposal tail cleanup degraded
   - whether lineage or provenance blockers still prevent purge
   - whether the conversation is currently mutable for live writes
-- `DependencyBlockersQuery`, `WorkBarrierQuery`, and `CloseSummaryQuery` are
-  thin projections over that shared blocker snapshot instead of separate
-  counter families
+- operator and enforcement readers now use the blocker snapshot directly:
+  - `.work_barrier`
+  - `.close_summary`
+  - `.dependency_blockers`
+- the old blocker-summary wrapper queries are gone; callers no longer route
+  through separate query classes for those three reader shapes
 - live-mutation guard contracts are intent-shaped rather than namespace aliases:
   - `Conversations::ValidateMutableState`
   - `Conversations::WithMutableStateLock`

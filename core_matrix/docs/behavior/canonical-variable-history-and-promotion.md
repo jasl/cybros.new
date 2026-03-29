@@ -61,9 +61,12 @@ removed conversation-scoped `CanonicalVariable` rows entirely.
 
 - `WorkspaceVariables::*` queries read current workspace-scoped
   `CanonicalVariable` rows only.
-- `ConversationVariables::ResolveQuery` returns the effective merged view:
+- `ConversationVariables::VisibleValuesResolver` is the resolver owner for the
+  effective merged view:
   conversation-local lineage store values override workspace canonical
   variables by key.
+- the agent API `conversation_variables.resolve` surface now reads through that
+  resolver rather than through a query-named class.
 - `CanonicalVariable.effective_for` is now workspace-only infrastructure and no
   longer implements `conversation > workspace` lookup itself.
 
