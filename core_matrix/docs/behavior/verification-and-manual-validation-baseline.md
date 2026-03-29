@@ -2,8 +2,8 @@
 
 ## Scope
 
-This note captures the backend verification baseline for the current phase 1
-substrate, including the provider catalog follow-up.
+This note captures the backend verification baseline for the phase 1 substrate
+and the retained Phase 2 acceptance operator path.
 
 ## Current Behavior
 
@@ -42,6 +42,26 @@ substrate, including the provider catalog follow-up.
   - specialized-role exhaustion hard failure
   - one-time manual resume override
   - drift-triggered manual retry
+- Phase 2 acceptance now additionally relies on concrete operator scripts under
+  `script/manual/phase2_*`, run with `bundle exec ruby`, to cover:
+  - bundled `Fenix` fast terminal
+  - real provider-backed bundled turn using `.env`-materialized
+    `OPENROUTER_API_KEY`
+  - during-generation steering, feature-disabled rejection, and stale-work
+    fencing
+  - human-interaction wait/resume
+  - subagent `wait_all`
+  - `process_run` close handling
+  - governed tool invocation
+  - governed Streamable HTTP MCP invocation
+  - bundled deployment rotation upgrade and downgrade
+  - independent external `Fenix`
+  - built-in system skill and third-party skill activation flows
+  - workflow proof export
+- The checklist at
+  `../checklists/2026-03-24-core-matrix-kernel-manual-validation.md` is the
+  authoritative Phase 2 operator script, and
+  `../../docs/reports/phase-2/` is the committed proof-artifact ledger.
 
 ## Validation Notes
 
@@ -53,3 +73,8 @@ substrate, including the provider catalog follow-up.
   seed baseline, credential lifecycle, selector resolution, conversation
   structure and rewrite flows, human forms and tasks, open-request projection,
   and publication access logging through Rails runner scripts.
+- The `2026-03-30` Phase 2 acceptance run exercised real bundled/external
+  `Fenix`, real provider-backed OpenRouter execution, wait/resume and
+  subagent orchestration, governed tool/MCP paths, deployment rotation,
+  skill activation, and proof export, with proof packages stored under
+  `../../docs/reports/phase-2/`.

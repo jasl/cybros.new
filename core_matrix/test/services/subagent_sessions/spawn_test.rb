@@ -1,6 +1,61 @@
 require "test_helper"
 
 class SubagentSessions::SpawnTest < ActiveSupport::TestCase
+  test "execution complete wait_all transition spawns subagents and enters the parent workflow barrier" do
+    context = build_agent_control_context!
+    promote_subagent_runtime_context!(context)
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run
+    )
+
+    report_execution_complete!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run,
+      terminal_payload: {
+        "output" => "Delegated both research tasks",
+      }.merge(
+        subagent_wait_all_transition_payload(
+          batch_id: "batch-subagents-1",
+          successor_node_key: "agent_step_2",
+          intents: [
+            {
+              node_key: "subagent_alpha",
+              content: "Investigate alpha",
+              scope: "conversation",
+              profile_key: "researcher",
+            },
+            {
+              node_key: "subagent_beta",
+              content: "Investigate beta",
+              scope: "conversation",
+              profile_key: "researcher",
+            },
+          ]
+        )
+      )
+    )
+
+    workflow_run = context.fetch(:workflow_run).reload
+    sessions = SubagentSession.where(owner_conversation: context.fetch(:conversation)).order(:id).to_a
+    spawned_nodes = workflow_run.workflow_nodes.where(node_key: %w[subagent_alpha subagent_beta]).order(:ordinal).to_a
+
+    assert_equal 2, sessions.size
+    assert workflow_run.waiting?
+    assert_equal "subagent_barrier", workflow_run.wait_reason_kind
+    assert_equal sessions.map(&:public_id).sort, workflow_run.wait_reason_payload.fetch("subagent_session_ids").sort
+    assert_equal "SubagentBarrier", workflow_run.blocking_resource_type
+    assert_equal %w[root agent_turn_step subagent_alpha subagent_beta], workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
+    assert_equal sessions.map(&:public_id).sort,
+      spawned_nodes.map { |node| node.metadata.fetch("subagent_session_id") }.sort
+  end
+
   test "turn scoped spawn creates one child conversation and one subagent session with initial work" do
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
@@ -54,7 +109,10 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
 
   test "conversation scoped spawn resolves explicit or default profile for reusable sessions" do
     profile_catalog = default_profile_catalog.deep_merge(
-      "researcher" => { "default_subagent_profile" => true },
+      "researcher" => {
+        "default_subagent_profile" => true,
+        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
+      },
       "critic" => {
         "label" => "Critic",
         "description" => "Delegated critique profile",
@@ -201,10 +259,13 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
 
   def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
+    allowed_tool_names = profile_catalog.values.flat_map do |profile|
+      Array(profile["allowed_tool_names"])
+    end
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: context[:agent_deployment],
       version: 2,
-      tool_catalog: default_tool_catalog("shell_exec"),
+      tool_catalog: default_tool_catalog("shell_exec", *allowed_tool_names),
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,

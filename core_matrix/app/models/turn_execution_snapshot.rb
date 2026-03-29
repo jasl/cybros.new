@@ -11,6 +11,10 @@ class TurnExecutionSnapshot
     read_hash("identity")
   end
 
+  def selected_input_message_id
+    identity["selected_input_message_id"]
+  end
+
   def turn_origin
     read_hash("turn_origin")
   end

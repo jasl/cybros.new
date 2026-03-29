@@ -1,6 +1,15 @@
 class Conversation < ApplicationRecord
   include HasPublicId
 
+  FEATURE_IDS = %w[
+    human_interaction
+    tool_invocation
+    message_attachments
+    conversation_branching
+    conversation_archival
+  ].freeze
+  DURING_GENERATION_INPUT_POLICIES = %w[reject restart queue].freeze
+
   enum :kind,
     {
       root: "root",
@@ -100,6 +109,11 @@ class Conversation < ApplicationRecord
   validate :override_reconciliation_report_must_be_hash
   validate :interactive_selector_rules
   validate :deleted_at_consistency
+  validate :enabled_feature_ids_supported
+  validate :during_generation_input_policy_supported
+
+  after_initialize :apply_default_feature_policy, if: :new_record?
+  before_validation :normalize_enabled_feature_ids
 
   def deleting?
     pending_delete? || deleted?
@@ -122,7 +136,53 @@ class Conversation < ApplicationRecord
     ).exists?
   end
 
+  def feature_enabled?(feature_id)
+    enabled_feature_ids.include?(feature_id.to_s)
+  end
+
+  def feature_policy_snapshot
+    {
+      "enabled_feature_ids" => enabled_feature_ids.dup,
+      "during_generation_input_policy" => during_generation_input_policy,
+    }
+  end
+
   private
+
+  def apply_default_feature_policy
+    return if purpose.blank?
+    return if will_save_change_to_enabled_feature_ids?
+
+    self.enabled_feature_ids = default_enabled_feature_ids
+  end
+
+  def normalize_enabled_feature_ids
+    self.enabled_feature_ids = normalize_feature_ids(enabled_feature_ids)
+  end
+
+  def normalize_feature_ids(values)
+    Array(values).map(&:to_s).select(&:present?).uniq
+  end
+
+  def default_enabled_feature_ids
+    default_ids = FEATURE_IDS.dup
+    default_ids -= ["human_interaction"] if automation?
+    default_ids
+  end
+
+  def enabled_feature_ids_supported
+    requested_ids = Array(enabled_feature_ids).map(&:to_s).uniq
+    unsupported_ids = requested_ids - FEATURE_IDS
+    return if unsupported_ids.empty?
+
+    errors.add(:enabled_feature_ids, "must only contain supported feature ids")
+  end
+
+  def during_generation_input_policy_supported
+    return if DURING_GENERATION_INPUT_POLICIES.include?(during_generation_input_policy)
+
+    errors.add(:during_generation_input_policy, "must be reject, restart, or queue")
+  end
 
   def workspace_installation_match
     return if workspace.blank?

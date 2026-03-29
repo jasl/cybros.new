@@ -5,8 +5,11 @@
 Task 10.2 adds the first workflow-owned human-interaction runtime layer and the
 first conversation-local operational projection layer.
 
-This task does not introduce canonical variables, lease control, or subagent
-resources. It establishes:
+The landed Phase 2 shape now also includes yielded wait-transition
+materialization and successor-step re-entry on the same workflow run.
+
+This task does not introduce a second pause ledger, transcript mutation escape
+hatches, or runtime-private wait state. It establishes:
 
 - workflow-owned human-interaction requests as durable runtime state
 - append-only `ConversationEvent` rows as the user-visible projection surface
@@ -52,16 +55,30 @@ resources. It establishes:
 
 - `HumanInteractions::Request` is the application-service boundary for creating
   human-interaction requests.
+- `Workflows::HandleWaitTransitionRequest` is the yielded-runtime boundary that
+  turns an accepted `human_interaction_request` intent into a durable
+  `HumanInteractionRequest` row on the owning workflow.
+- Human-interaction materialization uses the workflow-owned node first, then
+  writes the durable request `public_id` and blocking flag back into that node's
+  metadata for later proof and resume inspection.
+- Human-interaction open paths read the frozen `WorkflowRun.feature_policy_snapshot`,
+  not the live conversation row, so in-flight work keeps its retained feature
+  contract even after later conversation-policy edits.
 - Blocking requests set the owning `WorkflowRun` into:
   - `wait_state = waiting`
   - `wait_reason_kind = human_interaction`
   - `blocking_resource_type = HumanInteractionRequest`
-  - `blocking_resource_id = <request id>`
+  - `blocking_resource_id = <request public_id>`
 - Blocking requests therefore pause scheduler selection on the same workflow
   run rather than spawning a new turn or a new workflow run.
 - `HumanInteractions::ResolveApproval`, `SubmitForm`, and `CompleteTask` all
-  resume the same workflow run by clearing that wait state when the request is
-  still the active blocking resource.
+  capture the active wait snapshot, clear that wait only when the request is
+  still the active blocker, and then delegate successor re-entry through
+  `Workflows::ReEnterAgent`.
+- Same-workflow resume therefore no longer means only "return to ready". When
+  `resume_policy = re_enter_agent`, resolution rebuilds the turn execution
+  snapshot and queues a fresh successor `AgentTaskRun` from
+  `WorkflowRun.resume_metadata`.
 - Expired open requests time out in place and also clear the same blocking wait
   state instead of silently staying open forever.
 - Human-interaction open and resolve paths lock the owning conversation and

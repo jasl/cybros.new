@@ -1,0 +1,8 @@
+flowchart LR
+  node_root["root&#10;turn_root&#10;state: pending&#10;policy: internal_only"]
+  node_agent_turn_step["agent_turn_step&#10;turn_step&#10;state: yielded&#10;policy: internal_only"]
+  node_human_gate["human_gate&#10;human_interaction&#10;state: pending&#10;policy: user_projectable&#10;yielding from: agent_turn_step"]
+  node_agent_step_2["agent_step_2&#10;turn_step&#10;state: pending&#10;policy: internal_only&#10;resume successor"]
+  node_root --> node_agent_turn_step
+  node_agent_turn_step -->|"yield batch: phase2-human-batch"| node_human_gate
+  node_human_gate --> node_agent_step_2

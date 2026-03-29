@@ -28,6 +28,10 @@ module HumanInteractions
         active_message: "must be active before opening human interaction",
         closing_message: "must not open human interaction while close is in progress"
       ) do |conversation, workflow_run, turn|
+        unless workflow_run.feature_enabled?("human_interaction")
+          workflow_run.errors.add(:base, :feature_not_enabled, feature_id: "human_interaction")
+          raise ActiveRecord::RecordInvalid, workflow_run
+        end
         if workflow_run.turn.cancellation_reason_kind == "turn_interrupted"
           raise_invalid!(workflow_run, :turn, "must not be fenced by turn interrupt")
         end
@@ -45,6 +49,12 @@ module HumanInteractions
           request_payload: @request_payload,
           result_payload: {},
           expires_at: @expires_at
+        )
+        workflow_node.update!(
+          metadata: workflow_node.metadata.merge(
+            "human_interaction_request_id" => request.public_id,
+            "blocking" => request.blocking
+          )
         )
 
         wait_for_request!(workflow_run, request) if request.blocking?

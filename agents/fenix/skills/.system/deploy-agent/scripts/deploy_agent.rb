@@ -1,0 +1,1 @@
+puts "prepare deployment manifest"

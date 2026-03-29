@@ -7,6 +7,7 @@ Core Matrix conversations now carry these independent concerns:
 - lineage shape
 - addressability
 - runtime binding
+- conversation feature policy
 - user-visible lifecycle state
 - deletion state and lineage-store ownership
 
@@ -36,6 +37,9 @@ and safe deletion support.
 - runtime binding:
   - one fixed `ExecutionEnvironment`
   - one active `AgentDeployment` that may change within that environment
+- feature policy:
+  - `enabled_feature_ids`
+  - `during_generation_input_policy`
 
 `addressability`, `lifecycle_state`, and `deletion_state` are separate axes. A
 conversation can be agent-addressable yet active, owner-addressable yet
@@ -45,6 +49,33 @@ running.
 Runtime binding is a separate independent concern. A conversation stays bound
 to one execution environment for its whole lifetime, while the active
 deployment may rotate or be switched within that bound environment.
+
+Feature policy is conversation-owned durable execution state. It is not a UI
+hint and it is not recomputed from controller parameters when live work is
+already in flight.
+
+## Conversation Feature Policy
+
+- `Conversation.enabled_feature_ids` stores the conversation-scoped kernel
+  feature set
+- supported feature ids are:
+  - `human_interaction`
+  - `tool_invocation`
+  - `message_attachments`
+  - `conversation_branching`
+  - `conversation_archival`
+- `Conversation.during_generation_input_policy` stores the authoritative
+  during-generation behavior:
+  - `reject`
+  - `restart`
+  - `queue`
+- interactive conversations default to all five feature ids plus
+  `during_generation_input_policy = queue`
+- automation conversations default to the same feature set except
+  `human_interaction`, which starts disabled
+- later conversation-level policy edits affect future work only; turns and
+  workflow-owned active work keep the frozen snapshot captured when that work
+  was created
 
 ## Kind Rules
 
@@ -155,6 +186,8 @@ deployment may rotate or be switched within that bound environment.
 
 - `Conversations::Archive` is a retained-lifecycle transition, not a deletion
   path
+- archive is also gated by `conversation_archival`; if that feature is
+  disabled the service raises a structured `feature_not_enabled` rejection
 - archive without force requires all of the following:
   - `deletion_state = retained`
   - `lifecycle_state = active`
@@ -253,6 +286,9 @@ deployment may rotate or be switched within that bound environment.
 - lineage shape, runtime binding, visible lifecycle, and deletion state stay
   distinct
 - automation conversations stay root-only
+- branch, fork, and checkpoint creation also require
+  `conversation_branching`; disabling that feature raises a structured
+  `feature_not_enabled` rejection before lineage mutation starts
 - child conversations reuse lineage-store lineage by reference, not by eager
   copying
 - deletion never breaks descendant transcript or store lineage
@@ -269,7 +305,10 @@ deployment may rotate or be switched within that bound environment.
 - branch, checkpoint, and fork creation are rejected from parents that are
   non-retained, archived, or currently closing
 - archive is rejected for non-retained or non-active conversations
+- archive is rejected when `conversation_archival` is disabled
 - archive without force is rejected while unfinished runtime work remains
+- branch, fork, and checkpoint creation are rejected when
+  `conversation_branching` is disabled
 - unarchive is rejected for non-retained or non-archived conversations
 - purge is rejected until final deletion has already removed the live lineage
   store reference, even when force is requested

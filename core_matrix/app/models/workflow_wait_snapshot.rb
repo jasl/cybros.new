@@ -81,6 +81,18 @@ class WorkflowWaitSnapshot
         public_id: blocking_resource_id,
         lifecycle_state: "failed"
       ).none?
+    when "subagent_barrier"
+      subagent_session_ids = Array(wait_reason_payload["subagent_session_ids"]).map(&:to_s)
+      return true if subagent_session_ids.empty?
+
+      sessions = SubagentSession.where(
+        owner_conversation: workflow_run.conversation,
+        public_id: subagent_session_ids
+      ).to_a
+
+      return false unless sessions.size == subagent_session_ids.size
+
+      sessions.none? { |session| !session.terminal_for_wait? }
     when "policy_gate"
       queued_turn_id = wait_reason_payload["queued_turn_id"]
       return true if queued_turn_id.blank?

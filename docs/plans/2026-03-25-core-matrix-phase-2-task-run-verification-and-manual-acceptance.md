@@ -53,6 +53,16 @@ Before any real acceptance run:
   matrix
 - make sure each scenario records expected and observed DAG shape plus
   expected and observed conversation-state results
+- keep the concrete operator scripts anchored on:
+  - `bundle exec ruby script/manual/phase2_bundled_fast_terminal_validation.rb`
+  - `bundle exec ruby script/manual/phase2_provider_backed_turn_validation.rb`
+  - `bundle exec ruby script/manual/phase2_process_run_close_validation.rb`
+  - `bundle exec ruby script/manual/phase2_bundled_rotation_validation.rb`
+  - `bundle exec ruby script/manual/phase2_external_fenix_validation.rb`
+  - `bundle exec ruby script/manual/phase2_fenix_skills_validation.rb`
+  - `bundle exec ruby script/manual/phase2_governed_tool_validation.rb`
+  - `bundle exec ruby script/manual/phase2_governed_mcp_validation.rb`
+  - `bundle exec ruby script/manual/workflow_proof_export.rb export ...`
 
 The checklist must cover at least:
 
@@ -121,6 +131,7 @@ Run the documented `bin/dev` validation paths using:
 Expected:
 
 - each required scenario has a reproducible operator path
+- the checklist can be run linearly without inventing missing steps
 
 **Step 4: Generate and commit proof artifacts**
 
@@ -129,6 +140,9 @@ For key yield, wait, resume, and bounded-parallel scenarios:
 - export Mermaid with the documented manual command
 - write or update `proof.md`
 - commit the artifact packages under `docs/reports/phase-2/`
+- keep the report index aligned with the committed scenario directories,
+  including bundled/external `Fenix`, rotation, governed capability, wait,
+  process-run, skill, and proof-export evidence
 
 **Step 5: Update README-level product status notes**
 
@@ -136,6 +150,8 @@ Keep both product READMEs aligned with what Phase 2 now proves:
 
 - `Core Matrix` as an agent-loop kernel
 - `Fenix` as the default validation agent program
+- the checklist as the final operator script
+- `docs/reports/phase-2/` as the committed proof-artifact ledger
 
 **Step 6: Commit**
 

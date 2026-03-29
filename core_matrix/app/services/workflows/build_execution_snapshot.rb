@@ -39,6 +39,7 @@ module Workflows
         "workspace_id" => @turn.conversation.workspace.public_id,
         "conversation_id" => @turn.conversation.public_id,
         "turn_id" => @turn.public_id,
+        "selected_input_message_id" => @turn.selected_input_message&.public_id,
         "execution_environment_id" => @turn.conversation.execution_environment.public_id,
         "agent_deployment_id" => @turn.agent_deployment.public_id,
       }

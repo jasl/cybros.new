@@ -77,6 +77,7 @@ Planned replacement design:
   - `agent_plane`
   - `environment_plane`
   - `effective_tool_catalog`
+  - `governed_effective_tool_catalog`
 - those sections now come from one shared `RuntimeCapabilityContract`
   projection instead of controller-local hash assembly
 - `effective_tool_catalog` resolves ordinary tool-name conflicts in this order:
@@ -85,6 +86,12 @@ Planned replacement design:
   - `Core Matrix`
 - reserved `core_matrix__*` system tools remain outside ordinary collision
   resolution
+- `governed_effective_tool_catalog` decorates the effective entries with:
+  - `tool_definition_id`
+  - `tool_implementation_id`
+  - `governance_mode`
+- those identifiers are `public_id` values on the durable governance rows; the
+  HTTP boundary does not expose internal `bigint` ids for tool governance
 
 ### Endpoint Responses
 
@@ -111,12 +118,23 @@ Planned replacement design:
 - protocol method entries must be hashes with `snake_case` `method_id` values
 - tool catalog entries must be hashes with `snake_case` `tool_name` values and
   a supported `tool_kind`
+- runtime-owned tool names under the reserved `core_matrix__*` prefix are
+  rejected unless the implementation source is explicitly `core_matrix`
 - `RuntimeCapabilityContract` is the shared formatter for:
   - machine-facing capability refresh and handshake payloads
   - `agent_plane`
   - `environment_plane`
   - `effective_tool_catalog`
   - conversation-facing runtime capability payloads
+- capability handshake now also projects the durable governance rows for the
+  active snapshot:
+  - `ImplementationSource`
+  - `ToolDefinition`
+  - `ToolImplementation`
+- projection is idempotent per capability snapshot and profile policy:
+  - if profiles declare `allowed_tool_names`, the governed projection is
+    limited to the union of those declared logical tools
+  - otherwise projection falls back to the full effective tool catalog
 - paused-work recovery now also relies on that same capability-contract shape:
   `AgentDeployments::ResolveRecoveryTarget` compares the replacement
   deployment's active snapshot against the paused turn's pinned snapshot before

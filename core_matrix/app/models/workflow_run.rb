@@ -18,6 +18,7 @@ class WorkflowRun < ApplicationRecord
   enum :wait_reason_kind,
     {
       human_interaction: "human_interaction",
+      subagent_barrier: "subagent_barrier",
       agent_unavailable: "agent_unavailable",
       manual_recovery_required: "manual_recovery_required",
       policy_gate: "policy_gate",
@@ -74,7 +75,12 @@ class WorkflowRun < ApplicationRecord
     execution_snapshot&.identity
   end
 
+  def feature_enabled?(feature_id)
+    Array(feature_policy_snapshot["enabled_feature_ids"]).include?(feature_id.to_s)
+  end
+
   validate :wait_reason_payload_must_be_hash
+  validate :feature_policy_snapshot_must_be_hash
   validate :resume_metadata_must_be_hash
   validate :workspace_installation_match
   validate :workspace_conversation_match
@@ -87,11 +93,16 @@ class WorkflowRun < ApplicationRecord
   validate :cancellation_request_pairing
 
   before_validation :default_workspace_from_conversation
+  before_validation :default_feature_policy_snapshot
 
   validates :turn_id, uniqueness: true
 
   def waiting_on_agent_unavailable?
     waiting? && wait_reason_kind == "agent_unavailable"
+  end
+
+  def waiting_on_subagent_barrier?
+    waiting? && wait_reason_kind == "subagent_barrier"
   end
 
   def paused_agent_unavailable?
@@ -168,6 +179,12 @@ class WorkflowRun < ApplicationRecord
     errors.add(:wait_reason_payload, "must be a hash") unless wait_reason_payload.is_a?(Hash)
   end
 
+  def feature_policy_snapshot_must_be_hash
+    return if feature_policy_snapshot.is_a?(Hash)
+
+    errors.add(:feature_policy_snapshot, "must be a hash")
+  end
+
   def resume_metadata_must_be_hash
     errors.add(:resume_metadata, "must be a hash") unless resume_metadata.is_a?(Hash)
   end
@@ -197,5 +214,12 @@ class WorkflowRun < ApplicationRecord
     if cancellation_reason_kind.blank? && cancellation_requested_at.present?
       errors.add(:cancellation_reason_kind, "must exist when cancellation has been requested")
     end
+  end
+
+  def default_feature_policy_snapshot
+    return unless turn.present?
+    return unless feature_policy_snapshot.blank?
+
+    self.feature_policy_snapshot = turn.feature_policy_snapshot
   end
 end

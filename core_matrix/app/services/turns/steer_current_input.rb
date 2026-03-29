@@ -4,7 +4,7 @@ module Turns
       new(...).call
     end
 
-    def initialize(turn:, content:, policy_mode: "queue")
+    def initialize(turn:, content:, policy_mode: nil)
       @turn = turn
       @content = content
       @policy_mode = policy_mode
@@ -23,7 +23,7 @@ module Turns
           return Workflows::Scheduler.apply_during_generation_policy(
             turn: turn,
             content: @content,
-            policy_mode: @policy_mode
+            policy_mode: effective_policy_mode(turn)
           )
         end
 
@@ -55,6 +55,14 @@ module Turns
       WorkflowNode.where(workflow_run: workflow_run).any? do |node|
         node.metadata["transcript_side_effect_committed"]
       end
+    end
+
+    def effective_policy_mode(turn)
+      frozen_policy_mode = turn.during_generation_input_policy.presence || turn.conversation.during_generation_input_policy
+      return frozen_policy_mode if @policy_mode.blank?
+      return frozen_policy_mode if @policy_mode.to_s == frozen_policy_mode
+
+      raise_invalid!(turn, :base, "must match the frozen during-generation input policy")
     end
 
     def raise_invalid!(record, attribute, message)

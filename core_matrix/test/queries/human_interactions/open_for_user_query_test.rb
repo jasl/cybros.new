@@ -112,6 +112,9 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       execution_environment: execution_environment,
       agent_deployment: agent_deployment
     )
+    automation_conversation.update!(
+      enabled_feature_ids: (automation_conversation.enabled_feature_ids + ["human_interaction"]).uniq
+    )
     automation_turn = Turns::StartAutomationTurn.call(
       conversation: automation_conversation,
       origin_kind: "automation_schedule",

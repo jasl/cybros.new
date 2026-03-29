@@ -154,6 +154,60 @@ conversation-visible tool set into `agent_context.allowed_tool_names`, and
 `Fenix::Hooks::ReviewToolCall` treats that frozen set as a real execution-time
 constraint rather than trace-only metadata.
 
+## Phase 2 Skill Surface
+
+`Fenix` now keeps the Phase 2 skill boundary inside the agent program rather
+than pushing skills into `Core Matrix`.
+
+Skill roots are separated intentionally:
+
+- `skills/.system/<name>/` for reserved built-in `Fenix` skills
+- `skills/.curated/<name>/` for bundled curated catalog entries
+- `skills/<name>/` for live installed third-party skills
+
+The current minimal skill surface is:
+
+- `skills_catalog_list`
+- `skills_load`
+- `skills_read_file`
+- `skills_install`
+
+That surface is sufficient to:
+
+- discover reserved system skills and bundled curated entries
+- load one active system or installed skill body on demand
+- read additional files relative to an active skill root
+- stage and promote a third-party skill into the live root
+
+Phase 2 keeps two explicit rules:
+
+- `.system` skill names are reserved and may not be overridden
+- installs become effective on the next top-level turn, not mid-turn
+
+The built-in `deploy-agent` system skill exists to prove that `Fenix` can use
+its own skill mechanism for an operational workflow, not just passive
+instruction storage.
+
+## Phase 2 Acceptance Runtime Layout
+
+The retained manual-acceptance layout uses two local `Fenix` processes:
+
+- `AGENT_FENIX_PORT=3101 bin/dev`
+  - default bundled/external runtime validation
+  - bundled mailbox execution
+  - external pairing
+  - deployment rotation
+- `AGENT_FENIX_PORT=3102 ... bin/dev`
+  - dedicated skills-validation runtime
+  - `FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills`
+  - `FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging`
+  - `FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups`
+
+The dedicated `3102` runtime keeps live, staging, and backup skill writes out
+of the repo tree so the Phase 2 skill catalog stays reproducible. The manual
+acceptance scripts intentionally clear those `/tmp/phase2-fenix-*` roots before
+scenarios `12` and `13`.
+
 ## Deployment Rotation
 
 Phase 2 treats release change as deployment rotation:

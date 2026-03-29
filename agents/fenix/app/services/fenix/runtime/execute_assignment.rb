@@ -31,6 +31,27 @@ module Fenix
         case @context.dig("task_payload", "mode")
         when "raise_error"
           raise StandardError, "boom"
+        when "skills_catalog_list"
+          execute_skill_flow(output: Fenix::Skills::CatalogList.call)
+        when "skills_load"
+          execute_skill_flow(
+            output: Fenix::Skills::Load.call(
+              skill_name: @context.dig("task_payload", "skill_name").to_s
+            )
+          )
+        when "skills_read_file"
+          execute_skill_flow(
+            output: Fenix::Skills::ReadFile.call(
+              skill_name: @context.dig("task_payload", "skill_name").to_s,
+              relative_path: @context.dig("task_payload", "relative_path").to_s
+            )
+          )
+        when "skills_install"
+          execute_skill_flow(
+            output: Fenix::Skills::Install.call(
+              source_path: @context.dig("task_payload", "source_path").to_s
+            )
+          )
         else
           execute_deterministic_tool_flow
         end
@@ -87,6 +108,18 @@ module Fenix
           reports: @collector.reports,
           trace: @trace,
           output: finalized_output.fetch("output")
+        )
+      end
+
+      def execute_skill_flow(output:)
+        @trace << { "hook" => "skills", "mode" => @context.dig("task_payload", "mode") }
+        @collector.complete!(terminal_payload: { "output" => output })
+
+        Result.new(
+          status: "completed",
+          reports: @collector.reports,
+          trace: @trace,
+          output: output
         )
       end
 

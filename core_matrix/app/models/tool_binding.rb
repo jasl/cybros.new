@@ -1,0 +1,77 @@
+class ToolBinding < ApplicationRecord
+  include HasPublicId
+
+  enum :binding_reason,
+    {
+      snapshot_default: "snapshot_default",
+      recovery_override: "recovery_override",
+      explicit_override: "explicit_override",
+    },
+    validate: true
+
+  belongs_to :installation
+  belongs_to :agent_task_run
+  belongs_to :tool_definition
+  belongs_to :tool_implementation
+
+  has_many :tool_invocations, dependent: :destroy
+
+  validate :installation_matches_task
+  validate :installation_matches_tool_definition
+  validate :installation_matches_tool_implementation
+  validate :tool_definition_matches_task_projection
+  validate :tool_implementation_matches_tool_definition
+  validate :tool_definition_unique_within_task
+  validate :binding_payload_must_be_hash
+
+  private
+
+  def installation_matches_task
+    return if agent_task_run.blank? || agent_task_run.installation_id == installation_id
+
+    errors.add(:installation, "must match the task installation")
+  end
+
+  def installation_matches_tool_definition
+    return if tool_definition.blank? || tool_definition.installation_id == installation_id
+
+    errors.add(:installation, "must match the tool definition installation")
+  end
+
+  def installation_matches_tool_implementation
+    return if tool_implementation.blank? || tool_implementation.installation_id == installation_id
+
+    errors.add(:installation, "must match the tool implementation installation")
+  end
+
+  def tool_implementation_matches_tool_definition
+    return if tool_definition.blank? || tool_implementation.blank?
+    return if tool_implementation.tool_definition_id == tool_definition_id
+
+    errors.add(:tool_implementation, "must belong to the bound tool definition")
+  end
+
+  def tool_definition_matches_task_projection
+    return if tool_definition.blank? || agent_task_run.blank?
+
+    expected_snapshot_id =
+      agent_task_run.turn&.pinned_capability_snapshot_id ||
+      agent_task_run.turn&.agent_deployment&.active_capability_snapshot_id
+
+    return if expected_snapshot_id.blank?
+    return if tool_definition.capability_snapshot_id == expected_snapshot_id
+
+    errors.add(:tool_definition, "must belong to the task capability snapshot")
+  end
+
+  def binding_payload_must_be_hash
+    errors.add(:binding_payload, "must be a hash") unless binding_payload.is_a?(Hash)
+  end
+
+  def tool_definition_unique_within_task
+    return if tool_definition.blank? || agent_task_run.blank?
+
+    duplicate_exists = agent_task_run.tool_bindings.where(tool_definition: tool_definition).where.not(id: id).exists?
+    errors.add(:tool_definition, "has already been bound for the task") if duplicate_exists
+  end
+end

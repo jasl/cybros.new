@@ -26,6 +26,10 @@ module Conversations
         expected_state: "active",
         lifecycle_message: "must be active before archival"
       ) do |locked_conversation|
+        Conversations::AssertFeatureEnabled.call(
+          conversation: locked_conversation,
+          feature_id: "conversation_archival"
+        )
         Conversations::ValidateQuiescence.call(
           conversation: locked_conversation,
           stage: "archival",

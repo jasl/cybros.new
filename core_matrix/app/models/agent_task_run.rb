@@ -32,10 +32,13 @@ class AgentTaskRun < ApplicationRecord
 
   has_many :agent_control_mailbox_items, dependent: :restrict_with_exception
   has_many :agent_control_report_receipts, dependent: :restrict_with_exception
+  has_many :tool_bindings, dependent: :destroy
+  has_many :tool_invocations, dependent: :destroy
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
   validates :logical_work_id, presence: true
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
+  validate :feature_policy_snapshot_must_be_hash
   validate :task_payload_must_be_hash
   validate :progress_payload_must_be_hash
   validate :terminal_payload_must_be_hash
@@ -51,7 +54,16 @@ class AgentTaskRun < ApplicationRecord
   validate :holder_deployment_matches_task
   validate :lifecycle_timestamps
 
+  before_validation :default_feature_policy_snapshot
+  after_create :freeze_tool_bindings!
+
   private
+
+  def feature_policy_snapshot_must_be_hash
+    return if feature_policy_snapshot.is_a?(Hash)
+
+    errors.add(:feature_policy_snapshot, "must be a hash")
+  end
 
   def task_payload_must_be_hash
     errors.add(:task_payload, "must be a hash") unless task_payload.is_a?(Hash)
@@ -149,5 +161,16 @@ class AgentTaskRun < ApplicationRecord
 
     errors.add(:started_at, "must exist when the task has started") if started_at.blank?
     errors.add(:finished_at, "must exist when the task is terminal") if finished_at.blank?
+  end
+
+  def default_feature_policy_snapshot
+    return unless workflow_run.present?
+    return unless feature_policy_snapshot.blank?
+
+    self.feature_policy_snapshot = workflow_run.feature_policy_snapshot
+  end
+
+  def freeze_tool_bindings!
+    ToolBindings::FreezeForTask.call(agent_task_run: self)
   end
 end

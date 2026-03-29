@@ -862,6 +862,8 @@ module ActiveSupport
     end
 
     def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_installation: turn.agent_deployment.agent_installation, kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
+      ensure_active_capability_snapshot_for_turn!(turn)
+
       AgentTaskRun.create!({
         installation: installation,
         agent_installation: agent_installation,
@@ -1207,6 +1209,20 @@ module ActiveSupport
         workflow_run: workflow_run.reload,
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
       }
+    end
+
+    def ensure_active_capability_snapshot_for_turn!(turn)
+      return if turn.pinned_capability_snapshot.present?
+      return if turn.agent_deployment.active_capability_snapshot.present?
+
+      allowed_tool_names = Array(turn.execution_snapshot.agent_context["allowed_tool_names"]).presence || %w[shell_exec]
+      capability_snapshot = create_capability_snapshot!(
+        agent_deployment: turn.agent_deployment,
+        tool_catalog: default_tool_catalog(*allowed_tool_names)
+      )
+
+      turn.agent_deployment.update!(active_capability_snapshot: capability_snapshot)
+      capability_snapshot
     end
 
     def build_rotated_runtime_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {})

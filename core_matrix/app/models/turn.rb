@@ -40,6 +40,7 @@ class Turn < ApplicationRecord
   validates :sequence, uniqueness: { scope: :conversation_id }
   validates :pinned_deployment_fingerprint, presence: true
   validate :origin_payload_must_be_hash
+  validate :feature_policy_snapshot_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
   validate :execution_snapshot_payload_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
@@ -50,6 +51,8 @@ class Turn < ApplicationRecord
   validate :selected_output_message_rules
   validate :selected_output_lineage_rules
   validate :cancellation_request_pairing
+
+  before_validation :default_feature_policy_snapshot
 
   def terminal?
     completed? || failed? || canceled?
@@ -91,6 +94,14 @@ class Turn < ApplicationRecord
     TurnExecutionSnapshot.new(execution_snapshot_payload || {})
   end
 
+  def feature_enabled?(feature_id)
+    Array(feature_policy_snapshot["enabled_feature_ids"]).include?(feature_id.to_s)
+  end
+
+  def during_generation_input_policy
+    feature_policy_snapshot["during_generation_input_policy"]
+  end
+
   def tail_in_active_timeline?
     return false if canceled?
 
@@ -104,6 +115,12 @@ class Turn < ApplicationRecord
 
   def origin_payload_must_be_hash
     errors.add(:origin_payload, "must be a hash") unless origin_payload.is_a?(Hash)
+  end
+
+  def feature_policy_snapshot_must_be_hash
+    return if feature_policy_snapshot.is_a?(Hash)
+
+    errors.add(:feature_policy_snapshot, "must be a hash")
   end
 
   def resolved_config_snapshot_must_be_hash
@@ -170,5 +187,12 @@ class Turn < ApplicationRecord
     if cancellation_reason_kind.blank? && cancellation_requested_at.present?
       errors.add(:cancellation_reason_kind, "must exist when cancellation has been requested")
     end
+  end
+
+  def default_feature_policy_snapshot
+    return unless conversation.present?
+    return unless feature_policy_snapshot.blank?
+
+    self.feature_policy_snapshot = conversation.feature_policy_snapshot
   end
 end

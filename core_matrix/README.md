@@ -15,16 +15,23 @@ built-in home for every memory, knowledge, or web capability.
 
 The current active batch is `Phase 2: Agent Loop Execution`.
 
-Milestones A through C and the close-state consolidation follow-up are already
-landed. The remaining active work is the post-Milestone-C breadth and
-validation batch:
+Milestones A through F are now landed in the Phase 2 workspace, including the
+post-Milestone-C breadth and acceptance batch:
 
-- finish conversation feature policy and durable stale-work safety
-- finish workflow-owned wait/subagent handoff from yielded runtime requests
-- add durable tool governance and invocation audit
-- add one governed Streamable HTTP MCP path
-- validate bundled and external `Fenix` skill flows
-- add workflow proof export and final acceptance evidence
+- conversation feature policy and durable stale-work safety
+- workflow-owned wait, human-interaction, and subagent handoff
+- durable tool governance and invocation audit
+- one governed Streamable HTTP MCP path
+- bundled and external `Fenix` runtime plus skill validation flows
+- workflow proof export and committed Phase 2 acceptance evidence
+
+The authoritative operator script for the final acceptance pass is:
+
+- `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+
+The committed proof-artifact ledger for that pass is:
+
+- `../docs/reports/phase-2/`
 
 Current authoritative project documents:
 
@@ -69,9 +76,16 @@ claims real loop behavior, validation must include:
 - Phase 1 backend manual validation was rerun on `2026-03-25` against
   `bin/dev` and the checklist at
   `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`.
+- Phase 2 acceptance evidence was captured on `2026-03-30` under
+  `../docs/reports/phase-2/`, including bundled/external `Fenix`, real
+  provider-backed turns, wait/resume, `process_run`, governed tool/MCP,
+  deployment rotation, skills, and proof export.
 - The checklist now standardizes on a reusable
   `core_matrix_reset_backend_state` helper built on
   `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
+- Phase 2 operator scripts under `script/manual/phase2_*` reset and seed the
+  development database in-process and are intended to be run with
+  `bundle exec ruby`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
   stable `environment_fingerprint`; the manual checklist currently exports that
   through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
@@ -89,6 +103,9 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
+bundle exec ruby script/manual/phase2_bundled_fast_terminal_validation.rb
+bundle exec ruby script/manual/phase2_provider_backed_turn_validation.rb
+bundle exec ruby script/manual/workflow_proof_export.rb export ...
 ```
 
 ## Seed Baseline

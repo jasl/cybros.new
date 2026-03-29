@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -184,6 +184,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.integer "expected_duration_seconds"
+    t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.datetime "finished_at"
     t.bigint "holder_agent_deployment_id"
     t.bigint "installation_id", null: false
@@ -378,6 +379,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.string "deletion_state", default: "retained", null: false
+    t.string "during_generation_input_policy", default: "queue", null: false
+    t.string "enabled_feature_ids", default: [], null: false, array: true
     t.bigint "execution_environment_id", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
@@ -405,6 +408,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
     t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
     t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
+    t.check_constraint "during_generation_input_policy::text = ANY (ARRAY['reject'::character varying, 'restart'::character varying, 'queue'::character varying]::text[])", name: "chk_conversations_during_generation_input_policy"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -510,6 +514,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.string "password_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_identities_on_email", unique: true
+  end
+
+  create_table "implementation_sources", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "source_kind", null: false
+    t.string "source_ref", null: false
+    t.datetime "updated_at", null: false
+    t.index ["installation_id", "source_kind", "source_ref"], name: "idx_implementation_sources_identity", unique: true
+    t.index ["installation_id"], name: "index_implementation_sources_on_installation_id"
+    t.index ["public_id"], name: "index_implementation_sources_on_public_id", unique: true
   end
 
   create_table "installations", force: :cascade do |t|
@@ -800,6 +817,89 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["public_id"], name: "index_subagent_sessions_on_public_id", unique: true
   end
 
+  create_table "tool_bindings", force: :cascade do |t|
+    t.bigint "agent_task_run_id", null: false
+    t.jsonb "binding_payload", default: {}, null: false
+    t.string "binding_reason", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "tool_definition_id", null: false
+    t.bigint "tool_implementation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_task_run_id", "tool_definition_id"], name: "idx_tool_bindings_task_definition", unique: true
+    t.index ["agent_task_run_id"], name: "index_tool_bindings_on_agent_task_run_id"
+    t.index ["installation_id"], name: "index_tool_bindings_on_installation_id"
+    t.index ["public_id"], name: "index_tool_bindings_on_public_id", unique: true
+    t.index ["tool_definition_id"], name: "index_tool_bindings_on_tool_definition_id"
+    t.index ["tool_implementation_id"], name: "index_tool_bindings_on_tool_implementation_id"
+  end
+
+  create_table "tool_definitions", force: :cascade do |t|
+    t.bigint "capability_snapshot_id", null: false
+    t.datetime "created_at", null: false
+    t.string "governance_mode", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "policy_payload", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "tool_kind", null: false
+    t.string "tool_name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capability_snapshot_id", "tool_name"], name: "idx_tool_definitions_snapshot_tool", unique: true
+    t.index ["capability_snapshot_id"], name: "index_tool_definitions_on_capability_snapshot_id"
+    t.index ["installation_id"], name: "index_tool_definitions_on_installation_id"
+    t.index ["public_id"], name: "index_tool_definitions_on_public_id", unique: true
+  end
+
+  create_table "tool_implementations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "default_for_snapshot", default: false, null: false
+    t.string "idempotency_policy", null: false
+    t.string "implementation_ref", null: false
+    t.bigint "implementation_source_id", null: false
+    t.jsonb "input_schema", default: {}, null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.jsonb "result_schema", default: {}, null: false
+    t.boolean "streaming_support", default: false, null: false
+    t.bigint "tool_definition_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["implementation_source_id"], name: "index_tool_implementations_on_implementation_source_id"
+    t.index ["installation_id"], name: "index_tool_implementations_on_installation_id"
+    t.index ["public_id"], name: "index_tool_implementations_on_public_id", unique: true
+    t.index ["tool_definition_id", "implementation_ref"], name: "idx_tool_implementations_definition_ref", unique: true
+    t.index ["tool_definition_id"], name: "idx_tool_implementations_one_default", unique: true, where: "default_for_snapshot"
+    t.index ["tool_definition_id"], name: "index_tool_implementations_on_tool_definition_id"
+  end
+
+  create_table "tool_invocations", force: :cascade do |t|
+    t.bigint "agent_task_run_id", null: false
+    t.integer "attempt_no", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "error_payload", default: {}, null: false
+    t.datetime "finished_at"
+    t.string "idempotency_key"
+    t.bigint "installation_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.jsonb "request_payload", default: {}, null: false
+    t.jsonb "response_payload", default: {}, null: false
+    t.datetime "started_at"
+    t.string "status", null: false
+    t.bigint "tool_binding_id", null: false
+    t.bigint "tool_definition_id", null: false
+    t.bigint "tool_implementation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_task_run_id"], name: "index_tool_invocations_on_agent_task_run_id"
+    t.index ["installation_id"], name: "index_tool_invocations_on_installation_id"
+    t.index ["public_id"], name: "index_tool_invocations_on_public_id", unique: true
+    t.index ["tool_binding_id", "attempt_no"], name: "idx_tool_invocations_binding_attempt", unique: true
+    t.index ["tool_binding_id"], name: "index_tool_invocations_on_tool_binding_id"
+    t.index ["tool_definition_id"], name: "index_tool_invocations_on_tool_definition_id"
+    t.index ["tool_implementation_id"], name: "index_tool_invocations_on_tool_implementation_id"
+  end
+
   create_table "turns", force: :cascade do |t|
     t.bigint "agent_deployment_id", null: false
     t.string "cancellation_reason_kind"
@@ -808,6 +908,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "created_at", null: false
     t.jsonb "execution_snapshot_payload", default: {}, null: false
     t.string "external_event_key"
+    t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.string "idempotency_key"
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", null: false
@@ -1037,6 +1138,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "cancellation_requested_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
@@ -1153,6 +1255,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "human_interaction_requests", "turns"
   add_foreign_key "human_interaction_requests", "workflow_nodes"
   add_foreign_key "human_interaction_requests", "workflow_runs"
+  add_foreign_key "implementation_sources", "installations"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
   add_foreign_key "lineage_store_entries", "lineage_store_snapshots"
@@ -1194,6 +1297,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "subagent_sessions", "installations"
   add_foreign_key "subagent_sessions", "subagent_sessions", column: "parent_subagent_session_id"
   add_foreign_key "subagent_sessions", "turns", column: "origin_turn_id"
+  add_foreign_key "tool_bindings", "agent_task_runs"
+  add_foreign_key "tool_bindings", "installations"
+  add_foreign_key "tool_bindings", "tool_definitions"
+  add_foreign_key "tool_bindings", "tool_implementations"
+  add_foreign_key "tool_definitions", "capability_snapshots"
+  add_foreign_key "tool_definitions", "installations"
+  add_foreign_key "tool_implementations", "implementation_sources"
+  add_foreign_key "tool_implementations", "installations"
+  add_foreign_key "tool_implementations", "tool_definitions"
+  add_foreign_key "tool_invocations", "agent_task_runs"
+  add_foreign_key "tool_invocations", "installations"
+  add_foreign_key "tool_invocations", "tool_bindings"
+  add_foreign_key "tool_invocations", "tool_definitions"
+  add_foreign_key "tool_invocations", "tool_implementations"
   add_foreign_key "turns", "agent_deployments"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "installations"

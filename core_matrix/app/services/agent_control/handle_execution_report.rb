@@ -83,7 +83,10 @@ module AgentControl
         finished_at: @occurred_at
       )
 
+      apply_wait_transition! if lifecycle_state == "completed"
       apply_retry_gate! if lifecycle_state == "failed"
+      sync_subagent_session!(lifecycle_state: lifecycle_state)
+      resume_parent_workflow_if_subagent_wait_resolved!
 
       if agent_task_run.execution_lease&.active?
         Leases::Release.call(
@@ -95,6 +98,16 @@ module AgentControl
       end
 
       mailbox_item.update!(status: "completed", completed_at: @occurred_at)
+    end
+
+    def apply_wait_transition!
+      return if agent_task_run.terminal_payload["wait_transition_requested"].blank?
+
+      Workflows::HandleWaitTransitionRequest.call(
+        agent_task_run: agent_task_run,
+        terminal_payload: agent_task_run.terminal_payload,
+        occurred_at: @occurred_at
+      )
     end
 
     def terminal_payload_for_terminal_message
@@ -133,6 +146,35 @@ module AgentControl
         blocking_resource_type: "AgentTaskRun",
         blocking_resource_id: agent_task_run.public_id
       )
+    end
+
+    def sync_subagent_session!(lifecycle_state:)
+      session = agent_task_run.subagent_session
+      return if session.blank?
+
+      observed_status =
+        if agent_task_run.workflow_run.reload.waiting?
+          "waiting"
+        elsif lifecycle_state == "completed"
+          "completed"
+        elsif lifecycle_state == "failed"
+          "failed"
+        else
+          "interrupted"
+        end
+
+      session.update!(observed_status: observed_status)
+    end
+
+    def resume_parent_workflow_if_subagent_wait_resolved!
+      return if agent_task_run.subagent_session.blank?
+      return if agent_task_run.origin_turn.blank?
+
+      parent_workflow_run = WorkflowRun.find_by(turn: agent_task_run.origin_turn)
+      return if parent_workflow_run.blank?
+      return unless parent_workflow_run.waiting_on_subagent_barrier?
+
+      Workflows::ResumeAfterWaitResolution.call(workflow_run: parent_workflow_run)
     end
 
     def mailbox_item

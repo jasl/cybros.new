@@ -65,6 +65,8 @@ module SubagentSessions
               "subagent_session_id" => session.public_id,
               "origin_turn_id" => @origin_turn.public_id,
             },
+            selector_source: @origin_turn.resolved_model_selection_snapshot["selector_source"] || "conversation",
+            selector: @origin_turn.normalized_selector,
             initial_kind: "subagent_step",
             initial_payload: @task_payload.presence || { "delivery_kind" => "subagent_spawn" },
             origin_turn: @origin_turn,

@@ -1,14 +1,17 @@
 class CapabilitySnapshot < ApplicationRecord
   METHOD_ID_PATTERN = /\A[a-z0-9_]+\z/
   TOOL_KINDS = %w[kernel_primitive agent_observation effect_intent].freeze
+  RESERVED_CORE_MATRIX_PREFIX = "core_matrix__".freeze
 
   belongs_to :agent_deployment, inverse_of: :capability_snapshots
+  has_many :tool_definitions, dependent: :restrict_with_exception
 
   validates :version, presence: true, numericality: { only_integer: true, greater_than: 0 }, uniqueness: { scope: :agent_deployment_id }
   validate :protocol_methods_must_be_array
   validate :tool_catalog_must_be_array
   validate :protocol_methods_contract_shape
   validate :tool_catalog_contract_shape
+  validate :tool_catalog_reserved_prefix_policy
   validate :profile_catalog_must_be_hash
   validate :config_schema_snapshot_must_be_hash
   validate :conversation_override_schema_snapshot_must_be_hash
@@ -83,6 +86,19 @@ class CapabilitySnapshot < ApplicationRecord
         errors.add(:tool_catalog, "must contain supported tool_kind values")
         break
       end
+    end
+  end
+
+  def tool_catalog_reserved_prefix_policy
+    return unless tool_catalog.is_a?(Array)
+
+    tool_catalog.each do |entry|
+      next unless entry.is_a?(Hash)
+      next unless entry["tool_name"].to_s.start_with?(RESERVED_CORE_MATRIX_PREFIX)
+      next if entry["implementation_source"] == "core_matrix"
+
+      errors.add(:tool_catalog, "reserved core_matrix tool names may only be supplied by core_matrix implementations")
+      break
     end
   end
 

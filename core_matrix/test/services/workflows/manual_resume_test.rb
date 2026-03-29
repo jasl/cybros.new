@@ -250,6 +250,31 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal replacement, resumed.turn.reload.agent_deployment
   end
 
+  test "manual resume restores the original subagent barrier blocker for paused workflows" do
+    context = build_paused_subagent_barrier_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
+      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    actor = create_user!(installation: context[:installation], role: "admin")
+
+    resumed = Workflows::ManualResume.call(
+      workflow_run: context[:workflow_run],
+      deployment: replacement,
+      actor: actor
+    )
+
+    assert resumed.waiting?
+    assert_equal "subagent_barrier", resumed.wait_reason_kind
+    assert_equal "SubagentBarrier", resumed.blocking_resource_type
+    assert_equal context[:blocking_resource_id], resumed.blocking_resource_id
+    assert_equal context[:subagent_sessions].map(&:public_id).sort,
+      resumed.wait_reason_payload.fetch("subagent_session_ids").sort
+    assert_equal replacement, resumed.turn.reload.agent_deployment
+  end
+
   test "manual resume uses the same turn rebinding owner as recovery-plan application" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
@@ -390,6 +415,59 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       workflow_run: workflow_run.reload,
       workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "human_gate"),
       request: request
+    )
+  end
+
+  def build_paused_subagent_barrier_recovery_context!
+    context = build_paused_recovery_context!
+    child_conversations = 2.times.map do
+      create_conversation_record!(
+        installation: context[:installation],
+        workspace: context[:workspace],
+        parent_conversation: context[:conversation],
+        kind: "fork",
+        execution_environment: context[:execution_environment],
+        agent_deployment: context[:agent_deployment],
+        addressability: "agent_addressable"
+      )
+    end
+    sessions = child_conversations.map do |child_conversation|
+      SubagentSession.create!(
+        installation: context[:installation],
+        owner_conversation: context[:conversation],
+        conversation: child_conversation,
+        origin_turn: context[:turn],
+        scope: "conversation",
+        profile_key: "researcher",
+        depth: 0,
+        observed_status: "running"
+      )
+    end
+    blocking_resource_id = "batch-subagents-1:stage:0"
+
+    context[:workflow_run].update!(
+      wait_state: "waiting",
+      wait_reason_kind: "subagent_barrier",
+      wait_reason_payload: {
+        "batch_id" => "batch-subagents-1",
+        "stage_index" => 0,
+        "subagent_session_ids" => sessions.map(&:public_id),
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "SubagentBarrier",
+      blocking_resource_id: blocking_resource_id
+    )
+    AgentDeployments::MarkUnavailable.call(
+      deployment: context[:agent_deployment],
+      severity: "prolonged",
+      reason: "runtime_offline",
+      occurred_at: Time.current
+    )
+
+    context.merge(
+      workflow_run: context[:workflow_run].reload,
+      subagent_sessions: sessions,
+      blocking_resource_id: blocking_resource_id
     )
   end
 

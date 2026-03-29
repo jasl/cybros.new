@@ -21,6 +21,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `blocking_resource_id`
 - `blocking_resource_id` stores durable external-style identifiers only:
   - `AgentDeployment.public_id` for `agent_unavailable`
+  - barrier artifact keys for `subagent_barrier`
   - blocker `public_id` values for `human_interaction`, `retryable_failure`,
     and `policy_gate`
 - `WorkflowRun` also persists workflow-yield continuation hints through:
@@ -31,6 +32,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `waiting`
 - supported wait reasons:
   - `human_interaction`
+  - `subagent_barrier`
   - `agent_unavailable`
   - `manual_recovery_required`
   - `policy_gate`
@@ -50,6 +52,8 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `reject`
   - `restart`
   - `queue`
+- during-generation policy resolution reads the frozen turn feature-policy
+  snapshot once a transcript side-effect boundary exists
 - queued follow-up turns record public-id based origin metadata:
   - `expected_tail_message_id` uses the predecessor output message `public_id`
   - `queued_from_turn_id` uses the predecessor turn `public_id`
@@ -66,6 +70,36 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - current Phase 2 resume policy is `re_enter_agent`; later continuation work
   should create a successor agent step from `resume_metadata` rather than
   continuing an old batch tail under a stale snapshot
+- `WorkflowRun.feature_policy_snapshot` freezes the turn-owned feature policy
+  onto active workflow work
+- `AgentTaskRun.feature_policy_snapshot` freezes the same policy again at the
+  queued or running task boundary
+
+## Wait Transition Handoff
+
+- `AgentControl::HandleExecutionReport` is the terminal-report boundary that
+  consumes `terminal_payload["wait_transition_requested"]`
+- `Workflows::HandleWaitTransitionRequest` materializes the yielded batch before
+  it changes wait state:
+  - accepted `human_interaction_request` intents become durable
+    `HumanInteractionRequest` rows
+  - accepted `subagent_spawn` intents become durable `SubagentSession`, child
+    conversation, child turn, child workflow, and child `AgentTaskRun` records
+  - `wait_all` stages pause the parent workflow with a durable
+    `subagent_barrier`
+  - stages with no blocking resource immediately continue through
+    `Workflows::ReEnterAgent`
+- `Workflows::ResumeAfterWaitResolution` is the only ready-transition owner for
+  workflow waits created by yielded human interaction or `subagent_barrier`
+  materialization
+- `Workflows::ReEnterAgent` is the only successor-step owner for
+  `resume_policy = re_enter_agent`:
+  - it rebuilds the turn execution snapshot before queueing successor work
+  - it creates the successor node when needed
+  - it enqueues the fresh successor `AgentTaskRun` through the normal mailbox
+    assignment path
+- wait handoff therefore relies only on durable workflow rows, artifacts, and
+  runtime resources; no runtime-private continuation cursor is required
 
 ## Recovery Behavior
 
@@ -127,6 +161,12 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   workflow node before persistence; if the interrupt fence or another terminal
   state has landed first, that provider result is dropped without transcript,
   usage, or profiling side effects
+- the same freshness check now also rejects late provider results when the
+  frozen execution snapshot no longer matches:
+  - the selected input message `public_id`
+  - the resolved provider/model pair
+- stale result rejection therefore relies on durable execution-snapshot state,
+  not process-local memory
 - close-summary projection and live/timeline mutation enforcement now both read
   from `ConversationBlockerSnapshot`
 - turn timeline mutation helpers now use one shared blocker contract and lock
@@ -237,7 +277,10 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   `wait_state = "waiting"`
 - human-interaction conversation-event payloads use the request `public_id`
   rather than the internal row id
-- normal resolution paths resume the workflow to `ready`
+- yielded human-interaction intents are materialized by
+  `Workflows::HandleWaitTransitionRequest`, not by direct transcript mutation
+- normal resolution paths clear the active blocker and then re-enter the same
+  workflow through `Workflows::ReEnterAgent` when successor metadata is present
 - open-for-user inbox queries return only requests that still belong to
   `retained + active` conversations
 - open and resolve paths re-check conversation lifecycle state under lock
@@ -258,15 +301,27 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - waiting workflows do not surface runnable nodes
 - restart and queue policies replace older queued follow-up work with the newest
   input
+- conversations can still change their live feature policy while work is
+  active, but the scheduler continues to honor the frozen turn/workflow/task
+  snapshots for already-created work
 - close fences reuse the same workflow row rather than inventing a second pause
   store
+- yielded waits and resumes do not rely on runtime-private continuation state;
+  the durable workflow graph and wait snapshot remain the only source of truth
 
 ## Failure Modes
 
 - unsupported during-generation policies are rejected
+- live policy drift cannot override an active turn's frozen
+  during-generation-input policy
 - `restart` requires a workflow run so the blocking state can be recorded
 - queued follow-up work is canceled when predecessor output drift invalidates
   the expected-tail guard
+- provider success or failure persistence is rejected as stale when selected
+  input or selector drift breaks the frozen execution snapshot
+- `subagent_barrier` waits do not resolve until every referenced session
+  `public_id` belongs to the owner conversation and has reached terminal
+  wait-for-parent status
 - manual recovery actions are rejected for non-retained conversations
 - step retry is rejected after `turn_interrupt`
 - final deletion is rejected while unfinished mainline work remains

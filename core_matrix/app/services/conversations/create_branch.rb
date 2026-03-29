@@ -26,6 +26,11 @@ module Conversations
           active_message: "must be active before branching",
           closing_message: "must not create child conversations while close is in progress"
         ) do |parent|
+          Conversations::AssertFeatureEnabled.call(
+            conversation: parent,
+            feature_id: "conversation_branching",
+            record: conversation
+          )
           refresh_child_conversation_from_parent!(conversation:, parent:)
           anchor_message = Conversations::ValidateHistoricalAnchor.call(
             parent: parent,

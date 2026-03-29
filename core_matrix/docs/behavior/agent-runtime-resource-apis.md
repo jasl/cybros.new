@@ -36,6 +36,9 @@ orchestration are still defined in:
   agent-facing transcript and variable endpoints
 - control-plane resources such as `AgentTaskRun`, `ProcessRun`, and
   `SubagentSession` also resolve by `public_id`
+- capability refresh also exposes governed tool metadata by `public_id`; the
+  agent-facing boundary does not expose internal numeric ids for
+  `ToolDefinition` or `ToolImplementation`
 
 ## Control Plane
 
@@ -243,13 +246,47 @@ orchestration are still defined in:
   - `agent_plane`
   - `environment_plane`
   - `effective_tool_catalog`
+  - `governed_effective_tool_catalog`
 - those capability sections and the conversation-facing runtime capability
   payload now come from the shared `RuntimeCapabilityContract`
 - `effective_tool_catalog` applies environment-first tool precedence for
   ordinary tool names and keeps reserved `core_matrix__*` tools outside that
   collision domain
+- `governed_effective_tool_catalog` adds the durable governance identifiers and
+  `governance_mode` for the effective tool winner without exposing internal ids
 - `target_ref` is the durable owner reference, not a promise that the same
   deployment will remain the delivery endpoint across rotation
+
+## Governed Tool Execution Audit
+
+- `AgentTaskRun` now freezes its visible governed tool set when the task row is
+  created
+- that freeze produces one `ToolBinding` row per visible logical tool for the
+  task attempt
+- later tool use is expected to record `ToolInvocation` rows against those
+  bindings instead of bypassing the task boundary with source-specific audit
+  paths
+- the durable binding and invocation rows remain kernel-owned audit state; they
+  are not currently separate HTTP resource endpoints
+- capability refresh exposes the winning governed tool definition and
+  implementation ids as `public_id` values inside
+  `governed_effective_tool_catalog`
+- MCP-backed governed tools keep transport state on
+  `ToolBinding.binding_payload["mcp"]`, including:
+  - `transport_kind`
+  - `server_url`
+  - `tool_name`
+  - `session_id`
+  - `session_state`
+  - `last_sse_event`
+  - `initialize_result`
+- failed governed MCP attempts record one shared source-neutral error shape on
+  `ToolInvocation.error_payload`, including:
+  - `classification`
+  - `code`
+  - `message`
+  - `retryable`
+  - `details`
 
 ## Failure Modes
 
@@ -266,3 +303,5 @@ orchestration are still defined in:
   close-in-progress conversations
 - control reports for stale attempts, stale delivery leases, or superseded
   close requests fail safe with `409 conflict`
+- governed MCP invocation failures remain durable audit rows; transport loss is
+  not a silent retry-only path

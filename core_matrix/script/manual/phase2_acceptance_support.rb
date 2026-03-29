@@ -1,0 +1,418 @@
+ENV["RAILS_ENV"] ||= "development"
+
+require "action_controller"
+require "fileutils"
+require "json"
+require "net/http"
+require "stringio"
+require "uri"
+require_relative "../../config/environment"
+
+module Phase2AcceptanceSupport
+  module_function
+
+  CONTROL_BASE_URL = ENV.fetch("CORE_MATRIX_BASE_URL", "http://127.0.0.1:3000")
+
+  RESET_MODELS = [
+    PublicationAccessEvent,
+    Publication,
+    ExecutionLease,
+    ToolInvocation,
+    ToolBinding,
+    ToolImplementation,
+    ToolDefinition,
+    ImplementationSource,
+    SubagentSession,
+    ProcessRun,
+    WorkflowArtifact,
+    WorkflowNodeEvent,
+    WorkflowEdge,
+    WorkflowNode,
+    HumanInteractionRequest,
+    WorkflowRun,
+    ConversationEvent,
+    ConversationImport,
+    ConversationSummarySegment,
+    ConversationMessageVisibility,
+    MessageAttachment,
+    Message,
+    Turn,
+    ConversationClosure,
+    Conversation,
+    CanonicalVariable,
+    CapabilitySnapshot,
+    AgentDeployment,
+    AgentEnrollment,
+    ExecutionEnvironment,
+    AgentInstallation,
+    Workspace,
+    UserAgentBinding,
+    ProviderEntitlement,
+    ProviderPolicy,
+    ProviderCredential,
+    UsageRollup,
+    UsageEvent,
+    ExecutionProfileFact,
+    AuditLog,
+    Session,
+    Invitation,
+    User,
+    Identity,
+    Installation,
+  ].freeze
+
+  def reset_backend_state!
+    ApplicationRecord.with_connection do |conn|
+      conn.disable_referential_integrity do
+        RESET_MODELS.each(&:delete_all)
+      end
+    end
+  end
+
+  def bootstrap_and_seed!(bundled_agent_configuration: { enabled: false })
+    bootstrap = Installations::BootstrapFirstAdmin.call(
+      name: "Primary Installation",
+      email: "admin@example.com",
+      password: "Password123!",
+      password_confirmation: "Password123!",
+      display_name: "Primary Admin",
+      bundled_agent_configuration: bundled_agent_configuration
+    )
+
+    silence_stdout do
+      load Rails.root.join("db", "seeds.rb")
+    end
+    bootstrap
+  end
+
+  def token_headers(machine_credential)
+    {
+      "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(machine_credential),
+    }
+  end
+
+  def http_get_json(url, headers: {})
+    uri = URI(url)
+    request = Net::HTTP::Get.new(uri)
+    headers.each { |key, value| request[key] = value }
+    execute_http(uri, request)
+  end
+
+  def http_post_json(url, payload, headers: {})
+    uri = URI(url)
+    request = Net::HTTP::Post.new(uri)
+    request["Content-Type"] = "application/json"
+    headers.each { |key, value| request[key] = value }
+    request.body = JSON.generate(payload)
+    execute_http(uri, request)
+  end
+
+  def execute_http(uri, request)
+    response = Net::HTTP.start(uri.host, uri.port) do |http|
+      http.request(request)
+    end
+    body = response.body.to_s
+    parsed = body.empty? ? {} : JSON.parse(body)
+    raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
+
+    parsed
+  end
+
+  def live_manifest(base_url:)
+    http_get_json("#{base_url}/runtime/manifest")
+  end
+
+  def create_external_agent_installation!(installation:, actor:, key:, display_name:)
+    agent_installation = AgentInstallation.create!(
+      installation: installation,
+      key: key,
+      display_name: display_name,
+      visibility: "global",
+      lifecycle_state: "active"
+    )
+    enrollment = AgentEnrollments::Issue.call(
+      agent_installation: agent_installation,
+      actor: actor,
+      expires_at: 2.hours.from_now
+    )
+
+    {
+      agent_installation: agent_installation,
+      enrollment_token: enrollment.plaintext_token,
+    }
+  end
+
+  def register_external_runtime!(
+    enrollment_token:,
+    runtime_base_url:,
+    environment_fingerprint:,
+    fingerprint:
+  )
+    manifest = live_manifest(base_url: runtime_base_url)
+    registration = http_post_json(
+      "#{CONTROL_BASE_URL}/agent_api/registrations",
+      {
+        enrollment_token: enrollment_token,
+        environment_fingerprint: environment_fingerprint,
+        environment_kind: "local",
+        environment_connection_metadata: {
+          transport: "http",
+          base_url: runtime_base_url,
+        },
+        fingerprint: fingerprint,
+        endpoint_metadata: {
+          transport: "http",
+          base_url: runtime_base_url,
+        },
+        protocol_version: manifest.fetch("protocol_version"),
+        sdk_version: manifest.fetch("sdk_version"),
+        environment_capability_payload: manifest.fetch("environment_capability_payload", {}),
+        environment_tool_catalog: manifest.fetch("environment_tool_catalog", []),
+        protocol_methods: manifest.fetch("protocol_methods"),
+        tool_catalog: manifest.fetch("tool_catalog"),
+        profile_catalog: manifest.fetch("profile_catalog"),
+        config_schema_snapshot: manifest.fetch("config_schema_snapshot"),
+        conversation_override_schema_snapshot: manifest.fetch("conversation_override_schema_snapshot"),
+        default_config_snapshot: manifest.fetch("default_config_snapshot"),
+      }
+    )
+    machine_credential = registration.fetch("machine_credential")
+    heartbeat = http_post_json(
+      "#{CONTROL_BASE_URL}/agent_api/heartbeats",
+      {
+        health_status: "healthy",
+        health_metadata: { "release" => manifest.fetch("sdk_version") },
+        auto_resume_eligible: true,
+      },
+      headers: token_headers(machine_credential)
+    )
+    deployment = AgentDeployment.find_by_public_id!(registration.fetch("deployment_id"))
+
+    {
+      manifest: manifest,
+      registration: registration,
+      heartbeat: heartbeat,
+      machine_credential: machine_credential,
+      deployment: deployment,
+    }
+  end
+
+  def register_bundled_runtime_from_manifest!(
+    installation:,
+    runtime_base_url:,
+    environment_fingerprint:,
+    fingerprint:,
+    sdk_version:
+  )
+    manifest = live_manifest(base_url: runtime_base_url)
+    runtime = Installations::RegisterBundledAgentRuntime.call(
+      installation: installation,
+      configuration: {
+        enabled: true,
+        agent_key: "fenix",
+        display_name: "Bundled Fenix",
+        visibility: "global",
+        lifecycle_state: "active",
+        environment_kind: "local",
+        environment_fingerprint: environment_fingerprint,
+        connection_metadata: {
+          "transport" => "http",
+          "base_url" => runtime_base_url,
+        },
+        environment_capability_payload: manifest.fetch("environment_capability_payload", {}),
+        environment_tool_catalog: manifest.fetch("environment_tool_catalog", []),
+        fingerprint: fingerprint,
+        protocol_version: manifest.fetch("protocol_version"),
+        sdk_version: sdk_version,
+        protocol_methods: manifest.fetch("protocol_methods"),
+        tool_catalog: manifest.fetch("tool_catalog"),
+        profile_catalog: manifest.fetch("profile_catalog"),
+        config_schema_snapshot: manifest.fetch("config_schema_snapshot"),
+        conversation_override_schema_snapshot: manifest.fetch("conversation_override_schema_snapshot"),
+        default_config_snapshot: manifest.fetch("default_config_snapshot"),
+      }
+    )
+
+    {
+      manifest: manifest,
+      runtime: runtime,
+      machine_credential: bundled_machine_credential(fingerprint),
+    }
+  end
+
+  def bundled_machine_credential(fingerprint)
+    "bundled-runtime:#{fingerprint}"
+  end
+
+  def enable_default_workspace!(deployment:)
+    user = User.find_by!(installation: deployment.installation, role: "admin")
+    user_binding = UserAgentBindings::Enable.call(
+      user: user,
+      agent_installation: deployment.agent_installation
+    ).binding
+
+    user_binding.workspaces.find_by!(is_default: true)
+  end
+
+  def create_conversation!(deployment:)
+    workspace = enable_default_workspace!(deployment: deployment)
+
+    {
+      workspace: workspace,
+      conversation: Conversations::CreateRoot.call(
+        workspace: workspace,
+        execution_environment: deployment.execution_environment,
+        agent_deployment: deployment
+      ),
+    }
+  end
+
+  def start_turn_workflow_on_conversation!(
+    conversation:,
+    deployment:,
+    content:,
+    root_node_key:,
+    root_node_type:,
+    decision_source:,
+    selector_source: "conversation",
+    selector: "candidate:dev/mock-model",
+    initial_kind: nil,
+    initial_payload: {}
+  )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: content,
+      agent_deployment: deployment,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = Workflows::CreateForTurn.call(
+      turn: turn,
+      root_node_key: root_node_key,
+      root_node_type: root_node_type,
+      decision_source: decision_source,
+      metadata: {},
+      selector_source: selector_source,
+      selector: selector,
+      initial_kind: initial_kind,
+      initial_payload: initial_payload
+    )
+
+    {
+      turn: turn.reload,
+      workflow_run: workflow_run.reload,
+      agent_task_run: initial_kind.present? ? AgentTaskRun.find_by!(workflow_run: workflow_run).reload : nil,
+    }
+  end
+
+  def execute_provider_workflow!(workflow_run:)
+    Workflows::ExecuteRun.call(
+      workflow_run: workflow_run,
+      messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+    )
+  end
+
+  def execute_provider_turn_on_conversation!(conversation:, deployment:, content:)
+    run = start_turn_workflow_on_conversation!(
+      conversation: conversation,
+      deployment: deployment,
+      content: content,
+      root_node_key: "turn_step",
+      root_node_type: "turn_step",
+      decision_source: "system"
+    )
+    execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
+    run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }
+  end
+
+  def run_fenix_mailbox_task!(
+    deployment:,
+    machine_credential:,
+    runtime_base_url:,
+    content:,
+    mode:,
+    extra_payload: {}
+  )
+    conversation_context = create_conversation!(deployment: deployment)
+    run = start_turn_workflow_on_conversation!(
+      conversation: conversation_context.fetch(:conversation),
+      deployment: deployment,
+      content: content,
+      root_node_key: "agent_turn_step",
+      root_node_type: "turn_step",
+      decision_source: "agent_program",
+      initial_kind: "turn_step",
+      initial_payload: { "mode" => mode }.merge(extra_payload)
+    )
+    auth_headers = token_headers(machine_credential)
+    poll = http_post_json(
+      "#{CONTROL_BASE_URL}/agent_api/control/poll",
+      { limit: 10 },
+      headers: auth_headers
+    )
+    mailbox_item = poll.fetch("mailbox_items").find do |item|
+      item.dig("payload", "agent_task_run_id") == run.fetch(:agent_task_run).public_id
+    end
+    raise "expected leased mailbox item for task run" if mailbox_item.blank?
+
+    execution = http_post_json("#{runtime_base_url}/runtime/executions", mailbox_item)
+    report_results = execution.fetch("reports").map do |report|
+      http_post_json(
+        "#{CONTROL_BASE_URL}/agent_api/control/report",
+        report.merge(
+          mailbox_item_id: mailbox_item.fetch("item_id"),
+          agent_task_run_id: run.fetch(:agent_task_run).public_id,
+          logical_work_id: mailbox_item.fetch("logical_work_id"),
+          attempt_no: mailbox_item.fetch("attempt_no")
+        ),
+        headers: auth_headers
+      ).fetch("result")
+    end
+
+    run.merge(
+      conversation: conversation_context.fetch(:conversation).reload,
+      mailbox_item: mailbox_item,
+      execution: execution,
+      report_results: report_results
+    )
+  end
+
+  def workflow_node_keys(workflow_run)
+    workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
+  end
+
+  def workflow_edge_keys(workflow_run)
+    workflow_run.workflow_edges
+      .includes(:from_node, :to_node)
+      .sort_by { |edge| [edge.from_node.ordinal, edge.to_node.ordinal] }
+      .map { |edge| "#{edge.from_node.node_key}->#{edge.to_node.node_key}" }
+  end
+
+  def workflow_state_hash(conversation:, workflow_run:, turn:, agent_task_run: nil, extra: {})
+    {
+      "conversation_state" => conversation.reload.lifecycle_state,
+      "workflow_lifecycle_state" => workflow_run.reload.lifecycle_state,
+      "workflow_wait_state" => workflow_run.wait_state,
+      "turn_lifecycle_state" => turn.reload.lifecycle_state,
+    }.tap do |state|
+      if agent_task_run.present?
+        state["agent_task_run_state"] = agent_task_run.reload.lifecycle_state
+        state["selected_output_message_id"] = turn.selected_output_message&.public_id
+        state["selected_output_content"] = turn.selected_output_message&.content
+      end
+      extra.each { |key, value| state[key] = value }
+    end
+  end
+
+  def write_json(payload, io: $stdout)
+    io.puts JSON.pretty_generate(payload)
+  end
+
+  def silence_stdout
+    original_stdout = $stdout
+    $stdout = StringIO.new
+    yield
+  ensure
+    $stdout = original_stdout
+  end
+end

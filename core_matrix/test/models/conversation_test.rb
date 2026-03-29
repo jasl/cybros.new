@@ -94,6 +94,37 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal "agent_addressable", child_conversation.addressability
   end
 
+  test "persists default feature policy by conversation purpose" do
+    context = create_workspace_context!
+    interactive = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    automation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+
+    assert_equal Conversation::FEATURE_IDS, interactive.enabled_feature_ids
+    assert_equal "queue", interactive.during_generation_input_policy
+    assert_equal(
+      {
+        "enabled_feature_ids" => Conversation::FEATURE_IDS,
+        "during_generation_input_policy" => "queue",
+      },
+      interactive.feature_policy_snapshot
+    )
+
+    assert_equal(
+      Conversation::FEATURE_IDS - ["human_interaction"],
+      automation.enabled_feature_ids
+    )
+    refute_includes automation.enabled_feature_ids, "human_interaction"
+    assert_equal "queue", automation.during_generation_input_policy
+  end
+
   test "enforces conversation kind rules" do
     context = create_workspace_context!
     root_anchor_turn = Turns::StartUserTurn.call(

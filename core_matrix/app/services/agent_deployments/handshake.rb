@@ -48,6 +48,10 @@ module AgentDeployments
             runtime_capability_contract: reconciled_contract(reconciliation.reconciled_config),
             deployment_locked: true
           )
+          ToolBindings::ProjectCapabilitySnapshot.call(
+            capability_snapshot: capability_snapshot,
+            execution_environment: @deployment.execution_environment
+          )
           @deployment.update!(
             protocol_version: @protocol_version,
             sdk_version: @sdk_version

@@ -1,0 +1,124 @@
+module Workflows
+  class HandleWaitTransitionRequest
+    def self.call(...)
+      new(...).call
+    end
+
+    def initialize(agent_task_run:, terminal_payload:, occurred_at: Time.current)
+      @agent_task_run = agent_task_run
+      @workflow_run = agent_task_run.workflow_run
+      @yielding_node = agent_task_run.workflow_node
+      @terminal_payload = terminal_payload.deep_stringify_keys
+      @occurred_at = occurred_at
+    end
+
+    def call
+      transition = @terminal_payload["wait_transition_requested"]
+      return @workflow_run if transition.blank?
+
+      batch_manifest = transition.fetch("batch_manifest")
+      materialization = Workflows::IntentBatchMaterialization.call(
+        workflow_run: @workflow_run,
+        yielding_node: @yielding_node,
+        batch_manifest: batch_manifest
+      )
+
+      last_stage_nodes = []
+
+      stages(batch_manifest).each do |stage|
+        stage_nodes = materialization.accepted_nodes.select { |node| node.stage_index == stage.fetch("stage_index") }
+        next if stage_nodes.empty?
+
+        last_stage_nodes = stage_nodes
+        materialize_stage!(stage, stage_nodes, batch_id: batch_manifest.fetch("batch_id"))
+        return @workflow_run.reload if @workflow_run.reload.waiting?
+      end
+
+      Workflows::ReEnterAgent.call(
+        workflow_run: @workflow_run,
+        predecessor_nodes: last_stage_nodes.presence || [@yielding_node],
+        resume_reason: "yield_complete"
+      )
+    end
+
+    private
+
+    def stages(batch_manifest)
+      Array(batch_manifest.fetch("stages")).map do |stage|
+        stage.deep_stringify_keys
+      end
+    end
+
+    def materialize_stage!(stage, stage_nodes, batch_id:)
+      stage_nodes.select { |node| human_interaction_node?(node) }.each do |node|
+        request = HumanInteractions::Request.call(
+          request_type: node.metadata.fetch("payload").fetch("request_type"),
+          workflow_node: node,
+          blocking: node.metadata.fetch("payload").fetch("blocking", true),
+          request_payload: node.metadata.fetch("payload").fetch("request_payload", {})
+        )
+        node.update!(
+          metadata: node.metadata.merge(
+            "human_interaction_request_id" => request.public_id,
+            "blocking" => request.blocking
+          )
+        )
+      end
+      return if @workflow_run.reload.waiting?
+
+      spawned_sessions = stage_nodes.select { |node| subagent_spawn_node?(node) }.map do |node|
+        result = SubagentSessions::Spawn.call(
+          conversation: @workflow_run.conversation,
+          origin_turn: @workflow_run.turn,
+          content: node.metadata.fetch("payload").fetch("content"),
+          scope: node.metadata.fetch("payload").fetch("scope", "conversation"),
+          profile_key: node.metadata.fetch("payload")["profile_key"],
+          task_payload: node.metadata.fetch("payload").fetch("task_payload", {})
+        )
+        node.update!(
+          metadata: node.metadata.merge(
+            "subagent_session_id" => result.fetch("subagent_session_id"),
+            "subagent_conversation_id" => result.fetch("conversation_id"),
+            "subagent_turn_id" => result.fetch("turn_id"),
+            "subagent_workflow_run_id" => result.fetch("workflow_run_id"),
+            "subagent_agent_task_run_id" => result.fetch("agent_task_run_id")
+          )
+        )
+
+        SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+      end
+
+      return unless stage.fetch("completion_barrier") == "wait_all"
+      return if spawned_sessions.blank?
+
+      barrier_artifact = @workflow_run.reload.workflow_artifacts.find_by!(
+        artifact_kind: "intent_batch_barrier",
+        artifact_key: "#{batch_id}:stage:#{stage.fetch("stage_index")}"
+      )
+
+      @workflow_run.reload.update!(
+        wait_state: "waiting",
+        wait_reason_kind: "subagent_barrier",
+        wait_reason_payload: {
+          "batch_id" => batch_id,
+          "stage_index" => stage.fetch("stage_index"),
+          "barrier_artifact_key" => barrier_artifact.artifact_key,
+          "subagent_session_ids" => spawned_sessions.map(&:public_id),
+          "yielding_node_id" => @yielding_node.public_id,
+          "yielding_node_key" => @yielding_node.node_key,
+        },
+        waiting_since_at: @occurred_at,
+        blocking_resource_type: "SubagentBarrier",
+        blocking_resource_id: barrier_artifact.artifact_key
+      )
+    end
+
+    def human_interaction_node?(node)
+      node.intent_kind == "human_interaction_request" || node.node_type == "human_interaction"
+    end
+
+    def subagent_spawn_node?(node)
+      node.intent_kind == "subagent_spawn" || node.node_type == "subagent_spawn"
+    end
+  end
+end

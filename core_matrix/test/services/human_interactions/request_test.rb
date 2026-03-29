@@ -1,6 +1,100 @@
 require "test_helper"
 
 class HumanInteractions::RequestTest < ActiveSupport::TestCase
+  test "execution complete wait transition materializes a blocking human task request on the workflow" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run
+    )
+
+    report_execution_complete!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run,
+      terminal_payload: {
+        "output" => "Need operator input",
+      }.merge(
+        human_task_wait_transition_payload(
+          batch_id: "batch-human-1",
+          successor_node_key: "agent_step_2",
+          instructions: "Collect the operator confirmation."
+        )
+      )
+    )
+
+    request = HumanTaskRequest.find_by!(
+      workflow_run: context.fetch(:workflow_run),
+      workflow_node: context.fetch(:workflow_run).reload.workflow_nodes.find_by!(node_key: "human_gate")
+    )
+    workflow_run = context.fetch(:workflow_run).reload
+
+    assert request.open?
+    assert_equal "Collect the operator confirmation.", request.request_payload["instructions"]
+    assert workflow_run.waiting?
+    assert_equal "human_interaction", workflow_run.wait_reason_kind
+    assert_equal request.public_id, workflow_run.blocking_resource_id
+    assert_equal "agent_step_2", workflow_run.resume_metadata.dig("successor", "node_key")
+    assert_equal %w[root agent_turn_step human_gate], workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
+    assert_equal "completed", agent_task_run.reload.lifecycle_state
+  end
+
+  test "rejects opening a human interaction when the frozen workflow feature policy disables it" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    conversation.update!(enabled_feature_ids: Conversation::FEATURE_IDS - ["human_interaction"])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Human interaction input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = Workflows::CreateForTurn.call(
+      turn: turn,
+      root_node_key: "root",
+      root_node_type: "turn_root",
+      decision_source: "system",
+      metadata: {}
+    )
+
+    Workflows::Mutate.call(
+      workflow_run: workflow_run,
+      nodes: [
+        {
+          node_key: "human_gate",
+          node_type: "human_interaction",
+          decision_source: "agent_program",
+          metadata: {},
+        },
+      ],
+      edges: [
+        { from_node_key: "root", to_node_key: "human_gate" },
+      ]
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      HumanInteractions::Request.call(
+        request_type: "HumanTaskRequest",
+        workflow_node: workflow_run.reload.workflow_nodes.find_by!(node_key: "human_gate"),
+        blocking: true,
+        request_payload: { "instructions" => "Need operator input" }
+      )
+    end
+
+    assert_equal :feature_not_enabled, error.record.errors.details[:base].first[:error]
+    assert_equal "human_interaction", error.record.errors.details[:base].first[:feature_id]
+  end
+
   test "creates blocking approval requests, waits the workflow, and projects a conversation event" do
     context = build_human_interaction_context!
 

@@ -16,6 +16,22 @@ Each package should usually contain:
 - `proof.md`
 - one or more `run-<workflow-run-id>.mmd` Mermaid files
 
+The committed `2026-03-30` Phase 2 acceptance set currently includes proof
+packages for:
+
+- bundled `Fenix` fast terminal
+- real provider-backed bundled turn
+- human-interaction wait and resume
+- subagent `wait_all`
+- `process_run` close path
+- governed tool
+- governed Streamable HTTP MCP
+- deployment rotation upgrade and downgrade
+- independent external `Fenix`
+- built-in system skill deploy flow
+- third-party skill activation
+- the reusable proof-export package itself
+
 See also:
 
 - [phase-2/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/reports/phase-2/README.md)

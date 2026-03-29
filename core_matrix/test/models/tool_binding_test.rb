@@ -1,0 +1,66 @@
+require "test_helper"
+
+class ToolBindingTest < ActiveSupport::TestCase
+  test "belongs to the same installation and task projection as its binding target" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    definition = ToolDefinition.find_by!(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      tool_name: "compact_context"
+    )
+    implementation = definition.tool_implementations.find_by!(
+      implementation_ref: "agent/compact_context"
+    )
+    task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
+
+    other_installation = Installation.new(
+      name: "Other installation",
+      bootstrap_state: "bootstrapped",
+      global_settings: {}
+    )
+    invalid_binding = ToolBinding.new(
+      installation: other_installation,
+      agent_task_run: task_run,
+      tool_definition: definition,
+      tool_implementation: implementation,
+      binding_reason: "snapshot_default",
+      binding_payload: {}
+    )
+
+    assert_not invalid_binding.valid?
+    assert_includes invalid_binding.errors[:installation], "must match the task installation"
+  end
+
+  test "freezes at most one binding per task and tool definition" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    definition = ToolDefinition.find_by!(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      tool_name: "compact_context"
+    )
+    implementation = definition.tool_implementations.find_by!(
+      implementation_ref: "agent/compact_context"
+    )
+    task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
+
+    duplicate = ToolBinding.new(
+      installation: task_run.installation,
+      agent_task_run: task_run,
+      tool_definition: definition,
+      tool_implementation: implementation,
+      binding_reason: "snapshot_default",
+      binding_payload: {}
+    )
+
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:tool_definition], "has already been bound for the task"
+  end
+end

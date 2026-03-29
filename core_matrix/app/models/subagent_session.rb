@@ -2,6 +2,7 @@ class SubagentSession < ApplicationRecord
   include HasPublicId
   include ClosableRuntimeResource
 
+  TERMINAL_OBSERVED_STATUSES = %w[completed failed interrupted].freeze
   DERIVED_CLOSE_STATUS_BY_CLOSE_STATE = {
     "open" => "open",
     "requested" => "close_requested",
@@ -75,6 +76,10 @@ class SubagentSession < ApplicationRecord
 
   def running_for_barriers?
     close_pending_or_open? && observed_status_running?
+  end
+
+  def terminal_for_wait?
+    terminal_close? || TERMINAL_OBSERVED_STATUSES.include?(observed_status)
   end
 
   private

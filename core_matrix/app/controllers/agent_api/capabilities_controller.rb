@@ -47,6 +47,11 @@ module AgentAPI
         execution_environment_id: execution_environment.public_id,
         environment_fingerprint: execution_environment.environment_fingerprint,
         reconciliation_report: reconciliation_report
+      ).merge(
+        "governed_effective_tool_catalog" => ToolBindings::GovernedCatalog.call(
+          capability_snapshot: capability_snapshot,
+          execution_environment: execution_environment
+        )
       )
     end
   end

@@ -50,6 +50,10 @@ The landed model separates concerns cleanly:
   - `completed`
   - `failed`
   - `interrupted`
+- `SubagentSession#terminal_for_wait?` treats `completed`, `failed`, and
+  `interrupted` as terminal for parent barrier resolution; `waiting` is
+  intentionally non-terminal because the child workflow still owns live work
+  even when it is paused on its own blocker
 - close-control metadata also comes from `ClosableRuntimeResource`
 - `SubagentSessions::RequestClose` writes `close_state = requested` plus close
   request metadata; terminal close reports then settle `close_state` into
@@ -63,10 +67,39 @@ The landed model separates concerns cleanly:
 - `SubagentSessions::Spawn` creates the child conversation, the
   `SubagentSession`, the initial child turn, and the first
   `AgentTaskRun(kind = "subagent_step")`
+- `Workflows::HandleWaitTransitionRequest` is the yielding-workflow boundary
+  that turns accepted `subagent_spawn` intents into those durable child
+  resources
+- child workflow creation now inherits the origin turn's frozen selector and
+  selector source when it re-enters `Workflows::CreateForTurn`, so delegated
+  work stays aligned with the parent's execution environment and capability
+  contract instead of silently falling back to a different selector lane
 - `SubagentSessions::SendMessage` appends agent-facing messages into an
   agent-addressable child conversation
 - `SubagentSessions::Wait` waits on durable session state
 - `SubagentSessions::RequestClose` creates mailbox-driven close requests
+
+## Barrier Wait And Resume
+
+- parallel `wait_all` stages pause the parent workflow through:
+  - `wait_state = waiting`
+  - `wait_reason_kind = subagent_barrier`
+  - `blocking_resource_type = "SubagentBarrier"`
+  - `blocking_resource_id = <intent batch barrier artifact key>`
+- the parent wait payload stores only durable identifiers and barrier facts:
+  - `batch_id`
+  - `stage_index`
+  - `barrier_artifact_key`
+  - `subagent_session_ids` as session `public_id` values
+  - yielding node `public_id` and `node_key`
+- child terminal execution reports synchronize `SubagentSession.observed_status`
+  from the actual child workflow outcome:
+  - `waiting` when the child workflow is paused on its own blocker
+  - `completed`, `failed`, or `interrupted` once the child task is terminal
+- `Workflows::ResumeAfterWaitResolution` is the only parent barrier-resolution
+  boundary. It checks the current `subagent_barrier` wait payload against live
+  session state and only re-enters the parent agent once every referenced
+  session has reached a terminal wait status.
 
 ## Execution Leases
 

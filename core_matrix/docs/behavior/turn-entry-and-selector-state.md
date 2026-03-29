@@ -62,10 +62,14 @@ execution-snapshot persistence on the turn row.
   - `automation_webhook`
   - `system_internal`
 - turn rows freeze:
+  - feature policy snapshot row
   - pinned deployment fingerprint
   - resolved config snapshot row
   - execution snapshot payload row
   - resolved model-selection snapshot row
+- the frozen turn feature-policy snapshot contains:
+  - `enabled_feature_ids`
+  - `during_generation_input_policy`
 - `resolved_config_snapshot` stores only the resolved config payload for the
   turn
 - `execution_snapshot_payload` stores the runtime-facing frozen execution
@@ -106,6 +110,9 @@ execution-snapshot persistence on the turn row.
   deployment `public_id` in `source_ref_id`
 - `Turns::QueueFollowUp` creates a queued manual-user turn only when the
   conversation already has active or queued work
+- queued follow-up turns freeze a fresh turn-level feature-policy snapshot at
+  creation time, so later follow-up work is auditable against the policy that
+  existed when the queued turn was appended
 - `Turns::SteerCurrentInput` creates a new selected input variant on the same
   active turn and moves the turn's selected-input pointer
 - steering is limited to pre-output state in this task; if an output pointer is
@@ -120,6 +127,11 @@ execution-snapshot persistence on the turn row.
   - the target turn is reloaded under lock
   - `turn_interrupted` fences reject in-place steering and
     during-generation follow-up policy entry
+- once the turn has crossed a transcript side-effect boundary, steering uses
+  the turn's frozen `during_generation_input_policy` rather than the current
+  live conversation setting
+- later conversation policy edits therefore affect newly created turns, but do
+  not retroactively rewrite the active turn's during-generation behavior
 
 ## Invariants
 
@@ -128,6 +140,8 @@ execution-snapshot persistence on the turn row.
 - override payload persistence remains separate from unsent client draft state
 - turn-owned config persistence remains separate from runtime-facing execution
   snapshot persistence
+- turn-owned feature-policy snapshots freeze execution meaning for in-flight
+  work even if the conversation policy later changes
 - automation-origin turns may exist without a transcript-bearing `UserMessage`
 - queued follow-up only exists when there is already active work to follow
 - selected transcript pointers remain explicit turn-owned state
