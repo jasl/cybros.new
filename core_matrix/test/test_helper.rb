@@ -1,12 +1,12 @@
-require "simplecov"
-SimpleCov.start "rails"
+ENV["RAILS_ENV"] ||= "test"
+
+require_relative "./simplecov_helper"
 
 require "active_support/testing/time_helpers"
 require "action_controller"
 require "digest"
 require "stringio"
 
-ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 Dir[File.expand_path("support/**/*.rb", __dir__)].sort.each { |file| require file }
@@ -17,6 +17,9 @@ module ActiveSupport
 
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)
+    parallelize_setup do |worker|
+      CoreMatrixSimpleCov.configure_parallel_worker!(worker)
+    end
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
