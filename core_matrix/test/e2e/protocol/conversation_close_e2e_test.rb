@@ -34,7 +34,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     harness.poll!
     harness.report!(
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -66,12 +66,12 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       mailbox_item: close_requests.fetch(subagent_session.public_id),
       close_outcome_kind: "graceful"
     )
-    background_close_message_id = "background-close-#{next_test_sequence}"
+    background_close_protocol_message_id = "background-close-#{next_test_sequence}"
     report_resource_closed!(
       harness: harness,
       mailbox_item: close_requests.fetch(background_service.public_id),
       close_outcome_kind: "residual_abandoned",
-      message_id: background_close_message_id
+      protocol_message_id: background_close_protocol_message_id
     )
 
     close_operation = context[:conversation].reload.conversation_close_operations.order(:created_at).last
@@ -80,14 +80,14 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       harness: harness,
       mailbox_item: close_requests.fetch(background_service.public_id),
       close_outcome_kind: "residual_abandoned",
-      message_id: background_close_message_id
+      protocol_message_id: background_close_protocol_message_id
     )
 
     assert context[:conversation].reload.archived?
     assert_equal "degraded", close_operation.lifecycle_state
     assert_equal "residual_abandoned", background_service.reload.close_outcome_kind
     assert background_service.reload.lost?
-    assert_equal "closed", subagent_session.reload.lifecycle_state
+    assert_equal "closed", subagent_session.reload.derived_close_status
     assert_equal 200, duplicate_background_close.fetch("http_status")
     assert_equal "duplicate", duplicate_background_close.fetch("result")
     assert_equal close_operation_updated_at, close_operation.reload.updated_at
@@ -116,7 +116,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
         heartbeat_timeout_seconds: 30
       )
     end
-    child = Conversations::CreateThread.call(parent: context[:conversation])
+    child = Conversations::CreateFork.call(parent: context[:conversation])
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child keeps running",
@@ -128,7 +128,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     harness.poll!
     harness.report!(
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -172,7 +172,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment],
       addressability: "agent_addressable"
@@ -186,14 +186,14 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       scope: "turn",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
   end
 
-  def report_resource_closed!(harness:, mailbox_item:, close_outcome_kind:, message_id: "close-#{next_test_sequence}")
+  def report_resource_closed!(harness:, mailbox_item:, close_outcome_kind:, protocol_message_id: "close-#{next_test_sequence}")
     harness.report!(
       method_id: "resource_closed",
-      message_id: message_id,
+      protocol_message_id: protocol_message_id,
       mailbox_item_id: mailbox_item.fetch("item_id"),
       close_request_id: mailbox_item.fetch("item_id"),
       resource_type: mailbox_item.fetch("payload").fetch("resource_type"),

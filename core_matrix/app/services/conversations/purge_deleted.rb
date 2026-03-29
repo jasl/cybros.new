@@ -59,7 +59,7 @@ module Conversations
     end
 
     def ensure_finalized_state!(conversation)
-      raise_invalid!(conversation, :base, "must not purge before final deletion removes the canonical store reference") if conversation.canonical_store_reference.present?
+      raise_invalid!(conversation, :base, "must not purge before final deletion removes the lineage store reference") if conversation.lineage_store_reference.present?
     end
 
     def force_quiesce!(conversation)

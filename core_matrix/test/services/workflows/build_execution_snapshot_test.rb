@@ -372,7 +372,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         installation: context[:installation],
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
-        kind: "thread",
+        kind: "fork",
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
         addressability: "agent_addressable"

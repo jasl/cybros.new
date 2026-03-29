@@ -6,8 +6,8 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
     root = context[:conversation]
     anchor_message_id = context[:turn].selected_input_message_id
 
-    Conversations::CreateThread.call(parent: root, historical_anchor_message_id: anchor_message_id)
-    importer = Conversations::CreateThread.call(parent: root, historical_anchor_message_id: anchor_message_id)
+    Conversations::CreateFork.call(parent: root, historical_anchor_message_id: anchor_message_id)
+    importer = Conversations::CreateFork.call(parent: root, historical_anchor_message_id: anchor_message_id)
     Conversations::AddImport.call(
       conversation: importer,
       kind: "quoted_context",
@@ -46,13 +46,13 @@ class Conversations::DependencyBlockersQueryTest < ActiveSupport::TestCase
 
   test "returns a clear result when the conversation has no dependency blockers" do
     context = build_canonical_variable_context!
-    thread = Conversations::CreateThread.call(
+    fork = Conversations::CreateFork.call(
       parent: context[:conversation],
       historical_anchor_message_id: context[:turn].selected_input_message_id
     )
 
-    result = Conversations::DependencyBlockersQuery.call(conversation: thread)
-    snapshot = Conversations::BlockerSnapshotQuery.call(conversation: thread)
+    result = Conversations::DependencyBlockersQuery.call(conversation: fork)
+    snapshot = Conversations::BlockerSnapshotQuery.call(conversation: fork)
 
     assert_equal(
       {

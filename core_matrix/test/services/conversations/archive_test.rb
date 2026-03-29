@@ -54,7 +54,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       owner_conversation: root,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      last_known_status: "idle"
+      observed_status: "idle"
     ).fetch(:session)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -62,7 +62,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors[:base], "must not have open subagent sessions before archival"
-    assert_equal "open", open_session.reload.lifecycle_state
+    assert_equal "open", open_session.reload.derived_close_status
   end
 
   test "rejects archiving while any open human interaction remains" do
@@ -195,7 +195,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::RecordInvalid) do
       SubagentSessions::Spawn.call(
         conversation: context[:conversation].reload,
-        requested_by_turn: context[:turn].reload,
+        origin_turn: context[:turn].reload,
         content: "Blocked while archive close is in progress",
         scope: "conversation"
       )
@@ -230,7 +230,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
         deployment: context[:deployment],
         payload: {
           method_id: "resource_closed",
-          message_id: "#{resource_type.underscore}-close-#{next_test_sequence}",
+          protocol_message_id: "#{resource_type.underscore}-close-#{next_test_sequence}",
           mailbox_item_id: mailbox_item.public_id,
           close_request_id: mailbox_item.public_id,
           resource_type: resource_type,
@@ -288,12 +288,12 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context
   end
 
-  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:, last_known_status: "running")
+  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:, observed_status: "running")
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: execution_environment,
       agent_deployment: agent_deployment,
       addressability: "agent_addressable"
@@ -305,7 +305,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: last_known_status
+      observed_status: observed_status
     )
 
     {

@@ -15,7 +15,7 @@ class Variables::PromoteToWorkspaceTest < ActiveSupport::TestCase
       source_workflow_run: context[:workflow_run],
       projection_policy: "silent"
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "customer_name",
       typed_value_payload: { "type" => "string", "value" => "Acme China" },
@@ -39,7 +39,7 @@ class Variables::PromoteToWorkspaceTest < ActiveSupport::TestCase
 
   test "rejects promotion for archived conversations" do
     context = build_canonical_variable_context!
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "customer_name",
       typed_value_payload: { "type" => "string", "value" => "Acme China" },

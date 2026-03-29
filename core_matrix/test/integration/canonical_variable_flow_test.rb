@@ -15,7 +15,7 @@ class CanonicalVariableFlowTest < ActionDispatch::IntegrationTest
       source_workflow_run: context[:workflow_run],
       projection_policy: "silent"
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "customer_name",
       typed_value_payload: { "type" => "string", "value" => "Acme China" },

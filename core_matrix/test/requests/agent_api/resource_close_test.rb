@@ -21,7 +21,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_close_acknowledged",
-        message_id: "close-ack-#{next_test_sequence}",
+        protocol_message_id: "close-ack-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "ProcessRun",
@@ -37,7 +37,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_closed",
-        message_id: "close-terminal-#{next_test_sequence}",
+        protocol_message_id: "close-terminal-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "ProcessRun",
@@ -57,7 +57,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "completed", mailbox_item.reload.status
   end
 
-  test "duplicate resource_closed is idempotent by message_id" do
+  test "duplicate resource_closed is idempotent by protocol_message_id" do
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
@@ -76,7 +76,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
 
     params = {
       method_id: "resource_closed",
-      message_id: "close-terminal-#{next_test_sequence}",
+      protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       close_request_id: mailbox_item.public_id,
       resource_type: "ProcessRun",
@@ -130,7 +130,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       post "/agent_api/control/report",
         params: {
           method_id: "resource_close_acknowledged",
-          message_id: "close-ack-stale-#{next_test_sequence}",
+          protocol_message_id: "close-ack-stale-#{next_test_sequence}",
           mailbox_item_id: mailbox_item.public_id,
           close_request_id: mailbox_item.public_id,
           resource_type: "ProcessRun",
@@ -185,7 +185,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_closed",
-        message_id: "close-spoofed-env-#{next_test_sequence}",
+        protocol_message_id: "close-spoofed-env-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "ProcessRun",
@@ -227,7 +227,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_closed",
-        message_id: "task-close-#{next_test_sequence}",
+        protocol_message_id: "task-close-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "AgentTaskRun",
@@ -268,7 +268,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_close_failed",
-        message_id: "task-close-failed-#{next_test_sequence}",
+        protocol_message_id: "task-close-failed-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "AgentTaskRun",
@@ -309,7 +309,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_close_failed",
-        message_id: "process-close-failed-#{next_test_sequence}",
+        protocol_message_id: "process-close-failed-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "ProcessRun",
@@ -349,7 +349,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "resource_closed",
-        message_id: "process-close-#{next_test_sequence}",
+        protocol_message_id: "process-close-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         close_request_id: mailbox_item.public_id,
         resource_type: "ProcessRun",

@@ -2,7 +2,7 @@ module AgentAPI
   class ConversationVariablesController < BaseController
     def get
       workspace, conversation = workspace_and_conversation_from_params
-      variable = CanonicalStores::GetQuery.call(reference_owner: conversation, key: params.fetch(:key))
+      variable = LineageStores::GetQuery.call(reference_owner: conversation, key: params.fetch(:key))
 
       render json: {
         method_id: "conversation_variables_get",
@@ -15,7 +15,7 @@ module AgentAPI
 
     def mget
       workspace, conversation = workspace_and_conversation_from_payload
-      variables = CanonicalStores::MultiGetQuery.call(
+      variables = LineageStores::MultiGetQuery.call(
         reference_owner: conversation,
         keys: request_payload.fetch("keys")
       )
@@ -30,7 +30,7 @@ module AgentAPI
 
     def exists
       workspace, conversation = workspace_and_conversation_from_params
-      variable = CanonicalStores::GetQuery.call(reference_owner: conversation, key: params.fetch(:key))
+      variable = LineageStores::GetQuery.call(reference_owner: conversation, key: params.fetch(:key))
 
       render json: {
         method_id: "conversation_variables_exists",
@@ -43,7 +43,7 @@ module AgentAPI
 
     def list_keys
       workspace, conversation = workspace_and_conversation_from_params
-      page = CanonicalStores::ListKeysQuery.call(
+      page = LineageStores::ListKeysQuery.call(
         reference_owner: conversation,
         cursor: params[:cursor],
         limit: params[:limit]
@@ -75,7 +75,7 @@ module AgentAPI
 
     def set
       workspace, conversation = workspace_and_conversation_from_payload
-      variable = CanonicalStores::Set.call(
+      variable = LineageStores::Set.call(
         conversation: conversation,
         key: request_payload.fetch("key"),
         typed_value_payload: request_payload.fetch("typed_value_payload")
@@ -89,7 +89,7 @@ module AgentAPI
 
     def delete
       workspace, conversation = workspace_and_conversation_from_payload
-      deleted = CanonicalStores::DeleteKey.call(
+      deleted = LineageStores::DeleteKey.call(
         conversation: conversation,
         key: request_payload.fetch("key")
       )

@@ -2,14 +2,15 @@
 
 ## Purpose
 
-Core Matrix conversations now carry three independent concerns:
+Core Matrix conversations now carry these independent concerns:
 
 - lineage shape
+- addressability
 - runtime binding
 - user-visible lifecycle state
-- deletion state and canonical-store ownership
+- deletion state and lineage-store ownership
 
-This document reflects the landed behavior after canonical store integration
+This document reflects the landed behavior after lineage store integration
 and safe deletion support.
 
 ## Conversation State Axes
@@ -17,11 +18,14 @@ and safe deletion support.
 - kind:
   - `root`
   - `branch`
-  - `thread`
+  - `fork`
   - `checkpoint`
 - purpose:
   - `interactive`
   - `automation`
+- addressability:
+  - `owner_addressable`
+  - `agent_addressable`
 - lifecycle state:
   - `active`
   - `archived`
@@ -33,27 +37,31 @@ and safe deletion support.
   - one fixed `ExecutionEnvironment`
   - one active `AgentDeployment` that may change within that environment
 
-`lifecycle_state` and `deletion_state` are separate axes. A conversation can be
-archived yet retained, or active yet pending deletion while safe-deletion
-cleanup is still running.
+`addressability`, `lifecycle_state`, and `deletion_state` are separate axes. A
+conversation can be agent-addressable yet active, owner-addressable yet
+archived, or active yet pending deletion while safe-deletion cleanup is still
+running.
 
-Runtime binding is a third independent concern. A conversation stays bound to
-one execution environment for its whole lifetime, while the active deployment
-may rotate or be switched within that bound environment.
+Runtime binding is a separate independent concern. A conversation stays bound
+to one execution environment for its whole lifetime, while the active
+deployment may rotate or be switched within that bound environment.
 
 ## Kind Rules
 
 - `root` conversations have no parent conversation and no historical anchor
 - `branch` conversations require both a parent conversation and a
   `historical_anchor_message_id`
-- `thread` conversations require a parent conversation and may optionally
+- `fork` conversations require a parent conversation and may optionally
   record a historical anchor for provenance
 - `checkpoint` conversations require both a parent conversation and a
   `historical_anchor_message_id`
+- `owner_addressable` conversations accept owner-driven turn entry
+- `agent_addressable` conversations accept delegated agent turn entry and are
+  used for subagent child conversations
 - child conversations stay in the same workspace as their parent
 - child conversations inherit the parent's execution environment binding
 - automation conversations remain root-only
-- branch, checkpoint, and optional thread anchors are validated against the
+- branch, checkpoint, and optional fork anchors are validated against the
   parent conversation's durable transcript history
 - that durable history consists of:
   - inherited transcript rows still visible through parent lineage replay
@@ -67,7 +75,7 @@ may rotate or be switched within that bound environment.
 - child conversations inherit the parent ancestor chain in the same
   transaction
 - transcript projection still walks `parent_conversation` recursively
-- branch, checkpoint, and anchored thread replay fail closed if the persisted
+- branch, checkpoint, and anchored fork replay fail closed if the persisted
   anchor does not belong to the parent conversation
 - output anchors rely on persisted `source_input_message` provenance so replay
   can restore the matching input/output pair inside the child transcript
@@ -78,12 +86,12 @@ may rotate or be switched within that bound environment.
 
 ## Canonical Store Lineage
 
-- every root conversation bootstraps one lineage-local `CanonicalStore`
+- every root conversation bootstraps one lineage-local `LineageStore`
 - root creation also creates:
   - one empty root snapshot
-  - one `CanonicalStoreReference` from the root conversation to that snapshot
-- branch, checkpoint, and thread creation create a fresh
-  `CanonicalStoreReference` that points at the parent conversation's current
+  - one `LineageStoreReference` from the root conversation to that snapshot
+- branch, checkpoint, and fork creation create a fresh
+  `LineageStoreReference` that points at the parent conversation's current
   snapshot
 - child lineage creation copies zero keys and zero values
 - later parent writes do not affect the child because parent and child move
@@ -100,7 +108,7 @@ may rotate or be switched within that bound environment.
 - once deletion has been requested, all caller-driven live mutation is
   rejected, including:
   - new turn entry
-  - branch, thread, and checkpoint creation
+  - branch, fork, and checkpoint creation
   - conversation-local store writes
   - import and summary writes
   - message-visibility updates
@@ -109,7 +117,7 @@ may rotate or be switched within that bound environment.
 - the current active turn is fenced through `turn_interrupt`
 - parent delete does not interrupt retained child conversations
 - `Conversations::FinalizeDeletion` removes the conversation's live
-  `CanonicalStoreReference` and moves the row to `deleted` once the mainline
+  `LineageStoreReference` and moves the row to `deleted` once the mainline
   stop barrier is clear
 - detached background cleanup may still be `disposing` or `degraded` after the
   row has reached `deleted`
@@ -122,7 +130,7 @@ may rotate or be switched within that bound environment.
   `MessageAttachment` and `WorkflowArtifact` through model destruction so their
   Active Storage attachment joins are cleaned up
 - `Conversations::PurgeDeleted` rejects corrupted `deleted` states that still
-  retain active runtime work or a live `CanonicalStoreReference`
+  retain active runtime work or a live `LineageStoreReference`
 - `Conversations::PurgeDeleted` also fails closed if its purge graph reports
   any owned rows still remain after cleanup; in that case the tombstone shell
   is kept and purge raises rather than deleting the conversation row anyway
@@ -130,11 +138,11 @@ may rotate or be switched within that bound environment.
   runtime residue by issuing the normal delete close contract; it does not
   bypass final-deletion or lineage guards
 - `PurgeDeleted(force: true)` still does not perform final deletion on behalf
-  of the caller; the live `CanonicalStoreReference` must already be gone
+  of the caller; the live `LineageStoreReference` must already be gone
 - if active runtime residue still exists after that force request, the deleted
   tombstone shell remains until close reports clear the residue and purge is
   retried
-- physical purge is deferred while descendants, canonical-store root
+- physical purge is deferred while descendants, lineage-store root
   ownership, or other durable provenance still require the row
 - a deleted row may therefore remain as a non-visible tombstone shell
 - deleting a parent conversation does not cascade deletion into retained child
@@ -176,7 +184,7 @@ may rotate or be switched within that bound environment.
 - archived conversations are excluded from open human-interaction inbox queries
 - archived conversations reject all caller-driven live mutation, including:
   - turn entry and queued follow-up
-  - branch, thread, and checkpoint creation
+  - branch, fork, and checkpoint creation
   - human-interaction open and late resolution
   - import and summary writes
   - message-visibility updates
@@ -187,7 +195,7 @@ may rotate or be switched within that bound environment.
 - `Conversations::Unarchive` requires:
   - `deletion_state = retained`
   - `lifecycle_state = archived`
-- archive and unarchive do not change lineage, canonical-store ownership, or
+- archive and unarchive do not change lineage, lineage-store ownership, or
   descendant state
 - archiving a parent conversation does not archive children automatically
 - deleting a conversation still uses the separate deletion-state axis rather
@@ -225,7 +233,7 @@ may rotate or be switched within that bound environment.
 - lineage shape, runtime binding, visible lifecycle, and deletion state stay
   distinct
 - automation conversations stay root-only
-- child conversations reuse canonical-store lineage by reference, not by eager
+- child conversations reuse lineage-store lineage by reference, not by eager
   copying
 - deletion never breaks descendant transcript or store lineage
 - conversation environment binding does not change after creation
@@ -238,7 +246,7 @@ may rotate or be switched within that bound environment.
 - branch and checkpoint conversations without a historical anchor are rejected
 - automation conversations with non-root kinds are rejected
 - child conversations in a different workspace from the parent are rejected
-- branch, checkpoint, and thread creation are rejected from parents that are
+- branch, checkpoint, and fork creation are rejected from parents that are
   non-retained, archived, or currently closing
 - archive is rejected for non-retained or non-active conversations
 - archive without force is rejected while unfinished runtime work remains

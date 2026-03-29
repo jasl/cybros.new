@@ -34,7 +34,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     holder_harness.poll!
     holder_harness.report!(
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -44,7 +44,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
 
     sibling_terminal = sibling_harness.report!(
       method_id: "execution_complete",
-      message_id: "sibling-terminal-#{next_test_sequence}",
+      protocol_message_id: "sibling-terminal-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -59,7 +59,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
 
     holder_terminal = holder_harness.report!(
       method_id: "execution_complete",
-      message_id: "holder-terminal-#{next_test_sequence}",
+      protocol_message_id: "holder-terminal-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -99,7 +99,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     harness.poll!
     harness.report!(
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -111,7 +111,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
 
     late_progress = harness.report!(
       method_id: "execution_progress",
-      message_id: "late-progress-#{next_test_sequence}",
+      protocol_message_id: "late-progress-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -135,7 +135,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
 
     late_terminal = harness.report!(
       method_id: "execution_complete",
-      message_id: "late-terminal-#{next_test_sequence}",
+      protocol_message_id: "late-terminal-#{next_test_sequence}",
       mailbox_item_id: assignment.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -148,7 +148,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     assert context[:turn].reload.canceled?
     assert context[:workflow_run].reload.canceled?
     assert process_run.reload.stopped?
-    assert_equal "closed", subagent_session.reload.lifecycle_state
+    assert_equal "closed", subagent_session.reload.derived_close_status
     assert subagent_session.close_closed?
   end
 
@@ -159,7 +159,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment],
       addressability: "agent_addressable"
@@ -173,14 +173,14 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       scope: "turn",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
   end
 
   def report_resource_closed!(harness:, mailbox_item:, close_outcome_kind:)
     harness.report!(
       method_id: "resource_closed",
-      message_id: "close-#{next_test_sequence}",
+      protocol_message_id: "close-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.fetch("item_id"),
       close_request_id: mailbox_item.fetch("item_id"),
       resource_type: mailbox_item.fetch("payload").fetch("resource_type"),

@@ -43,7 +43,7 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: root,
       key: "tone",
       typed_value_payload: { "type" => "string", "value" => "direct" }
@@ -56,16 +56,16 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_no_difference(["CanonicalStoreSnapshot.count", "CanonicalStoreEntry.count", "CanonicalStoreValue.count"]) do
+    assert_no_difference(["LineageStoreSnapshot.count", "LineageStoreEntry.count", "LineageStoreValue.count"]) do
       @checkpoint = Conversations::CreateCheckpoint.call(
         parent: root,
         historical_anchor_message_id: anchor_turn.selected_input_message_id
       )
     end
 
-    assert_equal root.canonical_store_reference.canonical_store_snapshot_id,
-      @checkpoint.canonical_store_reference.canonical_store_snapshot_id
-    refute_equal root.canonical_store_reference.id, @checkpoint.canonical_store_reference.id
+    assert_equal root.lineage_store_reference.lineage_store_snapshot_id,
+      @checkpoint.lineage_store_reference.lineage_store_snapshot_id
+    refute_equal root.lineage_store_reference.id, @checkpoint.lineage_store_reference.id
   end
 
   test "rejects automation conversations" do

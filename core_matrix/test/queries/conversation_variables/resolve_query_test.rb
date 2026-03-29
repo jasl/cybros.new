@@ -26,12 +26,12 @@ class ConversationVariables::ResolveQueryTest < ActiveSupport::TestCase
       source_turn: context[:turn],
       source_workflow_run: context[:workflow_run]
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "customer_name",
       typed_value_payload: { "type" => "string", "value" => "Acme China" },
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "tone",
       typed_value_payload: { "type" => "string", "value" => "direct" },

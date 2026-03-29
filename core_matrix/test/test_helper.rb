@@ -842,7 +842,7 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_installation: turn.agent_deployment.agent_installation, task_kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
+    def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_installation: turn.agent_deployment.agent_installation, kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
       AgentTaskRun.create!({
         installation: installation,
         agent_installation: agent_installation,
@@ -850,7 +850,7 @@ module ActiveSupport
         workflow_node: workflow_node,
         conversation: conversation,
         turn: turn,
-        task_kind: task_kind,
+        kind: kind,
         lifecycle_state: lifecycle_state,
         logical_work_id: logical_work_id,
         attempt_no: attempt_no,
@@ -861,7 +861,7 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_control_mailbox_item!(installation:, target_agent_installation:, target_agent_deployment: nil, target_execution_environment: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "agent", target_kind: (target_agent_deployment.present? ? "agent_deployment" : "agent_installation"), target_ref: nil, logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
+    def create_agent_control_mailbox_item!(installation:, target_agent_installation:, target_agent_deployment: nil, target_execution_environment: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "agent", target_kind: (target_agent_deployment.present? ? "agent_deployment" : "agent_installation"), target_ref: nil, logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, protocol_message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
       target_ref ||= if runtime_plane == "environment"
         target_execution_environment&.public_id
       else
@@ -881,7 +881,7 @@ module ActiveSupport
         logical_work_id: logical_work_id,
         attempt_no: attempt_no,
         delivery_no: delivery_no,
-        message_id: message_id,
+        protocol_message_id: protocol_message_id,
         causation_id: causation_id,
         priority: priority,
         status: status,
@@ -1000,57 +1000,57 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_canonical_store!(workspace:, root_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
-      CanonicalStore.create!({
+    def create_lineage_store!(workspace:, root_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
+      LineageStore.create!({
         installation: installation,
         workspace: workspace,
         root_conversation: root_conversation,
       }.merge(attrs))
     end
 
-    def create_canonical_store_snapshot!(canonical_store:, snapshot_kind: "root", base_snapshot: nil, depth: 0, **attrs)
-      CanonicalStoreSnapshot.create!({
-        canonical_store: canonical_store,
+    def create_lineage_store_snapshot!(lineage_store:, snapshot_kind: "root", base_snapshot: nil, depth: 0, **attrs)
+      LineageStoreSnapshot.create!({
+        lineage_store: lineage_store,
         snapshot_kind: snapshot_kind,
         base_snapshot: base_snapshot,
         depth: depth,
       }.merge(attrs))
     end
 
-    def create_canonical_store_value!(typed_value_payload:, **attrs)
-      CanonicalStoreValue.create!({
+    def create_lineage_store_value!(typed_value_payload:, **attrs)
+      LineageStoreValue.create!({
         typed_value_payload: typed_value_payload,
       }.merge(attrs))
     end
 
-    def create_canonical_store_entry!(canonical_store_snapshot:, key:, entry_kind:, canonical_store_value: nil, value_type: nil, value_bytesize: nil, **attrs)
-      CanonicalStoreEntry.create!({
-        canonical_store_snapshot: canonical_store_snapshot,
+    def create_lineage_store_entry!(lineage_store_snapshot:, key:, entry_kind:, lineage_store_value: nil, value_type: nil, value_bytesize: nil, **attrs)
+      LineageStoreEntry.create!({
+        lineage_store_snapshot: lineage_store_snapshot,
         key: key,
         entry_kind: entry_kind,
-        canonical_store_value: canonical_store_value,
+        lineage_store_value: lineage_store_value,
         value_type: value_type,
         value_bytesize: value_bytesize,
       }.merge(attrs))
     end
 
-    def create_canonical_store_reference!(canonical_store_snapshot:, owner:, **attrs)
-      CanonicalStoreReference.create!({
-        canonical_store_snapshot: canonical_store_snapshot,
+    def create_lineage_store_reference!(lineage_store_snapshot:, owner:, **attrs)
+      LineageStoreReference.create!({
+        lineage_store_snapshot: lineage_store_snapshot,
         owner: owner,
       }.merge(attrs))
     end
 
-    def build_canonical_store_context!
+    def build_lineage_store_context!
       context = build_canonical_variable_context!
-      reference = context[:conversation].reload.canonical_store_reference
-      root_snapshot = reference.canonical_store_snapshot
-      store = root_snapshot.canonical_store
+      reference = context[:conversation].reload.lineage_store_reference
+      root_snapshot = reference.lineage_store_snapshot
+      store = root_snapshot.lineage_store
 
       context.merge(
-        canonical_store: store,
-        canonical_store_snapshot: root_snapshot,
-        canonical_store_reference: reference,
+        lineage_store: store,
+        lineage_store_snapshot: root_snapshot,
+        lineage_store_reference: reference,
       )
     end
 

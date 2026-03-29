@@ -26,7 +26,7 @@ class SubagentSessions::RequestCloseTest < ActiveSupport::TestCase
     close_request = AgentControlMailboxItem.where(item_type: "resource_close_request").order(:created_at).last
 
     assert_equal "requested", session.reload.close_state
-    assert_equal "close_requested", session.lifecycle_state
+    assert_equal "close_requested", session.derived_close_status
     assert_equal "SubagentSession", close_request.payload.fetch("resource_type")
     assert_equal session.public_id, close_request.payload.fetch("resource_id")
   end
@@ -39,7 +39,7 @@ class SubagentSessions::RequestCloseTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -52,7 +52,7 @@ class SubagentSessions::RequestCloseTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
   end
 end

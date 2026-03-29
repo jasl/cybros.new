@@ -8,12 +8,12 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, method_id: nil, message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
+    def initialize(deployment:, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
       raw_payload = payload.presence || kwargs
       @deployment = deployment
       @payload = raw_payload.deep_stringify_keys
       @method_id = method_id || @payload.fetch("method_id")
-      @message_id = message_id || @payload.fetch("message_id")
+      @protocol_message_id = protocol_message_id || @payload.fetch("protocol_message_id")
       @occurred_at = occurred_at
     end
 
@@ -62,7 +62,7 @@ module AgentControl
       AgentControlReportReceipt.create!(
         installation: @deployment.installation,
         agent_deployment: @deployment,
-        message_id: @message_id,
+        protocol_message_id: @protocol_message_id,
         method_id: @method_id,
         logical_work_id: @payload["logical_work_id"],
         attempt_no: @payload["attempt_no"],
@@ -72,7 +72,7 @@ module AgentControl
     end
 
     def find_existing_receipt
-      AgentControlReportReceipt.find_by(installation_id: @deployment.installation_id, message_id: @message_id)
+      AgentControlReportReceipt.find_by(installation_id: @deployment.installation_id, protocol_message_id: @protocol_message_id)
     end
 
     def process_report!(receipt)

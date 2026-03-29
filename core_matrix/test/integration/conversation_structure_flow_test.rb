@@ -31,7 +31,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
       resolved_model_selection_snapshot: {}
     )
     branch_turn.update!(lifecycle_state: "completed")
-    thread = Conversations::CreateThread.call(parent: root)
+    fork = Conversations::CreateFork.call(parent: root)
     checkpoint = Conversations::CreateCheckpoint.call(
       parent: branch,
       historical_anchor_message_id: branch_turn.selected_input_message_id
@@ -60,7 +60,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
     end
 
     assert_raises(ActiveRecord::RecordInvalid) do
-      Conversations::CreateThread.call(parent: automation_root)
+      Conversations::CreateFork.call(parent: automation_root)
     end
 
     assert_raises(ActiveRecord::RecordInvalid) do

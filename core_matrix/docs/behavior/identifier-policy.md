@@ -50,7 +50,7 @@ agent-facing boundaries:
   deleted or pending-delete conversation is not a valid external lookup target
 - canonical-variable payloads must not expose canonical-variable row ids
   because `CanonicalVariable` is not an external resource
-- canonical-store rows, snapshot ids, entry ids, value ids, and reference ids
+- lineage-store rows, snapshot ids, entry ids, value ids, and reference ids
   are internal-only and must never appear in external or agent-facing payloads
 
 ## Runtime Payload Rules

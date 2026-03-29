@@ -4,7 +4,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
   test "reports mainline blockers, tail blockers, and dependency blockers distinctly" do
     context = build_agent_control_context!
     root = context[:conversation]
-    child = Conversations::CreateThread.call(parent: root)
+    child = Conversations::CreateFork.call(parent: root)
     request = HumanInteractions::Request.call(
       request_type: "HumanTaskRequest",
       workflow_node: context[:workflow_node],
@@ -51,7 +51,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
     assert running_task.running?
     assert process_run.running?
     assert background_run.running?
-    assert subagent_session.last_known_status_running?
+    assert subagent_session.observed_status_running?
     assert child.retained?
   end
 
@@ -62,7 +62,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: execution_environment,
       agent_deployment: agent_deployment,
       addressability: "agent_addressable"
@@ -75,7 +75,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
   end
 end

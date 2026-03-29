@@ -32,7 +32,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
     dispatch_calls = []
     handler_calls = []
-    message_id = "report-dispatch-#{next_test_sequence}"
+    protocol_message_id = "report-dispatch-#{next_test_sequence}"
     fake_handler = Struct.new(:receipt_attributes, :calls) do
       def call
         calls << :called
@@ -60,7 +60,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "execution_progress",
-      message_id: message_id,
+      protocol_message_id: protocol_message_id,
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -68,7 +68,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       progress_payload: { "state" => "stubbed" }
     )
 
-    receipt = AgentControlReportReceipt.find_by!(installation: context[:installation], message_id: message_id)
+    receipt = AgentControlReportReceipt.find_by!(installation: context[:installation], protocol_message_id: protocol_message_id)
 
     assert_equal "accepted", result.code
     assert_equal [:called], handler_calls
@@ -87,7 +87,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    message_id = "report-exception-#{next_test_sequence}"
+    protocol_message_id = "report-exception-#{next_test_sequence}"
     dispatch_singleton = AgentControl::ReportDispatch.singleton_class
     original_dispatch = AgentControl::ReportDispatch.method(:call)
     fake_handler = Struct.new(:receipt_attributes, :mailbox_item) do
@@ -111,7 +111,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       AgentControl::Report.call(
         deployment: context[:deployment],
         method_id: "execution_progress",
-        message_id: message_id,
+        protocol_message_id: protocol_message_id,
         mailbox_item_id: mailbox_item.public_id,
         agent_task_run_id: agent_task_run.public_id,
         logical_work_id: agent_task_run.logical_work_id,
@@ -121,7 +121,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     end
 
     assert_equal "boom", error.message
-    assert_nil AgentControlReportReceipt.find_by(installation: context[:installation], message_id: message_id)
+    assert_nil AgentControlReportReceipt.find_by(installation: context[:installation], protocol_message_id: protocol_message_id)
     assert_equal "queued", mailbox_item.reload.status
     assert_nil mailbox_item.acked_at
   ensure
@@ -138,7 +138,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -185,7 +185,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "execution_progress",
-      message_id: "agent-progress-#{next_test_sequence}",
+      protocol_message_id: "agent-progress-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -204,7 +204,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -216,7 +216,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
@@ -230,7 +230,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     ack_result = AgentControl::Report.call(
       deployment: context[:replacement_deployment],
       method_id: "resource_close_acknowledged",
-      message_id: "close-ack-#{next_test_sequence}",
+      protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       close_request_id: mailbox_item.public_id,
       resource_type: "SubagentSession",
@@ -256,7 +256,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     terminal_result = AgentControl::Report.call(
       deployment: context[:previous_deployment],
       method_id: "resource_closed",
-      message_id: "close-terminal-#{next_test_sequence}",
+      protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       close_request_id: mailbox_item.public_id,
       resource_type: "SubagentSession",
@@ -268,8 +268,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "stale", terminal_result.code
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "acknowledged", subagent_session.reload.close_state
-    assert_equal "close_requested", subagent_session.reload.lifecycle_state
-    assert subagent_session.last_known_status_running?
+    assert_equal "close_requested", subagent_session.reload.derived_close_status
+    assert subagent_session.observed_status_running?
   end
 
   test "resource_closed terminalizes a subagent session and updates durable status" do
@@ -279,7 +279,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -292,7 +292,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       scope: "turn",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
     close_request = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
@@ -304,7 +304,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "resource_closed",
-      message_id: "close-terminal-#{next_test_sequence}",
+      protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "SubagentSession",
@@ -316,8 +316,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "accepted", result.code
     assert_equal "completed", close_request.reload.status
     assert subagent_session.reload.close_closed?
-    assert_equal "closed", subagent_session.lifecycle_state
-    assert subagent_session.last_known_status_interrupted?
+    assert_equal "closed", subagent_session.derived_close_status
+    assert subagent_session.observed_status_interrupted?
   end
 
   test "forced requeue keeps the last acknowledged deployment valid until a new lease takes over" do
@@ -345,7 +345,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     ack_result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "resource_close_acknowledged",
-      message_id: "close-ack-#{next_test_sequence}",
+      protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
@@ -369,7 +369,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "resource_closed",
-      message_id: "close-terminal-#{next_test_sequence}",
+      protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
@@ -410,7 +410,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     ack_result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "resource_close_acknowledged",
-      message_id: "close-ack-#{next_test_sequence}",
+      protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
@@ -436,7 +436,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "resource_closed",
-      message_id: "close-terminal-#{next_test_sequence}",
+      protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
       close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
@@ -487,7 +487,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     params = {
       deployment: context[:deployment],
       method_id: "resource_closed",
-      message_id: "close-terminal-#{next_test_sequence}",
+      protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       close_request_id: mailbox_item.public_id,
       resource_type: "ProcessRun",

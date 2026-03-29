@@ -63,7 +63,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       logical_work_id: "close-test",
       attempt_no: 1,
       delivery_no: 0,
-      message_id: "close-message-#{next_test_sequence}",
+      protocol_message_id: "close-message-#{next_test_sequence}",
       priority: 0,
       status: "queued",
       available_at: Time.current,
@@ -109,7 +109,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment],
       addressability: "agent_addressable"
@@ -121,7 +121,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
 
     mailbox_item = AgentControl::CreateResourceCloseRequest.call(
@@ -147,7 +147,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment],
       addressability: "agent_addressable"
@@ -159,9 +159,9 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
-    message_id = "duplicate-close-message"
+    protocol_message_id = "duplicate-close-message"
 
     create_agent_control_mailbox_item!(
       installation: context[:installation],
@@ -171,7 +171,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       target_kind: "agent_installation",
       target_ref: context[:agent_installation].public_id,
       logical_work_id: "close-test-#{next_test_sequence}",
-      message_id: message_id,
+      protocol_message_id: protocol_message_id,
       priority: 0,
       payload: { "request_kind" => "turn_interrupt" }
     )
@@ -184,7 +184,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
         strictness: "graceful",
         grace_deadline_at: 30.seconds.from_now,
         force_deadline_at: 60.seconds.from_now,
-        message_id: message_id
+        protocol_message_id: protocol_message_id
       )
     end
 
@@ -205,7 +205,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       logical_work_id: "assignment-#{next_test_sequence}",
       attempt_no: 1,
       delivery_no: 0,
-      message_id: "kernel-message-#{next_test_sequence}",
+      protocol_message_id: "kernel-message-#{next_test_sequence}",
       priority: 1,
       status: "queued",
       available_at: Time.current,

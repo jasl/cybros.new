@@ -124,8 +124,8 @@ module Conversations
       AgentTaskRun
         .joins(:subagent_session)
         .where(
-          requested_by_turn: turn,
-          task_kind: "subagent_step",
+          origin_turn: turn,
+          kind: "subagent_step",
           lifecycle_state: "running",
           subagent_sessions: { scope: "conversation" }
         )

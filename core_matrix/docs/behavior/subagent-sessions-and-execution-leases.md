@@ -39,11 +39,11 @@ The landed model separates concerns cleanly:
   - `acknowledged`
   - `closed`
   - `failed`
-- machine-facing `lifecycle_state` remains available as a derived projection:
+- machine-facing `derived_close_status` remains available as a derived projection:
   - `open -> open`
   - `requested|acknowledged -> close_requested`
   - `closed|failed -> closed`
-- `last_known_status` records runtime-observed progress:
+- `observed_status` records runtime-observed progress:
   - `idle`
   - `running`
   - `waiting`
@@ -55,8 +55,8 @@ The landed model separates concerns cleanly:
   request metadata; terminal close reports then settle `close_state` into
   `closed` or `failed`
 - quiescence checks, blocker snapshots, turn-interrupt barriers, and
-  `SubagentSessions::Wait` all read that canonical close model and only expose
-  `lifecycle_state` as a derived machine-facing projection
+  `SubagentSessions::Wait` all read that durable close model and only expose
+  `derived_close_status` as a derived machine-facing projection
 
 ## Session Boundaries
 

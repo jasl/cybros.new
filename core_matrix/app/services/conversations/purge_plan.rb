@@ -156,7 +156,7 @@ module Conversations
     end
 
     def purge_structural_rows!
-      CanonicalStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids).delete_all
+      LineageStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids).delete_all
       ConversationClosure.where(ancestor_conversation_id: @owned_conversation_ids).or(
         ConversationClosure.where(descendant_conversation_id: @owned_conversation_ids)
       ).delete_all
@@ -189,7 +189,7 @@ module Conversations
         active_storage_attachment_scope,
         Message.where(id: @message_ids),
         Turn.where(id: @turn_ids),
-        CanonicalStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids),
+        LineageStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids),
         Conversation.where(id: @owned_subagent_conversation_ids),
         ConversationClosure.where(ancestor_conversation_id: @owned_conversation_ids).or(
           ConversationClosure.where(descendant_conversation_id: @owned_conversation_ids)

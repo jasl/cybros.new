@@ -5,7 +5,7 @@ class Conversation < ApplicationRecord
     {
       root: "root",
       branch: "branch",
-      thread: "thread",
+      fork: "fork",
       checkpoint: "checkpoint",
     },
     validate: true
@@ -66,9 +66,9 @@ class Conversation < ApplicationRecord
   has_one :subagent_session,
     dependent: :restrict_with_exception,
     inverse_of: :conversation
-  has_one :canonical_store_reference, as: :owner, dependent: :restrict_with_exception
-  has_one :root_canonical_store,
-    class_name: "CanonicalStore",
+  has_one :lineage_store_reference, as: :owner, dependent: :restrict_with_exception
+  has_one :root_lineage_store,
+    class_name: "LineageStore",
     foreign_key: :root_conversation_id,
     dependent: :restrict_with_exception
   has_many :child_conversations,

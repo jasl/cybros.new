@@ -15,12 +15,12 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_task_run:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil, message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
+    def initialize(agent_task_run:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil, protocol_message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
       @agent_task_run = agent_task_run
       @payload = payload.deep_stringify_keys
       @dispatch_deadline_at = dispatch_deadline_at
       @execution_hard_deadline_at = execution_hard_deadline_at
-      @message_id = message_id || "kernel-assignment-#{SecureRandom.uuid}"
+      @protocol_message_id = protocol_message_id || "kernel-assignment-#{SecureRandom.uuid}"
       @causation_id = causation_id
       @lease_timeout_seconds = lease_timeout_seconds
       @priority = priority
@@ -37,7 +37,7 @@ module AgentControl
         target_ref: @agent_task_run.agent_installation.public_id,
         logical_work_id: @agent_task_run.logical_work_id,
         attempt_no: @agent_task_run.attempt_no,
-        message_id: @message_id,
+        protocol_message_id: @protocol_message_id,
         causation_id: @causation_id,
         priority: @priority,
         status: "queued",
@@ -67,7 +67,7 @@ module AgentControl
         "workflow_node_id" => @agent_task_run.workflow_node.public_id,
         "conversation_id" => @agent_task_run.conversation.public_id,
         "turn_id" => @agent_task_run.turn.public_id,
-        "task_kind" => @agent_task_run.task_kind,
+        "kind" => @agent_task_run.kind,
         "task_payload" => normalized_task_payload,
         "context_messages" => execution_snapshot.context_messages,
         "budget_hints" => execution_snapshot.budget_hints,

@@ -8,7 +8,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
       parent_conversation: context[:conversation],
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -19,7 +19,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
       scope: "turn",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
 
     lease = ExecutionLease.new(
@@ -35,7 +35,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
     )
 
     assert lease.valid?
-    assert_equal "open", subagent_session.lifecycle_state
+    assert_equal "open", subagent_session.derived_close_status
     lease.save!
     assert lease.active?
 

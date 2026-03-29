@@ -40,39 +40,39 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
-      content: "Parent thread anchor",
+      content: "Parent fork anchor",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    parent_thread = Conversations::CreateThread.call(
+    parent_fork = Conversations::CreateFork.call(
       parent: root,
       historical_anchor_message_id: root_turn.selected_input_message_id
     )
     parent_turn = Turns::StartUserTurn.call(
-      conversation: parent_thread,
-      content: "Child thread anchor",
+      conversation: parent_fork,
+      content: "Child fork anchor",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    child_thread = Conversations::CreateThread.call(
-      parent: parent_thread,
+    child_fork = Conversations::CreateFork.call(
+      parent: parent_fork,
       historical_anchor_message_id: parent_turn.selected_input_message_id
     )
 
-    Conversations::RequestDeletion.call(conversation: parent_thread)
-    parent_thread = Conversations::FinalizeDeletion.call(conversation: parent_thread.reload)
-    parent_close_operation = parent_thread.conversation_close_operations.order(:created_at).last
+    Conversations::RequestDeletion.call(conversation: parent_fork)
+    parent_fork = Conversations::FinalizeDeletion.call(conversation: parent_fork.reload)
+    parent_close_operation = parent_fork.conversation_close_operations.order(:created_at).last
 
     assert_equal "disposing", parent_close_operation.lifecycle_state
     assert_equal 1, parent_close_operation.summary_payload.dig("dependencies", "descendant_lineage_blockers")
 
-    Conversations::RequestDeletion.call(conversation: child_thread)
-    child_thread = Conversations::FinalizeDeletion.call(conversation: child_thread.reload)
+    Conversations::RequestDeletion.call(conversation: child_fork)
+    child_fork = Conversations::FinalizeDeletion.call(conversation: child_fork.reload)
 
     assert_difference("Conversation.count", -1) do
-      Conversations::PurgeDeleted.call(conversation: child_thread.reload)
+      Conversations::PurgeDeleted.call(conversation: child_fork.reload)
     end
 
     assert_equal "completed", parent_close_operation.reload.lifecycle_state
@@ -89,23 +89,23 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     )
     source_turn = Turns::StartUserTurn.call(
       conversation: root,
-      content: "Source thread anchor",
+      content: "Source fork anchor",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    source_thread = Conversations::CreateThread.call(
+    source_fork = Conversations::CreateFork.call(
       parent: root,
       historical_anchor_message_id: source_turn.selected_input_message_id
     )
     imported_message = Turns::StartUserTurn.call(
-      conversation: source_thread,
+      conversation: source_fork,
       content: "Quoted source",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     ).selected_input_message
-    importer = Conversations::CreateThread.call(
+    importer = Conversations::CreateFork.call(
       parent: root,
       historical_anchor_message_id: source_turn.selected_input_message_id
     )
@@ -115,9 +115,9 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       source_message: imported_message
     )
 
-    Conversations::RequestDeletion.call(conversation: source_thread)
-    source_thread = Conversations::FinalizeDeletion.call(conversation: source_thread.reload)
-    source_close_operation = source_thread.conversation_close_operations.order(:created_at).last
+    Conversations::RequestDeletion.call(conversation: source_fork)
+    source_fork = Conversations::FinalizeDeletion.call(conversation: source_fork.reload)
+    source_close_operation = source_fork.conversation_close_operations.order(:created_at).last
 
     assert_equal "disposing", source_close_operation.lifecycle_state
     assert_equal true, source_close_operation.summary_payload.dig("dependencies", "import_provenance_blocker")
@@ -208,7 +208,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       agent_deployment: context[:deployment],
       agent_task_run: agent_task_run,
       mailbox_item: assignment_mailbox_item,
-      message_id: "assignment-receipt-#{next_test_sequence}",
+      protocol_message_id: "assignment-receipt-#{next_test_sequence}",
       method_id: "execution_complete",
       result_code: "accepted",
       payload: {
@@ -220,7 +220,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       installation: context[:installation],
       agent_deployment: context[:deployment],
       mailbox_item: process_close_request,
-      message_id: "process-close-receipt-#{next_test_sequence}",
+      protocol_message_id: "process-close-receipt-#{next_test_sequence}",
       method_id: "resource_closed",
       result_code: "accepted",
       payload: {
@@ -385,7 +385,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert_not Conversation.exists?(conversation.id)
   end
 
-  test "rejects purge while a deleted conversation still has its live canonical store reference" do
+  test "rejects purge while a deleted conversation still has its live lineage store reference" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -407,7 +407,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
         Conversations::PurgeDeleted.call(conversation: branch.reload)
       end
 
-      assert_includes error.record.errors[:base], "must not purge before final deletion removes the canonical store reference"
+      assert_includes error.record.errors[:base], "must not purge before final deletion removes the lineage store reference"
     end
 
     assert Conversation.exists?(branch.id)
@@ -428,7 +428,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    root.canonical_store_reference.destroy!
+    root.lineage_store_reference.destroy!
     root.update!(deletion_state: "deleted", deleted_at: Time.current)
 
     assert_no_difference("Conversation.count") do
@@ -449,7 +449,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    branch = Conversations::CreateThread.call(parent: root)
+    branch = Conversations::CreateFork.call(parent: root)
     turn = Turns::StartUserTurn.call(
       conversation: branch,
       content: "Done already",
@@ -475,7 +475,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     attach_selected_output!(turn, content: "Done")
     turn.update!(lifecycle_state: "completed")
     workflow_run.update!(lifecycle_state: "completed")
-    branch.canonical_store_reference.destroy!
+    branch.lineage_store_reference.destroy!
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -487,14 +487,14 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert Conversation.exists?(branch.id)
   end
 
-  test "force purge still requires final deletion to remove the live canonical store reference" do
+  test "force purge still requires final deletion to remove the live lineage store reference" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    branch = Conversations::CreateThread.call(parent: root)
+    branch = Conversations::CreateFork.call(parent: root)
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -505,7 +505,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:base], "must not purge before final deletion removes the canonical store reference"
+    assert_includes error.record.errors[:base], "must not purge before final deletion removes the lineage store reference"
     assert Conversation.exists?(branch.id)
   end
 
@@ -516,7 +516,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    branch = Conversations::CreateThread.call(parent: root)
+    branch = Conversations::CreateFork.call(parent: root)
     create_nested_subagent_session_tree!(
       installation: context[:installation],
       workspace: context[:workspace],
@@ -538,7 +538,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
   test "force purge requests mailbox close for deleted nested subagent session trees before later removing the shell" do
     context = build_agent_control_context!
     root = context[:conversation]
-    branch = Conversations::CreateThread.call(parent: root)
+    branch = Conversations::CreateFork.call(parent: root)
     session_tree = create_nested_subagent_session_tree!(
       installation: context[:installation],
       workspace: context[:workspace],
@@ -546,7 +546,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment]
     )
-    branch.canonical_store_reference.destroy!
+    branch.lineage_store_reference.destroy!
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -583,7 +583,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       deployment: context[:deployment],
       payload: {
         method_id: "resource_closed",
-        message_id: "direct-session-close-#{next_test_sequence}",
+        protocol_message_id: "direct-session-close-#{next_test_sequence}",
         mailbox_item_id: direct_session_close.public_id,
         close_request_id: direct_session_close.public_id,
         resource_type: "SubagentSession",
@@ -596,7 +596,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       deployment: context[:deployment],
       payload: {
         method_id: "resource_closed",
-        message_id: "nested-session-close-#{next_test_sequence}",
+        protocol_message_id: "nested-session-close-#{next_test_sequence}",
         mailbox_item_id: nested_session_close.public_id,
         close_request_id: nested_session_close.public_id,
         resource_type: "SubagentSession",
@@ -649,7 +649,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: execution_environment,
       agent_deployment: agent_deployment,
       addressability: "agent_addressable"
@@ -661,13 +661,13 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
     nested_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: direct_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: execution_environment,
       agent_deployment: agent_deployment,
       addressability: "agent_addressable"
@@ -680,7 +680,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       profile_key: "researcher",
       depth: 1,
       parent_subagent_session: direct_session,
-      last_known_status: "running"
+      observed_status: "running"
     )
 
     {

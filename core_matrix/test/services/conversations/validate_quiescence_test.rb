@@ -61,7 +61,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
 
     assert_equal conversation.id, error.record.id
     assert_includes error.record.errors[:base], "must not have open or close-pending subagent sessions before purge"
-    assert_equal "close_requested", session.reload.lifecycle_state
+    assert_equal "close_requested", session.reload.derived_close_status
   end
 
   test "final deletion ignores disposing background-service tails once the mainline barrier is clear" do
@@ -113,7 +113,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: execution_environment,
       agent_deployment: agent_deployment,
       addressability: "agent_addressable"
@@ -125,7 +125,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "idle"
+      observed_status: "idle"
     )
   end
 end

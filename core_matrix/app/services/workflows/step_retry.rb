@@ -31,7 +31,7 @@ module Workflows
               workflow_node: failed_task.workflow_node,
               conversation: failed_task.conversation,
               turn: failed_task.turn,
-              task_kind: failed_task.task_kind,
+              kind: failed_task.kind,
               lifecycle_state: "queued",
               logical_work_id: failed_task.logical_work_id,
               attempt_no: failed_task.attempt_no + 1,

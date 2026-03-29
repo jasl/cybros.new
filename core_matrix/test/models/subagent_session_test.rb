@@ -7,6 +7,10 @@ class SubagentSessionTest < ActiveSupport::TestCase
     assert_includes SubagentSession.column_names, "conversation_id"
     assert_includes SubagentSession.column_names, "profile_key"
     assert_includes SubagentSession.column_names, "scope"
+    assert_includes SubagentSession.column_names, "observed_status"
+    assert_not_includes SubagentSession.column_names, "last_known_status"
+    assert_not_includes SubagentSession.column_names, "canonical_name"
+    assert_not_includes SubagentSession.column_names, "nickname"
 
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
@@ -19,7 +23,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
 
@@ -73,7 +77,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
 
@@ -107,7 +111,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         parent_conversation: owner_conversation,
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       ),
       scope: "conversation",
@@ -126,7 +130,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         parent_conversation: owner_conversation,
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       ),
       scope: "conversation",
@@ -188,7 +192,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
 
@@ -224,8 +228,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
     assert session.valid?
   end
 
-  test "derives lifecycle projection and predicates from close_state" do
-    assert_not_includes SubagentSession.attribute_names, "lifecycle_state"
+  test "derives explicit close projection and predicates from close_state" do
+    assert_not_includes SubagentSession.attribute_names, "derived_close_status"
 
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
@@ -243,7 +247,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_requested_at: Time.current,
       close_grace_deadline_at: 30.seconds.from_now,
       close_force_deadline_at: 60.seconds.from_now,
-      last_known_status: "running"
+      observed_status: "running"
     )
     acknowledged_session = build_subagent_session(
       context:,
@@ -254,7 +258,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_grace_deadline_at: 30.seconds.from_now,
       close_force_deadline_at: 60.seconds.from_now,
       close_acknowledged_at: Time.current,
-      last_known_status: "running"
+      observed_status: "running"
     )
     closed_session = build_subagent_session(
       context:,
@@ -266,7 +270,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_force_deadline_at: 60.seconds.from_now,
       close_acknowledged_at: Time.current,
       close_outcome_kind: "graceful",
-      last_known_status: "completed"
+      observed_status: "completed"
     )
     failed_session = build_subagent_session(
       context:,
@@ -278,14 +282,14 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_force_deadline_at: 60.seconds.from_now,
       close_acknowledged_at: Time.current,
       close_outcome_kind: "timed_out_forced",
-      last_known_status: "failed"
+      observed_status: "failed"
     )
 
-    assert_equal "open", open_session.lifecycle_state
-    assert_equal "close_requested", requested_session.lifecycle_state
-    assert_equal "close_requested", acknowledged_session.lifecycle_state
-    assert_equal "closed", closed_session.lifecycle_state
-    assert_equal "closed", failed_session.lifecycle_state
+    assert_equal "open", open_session.derived_close_status
+    assert_equal "close_requested", requested_session.derived_close_status
+    assert_equal "close_requested", acknowledged_session.derived_close_status
+    assert_equal "closed", closed_session.derived_close_status
+    assert_equal "closed", failed_session.derived_close_status
 
     assert open_session.close_open?
     refute open_session.close_pending?
@@ -306,10 +310,10 @@ class SubagentSessionTest < ActiveSupport::TestCase
     refute failed_session.close_pending?
     assert failed_session.terminal_close?
     refute failed_session.running_for_barriers?
-    assert_equal "failed", failed_session.last_known_status
+    assert_equal "failed", failed_session.observed_status
   end
 
-  test "exposes canonical close and running scopes for reader-side guards" do
+  test "exposes durable close and running scopes for reader-side guards" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -321,7 +325,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
 
@@ -333,7 +337,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       profile_key: "worker",
       depth: 0,
       close_state: "open",
-      last_known_status: "running"
+      observed_status: "running"
     )
     requested_session = SubagentSession.create!(
       installation: context[:installation],
@@ -343,7 +347,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         parent_conversation: owner_conversation,
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       ),
       scope: "conversation",
@@ -354,7 +358,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_requested_at: Time.current,
       close_grace_deadline_at: 30.seconds.from_now,
       close_force_deadline_at: 60.seconds.from_now,
-      last_known_status: "running"
+      observed_status: "running"
     )
     acknowledged_session = SubagentSession.create!(
       installation: context[:installation],
@@ -364,7 +368,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         parent_conversation: owner_conversation,
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       ),
       scope: "conversation",
@@ -376,7 +380,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_grace_deadline_at: 30.seconds.from_now,
       close_force_deadline_at: 60.seconds.from_now,
       close_acknowledged_at: Time.current,
-      last_known_status: "running"
+      observed_status: "running"
     )
     closed_session = SubagentSession.create!(
       installation: context[:installation],
@@ -386,7 +390,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         parent_conversation: owner_conversation,
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       ),
       scope: "conversation",
@@ -399,7 +403,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_force_deadline_at: 60.seconds.from_now,
       close_acknowledged_at: Time.current,
       close_outcome_kind: "graceful",
-      last_known_status: "completed"
+      observed_status: "completed"
     )
     failed_session = SubagentSession.create!(
       installation: context[:installation],
@@ -409,7 +413,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         parent_conversation: owner_conversation,
         execution_environment: context[:execution_environment],
         agent_deployment: context[:agent_deployment],
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       ),
       scope: "conversation",
@@ -422,7 +426,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       close_force_deadline_at: 60.seconds.from_now,
       close_acknowledged_at: Time.current,
       close_outcome_kind: "timed_out_forced",
-      last_known_status: "failed"
+      observed_status: "failed"
     )
 
     assert_equal [open_session.id, requested_session.id, acknowledged_session.id].sort,
@@ -431,11 +435,11 @@ class SubagentSessionTest < ActiveSupport::TestCase
       SubagentSession.running_for_barriers.order(:id).pluck(:id).sort
     refute_includes SubagentSession.close_pending_or_open.pluck(:id), closed_session.id
     refute_includes SubagentSession.close_pending_or_open.pluck(:id), failed_session.id
-    assert_equal "open", open_session.reload.lifecycle_state
-    assert_equal "close_requested", requested_session.reload.lifecycle_state
-    assert_equal "close_requested", acknowledged_session.reload.lifecycle_state
-    assert_equal "closed", closed_session.reload.lifecycle_state
-    assert_equal "closed", failed_session.reload.lifecycle_state
+    assert_equal "open", open_session.reload.derived_close_status
+    assert_equal "close_requested", requested_session.reload.derived_close_status
+    assert_equal "close_requested", acknowledged_session.reload.derived_close_status
+    assert_equal "closed", closed_session.reload.derived_close_status
+    assert_equal "closed", failed_session.reload.derived_close_status
   end
 
   private
@@ -451,7 +455,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
 
@@ -464,7 +468,7 @@ class SubagentSessionTest < ActiveSupport::TestCase
         profile_key: "worker",
         depth: 0,
         close_state: "open",
-        last_known_status: "idle",
+        observed_status: "idle",
       }.merge(overrides)
     )
   end

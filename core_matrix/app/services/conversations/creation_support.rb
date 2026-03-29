@@ -14,7 +14,7 @@ module Conversations
       )
 
       create_self_closure!(conversation)
-      CanonicalStores::BootstrapForConversation.call(conversation: conversation)
+      LineageStores::BootstrapForConversation.call(conversation: conversation)
       Conversations::RefreshRuntimeContract.call(conversation: conversation)
 
       conversation
@@ -22,7 +22,7 @@ module Conversations
 
     def initialize_child_conversation!(conversation:, parent:)
       create_parent_closures!(conversation, parent:)
-      create_canonical_store_reference_for!(conversation, parent:)
+      create_lineage_store_reference_for!(conversation, parent:)
       Conversations::RefreshRuntimeContract.call(conversation: conversation)
       conversation
     end
@@ -75,13 +75,13 @@ module Conversations
       )
     end
 
-    def create_canonical_store_reference_for!(conversation, parent:)
-      parent_reference = parent.canonical_store_reference ||
-        raise(ActiveRecord::RecordNotFound, "canonical store reference is missing")
+    def create_lineage_store_reference_for!(conversation, parent:)
+      parent_reference = parent.lineage_store_reference ||
+        raise(ActiveRecord::RecordNotFound, "lineage store reference is missing")
 
-      CanonicalStoreReference.create!(
+      LineageStoreReference.create!(
         owner: conversation,
-        canonical_store_snapshot: parent_reference.canonical_store_snapshot
+        lineage_store_snapshot: parent_reference.lineage_store_snapshot
       )
     end
   end

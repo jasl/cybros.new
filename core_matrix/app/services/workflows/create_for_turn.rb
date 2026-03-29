@@ -4,7 +4,7 @@ module Workflows
       new(...).call
     end
 
-    def initialize(turn:, root_node_key:, root_node_type:, decision_source:, metadata:, presentation_policy: "internal_only", selector_source: "conversation", selector: nil, initial_task_kind: nil, initial_task_payload: {}, requested_by_turn: nil, subagent_session: nil, dispatch_deadline_at: 5.minutes.from_now, execution_hard_deadline_at: 10.minutes.from_now, assignment_priority: 1)
+    def initialize(turn:, root_node_key:, root_node_type:, decision_source:, metadata:, presentation_policy: "internal_only", selector_source: "conversation", selector: nil, initial_kind: nil, initial_payload: {}, origin_turn: nil, subagent_session: nil, dispatch_deadline_at: 5.minutes.from_now, execution_hard_deadline_at: 10.minutes.from_now, assignment_priority: 1)
       @turn = turn
       @root_node_key = root_node_key
       @root_node_type = root_node_type
@@ -13,9 +13,9 @@ module Workflows
       @presentation_policy = presentation_policy
       @selector_source = selector_source
       @selector = selector
-      @initial_task_kind = initial_task_kind
-      @initial_task_payload = initial_task_payload.deep_stringify_keys
-      @requested_by_turn = requested_by_turn
+      @initial_kind = initial_kind
+      @initial_payload = initial_payload.deep_stringify_keys
+      @origin_turn = origin_turn
       @subagent_session = subagent_session
       @dispatch_deadline_at = dispatch_deadline_at
       @execution_hard_deadline_at = execution_hard_deadline_at
@@ -65,7 +65,7 @@ module Workflows
     private
 
     def create_initial_task_run!(workflow_run:, workflow_node:, execution_snapshot:)
-      return if @initial_task_kind.blank?
+      return if @initial_kind.blank?
 
       agent_task_run = AgentTaskRun.create!(
         installation: @turn.installation,
@@ -74,14 +74,14 @@ module Workflows
         workflow_node: workflow_node,
         conversation: @turn.conversation,
         turn: @turn,
-        task_kind: @initial_task_kind,
+        kind: @initial_kind,
         lifecycle_state: "queued",
         logical_work_id: logical_work_id,
         attempt_no: 1,
-        task_payload: @initial_task_payload,
+        task_payload: @initial_payload,
         progress_payload: {},
         terminal_payload: {},
-        requested_by_turn: @requested_by_turn,
+        origin_turn: @origin_turn,
         subagent_session: @subagent_session
       )
 

@@ -10,7 +10,7 @@ module AgentControl
         "logical_work_id" => mailbox_item.logical_work_id,
         "attempt_no" => mailbox_item.attempt_no,
         "delivery_no" => mailbox_item.delivery_no,
-        "message_id" => mailbox_item.message_id,
+        "protocol_message_id" => mailbox_item.protocol_message_id,
         "causation_id" => mailbox_item.causation_id,
         "priority" => mailbox_item.priority,
         "status" => mailbox_item.status,

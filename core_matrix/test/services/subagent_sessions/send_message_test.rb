@@ -94,7 +94,7 @@ class SubagentSessions::SendMessageTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"

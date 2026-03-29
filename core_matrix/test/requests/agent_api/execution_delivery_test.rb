@@ -11,7 +11,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "execution_started",
-        message_id: "agent-start-#{next_test_sequence}",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         agent_task_run_id: agent_task_run.public_id,
         logical_work_id: agent_task_run.logical_work_id,
@@ -28,7 +28,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal context[:deployment], agent_task_run.holder_agent_deployment
   end
 
-  test "duplicate execution_complete is idempotent by message_id" do
+  test "duplicate execution_complete is idempotent by protocol_message_id" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
@@ -37,7 +37,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -47,7 +47,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
 
     params = {
       method_id: "execution_complete",
-      message_id: "agent-complete-#{next_test_sequence}",
+      protocol_message_id: "agent-complete-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -85,7 +85,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "execution_progress",
-        message_id: "agent-progress-#{next_test_sequence}",
+        protocol_message_id: "agent-progress-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         agent_task_run_id: agent_task_run.public_id,
         logical_work_id: agent_task_run.logical_work_id,
@@ -108,7 +108,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -119,7 +119,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "execution_fail",
-        message_id: "agent-fail-#{next_test_sequence}",
+        protocol_message_id: "agent-fail-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         agent_task_run_id: agent_task_run.public_id,
         logical_work_id: agent_task_run.logical_work_id,
@@ -154,7 +154,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     AgentControl::Report.call(
       deployment: context[:deployment],
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
@@ -167,7 +167,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "execution_progress",
-        message_id: "agent-progress-#{next_test_sequence}",
+        protocol_message_id: "agent-progress-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         agent_task_run_id: agent_task_run.public_id,
         logical_work_id: agent_task_run.logical_work_id,
@@ -188,7 +188,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     post "/agent_api/control/report",
       params: {
         method_id: "deployment_health_report",
-        message_id: "health-#{next_test_sequence}",
+        protocol_message_id: "health-#{next_test_sequence}",
         health_status: "healthy",
         health_metadata: { "source" => "runtime" },
       },

@@ -8,10 +8,8 @@ class CreateSubagentSessions < ActiveRecord::Migration[8.2]
       t.references :parent_subagent_session, foreign_key: { to_table: :subagent_sessions }
       t.string :scope, null: false, default: "turn"
       t.string :profile_key, null: false
-      t.string :canonical_name
-      t.string :nickname
       t.integer :depth, null: false, default: 0
-      t.string :last_known_status, null: false, default: "idle"
+      t.string :observed_status, null: false, default: "idle"
 
       t.timestamps
     end

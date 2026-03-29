@@ -18,7 +18,7 @@ module Variables
         active_message: "must be active before promotion",
         closing_message: "must not mutate conversation state while close is in progress"
       ) do |conversation|
-        visible_value = CanonicalStores::GetQuery.call(reference_owner: conversation, key: @key)
+        visible_value = LineageStores::GetQuery.call(reference_owner: conversation, key: @key)
         raise ActiveRecord::RecordNotFound, "conversation variable is missing" if visible_value.blank?
 
         Variables::Write.call(

@@ -51,15 +51,16 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     assert agent_task_run.valid?
   end
 
-  test "supports subagent session and requested by turn references" do
+  test "supports subagent session and origin turn references" do
     assert_includes AgentTaskRun.column_names, "subagent_session_id"
-    assert_includes AgentTaskRun.column_names, "requested_by_turn_id"
+    assert_includes AgentTaskRun.column_names, "origin_turn_id"
+    assert_includes AgentTaskRun.column_names, "kind"
 
     subagent_session_association = AgentTaskRun.reflect_on_association(:subagent_session)
-    requested_by_turn_association = AgentTaskRun.reflect_on_association(:requested_by_turn)
+    origin_turn_association = AgentTaskRun.reflect_on_association(:origin_turn)
 
     assert_equal :belongs_to, subagent_session_association&.macro
-    assert_equal :belongs_to, requested_by_turn_association&.macro
+    assert_equal :belongs_to, origin_turn_association&.macro
 
     context = build_agent_control_context!
     owner_conversation = context[:conversation]
@@ -68,7 +69,7 @@ class AgentTaskRunTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -83,12 +84,12 @@ class AgentTaskRunTest < ActiveSupport::TestCase
 
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
-      task_kind: "subagent_step",
+      kind: "subagent_step",
       subagent_session: subagent_session,
-      requested_by_turn: context[:turn]
+      origin_turn: context[:turn]
     )
 
     assert_equal subagent_session, agent_task_run.subagent_session
-    assert_equal context[:turn], agent_task_run.requested_by_turn
+    assert_equal context[:turn], agent_task_run.origin_turn
   end
 end

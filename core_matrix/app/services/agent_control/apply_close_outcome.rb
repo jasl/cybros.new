@@ -61,7 +61,7 @@ module AgentControl
         )
       when SubagentSession
         @resource.update!(
-          last_known_status: terminal_subagent_status
+          observed_status: terminal_observed_status
         )
       end
     end
@@ -88,7 +88,7 @@ module AgentControl
         )
       when SubagentSession
         @resource.update!(
-          last_known_status: "failed"
+          observed_status: "failed"
         )
       end
     end
@@ -130,7 +130,7 @@ module AgentControl
       @close_state == "failed"
     end
 
-    def terminal_subagent_status
+    def terminal_observed_status
       return "interrupted" if @mailbox_item.payload["request_kind"] == "turn_interrupt"
 
       "completed"

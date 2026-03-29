@@ -4,7 +4,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
   test "builds one snapshot that drives work barriers, close summaries, and dependency blockers" do
     context = build_agent_control_context!
     root = context[:conversation]
-    child = Conversations::CreateThread.call(parent: root)
+    child = Conversations::CreateFork.call(parent: root)
     request = HumanInteractions::Request.call(
       request_type: "HumanTaskRequest",
       workflow_node: context[:workflow_node],
@@ -59,7 +59,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: execution_environment,
       agent_deployment: agent_deployment,
       addressability: "agent_addressable"
@@ -72,7 +72,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
   end
 end

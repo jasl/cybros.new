@@ -118,26 +118,26 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
-      content: "Parent thread anchor",
+      content: "Parent fork anchor",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    parent_thread = Conversations::CreateThread.call(
+    parent_fork = Conversations::CreateFork.call(
       parent: root,
       historical_anchor_message_id: anchor_turn.selected_input_message_id
     )
-    Conversations::CreateThread.call(
-      parent: parent_thread,
+    Conversations::CreateFork.call(
+      parent: parent_fork,
       historical_anchor_message_id: anchor_turn.selected_input_message_id
     )
-    parent_thread.update!(deletion_state: "deleted", deleted_at: close_requested_at)
+    parent_fork.update!(deletion_state: "deleted", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
-      conversation: parent_thread,
+      conversation: parent_fork,
       intent_kind: "delete"
     )
 
-    Conversations::ReconcileCloseOperation.call(conversation: parent_thread)
+    Conversations::ReconcileCloseOperation.call(conversation: parent_fork)
 
     assert_equal "disposing", close_operation.reload.lifecycle_state
     assert_nil close_operation.completed_at
@@ -146,7 +146,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
   end
 
   test "delete reconcile moves to degraded after deletion finalization when close failures remain" do
-    context = build_thread_close_context!
+    context = build_fork_close_context!
     create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
@@ -177,7 +177,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
   end
 
   test "delete reconcile times out expired background close requests before summarizing the tail" do
-    context = build_thread_close_context!
+    context = build_fork_close_context!
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
@@ -217,7 +217,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
   end
 
   test "delete reconcile completes after deletion finalization when no tail blockers remain" do
-    context = build_thread_close_context!
+    context = build_fork_close_context!
     clear_mainline!(context)
     context[:conversation].update!(deletion_state: "deleted", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
@@ -330,7 +330,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     )
   end
 
-  def build_thread_close_context!
+  def build_fork_close_context!
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -339,18 +339,18 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
-      content: "Thread close anchor",
+      content: "Fork close anchor",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    conversation = Conversations::CreateThread.call(
+    conversation = Conversations::CreateFork.call(
       parent: root,
       historical_anchor_message_id: root_turn.selected_input_message_id
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
-      content: "Thread close work",
+      content: "Fork close work",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}

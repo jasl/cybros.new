@@ -79,7 +79,7 @@ class ConversationTest < ActiveSupport::TestCase
       parent_conversation: default_conversation,
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
-      kind: "thread",
+      kind: "fork",
       addressability: "agent_addressable"
     )
 
@@ -296,7 +296,7 @@ class ConversationTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: other_workspace,
       parent_conversation: root,
-      kind: "thread",
+      kind: "fork",
       purpose: "interactive",
       lifecycle_state: "active"
     )
@@ -389,7 +389,7 @@ class ConversationTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    child = Conversations::CreateThread.call(parent: root)
+    child = Conversations::CreateFork.call(parent: root)
 
     Turns::StartUserTurn.call(
       conversation: child,

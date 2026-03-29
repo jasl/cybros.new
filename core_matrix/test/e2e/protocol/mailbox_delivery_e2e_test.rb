@@ -55,7 +55,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     harness.poll!
     harness.report!(
       method_id: "execution_started",
-      message_id: "agent-start-#{next_test_sequence}",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: scenario.fetch(:mailbox_item).public_id,
       agent_task_run_id: scenario.fetch(:agent_task_run).public_id,
       logical_work_id: scenario.fetch(:agent_task_run).logical_work_id,
@@ -76,7 +76,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     report_response = harness.report!(
       method_id: "execution_progress",
-      message_id: "agent-progress-#{next_test_sequence}",
+      protocol_message_id: "agent-progress-#{next_test_sequence}",
       mailbox_item_id: scenario.fetch(:mailbox_item).public_id,
       agent_task_run_id: scenario.fetch(:agent_task_run).public_id,
       logical_work_id: scenario.fetch(:agent_task_run).logical_work_id,

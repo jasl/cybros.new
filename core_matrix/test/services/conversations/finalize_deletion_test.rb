@@ -3,7 +3,7 @@ require "test_helper"
 class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
-  test "marks a pending deletion deleted, removes the canonical store reference, and enqueues gc" do
+  test "marks a pending deletion deleted, removes the lineage store reference, and enqueues gc" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -12,12 +12,12 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     )
     Conversations::RequestDeletion.call(conversation: conversation)
 
-    assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do
+    assert_enqueued_with(job: LineageStores::GarbageCollectJob) do
       finalized = Conversations::FinalizeDeletion.call(conversation: conversation.reload)
       close_operation = finalized.reload.conversation_close_operations.order(:created_at).last
 
       assert finalized.deleted?
-      assert_nil finalized.canonical_store_reference
+      assert_nil finalized.lineage_store_reference
       assert_not_nil finalized.deleted_at
       assert_equal "disposing", close_operation.lifecycle_state
       assert_nil close_operation.completed_at
@@ -59,7 +59,7 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
       close_force_deadline_at: 60.seconds.from_now
     )
 
-    assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do
+    assert_enqueued_with(job: LineageStores::GarbageCollectJob) do
       finalized = Conversations::FinalizeDeletion.call(conversation: context[:conversation].reload)
       close_operation = finalized.reload.conversation_close_operations.order(:created_at).last
 
@@ -93,11 +93,11 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
 
     Conversations::RequestDeletion.call(conversation: conversation)
 
-    assert_enqueued_with(job: CanonicalStores::GarbageCollectJob) do
+    assert_enqueued_with(job: LineageStores::GarbageCollectJob) do
       finalized = Conversations::FinalizeDeletion.call(conversation: stale_conversation)
 
       assert finalized.deleted?
-      assert_nil finalized.canonical_store_reference
+      assert_nil finalized.lineage_store_reference
     end
   end
 end

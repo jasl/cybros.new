@@ -18,7 +18,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
 
     result = SubagentSessions::Spawn.call(
       conversation: owner_conversation,
-      requested_by_turn: owner_turn,
+      origin_turn: owner_turn,
       content: "Investigate this",
       scope: "turn",
       profile_key: "researcher"
@@ -38,14 +38,14 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert child_session.scope_turn?
     assert_equal "researcher", child_session.profile_key
     assert_equal 0, child_session.depth
-    assert_equal "running", child_session.last_known_status
+    assert_equal "running", child_session.observed_status
     assert_equal child_conversation, child_turn.conversation
     assert_equal "Investigate this", child_turn.selected_input_message.content
     assert_equal child_turn, child_workflow_run.turn
     assert_equal child_workflow_run, child_task_run.workflow_run
     assert_equal child_session, child_task_run.subagent_session
-    assert_equal owner_turn, child_task_run.requested_by_turn
-    assert_equal "subagent_step", child_task_run.task_kind
+    assert_equal owner_turn, child_task_run.origin_turn
+    assert_equal "subagent_step", child_task_run.kind
     assert_equal "turn", result.fetch("scope")
     assert_equal "researcher", result.fetch("profile_key")
     assert_equal 0, result.fetch("subagent_depth")
@@ -77,14 +77,14 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
 
     explicit_result = SubagentSessions::Spawn.call(
       conversation: owner_conversation,
-      requested_by_turn: owner_turn,
+      origin_turn: owner_turn,
       content: "Explicit profile",
       scope: "conversation",
       profile_key: "critic"
     )
     default_result = SubagentSessions::Spawn.call(
       conversation: owner_conversation,
-      requested_by_turn: owner_turn,
+      origin_turn: owner_turn,
       content: "Default profile",
       scope: "conversation"
     )
@@ -98,6 +98,36 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert default_session.scope_conversation?
     assert_nil default_session.origin_turn
     assert_equal "researcher", default_session.profile_key
+  end
+
+  test "rejects legacy subagent naming fields" do
+    context = prepare_profile_aware_execution_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    error = assert_raises(ArgumentError) do
+      SubagentSessions::Spawn.call(
+        conversation: owner_conversation,
+        origin_turn: owner_turn,
+        content: "Investigate this",
+        scope: "turn",
+        profile_key: "researcher",
+        canonical_name: "planner",
+        nickname: "P"
+      )
+    end
+
+    assert_includes error.message, "canonical_name"
   end
 
   test "nested spawn records parent session depth and list only returns sessions owned by the current conversation" do
@@ -116,7 +146,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     )
     parent_result = SubagentSessions::Spawn.call(
       conversation: owner_conversation,
-      requested_by_turn: owner_turn,
+      origin_turn: owner_turn,
       content: "Parent session",
       scope: "conversation",
       profile_key: "main"
@@ -126,7 +156,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
 
     nested_result = SubagentSessions::Spawn.call(
       conversation: child_conversation,
-      requested_by_turn: child_turn,
+      origin_turn: child_turn,
       content: "Nested session",
       scope: "conversation",
       profile_key: "researcher"
@@ -146,7 +176,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     )
     SubagentSessions::Spawn.call(
       conversation: other_owner_conversation,
-      requested_by_turn: other_owner_turn,
+      origin_turn: other_owner_turn,
       content: "Other session",
       scope: "conversation",
       profile_key: "researcher"
@@ -160,6 +190,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal 1, nested_session.depth
     assert_equal [parent_session.public_id], listed_sessions.map { |entry| entry.fetch("subagent_session_id") }
     assert_equal [child_conversation.public_id], listed_sessions.map { |entry| entry.fetch("conversation_id") }
+    assert_equal ["open"], listed_sessions.map { |entry| entry.fetch("derived_close_status") }
     assert listed_sessions.all? { |entry| entry.keys.none? { |key| key == "id" || key.end_with?("_id_before_type_cast") } }
   end
 
@@ -182,7 +213,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     error = assert_raises(ActiveRecord::RecordInvalid) do
       SubagentSessions::Spawn.call(
         conversation: owner_conversation,
-        requested_by_turn: owner_turn,
+        origin_turn: owner_turn,
         content: "Blocked child session",
         scope: "conversation",
         profile_key: "researcher"
@@ -190,7 +221,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     end
 
     assert_instance_of Conversation, error.record
-    assert error.record.thread?
+    assert error.record.fork?
     assert_equal "agent_addressable", error.record.addressability
     assert_equal owner_conversation, error.record.parent_conversation
     assert_includes error.record.errors[:deletion_state], "must be retained for subagent spawn"

@@ -6,21 +6,19 @@ module SubagentSessions
       new(...).call
     end
 
-    def initialize(conversation:, requested_by_turn:, content:, scope:, profile_key: nil, canonical_name: nil, nickname: nil, task_payload: {})
+    def initialize(conversation:, origin_turn:, content:, scope:, profile_key: nil, task_payload: {})
       @conversation = conversation
-      @requested_by_turn = requested_by_turn
+      @origin_turn = origin_turn
       @content = content
       @scope = scope
       @profile_key = profile_key
-      @canonical_name = canonical_name
-      @nickname = nickname
       @task_payload = task_payload.deep_stringify_keys
     end
 
     def call
       child_conversation = build_child_conversation(
         parent: @conversation,
-        kind: "thread",
+        kind: "fork",
         addressability: "agent_addressable"
       )
 
@@ -32,7 +30,7 @@ module SubagentSessions
           active_message: "must be active for subagent spawn",
           closing_message: "must not spawn subagents while close is in progress"
         ) do |conversation|
-          validate_requested_by_turn!(conversation:)
+          validate_origin_turn!(conversation:)
           validate_spawn_visibility!(conversation:)
           refresh_child_conversation_from_parent!(conversation: child_conversation, parent: conversation)
           child_conversation.save!
@@ -42,14 +40,12 @@ module SubagentSessions
             installation: conversation.installation,
             conversation: child_conversation,
             owner_conversation: conversation,
-            origin_turn: scope_turn? ? @requested_by_turn : nil,
+            origin_turn: scope_turn? ? @origin_turn : nil,
             scope: @scope,
             profile_key: resolved_profile_key(conversation:),
-            canonical_name: @canonical_name,
-            nickname: @nickname,
             parent_subagent_session: conversation.subagent_session,
             depth: next_depth(conversation:),
-            last_known_status: "running"
+            observed_status: "running"
           )
           child_turn = Turns::StartAgentTurn.call(
             conversation: child_conversation,
@@ -67,18 +63,18 @@ module SubagentSessions
             decision_source: "system",
             metadata: {
               "subagent_session_id" => session.public_id,
-              "requested_by_turn_id" => @requested_by_turn.public_id,
+              "origin_turn_id" => @origin_turn.public_id,
             },
-            initial_task_kind: "subagent_step",
-            initial_task_payload: @task_payload.presence || { "delivery_kind" => "subagent_spawn" },
-            requested_by_turn: @requested_by_turn,
+            initial_kind: "subagent_step",
+            initial_payload: @task_payload.presence || { "delivery_kind" => "subagent_spawn" },
+            origin_turn: @origin_turn,
             subagent_session: session
           )
           agent_task_run = AgentTaskRun.find_by!(
             workflow_run: workflow_run,
             workflow_node: workflow_run.workflow_nodes.first,
             subagent_session: session,
-            requested_by_turn: @requested_by_turn
+            origin_turn: @origin_turn
           )
 
           serialize(
@@ -94,10 +90,10 @@ module SubagentSessions
 
     private
 
-    def validate_requested_by_turn!(conversation:)
-      return if @requested_by_turn.conversation_id == conversation.id
+    def validate_origin_turn!(conversation:)
+      return if @origin_turn.conversation_id == conversation.id
 
-      raise_invalid!(conversation, :requested_by_turn, "must belong to the owner conversation")
+      raise_invalid!(conversation, :origin_turn, "must belong to the owner conversation")
     end
 
     def validate_spawn_visibility!(conversation:)

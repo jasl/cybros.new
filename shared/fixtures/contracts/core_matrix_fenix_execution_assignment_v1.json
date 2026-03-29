@@ -7,7 +7,7 @@
   "logical_work_id": "subagent-step:subagent-session-public-id:subagent-turn-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
-  "message_id": "kernel-assignment-message-id",
+  "protocol_message_id": "kernel-assignment-message-id",
   "priority": 1,
   "status": "queued",
   "available_at": "2026-03-28T10:00:00Z",
@@ -20,7 +20,7 @@
     "workflow_node_id": "workflow-node-public-id",
     "conversation_id": "subagent-conversation-public-id",
     "turn_id": "subagent-turn-public-id",
-    "task_kind": "subagent_step",
+    "kind": "subagent_step",
     "task_payload": {
       "mode": "deterministic_tool",
       "expression": "2 + 2"

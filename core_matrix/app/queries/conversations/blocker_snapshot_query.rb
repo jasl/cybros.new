@@ -76,7 +76,7 @@ module Conversations
     end
 
     def root_store_blocker?
-      CanonicalStore.where(root_conversation: @conversation).exists?
+      LineageStore.where(root_conversation: @conversation).exists?
     end
 
     def variable_provenance_blocker?

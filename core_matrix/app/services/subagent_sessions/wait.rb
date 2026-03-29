@@ -1,6 +1,6 @@
 module SubagentSessions
   class Wait
-    TERMINAL_LAST_KNOWN_STATUSES = %w[completed failed interrupted].freeze
+    TERMINAL_OBSERVED_STATUSES = %w[completed failed interrupted].freeze
 
     def self.call(...)
       new(...).call
@@ -27,15 +27,15 @@ module SubagentSessions
     private
 
     def terminal?(session)
-      session.terminal_close? || TERMINAL_LAST_KNOWN_STATUSES.include?(session.last_known_status)
+      session.terminal_close? || TERMINAL_OBSERVED_STATUSES.include?(session.observed_status)
     end
 
     def serialize(session, timed_out:)
       {
         "subagent_session_id" => session.public_id,
         "timed_out" => timed_out,
-        "lifecycle_state" => session.lifecycle_state,
-        "last_known_status" => session.last_known_status,
+        "derived_close_status" => session.derived_close_status,
+        "observed_status" => session.observed_status,
         "close_state" => session.close_state,
       }
     end

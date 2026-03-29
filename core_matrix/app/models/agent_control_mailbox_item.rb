@@ -38,7 +38,7 @@ class AgentControlMailboxItem < ApplicationRecord
 
   has_many :agent_control_report_receipts, foreign_key: :mailbox_item_id, dependent: :restrict_with_exception
 
-  validates :message_id, presence: true, uniqueness: { scope: :installation_id }
+  validates :protocol_message_id, presence: true, uniqueness: { scope: :installation_id }
   validates :runtime_plane, presence: true, inclusion: { in: RUNTIME_PLANES }
   validates :logical_work_id, presence: true
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }

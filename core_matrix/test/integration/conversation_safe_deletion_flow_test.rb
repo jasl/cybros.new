@@ -33,7 +33,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
   end
 
   test "pending delete conversations reject new conversation mutations" do
-    context = build_canonical_store_context!
+    context = build_lineage_store_context!
     context[:conversation].update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
     assert_raises(ActiveRecord::RecordInvalid) do
@@ -57,7 +57,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     end
 
     assert_raises(ActiveRecord::RecordInvalid) do
-      CanonicalStores::Set.call(
+      LineageStores::Set.call(
         conversation: context[:conversation],
         key: "tone",
         typed_value_payload: { "type" => "string", "value" => "direct" }
@@ -65,7 +65,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     end
 
     assert_raises(ActiveRecord::RecordInvalid) do
-      CanonicalStores::DeleteKey.call(
+      LineageStores::DeleteKey.call(
         conversation: context[:conversation],
         key: "tone"
       )
@@ -80,7 +80,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     end
 
     assert_raises(ActiveRecord::RecordInvalid) do
-      Conversations::CreateThread.call(parent: context[:conversation])
+      Conversations::CreateFork.call(parent: context[:conversation])
     end
   end
 
@@ -91,7 +91,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    child = Conversations::CreateThread.call(parent: parent)
+    child = Conversations::CreateFork.call(parent: parent)
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child still running",

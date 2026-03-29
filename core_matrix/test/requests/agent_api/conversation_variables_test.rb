@@ -14,12 +14,12 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
       source_turn: context[:turn],
       source_workflow_run: context[:workflow_run]
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "customer_name",
       typed_value_payload: { "type" => "string", "value" => "Acme China" }
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "tone",
       typed_value_payload: { "type" => "string", "value" => "direct" }
@@ -107,7 +107,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
     refute response_body.dig("variables", "customer_name").key?("id")
   end
 
-  test "set delete and promote endpoints use the canonical store and workspace promotion" do
+  test "set delete and promote endpoints use the lineage store and workspace promotion" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
@@ -129,7 +129,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
     refute response_body.fetch("variable").key?("id")
 
     assert_equal "Acme China",
-      CanonicalStores::GetQuery.call(reference_owner: context[:conversation], key: "customer_name").typed_value_payload["value"]
+      LineageStores::GetQuery.call(reference_owner: context[:conversation], key: "customer_name").typed_value_payload["value"]
 
     post "/agent_api/conversation_variables/promote",
       params: {
@@ -160,7 +160,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
     response_body = JSON.parse(response.body)
     assert_equal "conversation_variables_delete", response_body["method_id"]
     assert_equal true, response_body["deleted"]
-    assert_nil CanonicalStores::GetQuery.call(reference_owner: context[:conversation], key: "customer_name")
+    assert_nil LineageStores::GetQuery.call(reference_owner: context[:conversation], key: "customer_name")
   end
 
   test "set rejects raw bigint identifiers" do

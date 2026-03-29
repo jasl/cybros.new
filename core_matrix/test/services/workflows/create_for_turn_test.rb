@@ -149,7 +149,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -178,24 +178,24 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       root_node_type: "agent_task_run",
       decision_source: "system",
       metadata: {},
-      initial_task_kind: "subagent_step",
-      initial_task_payload: { "delivery_kind" => "subagent_spawn" },
-      requested_by_turn: owner_turn,
+      initial_kind: "subagent_step",
+      initial_payload: { "delivery_kind" => "subagent_spawn" },
+      origin_turn: owner_turn,
       subagent_session: subagent_session
     )
 
     agent_task_run = AgentTaskRun.find_by!(workflow_run: workflow_run, subagent_session: subagent_session)
     mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: agent_task_run, item_type: "execution_assignment")
 
-    assert_equal "subagent_step", agent_task_run.task_kind
-    assert_equal owner_turn, agent_task_run.requested_by_turn
+    assert_equal "subagent_step", agent_task_run.kind
+    assert_equal owner_turn, agent_task_run.origin_turn
     assert_equal({ "delivery_kind" => "subagent_spawn" }, agent_task_run.task_payload)
     assert_equal turn.execution_snapshot.context_messages, mailbox_item.payload.fetch("context_messages")
     assert_equal turn.execution_snapshot.budget_hints, mailbox_item.payload.fetch("budget_hints")
     assert_equal turn.execution_snapshot.provider_execution, mailbox_item.payload.fetch("provider_execution")
     assert_equal turn.execution_snapshot.model_context, mailbox_item.payload.fetch("model_context")
     assert_equal "researcher", mailbox_item.payload.dig("agent_context", "profile")
-    assert_equal "subagent_step", mailbox_item.payload.fetch("task_kind")
+    assert_equal "subagent_step", mailbox_item.payload.fetch("kind")
   end
 
   private

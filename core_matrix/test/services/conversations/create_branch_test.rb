@@ -36,14 +36,14 @@ class Conversations::CreateBranchTest < ActiveSupport::TestCase
         .pluck(:ancestor_conversation_id, :descendant_conversation_id, :depth)
   end
 
-  test "reuses the same canonical store with its own reference" do
+  test "reuses the same lineage store with its own reference" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment]
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: root,
       key: "tone",
       typed_value_payload: { "type" => "string", "value" => "direct" }
@@ -56,18 +56,18 @@ class Conversations::CreateBranchTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_no_difference(["CanonicalStoreSnapshot.count", "CanonicalStoreEntry.count", "CanonicalStoreValue.count"]) do
+    assert_no_difference(["LineageStoreSnapshot.count", "LineageStoreEntry.count", "LineageStoreValue.count"]) do
       @branch = Conversations::CreateBranch.call(
         parent: root,
         historical_anchor_message_id: anchor_turn.selected_input_message_id
       )
     end
 
-    assert_equal root.canonical_store_reference.canonical_store_snapshot.canonical_store_id,
-      @branch.canonical_store_reference.canonical_store_snapshot.canonical_store_id
-    refute_equal root.canonical_store_reference.id, @branch.canonical_store_reference.id
+    assert_equal root.lineage_store_reference.lineage_store_snapshot.lineage_store_id,
+      @branch.lineage_store_reference.lineage_store_snapshot.lineage_store_id
+    refute_equal root.lineage_store_reference.id, @branch.lineage_store_reference.id
     assert_equal "direct",
-      CanonicalStores::GetQuery.call(reference_owner: @branch, key: "tone").typed_value_payload["value"]
+      LineageStores::GetQuery.call(reference_owner: @branch, key: "tone").typed_value_payload["value"]
   end
 
   test "rejects automation conversations" do

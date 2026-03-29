@@ -6,14 +6,14 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(resource:, request_kind:, reason_kind:, strictness:, grace_deadline_at:, force_deadline_at:, message_id: nil, causation_id: nil)
+    def initialize(resource:, request_kind:, reason_kind:, strictness:, grace_deadline_at:, force_deadline_at:, protocol_message_id: nil, causation_id: nil)
       @resource = resource
       @request_kind = request_kind
       @reason_kind = reason_kind
       @strictness = strictness
       @grace_deadline_at = grace_deadline_at
       @force_deadline_at = force_deadline_at
-      @message_id = message_id || "kernel-close-#{SecureRandom.uuid}"
+      @protocol_message_id = protocol_message_id || "kernel-close-#{SecureRandom.uuid}"
       @causation_id = causation_id
     end
 
@@ -57,7 +57,7 @@ module AgentControl
         target_ref: durable_target_ref(target_agent_installation:, target_deployment:),
         logical_work_id: agent_task_run&.logical_work_id || "close:#{@resource.class.name}:#{@resource.public_id}",
         attempt_no: agent_task_run&.attempt_no || 1,
-        message_id: @message_id,
+        protocol_message_id: @protocol_message_id,
         causation_id: @causation_id,
         priority: 0,
         status: "queued",

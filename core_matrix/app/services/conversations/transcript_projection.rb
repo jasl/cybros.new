@@ -27,7 +27,7 @@ module Conversations
 
     def inherited_transcript_messages
       return [] if @conversation.parent_conversation.blank?
-      return self.class.base_messages_for(conversation: @conversation.parent_conversation) if @conversation.thread?
+      return self.class.base_messages_for(conversation: @conversation.parent_conversation) if @conversation.fork?
 
       Conversations::HistoricalAnchorProjection.call(
         conversation: @conversation.parent_conversation,

@@ -3,7 +3,7 @@ require "test_helper"
 class SubagentSessions::WaitTest < ActiveSupport::TestCase
   test "wait short-circuits on terminal durable state" do
     session = create_terminal_subagent_session!(
-      last_known_status: "completed",
+      observed_status: "completed",
       close_state: "closed",
       close_outcome_kind: "graceful"
     )
@@ -16,14 +16,14 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
 
     assert_equal false, result.fetch("timed_out")
     assert_equal session.public_id, result.fetch("subagent_session_id")
-    assert_equal "closed", result.fetch("lifecycle_state")
-    assert_equal "completed", result.fetch("last_known_status")
+    assert_equal "closed", result.fetch("derived_close_status")
+    assert_equal "completed", result.fetch("observed_status")
     assert_equal "closed", result.fetch("close_state")
   end
 
   test "wait times out cleanly" do
     session = create_terminal_subagent_session!(
-      last_known_status: "running",
+      observed_status: "running",
       close_state: "open",
       close_outcome_kind: nil,
       close_requested_at: nil,
@@ -37,16 +37,16 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
     )
 
     assert_equal true, result.fetch("timed_out")
-    assert_equal "open", result.fetch("lifecycle_state")
-    assert_equal "running", result.fetch("last_known_status")
+    assert_equal "open", result.fetch("derived_close_status")
+    assert_equal "running", result.fetch("observed_status")
     assert_equal "open", result.fetch("close_state")
-    assert_equal "open", session.reload.lifecycle_state
-    assert_equal "running", session.last_known_status
+    assert_equal "open", session.reload.derived_close_status
+    assert_equal "running", session.observed_status
   end
 
   private
 
-  def create_terminal_subagent_session!(last_known_status:, close_state:, close_outcome_kind:, close_requested_at: Time.current, close_acknowledged_at: Time.current)
+  def create_terminal_subagent_session!(observed_status:, close_state:, close_outcome_kind:, close_requested_at: Time.current, close_acknowledged_at: Time.current)
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -57,7 +57,7 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -70,7 +70,7 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: last_known_status,
+      observed_status: observed_status,
       close_state: close_state,
       close_reason_kind: close_state == "open" ? nil : "turn_interrupt",
       close_requested_at: close_requested_at,

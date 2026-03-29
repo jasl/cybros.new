@@ -4,7 +4,7 @@ class AgentControlReportReceipt < ApplicationRecord
   belongs_to :agent_task_run, optional: true
   belongs_to :mailbox_item, class_name: "AgentControlMailboxItem", optional: true
 
-  validates :message_id, presence: true, uniqueness: { scope: :installation_id }
+  validates :protocol_message_id, presence: true, uniqueness: { scope: :installation_id }
   validates :method_id, presence: true
   validates :result_code, presence: true
   validate :payload_must_be_hash

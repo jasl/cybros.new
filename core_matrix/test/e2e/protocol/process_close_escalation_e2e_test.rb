@@ -47,7 +47,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
 
     wrong_result = wrong_harness.report!(
       method_id: "resource_closed",
-      message_id: "wrong-env-close-#{next_test_sequence}",
+      protocol_message_id: "wrong-env-close-#{next_test_sequence}",
       mailbox_item_id: close_request.fetch("item_id"),
       close_request_id: close_request.fetch("item_id"),
       resource_type: "ProcessRun",
@@ -110,7 +110,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
 
     harness.report!(
       method_id: "resource_closed",
-      message_id: "close-#{next_test_sequence}",
+      protocol_message_id: "close-#{next_test_sequence}",
       mailbox_item_id: close_request.fetch("item_id"),
       close_request_id: close_request.fetch("item_id"),
       resource_type: "ProcessRun",

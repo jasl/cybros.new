@@ -8,10 +8,10 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :conversation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true
       t.references :subagent_session, foreign_key: true
-      t.references :requested_by_turn, foreign_key: { to_table: :turns }
+      t.references :origin_turn, foreign_key: { to_table: :turns }
       t.references :holder_agent_deployment, foreign_key: { to_table: :agent_deployments }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
-      t.string :task_kind, null: false
+      t.string :kind, null: false
       t.string :lifecycle_state, null: false, default: "queued"
       t.string :logical_work_id, null: false
       t.integer :attempt_no, null: false, default: 1
@@ -49,7 +49,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.string :logical_work_id, null: false
       t.integer :attempt_no, null: false, default: 1
       t.integer :delivery_no, null: false, default: 0
-      t.string :message_id, null: false
+      t.string :protocol_message_id, null: false
       t.string :causation_id
       t.integer :priority, null: false, default: 1
       t.string :status, null: false, default: "queued"
@@ -66,7 +66,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.timestamps
     end
     add_index :agent_control_mailbox_items, :public_id, unique: true
-    add_index :agent_control_mailbox_items, [:installation_id, :message_id], unique: true, name: "idx_agent_control_mailbox_items_message"
+    add_index :agent_control_mailbox_items, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_mailbox_items_protocol_message"
     add_index :agent_control_mailbox_items, [:target_agent_installation_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_installation_delivery"
     add_index :agent_control_mailbox_items, [:target_agent_deployment_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_deployment_delivery"
     add_index :agent_control_mailbox_items, [:target_execution_environment_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_environment_delivery"
@@ -76,7 +76,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :agent_deployment, null: false, foreign_key: true
       t.references :agent_task_run, foreign_key: true
       t.references :mailbox_item, foreign_key: { to_table: :agent_control_mailbox_items }
-      t.string :message_id, null: false
+      t.string :protocol_message_id, null: false
       t.string :method_id, null: false
       t.string :logical_work_id
       t.integer :attempt_no
@@ -84,7 +84,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.jsonb :payload, null: false, default: {}
       t.timestamps
     end
-    add_index :agent_control_report_receipts, [:installation_id, :message_id], unique: true, name: "idx_agent_control_report_receipts_message"
+    add_index :agent_control_report_receipts, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_report_receipts_protocol_message"
 
     add_column :agent_deployments, :realtime_link_state, :string, null: false, default: "disconnected"
     add_column :agent_deployments, :control_activity_state, :string, null: false, default: "offline"

@@ -5,7 +5,7 @@
 Core Matrix exposes machine-facing runtime resource APIs for:
 
 - canonical transcript listing
-- conversation-local canonical store reads and writes
+- conversation-local lineage store reads and writes
 - workspace-scoped canonical variable reads and writes
 - workflow-owned human interaction request creation
 - mailbox-driven execution delivery and close control
@@ -56,7 +56,7 @@ orchestration are still defined in:
   - `logical_work_id`
   - `attempt_no`
   - `delivery_no`
-  - `message_id`
+  - `protocol_message_id`
   - `causation_id`
   - `priority`
   - `status`
@@ -133,7 +133,7 @@ orchestration are still defined in:
   to the owning execution environment
 - `deployment_health_report` now routes through `HandleHealthReport` and
   refreshes deployment health plus `control_activity_state`
-- duplicate control reports are idempotent by `message_id`
+- duplicate control reports are idempotent by `protocol_message_id`
 - stale or superseded reports return `409 conflict` and do not mutate durable
   execution state
 
@@ -172,16 +172,16 @@ orchestration are still defined in:
 ### Mutation Operations
 
 - `conversation_variables_set` writes one conversation-local value through
-  `CanonicalStores::Set`
+  `LineageStores::Set`
 - `conversation_variables_delete` writes one conversation-local tombstone
-  through `CanonicalStores::DeleteKey`
+  through `LineageStores::DeleteKey`
 - `conversation_variables_promote` reads the current conversation-local value
   and writes a new workspace canonical-variable history row through
   `Variables::PromoteToWorkspace`
 
 ### Contract Rules
 
-- conversation-local runtime state is backed by the canonical store, not by
+- conversation-local runtime state is backed by the lineage store, not by
   `CanonicalVariable`
 - `conversation_variables_get`, `mget`, `exists`, and `list_keys` do not fall
   back to workspace values
@@ -192,7 +192,7 @@ orchestration are still defined in:
   - value byte size
 - `conversation_variables_list` and `conversation_variables_write` were removed
   in the same rollout; no compatibility aliases remain
-- conversation-variable payloads do not expose canonical-store row ids or
+- conversation-variable payloads do not expose lineage-store row ids or
   canonical-variable row ids
 - writes, deletes, and promotion are rejected unless the owning conversation is
   still:
@@ -256,8 +256,8 @@ orchestration are still defined in:
 - unknown public ids fail lookup before any read or mutation runs
 - raw bigint identifiers fail as missing resources at these boundaries
 - transcript cursors that are not present in the visible projection are invalid
-- oversized or illegal canonical-store writes fail through the underlying
-  canonical-store validations
+- oversized or illegal lineage-store writes fail through the underlying
+  lineage-store validations
 - conversation-local writes, deletes, promotions, and human interaction opens
   are rejected for `pending_delete` or `deleted` conversations
 - conversation-local writes, deletes, promotions, and human interaction opens

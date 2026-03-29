@@ -5,7 +5,7 @@
 Core Matrix now splits durable variable behavior into two explicit layers:
 
 - `CanonicalVariable` stores workspace-scoped durable history only
-- conversation-local agent state lives in the snapshot-backed canonical store
+- conversation-local agent state lives in the snapshot-backed lineage store
 
 This document defines the landed boundary after the destructive refactor that
 removed conversation-scoped `CanonicalVariable` rows entirely.
@@ -45,15 +45,15 @@ removed conversation-scoped `CanonicalVariable` rows entirely.
 ## Conversation-Local State Boundary
 
 - Conversation-local variables are no longer stored in `canonical_variables`.
-- They now live in the canonical store tables:
-  - `canonical_stores`
-  - `canonical_store_snapshots`
-  - `canonical_store_entries`
-  - `canonical_store_values`
-  - `canonical_store_references`
+- They now live in the lineage store tables:
+  - `lineage_stores`
+  - `lineage_store_snapshots`
+  - `lineage_store_entries`
+  - `lineage_store_values`
+  - `lineage_store_references`
 - Conversation-local writes and deletes create immutable snapshot deltas.
 - Conversation-local reads resolve through the active
-  `CanonicalStoreReference`.
+  `LineageStoreReference`.
 - The conversation-local store is internal storage. Store rows, snapshot ids,
   and value row ids never cross agent-facing boundaries.
 
@@ -62,7 +62,7 @@ removed conversation-scoped `CanonicalVariable` rows entirely.
 - `WorkspaceVariables::*` queries read current workspace-scoped
   `CanonicalVariable` rows only.
 - `ConversationVariables::ResolveQuery` returns the effective merged view:
-  conversation-local canonical store values override workspace canonical
+  conversation-local lineage store values override workspace canonical
   variables by key.
 - `CanonicalVariable.effective_for` is now workspace-only infrastructure and no
   longer implements `conversation > workspace` lookup itself.
@@ -72,7 +72,7 @@ removed conversation-scoped `CanonicalVariable` rows entirely.
 - `Variables::Write` accepts workspace scope only.
 - Passing `scope = "conversation"` now raises `ActiveRecord::RecordInvalid`.
 - `Variables::PromoteToWorkspace` reads the current conversation-local value
-  from the canonical store, then writes a new workspace-scoped
+  from the lineage store, then writes a new workspace-scoped
   `CanonicalVariable` row.
 - Promotion preserves workspace history by superseding the prior current
   workspace value rather than editing it in place.

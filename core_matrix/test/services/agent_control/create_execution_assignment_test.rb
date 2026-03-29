@@ -59,7 +59,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -77,7 +77,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: child_conversation,
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
@@ -118,14 +118,14 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         workflow_node: workflow_node,
         conversation: subagent_conversation,
         turn: turn,
-        task_kind: "subagent_step",
+        kind: "subagent_step",
         lifecycle_state: "queued",
         logical_work_id: "subagent-step:#{subagent_session.public_id}:#{turn.public_id}",
         attempt_no: 1,
         task_payload: { "mode" => "deterministic_tool", "expression" => "2 + 2" },
         progress_payload: {},
         terminal_payload: {},
-        requested_by_turn: owner_turn,
+        origin_turn: owner_turn,
         subagent_session: subagent_session
       )
 
@@ -140,7 +140,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         },
         dispatch_deadline_at: Time.zone.parse("2026-03-28 10:05:00 UTC"),
         execution_hard_deadline_at: Time.zone.parse("2026-03-28 10:10:00 UTC"),
-        message_id: "kernel-assignment-message-id"
+        protocol_message_id: "kernel-assignment-message-id"
       )
 
       serialized = AgentControl::SerializeMailboxItem.call(mailbox_item.reload)

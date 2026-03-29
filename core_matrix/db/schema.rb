@@ -61,9 +61,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "leased_at"
     t.bigint "leased_to_agent_deployment_id"
     t.string "logical_work_id", null: false
-    t.string "message_id", null: false
     t.jsonb "payload", default: {}, null: false
     t.integer "priority", default: 1, null: false
+    t.string "protocol_message_id", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "runtime_plane", null: false
     t.string "status", default: "queued", null: false
@@ -74,7 +74,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.string "target_ref", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_task_run_id"], name: "index_agent_control_mailbox_items_on_agent_task_run_id"
-    t.index ["installation_id", "message_id"], name: "idx_agent_control_mailbox_items_message", unique: true
+    t.index ["installation_id", "protocol_message_id"], name: "idx_agent_control_mailbox_items_protocol_message", unique: true
     t.index ["installation_id"], name: "index_agent_control_mailbox_items_on_installation_id"
     t.index ["leased_to_agent_deployment_id"], name: "idx_on_leased_to_agent_deployment_id_0933e88604"
     t.index ["public_id"], name: "index_agent_control_mailbox_items_on_public_id", unique: true
@@ -94,14 +94,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.bigint "installation_id", null: false
     t.string "logical_work_id"
     t.bigint "mailbox_item_id"
-    t.string "message_id", null: false
     t.string "method_id", null: false
     t.jsonb "payload", default: {}, null: false
+    t.string "protocol_message_id", null: false
     t.string "result_code", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_deployment_id"], name: "index_agent_control_report_receipts_on_agent_deployment_id"
     t.index ["agent_task_run_id"], name: "index_agent_control_report_receipts_on_agent_task_run_id"
-    t.index ["installation_id", "message_id"], name: "idx_agent_control_report_receipts_message", unique: true
+    t.index ["installation_id", "protocol_message_id"], name: "idx_agent_control_report_receipts_protocol_message", unique: true
     t.index ["installation_id"], name: "index_agent_control_report_receipts_on_installation_id"
     t.index ["mailbox_item_id"], name: "index_agent_control_report_receipts_on_mailbox_item_id"
   end
@@ -187,14 +187,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "finished_at"
     t.bigint "holder_agent_deployment_id"
     t.bigint "installation_id", null: false
+    t.string "kind", null: false
     t.string "lifecycle_state", default: "queued", null: false
     t.string "logical_work_id", null: false
+    t.bigint "origin_turn_id"
     t.jsonb "progress_payload", default: {}, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.bigint "requested_by_turn_id"
     t.datetime "started_at"
     t.bigint "subagent_session_id"
-    t.string "task_kind", null: false
     t.jsonb "task_payload", default: {}, null: false
     t.jsonb "terminal_payload", default: {}, null: false
     t.bigint "turn_id", null: false
@@ -205,8 +205,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["conversation_id"], name: "index_agent_task_runs_on_conversation_id"
     t.index ["holder_agent_deployment_id"], name: "index_agent_task_runs_on_holder_agent_deployment_id"
     t.index ["installation_id"], name: "index_agent_task_runs_on_installation_id"
+    t.index ["origin_turn_id"], name: "index_agent_task_runs_on_origin_turn_id"
     t.index ["public_id"], name: "index_agent_task_runs_on_public_id", unique: true
-    t.index ["requested_by_turn_id"], name: "index_agent_task_runs_on_requested_by_turn_id"
     t.index ["subagent_session_id"], name: "index_agent_task_runs_on_subagent_session_id"
     t.index ["turn_id"], name: "index_agent_task_runs_on_turn_id"
     t.index ["workflow_node_id"], name: "index_agent_task_runs_on_workflow_node_id"
@@ -228,67 +228,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["installation_id", "action"], name: "index_audit_logs_on_installation_id_and_action"
     t.index ["installation_id"], name: "index_audit_logs_on_installation_id"
     t.index ["subject_type", "subject_id"], name: "index_audit_logs_on_subject"
-  end
-
-  create_table "canonical_store_entries", force: :cascade do |t|
-    t.bigint "canonical_store_snapshot_id", null: false
-    t.bigint "canonical_store_value_id"
-    t.datetime "created_at", null: false
-    t.string "entry_kind", null: false
-    t.string "key", null: false
-    t.datetime "updated_at", null: false
-    t.integer "value_bytesize"
-    t.string "value_type"
-    t.index ["canonical_store_snapshot_id", "key"], name: "idx_canonical_store_entries_snapshot_key", unique: true
-    t.index ["canonical_store_snapshot_id"], name: "index_canonical_store_entries_on_canonical_store_snapshot_id"
-    t.index ["canonical_store_value_id"], name: "index_canonical_store_entries_on_canonical_store_value_id"
-    t.check_constraint "entry_kind::text = 'set'::text AND canonical_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND canonical_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_canonical_store_entries_value_shape"
-    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying, 'tombstone'::character varying]::text[])", name: "chk_canonical_store_entries_kind"
-    t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_canonical_store_entries_key_bytes"
-  end
-
-  create_table "canonical_store_references", force: :cascade do |t|
-    t.bigint "canonical_store_snapshot_id", null: false
-    t.datetime "created_at", null: false
-    t.bigint "owner_id", null: false
-    t.string "owner_type", null: false
-    t.datetime "updated_at", null: false
-    t.index ["canonical_store_snapshot_id"], name: "idx_on_canonical_store_snapshot_id_6638a81780"
-    t.index ["owner_type", "owner_id"], name: "idx_canonical_store_references_owner", unique: true
-  end
-
-  create_table "canonical_store_snapshots", force: :cascade do |t|
-    t.bigint "base_snapshot_id"
-    t.bigint "canonical_store_id", null: false
-    t.datetime "created_at", null: false
-    t.integer "depth", null: false
-    t.string "snapshot_kind", null: false
-    t.datetime "updated_at", null: false
-    t.index ["base_snapshot_id"], name: "index_canonical_store_snapshots_on_base_snapshot_id"
-    t.index ["canonical_store_id"], name: "index_canonical_store_snapshots_on_canonical_store_id"
-    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying, 'compaction'::character varying]::text[])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_canonical_store_snapshots_shape"
-    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying, 'write'::character varying, 'compaction'::character varying]::text[])", name: "chk_canonical_store_snapshots_kind"
-  end
-
-  create_table "canonical_store_values", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.integer "payload_bytesize", null: false
-    t.string "payload_sha256", null: false
-    t.jsonb "typed_value_payload", default: {}, null: false
-    t.datetime "updated_at", null: false
-    t.index ["payload_sha256"], name: "index_canonical_store_values_on_payload_sha256"
-    t.check_constraint "payload_bytesize >= 0 AND payload_bytesize <= 2097152", name: "chk_canonical_store_values_payload_bytesize"
-  end
-
-  create_table "canonical_stores", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "installation_id", null: false
-    t.bigint "root_conversation_id", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "workspace_id", null: false
-    t.index ["installation_id"], name: "index_canonical_stores_on_installation_id"
-    t.index ["root_conversation_id"], name: "index_canonical_stores_on_root_conversation_id", unique: true
-    t.index ["workspace_id"], name: "index_canonical_stores_on_workspace_id"
   end
 
   create_table "canonical_variables", force: :cascade do |t|
@@ -346,7 +285,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "requested_at", null: false
     t.jsonb "summary_payload", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL ((ARRAY['completed'::character varying, 'degraded'::character varying])::text[]))"
+    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL (ARRAY[('completed'::character varying)::text, ('degraded'::character varying)::text]))"
     t.index ["conversation_id"], name: "index_conversation_close_operations_on_conversation_id"
     t.index ["installation_id"], name: "index_conversation_close_operations_on_installation_id"
     t.index ["public_id"], name: "index_conversation_close_operations_on_public_id", unique: true
@@ -464,8 +403,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
-    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
-    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -596,6 +535,67 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["inviter_id"], name: "index_invitations_on_inviter_id"
     t.index ["public_id"], name: "index_invitations_on_public_id", unique: true
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
+  end
+
+  create_table "lineage_store_entries", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "entry_kind", null: false
+    t.string "key", null: false
+    t.bigint "lineage_store_snapshot_id", null: false
+    t.bigint "lineage_store_value_id"
+    t.datetime "updated_at", null: false
+    t.integer "value_bytesize"
+    t.string "value_type"
+    t.index ["lineage_store_snapshot_id", "key"], name: "idx_lineage_store_entries_snapshot_key", unique: true
+    t.index ["lineage_store_snapshot_id"], name: "index_lineage_store_entries_on_lineage_store_snapshot_id"
+    t.index ["lineage_store_value_id"], name: "index_lineage_store_entries_on_lineage_store_value_id"
+    t.check_constraint "entry_kind::text = 'set'::text AND lineage_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND lineage_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_lineage_store_entries_value_shape"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_lineage_store_entries_kind"
+    t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_lineage_store_entries_key_bytes"
+  end
+
+  create_table "lineage_store_references", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "lineage_store_snapshot_id", null: false
+    t.bigint "owner_id", null: false
+    t.string "owner_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["lineage_store_snapshot_id"], name: "idx_on_lineage_store_snapshot_id_6638a81780"
+    t.index ["owner_type", "owner_id"], name: "idx_lineage_store_references_owner", unique: true
+  end
+
+  create_table "lineage_store_snapshots", force: :cascade do |t|
+    t.bigint "base_snapshot_id"
+    t.datetime "created_at", null: false
+    t.integer "depth", null: false
+    t.bigint "lineage_store_id", null: false
+    t.string "snapshot_kind", null: false
+    t.datetime "updated_at", null: false
+    t.index ["base_snapshot_id"], name: "index_lineage_store_snapshots_on_base_snapshot_id"
+    t.index ["lineage_store_id"], name: "index_lineage_store_snapshots_on_lineage_store_id"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_lineage_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_lineage_store_snapshots_kind"
+  end
+
+  create_table "lineage_store_values", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "payload_bytesize", null: false
+    t.string "payload_sha256", null: false
+    t.jsonb "typed_value_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["payload_sha256"], name: "index_lineage_store_values_on_payload_sha256"
+    t.check_constraint "payload_bytesize >= 0 AND payload_bytesize <= 2097152", name: "chk_lineage_store_values_payload_bytesize"
+  end
+
+  create_table "lineage_stores", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "root_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["installation_id"], name: "index_lineage_stores_on_installation_id"
+    t.index ["root_conversation_id"], name: "index_lineage_stores_on_root_conversation_id", unique: true
+    t.index ["workspace_id"], name: "index_lineage_stores_on_workspace_id"
   end
 
   create_table "message_attachments", force: :cascade do |t|
@@ -770,7 +770,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   end
 
   create_table "subagent_sessions", force: :cascade do |t|
-    t.string "canonical_name"
     t.datetime "close_acknowledged_at"
     t.datetime "close_force_deadline_at"
     t.datetime "close_grace_deadline_at"
@@ -783,8 +782,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.datetime "created_at", null: false
     t.integer "depth", default: 0, null: false
     t.bigint "installation_id", null: false
-    t.string "last_known_status", default: "idle", null: false
-    t.string "nickname"
+    t.string "observed_status", default: "idle", null: false
     t.bigint "origin_turn_id"
     t.bigint "owner_conversation_id", null: false
     t.bigint "parent_subagent_session_id"
@@ -954,7 +952,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workflow_run_id", "artifact_key"], name: "index_workflow_artifacts_on_workflow_run_id_and_artifact_key"
     t.index ["workflow_run_id"], name: "index_workflow_artifacts_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_artifacts_on_workspace_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_artifacts_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_artifacts_presentation_policy"
   end
 
   create_table "workflow_edges", force: :cascade do |t|
@@ -997,7 +995,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workflow_run_id", "event_kind"], name: "index_workflow_node_events_on_workflow_run_id_and_event_kind"
     t.index ["workflow_run_id"], name: "index_workflow_node_events_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_node_events_on_workspace_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_node_events_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_node_events_presentation_policy"
   end
 
   create_table "workflow_nodes", force: :cascade do |t|
@@ -1029,7 +1027,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
     t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_nodes_on_workspace_id"
     t.index ["yielding_workflow_node_id"], name: "index_workflow_nodes_on_yielding_workflow_node_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_nodes_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_nodes_presentation_policy"
   end
 
   create_table "workflow_runs", force: :cascade do |t|
@@ -1106,18 +1104,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "agent_task_runs", "installations"
   add_foreign_key "agent_task_runs", "subagent_sessions"
   add_foreign_key "agent_task_runs", "turns"
-  add_foreign_key "agent_task_runs", "turns", column: "requested_by_turn_id"
+  add_foreign_key "agent_task_runs", "turns", column: "origin_turn_id"
   add_foreign_key "agent_task_runs", "workflow_nodes"
   add_foreign_key "agent_task_runs", "workflow_runs"
   add_foreign_key "audit_logs", "installations"
-  add_foreign_key "canonical_store_entries", "canonical_store_snapshots"
-  add_foreign_key "canonical_store_entries", "canonical_store_values"
-  add_foreign_key "canonical_store_references", "canonical_store_snapshots"
-  add_foreign_key "canonical_store_snapshots", "canonical_store_snapshots", column: "base_snapshot_id"
-  add_foreign_key "canonical_store_snapshots", "canonical_stores"
-  add_foreign_key "canonical_stores", "conversations", column: "root_conversation_id"
-  add_foreign_key "canonical_stores", "installations"
-  add_foreign_key "canonical_stores", "workspaces"
   add_foreign_key "canonical_variables", "canonical_variables", column: "superseded_by_id"
   add_foreign_key "canonical_variables", "conversations", column: "source_conversation_id"
   add_foreign_key "canonical_variables", "installations"
@@ -1165,6 +1155,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_110000) do
   add_foreign_key "human_interaction_requests", "workflow_runs"
   add_foreign_key "invitations", "installations"
   add_foreign_key "invitations", "users", column: "inviter_id"
+  add_foreign_key "lineage_store_entries", "lineage_store_snapshots"
+  add_foreign_key "lineage_store_entries", "lineage_store_values"
+  add_foreign_key "lineage_store_references", "lineage_store_snapshots"
+  add_foreign_key "lineage_store_snapshots", "lineage_store_snapshots", column: "base_snapshot_id"
+  add_foreign_key "lineage_store_snapshots", "lineage_stores"
+  add_foreign_key "lineage_stores", "conversations", column: "root_conversation_id"
+  add_foreign_key "lineage_stores", "installations"
+  add_foreign_key "lineage_stores", "workspaces"
   add_foreign_key "message_attachments", "conversations"
   add_foreign_key "message_attachments", "installations"
   add_foreign_key "message_attachments", "message_attachments", column: "origin_attachment_id"

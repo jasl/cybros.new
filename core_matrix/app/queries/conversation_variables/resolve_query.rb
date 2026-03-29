@@ -22,7 +22,7 @@ module ConversationVariables
       cursor = nil
 
       loop do
-        page = CanonicalStores::ListKeysQuery.call(
+        page = LineageStores::ListKeysQuery.call(
           reference_owner: @conversation,
           cursor: cursor,
           limit: 100
@@ -33,7 +33,7 @@ module ConversationVariables
         cursor = page.next_cursor
       end
 
-      CanonicalStores::MultiGetQuery.call(
+      LineageStores::MultiGetQuery.call(
         reference_owner: @conversation,
         keys: keys
       ).values.compact

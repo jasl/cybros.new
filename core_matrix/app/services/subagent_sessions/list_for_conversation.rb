@@ -25,10 +25,8 @@ module SubagentSessions
         "parent_subagent_session_id" => session.parent_subagent_session&.public_id,
         "profile_key" => session.profile_key,
         "scope" => session.scope,
-        "lifecycle_state" => session.lifecycle_state,
-        "last_known_status" => session.last_known_status,
-        "canonical_name" => session.canonical_name,
-        "nickname" => session.nickname,
+        "derived_close_status" => session.derived_close_status,
+        "observed_status" => session.observed_status,
         "subagent_depth" => session.depth,
       }.compact
     end

@@ -29,7 +29,7 @@ into descendant conversation support surfaces.
   returns the visible transcript path for the conversation.
 - Root conversations project the selected input and selected output message of
   each turn in sequence order.
-- Thread conversations inherit the full parent projection and append their own
+- Fork conversations inherit the full parent projection and append their own
   selected messages.
 - Branch and checkpoint conversations inherit the parent projection only up to
   the `historical_anchor_message_id`, then append their own selected messages.

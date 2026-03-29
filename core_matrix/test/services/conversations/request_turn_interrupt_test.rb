@@ -78,7 +78,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     child_session = create_reusable_subagent_session_with_running_work!(
       context: context,
-      requested_by_turn: context[:turn]
+      origin_turn: context[:turn]
     )
 
     Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.zone.parse("2026-03-28 08:30:00 UTC"))
@@ -257,7 +257,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment],
       addressability: "agent_addressable"
@@ -271,16 +271,16 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       scope: "turn",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
   end
 
-  def create_reusable_subagent_session_with_running_work!(context:, requested_by_turn:)
+  def create_reusable_subagent_session_with_running_work!(context:, origin_turn:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      kind: "thread",
+      kind: "fork",
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment],
       addressability: "agent_addressable"
@@ -292,7 +292,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
-      last_known_status: "running"
+      observed_status: "running"
     )
     child_turn = Turns::StartAgentTurn.call(
       conversation: child_conversation,
@@ -309,11 +309,11 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       workflow_node: child_workflow_node,
       conversation: child_conversation,
       turn: child_turn,
-      task_kind: "subagent_step",
+      kind: "subagent_step",
       lifecycle_state: "running",
       started_at: Time.current,
       subagent_session: session,
-      requested_by_turn: requested_by_turn
+      origin_turn: origin_turn
     )
     Leases::Acquire.call(
       leased_resource: child_task_run,

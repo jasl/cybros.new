@@ -194,7 +194,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   barrier to be clear; background disposal tails may still be `disposing` or
   `degraded`
 - `Conversations::PurgeDeleted` still requires:
-  - final deletion to have removed the live canonical-store reference
+  - final deletion to have removed the live lineage-store reference
   - no active runtime residue
   - no lineage or provenance blockers
 - once those guards pass, purge removes mailbox residue and teardown-backed

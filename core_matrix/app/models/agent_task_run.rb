@@ -2,7 +2,7 @@ class AgentTaskRun < ApplicationRecord
   include HasPublicId
   include ClosableRuntimeResource
 
-  enum :task_kind,
+  enum :kind,
     {
       turn_step: "turn_step",
       agent_tool_call: "agent_tool_call",
@@ -27,7 +27,7 @@ class AgentTaskRun < ApplicationRecord
   belongs_to :conversation
   belongs_to :turn
   belongs_to :subagent_session, optional: true
-  belongs_to :requested_by_turn, class_name: "Turn", optional: true
+  belongs_to :origin_turn, class_name: "Turn", optional: true
   belongs_to :holder_agent_deployment, class_name: "AgentDeployment", optional: true
 
   has_many :agent_control_mailbox_items, dependent: :restrict_with_exception
@@ -45,7 +45,7 @@ class AgentTaskRun < ApplicationRecord
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :subagent_session_installation_match
-  validate :requested_by_turn_installation_match
+  validate :origin_turn_installation_match
   validate :workflow_projection_match
   validate :agent_installation_turn_match
   validate :holder_deployment_matches_task
@@ -101,10 +101,10 @@ class AgentTaskRun < ApplicationRecord
     errors.add(:subagent_session, "must belong to the same installation")
   end
 
-  def requested_by_turn_installation_match
-    return if requested_by_turn.blank? || requested_by_turn.installation_id == installation_id
+  def origin_turn_installation_match
+    return if origin_turn.blank? || origin_turn.installation_id == installation_id
 
-    errors.add(:requested_by_turn, "must belong to the same installation")
+    errors.add(:origin_turn, "must belong to the same installation")
   end
 
   def workflow_projection_match

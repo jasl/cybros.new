@@ -13,7 +13,7 @@ module Conversations
     def call
       conversation = current_conversation
 
-      return conversation if conversation.deleted? && conversation.canonical_store_reference.blank?
+      return conversation if conversation.deleted? && conversation.lineage_store_reference.blank?
 
       raise_invalid!(conversation, :deletion_state, "must be pending delete before finalization") unless conversation.pending_delete?
 
@@ -21,14 +21,14 @@ module Conversations
         conversation.with_lock do
           locked_conversation = conversation.reload
           validate_quiescent!(locked_conversation)
-          locked_conversation.canonical_store_reference&.destroy!
+          locked_conversation.lineage_store_reference&.destroy!
           locked_conversation.update!(deletion_state: "deleted")
         end
 
         Conversations::ReconcileCloseOperation.call(conversation: conversation)
       end
 
-      CanonicalStores::GarbageCollectJob.perform_later
+      LineageStores::GarbageCollectJob.perform_later
       conversation.reload
     end
 

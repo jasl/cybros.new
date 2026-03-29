@@ -36,7 +36,7 @@ class WorkspaceVariables::ListQueryTest < ActiveSupport::TestCase
       source_turn: context[:turn],
       source_workflow_run: context[:workflow_run]
     )
-    CanonicalStores::Set.call(
+    LineageStores::Set.call(
       conversation: context[:conversation],
       key: "conversation_only",
       typed_value_payload: { "type" => "string", "value" => "direct" },

@@ -236,7 +236,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
         installation: registration[:installation],
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
-        kind: "thread",
+        kind: "fork",
         execution_environment: registration[:execution_environment],
         agent_deployment: registration[:deployment],
         addressability: "agent_addressable"
