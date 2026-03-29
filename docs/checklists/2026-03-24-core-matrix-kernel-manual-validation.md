@@ -37,6 +37,224 @@ Current-batch rule:
   run `bin/rails db:seed` so `.env`-backed provider credentials such as
   `OPENROUTER_API_KEY` are materialized before manual checks
 
+## Phase 2 Full Agent Loop Acceptance Matrix (`2026-03-30`)
+
+This matrix is the required execution order for the final Phase 2 manual run.
+
+Rules:
+
+- do not skip ahead; run the scenarios in order unless a prior scenario
+  produces a blocker that must be discussed first
+- every scenario must record concrete `public_id` values instead of internal
+  numeric ids
+- every scenario must record both the expected DAG shape and the observed DAG
+  shape
+- every scenario must record both the expected conversation outcome and the
+  observed conversation outcome
+- if a scenario generates proof artifacts, record the output directory under
+  `docs/reports/phase-2/`
+
+Record these fields for each scenario:
+
+- scenario date and operator
+- conversation `public_id`
+- turn `public_id`
+- workflow-run `public_id`
+- deployment identifier and runtime mode
+- provider and model, when applicable
+- expected DAG shape
+- observed DAG shape
+- expected conversation state
+- observed conversation state
+- proof artifact path, when applicable
+- pass, fail, or blocked outcome
+
+Required final scenario order:
+
+1. bundled `Fenix` fast terminal path
+2. real provider-backed bundled `Fenix` turn
+3. during-generation steering: `reject`, `restart`, and `queue`
+4. human-interaction wait and resume
+5. subagent spawn plus bounded `wait_all` barrier
+6. `process_run` or turn-command-backed runtime path
+7. governed tool invocation in a real loop
+8. governed Streamable HTTP MCP invocation in a real loop
+9. same-installation deployment rotation upgrade
+10. same-installation deployment rotation downgrade
+11. independent external `Fenix` validation
+12. built-in system skill deploy flow
+13. third-party skill install and next-top-level-turn activation
+14. workflow proof export package generation
+
+## Phase 2 Scenario Stubs To Complete Before Final Acceptance
+
+Each section below must be refreshed with exact commands before the final Phase
+2 acceptance run starts.
+
+### Phase 2 Scenario 01: Bundled Fenix Fast Terminal Path
+
+- goal:
+  verify the default bundled runtime can complete one fast terminal turn under
+  the current Phase 2 kernel
+- minimum evidence:
+  - conversation, turn, and workflow `public_id` values
+  - one completed DAG with the expected terminal shape
+  - one conversation-state assertion that matches the stored transcript
+- command status:
+  - refresh exact commands during Milestone `F` before final acceptance
+
+### Phase 2 Scenario 02: Real Provider-Backed Bundled Fenix Turn
+
+- goal:
+  verify one real provider-backed top-level turn succeeds with the configured
+  `.env` credential materialized into the development database
+- minimum evidence:
+  - provider and model used
+  - durable conversation and workflow records
+  - observed terminal or waiting outcome matches expectation
+- command status:
+  - refresh exact commands during Milestones `D` through `F`
+
+### Phase 2 Scenario 03: During-Generation Steering
+
+- goal:
+  verify `reject`, `restart`, and `queue` behavior under active generation
+- minimum evidence:
+  - one example of each steering policy
+  - stale or superseded work does not mutate the current tail
+  - conversation state matches the retained feature-policy rules
+- command status:
+  - refresh exact commands during Milestone `D`
+
+### Phase 2 Scenario 04: Human Interaction Wait And Resume
+
+- goal:
+  verify yielded human-interaction requests become workflow-owned waits and
+  later resume correctly
+- minimum evidence:
+  - one durable wait-state entry
+  - one human-interaction record
+  - one resumed successor step with the expected DAG transition
+- command status:
+  - refresh exact commands during Milestone `D`
+
+### Phase 2 Scenario 05: Subagent Spawn And `wait_all` Barrier
+
+- goal:
+  verify bounded parallel subagent spawn, barrier waiting, and resumed parent
+  progression
+- minimum evidence:
+  - one parent workflow node yielding subagents
+  - one bounded child set
+  - one resumed successor node after the barrier clears
+- command status:
+  - refresh exact commands during Milestone `D`
+
+### Phase 2 Scenario 06: `process_run` Runtime Path
+
+- goal:
+  verify one real loop that exercises `process_run` or turn-command-backed
+  runtime behavior
+- minimum evidence:
+  - one persisted process resource
+  - durable workflow outcome
+  - expected runtime cleanup or close result
+- command status:
+  - refresh exact commands before final acceptance
+
+### Phase 2 Scenario 07: Governed Tool Invocation
+
+- goal:
+  verify one real tool call flows through the durable binding and invocation
+  model
+- minimum evidence:
+  - one `ToolBinding`
+  - one `ToolInvocation`
+  - conversation-visible outcome matches the invocation record
+- command status:
+  - refresh exact commands during Milestone `E`
+
+### Phase 2 Scenario 08: Governed Streamable HTTP MCP Path
+
+- goal:
+  verify one real Streamable HTTP MCP capability works under the same governed
+  invocation model
+- minimum evidence:
+  - one governed MCP binding
+  - one durable invocation history record
+  - observable failure or success classification
+- command status:
+  - refresh exact commands during Milestone `E`
+
+### Phase 2 Scenario 09: Deployment Rotation Upgrade
+
+- goal:
+  verify same-installation deployment rotation across an upgrade path
+- minimum evidence:
+  - pre-rotation and post-rotation deployment identifiers
+  - new runtime pairing evidence
+  - conversation continuity through the retained lineage rules
+- command status:
+  - refresh exact commands during Milestone `F`
+
+### Phase 2 Scenario 10: Deployment Rotation Downgrade
+
+- goal:
+  verify same-installation deployment rotation across a downgrade path
+- minimum evidence:
+  - downgrade pairing evidence
+  - expected conversation and workflow continuity
+  - durable deployment lineage remains correct
+- command status:
+  - refresh exact commands during Milestone `F`
+
+### Phase 2 Scenario 11: Independent External Fenix Validation
+
+- goal:
+  verify an external `Fenix` pairing works outside the bundled runtime path
+- minimum evidence:
+  - external runtime identity
+  - successful real loop outcome
+  - durable conversation and workflow records owned by the kernel
+- command status:
+  - refresh exact commands during Milestone `F`
+
+### Phase 2 Scenario 12: Built-In System Skill Deploy Flow
+
+- goal:
+  verify the reserved built-in deploy skill can be listed, loaded, and used
+  successfully
+- minimum evidence:
+  - skill catalog evidence
+  - one successful deploy-oriented run
+  - system-skill boundary remains reserved
+- command status:
+  - refresh exact commands during Milestone `F`
+
+### Phase 2 Scenario 13: Third-Party Skill Install And Activation
+
+- goal:
+  verify one third-party skill install, promotion, and next-top-level-turn
+  activation path
+- minimum evidence:
+  - staged install evidence
+  - promoted live skill evidence
+  - successful use on the next top-level turn
+- command status:
+  - refresh exact commands during Milestone `F`
+
+### Phase 2 Scenario 14: Workflow Proof Export Package
+
+- goal:
+  verify one workflow proof-export package is generated and committed as Phase 2
+  evidence
+- minimum evidence:
+  - one `proof.md`
+  - one Mermaid DAG file
+  - scenario directory recorded under `docs/reports/phase-2/`
+- command status:
+  - refresh exact commands during Milestones `F2` and `F3`
+
 ## Prerequisites
 
 - `cd core_matrix`

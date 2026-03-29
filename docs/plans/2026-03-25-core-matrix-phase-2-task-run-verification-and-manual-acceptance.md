@@ -11,6 +11,8 @@ Use this task document together with:
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 6. `docs/reports/README.md`
 7. `docs/reports/phase-2/README.md`
+8. `docs/design/2026-03-30-core-matrix-phase-2-sequential-execution-design.md`
+9. `docs/plans/2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md`
 
 Load this file as the final acceptance execution unit for Phase 2. Treat the
 phase plan and proof-export documents as ordering indexes, not as the full
@@ -40,6 +42,17 @@ Reference capture for this task:
 - Modify: `agents/fenix/README.md`
 
 **Step 1: Refresh the final manual checklist**
+
+The checklist now acts as the authoritative operator script for the final
+manual phase.
+
+Before any real acceptance run:
+
+- make every required scenario section concrete with exact commands
+- preserve the execution order defined in the checklist's Phase 2 acceptance
+  matrix
+- make sure each scenario records expected and observed DAG shape plus
+  expected and observed conversation-state results
 
 The checklist must cover at least:
 
