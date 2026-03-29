@@ -22,7 +22,7 @@ module Workflows
           closing_message: "must not retry paused work while close is in progress"
         ) do |conversation, workflow_run, turn|
           validate_retry_state!(workflow_run)
-          validate_retry_target!(workflow_run, turn)
+          recovery_target = validate_retry_target!(workflow_run, turn)
           root_node = workflow_run.workflow_nodes.order(:ordinal).first
           raise_invalid!(workflow_run, :workflow_nodes, "must include a root node to retry") if root_node.blank?
 
@@ -30,7 +30,7 @@ module Workflows
           turn.update!(lifecycle_state: "canceled")
           Conversations::SwitchAgentDeployment.call(
             conversation: conversation,
-            agent_deployment: @deployment
+            agent_deployment: recovery_target.agent_deployment
           )
 
           retried_turn = Turns::StartUserTurn.call(
@@ -46,8 +46,8 @@ module Workflows
             root_node_type: root_node.node_type,
             decision_source: root_node.decision_source,
             metadata: root_node.metadata,
-            selector_source: "manual_recovery",
-            selector: @selector.presence || turn.recovery_selector
+            selector_source: recovery_target.selector_source,
+            selector: recovery_target.resolved_model_selection_snapshot["normalized_selector"]
           )
 
           AuditLog.record!(
@@ -78,7 +78,8 @@ module Workflows
 
     def validate_retry_target!(workflow_run, turn)
       raise_invalid!(turn, :selected_input_message, "must exist to retry paused work") if turn.selected_input_message.blank?
-      AgentDeployments::ValidateRecoveryTarget.call(
+
+      AgentDeployments::ResolveRecoveryTarget.call(
         conversation: workflow_run.conversation,
         turn: turn,
         agent_deployment: @deployment,
@@ -87,7 +88,8 @@ module Workflows
         selector: @selector.presence || turn.recovery_selector,
         same_logical_agent_as: nil,
         capability_contract_turn: nil,
-        scheduling_error_message: "must be eligible for scheduling to retry paused work"
+        scheduling_error_message: "must be eligible for scheduling to retry paused work",
+        rebind_turn: false
       )
     end
 

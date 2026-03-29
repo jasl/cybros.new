@@ -250,6 +250,40 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal replacement, resumed.turn.reload.agent_deployment
   end
 
+  test "manual resume uses the same turn rebinding owner as recovery-plan application" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment],
+      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    original_rebind_call = nil
+    rebind_calls = []
+
+    original_rebind_call = AgentDeployments::RebindTurn.method(:call)
+    AgentDeployments::RebindTurn.singleton_class.define_method(:call) do |*args, **kwargs|
+      rebind_calls << kwargs
+      original_rebind_call.call(*args, **kwargs)
+    end
+
+    resumed = Workflows::ManualResume.call(
+      workflow_run: context[:workflow_run],
+      deployment: replacement,
+      actor: create_user!(installation: context[:installation], role: "admin"),
+      selector: "role:planner"
+    )
+
+    assert_equal context[:workflow_run].id, resumed.id
+    assert_equal 1, rebind_calls.size
+    assert_equal context[:turn].id, rebind_calls.first.fetch(:turn).id
+    assert_equal replacement, rebind_calls.first.fetch(:recovery_target).agent_deployment
+  ensure
+    if original_rebind_call
+      AgentDeployments::RebindTurn.singleton_class.define_method(:call, original_rebind_call)
+    end
+  end
+
   private
 
   def build_paused_recovery_context!

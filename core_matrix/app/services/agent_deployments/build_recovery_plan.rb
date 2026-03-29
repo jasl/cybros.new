@@ -33,26 +33,23 @@ module AgentDeployments
     end
 
     def rotated_replacement_plan
-      return manual_plan("execution_environment_drift") unless same_execution_environment?
-      return manual_plan("capability_contract_drift") unless @deployment.preserves_capability_contract?(@turn)
-      return manual_plan("auto_resume_not_permitted") unless @deployment.auto_resume_eligible?
-
-      resolved_snapshot = AgentDeployments::ValidateRecoveryTarget.call(
+      recovery_target = AgentDeployments::ResolveRecoveryTarget.call(
         conversation: @turn.conversation,
         turn: @turn,
         agent_deployment: @deployment,
         record: @turn.dup,
         selector_source: recovery_selector_source,
-        selector: @turn.normalized_selector
+        selector: @turn.recovery_selector,
+        require_auto_resume_eligible: true,
+        rebind_turn: true
       )
-      return manual_plan("selector_resolution_drift") if resolved_snapshot.blank?
 
       AgentDeploymentRecoveryPlan.new(
         action: "resume_with_rebind",
-        resolved_model_selection_snapshot: resolved_snapshot.merge(
-          "deployment_fingerprint" => @deployment.fingerprint
-        )
+        recovery_target: recovery_target
       )
+    rescue AgentDeployments::ResolveRecoveryTarget::Invalid => error
+      manual_plan(error.reason)
     end
 
     def runtime_identity_matches?
@@ -64,10 +61,6 @@ module AgentDeployments
       current_deployment.present? &&
         current_deployment.id != @deployment.id &&
         current_deployment.same_logical_agent?(@deployment)
-    end
-
-    def same_execution_environment?
-      @turn.conversation.execution_environment_id == @deployment.execution_environment_id
     end
 
     def drift_reason_for_current_binding

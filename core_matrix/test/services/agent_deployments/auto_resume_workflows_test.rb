@@ -94,6 +94,41 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert context[:workflow_run].reload.ready?
   end
 
+  test "compatible rotated deployment auto resumes through the canonical rebinding owner" do
+    context = build_waiting_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
+    )
+    original_rebind_call = nil
+    rebind_calls = []
+
+    AgentDeployments::RecordHeartbeat.call(
+      deployment: replacement,
+      health_status: "healthy",
+      health_metadata: { "release" => "fenix-0.2.0" },
+      auto_resume_eligible: true
+    )
+
+    original_rebind_call = AgentDeployments::RebindTurn.method(:call)
+    AgentDeployments::RebindTurn.singleton_class.define_method(:call) do |*args, **kwargs|
+      rebind_calls << kwargs
+      original_rebind_call.call(*args, **kwargs)
+    end
+
+    resumed = AgentDeployments::AutoResumeWorkflows.call(deployment: replacement)
+
+    assert_equal [context[:workflow_run].id], resumed.map(&:id)
+    assert_equal 1, rebind_calls.size
+    assert_equal context[:turn].id, rebind_calls.first.fetch(:turn).id
+    assert_equal replacement, rebind_calls.first.fetch(:recovery_target).agent_deployment
+  ensure
+    if original_rebind_call
+      AgentDeployments::RebindTurn.singleton_class.define_method(:call, original_rebind_call)
+    end
+  end
+
   test "cross environment rotated deployments require manual recovery instead of auto resume" do
     context = build_waiting_recovery_context!
     replacement = create_compatible_replacement_deployment!(

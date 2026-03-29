@@ -54,7 +54,9 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
 
     assert_equal "resume_with_rebind", plan.action
     assert plan.rebind_turn?
-    assert_equal replacement.fingerprint, plan.resolved_model_selection_snapshot["deployment_fingerprint"]
+    assert_instance_of AgentDeploymentRecoveryTarget, plan.recovery_target
+    assert_equal replacement, plan.recovery_target.agent_deployment
+    assert_equal context[:turn].recovery_selector, plan.recovery_target.resolved_model_selection_snapshot["normalized_selector"]
   end
 
   test "returns manual recovery required when a rotated replacement drifts in profile policy" do

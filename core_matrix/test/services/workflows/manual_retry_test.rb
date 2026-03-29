@@ -123,6 +123,40 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_equal 1, context[:conversation].turns.count
   end
 
+  test "manual retry reuses the canonical paused-work recovery target resolver" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_deployment!(
+      installation: context[:installation],
+      agent_installation: context[:agent_installation],
+      execution_environment: context[:execution_environment]
+    )
+    original_resolve_call = nil
+    resolve_calls = []
+
+    original_resolve_call = AgentDeployments::ResolveRecoveryTarget.method(:call)
+    AgentDeployments::ResolveRecoveryTarget.singleton_class.define_method(:call) do |*args, **kwargs|
+      resolve_calls << kwargs
+      original_resolve_call.call(*args, **kwargs)
+    end
+
+    retried = Workflows::ManualRetry.call(
+      workflow_run: context[:workflow_run],
+      deployment: replacement,
+      actor: create_user!(installation: context[:installation], role: "admin"),
+      selector: "role:planner"
+    )
+
+    assert retried.active?
+    assert_equal 1, resolve_calls.size
+    assert_equal context[:turn].id, resolve_calls.first.fetch(:turn).id
+    assert_equal replacement, resolve_calls.first.fetch(:agent_deployment)
+    assert_equal "manual_recovery", resolve_calls.first.fetch(:selector_source)
+  ensure
+    if original_resolve_call
+      AgentDeployments::ResolveRecoveryTarget.singleton_class.define_method(:call, original_resolve_call)
+    end
+  end
+
   private
 
   def build_paused_recovery_context!

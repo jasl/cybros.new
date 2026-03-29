@@ -1,18 +1,15 @@
 class AgentDeploymentRecoveryPlan
   ACTIONS = %w[resume resume_with_rebind manual_recovery_required].freeze
 
-  attr_reader :action, :drift_reason
+  attr_reader :action, :drift_reason, :recovery_target
 
-  def initialize(action:, drift_reason: nil, resolved_model_selection_snapshot: nil)
+  def initialize(action:, drift_reason: nil, recovery_target: nil)
     @action = action.to_s
     raise ArgumentError, "unsupported recovery plan action: #{@action}" unless ACTIONS.include?(@action)
 
     @drift_reason = drift_reason&.to_s
-    @resolved_model_selection_snapshot = normalize_snapshot(resolved_model_selection_snapshot)
-  end
-
-  def resolved_model_selection_snapshot
-    @resolved_model_selection_snapshot.deep_dup
+    @recovery_target = normalize_recovery_target(recovery_target)
+    validate_action_contract!
   end
 
   def resume?
@@ -29,10 +26,20 @@ class AgentDeploymentRecoveryPlan
 
   private
 
-  def normalize_snapshot(snapshot)
-    return {} if snapshot.blank?
-    raise ArgumentError, "resolved model selection snapshot must be a hash" unless snapshot.is_a?(Hash)
+  def normalize_recovery_target(recovery_target)
+    return nil if recovery_target.blank?
+    return recovery_target if recovery_target.is_a?(AgentDeploymentRecoveryTarget)
 
-    snapshot.deep_stringify_keys
+    raise ArgumentError, "recovery target must be an AgentDeploymentRecoveryTarget"
+  end
+
+  def validate_action_contract!
+    if rebind_turn? && recovery_target.blank?
+      raise ArgumentError, "resume_with_rebind requires a recovery target"
+    end
+
+    if !rebind_turn? && recovery_target.present?
+      raise ArgumentError, "only resume_with_rebind may carry a recovery target"
+    end
   end
 end

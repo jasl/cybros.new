@@ -82,9 +82,16 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   `agent_unavailable` workflows while the owning conversation remains retained
 - compatible rotated replacements may auto resume only when they preserve the
   conversation-bound execution environment and capability contract
-- auto-resume rebinding now updates both `conversation.agent_deployment` and
-  `turn.agent_deployment` through the same shared deployment-target contract
-  used by manual recovery
+- `AgentDeployments::ResolveRecoveryTarget` is the one paused-work
+  target-resolution contract used by:
+  - `AgentDeployments::BuildRecoveryPlan`
+  - `Workflows::ManualResume`
+  - `Workflows::ManualRetry`
+- `AgentDeployments::RebindTurn` is the one paused-turn rebinding mutation
+  owner used by both auto-resume recovery-plan application and manual resume
+- `Conversations::ValidateAgentDeploymentTarget` now stays generic to live
+  conversation deployment switching and only enforces the installation and
+  execution-environment boundary
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
   boundaries for paused workflows and are rejected unless the owning
   conversation is still:

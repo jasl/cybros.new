@@ -115,6 +115,10 @@ Planned replacement design:
   - `environment_plane`
   - `effective_tool_catalog`
   - conversation-facing runtime capability payloads
+- paused-work recovery now also relies on that same capability-contract shape:
+  `AgentDeployments::ResolveRecoveryTarget` compares the replacement
+  deployment's active snapshot against the paused turn's pinned snapshot before
+  it allows paused work to continue
 - `CapabilitySnapshot#as_contract_payload`,
   `CapabilitySnapshot#as_agent_plane_payload`, and
   `ExecutionEnvironment#as_runtime_plane_payload` are thin adapters over that
@@ -143,6 +147,10 @@ Planned replacement design:
   previous active snapshot when the new config schema still exposes those keys
 - the retained selector-bearing keys in this task are `interactive`,
   `model_slots`, and `model_roles`
+- paused-work recovery re-resolves the frozen selector through
+  `AgentDeployments::ResolveRecoveryTarget`, so retained selector-bearing
+  defaults continue to shape whether a replacement deployment can resume or
+  retry paused work safely
 - reconciliation is best-effort and returns a `reconciliation_report` with
   status plus retained keys rather than failing activation on schema drift
 

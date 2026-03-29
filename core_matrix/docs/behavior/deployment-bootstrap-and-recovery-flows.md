@@ -115,9 +115,21 @@ Planned replacement design:
   - `resume`
   - `resume_with_rebind`
   - `manual_recovery_required`
-- `AgentDeployments::ApplyRecoveryPlan` owns the matching mutation path,
-  including turn rebinding, restored wait-state writes, and manual-recovery
-  audit logging
+- `AgentDeployments::ResolveRecoveryTarget` is the one paused-work
+  target-resolution contract for:
+  - scheduling and auto-resume eligibility checks
+  - same-installation and same execution-environment checks for paused work
+  - same logical-agent enforcement for paused resumptions
+  - paused capability-contract compatibility
+  - selector re-resolution on the candidate deployment
+- `AgentDeployments::ApplyRecoveryPlan` is now a thin orchestrator over the
+  planned recovery target and restored wait-state writes
+- `AgentDeployments::RebindTurn` is the one paused-turn mutation owner for:
+  - switching `conversation.agent_deployment`
+  - rewriting `turn.agent_deployment`
+  - rewriting `turn.pinned_deployment_fingerprint`
+  - replacing the frozen model-selection snapshot
+  - rebuilding the turn execution snapshot
 - when the auto-resume target is a rotated replacement deployment, the kernel:
   - re-pins the turn to the replacement deployment
   - refreshes the frozen capability snapshot binding
@@ -135,6 +147,9 @@ Planned replacement design:
 ### Manual Resume
 
 - `Workflows::ManualResume` resumes the existing paused workflow path in place.
+- manual resume reuses `AgentDeployments::ResolveRecoveryTarget` and
+  `AgentDeployments::RebindTurn`; it does not keep a second paused-work
+  compatibility or rebinding path
 - manual resume is allowed only when:
   - the workflow is already paused in `paused_agent_unavailable`
   - the chosen deployment belongs to the same installation
@@ -157,6 +172,9 @@ Planned replacement design:
 
 - `Workflows::ManualRetry` abandons the paused execution path and starts a new
   workflow from the last stable selected input.
+- manual retry reuses `AgentDeployments::ResolveRecoveryTarget` for
+  paused-work target validation, but it does not call `RebindTurn` because it
+  starts a fresh turn instead of mutating the paused one
 - manual retry:
   - requires a paused `paused_agent_unavailable` workflow
   - requires a selected input message to replay
@@ -194,6 +212,9 @@ Planned replacement design:
 
 - bootstrap is rejected when the workspace does not belong to the same
   installation as the deployment
+- `Conversations::ValidateAgentDeploymentTarget` remains the generic live
+  conversation deployment-switch validator and does not carry paused-work
+  logical-agent or capability-contract continuity checks
 - manual resume rejects logical-agent mismatch rather than silently continuing
   on an unrelated runtime
 - manual resume rejects replacement deployments that no longer preserve the

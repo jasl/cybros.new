@@ -25,6 +25,29 @@ class Conversations::SwitchAgentDeploymentTest < ActiveSupport::TestCase
     assert_equal replacement.public_id, result.runtime_contract.fetch("agent_deployment_id")
   end
 
+  test "switches deployments across logical agents when the live conversation binding stays in the same environment" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    replacement = create_agent_deployment!(
+      installation: context[:installation],
+      agent_installation: create_agent_installation!(installation: context[:installation]),
+      execution_environment: context[:execution_environment],
+      fingerprint: "replacement-#{next_test_sequence}",
+      bootstrap_state: "pending"
+    )
+
+    result = Conversations::SwitchAgentDeployment.call(
+      conversation: conversation,
+      agent_deployment: replacement
+    )
+
+    assert_equal replacement, result.conversation.reload.agent_deployment
+  end
+
   test "rejects switching to a deployment from another execution environment" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

@@ -68,6 +68,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     assert_equal "role:planner", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.4", retried.turn.resolved_model_ref
+    assert_equal replacement.public_id, retried.turn.execution_snapshot.identity["agent_deployment_id"]
     assert_equal replacement.public_id, retried.execution_identity["agent_deployment_id"]
     assert_equal context[:execution_environment].public_id, retried.execution_identity["execution_environment_id"]
     assert_equal(

@@ -61,7 +61,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
   end
 
-  test "rejects a replacement deployment from a different logical agent when continuity is required" do
+  test "generic live deployment validation no longer accepts paused continuity options" do
     context = build_turn_context!
     replacement = create_replacement_deployment!(
       installation: context[:installation],
@@ -69,7 +69,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment]
     )
 
-    error = assert_raises(ActiveRecord::RecordInvalid) do
+    assert_raises(ArgumentError) do
       Conversations::ValidateAgentDeploymentTarget.call(
         conversation: context[:conversation],
         agent_deployment: replacement,
@@ -78,21 +78,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
       )
     end
 
-    assert_same context[:turn], error.record
-    assert_includes error.record.errors[:agent_deployment], "must belong to the same logical agent installation"
-  end
-
-  test "rejects a replacement deployment that does not preserve the paused capability contract" do
-    context = build_turn_context!
-    replacement = create_replacement_deployment!(
-      installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
-      protocol_methods: default_protocol_methods("agent_health"),
-      tool_catalog: default_tool_catalog("shell_exec")
-    )
-
-    error = assert_raises(ActiveRecord::RecordInvalid) do
+    assert_raises(ArgumentError) do
       Conversations::ValidateAgentDeploymentTarget.call(
         conversation: context[:conversation],
         agent_deployment: replacement,
@@ -100,38 +86,6 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
         capability_contract_turn: context[:turn]
       )
     end
-
-    assert_same context[:turn], error.record
-    assert_includes error.record.errors[:agent_deployment], "must preserve the paused workflow capability contract"
-  end
-
-  test "rejects a replacement deployment that changes paused profile policy even when methods and tools match" do
-    context = build_profile_aware_turn_context!
-    replacement = create_replacement_deployment!(
-      installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
-      protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
-      profile_catalog: default_profile_catalog.deep_merge(
-        "researcher" => { "allowed_tool_names" => %w[shell_exec] }
-      ),
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
-    )
-
-    error = assert_raises(ActiveRecord::RecordInvalid) do
-      Conversations::ValidateAgentDeploymentTarget.call(
-        conversation: context[:conversation],
-        agent_deployment: replacement,
-        record: context[:turn],
-        capability_contract_turn: context[:turn]
-      )
-    end
-
-    assert_same context[:turn], error.record
-    assert_includes error.record.errors[:agent_deployment], "must preserve the paused workflow capability contract"
   end
 
   private
