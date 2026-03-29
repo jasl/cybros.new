@@ -34,6 +34,8 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
     prepared = Fenix::Hooks::PrepareTurn.call(context: context)
 
+    assert_equal mailbox_item.fetch("protocol_message_id"), context.fetch("protocol_message_id")
+    assert_equal "turn_step", context.fetch("kind")
     assert_equal "researcher", context.dig("agent_context", "profile")
     assert_equal true, context.dig("agent_context", "is_subagent")
     assert_equal 1, context.dig("agent_context", "subagent_depth")
@@ -50,6 +52,8 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
     prepared = Fenix::Hooks::PrepareTurn.call(context: context)
 
+    assert_equal "kernel-assignment-message-id", context.fetch("protocol_message_id")
+    assert_equal "subagent_step", context.fetch("kind")
     assert_equal "gpt-5.4", context.dig("model_context", "model_ref")
     assert_equal "gpt-5.4", context.dig("model_context", "api_model")
     assert_equal 900_000, context.dig("budget_hints", "advisory_hints", "recommended_compaction_threshold")

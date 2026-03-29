@@ -23,7 +23,7 @@ module ActiveSupport
     def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context)
       {
         "item_id" => "mailbox-item-#{SecureRandom.uuid}",
-        "message_id" => "kernel-assignment-#{SecureRandom.uuid}",
+        "protocol_message_id" => "kernel-assignment-#{SecureRandom.uuid}",
         "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
         "attempt_no" => 1,
         "runtime_plane" => runtime_plane,
@@ -33,7 +33,7 @@ module ActiveSupport
           "workflow_node_id" => "node-#{SecureRandom.uuid}",
           "conversation_id" => "conversation-#{SecureRandom.uuid}",
           "turn_id" => "turn-#{SecureRandom.uuid}",
-          "task_kind" => "turn_step",
+          "kind" => "turn_step",
           "task_payload" => { "mode" => mode, "expression" => "2 + 2" },
           "context_messages" => context_messages,
           "budget_hints" => {

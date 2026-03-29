@@ -8,6 +8,8 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
 
     assert_equal %w[execution_started execution_progress execution_complete],
       result.reports.map { |report| report.fetch("method_id") }
+    assert result.reports.all? { |report| report.key?("protocol_message_id") }
+    assert result.reports.none? { |report| report.key?("message_id") }
     assert_equal "The calculator returned 4.", result.output
     assert_equal %w[prepare_turn compact_context review_tool_call project_tool_result finalize_output],
       result.trace.map { |entry| entry.fetch("hook") }
@@ -70,5 +72,6 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", result.output
     assert_equal "gpt-5.4", result.trace.first.fetch("likely_model")
     assert_equal "researcher", result.trace.first.fetch("profile")
+    assert result.reports.all? { |report| report.key?("protocol_message_id") }
   end
 end

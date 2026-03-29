@@ -14,7 +14,7 @@ module Fenix
 
         {
           "item_id" => @mailbox_item.fetch("item_id"),
-          "message_id" => @mailbox_item.fetch("message_id"),
+          "protocol_message_id" => @mailbox_item.fetch("protocol_message_id"),
           "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
           "attempt_no" => @mailbox_item.fetch("attempt_no").to_i,
           "runtime_plane" => @mailbox_item.fetch("runtime_plane", "agent"),
@@ -23,7 +23,7 @@ module Fenix
           "workflow_node_id" => payload.fetch("workflow_node_id"),
           "conversation_id" => payload.fetch("conversation_id"),
           "turn_id" => payload.fetch("turn_id"),
-          "task_kind" => payload.fetch("task_kind"),
+          "kind" => payload.fetch("kind"),
           "task_payload" => payload.fetch("task_payload", {}),
           "context_messages" => payload.fetch("context_messages", []),
           "budget_hints" => payload.fetch("budget_hints", {}),
