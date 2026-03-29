@@ -78,4 +78,34 @@ class ProviderExecution::PersistTurnStepSuccessTest < ActiveSupport::TestCase
     assert_equal 1, UsageEvent.count
     assert_equal 1, workflow_node.reload.workflow_node_events.where(event_kind: "status").count
   end
+
+  test "marks the usage evaluation threshold crossed when provider totals exceed the advisory hint" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+        "presence_penalty" => 0.6,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    provider_result = build_provider_chat_result(
+      prompt_tokens: 35,
+      completion_tokens: 20,
+      total_tokens: 55
+    )
+
+    result = ProviderExecution::PersistTurnStepSuccess.call(
+      workflow_node: workflow_node,
+      request_context: request_context,
+      provider_result: provider_result,
+      provider_request_id: "provider-request-3",
+      messages_count: turn_step_messages_for(workflow_run).length,
+      duration_ms: 123
+    )
+
+    assert_equal 50, result.execution_profile_fact.metadata.dig("usage_evaluation", "recommended_compaction_threshold")
+    assert_equal true, result.execution_profile_fact.metadata.dig("usage_evaluation", "threshold_crossed")
+  end
 end

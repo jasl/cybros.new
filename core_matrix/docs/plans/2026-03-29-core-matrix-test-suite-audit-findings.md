@@ -2,6 +2,36 @@
 
 ## Batch 1
 
+### Directory Summary
+
+- `workflows`
+  - Result: `keep_and_strengthen`
+  - Notes: snapshot assembly and intent materialization tests protect real substrate invariants and benefitted from stronger payload and branch-path assertions.
+- `turns`
+  - Result: `keep_and_strengthen`
+  - Notes: turn-entry and mutation-lock tests are behavior-focused. One refactor-residue alias assertion was removed.
+- `conversations`
+  - Result: `mixed, mostly keep_and_strengthen`
+  - Notes: lifecycle tests carry real value, but several refactor-residue guard/alias assertions were removed because they only checked that deleted modules stayed deleted.
+- `lineage_stores`
+  - Result: `keep_and_strengthen`
+  - Notes: compaction, set, delete, and garbage-collection tests all protect real lineage behavior. Compaction needed stronger assertions, not removal.
+- `provider_execution`
+  - Result: `keep_and_strengthen`
+  - Notes: request context and persistence tests protect real contracts. Success and failure persistence now cover stale replay rejection explicitly.
+
+### Low-Value Tests Removed In This Batch
+
+- Removed legacy module/alias assertions from:
+  - `test/services/conversations/archive_test.rb`
+  - `test/services/conversations/purge_deleted_test.rb`
+  - `test/services/conversations/finalize_deletion_test.rb`
+  - `test/services/conversations/with_conversation_entry_lock_test.rb`
+  - `test/services/conversations/validate_quiescence_test.rb`
+  - `test/services/turns/with_timeline_mutation_lock_test.rb`
+- Reason:
+  - These assertions only encoded past refactor state and did not protect runtime behavior, invariants, or public contracts.
+
 ### `test/services/workflows/build_execution_snapshot_test.rb`
 
 - Classification: `keep_and_strengthen`
@@ -46,27 +76,28 @@
 
 ### `test/services/conversations/request_close_test.rb`
 
-- Classification: `rewrite_or_lower`
+- Classification: `keep_and_strengthen`
 - Protects:
   - archive requests require retained conversations
   - delete requests preserve archived lifecycle state while marking pending delete
 - Closed In Current Batch:
   - intent-switch rejection while a close operation is unfinished
   - direct assertions on close-operation request timing semantics
+  - same-intent retry idempotency
 - Remaining:
-  - the file still adds limited value compared with broader lifecycle and purge tests
   - queued-turn, active-turn, and background-resource side effects remain better covered elsewhere than here
 
 ### `test/services/lineage_stores/compact_snapshot_test.rb`
 
-- Classification: `rewrite_or_lower`
+- Classification: `keep_and_strengthen`
 - Protects:
   - compaction rewrites the visible key set into a depth-zero snapshot
 - Closed In Current Batch:
   - lineage store continuity assertions
   - value reuse assertions for visible entries
-- Remaining:
   - stronger proof that tombstones are removed from the compacted snapshot, not just hidden in the query
+- Remaining:
+  - no direct stress case yet for multi-key chains with repeated overwrites before compaction
 
 ### `test/services/provider_execution/persist_turn_step_success_test.rb`
 
@@ -77,5 +108,16 @@
   - output lineage assertions
   - usage evaluation metadata assertions
   - stale replay rejection under the shared execution lock
+  - threshold-crossed true-branch coverage
 - Remaining:
-  - threshold-crossed behavior still only has false-branch coverage in this file
+  - the higher-level integration path still checks usage rollups more than profiling payload details
+
+### `test/services/provider_execution/persist_turn_step_failure_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - terminal failure writes failed turn/workflow state and failure status events
+- Closed In Current Batch:
+  - stale replay rejection under the shared execution lock
+- Remaining:
+  - no direct coverage yet for alternative provider error classes beyond HTTP failures

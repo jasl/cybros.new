@@ -1,10 +1,6 @@
 require "test_helper"
 
 class Turns::WithTimelineMutationLockTest < ActiveSupport::TestCase
-  test "legacy timeline action alias is removed" do
-    refute Turns.const_defined?(:WithTimelineActionLock, false)
-  end
-
   test "yields the turn when timeline mutation is allowed" do
     turn = build_completed_turn_with_output!
 

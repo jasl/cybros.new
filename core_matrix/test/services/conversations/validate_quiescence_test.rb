@@ -1,10 +1,6 @@
 require "test_helper"
 
 class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
-  test "legacy work quiescence guard module is removed" do
-    refute Conversations.constants.include?(legacy_guard_constant_name)
-  end
-
   test "archival rejects open owned subagent sessions" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -111,10 +107,6 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
   end
 
   private
-
-  def legacy_guard_constant_name
-    %i[Work Quiescence Guard].join.to_sym
-  end
 
   def create_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:)
     child_conversation = create_conversation_record!(

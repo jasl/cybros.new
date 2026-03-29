@@ -46,5 +46,7 @@ class LineageStores::CompactSnapshotTest < ActiveSupport::TestCase
     assert_equal ["alpha"], visible_keys
     assert_equal ["alpha"], current_snapshot.lineage_store_entries.order(:key).pluck(:key)
     assert_equal alpha_value_id, current_snapshot.lineage_store_entries.find_by!(key: "alpha").lineage_store_value_id
+    assert_equal [], current_snapshot.lineage_store_entries.where(entry_kind: "tombstone").pluck(:key)
+    refute current_snapshot.lineage_store_entries.exists?(key: "beta")
   end
 end
