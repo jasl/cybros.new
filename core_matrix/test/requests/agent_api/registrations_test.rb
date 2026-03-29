@@ -127,4 +127,85 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     assert_equal({}, response_body.fetch("environment_capability_payload"))
     refute_includes response.body, %("#{execution_environment.id}")
   end
+
+  test "registration rejects malformed environment capability payloads with an unprocessable response" do
+    installation = create_installation!
+    actor = create_user!(installation: installation, role: "admin")
+    agent_installation = create_agent_installation!(installation: installation)
+    enrollment = AgentEnrollments::Issue.call(
+      agent_installation: agent_installation,
+      actor: actor,
+      expires_at: 2.hours.from_now
+    )
+
+    assert_no_difference("AgentDeployment.count") do
+      post "/agent_api/registrations",
+        params: {
+          enrollment_token: enrollment.plaintext_token,
+          environment_fingerprint: "fenix-host-c",
+          environment_capability_payload: ["invalid-capability"],
+          fingerprint: "fenix-release-0.3.0",
+          endpoint_metadata: {
+            transport: "http",
+            base_url: "https://agents.example.test",
+          },
+          protocol_version: "2026-03-24",
+          sdk_version: "fenix-0.3.0",
+          protocol_methods: default_protocol_methods("agent_health"),
+          tool_catalog: default_tool_catalog("shell_exec"),
+          profile_catalog: ["invalid-profile"],
+          config_schema_snapshot: "invalid-schema",
+          conversation_override_schema_snapshot: ["invalid-overrides"],
+          default_config_snapshot: "invalid-defaults",
+        },
+        as: :json
+    end
+
+    assert_response :unprocessable_entity
+
+    error_message = JSON.parse(response.body).fetch("error")
+    assert_includes error_message, "Capability payload must be a Hash"
+  end
+
+  test "registration rejects malformed capability contract hashes with an unprocessable response" do
+    installation = create_installation!
+    actor = create_user!(installation: installation, role: "admin")
+    agent_installation = create_agent_installation!(installation: installation)
+    enrollment = AgentEnrollments::Issue.call(
+      agent_installation: agent_installation,
+      actor: actor,
+      expires_at: 2.hours.from_now
+    )
+
+    assert_no_difference("AgentDeployment.count") do
+      post "/agent_api/registrations",
+        params: {
+          enrollment_token: enrollment.plaintext_token,
+          environment_fingerprint: "fenix-host-d",
+          environment_capability_payload: { conversation_attachment_upload: false },
+          fingerprint: "fenix-release-0.4.0",
+          endpoint_metadata: {
+            transport: "http",
+            base_url: "https://agents.example.test",
+          },
+          protocol_version: "2026-03-24",
+          sdk_version: "fenix-0.4.0",
+          protocol_methods: default_protocol_methods("agent_health"),
+          tool_catalog: default_tool_catalog("shell_exec"),
+          profile_catalog: ["invalid-profile"],
+          config_schema_snapshot: "invalid-schema",
+          conversation_override_schema_snapshot: ["invalid-overrides"],
+          default_config_snapshot: "invalid-defaults",
+        },
+        as: :json
+    end
+
+    assert_response :unprocessable_entity
+
+    error_message = JSON.parse(response.body).fetch("error")
+    assert_includes error_message, "Profile catalog must be a Hash"
+    assert_includes error_message, "Config schema snapshot must be a Hash"
+    assert_includes error_message, "Conversation override schema snapshot must be a Hash"
+    assert_includes error_message, "Default config snapshot must be a Hash"
+  end
 end

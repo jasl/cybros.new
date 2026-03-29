@@ -97,7 +97,7 @@
   - value reuse assertions for visible entries
   - stronger proof that tombstones are removed from the compacted snapshot, not just hidden in the query
 - Remaining:
-  - no direct stress case yet for multi-key chains with repeated overwrites before compaction
+  - follow-up overflow tests now cover repeated overwrite and delete chains through `set` and `delete_key`; remaining gaps are scale-oriented, not continuity-oriented
 
 ### `test/services/provider_execution/persist_turn_step_success_test.rb`
 
@@ -231,8 +231,22 @@
   - default environment kind fallback
   - endpoint metadata fallback into execution environment connection metadata
   - empty environment capability payload default path
+  - malformed environment capability payload rejection
+  - malformed profile/config/default contract rejection
 - Remaining:
-  - no request-level coverage yet for malformed profile catalog payloads
+  - low-risk passive endpoints still rely on shared base-controller behavior more than endpoint-specific negative tests
+
+### `test/requests/agent_api/capabilities_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - capability refresh and handshake return the machine-facing runtime contract without leaking internal identifiers
+- Closed In Follow-Up:
+  - malformed environment capability payload rejection
+  - malformed profile/config/default contract rejection
+  - handshake failure path preserves the previously active capability snapshot version
+- Remaining:
+  - no dedicated request-level stress case yet for very large tool catalogs or profile catalogs
 
 ### `test/requests/agent_api/health_test.rb`
 
@@ -243,3 +257,39 @@
   - bootstrap state, protocol version, sdk version, and heartbeat timestamp response shape
 - Remaining:
   - no explicit offline or degraded health response case yet
+
+## Second-Pass Hardening
+
+### `RuntimeCapabilityContract` and `AgentDeployments::ReconcileConfig`
+
+- Classification: `strengthened`
+- Protects:
+  - invalid non-hash runtime contract payloads now survive long enough to reach Active Record validation and produce `422` responses instead of transport-layer `500`s
+  - selector reconciliation no longer assumes the incoming schema snapshot is hash-shaped
+- Closed In Follow-Up:
+  - malformed request payloads for `registrations` and `capabilities` now fail as business errors
+- Remaining:
+  - empty arrays are still normalized as blank payloads by design; future tightening should only happen if the API contract explicitly forbids that coercion
+
+### `test/services/lineage_stores/set_test.rb` and `test/services/lineage_stores/delete_key_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - depth-32 rollover compacts before continuing the write chain
+  - latest surviving values remain visible after repeated overwrites and delete-driven compaction
+- Closed In Follow-Up:
+  - repeated overwrite continuity across compaction
+  - delete-path compaction continuity and tombstone placement
+- Remaining:
+  - no broad performance-oriented sweep yet for very wide keyspaces
+
+### `test/services/agent_control/handle_execution_report_test.rb` and `test/services/agent_control/handle_close_report_test.rb`
+
+- Classification: `keep_and_strengthen`
+- Protects:
+  - stale heartbeat timeouts are translated into `stale` execution reports without mutating progress state
+  - expired close-request mailbox leases are translated into `stale` close reports without mutating durable close state
+- Closed In Follow-Up:
+  - wrapper-level stale translation coverage that previously relied only on higher-level `report` and request tests
+- Remaining:
+  - `lease_mailbox_item` and `progress_close_request` still rely primarily on higher-level delivery/escalation coverage

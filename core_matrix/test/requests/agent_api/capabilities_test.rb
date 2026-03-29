@@ -122,4 +122,73 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
     assert_equal contract.environment_plane, response_body.fetch("environment_plane")
   end
+
+  test "capabilities handshake rejects malformed environment payloads without replacing the active snapshot" do
+    registration = register_agent_runtime!(
+      profile_catalog: default_profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    previous_snapshot = registration[:deployment].active_capability_snapshot
+
+    post "/agent_api/capabilities",
+      params: {
+        fingerprint: registration[:deployment].fingerprint,
+        protocol_version: "2026-03-25",
+        sdk_version: "fenix-0.2.0",
+        environment_capability_payload: ["invalid-capability"],
+        protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
+        tool_catalog: default_tool_catalog("shell_exec"),
+        profile_catalog: ["invalid-profile"],
+        config_schema_snapshot: "invalid-schema",
+        conversation_override_schema_snapshot: "invalid-overrides",
+        default_config_snapshot: ["invalid-defaults"],
+      },
+      headers: agent_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :unprocessable_entity
+
+    error_message = JSON.parse(response.body).fetch("error")
+    assert_includes error_message, "Capability payload must be a Hash"
+    assert_equal previous_snapshot.id, registration[:deployment].reload.active_capability_snapshot.id
+    assert_equal 1, registration[:deployment].active_capability_snapshot.version
+  end
+
+  test "capabilities handshake rejects malformed agent contract payloads without replacing the active snapshot" do
+    registration = register_agent_runtime!(
+      profile_catalog: default_profile_catalog,
+      config_schema_snapshot: profile_aware_config_schema_snapshot,
+      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
+      default_config_snapshot: profile_aware_default_config_snapshot
+    )
+    previous_snapshot = registration[:deployment].active_capability_snapshot
+
+    post "/agent_api/capabilities",
+      params: {
+        fingerprint: registration[:deployment].fingerprint,
+        protocol_version: "2026-03-25",
+        sdk_version: "fenix-0.2.0",
+        environment_capability_payload: { conversation_attachment_upload: false },
+        protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
+        tool_catalog: default_tool_catalog("shell_exec"),
+        profile_catalog: ["invalid-profile"],
+        config_schema_snapshot: "invalid-schema",
+        conversation_override_schema_snapshot: "invalid-overrides",
+        default_config_snapshot: ["invalid-defaults"],
+      },
+      headers: agent_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :unprocessable_entity
+
+    error_message = JSON.parse(response.body).fetch("error")
+    assert_includes error_message, "Profile catalog must be a Hash"
+    assert_includes error_message, "Config schema snapshot must be a Hash"
+    assert_includes error_message, "Conversation override schema snapshot must be a Hash"
+    assert_includes error_message, "Default config snapshot must be a Hash"
+    assert_equal previous_snapshot.id, registration[:deployment].reload.active_capability_snapshot.id
+    assert_equal 1, registration[:deployment].active_capability_snapshot.version
+  end
 end

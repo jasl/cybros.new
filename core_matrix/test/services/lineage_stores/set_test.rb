@@ -64,6 +64,51 @@ class LineageStores::SetTest < ActiveSupport::TestCase
     assert_equal "compaction", current_snapshot.base_snapshot.snapshot_kind
   end
 
+  test "overflow writes preserve the latest visible values across deep overwrite compaction" do
+    context = build_lineage_store_context!
+
+    16.times do |index|
+      LineageStores::Set.call(
+        conversation: context[:conversation],
+        key: "alpha",
+        typed_value_payload: { "type" => "string", "value" => "alpha_#{index}" }
+      )
+      LineageStores::Set.call(
+        conversation: context[:conversation],
+        key: "beta",
+        typed_value_payload: { "type" => "string", "value" => "beta_#{index}" }
+      )
+    end
+
+    reference = context[:conversation].reload.lineage_store_reference
+    latest_alpha_value_id = value_id_for(reference:, key: "alpha")
+    latest_beta_value_id = value_id_for(reference:, key: "beta")
+
+    assert_equal 32, reference.lineage_store_snapshot.depth
+
+    assert_difference("LineageStoreSnapshot.count", +2) do
+      LineageStores::Set.call(
+        conversation: context[:conversation],
+        key: "gamma",
+        typed_value_payload: { "type" => "string", "value" => "gamma_0" }
+      )
+    end
+
+    current_snapshot = context[:conversation].reload.lineage_store_reference.lineage_store_snapshot
+    compaction_snapshot = current_snapshot.base_snapshot
+
+    assert_equal "write", current_snapshot.snapshot_kind
+    assert_equal 1, current_snapshot.depth
+    assert_equal "compaction", compaction_snapshot.snapshot_kind
+    assert_equal ["gamma"], current_snapshot.lineage_store_entries.order(:key).pluck(:key)
+    assert_equal %w[alpha beta], compaction_snapshot.lineage_store_entries.order(:key).pluck(:key)
+    assert_equal latest_alpha_value_id, compaction_snapshot.lineage_store_entries.find_by!(key: "alpha").lineage_store_value_id
+    assert_equal latest_beta_value_id, compaction_snapshot.lineage_store_entries.find_by!(key: "beta").lineage_store_value_id
+    assert_equal "alpha_15", LineageStores::GetQuery.call(reference_owner: context[:conversation], key: "alpha").typed_value_payload.fetch("value")
+    assert_equal "beta_15", LineageStores::GetQuery.call(reference_owner: context[:conversation], key: "beta").typed_value_payload.fetch("value")
+    assert_equal "gamma_0", LineageStores::GetQuery.call(reference_owner: context[:conversation], key: "gamma").typed_value_payload.fetch("value")
+  end
+
   test "rechecks retained state after acquiring the conversation lock" do
     context = build_lineage_store_context!
     conversation = context[:conversation]
@@ -100,6 +145,18 @@ class LineageStores::SetTest < ActiveSupport::TestCase
   end
 
   private
+
+  def value_id_for(reference:, key:)
+    LineageStoreEntry
+      .joins(:lineage_store_snapshot)
+      .where(
+        lineage_store_snapshots: { lineage_store_id: reference.lineage_store_snapshot.lineage_store_id },
+        key: key,
+        entry_kind: "set"
+      )
+      .order(id: :desc)
+      .pick(:lineage_store_value_id)
+  end
 
   def request_deletion_during_lock!(conversation)
     injected = false

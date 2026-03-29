@@ -3,12 +3,12 @@
 ## Baseline
 
 - Date: `2026-03-29`
-- App code files: `266`
-- Test files: `301`
+- App code files: `286`
+- Test files: `311`
 - Latest full-suite verification:
-  - `784 runs, 3909 assertions, 0 failures, 0 errors, 0 skips`
+  - `792 runs, 3977 assertions, 0 failures, 0 errors, 0 skips`
 - Latest SimpleCov line result:
-  - `50.42%` (`7537 / 14949`)
+  - `50.45%` (`7543 / 14951`)
 
 ## Status Legend
 
@@ -31,8 +31,9 @@
   - added direct coverage for previously untested state helpers, projections, and write helpers
   - fixed `Turns::CreateOutputVariant` to start output variant indexes at `0`
   - normalized `AgentDeployments::UnavailablePauseState.resume_attributes` to return symbol-keyed top-level wait attributes
+  - added overflow write/delete compaction tests that prove `LineageStores::WriteSupport` preserves the latest visible chain across depth-32 rollover
 - Remaining Gaps:
-  - deeper lineage write-support paths stay `keep_watch` and rely on higher-level lineage store tests
+  - no current blocker in the write-support path; remaining lineage gaps are read-side scale cases, not write continuity
 
 ### Wave 2: Control Plane And Recovery
 
@@ -46,9 +47,10 @@
   - `app/services/processes/**/*`
 - Actions Taken:
   - added direct coverage for freshness validators, runtime routing, close-request creation, close-outcome application, health updates, and addressability guards
+  - added direct stale-wrapper coverage for `HandleExecutionReport` heartbeat timeout and `HandleCloseReport` expired mailbox leases
   - verified control-plane directories as a group with `61 runs, 309 assertions, 0 failures, 0 errors, 0 skips`
 - Remaining Gaps:
-  - close-report and lease-progress wrappers remain `keep_watch` because they are primarily exercised through `report` and `poll` flows
+  - `lease_mailbox_item`, `progress_close_request`, and low-level realtime/open helpers remain `keep_watch` because they are still primarily exercised through `poll` and integration flows
 
 ### Wave 3: Read Side And External Contracts
 
@@ -61,9 +63,10 @@
   - `app/resolvers/**/*`
 - Actions Taken:
   - verified request/query/projection/resolver suites together with `56 runs, 377 assertions, 0 failures, 0 errors, 0 skips`
+  - added request coverage for malformed `registrations` and `capabilities` payload permutations so invalid runtime contracts return `422` instead of surfacing transport-level errors
   - kept base controllers and struct-like lineage-store query objects on `keep_watch` because public contracts are already enforced one layer up
 - Remaining Gaps:
-  - malformed payload permutations beyond existing request coverage remain future hardening work, not current blockers
+  - malformed payload coverage is now in place for the highest-risk agent capability endpoints; remaining read-side gaps are lower-risk empty/filter permutations on passive endpoints
 
 ### Wave 4: Models And Extreme Constraints
 
@@ -92,14 +95,14 @@
 ### app/controllers/agent_api
 
 - keep_watch | app/controllers/agent_api/base_controller.rb
-- keep_watch | app/controllers/agent_api/capabilities_controller.rb
+- done | app/controllers/agent_api/capabilities_controller.rb
 - keep_watch | app/controllers/agent_api/control_controller.rb
 - keep_watch | app/controllers/agent_api/conversation_transcripts_controller.rb
 - keep_watch | app/controllers/agent_api/conversation_variables_controller.rb
 - keep_watch | app/controllers/agent_api/health_controller.rb
 - keep_watch | app/controllers/agent_api/heartbeats_controller.rb
 - keep_watch | app/controllers/agent_api/human_interactions_controller.rb
-- keep_watch | app/controllers/agent_api/registrations_controller.rb
+- done | app/controllers/agent_api/registrations_controller.rb
 - keep_watch | app/controllers/agent_api/workspace_variables_controller.rb
 
 ### app/controllers
@@ -263,8 +266,8 @@
 - done | app/services/agent_control/closable_resource_routing.rb
 - done | app/services/agent_control/create_execution_assignment.rb
 - done | app/services/agent_control/create_resource_close_request.rb
-- keep_watch | app/services/agent_control/handle_close_report.rb
-- keep_watch | app/services/agent_control/handle_execution_report.rb
+- done | app/services/agent_control/handle_close_report.rb
+- done | app/services/agent_control/handle_execution_report.rb
 - done | app/services/agent_control/handle_health_report.rb
 - keep_watch | app/services/agent_control/lease_mailbox_item.rb
 - done | app/services/agent_control/poll.rb
@@ -401,7 +404,7 @@
 - done | app/services/lineage_stores/delete_key.rb
 - done | app/services/lineage_stores/garbage_collect.rb
 - done | app/services/lineage_stores/set.rb
-- keep_watch | app/services/lineage_stores/write_support.rb
+- done | app/services/lineage_stores/write_support.rb
 
 ### app/services/messages
 

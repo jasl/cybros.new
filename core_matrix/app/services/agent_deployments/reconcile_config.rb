@@ -44,6 +44,8 @@ module AgentDeployments
     end
 
     def schema_properties
+      return {} unless @next_config_schema_snapshot.is_a?(Hash)
+
       @next_config_schema_snapshot.fetch("properties", {})
     end
 

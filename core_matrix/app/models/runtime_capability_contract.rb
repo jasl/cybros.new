@@ -185,8 +185,9 @@ class RuntimeCapabilityContract
 
   def normalize_hash(value)
     return {} if value.blank?
+    return value.deep_stringify_keys if value.is_a?(Hash)
 
-    value.deep_stringify_keys
+    value.deep_dup
   end
 
   def normalize_array(value)
