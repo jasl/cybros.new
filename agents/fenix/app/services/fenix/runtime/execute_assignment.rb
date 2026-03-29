@@ -1,3 +1,5 @@
+require "securerandom"
+
 module Fenix
   module Runtime
     class ExecuteAssignment
@@ -11,6 +13,7 @@ module Fenix
         @context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
         @collector = Fenix::RuntimeSurface::ReportCollector.new(context: @context)
         @trace = []
+        @current_tool_invocation = nil
       end
 
       def call
@@ -61,6 +64,8 @@ module Fenix
           logical_work_id: @context.fetch("logical_work_id"),
           attempt_no: @context.fetch("attempt_no")
         )
+        failed_invocation = failed_tool_invocation_payload(error)
+        handled_error["tool_invocations"] = [failed_invocation] if failed_invocation.present?
         @trace << { "hook" => "handle_error", "error" => handled_error.fetch("last_error_summary") }
         @collector.fail!(terminal_payload: handled_error)
 
@@ -77,16 +82,28 @@ module Fenix
       def execute_deterministic_tool_flow
         expression = @context.dig("task_payload", "expression") || "2 + 2"
         tool_call = {
+          "call_id" => "tool-call-#{SecureRandom.uuid}",
           "tool_name" => "calculator",
           "arguments" => { "expression" => expression },
         }
+        @current_tool_invocation = tool_call.deep_dup
         reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
           tool_call: tool_call,
           allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
         )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
 
-        @collector.progress!(progress_payload: { "stage" => "tool_reviewed" })
+        @collector.progress!(
+          progress_payload: {
+            "stage" => "tool_reviewed",
+            "tool_invocation" => {
+              "event" => "started",
+              "call_id" => reviewed_tool_call.fetch("call_id"),
+              "tool_name" => reviewed_tool_call.fetch("tool_name"),
+              "request_payload" => reviewed_tool_call.except("call_id"),
+            },
+          }
+        )
 
         tool_result = evaluate_expression(reviewed_tool_call.dig("arguments", "expression"))
         projected_result = Fenix::Hooks::ProjectToolResult.call(
@@ -101,7 +118,20 @@ module Fenix
         )
         @trace << { "hook" => "finalize_output", "output" => finalized_output.fetch("output") }
 
-        @collector.complete!(terminal_payload: { "output" => finalized_output.fetch("output") })
+        @collector.complete!(
+          terminal_payload: {
+            "output" => finalized_output.fetch("output"),
+            "tool_invocations" => [
+              {
+                "event" => "completed",
+                "call_id" => reviewed_tool_call.fetch("call_id"),
+                "tool_name" => reviewed_tool_call.fetch("tool_name"),
+                "response_payload" => projected_result,
+              },
+            ],
+          }
+        )
+        @current_tool_invocation = nil
 
         Result.new(
           status: "completed",
@@ -152,6 +182,44 @@ module Fenix
           trace: @trace,
           error: failure_payload
         )
+      end
+
+      def failed_tool_invocation_payload(error)
+        return if @current_tool_invocation.blank?
+
+        {
+          "event" => "failed",
+          "call_id" => @current_tool_invocation.fetch("call_id"),
+          "tool_name" => @current_tool_invocation.fetch("tool_name"),
+          "request_payload" => @current_tool_invocation.except("call_id"),
+          "error_payload" => tool_invocation_error_payload(error),
+        }
+      end
+
+      def tool_invocation_error_payload(error)
+        case error
+        when Fenix::Hooks::ReviewToolCall::ToolNotVisibleError
+          {
+            "classification" => "authorization",
+            "code" => "tool_not_allowed",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Hooks::ReviewToolCall::UnsupportedToolError
+          {
+            "classification" => "semantic",
+            "code" => "unsupported_tool",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        else
+          {
+            "classification" => "runtime",
+            "code" => "runtime_error",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        end
       end
     end
   end

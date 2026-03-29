@@ -1,14 +1,8 @@
 require "test_helper"
 
 class RuntimeFlowTest < ActionDispatch::IntegrationTest
-  test "runtime execution endpoint returns start progress and terminal reports" do
-    post "/runtime/executions",
-      params: runtime_assignment_payload(mode: "deterministic_tool"),
-      as: :json
-
-    assert_response :success
-
-    body = JSON.parse(response.body)
+  test "runtime execution endpoint enqueues work and exposes terminal reports through the execution resource" do
+    body = run_runtime_execution(runtime_assignment_payload(mode: "deterministic_tool"))
 
     assert_equal %w[execution_started execution_progress execution_complete],
       body.fetch("reports").map { |report| report.fetch("method_id") }
@@ -66,8 +60,8 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
   end
 
   test "runtime execution endpoint keeps one shared flow for subagent assignments" do
-    post "/runtime/executions",
-      params: runtime_assignment_payload(
+    body = run_runtime_execution(
+      runtime_assignment_payload(
         mode: "deterministic_tool",
         agent_context: {
           "profile" => "researcher",
@@ -77,12 +71,8 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
           "subagent_depth" => 1,
           "allowed_tool_names" => %w[compact_context calculator subagent_send subagent_wait subagent_close subagent_list],
         }
-      ),
-      as: :json
-
-    assert_response :success
-
-    body = JSON.parse(response.body)
+      )
+    )
 
     assert_equal %w[execution_started execution_progress execution_complete],
       body.fetch("reports").map { |report| report.fetch("method_id") }
@@ -92,19 +82,15 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal true, body.fetch("trace").first.fetch("is_subagent")
   end
 
-  test "runtime execution endpoint rejects masked direct tool invocation from the frozen visible tool set" do
-    post "/runtime/executions",
-      params: runtime_assignment_payload(
+  test "runtime execution endpoint persists failed executions for masked direct tool invocation" do
+    body = run_runtime_execution(
+      runtime_assignment_payload(
         mode: "deterministic_tool",
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens]
         )
-      ),
-      as: :json
-
-    assert_response :unprocessable_entity
-
-    body = JSON.parse(response.body)
+      )
+    )
 
     assert_equal %w[execution_started execution_fail],
       body.fetch("reports").map { |report| report.fetch("method_id") }
@@ -113,14 +99,8 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_match(/calculator/, body.fetch("error").fetch("last_error_summary"))
   end
 
-  test "runtime execution endpoint reports failures through handle_error" do
-    post "/runtime/executions",
-      params: runtime_assignment_payload(mode: "raise_error"),
-      as: :json
-
-    assert_response :unprocessable_entity
-
-    body = JSON.parse(response.body)
+  test "runtime execution endpoint persists runtime failures through handle_error" do
+    body = run_runtime_execution(runtime_assignment_payload(mode: "raise_error"))
 
     assert_equal %w[execution_started execution_fail],
       body.fetch("reports").map { |report| report.fetch("method_id") }
@@ -129,16 +109,56 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal "runtime_error", body.fetch("error").fetch("failure_kind")
   end
 
-  test "runtime execution endpoint rejects non-agent runtime planes" do
-    post "/runtime/executions",
-      params: runtime_assignment_payload(runtime_plane: "environment"),
-      as: :json
-
-    assert_response :unprocessable_entity
-
-    body = JSON.parse(response.body)
+  test "runtime execution endpoint persists unsupported runtime-plane failures" do
+    body = run_runtime_execution(runtime_assignment_payload(runtime_plane: "environment"))
 
     assert_equal "failed", body.fetch("status")
     assert_equal "unsupported_runtime_plane", body.fetch("error").fetch("failure_kind")
+  end
+
+  test "runtime execution endpoint is idempotent for duplicate assignment delivery" do
+    payload = runtime_assignment_payload(mode: "deterministic_tool")
+    first_execution_id = nil
+    second_execution_id = nil
+
+    assert_enqueued_jobs 1 do
+      post "/runtime/executions", params: payload, as: :json
+      assert_response :accepted
+      first_execution_id = JSON.parse(response.body).fetch("execution_id")
+
+      post "/runtime/executions", params: payload, as: :json
+      assert_response :accepted
+      second_execution_id = JSON.parse(response.body).fetch("execution_id")
+    end
+
+    assert_equal first_execution_id, second_execution_id
+
+    perform_enqueued_jobs
+
+    get "/runtime/executions/#{first_execution_id}"
+    assert_response :success
+    assert_equal "completed", JSON.parse(response.body).fetch("status")
+  end
+
+  private
+
+  def run_runtime_execution(payload)
+    execution_id = nil
+
+    assert_enqueued_jobs 1 do
+      post "/runtime/executions", params: payload, as: :json
+      assert_response :accepted
+
+      queued_body = JSON.parse(response.body)
+      assert_equal "queued", queued_body.fetch("status")
+      execution_id = queued_body.fetch("execution_id")
+    end
+
+    perform_enqueued_jobs
+
+    get "/runtime/executions/#{execution_id}"
+    assert_response :success
+
+    JSON.parse(response.body)
   end
 end

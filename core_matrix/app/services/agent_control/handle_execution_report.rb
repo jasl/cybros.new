@@ -65,7 +65,9 @@ module AgentControl
 
     def handle_execution_progress!
       heartbeat_task_lease!
-      agent_task_run.update!(progress_payload: @payload.fetch("progress_payload", {}))
+      progress_payload = @payload.fetch("progress_payload", {})
+      agent_task_run.update!(progress_payload: progress_payload)
+      apply_tool_invocation_progress!(progress_payload)
     end
 
     def handle_execution_terminal!
@@ -83,6 +85,7 @@ module AgentControl
         finished_at: @occurred_at
       )
 
+      apply_tool_invocation_terminal_events!
       apply_wait_transition! if lifecycle_state == "completed"
       apply_retry_gate! if lifecycle_state == "failed"
       sync_subagent_session!(lifecycle_state: lifecycle_state)
@@ -114,6 +117,60 @@ module AgentControl
       payload = @payload.fetch("terminal_payload", {}).deep_stringify_keys
       payload["terminal_method_id"] = @method_id
       payload
+    end
+
+    def apply_tool_invocation_progress!(progress_payload)
+      invocation_payload = progress_payload["tool_invocation"]
+      return if invocation_payload.blank?
+      return unless invocation_payload["event"] == "started"
+
+      find_or_start_tool_invocation!(invocation_payload)
+    end
+
+    def apply_tool_invocation_terminal_events!
+      Array(agent_task_run.terminal_payload["tool_invocations"]).each do |invocation_payload|
+        invocation = find_or_start_tool_invocation!(invocation_payload)
+
+        case invocation_payload["event"]
+        when "completed"
+          ToolInvocations::Complete.call(
+            tool_invocation: invocation,
+            response_payload: invocation_payload.fetch("response_payload", {}),
+            metadata: {
+              "reported_via" => @method_id,
+            }
+          )
+        when "failed"
+          ToolInvocations::Fail.call(
+            tool_invocation: invocation,
+            error_payload: invocation_payload.fetch("error_payload", {}),
+            metadata: {
+              "reported_via" => @method_id,
+            }
+          )
+        end
+      end
+    end
+
+    def find_or_start_tool_invocation!(invocation_payload)
+      binding = tool_binding_for!(invocation_payload.fetch("tool_name"))
+      existing = binding.tool_invocations.find_by(idempotency_key: invocation_payload["call_id"])
+      return existing if existing.present?
+
+      ToolInvocations::Start.call(
+        tool_binding: binding,
+        request_payload: invocation_payload.fetch("request_payload", {}),
+        idempotency_key: invocation_payload["call_id"],
+        metadata: {
+          "reported_via" => @method_id,
+        }
+      )
+    end
+
+    def tool_binding_for!(tool_name)
+      agent_task_run.tool_bindings
+        .joins(:tool_definition)
+        .find_by!(tool_definitions: { tool_name: tool_name })
     end
 
     def heartbeat_task_lease!

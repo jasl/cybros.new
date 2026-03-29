@@ -10,5 +10,25 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 0) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_30_190000) do
+  create_table "runtime_executions", force: :cascade do |t|
+    t.integer "attempt_no", null: false
+    t.datetime "created_at", null: false
+    t.json "error_payload"
+    t.string "execution_id", null: false
+    t.datetime "finished_at"
+    t.string "logical_work_id", null: false
+    t.string "mailbox_item_id", null: false
+    t.json "mailbox_item_payload", default: {}, null: false
+    t.json "output_payload"
+    t.string "protocol_message_id", null: false
+    t.json "reports", default: [], null: false
+    t.string "runtime_plane", null: false
+    t.datetime "started_at"
+    t.string "status", default: "queued", null: false
+    t.json "trace", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.index ["execution_id"], name: "index_runtime_executions_on_execution_id", unique: true
+    t.index ["mailbox_item_id", "attempt_no"], name: "index_runtime_executions_on_mailbox_item_id_and_attempt_no", unique: true
+  end
 end

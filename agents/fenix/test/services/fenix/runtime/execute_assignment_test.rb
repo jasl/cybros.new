@@ -14,6 +14,19 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal %w[prepare_turn compact_context review_tool_call project_tool_result finalize_output],
       result.trace.map { |entry| entry.fetch("hook") }
     assert_equal "completed", result.status
+
+    started_invocation = result.reports.find { |report| report.fetch("method_id") == "execution_progress" }
+      .dig("progress_payload", "tool_invocation")
+    completed_invocation = result.reports.find { |report| report.fetch("method_id") == "execution_complete" }
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "started", started_invocation.fetch("event")
+    assert_equal "calculator", started_invocation.fetch("tool_name")
+    assert_equal "completed", completed_invocation.fetch("event")
+    assert_equal "calculator", completed_invocation.fetch("tool_name")
+    assert_equal started_invocation.fetch("call_id"), completed_invocation.fetch("call_id")
   end
 
   test "core matrix model context triggers proactive context compaction before execution" do
@@ -61,6 +74,16 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_match(/calculator/, result.error.fetch("last_error_summary"))
     assert_equal %w[execution_started execution_fail], result.reports.map { |report| report.fetch("method_id") }
     assert_equal %w[prepare_turn compact_context handle_error], result.trace.map { |entry| entry.fetch("hook") }
+
+    failed_invocation = result.reports.find { |report| report.fetch("method_id") == "execution_fail" }
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "failed", failed_invocation.fetch("event")
+    assert_equal "calculator", failed_invocation.fetch("tool_name")
+    assert_equal "authorization", failed_invocation.dig("error_payload", "classification")
+    assert_equal "tool_not_allowed", failed_invocation.dig("error_payload", "code")
   end
 
   test "shared core matrix execution assignment fixture completes successfully through the runtime path" do

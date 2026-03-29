@@ -1,6 +1,7 @@
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+require "active_job/test_helper"
 require "json"
 require "fileutils"
 require "pathname"
@@ -8,11 +9,24 @@ require "tmpdir"
 
 module ActiveSupport
   class TestCase
+    include ActiveJob::TestHelper
+
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
+
+    setup do
+      ActiveJob::Base.queue_adapter = :test
+      clear_enqueued_jobs
+      clear_performed_jobs
+    end
+
+    teardown do
+      clear_enqueued_jobs
+      clear_performed_jobs
+    end
 
     # Add more helper methods to be used by all tests here...
     private

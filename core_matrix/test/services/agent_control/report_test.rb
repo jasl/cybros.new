@@ -72,6 +72,135 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal context[:deployment].public_id, agent_task_run.execution_lease.holder_key
   end
 
+  test "execution reports materialize a succeeded agent-owned tool invocation from progress and terminal payloads" do
+    context = build_calculator_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_started",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 15
+    )
+
+    call_id = "tool-call-#{next_test_sequence}"
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_progress",
+      protocol_message_id: "agent-progress-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      progress_payload: {
+        "state" => "tool_reviewed",
+        "tool_invocation" => {
+          "event" => "started",
+          "call_id" => call_id,
+          "tool_name" => "calculator",
+          "request_payload" => {
+            "tool_name" => "calculator",
+            "arguments" => { "expression" => "2 + 2" },
+          },
+        },
+      }
+    )
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_complete",
+      protocol_message_id: "agent-complete-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      terminal_payload: {
+        "output" => "The calculator returned 4.",
+        "tool_invocations" => [
+          {
+            "event" => "completed",
+            "call_id" => call_id,
+            "tool_name" => "calculator",
+            "response_payload" => { "content" => "The calculator returned 4." },
+          },
+        ],
+      }
+    )
+
+    invocation = agent_task_run.reload.tool_invocations.sole
+
+    assert_equal "succeeded", invocation.status
+    assert_equal "calculator", invocation.tool_definition.tool_name
+    assert_equal call_id, invocation.idempotency_key
+    assert_equal "2 + 2", invocation.request_payload.dig("arguments", "expression")
+    assert_equal "The calculator returned 4.", invocation.response_payload.fetch("content")
+  end
+
+  test "execution_fail materializes denied agent-owned tool invocations with explicit rejection details" do
+    context = build_calculator_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_started",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 15
+    )
+
+    call_id = "tool-call-#{next_test_sequence}"
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_fail",
+      protocol_message_id: "agent-fail-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      terminal_payload: {
+        "failure_kind" => "runtime_error",
+        "last_error_summary" => "tool calculator is not allowed",
+        "retryable" => false,
+        "tool_invocations" => [
+          {
+            "event" => "failed",
+            "call_id" => call_id,
+            "tool_name" => "calculator",
+            "error_payload" => {
+              "classification" => "authorization",
+              "code" => "tool_not_allowed",
+              "message" => "tool calculator is not allowed",
+              "retryable" => false,
+            },
+          },
+        ],
+      }
+    )
+
+    invocation = agent_task_run.reload.tool_invocations.sole
+
+    assert_equal "failed", invocation.status
+    assert_equal "calculator", invocation.tool_definition.tool_name
+    assert_equal call_id, invocation.idempotency_key
+    assert_equal "authorization", invocation.error_payload.fetch("classification")
+    assert_equal "tool_not_allowed", invocation.error_payload.fetch("code")
+  end
+
   test "rejects stale reports from a superseded attempt" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context, attempt_no: 2)
@@ -390,5 +519,56 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal close_operation.reload.id, context[:conversation].reload.conversation_close_operations.order(:created_at).last.id
   ensure
     singleton.send(:define_method, :call, original_call) if singleton && original_call
+  end
+
+  private
+
+  def build_calculator_agent_control_context!
+    context = build_agent_control_context!
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:deployment],
+      version: 2,
+      tool_catalog: [
+        {
+          "tool_name" => "calculator",
+          "tool_kind" => "agent_observation",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/calculator",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ],
+      profile_catalog: {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => ["calculator"],
+        },
+      },
+      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
+    context[:turn].update!(
+      resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
+        "capability_snapshot_id" => capability_snapshot.id
+      )
+    )
+
+    conversation = context[:conversation].reload
+    turn = context[:turn].reload
+
+    Conversations::RefreshRuntimeContract.call(conversation: conversation)
+    execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn)
+    turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
+
+    context.merge(
+      conversation: conversation.reload,
+      turn: turn.reload,
+      workflow_run: context[:workflow_run].reload,
+      workflow_node: context[:workflow_node].reload
+    )
   end
 end
