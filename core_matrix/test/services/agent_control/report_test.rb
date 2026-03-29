@@ -1,87 +1,6 @@
 require "test_helper"
 
 class AgentControlReportTest < ActiveSupport::TestCase
-  test "report dispatch maps control methods onto the correct handler families" do
-    context = build_agent_control_context!
-
-    execution_handler = AgentControl::ReportDispatch.call(
-      deployment: context[:deployment],
-      method_id: "execution_started",
-      payload: {}
-    )
-    close_handler = AgentControl::ReportDispatch.call(
-      deployment: context[:deployment],
-      method_id: "resource_closed",
-      payload: {}
-    )
-    health_handler = AgentControl::ReportDispatch.call(
-      deployment: context[:deployment],
-      method_id: "deployment_health_report",
-      payload: {}
-    )
-
-    assert_kind_of AgentControl::HandleExecutionReport, execution_handler
-    assert_kind_of AgentControl::HandleCloseReport, close_handler
-    assert_kind_of AgentControl::HandleHealthReport, health_handler
-  end
-
-  test "report delegates processing to the dispatcher-provided handler" do
-    context = build_agent_control_context!
-    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
-    mailbox_item = scenario.fetch(:mailbox_item)
-    agent_task_run = scenario.fetch(:agent_task_run)
-    dispatch_calls = []
-    handler_calls = []
-    protocol_message_id = "report-dispatch-#{next_test_sequence}"
-    fake_handler = Struct.new(:receipt_attributes, :calls) do
-      def call
-        calls << :called
-      end
-    end.new(
-      {
-        mailbox_item: mailbox_item,
-        agent_task_run: agent_task_run,
-      },
-      handler_calls
-    )
-    dispatch_singleton = AgentControl::ReportDispatch.singleton_class
-    original_dispatch = AgentControl::ReportDispatch.method(:call)
-    poll_singleton = AgentControl::Poll.singleton_class
-    original_poll = AgentControl::Poll.method(:call)
-
-    dispatch_singleton.send(:define_method, :call) do |**kwargs|
-      dispatch_calls << kwargs
-      fake_handler
-    end
-    poll_singleton.send(:define_method, :call) do |**_kwargs|
-      []
-    end
-
-    result = AgentControl::Report.call(
-      deployment: context[:deployment],
-      method_id: "execution_progress",
-      protocol_message_id: protocol_message_id,
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
-      progress_payload: { "state" => "stubbed" }
-    )
-
-    receipt = AgentControlReportReceipt.find_by!(installation: context[:installation], protocol_message_id: protocol_message_id)
-
-    assert_equal "accepted", result.code
-    assert_equal [:called], handler_calls
-    assert_equal 1, dispatch_calls.size
-    assert_equal "execution_progress", dispatch_calls.first.fetch(:method_id)
-    assert_equal mailbox_item.public_id, dispatch_calls.first.fetch(:payload).fetch("mailbox_item_id")
-    assert_equal mailbox_item, receipt.mailbox_item
-    assert_equal agent_task_run, receipt.agent_task_run
-  ensure
-    dispatch_singleton.send(:define_method, :call, original_dispatch) if dispatch_singleton && original_dispatch
-    poll_singleton.send(:define_method, :call, original_poll) if poll_singleton && original_poll
-  end
-
   test "report rolls back the receipt and mailbox mutations when handler processing blows up" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -153,28 +72,6 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal context[:deployment].public_id, agent_task_run.execution_lease.holder_key
   end
 
-  test "execution freshness validation lives in a dedicated validator" do
-    context = build_agent_control_context!
-    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context, attempt_no: 2)
-    mailbox_item = scenario.fetch(:mailbox_item)
-    agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
-
-    validator = AgentControl::ValidateExecutionReportFreshness.new(
-      deployment: context[:deployment],
-      method_id: "execution_progress",
-      payload: {
-        "logical_work_id" => agent_task_run.logical_work_id,
-        "attempt_no" => 1,
-      },
-      mailbox_item: mailbox_item,
-      agent_task_run: agent_task_run,
-      occurred_at: Time.current
-    )
-
-    assert_raises(AgentControl::Report::StaleReportError) { validator.call }
-  end
-
   test "rejects stale reports from a superseded attempt" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context, attempt_no: 2)
@@ -240,18 +137,6 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "accepted", ack_result.code
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "acknowledged", subagent_session.reload.close_state
-
-    validator = AgentControl::ValidateCloseReportFreshness.new(
-      deployment: context[:previous_deployment],
-      payload: {
-        "close_request_id" => mailbox_item.public_id,
-      },
-      mailbox_item: mailbox_item,
-      resource: subagent_session,
-      occurred_at: Time.current
-    )
-
-    assert_raises(AgentControl::Report::StaleReportError) { validator.call }
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:previous_deployment],

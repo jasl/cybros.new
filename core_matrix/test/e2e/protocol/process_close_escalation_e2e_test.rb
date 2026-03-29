@@ -68,11 +68,50 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     assert_equal "graceful", process_run.close_outcome_kind
   end
 
+  test "poll escalates a turn command close request to forced after the grace deadline elapses" do
+    context, harness, process_run, occurred_at = interrupt_process_run_context!
+
+    initial_delivery = travel_to(occurred_at) do
+      harness.poll!.fetch("mailbox_items").find do |mailbox_item|
+        mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id
+      end
+    end
+    escalated_delivery = travel_to(occurred_at + 31.seconds) do
+      harness.poll!.fetch("mailbox_items").find do |mailbox_item|
+        mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id
+      end
+    end
+
+    assert_equal "graceful", initial_delivery.dig("payload", "strictness")
+    assert_equal "forced", escalated_delivery.dig("payload", "strictness")
+    assert_equal "requested", process_run.reload.close_state
+  end
+
   test "turn command process supports forced close after graceful escalation" do
     process_run = interrupt_process_run!(close_outcome_kind: "forced")
 
     assert process_run.reload.stopped?
     assert_equal "forced", process_run.close_outcome_kind
+  end
+
+  test "force deadline expiration records timed_out_forced without a terminal close report" do
+    _context, harness, process_run, occurred_at = interrupt_process_run_context!
+
+    close_request = travel_to(occurred_at) do
+      AgentControlMailboxItem.find_by!(
+        item_type: "resource_close_request",
+        target_ref: process_run.execution_environment.public_id
+      )
+    end
+
+    travel_to(occurred_at + 61.seconds) do
+      harness.poll!
+    end
+
+    assert process_run.reload.lost?
+    assert process_run.close_failed?
+    assert_equal "timed_out_forced", process_run.close_outcome_kind
+    assert_equal "completed", close_request.reload.status
   end
 
   test "turn command process records residual abandonment when forced close still fails" do
@@ -85,6 +124,31 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
   private
 
   def interrupt_process_run!(close_outcome_kind:)
+    _context, harness, process_run, occurred_at = interrupt_process_run_context!
+
+    close_request = travel_to(occurred_at) do
+      harness.poll!.fetch("mailbox_items").find do |mailbox_item|
+        mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id
+      end
+    end
+
+    travel_to(occurred_at) do
+      harness.report!(
+        method_id: "resource_closed",
+        protocol_message_id: "close-#{next_test_sequence}",
+        mailbox_item_id: close_request.fetch("item_id"),
+        close_request_id: close_request.fetch("item_id"),
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: close_outcome_kind,
+        close_outcome_payload: { "source" => "e2e" }
+      )
+    end
+
+    process_run
+  end
+
+  def interrupt_process_run_context!
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
@@ -101,24 +165,12 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
       holder_key: context[:deployment].public_id,
       heartbeat_timeout_seconds: 30
     )
+    occurred_at = Time.zone.parse("2026-03-26 15:00:00 UTC")
 
-    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.zone.parse("2026-03-26 15:00:00 UTC"))
-
-    close_request = harness.poll!.fetch("mailbox_items").find do |mailbox_item|
-      mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id
+    travel_to(occurred_at) do
+      Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: occurred_at)
     end
 
-    harness.report!(
-      method_id: "resource_closed",
-      protocol_message_id: "close-#{next_test_sequence}",
-      mailbox_item_id: close_request.fetch("item_id"),
-      close_request_id: close_request.fetch("item_id"),
-      resource_type: "ProcessRun",
-      resource_id: process_run.public_id,
-      close_outcome_kind: close_outcome_kind,
-      close_outcome_payload: { "source" => "e2e" }
-    )
-
-    process_run
+    [context, harness, process_run, occurred_at]
   end
 end

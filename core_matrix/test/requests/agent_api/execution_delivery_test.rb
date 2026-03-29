@@ -28,6 +28,75 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal context[:deployment], agent_task_run.holder_agent_deployment
   end
 
+  test "execution_progress and execution_complete update durable task state through the public report api" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 30,
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_progress",
+        protocol_message_id: "agent-progress-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: { "state" => "working", "percent" => 50 },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal({ "state" => "working", "percent" => 50 }, agent_task_run.reload.progress_payload)
+    assert_equal "running", agent_task_run.lifecycle_state
+    assert agent_task_run.execution_lease.reload.active?
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_complete",
+        protocol_message_id: "agent-complete-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        terminal_payload: { "output" => "done" },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+
+    agent_task_run.reload
+
+    assert_equal "completed", agent_task_run.lifecycle_state
+    assert_equal "done", agent_task_run.terminal_payload.fetch("output")
+    assert_equal "execution_complete", agent_task_run.terminal_payload.fetch("terminal_method_id")
+    assert_not_nil agent_task_run.finished_at
+    assert_equal "completed", mailbox_item.reload.status
+    assert_not_nil mailbox_item.completed_at
+    assert_not agent_task_run.execution_lease.reload.active?
+  end
+
   test "duplicate execution_complete is idempotent by protocol_message_id" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

@@ -1,6 +1,74 @@
 require "test_helper"
 
 class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
+  test "turn interrupt clears mainline work only and leaves detached background services running" do
+    context = build_agent_control_context!
+    harness = FakeAgentRuntimeHarness.new(
+      test_case: self,
+      deployment: context[:deployment],
+      machine_credential: context[:machine_credential]
+    )
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    assignment = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    turn_command = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    background_service = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      timeout_seconds: nil
+    )
+    [agent_task_run, turn_command, background_service].each do |resource|
+      Leases::Acquire.call(
+        leased_resource: resource,
+        holder_key: context[:deployment].public_id,
+        heartbeat_timeout_seconds: 30
+      )
+    end
+
+    harness.poll!
+    harness.report!(
+      method_id: "execution_started",
+      protocol_message_id: "interrupt-start-#{next_test_sequence}",
+      mailbox_item_id: assignment.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 30
+    )
+
+    Conversations::RequestTurnInterrupt.call(
+      turn: context[:turn],
+      occurred_at: Time.zone.parse("2026-03-29 10:15:00 UTC")
+    )
+
+    close_requests = harness.poll!.fetch("mailbox_items").index_by { |item| item.fetch("payload").fetch("resource_id") }
+
+    assert_equal [agent_task_run.public_id, turn_command.public_id].sort, close_requests.keys.sort
+    assert_equal "open", background_service.reload.close_state
+    assert background_service.running?
+
+    report_resource_closed!(
+      harness: harness,
+      mailbox_item: close_requests.fetch(agent_task_run.public_id),
+      close_outcome_kind: "graceful"
+    )
+    report_resource_closed!(
+      harness: harness,
+      mailbox_item: close_requests.fetch(turn_command.public_id),
+      close_outcome_kind: "graceful"
+    )
+
+    assert context[:turn].reload.canceled?
+    assert context[:workflow_run].reload.canceled?
+    assert_equal "open", background_service.reload.close_state
+    assert background_service.running?
+  end
+
   test "archive force reaches archived with degraded tail residue after mainline close succeeds" do
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
@@ -117,6 +185,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       )
     end
     child = Conversations::CreateFork.call(parent: context[:conversation])
+    grandchild = Conversations::CreateFork.call(parent: child)
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child keeps running",
@@ -142,6 +211,8 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     )
 
     assert deleted.pending_delete?
+    assert_equal "requested", background_service.reload.close_state
+    assert background_service.running?
 
     close_requests = harness.poll!.fetch("mailbox_items").index_by { |item| item.fetch("payload").fetch("resource_id") }
     report_resource_closed!(
@@ -159,10 +230,12 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
 
     assert finalized.deleted?
     assert child.reload.retained?
+    assert grandchild.reload.retained?
     assert child_turn.reload.active?
     assert_no_difference("Conversation.count") do
       Conversations::PurgeDeleted.call(conversation: finalized.reload)
     end
+    assert finalized.reload.deleted?
   end
 
   private
