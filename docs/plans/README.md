@@ -8,7 +8,6 @@ follow-ups are now archived under `docs/finished-plans`.
 ## Active Entry Points
 
 - [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md)
-- [2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md)
 - [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
 - [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
 - [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
@@ -35,6 +34,8 @@ follow-ups are now archived under `docs/finished-plans`.
   [2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md)
 - `Milestone C`:
   [2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md)
+- `Close State Consolidation`:
+  [2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md)
 
 Use the phase plan for active ordering. Use the archived milestone records for
 historical implementation context that has already passed acceptance.

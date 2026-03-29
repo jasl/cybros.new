@@ -1,10 +1,12 @@
 # Core Matrix Phase 2 Subagent Session Close State Model Consolidation Implementation Plan
 
+**Status:** Completed and archived on 2026-03-29.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Collapse `SubagentSession` close progression onto one canonical durable state model so close-control writes, quiescence guards, and machine-facing reads stop compensating across duplicated state owners.
 
-**Architecture:** Make `close_state` the only durable owner of `SubagentSession` close progression. Keep `last_known_status` as runtime-observed execution status only, and preserve machine-facing `lifecycle_state` output as a derived projection instead of a persisted second close-state machine. Remove the persisted `subagent_sessions.lifecycle_state` column after the codebase stops reading or writing it directly, and push reader-side behavior onto model predicates and scopes that encode the canonical semantics once.
+**Architecture:** Make `close_state` the only durable owner of `SubagentSession` close progression. Keep `last_known_status` as runtime-observed execution status only, and preserve machine-facing `lifecycle_state` output as a derived projection instead of a persisted second close-state machine. Under the phase 2 destructive-schema convention, land that ownership by rewriting the schema baseline so `subagent_sessions.lifecycle_state` is no longer part of the durable model, then push reader-side behavior onto model predicates and scopes that encode the canonical semantics once.
 
 **Tech Stack:** Ruby on Rails (`core_matrix`), Active Record migration and model predicates, Minitest model/service/query/request/e2e coverage, behavior docs, `rg`, `bin/rails test`
 
@@ -52,9 +54,9 @@ information, only forcing callers to keep multiple state machines in sync.
   separate database column.
 - no caller outside `SubagentSession` should infer close semantics by hand from
   multiple columns once this batch lands.
-- the migration must fail loudly if existing rows violate the expected mapping
-  between `lifecycle_state` and `close_state`; do not silently drop a column
-  over inconsistent data.
+- this batch follows the phase 2 destructive-schema policy: rewrite the schema
+  baseline directly instead of adding a compatibility removal migration or a
+  drift-checking bridge step.
 
 ## Execution Rules
 
@@ -90,8 +92,9 @@ This plan must finish with all of the following true:
 
 - `core_matrix/app/models/subagent_session.rb` owns the canonical close-state
   predicates, scopes, and lifecycle projection helpers
-- `core_matrix/db/migrate/TIMESTAMP_remove_lifecycle_state_from_subagent_sessions.rb`
-  removes the persisted duplicate column after checking for inconsistent rows
+- `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb` and
+  `core_matrix/db/schema.rb` no longer define a persisted
+  `subagent_sessions.lifecycle_state` column
 - `core_matrix/db/schema.rb` no longer lists `subagent_sessions.lifecycle_state`
 - `core_matrix/app/services/agent_control/create_resource_close_request.rb` and
   `core_matrix/app/services/agent_control/apply_close_outcome.rb` no longer
@@ -104,7 +107,7 @@ This plan must finish with all of the following true:
 ### Task 1: Lock The Canonical `SubagentSession` State Contract At The Model Boundary
 
 **Files:**
-- Create: `core_matrix/db/migrate/TIMESTAMP_remove_lifecycle_state_from_subagent_sessions.rb`
+- Modify: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
 - Modify: `core_matrix/app/models/subagent_session.rb`
 - Modify: `core_matrix/db/schema.rb`
 - Test: `core_matrix/test/models/subagent_session_test.rb`
@@ -155,10 +158,9 @@ not expose the new canonical projection helpers.
 
 Implement:
 
-- a migration that:
-  - checks existing `subagent_sessions` rows for lifecycle / close-state drift
-  - raises if a row violates the expected mapping
-  - removes the `lifecycle_state` column only after the check passes
+- a destructive phase 2 schema-baseline update that removes
+  `subagent_sessions.lifecycle_state` from
+  `20260324090038_create_subagent_sessions.rb` and regenerates `db/schema.rb`
 - `SubagentSession` model changes:
   - remove the persisted lifecycle enum
   - add a derived `lifecycle_state` reader backed by `close_state`
@@ -178,7 +180,6 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:migrate
 bin/rails test test/models/subagent_session_test.rb
 ```
 
@@ -187,7 +188,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/db/migrate/TIMESTAMP_remove_lifecycle_state_from_subagent_sessions.rb \
+git add core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb \
   core_matrix/app/models/subagent_session.rb \
   core_matrix/db/schema.rb \
   core_matrix/test/models/subagent_session_test.rb
@@ -452,7 +453,9 @@ commit.
 
 ## Acceptance Criteria
 
-- `subagent_sessions.lifecycle_state` is no longer a persisted database column.
+- under the phase 2 destructive-schema convention, the schema baseline and
+  `db/schema.rb` no longer define a persisted
+  `subagent_sessions.lifecycle_state` column.
 - `SubagentSession` close progression writes are owned only by `close_state`
   plus close metadata.
 - `SubagentSession#last_known_status` remains persisted and is only used for
@@ -483,8 +486,8 @@ commit.
   column does not encode extra information beyond `close_state`; the mapping is
   lossy in only one safe direction:
   `requested|acknowledged -> close_requested`, `closed|failed -> closed`.
-- The migration is low-risk if it checks for mismatched rows before removal.
-  The plan requires that guard instead of assuming perfect historical data.
+- The schema change is feasible within phase 2 because this batch explicitly
+  permits destructive baseline rewrites instead of compatibility migrations.
 - The tasks are ordered so the canonical model lands first, then write paths,
   then readers, then docs and full-suite verification.
 - No cross-project contract change is required for this batch; all touched
