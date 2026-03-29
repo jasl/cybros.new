@@ -51,9 +51,12 @@ questions about how work executed, not how providers billed for it.
 - Recording a profiling fact creates an `ExecutionProfileFact` row only.
 - Recording a profiling fact does not create or mutate `UsageEvent` or
   `UsageRollup` rows.
-- `ProviderExecution::ExecuteTurnStep` records one profiling fact for each
-  provider-backed workflow `turn_step`, whether the request finishes
-  successfully or fails at the provider boundary.
+- provider-backed workflow `turn_step` execution records one profiling fact
+  from the node execution path, whether the request finishes successfully or
+  fails at the provider boundary.
+- the write happens during terminal persistence
+  (`PersistTurnStepSuccess` / `PersistTurnStepFailure`), after the provider
+  call outcome is known.
 
 ## Invariants
 

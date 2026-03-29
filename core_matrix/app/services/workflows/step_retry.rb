@@ -40,6 +40,12 @@ module Workflows
               terminal_payload: {}
             )
 
+            failed_task.workflow_node.update!(
+              lifecycle_state: "queued",
+              started_at: nil,
+              finished_at: nil
+            )
+
             AgentControl::CreateExecutionAssignment.call(
               agent_task_run: retried_task,
               payload: {

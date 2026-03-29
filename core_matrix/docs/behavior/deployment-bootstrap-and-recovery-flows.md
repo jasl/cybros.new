@@ -13,12 +13,11 @@ after runtime drift.
 This document describes the current landed deployment-bootstrap and recovery
 behavior.
 
-Phase 2 keeps these recovery concepts and now runs them alongside mailbox
-delivery, session presence, and durable close semantics. This document remains
-the source of truth for bootstrap and recovery behavior, while the mailbox
-transport and close contract live in:
+This document is the source of truth for bootstrap and recovery behavior.
+Mailbox delivery, session presence, and durable close semantics run alongside
+these recovery flows.
 
-Planned replacement design:
+Related design note:
 
 - [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 

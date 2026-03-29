@@ -16,6 +16,8 @@ module ProviderExecution
     end
 
     def call
+      profiling_fact = nil
+
       ApplicationRecord.transaction do
         ProviderExecution::WithFreshExecutionStateLock.call(workflow_node: @workflow_node) do |current_node, current_workflow_run, current_turn|
           profiling_fact = ExecutionProfiling::RecordFact.call(
@@ -41,7 +43,11 @@ module ProviderExecution
           )
 
           current_turn.update!(lifecycle_state: "failed")
-          current_workflow_run.update!(lifecycle_state: "failed")
+          current_node.update!(
+            lifecycle_state: "failed",
+            started_at: current_node.started_at || Time.current,
+            finished_at: Time.current
+          )
           append_status_event!(
             workflow_node: current_node,
             workflow_run: current_workflow_run,
@@ -51,10 +57,11 @@ module ProviderExecution
             error_class: @error.class.name,
             error_message: @error.message
           )
-
-          return profiling_fact
         end
       end
+
+      Workflows::RefreshRunLifecycle.call(workflow_run: @workflow_run, terminal_state: "failed")
+      profiling_fact
     end
 
     private

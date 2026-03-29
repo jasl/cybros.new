@@ -48,6 +48,12 @@ module AgentControl
         payload: assignment_payload
       )
 
+      @agent_task_run.workflow_node.update!(
+        lifecycle_state: "queued",
+        started_at: nil,
+        finished_at: nil
+      )
+
       PublishPending.call(mailbox_item: mailbox_item)
       mailbox_item
     end

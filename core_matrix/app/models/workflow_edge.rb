@@ -1,4 +1,13 @@
 class WorkflowEdge < ApplicationRecord
+  attribute :requirement, :string
+
+  enum :requirement,
+    {
+      required: "required",
+      optional: "optional",
+    },
+    validate: true
+
   belongs_to :installation
   belongs_to :workflow_run
   belongs_to :from_node, class_name: "WorkflowNode"

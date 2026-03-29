@@ -10,13 +10,13 @@ tokens, concrete deployments, capability snapshots, and heartbeat state.
 
 This document records the current landed connectivity substrate.
 
-Phase 2 now extends that substrate with mailbox-first control delivery,
+This document is the source of truth for the registration and deployment
+aggregates underneath the control plane, including external-runtime pairing and
+same-installation deployment rotation. Mailbox-first control delivery,
 `poll + WebSocket + piggyback` transport parity, and distinct realtime-link
-versus control-activity facts. This document remains the source of truth for
-the registration and deployment aggregates underneath that control plane,
-including external-runtime pairing and same-installation deployment rotation.
+versus control-activity facts build on top of this substrate.
 
-Planned replacement design:
+Related design note:
 
 - [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 

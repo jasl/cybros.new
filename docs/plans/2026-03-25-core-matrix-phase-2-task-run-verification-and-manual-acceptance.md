@@ -11,8 +11,7 @@ Use this task document together with:
 5. `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 6. `docs/reports/README.md`
 7. `docs/reports/phase-2/README.md`
-8. `docs/design/2026-03-30-core-matrix-phase-2-sequential-execution-design.md`
-9. `docs/plans/2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md`
+8. `docs/plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md`
 
 Load this file as the final acceptance execution unit for Phase 2. Treat the
 phase plan and proof-export documents as ordering indexes, not as the full

@@ -99,8 +99,11 @@ freezes a per-turn execution snapshot that preserves:
 - `ProviderExecution::BuildRequestContext` returns a validated
   `ProviderRequestContext`, so request dispatch and persistence stages no
   longer decode provider context out of raw nested hashes
-- `Workflows::ExecuteRun` remains a thin workflow-owned caller; its default
-  message path reads frozen context messages from the execution snapshot
+- `Workflows::ExecuteRun` is the enqueue boundary for one runnable
+  `turn_step` node, not the provider execution body itself
+- `Workflows::ExecuteNode` and `ProviderExecution::ExecuteTurnStep` read frozen
+  context messages from the execution snapshot when the caller does not
+  override messages
 - provider-backed turn execution now keeps a stable public entrypoint
   (`ProviderExecution::ExecuteTurnStep`) but splits dispatch, freshness
   locking, and terminal persistence into narrower collaborators
@@ -120,8 +123,9 @@ freezes a per-turn execution snapshot that preserves:
 - `allowed_tool_names` is the conversation-visible tool set for that turn and
   must be treated as an execution-time constraint, not as advisory trace data
 - `Workflows::BuildExecutionSnapshot` refreshes that conversation runtime
-  contract through `Conversations::RefreshRuntimeContract`; `Conversation` does
-  not expose a cheap-looking runtime-contract reader anymore
+  contract through `Conversations::RefreshRuntimeContract`; services read the
+  runtime contract through that boundary rather than through a convenience
+  reader on `Conversation`
 - mailbox execution assignment creation copies `agent_context` from the frozen
   execution snapshot rather than recomputing it later from mutable aggregates
 
@@ -206,9 +210,9 @@ freezes a per-turn execution snapshot that preserves:
 - `Turn` exposes one runtime-facing reader: `execution_snapshot`
 - `WorkflowRun` delegates runtime-facing snapshot reads through
   `turn.execution_snapshot`
-- `Conversation` no longer owns transcript/context projection helpers; the
-  projection services under `app/services/conversations/` are the read-side
-  owners for transcript, context, and historical-anchor projection logic
+- transcript, context, and historical-anchor projection logic lives in the
+  projection services under `app/services/conversations/`, not on
+  `Conversation` itself
 - `Conversation` also does not own runtime-contract assembly; services that need
   conversation runtime capabilities must call
   `Conversations::RefreshRuntimeContract`

@@ -53,6 +53,10 @@ Use this document to define:
 - Phase 2 parallel intent kinds should begin narrowly with:
   - `conversation_title_update`
   - `subagent_spawn`
+- Workflow execution itself now dispatches one durable `WorkflowNode` at a time.
+  Merge behavior is expressed on `WorkflowEdge.requirement = required |
+  optional`; this document's batch-level `intent requirement` does not replace
+  the graph-level merge contract.
 - Workflow visualization and proof artifacts are part of Phase 2 acceptance, not
   optional debugging extras.
 

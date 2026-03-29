@@ -1,28 +1,60 @@
 require "test_helper"
 
 class Workflows::SchedulerTest < ActiveSupport::TestCase
-  test "selects runnable nodes for fan out and barrier join semantics" do
-    workflow_run, node_keys = create_barrier_workflow!
-
-    initial = Workflows::Scheduler.call(workflow_run: workflow_run)
-    after_root = Workflows::Scheduler.call(
-      workflow_run: workflow_run,
-      satisfied_node_keys: ["root"]
-    )
-    after_left_only = Workflows::Scheduler.call(
-      workflow_run: workflow_run,
-      satisfied_node_keys: ["root", "left"]
-    )
-    after_both = Workflows::Scheduler.call(
-      workflow_run: workflow_run,
-      satisfied_node_keys: ["root", "left", "right"]
+  test "barrier_all requires every incoming edge to be required and every required predecessor to complete durably" do
+    workflow_run, nodes = create_merge_workflow!(
+      left_requirement: "required",
+      right_requirement: "required"
     )
 
-    assert_equal ["root"], initial.map(&:node_key)
-    assert_equal %w[left right], after_root.map(&:node_key).sort
-    assert_equal ["right"], after_left_only.map(&:node_key)
-    assert_equal ["join"], after_both.map(&:node_key)
-    assert_equal node_keys.sort, workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key).sort
+    assert_equal ["root"], runnable_node_keys(workflow_run)
+
+    complete_workflow_node!(nodes.fetch(:root))
+    assert_equal %w[left right], runnable_node_keys(workflow_run).sort
+
+    complete_workflow_node!(nodes.fetch(:left))
+    refute_includes runnable_node_keys(workflow_run), "join"
+
+    complete_workflow_node!(nodes.fetch(:right))
+    assert_equal ["join"], runnable_node_keys(workflow_run)
+  end
+
+  test "any_of requires every incoming edge to be optional and becomes one-shot after the first arrival" do
+    workflow_run, nodes = create_merge_workflow!(
+      left_requirement: "optional",
+      right_requirement: "optional"
+    )
+
+    assert_equal ["root"], runnable_node_keys(workflow_run)
+
+    complete_workflow_node!(nodes.fetch(:root))
+    assert_equal %w[left right], runnable_node_keys(workflow_run).sort
+
+    complete_workflow_node!(nodes.fetch(:left))
+    assert_includes runnable_node_keys(workflow_run), "join"
+
+    queue_workflow_node!(nodes.fetch(:join))
+    complete_workflow_node!(nodes.fetch(:right))
+    refute_includes runnable_node_keys(workflow_run), "join"
+  end
+
+  test "mixed fan in requires all required predecessors and ignores late optional arrivals after the merge has been consumed" do
+    workflow_run, nodes = create_merge_workflow!(
+      left_requirement: "required",
+      right_requirement: "optional"
+    )
+
+    assert_equal ["root"], runnable_node_keys(workflow_run)
+
+    complete_workflow_node!(nodes.fetch(:root))
+    assert_equal %w[left right], runnable_node_keys(workflow_run).sort
+
+    complete_workflow_node!(nodes.fetch(:left))
+    assert_includes runnable_node_keys(workflow_run), "join"
+
+    queue_workflow_node!(nodes.fetch(:join))
+    complete_workflow_node!(nodes.fetch(:right))
+    refute_includes runnable_node_keys(workflow_run), "join"
   end
 
   test "reject policy leaves transcript state unchanged" do
@@ -191,9 +223,7 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
     assert_nil workflow_run.blocking_resource_id
   end
 
-  private
-
-  def create_barrier_workflow!
+  def create_merge_workflow!(left_requirement:, right_requirement:)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -234,17 +264,62 @@ class Workflows::SchedulerTest < ActiveSupport::TestCase
           node_key: "join",
           node_type: "barrier_join",
           decision_source: "system",
-          metadata: { "join_mode" => "barrier" },
+          metadata: {},
         },
       ],
-      edges: [
-        { from_node_key: "root", to_node_key: "left" },
-        { from_node_key: "root", to_node_key: "right" },
-        { from_node_key: "left", to_node_key: "join" },
-        { from_node_key: "right", to_node_key: "join" },
-      ]
+      edges: []
     )
 
-    [workflow_run, %w[root left right join]]
+    workflow_run = workflow_run.reload
+    nodes = workflow_run.workflow_nodes.index_by(&:node_key)
+
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("root"),
+      to_node: nodes.fetch("left"),
+      ordinal: 0
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("root"),
+      to_node: nodes.fetch("right"),
+      ordinal: 1
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("left"),
+      to_node: nodes.fetch("join"),
+      requirement: left_requirement,
+      ordinal: 0
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("right"),
+      to_node: nodes.fetch("join"),
+      requirement: right_requirement,
+      ordinal: 0
+    )
+
+    [workflow_run, nodes.symbolize_keys]
+  end
+
+  def complete_workflow_node!(workflow_node)
+    workflow_node.update!(
+      lifecycle_state: "completed",
+      started_at: 1.minute.ago,
+      finished_at: Time.current
+    )
+  end
+
+  def queue_workflow_node!(workflow_node)
+    workflow_node.update!(
+      lifecycle_state: "queued",
+      started_at: nil,
+      finished_at: nil
+    )
+  end
+
+  def runnable_node_keys(workflow_run)
+    Workflows::Scheduler.call(workflow_run: workflow_run).map(&:node_key)
   end
 end

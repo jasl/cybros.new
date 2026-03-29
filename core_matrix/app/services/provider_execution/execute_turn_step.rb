@@ -30,7 +30,10 @@ module ProviderExecution
       raise_invalid!(@turn, :lifecycle_state, "must be active to execute provider work") unless @turn.active?
       raise_invalid!(@workflow_node, :base, "must provide at least one provider message") if @messages.empty?
       raise_invalid!(@turn, :resolved_config_snapshot, "must use a supported provider wire API") unless @request_context.wire_api == "chat_completions"
-      raise_invalid!(@workflow_node, :base, "already has terminal execution status") if terminal_event_state.present?
+      raise_invalid!(@workflow_node, :base, "already has terminal execution status") if @workflow_node.terminal?
+      unless @workflow_node.pending? || @workflow_node.queued? || @workflow_node.running?
+        raise_invalid!(@workflow_node, :lifecycle_state, "must be pending or queued before provider execution")
+      end
 
       append_status_event!("running")
 
@@ -79,6 +82,23 @@ module ProviderExecution
 
     def append_status_event!(state, **payload)
       @workflow_node.with_lock do
+        now = Time.current
+
+        @workflow_node.reload
+        if state == "running"
+          @workflow_node.update!(
+            lifecycle_state: "running",
+            started_at: @workflow_node.started_at || now,
+            finished_at: nil
+          )
+        elsif state.in?(%w[completed failed canceled])
+          @workflow_node.update!(
+            lifecycle_state: state,
+            started_at: @workflow_node.started_at || now,
+            finished_at: now
+          )
+        end
+
         WorkflowNodeEvent.create!(
           installation: @workflow_run.installation,
           workflow_run: @workflow_run,
@@ -88,15 +108,6 @@ module ProviderExecution
           payload: payload.merge("state" => state)
         )
       end
-    end
-
-    def terminal_event_state
-      @workflow_node.workflow_node_events
-        .where(event_kind: "status")
-        .order(ordinal: :desc)
-        .limit(1)
-        .pick(Arel.sql("payload ->> 'state'"))
-        .presence_in(%w[completed failed canceled])
     end
 
     def raise_invalid!(record, attribute, message)

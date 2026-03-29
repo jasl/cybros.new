@@ -43,6 +43,8 @@ runtime resources that later tasks now build on are:
 
 ## Workflow Node Events
 
+- `WorkflowNode.lifecycle_state` is the durable scheduler truth for node
+  execution.
 - `WorkflowNodeEvent` is the append-only workflow-local execution stream.
 - Every event belongs to one installation, workflow run, and workflow node.
 - Events redundantly persist:
@@ -57,11 +59,23 @@ runtime resources that later tasks now build on are:
 - Node-event ordinal allocation is serialized at the workflow-node boundary so
   concurrent runtime writers keep append-only event order without duplicate
   ordinal races.
-- Task 10.1 keeps `event_kind` open-ended, but the first landed runtime path
-  uses `status` events for process lifecycle replay.
+- `event_kind` remains open-ended. The currently landed runtime paths use:
+  - `status` events for node-local execution trace
+  - `yield_requested`
+  - `intent_rejected`
 - `WorkflowNodeEvent` remains the kernel trace surface; later tasks may project
   selected runtime state into `ConversationEvent` only when that state is
   intentionally user-visible.
+- scheduler selection reads the persisted graph plus
+  `WorkflowNode.lifecycle_state`; node events are trace, not the runnable-node
+  cursor.
+- current `status` events are appended by:
+  - `Workflows::ExecuteNode` when a coordination node such as `turn_root` or
+    `barrier_join` completes
+  - `ProviderExecution::ExecuteTurnStep` and its terminal persistence services
+    for provider-backed `turn_step` nodes
+  - `Processes::Start` and `Processes::Stop` for environment-owned process
+    resources
 - Phase 2 yield materialization currently records:
   - `yield_requested`
   - `intent_rejected`
@@ -139,6 +153,16 @@ runtime resources that later tasks now build on are:
   - moves the task to `running`
   - records the accepted holder deployment
   - acquires an `ExecutionLease`
+- mailbox execution also keeps the backing `WorkflowNode` aligned:
+  - assignment creation moves the node to `queued`
+  - `execution_started` moves the node to `running`
+  - terminal reports move the node to `completed`, `failed`, or `canceled`
+- `AgentTaskRun` and `WorkflowNode` therefore have related but different state
+  machines:
+  - `AgentTaskRun` models mailbox-owned runtime execution, including
+    `interrupted`
+  - `WorkflowNode` models scheduler-visible DAG progress and does not use
+    `interrupted`
 - progress and terminal summaries are persisted directly on the task run
 - agent task runs persist the same durable close fields as other closable
   runtime resources so later interrupt and close orchestration can target one

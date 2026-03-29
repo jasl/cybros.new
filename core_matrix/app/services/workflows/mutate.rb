@@ -35,6 +35,7 @@ module Workflows
           ordinal: next_ordinal,
           node_key: node_attributes.fetch(:node_key),
           node_type: node_attributes.fetch(:node_type),
+          lifecycle_state: node_attributes.fetch(:lifecycle_state, "pending"),
           intent_kind: node_attributes[:intent_kind],
           stage_index: node_attributes[:stage_index],
           stage_position: node_attributes[:stage_position],
@@ -63,6 +64,7 @@ module Workflows
           workflow_run: @workflow_run,
           from_node: from_node,
           to_node: to_node,
+          requirement: edge_attributes.fetch(:requirement, "required"),
           ordinal: grouped_ordinals[from_node.id]
         )
         grouped_ordinals[from_node.id] += 1

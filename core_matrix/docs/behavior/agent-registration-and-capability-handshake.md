@@ -10,12 +10,12 @@ capability refresh, and capability handshake with config reconciliation.
 
 This document records the current landed registration and handshake substrate.
 
-Phase 2 now layers mailbox-driven control, split presence versus health, and
-optional realtime delivery on top of this registration and handshake
-substrate. This document remains the source of truth for registration,
-machine-credential issuance, and capability handshake behavior.
+This document is the source of truth for registration,
+machine-credential issuance, and capability handshake behavior. Mailbox-driven
+control, split presence versus health, and optional realtime delivery build on
+top of this substrate.
 
-Planned replacement design:
+Related design note:
 
 - [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 

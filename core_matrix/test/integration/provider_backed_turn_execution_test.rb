@@ -64,8 +64,8 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
     end
 
     with_stubbed_provider_catalog(catalog) do
-      Workflows::ExecuteRun.call(
-        workflow_run: workflow_run,
+      Workflows::ExecuteNode.call(
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
         adapter: adapter
       )

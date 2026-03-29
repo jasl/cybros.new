@@ -833,13 +833,14 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_workflow_node!(workflow_run:, installation: workflow_run.installation, ordinal: workflow_run.workflow_nodes.maximum(:ordinal).to_i + 1, node_key: "node-#{next_test_sequence}", node_type: "generic", presentation_policy: "internal_only", decision_source: "system", metadata: {}, **attrs)
+    def create_workflow_node!(workflow_run:, installation: workflow_run.installation, ordinal: workflow_run.workflow_nodes.maximum(:ordinal).to_i + 1, node_key: "node-#{next_test_sequence}", node_type: "generic", lifecycle_state: "pending", presentation_policy: "internal_only", decision_source: "system", metadata: {}, **attrs)
       WorkflowNode.create!({
         installation: installation,
         workflow_run: workflow_run,
         ordinal: ordinal,
         node_key: node_key,
         node_type: node_type,
+        lifecycle_state: lifecycle_state,
         presentation_policy: presentation_policy,
         decision_source: decision_source,
         metadata: metadata,
@@ -914,12 +915,13 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_workflow_edge!(workflow_run:, from_node:, to_node:, installation: workflow_run.installation, ordinal: 0, **attrs)
+    def create_workflow_edge!(workflow_run:, from_node:, to_node:, installation: workflow_run.installation, requirement: "required", ordinal: 0, **attrs)
       WorkflowEdge.create!({
         installation: installation,
         workflow_run: workflow_run,
         from_node: from_node,
         to_node: to_node,
+        requirement: requirement,
         ordinal: ordinal,
       }.merge(attrs))
     end

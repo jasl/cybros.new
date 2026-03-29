@@ -45,9 +45,31 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - `Workflows::Scheduler.call` returns runnable workflow nodes and does not
   mutate workflow state
 - workflows in `waiting` state expose no runnable nodes
+- scheduler input is the persisted workflow graph plus durable
+  `WorkflowNode.lifecycle_state`
+- only `pending` nodes are runnable
+- a node with no predecessors is runnable immediately
+- a node with predecessors is runnable only when:
+  - at least one predecessor is durably `completed`
+  - every incoming `required` edge comes from a durably `completed`
+    predecessor
+- because a node leaves `pending` as soon as it is queued, late completion of
+  an `optional` predecessor cannot retrigger an already consumed merge node
 - workflow ordering for scheduler and later proof export continues to use the
   frozen node `ordinal`, while yielded intent nodes may also carry
   `stage_index` and `stage_position` for stage-local inspection
+- `Workflows::DispatchRunnableNodes` is the dispatch boundary:
+  - it locks the workflow run
+  - moves each selected runnable node from `pending` to `queued`
+  - enqueues one `Workflows::ExecuteNodeJob` per node
+- `WorkflowRun` is not the async execution unit. Phase 2 dispatches one job per
+  runnable `WorkflowNode`.
+- `Workflows::ExecuteRun` is the turn-step enqueue boundary; it
+  resolves a runnable `turn_step` node and hands it to node dispatch instead of
+  executing provider work inline.
+- `Workflows::ExecuteNodeJob` and `Workflows::ExecuteNode` are the node-local
+  execution boundary for kernel-owned execution. Local provider-backed
+  `turn_step` work now runs there, not in the caller's request path.
 - `Workflows::Scheduler.apply_during_generation_policy` supports:
   - `reject`
   - `restart`
@@ -100,6 +122,13 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
     assignment path
 - wait handoff therefore relies only on durable workflow rows, artifacts, and
   runtime resources; no runtime-private continuation cursor is required
+- mailbox-owned agent execution also keeps the durable node state aligned:
+  - assignment creation moves the node to `queued`
+  - `execution_started` moves the node to `running`
+  - terminal execution reports move the node to `completed`, `failed`, or
+    `canceled`
+  - successful terminal reports re-run workflow lifecycle refresh and node
+    dispatch so DAG successors can continue
 
 ## Recovery Behavior
 
@@ -123,7 +152,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `Workflows::ManualRetry`
 - `AgentDeployments::RebindTurn` is the one paused-turn rebinding mutation
   owner used by both auto-resume recovery-plan application and manual resume
-- `Conversations::ValidateAgentDeploymentTarget` now stays generic to live
+- `Conversations::ValidateAgentDeploymentTarget` stays generic to live
   conversation deployment switching and only enforces the installation and
   execution-environment boundary
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
@@ -132,7 +161,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `retained`
   - `active`
   - free of unfinished close operations
-- retryable in-place step failures now move the workflow into:
+- retryable in-place step failures move the workflow into:
   - `wait_state = "waiting"`
   - `wait_reason_kind = "retryable_failure"`
   - `blocking_resource_type = "AgentTaskRun"`
@@ -161,7 +190,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   workflow node before persistence; if the interrupt fence or another terminal
   state has landed first, that provider result is dropped without transcript,
   usage, or profiling side effects
-- the same freshness check now also rejects late provider results when the
+- the same freshness check also rejects late provider results when the
   frozen execution snapshot no longer matches:
   - the selected input message `public_id`
   - the resolved provider/model pair
@@ -174,14 +203,10 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `conversation.with_lock`
   - `turn.with_lock`
   - re-check `ConversationBlockerSnapshot` plus `not turn_interrupted`
-- the canonical mutation guard family is now:
+- the canonical mutation guard family is:
   - `Conversations::WithConversationEntryLock` for new turn entry
   - `Turns::WithTimelineMutationLock` for tail rewrites and rollback
   - `Conversations::ValidateQuiescence` for archive/delete quiescence checks
-- deleted alias concepts no longer appear in scheduler-facing mutation code:
-  - `Turns::WithConversationEntryLock`
-  - `Turns::WithTimelineActionLock`
-  - `Conversations::WorkQuiescenceGuard`
 - steering current input, editing tail input, selecting output variants,
   retrying or rerunning output, and rollback all fail closed once that
   interrupt fence or a close fence has landed

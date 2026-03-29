@@ -13,19 +13,18 @@ module Workflows
     end
 
     class RunnableSelection
-      def initialize(workflow_run:, satisfied_node_keys: [])
+      def initialize(workflow_run:)
         @workflow_run = workflow_run
-        @satisfied_node_keys = Array(satisfied_node_keys).map(&:to_s)
       end
 
       def call
-        return [] if @workflow_run.waiting?
+        return [] if @workflow_run.waiting? || !@workflow_run.active?
 
         workflow_nodes_scope.select do |node|
-          next false if @satisfied_node_keys.include?(node.node_key)
+          next false unless node.pending?
 
-          predecessor_keys = predecessor_node_keys.fetch(node.id, [])
-          predecessor_keys.empty? || predecessor_keys.all? { |key| @satisfied_node_keys.include?(key) }
+          predecessor_edges = incoming_edges_by_node.fetch(node.id, [])
+          runnable_without_predecessors?(predecessor_edges) || runnable_with_predecessors?(predecessor_edges)
         end
       end
 
@@ -35,12 +34,20 @@ module Workflows
         @workflow_nodes_scope ||= WorkflowNode.where(workflow_run: @workflow_run).order(:ordinal).to_a
       end
 
-      def predecessor_node_keys
-        @predecessor_node_keys ||= WorkflowEdge
+      def incoming_edges_by_node
+        @incoming_edges_by_node ||= WorkflowEdge
           .where(workflow_run: @workflow_run)
-          .includes(:from_node)
+          .includes(:from_node, :to_node)
           .group_by(&:to_node_id)
-          .transform_values { |edges| edges.map { |edge| edge.from_node.node_key } }
+      end
+
+      def runnable_without_predecessors?(predecessor_edges)
+        predecessor_edges.empty?
+      end
+
+      def runnable_with_predecessors?(predecessor_edges)
+        predecessor_edges.any? { |edge| edge.from_node.completed? } &&
+          predecessor_edges.select(&:required?).all? { |edge| edge.from_node.completed? }
       end
     end
 

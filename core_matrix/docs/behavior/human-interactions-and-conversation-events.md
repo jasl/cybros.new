@@ -75,7 +75,7 @@ hatches, or runtime-private wait state. It establishes:
   capture the active wait snapshot, clear that wait only when the request is
   still the active blocker, and then delegate successor re-entry through
   `Workflows::ReEnterAgent`.
-- Same-workflow resume therefore no longer means only "return to ready". When
+- Same-workflow resume follows the workflow run's `resume_policy`. When
   `resume_policy = re_enter_agent`, resolution rebuilds the turn execution
   snapshot and queues a fresh successor `AgentTaskRun` from
   `WorkflowRun.resume_metadata`.

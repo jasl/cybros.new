@@ -27,6 +27,7 @@ module ProviderExecution
     def call
       usage = normalize_usage(@provider_result.usage)
       usage_evaluation = evaluate_usage(usage)
+      result = nil
 
       ApplicationRecord.transaction do
         ProviderExecution::WithFreshExecutionStateLock.call(workflow_node: @workflow_node) do |current_node, current_workflow_run, current_turn|
@@ -72,7 +73,11 @@ module ProviderExecution
             selected_output_message: output_message,
             lifecycle_state: "completed"
           )
-          current_workflow_run.update!(lifecycle_state: "completed")
+          current_node.update!(
+            lifecycle_state: "completed",
+            started_at: current_node.started_at || Time.current,
+            finished_at: Time.current
+          )
           append_status_event!(
             workflow_node: current_node,
             workflow_run: current_workflow_run,
@@ -83,7 +88,7 @@ module ProviderExecution
             execution_profile_fact_id: profiling_fact.id
           )
 
-          return Result.new(
+          result = Result.new(
             workflow_run: current_workflow_run,
             workflow_node: current_node,
             output_message: output_message,
@@ -92,6 +97,10 @@ module ProviderExecution
           )
         end
       end
+
+      Workflows::RefreshRunLifecycle.call(workflow_run: @workflow_run)
+      Workflows::DispatchRunnableNodes.call(workflow_run: @workflow_run)
+      result
     end
 
     private

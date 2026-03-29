@@ -19,6 +19,7 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     workflow_node = create_workflow_node!(workflow_run: workflow_run)
 
     assert workflow_node.public_id.present?
+    assert workflow_node.pending?
     assert_equal workflow_node, WorkflowNode.find_by_public_id!(workflow_node.public_id)
   end
 

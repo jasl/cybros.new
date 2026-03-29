@@ -1,7 +1,70 @@
 require "test_helper"
 
 class WorkflowSchedulerFlowTest < ActionDispatch::IntegrationTest
-  test "scheduler keeps joins blocked until predecessors finish and cancels stale queued follow up work" do
+  test "scheduler only releases a barrier_all merge after both required predecessors complete" do
+    workflow_run = create_merge_workflow!(
+      left_requirement: "required",
+      right_requirement: "required"
+    )
+
+    initial = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "root"))
+    after_root = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "left"))
+    after_left = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "right"))
+    after_right = Workflows::Scheduler.call(workflow_run: workflow_run)
+
+    assert_equal ["root"], initial.map(&:node_key)
+    assert_equal %w[left right], after_root.map(&:node_key).sort
+    refute_includes after_left.map(&:node_key), "join"
+    assert_equal ["join"], after_right.map(&:node_key)
+  end
+
+  test "scheduler releases an any_of merge after the first optional predecessor completes" do
+    workflow_run = create_merge_workflow!(
+      left_requirement: "optional",
+      right_requirement: "optional"
+    )
+
+    initial = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "root"))
+    after_root = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "right"))
+    after_first_optional = Workflows::Scheduler.call(workflow_run: workflow_run)
+
+    assert_equal ["root"], initial.map(&:node_key)
+    assert_equal %w[left right], after_root.map(&:node_key).sort
+    assert_includes after_first_optional.map(&:node_key), "join"
+  end
+
+  test "scheduler treats mixed fan in as one-shot and ignores late optional arrivals after the merge node is consumed" do
+    workflow_run = create_merge_workflow!(
+      left_requirement: "required",
+      right_requirement: "optional"
+    )
+
+    initial = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "root"))
+    after_root = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "right"))
+    after_optional = Workflows::Scheduler.call(workflow_run: workflow_run)
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "left"))
+    after_left = Workflows::Scheduler.call(workflow_run: workflow_run)
+    queue_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "join"))
+    complete_workflow_node!(workflow_run.workflow_nodes.find_by!(node_key: "right")) unless workflow_run.workflow_nodes.find_by!(node_key: "right").completed?
+    after_late_optional = Workflows::Scheduler.call(workflow_run: workflow_run)
+
+    assert_equal ["root"], initial.map(&:node_key)
+    assert_equal %w[left right], after_root.map(&:node_key).sort
+    refute_includes after_optional.map(&:node_key), "join"
+    assert_includes after_left.map(&:node_key), "join"
+    refute_includes after_late_optional.map(&:node_key), "join"
+  end
+
+  private
+
+  def create_merge_workflow!(left_requirement:, right_requirement:)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -42,38 +105,57 @@ class WorkflowSchedulerFlowTest < ActionDispatch::IntegrationTest
           node_key: "join",
           node_type: "barrier_join",
           decision_source: "system",
-          metadata: { "join_mode" => "barrier" },
+          metadata: {},
         },
       ],
-      edges: [
-        { from_node_key: "root", to_node_key: "left" },
-        { from_node_key: "root", to_node_key: "right" },
-        { from_node_key: "left", to_node_key: "join" },
-        { from_node_key: "right", to_node_key: "join" },
-      ]
+      edges: []
     )
-    initial = Workflows::Scheduler.call(workflow_run: workflow_run)
-    after_root = Workflows::Scheduler.call(
-      workflow_run: workflow_run,
-      satisfied_node_keys: ["root"]
-    )
-    after_join = Workflows::Scheduler.call(
-      workflow_run: workflow_run,
-      satisfied_node_keys: ["root", "left", "right"]
-    )
-    attach_selected_output!(turn, content: "Committed output")
-    queued_turn = Turns::SteerCurrentInput.call(
-      turn: turn,
-      content: "Queued follow up",
-      policy_mode: "queue"
-    )
-    attach_selected_output!(turn, content: "Newer committed output", variant_index: 1)
+    workflow_run = workflow_run.reload
+    nodes = workflow_run.workflow_nodes.index_by(&:node_key)
 
-    guarded_queued_turn = Workflows::Scheduler.guard_expected_tail!(turn: queued_turn)
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("root"),
+      to_node: nodes.fetch("left"),
+      ordinal: 0
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("root"),
+      to_node: nodes.fetch("right"),
+      ordinal: 1
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("left"),
+      to_node: nodes.fetch("join"),
+      requirement: left_requirement,
+      ordinal: 0
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: nodes.fetch("right"),
+      to_node: nodes.fetch("join"),
+      requirement: right_requirement,
+      ordinal: 0
+    )
 
-    assert_equal ["root"], initial.map(&:node_key)
-    assert_equal %w[left right], after_root.map(&:node_key).sort
-    assert_equal ["join"], after_join.map(&:node_key)
-    assert guarded_queued_turn.canceled?
+    workflow_run
+  end
+
+  def complete_workflow_node!(workflow_node)
+    workflow_node.update!(
+      lifecycle_state: "completed",
+      started_at: 1.minute.ago,
+      finished_at: Time.current
+    )
+  end
+
+  def queue_workflow_node!(workflow_node)
+    workflow_node.update!(
+      lifecycle_state: "queued",
+      started_at: nil,
+      finished_at: nil
+    )
   end
 end

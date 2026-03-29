@@ -47,6 +47,7 @@ class WorkflowEdgeTest < ActiveSupport::TestCase
     )
 
     assert_equal 0, edge.ordinal
+    assert edge.required?
     assert_not invalid_edge.valid?
     assert_includes invalid_edge.errors[:to_node], "must belong to the same workflow"
   end

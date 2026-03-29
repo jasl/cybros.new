@@ -45,6 +45,21 @@ it is not a reusable template.
   - `agent_program`
   - `system`
   - `user`
+- Supported workflow-node lifecycle states are:
+  - `pending`
+  - `queued`
+  - `running`
+  - `completed`
+  - `failed`
+  - `canceled`
+- `WorkflowNode` is the durable execution boundary for Phase 2 scheduling.
+  Scheduling consumes `pending` nodes, moves them to `queued`, and later
+  transitions them through `running` into a terminal state.
+- A node is one-shot per workflow run. Later predecessor arrivals must not
+  retrigger a node that has already left `pending`.
+- Retry remains attempt-level behavior on the same node; a retry may move a
+  failed node back to `queued`, but that is not predecessor-driven
+  re-enablement.
 - Node metadata is stored as structured `jsonb` and must stay a hash.
 - Policy-sensitive execution markers are carried explicitly in node metadata,
   for example `metadata["policy_sensitive"]`, rather than inferred later from
@@ -70,6 +85,9 @@ it is not a reusable template.
   one `to_node`.
 - Both endpoint nodes must belong to the same workflow run as the edge.
 - Self-loops are rejected.
+- Every edge carries `requirement`:
+  - `required`
+  - `optional`
 - Edge ordinals are ordered per predecessor node, not globally across the whole
   workflow.
 - For a given `from_node`, edge ordinals begin at `0` and append upward as new
@@ -78,7 +96,8 @@ it is not a reusable template.
 ## Service Behavior
 
 - `Workflows::CreateForTurn` creates an `active` workflow run and seeds one root
-  node at ordinal `0`.
+  node at ordinal `0` in `pending` state unless the root is immediately handed
+  off to mailbox-owned agent work.
 - Root nodes currently default to `presentation_policy = internal_only` unless
   the caller chooses a narrower or broader policy explicitly at materialization
   time.
@@ -99,6 +118,14 @@ it is not a reusable template.
   reused across calls.
 - After appending edges, mutation walks the full persisted graph and rejects any
   mutation that would make the workflow cyclic.
+- `Workflows::Scheduler.call` derives runnable nodes only from the persisted
+  graph plus durable node state.
+- `Workflows::DispatchRunnableNodes` is the canonical async boundary for
+  runnable nodes; it queues one node job per runnable node.
+- `Workflows::ExecuteNodeJob` executes one durable node per job.
+- `AgentControl::CreateExecutionAssignment` is also a workflow-node state
+  boundary. When mailbox-owned work is created or retried, the backing node is
+  moved to `queued` before runtime delivery.
 
 ## Invariants
 
@@ -107,6 +134,10 @@ it is not a reusable template.
 - workflow nodes and edges remain subordinate to one workflow run
 - workflow mutation is append-only for graph structure in this task
 - the workflow graph must remain acyclic after every mutation
+- workflow execution scheduling is node-scoped, not workflow-run-scoped
+- node execution state is durable kernel state, not a transient scheduler input
+- merge behavior is controlled by edge `requirement`, not node-type-specific
+  trigger flags
 - explicit node metadata is the durable source for policy-sensitive execution
   markers
 - read-facing ownership and projection fields are frozen on workflow-owned rows

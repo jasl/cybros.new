@@ -48,9 +48,10 @@ derived aggregation layer for reporting and future quota or entitlement checks.
 
 - `ProviderUsage::RecordEvent` creates one `UsageEvent` and immediately projects
   rollups in the same transaction.
-- `ProviderExecution::ExecuteTurnStep` uses `ProviderUsage::RecordEvent` as the
-  authoritative usage write boundary after a provider-backed `turn_step`
-  succeeds.
+- provider-backed `turn_step` execution uses `ProviderUsage::RecordEvent` as
+  the authoritative usage write boundary once the node finishes successfully.
+- the write happens during `PersistTurnStepSuccess`, after the provider result
+  has been accepted for the executing node.
 - `ProviderUsage::ProjectRollups` always projects hourly and daily rollups.
 - A rolling-window rollup is projected only when the event carries an explicit
   `entitlement_window_key`.

@@ -101,18 +101,15 @@ The active unattended execution batch for the current phase is:
 6. `Task F2`
 7. `Task F3`
 
-## Sequential Execution Package (`2026-03-30`)
+## Active Follow-Up Execution Package (`2026-03-30`)
 
-For the unattended-but-stop-on-blocker execution mode, use:
+The active follow-up source of truth for the remaining Phase 2 batch is:
 
-- [2026-03-30-core-matrix-phase-2-sequential-execution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-30-core-matrix-phase-2-sequential-execution-design.md)
-- [2026-03-30-core-matrix-phase-2-milestone-d-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-30-core-matrix-phase-2-milestone-d-sequential-execution-plan.md)
-- [2026-03-30-core-matrix-phase-2-milestone-e-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-30-core-matrix-phase-2-milestone-e-sequential-execution-plan.md)
-- [2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md)
+- [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md)
 
-These documents do not replace the detailed task docs below. They define the
-execution order, milestone gates, stop rules, and acceptance packaging for the
-remaining Phase 2 batch.
+This follow-up supersedes the earlier sequential-execution package. Do not use
+the old workflow-wide or milestone-sequential documents to guide current Phase 2
+implementation.
 
 Completed milestone archives:
 

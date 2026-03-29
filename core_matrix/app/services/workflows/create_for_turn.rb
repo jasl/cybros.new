@@ -51,6 +51,7 @@ module Workflows
           ordinal: 0,
           node_key: @root_node_key,
           node_type: @root_node_type,
+          lifecycle_state: "pending",
           presentation_policy: @presentation_policy,
           decision_source: @decision_source,
           metadata: @metadata

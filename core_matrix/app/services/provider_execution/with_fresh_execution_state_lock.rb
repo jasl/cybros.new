@@ -34,20 +34,11 @@ module ProviderExecution
         @workflow_run.ready? &&
         @turn.cancellation_requested_at.blank? &&
         @workflow_run.cancellation_requested_at.blank? &&
-        terminal_event_state.blank? &&
+        !@workflow_node.terminal? &&
         selected_input_message_matches_snapshot? &&
         resolved_model_selection_matches_snapshot?
 
       raise StaleExecutionError, "provider execution result is stale"
-    end
-
-    def terminal_event_state
-      @workflow_node.workflow_node_events
-        .where(event_kind: "status")
-        .order(ordinal: :desc)
-        .limit(1)
-        .pick(Arel.sql("payload ->> 'state'"))
-        .presence_in(%w[completed failed canceled])
     end
 
     def selected_input_message_matches_snapshot?

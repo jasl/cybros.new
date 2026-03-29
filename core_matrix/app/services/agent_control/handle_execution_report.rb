@@ -51,6 +51,11 @@ module AgentControl
         holder_agent_deployment: @deployment,
         expected_duration_seconds: @payload["expected_duration_seconds"]
       )
+      agent_task_run.workflow_node.update!(
+        lifecycle_state: "running",
+        started_at: agent_task_run.workflow_node.started_at || @occurred_at,
+        finished_at: nil
+      )
 
       unless agent_task_run.execution_lease&.active?
         Leases::Acquire.call(
@@ -84,12 +89,18 @@ module AgentControl
         terminal_payload: terminal_payload_for_terminal_message,
         finished_at: @occurred_at
       )
+      agent_task_run.workflow_node.update!(
+        lifecycle_state: workflow_node_terminal_state_for(lifecycle_state),
+        started_at: agent_task_run.workflow_node.started_at || agent_task_run.started_at || @occurred_at,
+        finished_at: @occurred_at
+      )
 
       apply_tool_invocation_terminal_events!
       apply_wait_transition! if lifecycle_state == "completed"
       apply_retry_gate! if lifecycle_state == "failed"
       sync_subagent_session!(lifecycle_state: lifecycle_state)
       resume_parent_workflow_if_subagent_wait_resolved!
+      refresh_workflow_after_terminal!(lifecycle_state: lifecycle_state)
 
       if agent_task_run.execution_lease&.active?
         Leases::Release.call(
@@ -221,6 +232,24 @@ module AgentControl
         end
 
       session.update!(observed_status: observed_status)
+    end
+
+    def workflow_node_terminal_state_for(agent_task_lifecycle_state)
+      agent_task_lifecycle_state == "interrupted" ? "canceled" : agent_task_lifecycle_state
+    end
+
+    def refresh_workflow_after_terminal!(lifecycle_state:)
+      workflow_run = agent_task_run.workflow_run.reload
+
+      case lifecycle_state
+      when "completed"
+        Workflows::RefreshRunLifecycle.call(workflow_run: workflow_run)
+        Workflows::DispatchRunnableNodes.call(workflow_run: workflow_run)
+      when "failed"
+        return if workflow_run.waiting?
+
+        Workflows::RefreshRunLifecycle.call(workflow_run: workflow_run, terminal_state: "failed")
+      end
     end
 
     def resume_parent_workflow_if_subagent_wait_resolved!

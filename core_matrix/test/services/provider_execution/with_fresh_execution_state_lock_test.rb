@@ -27,16 +27,13 @@ class ProviderExecution::WithFreshExecutionStateLockTest < ActiveSupport::TestCa
     assert_equal({ "lock_state" => "fresh" }, yielded[2].origin_payload)
   end
 
-  test "raises stale when the latest workflow node status is terminal" do
+  test "raises stale when the latest workflow node lifecycle is terminal" do
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    WorkflowNodeEvent.create!(
-      installation: workflow_run.installation,
-      workflow_run: workflow_run,
-      workflow_node: workflow_node,
-      ordinal: 0,
-      event_kind: "status",
-      payload: { "state" => "completed" }
+    workflow_node.update!(
+      lifecycle_state: "completed",
+      started_at: 1.minute.ago,
+      finished_at: Time.current
     )
 
     error = assert_raises(ProviderExecution::WithFreshExecutionStateLock::StaleExecutionError) do

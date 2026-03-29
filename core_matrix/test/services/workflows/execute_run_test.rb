@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Workflows::ExecuteRunTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   class FakeChatCompletionsAdapter < SimpleInference::HTTPAdapter
     attr_reader :last_request
 
@@ -44,6 +46,44 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
         headers: @headers,
         body: JSON.generate(@response_body),
       }
+    end
+  end
+
+  test "enqueues one runnable node job instead of treating the workflow run as the async unit" do
+    catalog_definition = test_provider_catalog_definition.deep_dup
+    catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
+      display_name: "Mock Model",
+      api_model: "mock-model",
+      tokenizer_hint: "o200k_base",
+      context_window_tokens: 100,
+      max_output_tokens: 40,
+      context_soft_limit_ratio: 0.5,
+      request_defaults: {
+        temperature: 0.9,
+        top_p: 0.95,
+        top_k: 20,
+        min_p: 0.1,
+        presence_penalty: 0.2,
+        repetition_penalty: 1.1,
+      }
+    )
+    catalog = build_test_provider_catalog_from(catalog_definition)
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      workflow_run = create_mock_turn_step_workflow_run!(
+        resolved_config_snapshot: {
+          "temperature" => 0.4,
+          "presence_penalty" => 0.6,
+          "sandbox" => "workspace-write",
+        }
+      )
+    end
+
+    assert_enqueued_jobs 1 do
+      with_stubbed_provider_catalog(catalog) do
+        Workflows::ExecuteRun.call(workflow_run: workflow_run)
+      end
     end
   end
 
@@ -97,8 +137,8 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     result = nil
 
     with_stubbed_provider_catalog(catalog) do
-      result = Workflows::ExecuteRun.call(
-        workflow_run: workflow_run,
+      result = Workflows::ExecuteNode.call(
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
         adapter: adapter
       )
@@ -159,8 +199,8 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(SimpleInference::HTTPError) do
-        Workflows::ExecuteRun.call(
-          workflow_run: workflow_run,
+        Workflows::ExecuteNode.call(
+          workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter
         )
@@ -207,8 +247,8 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
-        Workflows::ExecuteRun.call(
-          workflow_run: workflow_run,
+        Workflows::ExecuteNode.call(
+          workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter
         )
@@ -241,8 +281,8 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
-        Workflows::ExecuteRun.call(
-          workflow_run: workflow_run,
+        Workflows::ExecuteNode.call(
+          workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter
         )
@@ -260,10 +300,11 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
   test "defaults provider messages from the workflow run execution snapshot" do
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
 
     assert_equal(
       workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
-      Workflows::ExecuteRun.new(workflow_run: workflow_run).send(:default_messages)
+      Workflows::ExecuteNode.new(workflow_node: workflow_node).send(:default_messages, workflow_node)
     )
   end
 

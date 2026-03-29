@@ -1,12 +1,24 @@
 class WorkflowNode < ApplicationRecord
   include HasPublicId
 
+  attribute :lifecycle_state, :string
+
   enum :decision_source,
     {
       llm: "llm",
       agent_program: "agent_program",
       system: "system",
       user: "user",
+    },
+    validate: true
+  enum :lifecycle_state,
+    {
+      pending: "pending",
+      queued: "queued",
+      running: "running",
+      completed: "completed",
+      failed: "failed",
+      canceled: "canceled",
     },
     validate: true
   enum :presentation_policy,
@@ -64,7 +76,12 @@ class WorkflowNode < ApplicationRecord
   validate :turn_installation_match
   validate :workflow_projection_match
   validate :yielding_workflow_integrity
+  validate :execution_timestamps_consistency
   validate :metadata_must_be_hash
+
+  def terminal?
+    completed? || failed? || canceled?
+  end
 
   private
 
@@ -123,6 +140,31 @@ class WorkflowNode < ApplicationRecord
     return if yielding_workflow_node.workflow_run_id == workflow_run_id
 
     errors.add(:yielding_workflow_node, "must belong to the same workflow run")
+  end
+
+  def execution_timestamps_consistency
+    if pending? || queued?
+      errors.add(:started_at, "must be blank before execution starts") if started_at.present?
+      errors.add(:finished_at, "must be blank before execution finishes") if finished_at.present?
+    end
+
+    if running?
+      errors.add(:started_at, "must exist while execution is running") if started_at.blank?
+      errors.add(:finished_at, "must be blank while execution is running") if finished_at.present?
+    end
+
+    if terminal?
+      errors.add(:finished_at, "must exist when execution has finished") if finished_at.blank?
+    end
+
+    if completed? || failed?
+      errors.add(:started_at, "must exist when execution has finished") if started_at.blank?
+    end
+
+    return if started_at.blank? || finished_at.blank?
+    return unless finished_at < started_at
+
+    errors.add(:finished_at, "must be after started_at")
   end
 
   def metadata_must_be_hash
