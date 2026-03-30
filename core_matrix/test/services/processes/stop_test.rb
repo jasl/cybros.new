@@ -18,6 +18,7 @@ class Processes::StopTest < ActiveSupport::TestCase
     assert stopped.stopped?
     assert_not_nil stopped.ended_at
     assert_equal "manual_stop", stopped.metadata["stop_reason"]
+    assert_not stopped.execution_lease.active?
 
     last_event = WorkflowNodeEvent.where(workflow_node: process_context[:workflow_node]).order(:ordinal).last
     assert_equal "status", last_event.event_kind

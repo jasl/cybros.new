@@ -25,6 +25,7 @@ module Processes
               exit_status: @exit_status,
               metadata: @process_run.metadata.merge("stop_reason" => @reason)
             )
+            release_execution_lease!
 
             WorkflowNodeEvent.create!(
               installation: @process_run.installation,
@@ -57,6 +58,20 @@ module Processes
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def release_execution_lease!
+      execution_lease = @process_run.execution_lease
+      return unless execution_lease&.active?
+
+      Leases::Release.call(
+        execution_lease: execution_lease,
+        holder_key: execution_lease.holder_key,
+        reason: "process_stopped",
+        released_at: @process_run.ended_at
+      )
+    rescue ArgumentError
+      nil
     end
 
     def broadcast_runtime_event!
