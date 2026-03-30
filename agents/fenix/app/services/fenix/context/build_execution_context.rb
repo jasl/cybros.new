@@ -11,6 +11,11 @@ module Fenix
 
       def call
         payload = @mailbox_item.fetch("payload")
+        workspace_root = Fenix::Workspace::Layout.default_root
+        Fenix::Workspace::Bootstrap.call(
+          workspace_root:,
+          conversation_id: payload.fetch("conversation_id")
+        )
 
         {
           "item_id" => @mailbox_item.fetch("item_id"),
@@ -30,6 +35,17 @@ module Fenix
           "agent_context" => payload.fetch("agent_context", {}),
           "provider_execution" => payload.fetch("provider_execution", {}),
           "model_context" => payload.fetch("model_context", {}),
+          "workspace_context" => {
+            "workspace_root" => workspace_root,
+            "env_overlay" => Fenix::Workspace::EnvOverlay.call(
+              workspace_root:,
+              conversation_id: payload.fetch("conversation_id")
+            ),
+            "prompts" => Fenix::Prompts::Assembler.call(
+              workspace_root:,
+              conversation_id: payload.fetch("conversation_id")
+            ),
+          },
         }
       end
     end

@@ -1,7 +1,7 @@
 module Fenix
   module Plugins
     class Registry
-      def self.default(workspace_root: ENV.fetch("FENIX_WORKSPACE_ROOT", "/workspace"))
+      def self.default(workspace_root: Fenix::Workspace::Layout.default_root)
         new(plugin_roots: default_plugin_roots(workspace_root:))
       end
 
