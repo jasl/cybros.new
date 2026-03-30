@@ -25,12 +25,30 @@ apt-get install --no-install-recommends -y \
   curl \
   git \
   gnupg \
+  libasound2t64 \
+  libatk-bridge2.0-0t64 \
+  libatk1.0-0t64 \
+  libatspi2.0-0t64 \
+  libcairo2 \
+  libcups2t64 \
+  libdbus-1-3 \
   libffi8 \
+  libgbm1 \
+  libglib2.0-0t64 \
   libgmp10 \
   libjemalloc2 \
+  libpango-1.0-0 \
   libreadline8 \
   libsqlite3-0 \
   libssl3 \
+  libx11-6 \
+  libxcomposite1 \
+  libxcb1 \
+  libxdamage1 \
+  libxext6 \
+  libxfixes3 \
+  libxkbcommon0 \
+  libxrandr2 \
   libyaml-0-2 \
   pkg-config \
   python3 \

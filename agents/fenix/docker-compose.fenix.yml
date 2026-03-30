@@ -3,6 +3,7 @@ services:
     build: .
     environment:
       - RAILS_ENV=production
+      - SECRET_KEY_BASE=fenix-compose-dev-only-secret-key-base
       - CORE_MATRIX_BASE_URL=http://core-matrix:3000
       - CORE_MATRIX_MACHINE_CREDENTIAL=replace-me
       - PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright

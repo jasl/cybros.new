@@ -10,6 +10,10 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     readme = Rails.root.join("README.md").read
     compose_path = Rails.root.join("docker-compose.fenix.yml")
+    dockerfile = Rails.root.join("Dockerfile").read
+    database_config = Rails.root.join("config/database.yml").read
+    proxy_script = Rails.root.join("bin/fenix-dev-proxy").read
+    entrypoint = Rails.root.join("bin/docker-entrypoint").read
 
     assert compose_path.exist?, "expected docker-compose.fenix.yml to exist"
 
@@ -23,12 +27,19 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_match(/Ubuntu 24\.04/i, readme)
     assert_match(/macOS/i, readme)
     assert_match(/FENIX_DEV_PROXY_PORT/, readme)
+    assert_match(/FROM base AS ruby-runtime/, dockerfile)
+    assert_match(/cache\.ruby-lang\.org/, dockerfile)
+    assert_match(/setpriv --reuid/, entrypoint)
+    assert_match(/HOME=.*LOGNAME=/, entrypoint)
+    assert_match(/database: storage\/production\.sqlite3/, database_config)
+    assert_match(/fenix dev proxy routes/, proxy_script)
 
     assert_equal "ubuntu-24.04", body.dig("environment_capability_payload", "runtime_foundation", "base_image")
     assert_equal "FENIX_DEV_PROXY_PORT", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
 
     assert_equal ".", fenix_service.fetch("build")
     assert_equal ".", proxy_service.fetch("build")
+    assert environment_entries.any? { |entry| entry.start_with?("SECRET_KEY_BASE=") }
     assert environment_entries.any? { |entry| entry.start_with?("FENIX_DEV_PROXY_PORT=") }
     assert environment_entries.any? { |entry| entry.start_with?("PLAYWRIGHT_BROWSERS_PATH=") }
     assert proxy_environment_entries.any? { |entry| entry.start_with?("FENIX_DEV_PROXY_PORT=") }

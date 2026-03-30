@@ -9,11 +9,11 @@
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=4.0.2
-FROM docker.io/library/ruby:$RUBY_VERSION-slim AS ruby-runtime
-
+ARG BUNDLER_VERSION=4.0.8
 FROM ubuntu:24.04 AS base
 
 ARG RUBY_VERSION
+ARG BUNDLER_VERSION
 
 # Rails app lives here
 WORKDIR /rails
@@ -25,9 +25,6 @@ RUN /tmp/bootstrap-runtime-deps.sh && \
     rm /tmp/bootstrap-runtime-deps.sh && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so
 
-# Reuse the pinned Ruby runtime and Bundler toolchain from the upstream Ruby image.
-COPY --from=ruby-runtime /usr/local/ /usr/local/
-
 # Set production environment variables and enable jemalloc for reduced memory usage and latency.
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
@@ -36,8 +33,27 @@ ENV RAILS_ENV="production" \
     LD_PRELOAD="/usr/local/lib/libjemalloc.so" \
     PLAYWRIGHT_BROWSERS_PATH="/rails/.playwright"
 
+# Build the pinned Ruby toolchain on the same Ubuntu 24.04 base so OpenSSL and
+# native extensions remain ABI-compatible with the final runtime image.
+FROM base AS ruby-runtime
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y bison build-essential curl libffi-dev libgdbm-dev libgmp-dev libncurses-dev libreadline-dev libsqlite3-dev libssl-dev libyaml-dev zlib1g-dev && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+RUN curl -fsSL "https://cache.ruby-lang.org/pub/ruby/${RUBY_VERSION%.*}/ruby-${RUBY_VERSION}.tar.gz" -o /tmp/ruby.tar.gz && \
+    tar -xzf /tmp/ruby.tar.gz -C /tmp && \
+    cd /tmp/ruby-${RUBY_VERSION} && \
+    ./configure --disable-install-doc --enable-shared && \
+    make -j"$(nproc)" && \
+    make install && \
+    gem install bundler -v "${BUNDLER_VERSION}" --no-document && \
+    rm -rf /tmp/ruby*
+
 # Throw-away build stage to reduce size of final image
 FROM base AS build
+
+COPY --from=ruby-runtime /usr/local/ /usr/local/
 
 # Install packages needed to build gems
 RUN apt-get update -qq && \
@@ -68,14 +84,19 @@ RUN bundle exec bootsnap precompile -j 1 app/ lib/
 # Final stage for app image
 FROM base
 
-# Run and own only the runtime files as a non-root user for security
-RUN groupadd --system --gid 1000 rails && \
-    useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
-USER 1000:1000
+COPY --from=ruby-runtime /usr/local/ /usr/local/
+
+# Create the runtime identity. The entrypoint performs any required volume
+# preparation as root, then immediately drops privileges before running app
+# processes.
+# Ubuntu 24.04 already ships an "ubuntu" account at uid/gid 1000, so only
+# create the identity when it is absent and rely on numeric ownership below.
+RUN getent group 1000 >/dev/null || groupadd --system --gid 1000 rails && \
+    getent passwd 1000 >/dev/null || useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
 
 # Copy built artifacts: gems, application
-COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
-COPY --chown=rails:rails --from=build /rails /rails
+COPY --chown=1000:1000 --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY --chown=1000:1000 --from=build /rails /rails
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
