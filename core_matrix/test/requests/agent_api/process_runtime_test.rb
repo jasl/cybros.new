@@ -119,6 +119,51 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     assert_equal 0, ToolInvocation.count
   end
 
+  test "process_exited settles an outstanding close request instead of leaving the process close pending" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      timeout_seconds: nil
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    close_request = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "process_exited",
+        protocol_message_id: "process-exited-close-#{next_test_sequence}",
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        lifecycle_state: "stopped",
+        exit_status: 0,
+        metadata: {
+          "source" => "process_runtime_test",
+          "reason" => "natural_exit",
+        },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+
+    process_run.reload
+    assert_equal "stopped", process_run.lifecycle_state
+    assert_equal "closed", process_run.close_state
+    assert_equal "graceful", process_run.close_outcome_kind
+    assert_equal "completed", close_request.reload.status
+  end
+
   test "resource_closed broadcasts final output chunks and terminal process state without creating tool invocations" do
     context = build_agent_control_context!
     process_run = create_process_run!(

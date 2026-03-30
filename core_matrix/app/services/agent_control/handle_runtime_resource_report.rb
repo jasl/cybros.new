@@ -49,7 +49,7 @@ module AgentControl
 
     def handle_process_exited!
       validate_process_transition_freshness!(allow_running: true)
-      Processes::Exit.call(
+      exited_process_run = Processes::Exit.call(
         process_run: process_run,
         lifecycle_state: @payload.fetch("lifecycle_state"),
         exit_status: @payload["exit_status"],
@@ -57,6 +57,7 @@ module AgentControl
         metadata: @payload.fetch("metadata", {}),
         occurred_at: @occurred_at
       )
+      settle_pending_process_close!(exited_process_run)
     end
 
     def validate_process_output_freshness!
@@ -101,6 +102,56 @@ module AgentControl
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
       )
+    end
+
+    def settle_pending_process_close!(process_run)
+      return unless process_run.close_requested_at.present?
+      return if process_run.close_closed? || process_run.close_failed?
+
+      mailbox_item = open_close_request_for(process_run)
+      return if mailbox_item.blank?
+
+      mailbox_item.with_lock do
+        process_run.with_lock do
+          mailbox_item.reload
+          process_run.reload
+
+          return unless ProgressCloseRequest::ACTIVE_STATUSES.include?(mailbox_item.status)
+          return if process_run.close_closed? || process_run.close_failed?
+
+          process_run.update!(
+            close_state: "closed",
+            close_acknowledged_at: process_run.close_acknowledged_at || @occurred_at,
+            close_outcome_kind: "graceful",
+            close_outcome_payload: process_run.close_outcome_payload.merge(
+              "source" => "process_exited",
+              "exit_status" => process_run.exit_status,
+              "lifecycle_state" => process_run.lifecycle_state
+            ).compact
+          )
+          mailbox_item.update!(status: "completed", completed_at: @occurred_at)
+        end
+      end
+
+      conversation = process_run.conversation
+      return if conversation.blank?
+
+      Conversations::ReconcileCloseOperation.call(
+        conversation: conversation,
+        occurred_at: @occurred_at
+      )
+    end
+
+    def open_close_request_for(process_run)
+      AgentControlMailboxItem
+        .where(
+          installation_id: process_run.installation_id,
+          item_type: "resource_close_request",
+          status: ProgressCloseRequest::ACTIVE_STATUSES
+        )
+        .where("payload ->> 'resource_type' = ? AND payload ->> 'resource_id' = ?", "ProcessRun", process_run.public_id)
+        .order(id: :desc)
+        .first
     end
 
     def stale!
