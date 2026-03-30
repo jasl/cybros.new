@@ -10,6 +10,47 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
       reported_payloads << payload.deep_dup
       { "result" => "accepted" }
     end
+
+    def create_tool_invocation!(agent_task_run_id:, tool_name:, request_payload:, idempotency_key: nil, stream_output: false, metadata: {})
+      @delegate ||= ActiveSupport::TestCase::RuntimeControlClientDouble.new(
+        mailbox_items: [],
+        reported_payloads: [],
+        tool_invocation_requests: [],
+        command_run_requests: [],
+        process_run_requests: [],
+        tool_invocations_by_key: {},
+        tool_invocations_by_id: {},
+        command_runs_by_invocation: {}
+      )
+      @delegate.create_tool_invocation!(
+        agent_task_run_id: agent_task_run_id,
+        tool_name: tool_name,
+        request_payload: request_payload,
+        idempotency_key: idempotency_key,
+        stream_output: stream_output,
+        metadata: metadata
+      )
+    end
+
+    def create_command_run!(tool_invocation_id:, command_line:, timeout_seconds: nil, pty: false, metadata: {})
+      @delegate ||= ActiveSupport::TestCase::RuntimeControlClientDouble.new(
+        mailbox_items: [],
+        reported_payloads: [],
+        tool_invocation_requests: [],
+        command_run_requests: [],
+        process_run_requests: [],
+        tool_invocations_by_key: {},
+        tool_invocations_by_id: {},
+        command_runs_by_invocation: {}
+      )
+      @delegate.create_command_run!(
+        tool_invocation_id: tool_invocation_id,
+        command_line: command_line,
+        timeout_seconds: timeout_seconds,
+        pty: pty,
+        metadata: metadata
+      )
+    end
   end
 
   setup do
@@ -75,7 +116,8 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
 
     begin
       stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", "cat")
-      Fenix::Runtime::AttachedCommandSessionRegistry.register(
+      Fenix::Runtime::CommandRunRegistry.register(
+        command_run_id: "command-run-#{SecureRandom.uuid}",
         agent_task_run_id: agent_task_run_id,
         stdin: stdin,
         stdout: stdout,

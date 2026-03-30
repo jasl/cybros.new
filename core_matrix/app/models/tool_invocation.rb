@@ -16,6 +16,8 @@ class ToolInvocation < ApplicationRecord
   belongs_to :tool_definition
   belongs_to :tool_implementation
 
+  has_one :command_run, dependent: :destroy
+
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
   validate :installation_matches_task
   validate :installation_matches_binding

@@ -8,6 +8,7 @@ require "open3"
 require "pathname"
 require "stringio"
 require "uri"
+require "timeout"
 require_relative "../../config/environment"
 
 module Phase2AcceptanceSupport
@@ -173,6 +174,39 @@ module Phase2AcceptanceSupport
     JSON.parse(stdout)
   end
 
+  def with_fenix_control_worker!(machine_credential:, limit: 10, inline: true, realtime_timeout_seconds: 5)
+    project_root = fenix_project_root
+    task_env = {
+      "CORE_MATRIX_BASE_URL" => CONTROL_BASE_URL,
+      "CORE_MATRIX_MACHINE_CREDENTIAL" => machine_credential,
+      "BUNDLE_GEMFILE" => project_root.join("Gemfile").to_s,
+      "LIMIT" => limit.to_s,
+      "INLINE" => inline ? "true" : "false",
+      "REALTIME_TIMEOUT_SECONDS" => realtime_timeout_seconds.to_s,
+    }
+
+    reader, writer = IO.pipe
+    pid = nil
+
+    Bundler.with_unbundled_env do
+      pid = Process.spawn(
+        task_env,
+        "bin/rails",
+        "runtime:control_loop_forever",
+        chdir: project_root.to_s,
+        out: writer,
+        err: writer
+      )
+    end
+
+    writer.close
+    wait_for_worker_ready!(reader: reader, pid: pid)
+    yield pid
+  ensure
+    reader&.close unless reader.nil? || reader.closed?
+    stop_fenix_control_worker!(pid) if pid.present?
+  end
+
   def fenix_project_root
     Pathname.new(ENV.fetch("FENIX_PROJECT_ROOT", Rails.root.join("..", "agents", "fenix").to_s))
   end
@@ -186,6 +220,40 @@ module Phase2AcceptanceSupport
 
       if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
         raise "timed out waiting for agent task run #{agent_task_run.public_id} to finish"
+      end
+
+      sleep(poll_interval_seconds)
+    end
+  end
+
+  def wait_for_process_run!(workflow_node:, timeout_seconds: 10, poll_interval_seconds: 0.1)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    loop do
+      process_run = ProcessRun.find_by(workflow_node: workflow_node)
+      return process_run if process_run.present?
+
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "timed out waiting for process run for workflow node #{workflow_node.public_id}"
+      end
+
+      sleep(poll_interval_seconds)
+    end
+  end
+
+  def wait_for_process_run_state!(process_run:, lifecycle_states:, close_states: nil, timeout_seconds: 10, poll_interval_seconds: 0.1)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+    lifecycle_states = Array(lifecycle_states)
+    close_states = Array(close_states).compact if close_states.present?
+
+    loop do
+      reloaded = process_run.reload
+      lifecycle_match = lifecycle_states.include?(reloaded.lifecycle_state)
+      close_match = close_states.blank? || close_states.include?(reloaded.close_state)
+      return reloaded if lifecycle_match && close_match
+
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "timed out waiting for process run #{reloaded.public_id} to reach #{lifecycle_states.join(", ")}"
       end
 
       sleep(poll_interval_seconds)
@@ -483,5 +551,46 @@ module Phase2AcceptanceSupport
     yield
   ensure
     $stdout = original_stdout
+  end
+
+  def wait_for_worker_ready!(reader:, pid:, timeout_seconds: 15)
+    Timeout.timeout(timeout_seconds) do
+      loop do
+        line = reader.gets
+        raise "fenix control worker exited before becoming ready" if line.nil? && !process_alive?(pid)
+        next if line.blank?
+
+        payload = JSON.parse(line)
+        return payload if payload["event"] == "ready"
+      rescue JSON::ParserError
+        next
+      end
+    end
+  rescue Timeout::Error
+    raise "timed out waiting for fenix control worker to become ready"
+  end
+
+  def stop_fenix_control_worker!(pid)
+    return if pid.blank?
+
+    Process.kill("TERM", pid)
+
+    Timeout.timeout(5) do
+      Process.wait(pid)
+    end
+  rescue Errno::ESRCH, Errno::ECHILD
+    nil
+  rescue Timeout::Error
+    Process.kill("KILL", pid)
+    Process.wait(pid)
+  rescue Errno::ESRCH, Errno::ECHILD
+    nil
+  end
+
+  def process_alive?(pid)
+    Process.kill(0, pid)
+    true
+  rescue Errno::ESRCH
+    false
   end
 end

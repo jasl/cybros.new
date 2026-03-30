@@ -3,8 +3,8 @@
 require_relative "./phase2_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
+delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 fingerprint = "phase2-process-run-runtime"
-selector = ENV.fetch("PHASE2_PROCESS_SELECTOR", "candidate:openrouter/openai-gpt-5.4-live-acceptance")
 
 Phase2AcceptanceSupport.reset_backend_state!
 bootstrap = Phase2AcceptanceSupport.bootstrap_and_seed!
@@ -15,115 +15,117 @@ bundled = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
   fingerprint: fingerprint,
   sdk_version: "fenix-0.1.0"
 )
-conversation_context = Phase2AcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
-run = Phase2AcceptanceSupport.start_turn_workflow_on_conversation!(
-  conversation: conversation_context.fetch(:conversation),
-  deployment: bundled.fetch(:runtime).deployment,
-  content: "Start a long-running command and then close it gracefully.",
-  root_node_key: "root",
-  root_node_type: "turn_root",
-  decision_source: "system",
-  selector_source: "manual",
-  selector: selector
-)
 
-workflow_run = run.fetch(:workflow_run).reload
-turn = run.fetch(:turn).reload
-model_context = workflow_run.execution_snapshot.model_context
+result = nil
+close_loop = { "items" => [] }
 
-Workflows::Mutate.call(
-  workflow_run: workflow_run,
-  nodes: [
-    {
-      node_key: "process",
-      node_type: "turn_command",
-      decision_source: "system",
-      metadata: {},
-    },
-  ],
-  edges: [
-    { from_node_key: "root", to_node_key: "process" },
-  ]
-)
+Phase2AcceptanceSupport.with_fenix_control_worker!(
+  machine_credential: bundled.fetch(:machine_credential),
+  realtime_timeout_seconds: delivery_mode == "realtime" ? 5 : 0
+) do
+  result ||= begin
+    conversation_context = Phase2AcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
+    run = Phase2AcceptanceSupport.start_turn_workflow_on_conversation!(
+      conversation: conversation_context.fetch(:conversation),
+      deployment: bundled.fetch(:runtime).deployment,
+      content: "Start a long-running background service and then close it gracefully.",
+      root_node_key: "agent_turn_step",
+      root_node_type: "turn_step",
+      decision_source: "agent_program",
+      initial_kind: "turn_step",
+      initial_payload: {
+        "mode" => "deterministic_tool",
+        "tool_name" => "process_exec",
+        "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
+      }
+    )
+    agent_task_run = Phase2AcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
+    process_run = Phase2AcceptanceSupport.wait_for_process_run!(workflow_node: agent_task_run.workflow_node)
+    Phase2AcceptanceSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
 
-workflow_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "process")
-process_run = Processes::Start.call(
-  workflow_node: workflow_node,
-  execution_environment: bundled.fetch(:runtime).execution_environment,
-  kind: "turn_command",
-  command_line: "bin/echo phase2-process-run",
-  timeout_seconds: 60,
-  origin_message: turn.selected_input_message
-)
-Leases::Acquire.call(
-  leased_resource: process_run,
-  holder_key: bundled.fetch(:runtime).deployment.public_id,
-  heartbeat_timeout_seconds: 30
-)
+    run.merge(
+      conversation: conversation_context.fetch(:conversation).reload,
+      agent_task_run: agent_task_run,
+      process_run: process_run.reload,
+      report_results: Phase2AcceptanceSupport.report_results_for(agent_task_run: agent_task_run),
+      execution: {
+        "status" => "completed",
+        "output" => agent_task_run.terminal_payload["output"],
+      }
+    )
+  end
 
-occurred_at = Time.current
-Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: occurred_at)
-poll_occurred_at = occurred_at + 1.second
-close_request = AgentControl::Poll.call(
-  deployment: bundled.fetch(:runtime).deployment,
-  limit: 10,
-  occurred_at: poll_occurred_at
-).find do |mailbox_item|
-  mailbox_item.payload["resource_id"] == process_run.public_id
+  process_run = result.fetch(:process_run).reload
+  occurred_at = Time.current
+  close_request = AgentControl::CreateResourceCloseRequest.call(
+    resource: process_run,
+    request_kind: "manual_validation_close",
+    reason_kind: "operator_stop",
+    strictness: "graceful",
+    grace_deadline_at: occurred_at + 30.seconds,
+    force_deadline_at: occurred_at + 60.seconds,
+    protocol_message_id: "phase2-process-run-close"
+  )
+
+  Phase2AcceptanceSupport.wait_for_process_run_state!(
+    process_run: process_run,
+    lifecycle_states: "stopped",
+    close_states: "closed",
+    timeout_seconds: 15
+  )
+
+  result[:close_request] = close_request.reload
 end
 
-raise "expected process close request" if close_request.blank?
-
-result = AgentControl::Report.call(
-  deployment: bundled.fetch(:runtime).deployment,
-  payload: {
-    method_id: "resource_closed",
-    protocol_message_id: "phase2-process-run-close",
-    mailbox_item_id: close_request.public_id,
-    close_request_id: close_request.public_id,
-    resource_type: "ProcessRun",
-    resource_id: process_run.public_id,
-    close_outcome_kind: "graceful",
-    close_outcome_payload: { "source" => "phase2_process_run_close_validation" },
-  },
-  occurred_at: poll_occurred_at
-)
+turn = result.fetch(:turn).reload
+workflow_run = result.fetch(:workflow_run).reload
+model_context = workflow_run.execution_snapshot.model_context
+process_run = result.fetch(:process_run).reload
+close_request = result.fetch(:close_request)
 
 Phase2AcceptanceSupport.write_json(
   {
     "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
+    "delivery_mode" => delivery_mode,
     "execution_environment_id" => bundled.fetch(:runtime).execution_environment.public_id,
-    "conversation_id" => conversation_context.fetch(:conversation).public_id,
+    "conversation_id" => result.fetch(:conversation).public_id,
     "turn_id" => turn.public_id,
     "workflow_run_id" => workflow_run.public_id,
+    "agent_task_run_id" => result.fetch(:agent_task_run).public_id,
     "process_run_id" => process_run.public_id,
-    "close_request_id" => close_request.public_id,
+    "close_request_id" => close_request&.public_id,
     "provider_handle" => model_context["provider_handle"],
     "model_ref" => model_context["model_ref"],
     "api_model" => model_context["api_model"],
     "selector" => workflow_run.normalized_selector,
-    "expected_dag_shape" => ["root->process"],
-    "observed_dag_shape" => Phase2AcceptanceSupport.workflow_edge_keys(workflow_run),
+    "expected_dag_shape" => ["agent_turn_step"],
+    "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(workflow_run),
     "expected_conversation_state" => {
-      "conversation_lifecycle_state" => "active",
-      "workflow_lifecycle_state" => "canceled",
+      "conversation_state" => "active",
+      "workflow_lifecycle_state" => "completed",
       "workflow_wait_state" => "ready",
-      "turn_lifecycle_state" => "canceled",
+      "turn_lifecycle_state" => "active",
+      "agent_task_run_state" => "completed",
       "process_lifecycle_state" => "stopped",
       "process_close_state" => "closed",
       "process_close_outcome_kind" => "graceful",
     },
-    "observed_conversation_state" => {
-      "conversation_lifecycle_state" => conversation_context.fetch(:conversation).reload.lifecycle_state,
-      "workflow_lifecycle_state" => workflow_run.reload.lifecycle_state,
-      "workflow_wait_state" => workflow_run.wait_state,
-      "turn_lifecycle_state" => turn.reload.lifecycle_state,
-      "process_lifecycle_state" => process_run.reload.lifecycle_state,
-      "process_close_state" => process_run.close_state,
-      "process_close_outcome_kind" => process_run.close_outcome_kind,
-      "close_request_status" => close_request.reload.status,
-    },
-    "report_result" => result.code,
-    "workflow_node_event_states" => WorkflowNodeEvent.where(workflow_node: workflow_node).order(:ordinal).pluck(Arel.sql("payload ->> 'state'")),
+    "observed_conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+      conversation: result.fetch(:conversation),
+      workflow_run: workflow_run,
+      turn: turn,
+      agent_task_run: result.fetch(:agent_task_run),
+      extra: {
+        "process_lifecycle_state" => process_run.reload.lifecycle_state,
+        "process_close_state" => process_run.close_state,
+        "process_close_outcome_kind" => process_run.close_outcome_kind,
+        "close_request_status" => close_request&.reload&.status,
+      }
+    ),
+    "runtime_execution_status" => result.fetch(:execution).fetch("status"),
+    "runtime_output" => result.fetch(:execution)["output"],
+    "close_loop_items" => close_loop.fetch("items").map { |item| item.slice("kind", "mailbox_item_id", "status") },
+    "report_results" => result.fetch(:report_results),
+    "workflow_node_event_states" => WorkflowNodeEvent.where(workflow_node: result.fetch(:agent_task_run).workflow_node).order(:ordinal).pluck(Arel.sql("payload ->> 'state'")),
   }
 )

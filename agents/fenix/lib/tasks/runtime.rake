@@ -76,4 +76,34 @@ namespace :runtime do
 
     puts JSON.pretty_generate(payload)
   end
+
+  desc "Run the websocket-first control worker until it is terminated"
+  task control_loop_forever: :environment do
+    limit = Integer(ENV.fetch("LIMIT", Fenix::Runtime::MailboxPump::DEFAULT_LIMIT))
+    inline = ActiveModel::Type::Boolean.new.cast(ENV.fetch("INLINE", "false"))
+    timeout_seconds = Float(ENV.fetch("REALTIME_TIMEOUT_SECONDS", "5"))
+
+    worker = Fenix::Runtime::ControlWorker.new(
+      limit: limit,
+      inline: inline,
+      timeout_seconds: timeout_seconds
+    )
+
+    %w[INT TERM].each do |signal|
+      trap(signal) { worker.stop! }
+    end
+
+    puts JSON.generate(
+      {
+        "event" => "ready",
+        "pid" => Process.pid,
+        "limit" => limit,
+        "inline" => inline,
+        "timeout_seconds" => timeout_seconds,
+      }
+    )
+    $stdout.flush
+
+    worker.call
+  end
 end

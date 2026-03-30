@@ -108,6 +108,7 @@ module AgentControl
       )
 
       apply_tool_invocation_terminal_events!
+      terminalize_running_command_runs!(lifecycle_state: lifecycle_state)
       apply_wait_transition! if lifecycle_state == "completed"
       apply_retry_gate! if lifecycle_state == "failed"
       sync_subagent_session!(lifecycle_state: lifecycle_state)
@@ -152,7 +153,17 @@ module AgentControl
     def apply_tool_invocation_progress!(progress_payload)
       invocation_payload = progress_payload["tool_invocation"]
       if invocation_payload.present? && invocation_payload["event"] == "started"
-        find_or_start_tool_invocation!(invocation_payload)
+        invocation = find_or_start_tool_invocation!(invocation_payload)
+        broadcast_tool_invocation_event!(
+          "runtime.tool_invocation.started",
+          tool_invocation: invocation,
+          payload: {
+            "command_run_id" => invocation_payload["command_run_id"],
+            "call_id" => invocation_payload["call_id"],
+            "tool_name" => invocation_payload["tool_name"],
+            "request_payload" => invocation_payload.fetch("request_payload", {}),
+          }.compact
+        )
       end
 
       output_payload = progress_payload["tool_invocation_output"]
@@ -164,6 +175,7 @@ module AgentControl
     def apply_tool_invocation_terminal_events!
       Array(agent_task_run.terminal_payload["tool_invocations"]).each do |invocation_payload|
         invocation = find_or_start_tool_invocation!(invocation_payload)
+        command_run = find_command_run_for_payload(invocation, invocation_payload)
 
         case invocation_payload["event"]
         when "completed"
@@ -174,10 +186,12 @@ module AgentControl
               "reported_via" => @method_id,
             }
           )
+          reconcile_completed_command_run!(command_run, invocation_payload.fetch("response_payload", {}))
           broadcast_tool_invocation_event!(
             "runtime.tool_invocation.completed",
             tool_invocation: invocation.reload,
             payload: {
+              "command_run_id" => invocation_payload["command_run_id"] || invocation_payload.dig("response_payload", "command_run_id"),
               "call_id" => invocation_payload["call_id"],
               "tool_name" => invocation_payload["tool_name"],
               "response_payload" => invocation_payload.fetch("response_payload", {}),
@@ -191,10 +205,12 @@ module AgentControl
               "reported_via" => @method_id,
             }
           )
+          reconcile_failed_command_run!(command_run, invocation_payload.fetch("error_payload", {}))
           broadcast_tool_invocation_event!(
             "runtime.tool_invocation.failed",
             tool_invocation: invocation.reload,
             payload: {
+              "command_run_id" => invocation_payload["command_run_id"] || invocation_payload.dig("error_payload", "command_run_id"),
               "call_id" => invocation_payload["call_id"],
               "tool_name" => invocation_payload["tool_name"],
               "error_payload" => invocation_payload.fetch("error_payload", {}),
@@ -205,11 +221,12 @@ module AgentControl
     end
 
     def find_or_start_tool_invocation!(invocation_payload)
-      binding = tool_binding_for!(invocation_payload.fetch("tool_name"))
-      existing = binding.tool_invocations.find_by(idempotency_key: invocation_payload["call_id"])
-      return existing if existing.present?
+      if invocation_payload["tool_invocation_id"].present?
+        return agent_task_run.tool_invocations.find_by!(public_id: invocation_payload.fetch("tool_invocation_id"))
+      end
 
-      invocation = ToolInvocations::Start.call(
+      binding = tool_binding_for!(invocation_payload.fetch("tool_name"))
+      result = ToolInvocations::Provision.call(
         tool_binding: binding,
         request_payload: invocation_payload.fetch("request_payload", {}),
         idempotency_key: invocation_payload["call_id"],
@@ -217,16 +234,7 @@ module AgentControl
           "reported_via" => @method_id,
         }
       )
-      broadcast_tool_invocation_event!(
-        "runtime.tool_invocation.started",
-        tool_invocation: invocation,
-        payload: {
-          "call_id" => invocation_payload["call_id"],
-          "tool_name" => invocation_payload["tool_name"],
-          "request_payload" => invocation_payload.fetch("request_payload", {}),
-        }
-      )
-      invocation
+      result.tool_invocation
     end
 
     def tool_binding_for!(tool_name)
@@ -254,6 +262,7 @@ module AgentControl
           base_runtime_payload.merge(
             "tool_invocation_id" => invocation.public_id,
             "tool_name" => invocation.tool_definition.tool_name,
+            "command_run_id" => output_payload["command_run_id"],
             "call_id" => output_payload["call_id"],
             "stream" => chunk["stream"],
             "text" => chunk["text"]
@@ -263,10 +272,54 @@ module AgentControl
     end
 
     def find_tool_invocation_for_output!(output_payload)
+      if output_payload["tool_invocation_id"].present?
+        return agent_task_run.tool_invocations.find_by!(public_id: output_payload.fetch("tool_invocation_id"))
+      end
+
       binding = tool_binding_for!(output_payload.fetch("tool_name"))
 
       binding.tool_invocations.find_by!(
         idempotency_key: output_payload.fetch("call_id")
+      )
+    end
+
+    def find_command_run_for_payload(invocation, invocation_payload)
+      command_run_id =
+        invocation_payload["command_run_id"] ||
+        invocation_payload.dig("response_payload", "command_run_id") ||
+        invocation_payload.dig("error_payload", "command_run_id")
+      return if command_run_id.blank?
+
+      invocation.command_run || agent_task_run.command_runs.find_by!(public_id: command_run_id)
+    end
+
+    def reconcile_completed_command_run!(command_run, response_payload)
+      return if command_run.blank?
+      return if response_payload["session_closed"] == false
+
+      CommandRuns::Terminalize.call(
+        command_run: command_run,
+        lifecycle_state: "completed",
+        ended_at: @occurred_at,
+        exit_status: response_payload["exit_status"],
+        metadata: {
+          "output_streamed" => response_payload["output_streamed"],
+          "stdout_bytes" => response_payload["stdout_bytes"],
+          "stderr_bytes" => response_payload["stderr_bytes"],
+        }.compact
+      )
+    end
+
+    def reconcile_failed_command_run!(command_run, error_payload)
+      return if command_run.blank?
+
+      CommandRuns::Terminalize.call(
+        command_run: command_run,
+        lifecycle_state: "failed",
+        ended_at: @occurred_at,
+        metadata: {
+          "last_error" => error_payload,
+        }
       )
     end
 
@@ -322,6 +375,23 @@ module AgentControl
 
     def workflow_node_terminal_state_for(agent_task_lifecycle_state)
       agent_task_lifecycle_state == "interrupted" ? "canceled" : agent_task_lifecycle_state
+    end
+
+    def terminalize_running_command_runs!(lifecycle_state:)
+      terminal_command_state =
+        case lifecycle_state
+        when "failed" then "failed"
+        when "interrupted", "canceled" then "interrupted"
+        end
+      return if terminal_command_state.blank?
+
+      agent_task_run.command_runs.running.find_each do |command_run|
+        CommandRuns::Terminalize.call(
+          command_run: command_run,
+          lifecycle_state: terminal_command_state,
+          ended_at: @occurred_at
+        )
+      end
     end
 
     def refresh_workflow_after_terminal!(lifecycle_state:)

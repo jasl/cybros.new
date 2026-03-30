@@ -12,6 +12,8 @@ module Fenix
           }
         when "shell_exec", "exec_command"
           project_exec_command(tool_name:, tool_result:)
+        when "process_exec"
+          project_process_exec(tool_name:, tool_result:)
         when "write_stdin"
           project_write_stdin(tool_name:, tool_result:)
         else
@@ -24,11 +26,11 @@ module Fenix
         stderr = tool_result.fetch("stderr", "")
         output_streamed = tool_result.fetch("output_streamed", stdout.present? || stderr.present?)
 
-        if tool_result["session_id"].present? && !tool_result.fetch("session_closed", false)
+        if tool_result["attached"] == true && !tool_result.fetch("session_closed", false)
           {
             "tool_name" => tool_name,
             "content" => "Attached command session started.",
-            "session_id" => tool_result.fetch("session_id"),
+            "command_run_id" => tool_result.fetch("command_run_id"),
             "attached" => true,
             "session_closed" => false,
           }
@@ -36,6 +38,7 @@ module Fenix
           {
             "tool_name" => tool_name,
             "content" => command_content(exit_status: tool_result.fetch("exit_status"), output_streamed:),
+            "command_run_id" => tool_result["command_run_id"],
             "exit_status" => tool_result.fetch("exit_status"),
             "output_streamed" => output_streamed,
             "stdout_bytes" => tool_result.fetch("stdout_bytes", stdout.bytesize),
@@ -52,7 +55,7 @@ module Fenix
               exit_status: tool_result.fetch("exit_status"),
               output_streamed: tool_result.fetch("output_streamed", false)
             ),
-            "session_id" => tool_result.fetch("session_id"),
+            "command_run_id" => tool_result.fetch("command_run_id"),
             "session_closed" => true,
             "exit_status" => tool_result.fetch("exit_status"),
             "output_streamed" => tool_result.fetch("output_streamed", false),
@@ -64,11 +67,20 @@ module Fenix
           {
             "tool_name" => tool_name,
             "content" => "Wrote #{tool_result.fetch("stdin_bytes", 0)} bytes to attached command session.",
-            "session_id" => tool_result.fetch("session_id"),
+            "command_run_id" => tool_result.fetch("command_run_id"),
             "session_closed" => false,
             "stdin_bytes" => tool_result.fetch("stdin_bytes", 0),
           }
         end
+      end
+
+      def self.project_process_exec(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Background service started as process run #{tool_result.fetch("process_run_id")}.",
+          "process_run_id" => tool_result.fetch("process_run_id"),
+          "lifecycle_state" => tool_result.fetch("lifecycle_state"),
+        }
       end
 
       def self.command_content(exit_status:, output_streamed:)

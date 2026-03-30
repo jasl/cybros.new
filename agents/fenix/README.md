@@ -87,6 +87,23 @@ not for direct execution dispatch. The runtime still keeps deterministic local
 execution logic, but product execution now rides the mailbox-first control
 plane shared by bundled and external pairing.
 
+Long-lived environment resources also require a persistent mailbox worker.
+`Fenix` ships:
+
+- `bin/rails runtime:control_loop_once`
+  - one-shot realtime-or-poll worker used for targeted checks and short-lived
+    mailbox execution
+- `bin/rails runtime:control_loop_forever`
+  - persistent websocket-first worker that retains local `ProcessRun` handles
+    across mailbox iterations so later close requests can settle gracefully
+
+Detached long-lived services therefore follow this contract:
+
+- `process_exec` first asks Core Matrix to create one `ProcessRun`
+- `Fenix` launches the local process only after that durable resource exists
+- the persistent control worker reports `process_started`, `process_output`,
+  `process_exited`, and `resource_close_*` over the control plane
+
 ## Retained Hook Lifecycle
 
 Phase 2 keeps a stage-shaped runtime surface instead of collapsing behavior
@@ -192,6 +209,8 @@ The retained manual-acceptance layout uses two local `Fenix` processes:
   - bundled mailbox execution
   - external pairing
   - deployment rotation
+  - spawns `runtime:control_loop_forever` for long-lived `ProcessRun`
+    validation when the operator script needs one persistent mailbox worker
 - `AGENT_FENIX_PORT=3102 ... bin/dev`
   - dedicated skills-validation runtime
   - `FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills`

@@ -8,7 +8,9 @@ module AgentControl
       execution_interrupted
     ].freeze
     RUNTIME_RESOURCE_METHODS = %w[
+      process_started
       process_output
+      process_exited
     ].freeze
     CLOSE_METHODS = %w[
       resource_close_acknowledged

@@ -97,6 +97,36 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
     assert_equal "residual_abandoned", control_client.payloads.first.fetch("close_outcome_kind")
   end
 
+  test "spawn! reports process_started and process_exited for a naturally exiting background process" do
+    control_client = FakeControlClient.new(payloads: [])
+    process_run_id = "process-#{SecureRandom.uuid}"
+
+    Fenix::Processes::Manager.spawn!(
+      process_run_id: process_run_id,
+      command_line: "printf 'hello from process\\n'",
+      control_client: control_client
+    )
+
+    assert_eventually do
+      control_client.payloads.any? { |payload| payload["method_id"] == "process_started" } &&
+        control_client.payloads.any? { |payload| payload["method_id"] == "process_exited" }
+    end
+
+    method_ids = control_client.payloads.map { |payload| payload.fetch("method_id") }
+
+    assert_includes method_ids, "process_started"
+    assert_includes method_ids, "process_output"
+    assert_includes method_ids, "process_exited"
+
+    started = control_client.payloads.find { |payload| payload["method_id"] == "process_started" }
+    terminal = control_client.payloads.reverse.find { |payload| payload["method_id"] == "process_exited" }
+
+    assert_equal process_run_id, started.fetch("resource_id")
+    assert_equal process_run_id, terminal.fetch("resource_id")
+    assert_equal "stopped", terminal.fetch("lifecycle_state")
+    assert_equal 0, terminal.fetch("exit_status")
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)

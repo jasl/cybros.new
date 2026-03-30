@@ -1245,12 +1245,11 @@ RUBY
 ### Phase 2 Scenario 06: `process_run` Runtime Path
 
 - goal:
-  verify one real loop that exercises `process_run` or turn-command-backed
-  runtime behavior
+  verify one real loop that exercises detached `process_exec` launch plus the
+  mailbox-close path for one durable `ProcessRun`
 - prerequisites:
   - `bin/dev` running in `core_matrix`
   - `AGENT_FENIX_PORT=3101 bin/dev` running in `agents/fenix`
-  - `core_matrix/.env` contains a working `OPENROUTER_API_KEY`
 - exact commands:
 
 ```bash
@@ -1261,29 +1260,40 @@ jq '.' /tmp/phase2_process_run_close_validation.json
 ```
 
 - expected outputs:
-  - `provider_handle: "openrouter"`
-  - `model_ref: "openai-gpt-5.4-live-acceptance"`
-  - `selector: "candidate:openrouter/openai-gpt-5.4-live-acceptance"`
-  - `expected_dag_shape: ["root->process"]`
-  - `observed_dag_shape: ["root->process"]`
-  - `report_result: "accepted"`
-  - `observed_conversation_state.workflow_lifecycle_state: "canceled"`
+  - `provider_handle: "dev"`
+  - `model_ref: "mock-model"`
+  - `selector: "candidate:dev/mock-model"`
+  - `expected_dag_shape: ["agent_turn_step"]`
+  - `observed_dag_shape: ["agent_turn_step"]`
+  - `runtime_execution_status: "completed"`
+  - `runtime_output` starts with
+    `"Background service started as process run "`
+  - `report_results: ["accepted", "accepted"]`
+  - `observed_conversation_state.workflow_lifecycle_state: "completed"`
   - `observed_conversation_state.workflow_wait_state: "ready"`
-  - `observed_conversation_state.turn_lifecycle_state: "canceled"`
+  - `observed_conversation_state.turn_lifecycle_state: "active"`
+  - `observed_conversation_state.agent_task_run_state: "completed"`
   - `observed_conversation_state.process_lifecycle_state: "stopped"`
   - `observed_conversation_state.process_close_state: "closed"`
   - `observed_conversation_state.process_close_outcome_kind: "graceful"`
-  - `workflow_node_event_states: ["running"]`
+  - `workflow_node_event_states: ["starting", "running"]`
 - minimum evidence:
+  - conversation, turn, workflow-run, and agent-task-run `public_id` values
   - process-run and close-request `public_id` values
-  - real deployment and execution-environment `public_id` values
-  - observed graceful close on the environment-plane resource
+  - deployment and execution-environment `public_id` values
+  - one runtime output confirming the detached service was started through
+    `process_exec`
+  - observed graceful close on the environment-plane resource after the
+    script-spawned persistent control worker delivers the close request
 - proof artifact path:
   - `docs/reports/phase-2/2026-03-30-process-run-close-path/`
 - operator note:
-  - this path intentionally records only the `running` workflow-node status
-    event before the close report; the graceful close outcome is stored on the
-    `ProcessRun` and mailbox-close path, not as a separate `stopped` node event
+  - this path intentionally keeps the workflow DAG on one `agent_turn_step`
+    node; detached background-service lifecycle lives on `ProcessRun`, not on a
+    separate workflow node
+  - the operator script now spawns one persistent `runtime:control_loop_forever`
+    worker internally because one-shot mailbox tasks cannot retain
+    long-lived local process handles across later close requests
 - cleanup steps:
   - none; the script resets and seeds the development database itself
 - last validated:

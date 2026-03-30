@@ -9,6 +9,123 @@ require "tmpdir"
 
 module ActiveSupport
   class TestCase
+    RuntimeControlClientDouble = Struct.new(
+      :mailbox_items,
+      :reported_payloads,
+      :tool_invocation_requests,
+      :command_run_requests,
+      :process_run_requests,
+      :tool_invocations_by_key,
+      :tool_invocations_by_id,
+      :command_runs_by_invocation,
+      keyword_init: true
+    ) do
+      def poll(limit:)
+        Array(mailbox_items).first(limit)
+      end
+
+      def report!(payload:)
+        reported_payloads << payload.deep_dup
+        { "result" => "accepted" }
+      end
+
+      def create_tool_invocation!(agent_task_run_id:, tool_name:, request_payload:, idempotency_key: nil, stream_output: false, metadata: {})
+        key = [agent_task_run_id, tool_name, idempotency_key].join(":")
+        if idempotency_key.present? && tool_invocations_by_key.key?(key)
+          return tool_invocations_by_key.fetch(key).merge("result" => "duplicate")
+        end
+
+        response = {
+          "method_id" => "tool_invocation_create",
+          "result" => "created",
+          "tool_invocation_id" => "tool-invocation-#{SecureRandom.uuid}",
+          "agent_task_run_id" => agent_task_run_id,
+          "tool_name" => tool_name,
+          "status" => "running",
+          "request_payload" => request_payload.deep_stringify_keys,
+          "stream_output" => stream_output,
+        }
+
+        tool_invocation_requests << {
+          "agent_task_run_id" => agent_task_run_id,
+          "tool_name" => tool_name,
+          "request_payload" => request_payload.deep_stringify_keys,
+          "idempotency_key" => idempotency_key,
+          "stream_output" => stream_output,
+          "metadata" => metadata.deep_stringify_keys,
+          "response" => response,
+        }
+        tool_invocations_by_id[response.fetch("tool_invocation_id")] = response
+        tool_invocations_by_key[key] = response if idempotency_key.present?
+        response
+      end
+
+      def create_command_run!(tool_invocation_id:, command_line:, timeout_seconds: nil, pty: false, metadata: {})
+        if command_runs_by_invocation.key?(tool_invocation_id)
+          return command_runs_by_invocation.fetch(tool_invocation_id).merge("result" => "duplicate")
+        end
+
+        tool_invocation = tool_invocations_by_id.fetch(tool_invocation_id)
+        response = {
+          "method_id" => "command_run_create",
+          "result" => "created",
+          "command_run_id" => "command-run-#{SecureRandom.uuid}",
+          "tool_invocation_id" => tool_invocation_id,
+          "agent_task_run_id" => tool_invocation.fetch("agent_task_run_id"),
+          "lifecycle_state" => "running",
+          "command_line" => command_line,
+          "timeout_seconds" => timeout_seconds,
+          "pty" => pty,
+        }
+
+        command_run_requests << {
+          "tool_invocation_id" => tool_invocation_id,
+          "command_line" => command_line,
+          "timeout_seconds" => timeout_seconds,
+          "pty" => pty,
+          "metadata" => metadata.deep_stringify_keys,
+          "response" => response,
+        }
+        command_runs_by_invocation[tool_invocation_id] = response
+        response
+      end
+
+      def create_process_run!(agent_task_run_id:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {}, policy_sensitive: nil)
+        @process_runs_by_key ||= {}
+        key = [agent_task_run_id, idempotency_key].join(":")
+        if idempotency_key.present? && @process_runs_by_key.key?(key)
+          return @process_runs_by_key.fetch(key).merge("result" => "duplicate")
+        end
+
+        response = {
+          "method_id" => "process_run_create",
+          "result" => "created",
+          "process_run_id" => "process-run-#{SecureRandom.uuid}",
+          "agent_task_run_id" => agent_task_run_id,
+          "workflow_node_id" => "workflow-node-#{SecureRandom.uuid}",
+          "conversation_id" => "conversation-#{SecureRandom.uuid}",
+          "turn_id" => "turn-#{SecureRandom.uuid}",
+          "kind" => kind,
+          "lifecycle_state" => "starting",
+          "command_line" => command_line,
+          "timeout_seconds" => timeout_seconds,
+        }
+
+        process_run_requests << {
+          "agent_task_run_id" => agent_task_run_id,
+          "kind" => kind,
+          "command_line" => command_line,
+          "timeout_seconds" => timeout_seconds,
+          "idempotency_key" => idempotency_key,
+          "metadata" => metadata.deep_stringify_keys,
+          "policy_sensitive" => policy_sensitive,
+          "response" => response,
+        }
+        @process_runs_by_key[key] = response if idempotency_key.present?
+        response
+      end
+    end
+
     include ActiveJob::TestHelper
 
     # Run tests in parallel with specified workers
@@ -21,16 +138,25 @@ module ActiveSupport
       ActiveJob::Base.queue_adapter = :test
       clear_enqueued_jobs
       clear_performed_jobs
+      @original_control_plane_client = Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client) ?
+        Fenix::Runtime::ControlPlane.instance_variable_get(:@client) :
+        :__undefined__
+      Fenix::Runtime::ControlPlane.client = build_runtime_control_client
       Fenix::Runtime::AttemptRegistry.reset!
-      Fenix::Runtime::AttachedCommandSessionRegistry.reset!
+      Fenix::Runtime::CommandRunRegistry.reset!
       Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
     end
 
     teardown do
       clear_enqueued_jobs
       clear_performed_jobs
+      if @original_control_plane_client == :__undefined__
+        Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
+      else
+        Fenix::Runtime::ControlPlane.client = @original_control_plane_client
+      end
       Fenix::Runtime::AttemptRegistry.reset!
-      Fenix::Runtime::AttachedCommandSessionRegistry.reset!
+      Fenix::Runtime::CommandRunRegistry.reset!
       Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
     end
 
@@ -103,6 +229,19 @@ module ActiveSupport
         "owner_conversation_id" => "owner-conversation-#{SecureRandom.uuid}",
         "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_spawn subagent_send subagent_wait subagent_close subagent_list],
       }
+    end
+
+    def build_runtime_control_client(mailbox_items: [])
+      RuntimeControlClientDouble.new(
+        mailbox_items: mailbox_items,
+        reported_payloads: [],
+        tool_invocation_requests: [],
+        command_run_requests: [],
+        process_run_requests: [],
+        tool_invocations_by_key: {},
+        tool_invocations_by_id: {},
+        command_runs_by_invocation: {}
+      )
     end
 
     def with_skill_roots

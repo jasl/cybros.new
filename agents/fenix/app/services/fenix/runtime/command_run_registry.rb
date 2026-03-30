@@ -1,8 +1,8 @@
 module Fenix
   module Runtime
-    class AttachedCommandSessionRegistry
+    class CommandRunRegistry
       Entry = Struct.new(
-        :session_id,
+        :command_run_id,
         :agent_task_run_id,
         :stdin,
         :stdout,
@@ -14,12 +14,10 @@ module Fenix
       )
 
       class << self
-        def register(agent_task_run_id:, stdin:, stdout:, stderr:, wait_thread:)
-          session_id = "session-#{SecureRandom.uuid}"
-
+        def register(command_run_id:, agent_task_run_id:, stdin:, stdout:, stderr:, wait_thread:)
           synchronize do
-            entries[session_id] = Entry.new(
-              session_id: session_id,
+            entries[command_run_id] = Entry.new(
+              command_run_id: command_run_id,
               agent_task_run_id: agent_task_run_id,
               stdin: stdin,
               stdout: stdout,
@@ -31,41 +29,39 @@ module Fenix
           end
         end
 
-        def lookup(session_id:)
+        def lookup(command_run_id:)
           synchronize do
-            entries[session_id]
+            entries[command_run_id]
           end
         end
 
-        def release(session_id:)
+        def release(command_run_id:)
           synchronize do
-            entries.delete(session_id)
-          end
-        end
-
-        def release_for_agent_task(agent_task_run_id:)
-          synchronize do
-            entries.delete_if { |_session_id, entry| entry.agent_task_run_id == agent_task_run_id }
+            entries.delete(command_run_id)
           end
         end
 
         def terminate_for_agent_task(agent_task_run_id:)
-          sessions = synchronize do
+          command_runs = synchronize do
             entries.values.select { |entry| entry.agent_task_run_id == agent_task_run_id }
           end
 
-          sessions.each do |entry|
+          command_runs.each do |entry|
             terminate_entry(entry)
           end
 
           synchronize do
-            entries.delete_if { |_session_id, entry| entry.agent_task_run_id == agent_task_run_id }
+            entries.delete_if { |_command_run_id, entry| entry.agent_task_run_id == agent_task_run_id }
           end
         end
 
         def reset!
-          synchronize do
-            entries.clear
+          command_runs = synchronize do
+            entries.values.tap { entries.clear }
+          end
+
+          command_runs.each do |entry|
+            terminate_entry(entry)
           end
         end
 

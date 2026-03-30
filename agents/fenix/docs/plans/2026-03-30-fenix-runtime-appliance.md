@@ -208,7 +208,7 @@ Cover:
 
 - `exec_command` command execution
 - streamed stdout/stderr progress
-- PTY session handoff via `session_id`
+- PTY command handoff via durable `command_run_id`
 - `write_stdin` polling and write behavior
 - temporary compatibility alias from `shell_exec` if retained
 

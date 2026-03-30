@@ -26,6 +26,7 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "compact_context"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "write_stdin"
+    assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "process_exec"
     assert body.fetch("effective_tool_catalog").any? { |entry| entry.fetch("tool_name") == "compact_context" }
     assert_equal "main", body.dig("default_config_snapshot", "interactive", "profile")
     assert_equal true, body.dig("default_config_snapshot", "subagents", "enabled")

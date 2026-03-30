@@ -68,6 +68,32 @@ module AgentAPI
       )
     end
 
+    def find_agent_task_run!(agent_task_run_id)
+      AgentTaskRun.find_by!(
+        public_id: agent_task_run_id,
+        installation_id: current_deployment.installation_id
+      )
+    end
+
+    def find_tool_invocation!(tool_invocation_id)
+      ToolInvocation.find_by!(
+        public_id: tool_invocation_id,
+        installation_id: current_deployment.installation_id
+      )
+    end
+
+    def authorize_agent_task_run!(agent_task_run)
+      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.agent_installation_id != current_deployment.agent_installation_id
+      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.conversation.execution_environment_id != current_execution_environment.id
+      return if agent_task_run.holder_agent_deployment_id.blank? || agent_task_run.holder_agent_deployment_id == current_deployment.id
+
+      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun"
+    end
+
+    def authorize_tool_invocation!(tool_invocation)
+      authorize_agent_task_run!(tool_invocation.agent_task_run)
+    end
+
     def serialize_message(message)
       {
         "id" => message.public_id,
@@ -132,6 +158,45 @@ module AgentAPI
         "blocking" => request.blocking,
         "request_payload" => request.request_payload,
         "result_payload" => request.result_payload,
+      }
+    end
+
+    def serialize_tool_invocation(tool_invocation)
+      {
+        "tool_invocation_id" => tool_invocation.public_id,
+        "agent_task_run_id" => tool_invocation.agent_task_run.public_id,
+        "tool_binding_id" => tool_invocation.tool_binding.public_id,
+        "tool_definition_id" => tool_invocation.tool_definition.public_id,
+        "tool_implementation_id" => tool_invocation.tool_implementation.public_id,
+        "tool_name" => tool_invocation.tool_definition.tool_name,
+        "status" => tool_invocation.status,
+        "request_payload" => tool_invocation.request_payload,
+        "stream_output" => tool_invocation.metadata["stream_output"] == true,
+      }
+    end
+
+    def serialize_command_run(command_run)
+      {
+        "command_run_id" => command_run.public_id,
+        "tool_invocation_id" => command_run.tool_invocation.public_id,
+        "agent_task_run_id" => command_run.agent_task_run.public_id,
+        "lifecycle_state" => command_run.lifecycle_state,
+        "command_line" => command_run.command_line,
+        "timeout_seconds" => command_run.timeout_seconds,
+        "pty" => command_run.pty,
+      }
+    end
+
+    def serialize_process_run(process_run)
+      {
+        "process_run_id" => process_run.public_id,
+        "workflow_node_id" => process_run.workflow_node.public_id,
+        "conversation_id" => process_run.conversation.public_id,
+        "turn_id" => process_run.turn.public_id,
+        "kind" => process_run.kind,
+        "lifecycle_state" => process_run.lifecycle_state,
+        "command_line" => process_run.command_line,
+        "timeout_seconds" => process_run.timeout_seconds,
       }
     end
 

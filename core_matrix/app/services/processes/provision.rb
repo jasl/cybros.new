@@ -1,6 +1,6 @@
 module Processes
-  class Start
-    LEASE_TIMEOUT_SECONDS = 30
+  class Provision
+    Result = Struct.new(:process_run, :created, keyword_init: true)
 
     def self.call(...)
       new(...).call
@@ -19,6 +19,18 @@ module Processes
     end
 
     def call
+      existing = existing_process_run
+      return Result.new(process_run: existing, created: false) if existing.present?
+
+      process_run = provision_process_run!
+      Result.new(process_run: process_run, created: true)
+    rescue ActiveRecord::RecordNotUnique
+      Result.new(process_run: existing_process_run!, created: false)
+    end
+
+    private
+
+    def provision_process_run!
       ApplicationRecord.transaction do
         @workflow_node.with_lock do
           process_run = ProcessRun.create!(
@@ -29,23 +41,20 @@ module Processes
             turn: @workflow_node.workflow_run.turn,
             origin_message: @origin_message,
             kind: @kind,
-            lifecycle_state: "running",
+            lifecycle_state: "starting",
             command_line: @command_line,
             timeout_seconds: @timeout_seconds,
             metadata: @metadata,
-            idempotency_key: @idempotency_key
+            idempotency_key: @idempotency_key,
+            started_at: Time.current
           )
 
           acquire_process_lease!(process_run)
-          append_status_event!(process_run: process_run, state: "running")
-          record_audit!(process_run) if policy_sensitive?
-          broadcast_runtime_event!(process_run)
+          append_status_event!(process_run: process_run, state: "starting")
           process_run
         end
       end
     end
-
-    private
 
     def append_status_event!(process_run:, state:)
       WorkflowNodeEvent.create!(
@@ -71,7 +80,7 @@ module Processes
       Leases::Acquire.call(
         leased_resource: process_run,
         holder_key: delivery_endpoint.public_id,
-        heartbeat_timeout_seconds: LEASE_TIMEOUT_SECONDS
+        heartbeat_timeout_seconds: Processes::Start::LEASE_TIMEOUT_SECONDS
       )
     end
 
@@ -80,32 +89,19 @@ module Processes
       current_maximum.nil? ? 0 : current_maximum + 1
     end
 
-    def policy_sensitive?
-      return @policy_sensitive unless @policy_sensitive.nil?
+    def existing_process_run
+      return if @idempotency_key.blank?
 
-      @workflow_node.metadata["policy_sensitive"] == true
-    end
-
-    def record_audit!(process_run)
-      AuditLog.record!(
-        installation: @workflow_node.installation,
-        subject: process_run,
-        action: "process_run.started",
-        metadata: {
-          kind: process_run.kind,
-          workflow_node_key: @workflow_node.node_key,
-        }
+      ProcessRun.find_by(
+        workflow_node: @workflow_node,
+        idempotency_key: @idempotency_key
       )
     end
 
-    def broadcast_runtime_event!(process_run)
-      Processes::BroadcastRuntimeEvent.call(
-        process_run: process_run,
-        event_kind: "runtime.process_run.started",
-        payload: {
-          "command_line" => process_run.command_line,
-          "timeout_seconds" => process_run.timeout_seconds,
-        }.compact
+    def existing_process_run!
+      ProcessRun.find_by!(
+        workflow_node: @workflow_node,
+        idempotency_key: @idempotency_key
       )
     end
   end

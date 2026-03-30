@@ -83,8 +83,8 @@ runtime resources that later tasks now build on are:
     consumed into a durable request resource
   - `Workflows::HandleWaitTransitionRequest` when a yielded `subagent_spawn`
     node is consumed into a durable subagent session
-  - `Processes::Start` and `Processes::Stop` for environment-owned process
-    resources
+  - `Processes::Provision`, `Processes::Activate`, and `Processes::Exit` for
+    environment-owned process resources
 - Phase 2 yield materialization currently records:
   - `yield_requested`
   - `intent_rejected`
@@ -111,10 +111,16 @@ runtime resources that later tasks now build on are:
 - `ProcessRun` now models detached background services only:
   - `background_service`
 - v1 lifecycle states are explicit and validated:
+  - `starting`
   - `running`
   - `stopped`
   - `failed`
   - `lost`
+- detached background services are kernel-first:
+  - `POST /agent_api/process_runs` provisions the durable `ProcessRun`
+  - the runtime then reports `process_started` when the local handle is live
+  - if the process exits without a close request, the runtime reports
+    `process_exited`
 - every process run now has a `public_id` so agent-facing close payloads and
   diagnostics never expose raw bigint ids
 - process runs also persist close lifecycle fields:
@@ -177,7 +183,7 @@ runtime resources that later tasks now build on are:
   - `runtime.agent_task.*`
   - `runtime.tool_invocation.*`
   for frontend progress display without mutating transcript or workflow truth
-- short-lived command execution such as `shell_exec` now rides this path:
+- short-lived command execution such as `exec_command` now rides this path:
   - durable result and audit land in `ToolInvocation`
   - stdout/stderr chunks are streamed as
     `runtime.tool_invocation.output`
@@ -226,22 +232,35 @@ runtime resources that later tasks now build on are:
 
 ## Start And Stop Services
 
-- `Processes::Start` is the application-service boundary for opening a workflow
-  process resource.
-- Start currently:
-  - materializes one `ProcessRun`
+- `Processes::Provision` is the kernel-first application-service boundary for
+  opening a detached workflow process resource.
+- Provision currently:
+  - materializes one `ProcessRun` in `starting`
   - derives `conversation` and `turn` from the owning workflow run
   - appends one `WorkflowNodeEvent` with `event_kind=status` and
-    `payload.state=running`
+    `payload.state=starting`
+  - acquires the delivery lease used by later `process_started`,
+    `process_output`, and `process_exited` reports
+- `Processes::Activate` is the runtime-confirmed activation boundary.
+- Activate currently:
+  - transitions the process from `starting` to `running`
+  - appends the `running` status event
   - broadcasts one temporary `runtime.process_run.started` event for live UI
     consumers
-  - records an `AuditLog` row when the workflow node metadata marks the process
-    as policy-sensitive or the service input overrides that flag
+  - records an `AuditLog` row when the process is actually live
 - `Processes::Stop` is the application-service boundary for terminating a
   running process resource.
 - Stop currently:
   - requires the process run to still be `running`
   - transitions the process to `stopped`
+- `Processes::Exit` is the runtime-side terminalization boundary for detached
+  processes that stop without an explicit close request.
+- Exit currently:
+  - accepts `starting` or `running` process runs
+  - transitions them to `stopped` or `failed`
+  - releases the execution lease
+  - appends the matching terminal status event
+  - broadcasts the matching `runtime.process_run.*` event
   - stamps `ended_at`
   - records `stop_reason` in process metadata
   - appends one `WorkflowNodeEvent` with `event_kind=status` and

@@ -11,10 +11,11 @@ module Fenix
         new(...).call
       end
 
-      def initialize(mailbox_item:, attempt: nil, on_report: nil)
+      def initialize(mailbox_item:, attempt: nil, on_report: nil, control_client: nil)
         @context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
         @collector = Fenix::RuntimeSurface::ReportCollector.new(context: @context, on_report:)
         @attempt = attempt
+        @control_client = control_client || Fenix::Runtime::ControlPlane.client
         @trace = []
         @current_tool_invocation = nil
       end
@@ -84,26 +85,38 @@ module Fenix
 
       def execute_deterministic_tool_flow
         tool_call = build_deterministic_tool_call
-        @current_tool_invocation = tool_call.deep_dup
+        return execute_process_tool_flow(tool_call) if process_tool?(tool_call.fetch("tool_name"))
+
+        @current_tool_invocation = {
+          "call_id" => tool_call.fetch("call_id"),
+          "tool_name" => tool_call.fetch("tool_name"),
+          "request_payload" => tool_call.except("call_id"),
+        }
         reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
           tool_call: tool_call,
           allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
         )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
+        tool_invocation = provision_tool_invocation!(reviewed_tool_call)
+        command_run = provision_command_run_if_needed!(reviewed_tool_call, tool_invocation)
+        @current_tool_invocation = @current_tool_invocation.merge(build_current_tool_invocation(
+          tool_call: reviewed_tool_call,
+          tool_invocation: tool_invocation,
+          command_run: command_run
+        ))
 
         @collector.progress!(
           progress_payload: {
             "stage" => "tool_reviewed",
-            "tool_invocation" => {
-              "event" => "started",
-              "call_id" => reviewed_tool_call.fetch("call_id"),
-              "tool_name" => reviewed_tool_call.fetch("tool_name"),
-              "request_payload" => reviewed_tool_call.except("call_id"),
-            },
+            "tool_invocation" => started_tool_invocation_payload(@current_tool_invocation),
           }
         )
 
-        tool_result = execute_tool(reviewed_tool_call)
+        tool_result = execute_tool(
+          reviewed_tool_call,
+          tool_invocation: tool_invocation,
+          command_run: command_run
+        )
         projected_result = Fenix::Hooks::ProjectToolResult.call(
           tool_call: reviewed_tool_call,
           tool_result: tool_result
@@ -120,16 +133,50 @@ module Fenix
           terminal_payload: {
             "output" => finalized_output.fetch("output"),
             "tool_invocations" => [
-              {
-                "event" => "completed",
-                "call_id" => reviewed_tool_call.fetch("call_id"),
-                "tool_name" => reviewed_tool_call.fetch("tool_name"),
-                "response_payload" => projected_result,
-              },
+              completed_tool_invocation_payload(
+                current_tool_invocation: @current_tool_invocation,
+                response_payload: projected_result
+              ),
             ],
           }
         )
         @current_tool_invocation = nil
+
+        Result.new(
+          status: "completed",
+          reports: @collector.reports,
+          trace: @trace,
+          output: finalized_output.fetch("output")
+        )
+      end
+
+      def execute_process_tool_flow(tool_call)
+        reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
+          tool_call: tool_call,
+          allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
+        )
+        @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
+
+        process_run = provision_process_run!(reviewed_tool_call)
+        tool_result = execute_tool(
+          reviewed_tool_call,
+          tool_invocation: nil,
+          command_run: nil,
+          process_run: process_run
+        )
+        projected_result = Fenix::Hooks::ProjectToolResult.call(
+          tool_call: reviewed_tool_call,
+          tool_result: tool_result
+        )
+        @trace << { "hook" => "project_tool_result", "content" => projected_result.fetch("content") }
+
+        finalized_output = Fenix::Hooks::FinalizeOutput.call(
+          projected_result: projected_result,
+          context: @context
+        )
+        @trace << { "hook" => "finalize_output", "output" => finalized_output.fetch("output") }
+
+        @collector.complete!(terminal_payload: { "output" => finalized_output.fetch("output") })
 
         Result.new(
           status: "completed",
@@ -165,11 +212,16 @@ module Fenix
             }
           when "write_stdin"
             {
-              "session_id" => @context.dig("task_payload", "session_id"),
+              "command_run_id" => @context.dig("task_payload", "command_run_id"),
               "text" => @context.dig("task_payload", "text").to_s,
               "eof" => @context.dig("task_payload", "eof") || false,
               "wait_for_exit" => @context.dig("task_payload", "wait_for_exit") || false,
               "timeout_seconds" => @context.dig("task_payload", "timeout_seconds") || 30,
+            }
+          when "process_exec"
+            {
+              "command_line" => @context.dig("task_payload", "command_line") || "bin/dev",
+              "kind" => @context.dig("task_payload", "kind") || "background_service",
             }
           else
             {}
@@ -182,13 +234,15 @@ module Fenix
         }
       end
 
-      def execute_tool(tool_call)
+      def execute_tool(tool_call, tool_invocation:, command_run:, process_run: nil)
         case tool_call.fetch("tool_name")
         when "calculator"
           evaluate_expression(tool_call.dig("arguments", "expression"))
         when "shell_exec", "exec_command"
           execute_exec_command(
             tool_call: tool_call,
+            tool_invocation: tool_invocation,
+            command_run: command_run,
             command_line: tool_call.dig("arguments", "command_line"),
             timeout_seconds: tool_call.dig("arguments", "timeout_seconds"),
             pty: tool_call.dig("arguments", "pty")
@@ -196,11 +250,17 @@ module Fenix
         when "write_stdin"
           execute_write_stdin(
             tool_call: tool_call,
-            session_id: tool_call.dig("arguments", "session_id"),
+            tool_invocation: tool_invocation,
+            command_run_id: tool_call.dig("arguments", "command_run_id"),
             text: tool_call.dig("arguments", "text"),
             eof: tool_call.dig("arguments", "eof"),
             wait_for_exit: tool_call.dig("arguments", "wait_for_exit"),
             timeout_seconds: tool_call.dig("arguments", "timeout_seconds")
+          )
+        when "process_exec"
+          execute_process_exec(
+            process_run: process_run,
+            command_line: tool_call.dig("arguments", "command_line")
           )
         else
           raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
@@ -222,49 +282,69 @@ module Fenix
         end
       end
 
-      def execute_exec_command(tool_call:, command_line:, timeout_seconds:, pty:)
-        return start_attached_command_session(command_line:, timeout_seconds:) if pty
+      def execute_exec_command(tool_call:, tool_invocation:, command_run:, command_line:, timeout_seconds:, pty:)
+        return start_attached_command_session(command_run_id: command_run.fetch("command_run_id"), timeout_seconds:, command_line:) if pty
 
         execute_one_shot_command(
           tool_call: tool_call,
+          tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
+          command_run_id: command_run.fetch("command_run_id"),
           command_line: command_line,
           timeout_seconds: timeout_seconds,
           timeout_label: tool_call.fetch("tool_name")
         )
       end
 
-      def execute_write_stdin(tool_call:, session_id:, text:, eof:, wait_for_exit:, timeout_seconds:)
-        session = Fenix::Runtime::AttachedCommandSessionRegistry.lookup(session_id:)
-        raise ArgumentError, "unknown attached command session #{session_id}" if session.blank?
-        raise ArgumentError, "attached command session #{session_id} is not owned by this agent task" unless session.agent_task_run_id == current_agent_task_run_id
+      def execute_write_stdin(tool_call:, tool_invocation:, command_run_id:, text:, eof:, wait_for_exit:, timeout_seconds:)
+        command_run = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id:)
+        raise ArgumentError, "unknown command run #{command_run_id}" if command_run.blank?
+        raise ArgumentError, "command run #{command_run_id} is not owned by this agent task" unless command_run.agent_task_run_id == current_agent_task_run_id
 
         stdin_bytes = text.to_s.bytesize
-        session.stdin.write(text.to_s) if text.present?
-        session.stdin.flush if text.present?
-        session.stdin.close if eof && !session.stdin.closed?
+        command_run.stdin.write(text.to_s) if text.present?
+        command_run.stdin.flush if text.present?
+        command_run.stdin.close if eof && !command_run.stdin.closed?
 
         output_chunks = []
-        output_chunks.concat(drain_attached_output(session:, wait_for_exit:, timeout_seconds:))
-        emit_tool_output!(tool_call:, output_chunks:, session_id:) if output_chunks.any?
+        output_chunks.concat(drain_attached_output(command_run:, wait_for_exit:, timeout_seconds:))
+        emit_tool_output!(
+          tool_call: tool_call,
+          tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
+          command_run_id: command_run_id,
+          output_chunks:
+        ) if output_chunks.any?
 
         response_payload = {
-          "session_id" => session_id,
+          "command_run_id" => command_run_id,
           "stdin_bytes" => stdin_bytes,
           "session_closed" => wait_for_exit,
-          "output_streamed" => session.stdout_bytes.positive? || session.stderr_bytes.positive?,
-          "stdout_bytes" => session.stdout_bytes,
-          "stderr_bytes" => session.stderr_bytes,
+          "output_streamed" => command_run.stdout_bytes.positive? || command_run.stderr_bytes.positive?,
+          "stdout_bytes" => command_run.stdout_bytes,
+          "stderr_bytes" => command_run.stderr_bytes,
         }
         if wait_for_exit
-          response_payload["exit_status"] = session.wait_thread.value.exitstatus
+          response_payload["exit_status"] = command_run.wait_thread.value.exitstatus
         end
 
         response_payload
       ensure
-        Fenix::Runtime::AttachedCommandSessionRegistry.release(session_id:) if wait_for_exit && session_id.present?
+        Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if wait_for_exit && command_run_id.present?
       end
 
-      def execute_one_shot_command(tool_call:, command_line:, timeout_seconds:, timeout_label:)
+      def execute_process_exec(process_run:, command_line:)
+        Fenix::Processes::Manager.spawn!(
+          process_run_id: process_run.fetch("process_run_id"),
+          command_line: command_line,
+          control_client: @control_client
+        )
+
+        {
+          "process_run_id" => process_run.fetch("process_run_id"),
+          "lifecycle_state" => "running",
+        }
+      end
+
+      def execute_one_shot_command(tool_call:, tool_invocation_id:, command_run_id:, command_line:, timeout_seconds:, timeout_label:)
         stdout = +""
         stderr = +""
         exit_status = nil
@@ -294,7 +374,12 @@ module Fenix
 
                 stream_details = readers.fetch(io)
                 stream_details.fetch(:buffer) << chunk
-                emit_tool_output!(tool_call:, output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }])
+                emit_tool_output!(
+                  tool_call: tool_call,
+                  tool_invocation_id: tool_invocation_id,
+                  command_run_id: command_run_id,
+                  output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }]
+                )
               rescue IO::WaitReadable
                 nil
               rescue EOFError
@@ -307,6 +392,7 @@ module Fenix
         end
 
         {
+          "command_run_id" => command_run_id,
           "exit_status" => exit_status,
           "stdout" => stdout,
           "stderr" => stderr,
@@ -319,9 +405,10 @@ module Fenix
         raise
       end
 
-      def start_attached_command_session(command_line:, timeout_seconds:)
+      def start_attached_command_session(command_run_id:, command_line:, timeout_seconds:)
         stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
-        session = Fenix::Runtime::AttachedCommandSessionRegistry.register(
+        Fenix::Runtime::CommandRunRegistry.register(
+          command_run_id: command_run_id,
           agent_task_run_id: current_agent_task_run_id,
           stdin: stdin,
           stdout: stdout,
@@ -330,32 +417,32 @@ module Fenix
         )
 
         {
-          "session_id" => session.session_id,
+          "command_run_id" => command_run_id,
           "attached" => true,
           "session_closed" => false,
           "timeout_seconds" => timeout_seconds.to_i,
         }
       end
 
-      def drain_attached_output(session:, wait_for_exit:, timeout_seconds:)
+      def drain_attached_output(command_run:, wait_for_exit:, timeout_seconds:)
         chunks = []
         deadline_at = monotonic_now + timeout_seconds.to_i
 
         loop do
-          chunks.concat(read_available_output(session:, timeout_seconds: 0.05))
+          chunks.concat(read_available_output(command_run:, timeout_seconds: 0.05))
           break unless wait_for_exit
-          break unless session.wait_thread.alive?
+          break unless command_run.wait_thread.alive?
           raise Timeout::Error, "write_stdin timed out after #{timeout_seconds} seconds" if monotonic_now >= deadline_at
         end
 
-        chunks.concat(read_available_output(session:, timeout_seconds: 0.05))
+        chunks.concat(read_available_output(command_run:, timeout_seconds: 0.05))
         chunks
       end
 
-      def read_available_output(session:, timeout_seconds:)
+      def read_available_output(command_run:, timeout_seconds:)
         readers = {}
-        readers[session.stdout] = "stdout" unless session.stdout.closed?
-        readers[session.stderr] = "stderr" unless session.stderr.closed?
+        readers[command_run.stdout] = "stdout" unless command_run.stdout.closed?
+        readers[command_run.stderr] = "stderr" unless command_run.stderr.closed?
         return [] if readers.empty?
 
         ready = IO.select(readers.keys, nil, nil, timeout_seconds)
@@ -370,9 +457,9 @@ module Fenix
 
             stream = readers.fetch(io)
             if stream == "stdout"
-              session.stdout_bytes += chunk.bytesize
+              command_run.stdout_bytes += chunk.bytesize
             else
-              session.stderr_bytes += chunk.bytesize
+              command_run.stderr_bytes += chunk.bytesize
             end
             output_chunks << { "stream" => stream, "text" => chunk }
           rescue IO::WaitReadable
@@ -385,14 +472,15 @@ module Fenix
         output_chunks
       end
 
-      def emit_tool_output!(tool_call:, output_chunks:, session_id: nil)
+      def emit_tool_output!(tool_call:, tool_invocation_id:, output_chunks:, command_run_id: nil)
         @collector.progress!(
           progress_payload: {
             "stage" => "tool_output",
             "tool_invocation_output" => {
+              "tool_invocation_id" => tool_invocation_id,
               "call_id" => tool_call.fetch("call_id"),
               "tool_name" => tool_call.fetch("tool_name"),
-              "session_id" => session_id,
+              "command_run_id" => command_run_id,
               "output_chunks" => output_chunks,
             },
           }
@@ -440,9 +528,96 @@ module Fenix
           "event" => "failed",
           "call_id" => @current_tool_invocation.fetch("call_id"),
           "tool_name" => @current_tool_invocation.fetch("tool_name"),
-          "request_payload" => @current_tool_invocation.except("call_id"),
+          "request_payload" => @current_tool_invocation.fetch("request_payload"),
           "error_payload" => tool_invocation_error_payload(error),
-        }
+        }.merge(
+          {
+            "tool_invocation_id" => @current_tool_invocation["tool_invocation_id"],
+            "command_run_id" => @current_tool_invocation["command_run_id"],
+          }.compact
+        )
+      end
+
+      def provision_tool_invocation!(tool_call)
+        @control_client.create_tool_invocation!(
+          agent_task_run_id: current_agent_task_run_id,
+          tool_name: tool_call.fetch("tool_name"),
+          request_payload: tool_call.except("call_id"),
+          idempotency_key: tool_call.fetch("call_id"),
+          stream_output: streaming_tool?(tool_call.fetch("tool_name")),
+          metadata: {
+            "logical_work_id" => @context.fetch("logical_work_id"),
+            "attempt_no" => @context.fetch("attempt_no"),
+          }
+        )
+      end
+
+      def provision_command_run_if_needed!(tool_call, tool_invocation)
+        return unless %w[shell_exec exec_command].include?(tool_call.fetch("tool_name"))
+
+        @control_client.create_command_run!(
+          tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
+          command_line: tool_call.dig("arguments", "command_line"),
+          timeout_seconds: tool_call.dig("arguments", "timeout_seconds"),
+          pty: tool_call.dig("arguments", "pty"),
+          metadata: {
+            "logical_work_id" => @context.fetch("logical_work_id"),
+            "attempt_no" => @context.fetch("attempt_no"),
+          }
+        )
+      end
+
+      def build_current_tool_invocation(tool_call:, tool_invocation:, command_run:)
+        {
+          "tool_invocation_id" => tool_invocation.fetch("tool_invocation_id"),
+          "command_run_id" => command_run&.fetch("command_run_id"),
+          "call_id" => tool_call.fetch("call_id"),
+          "tool_name" => tool_call.fetch("tool_name"),
+          "request_payload" => tool_call.except("call_id"),
+        }.compact
+      end
+
+      def started_tool_invocation_payload(current_tool_invocation)
+        {
+          "event" => "started",
+          "tool_invocation_id" => current_tool_invocation.fetch("tool_invocation_id"),
+          "command_run_id" => current_tool_invocation["command_run_id"],
+          "call_id" => current_tool_invocation.fetch("call_id"),
+          "tool_name" => current_tool_invocation.fetch("tool_name"),
+          "request_payload" => current_tool_invocation.fetch("request_payload"),
+        }.compact
+      end
+
+      def completed_tool_invocation_payload(current_tool_invocation:, response_payload:)
+        {
+          "event" => "completed",
+          "tool_invocation_id" => current_tool_invocation.fetch("tool_invocation_id"),
+          "command_run_id" => current_tool_invocation["command_run_id"],
+          "call_id" => current_tool_invocation.fetch("call_id"),
+          "tool_name" => current_tool_invocation.fetch("tool_name"),
+          "response_payload" => response_payload,
+        }.compact
+      end
+
+      def streaming_tool?(tool_name)
+        %w[shell_exec exec_command write_stdin].include?(tool_name)
+      end
+
+      def process_tool?(tool_name)
+        tool_name == "process_exec"
+      end
+
+      def provision_process_run!(tool_call)
+        @control_client.create_process_run!(
+          agent_task_run_id: current_agent_task_run_id,
+          kind: tool_call.dig("arguments", "kind"),
+          command_line: tool_call.dig("arguments", "command_line"),
+          idempotency_key: tool_call.fetch("call_id"),
+          metadata: {
+            "logical_work_id" => @context.fetch("logical_work_id"),
+            "attempt_no" => @context.fetch("attempt_no"),
+          }
+        )
       end
 
       def tool_invocation_error_payload(error)

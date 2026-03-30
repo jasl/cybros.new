@@ -105,7 +105,7 @@ module Fenix
             "type" => "object",
             "properties" => {
               "exit_status" => { "type" => "integer" },
-              "session_id" => { "type" => "string" },
+              "command_run_id" => { "type" => "string" },
               "output_streamed" => { "type" => "boolean" },
               "stdout_bytes" => { "type" => "integer" },
               "stderr_bytes" => { "type" => "integer" },
@@ -122,7 +122,7 @@ module Fenix
           "input_schema" => {
             "type" => "object",
             "properties" => {
-              "session_id" => { "type" => "string" },
+              "command_run_id" => { "type" => "string" },
               "text" => { "type" => "string" },
               "eof" => { "type" => "boolean" },
               "wait_for_exit" => { "type" => "boolean" },
@@ -132,12 +132,34 @@ module Fenix
           "result_schema" => {
             "type" => "object",
             "properties" => {
-              "session_id" => { "type" => "string" },
+              "command_run_id" => { "type" => "string" },
               "stdin_bytes" => { "type" => "integer" },
               "session_closed" => { "type" => "boolean" },
               "exit_status" => { "type" => "integer" },
               "stdout_bytes" => { "type" => "integer" },
               "stderr_bytes" => { "type" => "integer" },
+            },
+          },
+          "streaming_support" => true,
+          "idempotency_policy" => "best_effort",
+        },
+        {
+          "tool_name" => "process_exec",
+          "tool_kind" => "kernel_primitive",
+          "implementation_source" => "agent",
+          "implementation_ref" => "fenix/runtime/process_exec",
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_line" => { "type" => "string" },
+              "kind" => { "type" => "string" },
+            },
+          },
+          "result_schema" => {
+            "type" => "object",
+            "properties" => {
+              "process_run_id" => { "type" => "string" },
+              "lifecycle_state" => { "type" => "string" },
             },
           },
           "streaming_support" => true,

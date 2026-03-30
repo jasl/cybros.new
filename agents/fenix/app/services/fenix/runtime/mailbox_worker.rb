@@ -64,7 +64,7 @@ module Fenix
       def handle_agent_task_close!
         agent_task_run_id = @mailbox_item.dig("payload", "resource_id")
 
-        Fenix::Runtime::AttachedCommandSessionRegistry.terminate_for_agent_task(
+        Fenix::Runtime::CommandRunRegistry.terminate_for_agent_task(
           agent_task_run_id: agent_task_run_id
         )
         Fenix::Runtime::AttemptRegistry.release(agent_task_run_id: agent_task_run_id)

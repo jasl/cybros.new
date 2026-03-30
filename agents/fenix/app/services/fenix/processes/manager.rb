@@ -13,14 +13,14 @@ module Fenix
         :watcher_thread,
         :close_request_id,
         :strictness,
-        :close_reported,
+        :terminal_reported,
         keyword_init: true
       )
 
       class << self
         OUTPUT_READ_SIZE = 4096
 
-        def register(process_run_id:, stdin:, stdout:, stderr:, wait_thread:, control_client: nil)
+        def register(process_run_id:, stdin:, stdout:, stderr:, wait_thread:, control_client: nil, start_monitoring: true)
           entry = Entry.new(
             process_run_id: process_run_id,
             stdin: stdin,
@@ -28,17 +28,49 @@ module Fenix
             stderr: stderr,
             wait_thread: wait_thread,
             control_client: control_client || Fenix::Runtime::ControlPlane.client,
-            close_reported: false
+            terminal_reported: false
           )
 
           synchronize do
             entries[process_run_id] = entry
           end
 
-          entry.stdout_thread = start_output_thread(entry, stream: "stdout", io: stdout)
-          entry.stderr_thread = start_output_thread(entry, stream: "stderr", io: stderr)
-          entry.watcher_thread = start_watcher_thread(entry)
+          start_monitoring!(entry) if start_monitoring
           entry
+        end
+
+        def spawn!(process_run_id:, command_line:, control_client: nil)
+          stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
+          entry = register(
+            process_run_id: process_run_id,
+            stdin: stdin,
+            stdout: stdout,
+            stderr: stderr,
+            wait_thread: wait_thread,
+            control_client: control_client,
+            start_monitoring: false
+          )
+
+          report_started!(entry)
+          start_monitoring!(entry)
+          entry
+        rescue StandardError => error
+          control_client&.report!(
+            payload: {
+              "method_id" => "process_exited",
+              "protocol_message_id" => "fenix-process-exited-#{SecureRandom.uuid}",
+              "resource_type" => "ProcessRun",
+              "resource_id" => process_run_id,
+              "lifecycle_state" => "failed",
+              "metadata" => {
+                "source" => "fenix_process_manager",
+                "reason" => "spawn_failed",
+                "error_class" => error.class.name,
+                "error_message" => error.message,
+              },
+            }
+          )
+          raise
         end
 
         def lookup(process_run_id:)
@@ -149,36 +181,70 @@ module Fenix
         end
 
         def report_terminal_close(entry, exit_status:)
-          close_context =
+          terminal_context =
             synchronize do
-              next nil if entry.close_request_id.blank? || entry.close_reported
+              next nil if entry.terminal_reported
 
-              entry.close_reported = true
+              entry.terminal_reported = true
               {
                 "close_request_id" => entry.close_request_id,
                 "strictness" => entry.strictness.presence || "graceful",
                 "control_client" => entry.control_client,
               }
             end
-          return if close_context.nil? || close_context["control_client"].blank?
+          return if terminal_context.nil? || terminal_context["control_client"].blank?
 
-          close_context["control_client"].report!(
-            payload: {
-              "method_id" => "resource_closed",
-              "protocol_message_id" => "fenix-process-close-#{SecureRandom.uuid}",
-              "mailbox_item_id" => close_context.fetch("close_request_id"),
-              "close_request_id" => close_context.fetch("close_request_id"),
-              "resource_type" => "ProcessRun",
-              "resource_id" => entry.process_run_id,
-              "close_outcome_kind" => close_context.fetch("strictness") == "forced" ? "forced" : "graceful",
-              "close_outcome_payload" => {
-                "source" => "fenix_process_manager",
+          if terminal_context["close_request_id"].present?
+            terminal_context["control_client"].report!(
+              payload: {
+                "method_id" => "resource_closed",
+                "protocol_message_id" => "fenix-process-close-#{SecureRandom.uuid}",
+                "mailbox_item_id" => terminal_context.fetch("close_request_id"),
+                "close_request_id" => terminal_context.fetch("close_request_id"),
+                "resource_type" => "ProcessRun",
+                "resource_id" => entry.process_run_id,
+                "close_outcome_kind" => terminal_context.fetch("strictness") == "forced" ? "forced" : "graceful",
+                "close_outcome_payload" => {
+                  "source" => "fenix_process_manager",
+                  "exit_status" => exit_status,
+                }.compact,
+              }
+            )
+          else
+            terminal_context["control_client"].report!(
+              payload: {
+                "method_id" => "process_exited",
+                "protocol_message_id" => "fenix-process-exited-#{SecureRandom.uuid}",
+                "resource_type" => "ProcessRun",
+                "resource_id" => entry.process_run_id,
+                "lifecycle_state" => exit_status.to_i.zero? ? "stopped" : "failed",
                 "exit_status" => exit_status,
-              }.compact,
-            }
-          )
+                "metadata" => {
+                  "source" => "fenix_process_manager",
+                  "reason" => "natural_exit",
+                },
+              }
+            )
+          end
         rescue StandardError
           nil
+        end
+
+        def report_started!(entry)
+          entry.control_client&.report!(
+            payload: {
+              "method_id" => "process_started",
+              "protocol_message_id" => "fenix-process-started-#{SecureRandom.uuid}",
+              "resource_type" => "ProcessRun",
+              "resource_id" => entry.process_run_id,
+            }
+          )
+        end
+
+        def start_monitoring!(entry)
+          entry.stdout_thread = start_output_thread(entry, stream: "stdout", io: entry.stdout)
+          entry.stderr_thread = start_output_thread(entry, stream: "stderr", io: entry.stderr)
+          entry.watcher_thread = start_watcher_thread(entry)
         end
 
         def report_acknowledged!(mailbox_item:, control_client:)

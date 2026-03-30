@@ -4,6 +4,40 @@ require "action_cable/test_helper"
 class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
   include ActionCable::TestHelper
 
+  test "process_started marks a starting process run as running" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      lifecycle_state: "starting",
+      timeout_seconds: nil
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      post "/agent_api/control/report",
+        params: {
+          method_id: "process_started",
+          protocol_message_id: "process-started-#{next_test_sequence}",
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+        },
+        headers: agent_api_headers(context[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal ["runtime.process_run.started"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert process_run.reload.running?
+  end
+
   test "process_output streams stdout chunks without persisting them" do
     context = build_agent_control_context!
     process_run = create_process_run!(
@@ -41,6 +75,48 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     assert_equal "hello from process\n", broadcasts.first.dig("payload", "text")
     assert process_run.reload.running?
     assert_equal({}, process_run.close_outcome_payload)
+  end
+
+  test "process_exited terminalizes a running process without a close request" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      timeout_seconds: nil
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      post "/agent_api/control/report",
+        params: {
+          method_id: "process_exited",
+          protocol_message_id: "process-exited-#{next_test_sequence}",
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+          lifecycle_state: "failed",
+          exit_status: 127,
+          metadata: {
+            "source" => "process_runtime_test",
+            "reason" => "natural_exit",
+          },
+        },
+        headers: agent_api_headers(context[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal ["runtime.process_run.failed"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert process_run.reload.failed?
+    assert_equal 127, process_run.exit_status
+    assert_equal "natural_exit", process_run.metadata["stop_reason"]
+    assert_equal 0, ToolInvocation.count
   end
 
   test "resource_closed broadcasts final output chunks and terminal process state without creating tool invocations" do

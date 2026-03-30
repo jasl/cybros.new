@@ -38,7 +38,8 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     begin
       stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", "cat")
 
-      session = Fenix::Runtime::AttachedCommandSessionRegistry.register(
+      command_run = Fenix::Runtime::CommandRunRegistry.register(
+        command_run_id: "command-run-#{SecureRandom.uuid}",
         agent_task_run_id: agent_task_run_id,
         stdin: stdin,
         stdout: stdout,
@@ -68,7 +69,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
       assert_equal :handled, result
       assert_nil Fenix::Runtime::AttemptRegistry.lookup(agent_task_run_id: agent_task_run_id)
-      assert_nil Fenix::Runtime::AttachedCommandSessionRegistry.lookup(session_id: session.session_id)
+      assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run.command_run_id)
       refute wait_thread.alive?
     ensure
       stdin&.close unless stdin.nil? || stdin.closed?

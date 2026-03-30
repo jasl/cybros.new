@@ -240,6 +240,29 @@ class AgentControlReportTest < ActiveSupport::TestCase
     AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
     stream_name = ConversationRuntime::StreamName.for_conversation(agent_task_run.conversation)
     call_id = "tool-call-#{next_test_sequence}"
+    binding = agent_task_run.reload.tool_bindings.joins(:tool_definition).find_by!(
+      tool_definitions: { tool_name: "exec_command" }
+    )
+    invocation = ToolInvocations::Start.call(
+      tool_binding: binding,
+      request_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "printf 'hello\\n'",
+      },
+      idempotency_key: call_id,
+      metadata: {
+        "stream_output" => true,
+      }
+    )
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "printf 'hello\\n'",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {
+        "sandbox" => "workspace-write",
+      }
+    ).command_run
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
@@ -265,6 +288,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "stage" => "tool_started",
           "tool_invocation" => {
             "event" => "started",
+            "tool_invocation_id" => invocation.public_id,
+            "command_run_id" => command_run.public_id,
             "call_id" => call_id,
             "tool_name" => "exec_command",
             "request_payload" => {
@@ -286,6 +311,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
         progress_payload: {
           "stage" => "tool_output",
           "tool_invocation_output" => {
+            "tool_invocation_id" => invocation.public_id,
+            "command_run_id" => command_run.public_id,
             "call_id" => call_id,
             "tool_name" => "exec_command",
             "output_chunks" => [
@@ -308,9 +335,12 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "tool_invocations" => [
             {
               "event" => "completed",
+              "tool_invocation_id" => invocation.public_id,
+              "command_run_id" => command_run.public_id,
               "call_id" => call_id,
               "tool_name" => "exec_command",
               "response_payload" => {
+                "command_run_id" => command_run.public_id,
                 "exit_status" => 0,
                 "content" => "Command exited with status 0 after streaming output.",
                 "output_streamed" => true,
@@ -337,18 +367,83 @@ class AgentControlReportTest < ActiveSupport::TestCase
     )
 
     output_payload = broadcasts.fifth.fetch("payload")
-    invocation = agent_task_run.reload.tool_invocations.sole
 
     assert_equal invocation.public_id, output_payload.fetch("tool_invocation_id")
+    assert_equal command_run.public_id, output_payload.fetch("command_run_id")
     assert_equal "exec_command", output_payload.fetch("tool_name")
     assert_equal call_id, output_payload.fetch("call_id")
     assert_equal "stdout", output_payload.fetch("stream")
     assert_equal "hello\n", output_payload.fetch("text")
-    assert_equal true, invocation.response_payload.fetch("output_streamed")
+    assert_equal 1, agent_task_run.reload.tool_invocations.count
+    assert_equal true, invocation.reload.response_payload.fetch("output_streamed")
     assert_equal 6, invocation.response_payload.fetch("stdout_bytes")
     assert_equal 0, invocation.response_payload.fetch("stderr_bytes")
     refute invocation.response_payload.key?("stdout")
     refute invocation.response_payload.key?("stderr")
+    assert command_run.reload.completed?
+    assert_equal 0, command_run.exit_status
+    assert_equal true, command_run.metadata.fetch("output_streamed")
+    assert_equal 6, command_run.metadata.fetch("stdout_bytes")
+    assert_equal 0, command_run.metadata.fetch("stderr_bytes")
+  end
+
+  test "execution_interrupted terminalizes any still-running command runs attached to the task" do
+    context = build_exec_command_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_started",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 15
+    )
+
+    binding = agent_task_run.reload.tool_bindings.joins(:tool_definition).find_by!(
+      tool_definitions: { tool_name: "exec_command" }
+    )
+    invocation = ToolInvocations::Start.call(
+      tool_binding: binding,
+      request_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "cat",
+        "pty" => true,
+      },
+      idempotency_key: "tool-call-#{next_test_sequence}",
+      metadata: {
+        "stream_output" => true,
+      }
+    )
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "cat",
+      timeout_seconds: 30,
+      pty: true,
+      metadata: {}
+    ).command_run
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_interrupted",
+      protocol_message_id: "agent-interrupted-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      terminal_payload: {
+        "failure_kind" => "interrupted",
+        "last_error_summary" => "task interrupted",
+      }
+    )
+
+    assert command_run.reload.interrupted?
+    assert command_run.ended_at.present?
   end
 
   test "process_output broadcasts runtime process chunks without mutating durable process payloads" do

@@ -14,7 +14,10 @@ product execution/control protocol:
 - runtime connects outbound to `Core Matrix`
 - realtime mailbox delivery over `AgentControlChannel` is the primary path
 - `poll/report` remains the durable fallback path
-- short-lived commands become attached task sub-execution
+- tool side effects are created through machine-facing public APIs before local
+  execution begins
+- short-lived commands become `CommandRun`-backed task sub-execution under a
+  durable `ToolInvocation`
 - long-lived processes remain `ProcessRun`-owned environment resources
 - `/runtime/executions` is removed as a product path
 
@@ -27,6 +30,7 @@ Specifically, it absorbs the protocol- and runtime-facing parts of:
 
 - attached command tools (`exec_command`, `write_stdin`)
 - long-lived process handling
+- machine-facing runtime resource creation APIs
 - runtime-side worker/executor structure
 
 It does **not** absorb the broader runtime appliance scope such as plugin
@@ -44,15 +48,21 @@ path is still split:
 - manual validation had to bridge into `/runtime/executions` instead of using
   only the real mailbox control plane
 - short-lived commands were recently split out of `ProcessRun`, but runtime
-  cancellation still stops at the parent task boundary rather than flowing
-  through a first-class runtime worker contract
+  side effects still begin locally before the kernel has a first-class durable
+  resource identity for them
+- long-lived process close/output now has a runtime-side manager, but there is
+  still no public API that lets the runtime ask the kernel to create the
+  backing `ProcessRun` before local launch
 
-This leaves three problems:
+This leaves four problems:
 
 1. product execution/control is not expressed through one canonical protocol
-2. attached command cancellation is not modeled through a true runtime worker
-   and local execution-handle registry
-3. long-lived process control and short-lived command control are separated in
+2. attached command creation is not yet kernel-first, which blocks future
+   approval/governance insertion at resource-creation time
+3. long-lived process creation is not yet kernel-first, which leaves the
+   runtime without a supported way to obtain a `ProcessRun public_id` before
+   local launch
+4. long-lived process control and short-lived command control are separated in
    the data model but not yet fully separated in runtime integration
 
 ## Decision
@@ -64,6 +74,7 @@ The canonical product protocol is:
 - realtime mailbox delivery over `AgentControlChannel`
 - fallback mailbox delivery over `POST /agent_api/control/poll`
 - runtime reports over `POST /agent_api/control/report`
+- machine-facing create APIs for runtime-side durable resources
 
 `/runtime/executions` is removed as a product path.
 
@@ -88,7 +99,28 @@ This is already aligned with:
 - [agent-registry-and-connectivity-foundations.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md)
 - [agent-runtime-resource-apis.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md)
 
-### 3. Short-lived commands are attached task execution, not closable runtime resources
+### 3. Kernel-owned resources are created before local side effects begin
+
+`Core Matrix` remains the source of truth for durable side-effect resources.
+The runtime must request creation before it starts a local side effect.
+
+The machine-facing API family is:
+
+- `POST /agent_api/tool_invocations`
+- `POST /agent_api/command_runs`
+- `POST /agent_api/process_runs`
+
+The intent is:
+
+- every tool call that wants first-class governance/audit is materialized as a
+  `ToolInvocation`
+- every `exec_command` call also materializes a `CommandRun`
+- every detached long-lived service also materializes a `ProcessRun`
+
+This keeps approval/governance insertion points on the kernel side instead of
+after the runtime has already mutated the environment.
+
+### 4. Short-lived commands are attached task execution, not closable runtime resources
 
 Attached commands adopt Codex-like semantics:
 
@@ -98,16 +130,23 @@ Attached commands adopt Codex-like semantics:
 Behavior:
 
 - belong to one parent `AgentTaskRun`
-- stream stdout/stderr through temporary runtime events
-- terminal result is durable as one `ToolInvocation`
-- local session lifecycle is subordinate to the parent task attempt
+- always create a `ToolInvocation`
+- always create a `CommandRun`
+- may stream stdout/stderr through temporary runtime events
+- terminal tool result is durable on the `ToolInvocation`
+- session lifecycle is durable on `CommandRun`
+- local PTY/session lifecycle is subordinate to the parent task attempt and the
+  kernel-owned `CommandRun`
 - kernel never creates a `ProcessRun` or close request for attached commands
 
-### 4. Long-lived processes remain environment-plane resources
+### 5. Long-lived processes remain environment-plane resources
 
 Long-lived developer services and background processes continue to map to:
 
+- `process_exec`
 - `ProcessRun`
+- `process_started`
+- `process_exited`
 - `runtime.process_run.output`
 - `resource_close_request`
 - `resource_close_acknowledged`
@@ -115,7 +154,11 @@ Long-lived developer services and background processes continue to map to:
 - `resource_close_failed`
 
 They are managed by a distinct runtime-side process manager and never masquerade
-as attached command tools.
+as attached command tools. Creation also becomes kernel-first through
+`POST /agent_api/process_runs`. The kernel first provisions a `starting`
+`ProcessRun`; the runtime then reports `process_started` after the local handle
+is live, and later reports `process_exited` if the process terminates without a
+close request.
 
 ## Architecture
 
@@ -128,6 +171,8 @@ as attached command tools.
 - lease ownership and freshness
 - workflow and turn lifecycle
 - durable audit records
+- durable runtime resource creation
+- future approval/governance checkpoints
 
 It should not gain a second runtime execution transport.
 
@@ -137,7 +182,8 @@ It should not gain a second runtime execution transport.
 
 - consumes realtime mailbox deliveries
 - falls back to `poll`
-- creates local task attempts and local process handles
+- creates local task attempts and local handles only after the kernel has
+  returned a durable resource identity
 - emits incremental reports
 - routes close requests to the right local execution owner
 
@@ -148,6 +194,8 @@ role of `/runtime/executions`.
 
 The attached command executor owns:
 
+- `ToolInvocation` creation request
+- `CommandRun` creation request
 - local subprocess or PTY startup
 - `exec_command`
 - `write_stdin`
@@ -155,18 +203,21 @@ The attached command executor owns:
 - local timeout/terminate
 - cancellation propagation from the parent task attempt
 
-It never creates `ProcessRun`.
+It never creates `ProcessRun`, and it never starts a local command before the
+kernel has returned the `CommandRun public_id`.
 
 ### Long-lived process manager
 
 The process manager owns:
 
+- `ProcessRun` creation request
 - local handle registry for `ProcessRun`
 - output tailing
 - close acknowledgement
 - terminal close result
 
-It never reports through `ToolInvocation`.
+It never reports through `ToolInvocation`, and it never starts a local process
+before the kernel has returned the `ProcessRun public_id`.
 
 ## State Model
 
@@ -191,14 +242,29 @@ This is runtime-local operational state, not a new kernel aggregate.
 
 ### Attached command session
 
-Attached command sessions are runtime-local and subordinate:
+`CommandRun` is the durable kernel identity for attached commands.
+
+The runtime still needs one subordinate local session model:
 
 - `open`
 - `closing`
 - `closed`
 
-They are referenced by runtime-issued session ids for `write_stdin`, not by
-kernel-owned public ids.
+`write_stdin` addresses the kernel-owned `CommandRun public_id`; the runtime may
+internally maintain a narrower PTY/session id, but that id is not a public
+protocol identity.
+
+### Tool invocation
+
+`ToolInvocation` becomes the durable governance/audit wrapper for runtime-side
+tool execution:
+
+- `requested`
+- `running`
+- terminal
+
+Streaming output is optional and transport-only. The durable row keeps the
+request, summary result, and governance metadata, not raw streamed bodies.
 
 ### Process handle
 
@@ -243,6 +309,27 @@ Long-lived process close stays environment-plane:
 
 No `execution_*` reports are involved.
 
+## Creation Semantics
+
+### ToolInvocation creation
+
+Before a runtime-owned tool with first-class governance support begins, the
+runtime requests `ToolInvocation` creation from the kernel. This gives the tool
+call a durable public identity that future approval/governance can hang from.
+
+### CommandRun creation
+
+Every `exec_command` creates a `CommandRun`, even when the command is one-shot
+and non-interactive. That keeps cancellation, PTY, streaming, and future
+approvals on one uniform model instead of splitting one-shot and interactive
+commands.
+
+### ProcessRun creation
+
+Every detached long-lived service creates a `ProcessRun` before local launch.
+The runtime must not start the service first and backfill the durable record
+later.
+
 ## Transport Rules
 
 - realtime push is preferred whenever the runtime has an open control link
@@ -258,6 +345,9 @@ No `execution_*` reports are involved.
 ### Keep
 
 - `GET /runtime/manifest`
+- `POST /agent_api/tool_invocations`
+- `POST /agent_api/command_runs`
+- `POST /agent_api/process_runs`
 - `POST /agent_api/control/poll`
 - `POST /agent_api/control/report`
 - `/cable` `AgentControlChannel`
@@ -270,6 +360,14 @@ No `execution_*` reports are involved.
 If a local debug-only execution surface is ever reintroduced, it must be
 explicitly documented as debug-only and must not be reused as the product
 protocol.
+
+Tool names remain optimized for tool-calling success:
+
+- `exec_command`
+- `write_stdin`
+
+The machine-facing public APIs may stay specialized even when the user-facing
+tool names remain generic.
 
 ## Verification
 

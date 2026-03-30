@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_30_175000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -275,6 +275,27 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["agent_deployment_id"], name: "index_capability_snapshots_on_agent_deployment_id"
   end
 
+  create_table "command_runs", force: :cascade do |t|
+    t.bigint "agent_task_run_id", null: false
+    t.string "command_line", null: false
+    t.datetime "created_at", null: false
+    t.datetime "ended_at"
+    t.integer "exit_status"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "running", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.boolean "pty", default: false, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "started_at", null: false
+    t.integer "timeout_seconds"
+    t.bigint "tool_invocation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_task_run_id"], name: "index_command_runs_on_agent_task_run_id"
+    t.index ["installation_id"], name: "index_command_runs_on_installation_id"
+    t.index ["public_id"], name: "index_command_runs_on_public_id", unique: true
+    t.index ["tool_invocation_id"], name: "index_command_runs_on_tool_invocation_id", unique: true
+  end
+
   create_table "conversation_close_operations", force: :cascade do |t|
     t.datetime "completed_at"
     t.bigint "conversation_id", null: false
@@ -286,7 +307,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.datetime "requested_at", null: false
     t.jsonb "summary_payload", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL ((ARRAY['completed'::character varying, 'degraded'::character varying])::text[]))"
+    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL (ARRAY[('completed'::character varying)::text, ('degraded'::character varying)::text]))"
     t.index ["conversation_id"], name: "index_conversation_close_operations_on_conversation_id"
     t.index ["installation_id"], name: "index_conversation_close_operations_on_installation_id"
     t.index ["public_id"], name: "index_conversation_close_operations_on_public_id", unique: true
@@ -406,9 +427,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
-    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
-    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
-    t.check_constraint "during_generation_input_policy::text = ANY (ARRAY['reject'::character varying, 'restart'::character varying, 'queue'::character varying]::text[])", name: "chk_conversations_during_generation_input_policy"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
+    t.check_constraint "during_generation_input_policy::text = ANY (ARRAY['reject'::character varying::text, 'restart'::character varying::text, 'queue'::character varying::text])", name: "chk_conversations_during_generation_input_policy"
   end
 
   create_table "execution_environments", force: :cascade do |t|
@@ -567,7 +588,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["lineage_store_snapshot_id"], name: "index_lineage_store_entries_on_lineage_store_snapshot_id"
     t.index ["lineage_store_value_id"], name: "index_lineage_store_entries_on_lineage_store_value_id"
     t.check_constraint "entry_kind::text = 'set'::text AND lineage_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND lineage_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_lineage_store_entries_value_shape"
-    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying, 'tombstone'::character varying]::text[])", name: "chk_lineage_store_entries_kind"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_lineage_store_entries_kind"
     t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_lineage_store_entries_key_bytes"
   end
 
@@ -590,8 +611,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.datetime "updated_at", null: false
     t.index ["base_snapshot_id"], name: "index_lineage_store_snapshots_on_base_snapshot_id"
     t.index ["lineage_store_id"], name: "index_lineage_store_snapshots_on_lineage_store_id"
-    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying, 'compaction'::character varying]::text[])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_lineage_store_snapshots_shape"
-    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying, 'write'::character varying, 'compaction'::character varying]::text[])", name: "chk_lineage_store_snapshots_kind"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_lineage_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_lineage_store_snapshots_kind"
   end
 
   create_table "lineage_store_values", force: :cascade do |t|
@@ -668,6 +689,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.datetime "ended_at"
     t.bigint "execution_environment_id", null: false
     t.integer "exit_status"
+    t.string "idempotency_key"
     t.bigint "installation_id", null: false
     t.string "kind", null: false
     t.string "lifecycle_state", default: "running", null: false
@@ -687,6 +709,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["origin_message_id"], name: "index_process_runs_on_origin_message_id"
     t.index ["public_id"], name: "index_process_runs_on_public_id", unique: true
     t.index ["turn_id"], name: "index_process_runs_on_turn_id"
+    t.index ["workflow_node_id", "idempotency_key"], name: "idx_process_runs_workflow_node_idempotency", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["workflow_node_id", "lifecycle_state"], name: "index_process_runs_on_workflow_node_id_and_lifecycle_state"
     t.index ["workflow_node_id"], name: "index_process_runs_on_workflow_node_id"
   end
@@ -895,6 +918,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["installation_id"], name: "index_tool_invocations_on_installation_id"
     t.index ["public_id"], name: "index_tool_invocations_on_public_id", unique: true
     t.index ["tool_binding_id", "attempt_no"], name: "idx_tool_invocations_binding_attempt", unique: true
+    t.index ["tool_binding_id", "idempotency_key"], name: "idx_tool_invocations_binding_idempotency", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["tool_binding_id"], name: "index_tool_invocations_on_tool_binding_id"
     t.index ["tool_definition_id"], name: "index_tool_invocations_on_tool_definition_id"
     t.index ["tool_implementation_id"], name: "index_tool_invocations_on_tool_implementation_id"
@@ -1053,7 +1077,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["workflow_run_id", "artifact_key"], name: "index_workflow_artifacts_on_workflow_run_id_and_artifact_key"
     t.index ["workflow_run_id"], name: "index_workflow_artifacts_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_artifacts_on_workspace_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_artifacts_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_artifacts_presentation_policy"
   end
 
   create_table "workflow_edges", force: :cascade do |t|
@@ -1071,7 +1095,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["workflow_run_id", "from_node_id", "ordinal"], name: "idx_on_workflow_run_id_from_node_id_ordinal_2bc1936b9e", unique: true
     t.index ["workflow_run_id", "from_node_id", "to_node_id"], name: "idx_on_workflow_run_id_from_node_id_to_node_id_54f159bded", unique: true
     t.index ["workflow_run_id"], name: "index_workflow_edges_on_workflow_run_id"
-    t.check_constraint "requirement::text = ANY (ARRAY['required'::character varying, 'optional'::character varying]::text[])", name: "chk_workflow_edges_requirement"
+    t.check_constraint "requirement::text = ANY (ARRAY['required'::character varying::text, 'optional'::character varying::text])", name: "chk_workflow_edges_requirement"
   end
 
   create_table "workflow_node_events", force: :cascade do |t|
@@ -1098,7 +1122,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["workflow_run_id", "event_kind"], name: "index_workflow_node_events_on_workflow_run_id_and_event_kind"
     t.index ["workflow_run_id"], name: "index_workflow_node_events_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_node_events_on_workspace_id"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_node_events_presentation_policy"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_node_events_presentation_policy"
   end
 
   create_table "workflow_nodes", force: :cascade do |t|
@@ -1134,8 +1158,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
     t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_nodes_on_workspace_id"
     t.index ["yielding_workflow_node_id"], name: "index_workflow_nodes_on_yielding_workflow_node_id"
-    t.check_constraint "lifecycle_state::text = ANY (ARRAY['pending'::character varying, 'queued'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'canceled'::character varying]::text[])", name: "chk_workflow_nodes_lifecycle_state"
-    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying, 'ops_trackable'::character varying, 'user_projectable'::character varying]::text[])", name: "chk_workflow_nodes_presentation_policy"
+    t.check_constraint "lifecycle_state::text = ANY (ARRAY['pending'::character varying::text, 'queued'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'canceled'::character varying::text])", name: "chk_workflow_nodes_lifecycle_state"
+    t.check_constraint "presentation_policy::text = ANY (ARRAY['internal_only'::character varying::text, 'ops_trackable'::character varying::text, 'user_projectable'::character varying::text])", name: "chk_workflow_nodes_presentation_policy"
   end
 
   create_table "workflow_runs", force: :cascade do |t|
@@ -1224,6 +1248,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_143000) do
   add_foreign_key "canonical_variables", "workflow_runs", column: "source_workflow_run_id"
   add_foreign_key "canonical_variables", "workspaces"
   add_foreign_key "capability_snapshots", "agent_deployments"
+  add_foreign_key "command_runs", "agent_task_runs"
+  add_foreign_key "command_runs", "installations"
+  add_foreign_key "command_runs", "tool_invocations"
   add_foreign_key "conversation_close_operations", "conversations"
   add_foreign_key "conversation_close_operations", "installations"
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"

@@ -125,6 +125,25 @@ class RuntimeFlowTest < ActiveSupport::TestCase
     assert_equal true, completed_invocation.dig("response_payload", "output_streamed")
   end
 
+  test "mailbox worker supports process_exec through the process manager contract" do
+    body = run_runtime_execution(
+      runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "process_exec",
+          "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["process_exec"]
+        )
+      )
+    )
+
+    assert_equal "completed", body.fetch("status")
+    assert_match(/Background service started as process run /, body.fetch("output"))
+    refute body.fetch("reports").last.fetch("terminal_payload").key?("tool_invocations")
+  end
+
   test "mailbox worker persists runtime failures through handle_error" do
     body = run_runtime_execution(runtime_assignment_payload(mode: "raise_error"))
 

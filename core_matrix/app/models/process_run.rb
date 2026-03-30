@@ -9,6 +9,7 @@ class ProcessRun < ApplicationRecord
     validate: true
   enum :lifecycle_state,
     {
+      starting: "starting",
       running: "running",
       stopped: "stopped",
       failed: "failed",
@@ -133,7 +134,7 @@ class ProcessRun < ApplicationRecord
   def lifecycle_timestamps
     errors.add(:started_at, "must exist") if started_at.blank?
 
-    if running?
+    if starting? || running?
       errors.add(:ended_at, "must be blank while process run is running") if ended_at.present?
       return
     end

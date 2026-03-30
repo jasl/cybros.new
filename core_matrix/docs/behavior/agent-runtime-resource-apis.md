@@ -8,6 +8,7 @@ Core Matrix exposes machine-facing runtime resource APIs for:
 - conversation-local lineage store reads and writes
 - workspace-scoped canonical variable reads and writes
 - workflow-owned human interaction request creation
+- workflow-owned `ToolInvocation`, `CommandRun`, and `ProcessRun` creation
 - mailbox-driven execution delivery and close control
 
 The resource plane stays a thin HTTP boundary over authenticated lookups,
@@ -132,8 +133,30 @@ orchestration are still defined in:
     text
   - the chunks are broadcast on the temporary conversation runtime stream and
     are not persisted on the `ProcessRun` row
+- `process_started` is the runtime-side activation report for a provisioned
+  detached `ProcessRun`:
+  - the kernel creates the durable resource first through
+    `POST /agent_api/process_runs`
+  - the runtime reports `process_started` only after the local process handle
+    is live
+  - the report transitions the `ProcessRun` from `starting` to `running`
+- `process_exited` is the runtime-side terminal report for a detached
+  `ProcessRun` that stops without a mailbox close request:
+  - it is accepted only while the process is still `starting` or `running`
+  - payload carries terminal `lifecycle_state`, optional `exit_status`, and
+    summary metadata such as `reason`
+  - the report terminalizes the durable `ProcessRun` and emits the matching
+    `runtime.process_run.*` stream event without creating a `ToolInvocation`
 - short-lived command output does not use `process_output`; it is reported
   through execution progress as `runtime.tool_invocation.output`
+- short-lived command resources are created in two steps before local spawn:
+  - `POST /agent_api/tool_invocations`
+  - `POST /agent_api/command_runs`
+- detached long-lived process resources are created before local spawn through:
+  - `POST /agent_api/process_runs`
+- detached long-lived process tools such as `process_exec` then activate that
+  durable resource through `process_started`; they do not create `ToolInvocation`
+  rows or `CommandRun` rows
 - the terminal `ToolInvocation.response_payload` for short-lived commands should
   keep structured summary data only, such as exit status and streamed byte
   counts, rather than raw stdout/stderr bodies
@@ -258,6 +281,11 @@ orchestration are still defined in:
 - payload fields such as `workspace_id`, `conversation_id`, `turn_id`,
   `workflow_run_id`, `workflow_node_id`, `agent_task_run_id`, and
   `resource_id` carry `public_id` values
+- machine-facing runtime resource creation also uses `public_id` only:
+  - `agent_task_run_id`
+  - `tool_invocation_id`
+  - `command_run_id`
+  - `process_run_id`
 - workflow wait blockers also use durable identifiers:
   - `WorkflowRun.blocking_resource_id` stores `public_id` values, including
     `AgentDeployment.public_id` for `agent_unavailable`
@@ -288,8 +316,13 @@ orchestration are still defined in:
 - later tool use is expected to record `ToolInvocation` rows against those
   bindings instead of bypassing the task boundary with source-specific audit
   paths
-- the durable binding and invocation rows remain kernel-owned audit state; they
-  are not currently separate HTTP resource endpoints
+- runtime-owned tool execution now requests kernel-owned `ToolInvocation`
+  resources through `POST /agent_api/tool_invocations` before local side
+  effects begin
+- command tools that need an attached process handle additionally request one
+  `CommandRun` through `POST /agent_api/command_runs`
+- detached long-lived environment processes request one `ProcessRun` through
+  `POST /agent_api/process_runs` before local spawn
 - capability refresh exposes the winning governed tool definition and
   implementation ids as `public_id` values inside
   `governed_effective_tool_catalog`

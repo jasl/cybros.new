@@ -34,6 +34,7 @@ class AgentTaskRun < ApplicationRecord
   has_many :agent_control_report_receipts, dependent: :restrict_with_exception
   has_many :tool_bindings, dependent: :destroy
   has_many :tool_invocations, dependent: :destroy
+  has_many :command_runs, dependent: :destroy
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
   validates :logical_work_id, presence: true
