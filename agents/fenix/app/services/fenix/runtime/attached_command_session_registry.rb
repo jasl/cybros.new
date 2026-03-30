@@ -49,6 +49,20 @@ module Fenix
           end
         end
 
+        def terminate_for_agent_task(agent_task_run_id:)
+          sessions = synchronize do
+            entries.values.select { |entry| entry.agent_task_run_id == agent_task_run_id }
+          end
+
+          sessions.each do |entry|
+            terminate_entry(entry)
+          end
+
+          synchronize do
+            entries.delete_if { |_session_id, entry| entry.agent_task_run_id == agent_task_run_id }
+          end
+        end
+
         def reset!
           synchronize do
             entries.clear
@@ -67,6 +81,19 @@ module Fenix
 
         def synchronize(&block)
           mutex.synchronize(&block)
+        end
+
+        def terminate_entry(entry)
+          entry.stdin.close unless entry.stdin.closed?
+          pid = entry.wait_thread.pid
+          Process.kill("TERM", pid)
+          sleep(0.1)
+          Process.kill("KILL", pid)
+        rescue IOError, Errno::ESRCH
+          nil
+        ensure
+          entry.stdout.close unless entry.stdout.closed?
+          entry.stderr.close unless entry.stderr.closed?
         end
       end
     end
