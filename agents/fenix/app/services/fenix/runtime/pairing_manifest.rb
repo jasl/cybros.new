@@ -245,9 +245,6 @@ module Fenix
         },
       }.freeze
       ENVIRONMENT_KIND = "local".freeze
-      ENVIRONMENT_CAPABILITY_PAYLOAD = {
-        "conversation_attachment_upload" => false,
-      }.freeze
       ENVIRONMENT_TOOL_CATALOG = [].freeze
 
       def self.call(...)
@@ -266,7 +263,7 @@ module Fenix
           "environment_kind" => ENVIRONMENT_KIND,
           "environment_fingerprint" => environment_fingerprint,
           "environment_connection_metadata" => endpoint_metadata,
-          "environment_capability_payload" => ENVIRONMENT_CAPABILITY_PAYLOAD,
+          "environment_capability_payload" => environment_capability_payload,
           "environment_tool_catalog" => ENVIRONMENT_TOOL_CATALOG,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
@@ -312,8 +309,31 @@ module Fenix
       def environment_plane
         {
           "runtime_plane" => "environment",
-          "capability_payload" => ENVIRONMENT_CAPABILITY_PAYLOAD,
+          "capability_payload" => environment_capability_payload,
           "tool_catalog" => ENVIRONMENT_TOOL_CATALOG,
+        }
+      end
+
+      def environment_capability_payload
+        {
+          "conversation_attachment_upload" => false,
+          "runtime_foundation" => runtime_foundation,
+        }
+      end
+
+      def runtime_foundation
+        {
+          "base_image" => "ubuntu-24.04",
+          "toolchains" => %w[ruby node python],
+          "versions" => {
+            "ruby" => version_file_contents(".ruby-version"),
+            "node" => version_file_contents(".node-version"),
+            "python" => version_file_contents(".python-version"),
+          }.compact,
+          "bootstrap_scripts" => [
+            "/rails/scripts/bootstrap-runtime-deps.sh",
+            "/rails/scripts/bootstrap-runtime-deps-darwin.sh",
+          ],
         }
       end
 
@@ -336,6 +356,13 @@ module Fenix
 
       def environment_fingerprint
         "fenix:#{Socket.gethostname}"
+      end
+
+      def version_file_contents(relative_path)
+        path = Rails.root.join(relative_path)
+        return unless path.exist?
+
+        path.read.strip
       end
     end
   end

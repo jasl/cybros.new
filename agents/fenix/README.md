@@ -57,6 +57,19 @@ pairing:
 - config schema snapshots
 - default config snapshot
 
+The manifest now also carries a small runtime-foundation block inside
+`environment_capability_payload.runtime_foundation` so operators can inspect the
+expected host/toolchain baseline without reading deployment docs first. The
+current baseline is:
+
+- canonical container base: Ubuntu 24.04
+- Ruby pinned by [.ruby-version](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/.ruby-version)
+- Node pinned by [.node-version](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/.node-version)
+- Python pinned by [.python-version](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/.python-version)
+- shared bootstrap scripts:
+  - [bootstrap-runtime-deps.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps.sh)
+  - [bootstrap-runtime-deps-darwin.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps-darwin.sh)
+
 The manifest now declares runtime-owned profile and subagent defaults:
 
 - `default_config_snapshot.interactive.profile` is fixed to `main` for root
