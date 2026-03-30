@@ -70,12 +70,11 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal [], calls
     assert_equal "canceled", runtime_execution.reload.status
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     Fenix::Runtime::CommandRunRegistry.reset!
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
-  test "agent task close requests terminate command runs and release the active attempt" do
+  test "agent task close requests terminate command runs" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     stdin = nil
     stdout = nil
@@ -93,12 +92,6 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
         stderr: stderr,
         wait_thread: wait_thread
       )
-      Fenix::Runtime::AttemptRegistry.register(
-        agent_task_run_id: agent_task_run_id,
-        logical_work_id: "logical-work-1",
-        attempt_no: 1,
-        runtime_execution_id: 123
-      )
 
       result = nil
 
@@ -115,7 +108,6 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       end
 
       assert_equal :handled, result
-      assert_nil Fenix::Runtime::AttemptRegistry.lookup(agent_task_run_id: agent_task_run_id)
       assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run.command_run_id)
       refute wait_thread.alive?
     ensure

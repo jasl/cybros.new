@@ -76,7 +76,6 @@ module Fenix
 
       def cleanup!
         Fenix::Runtime::CommandRunRegistry.reset!
-        Fenix::Runtime::AttemptRegistry.reset!
       end
 
       def run_control_loop

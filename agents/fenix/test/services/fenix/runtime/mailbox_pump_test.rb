@@ -130,12 +130,6 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
         stderr: stderr,
         wait_thread: wait_thread
       )
-      Fenix::Runtime::AttemptRegistry.register(
-        agent_task_run_id: agent_task_run_id,
-        logical_work_id: "logical-work-1",
-        attempt_no: 1,
-        runtime_execution_id: 123
-      )
 
       client = FakeControlClient.new(
         mailbox_items: [
@@ -160,7 +154,6 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
 
       assert_equal %w[resource_close_acknowledged resource_closed],
         client.reported_payloads.map { |payload| payload.fetch("method_id") }
-      assert_nil Fenix::Runtime::AttemptRegistry.lookup(agent_task_run_id: agent_task_run_id)
     ensure
       stdin&.close unless stdin.nil? || stdin.closed?
       stdout&.close unless stdout.nil? || stdout.closed?

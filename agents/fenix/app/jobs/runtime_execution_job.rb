@@ -13,7 +13,7 @@ class RuntimeExecutionJob < ApplicationJob
       runtime_execution.update!(status: "running", started_at: runtime_execution.started_at || Time.current)
     end
 
-    attempt = Fenix::Runtime::AttemptRegistry.register(
+    attempt = Fenix::Runtime::ExecutionAttempt.new(
       agent_task_run_id: runtime_execution.mailbox_item_payload.dig("payload", "agent_task_run_id"),
       logical_work_id: runtime_execution.logical_work_id,
       attempt_no: runtime_execution.attempt_no,
@@ -44,7 +44,6 @@ class RuntimeExecutionJob < ApplicationJob
     )
     raise
   ensure
-    Fenix::Runtime::AttemptRegistry.release(agent_task_run_id: attempt.agent_task_run_id) if attempt.present?
   end
 
   private

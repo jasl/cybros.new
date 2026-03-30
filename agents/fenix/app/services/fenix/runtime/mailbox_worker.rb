@@ -69,7 +69,6 @@ module Fenix
           agent_task_run_id: agent_task_run_id
         )
         cancel_runtime_executions!(agent_task_run_id:)
-        Fenix::Runtime::AttemptRegistry.release(agent_task_run_id: agent_task_run_id)
         report_close_lifecycle! if @deliver_reports
 
         :handled

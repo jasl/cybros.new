@@ -29,7 +29,6 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_empty calls
     assert_equal "running", runtime_execution.reload.status
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
@@ -76,11 +75,10 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_equal %w[execution_started execution_progress execution_complete], runtime_execution.reload.reports.map { |report| report.fetch("method_id") }
     assert_equal "completed", runtime_execution.status
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
-  test "registers the active attempt while the execution is running and releases it afterward" do
+  test "passes execution attempt metadata while the execution is running" do
     runtime_execution = RuntimeExecution.create!(
       mailbox_item_id: "mailbox-item-3",
       protocol_message_id: "protocol-message-3",
@@ -96,13 +94,8 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
     original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
     observed_attempt = nil
-    lookup_during_execution = nil
-
     execute_assignment_singleton.send(:define_method, :call) do |mailbox_item:, on_report: nil, attempt:, cancellation_probe: nil|
       observed_attempt = attempt
-      lookup_during_execution = Fenix::Runtime::AttemptRegistry.lookup(
-        agent_task_run_id: mailbox_item.dig("payload", "agent_task_run_id")
-      )
 
       Fenix::Runtime::ExecuteAssignment::Result.new(
         status: "completed",
@@ -117,10 +110,8 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_equal runtime_execution.mailbox_item_payload.dig("payload", "agent_task_run_id"), observed_attempt.agent_task_run_id
     assert_equal runtime_execution.logical_work_id, observed_attempt.logical_work_id
     assert_equal runtime_execution.attempt_no, observed_attempt.attempt_no
-    assert_same observed_attempt, lookup_during_execution
-    assert_nil Fenix::Runtime::AttemptRegistry.lookup(agent_task_run_id: observed_attempt.agent_task_run_id)
+    assert_equal runtime_execution.id, observed_attempt.runtime_execution_id
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
@@ -164,7 +155,6 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_equal "canceled", runtime_execution.status
     assert_equal "canceled", runtime_execution.error_payload.fetch("failure_kind")
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
@@ -205,7 +195,6 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_empty Fenix::Runtime::ControlPlane.client.tool_invocation_requests
     assert_empty Fenix::Runtime::ControlPlane.client.command_run_requests
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     review_tool_call_singleton.send(:define_method, :call, original_review_tool_call) if review_tool_call_singleton && original_review_tool_call
   end
 
@@ -258,7 +247,6 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_equal "stopped", exited_report.fetch("lifecycle_state")
     assert_equal "canceled_before_start", exited_report.dig("metadata", "reason")
   ensure
-    Fenix::Runtime::AttemptRegistry.reset!
     control_client.define_singleton_method(:create_process_run!, original_create_process_run) if control_client && original_create_process_run
   end
 end

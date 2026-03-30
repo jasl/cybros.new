@@ -158,7 +158,6 @@ module ActiveSupport
         Fenix::Runtime::ControlPlane.instance_variable_get(:@client) :
         :__undefined__
       Fenix::Runtime::ControlPlane.client = build_runtime_control_client
-      Fenix::Runtime::AttemptRegistry.reset!
       Fenix::Runtime::CommandRunRegistry.reset!
       Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
     end
@@ -171,7 +170,6 @@ module ActiveSupport
       else
         Fenix::Runtime::ControlPlane.client = @original_control_plane_client
       end
-      Fenix::Runtime::AttemptRegistry.reset!
       Fenix::Runtime::CommandRunRegistry.reset!
       Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
     end
