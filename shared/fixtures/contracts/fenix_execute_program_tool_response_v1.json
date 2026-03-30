@@ -1,0 +1,13 @@
+{
+  "status": "completed",
+  "tool_call": {
+    "call_id": "tool-call-public-id",
+    "tool_name": "calculator",
+    "arguments": {
+      "expression": "2 + 2"
+    }
+  },
+  "result": 4,
+  "output_chunks": [],
+  "summary": "4"
+}

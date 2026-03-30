@@ -9,5 +9,7 @@ Rails.application.routes.draw do
   # root "posts#index"
   namespace :runtime do
     resource :manifest, only: :show
+    post "rounds/prepare", to: "rounds#prepare"
+    post "program_tools/execute", to: "program_tools#execute"
   end
 end

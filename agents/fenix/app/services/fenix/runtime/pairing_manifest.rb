@@ -3,7 +3,7 @@ require "socket"
 module Fenix
   module Runtime
     class PairingManifest
-      PROTOCOL_VERSION = "2026-03-24".freeze
+      PROTOCOL_VERSION = "2026-03-31".freeze
       SDK_VERSION = "fenix-0.1.0".freeze
       PROTOCOL_METHOD_IDS = %w[
         agent_health
@@ -171,6 +171,18 @@ module Fenix
         new(...).call
       end
 
+      def self.program_tool_catalog
+        new(base_url: "http://runtime.invalid").send(:tool_catalog)
+      end
+
+      def self.visible_program_tool_catalog(allowed_tool_names:)
+        catalog = program_tool_catalog
+        allowed = Array(allowed_tool_names).map(&:to_s).uniq
+        return catalog if allowed.empty?
+
+        catalog.select { |entry| allowed.include?(entry.fetch("tool_name")) }
+      end
+
       def initialize(base_url:)
         @base_url = base_url
       end
@@ -189,6 +201,7 @@ module Fenix
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "endpoint_metadata" => endpoint_metadata,
+          "program_contract" => program_contract,
           "protocol_methods" => protocol_methods,
           "tool_catalog" => tool_catalog,
           "profile_catalog" => profile_catalog,
@@ -208,6 +221,15 @@ module Fenix
           "transport" => "http",
           "base_url" => @base_url,
           "runtime_manifest_path" => "/runtime/manifest",
+          "prepare_round_path" => "/runtime/rounds/prepare",
+          "execute_program_tool_path" => "/runtime/program_tools/execute",
+        }
+      end
+
+      def program_contract
+        {
+          "version" => "v1",
+          "methods" => %w[prepare_round execute_program_tool],
         }
       end
 

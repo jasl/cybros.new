@@ -104,7 +104,7 @@ module Fenix
       def execute_deterministic_tool_flow
         check_canceled!
         tool_call = build_deterministic_tool_call
-        assert_execution_topology_supported!(tool_name: tool_call.fetch("tool_name"))
+        program_tool_executor.send(:assert_execution_topology_supported!, tool_name: tool_call.fetch("tool_name"))
         return execute_process_tool_flow(tool_call) if process_tool?(tool_call.fetch("tool_name"))
 
         @current_tool_invocation = {
@@ -117,6 +117,7 @@ module Fenix
           allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
         )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
+        program_tool_executor.send(:assert_execution_topology_supported!, tool_name: reviewed_tool_call.fetch("tool_name"))
         check_canceled!
         tool_invocation = provision_tool_invocation!(reviewed_tool_call)
         check_canceled!
@@ -369,90 +370,12 @@ module Fenix
       end
 
       def execute_tool(tool_call, tool_invocation:, command_run:, process_run: nil)
-        case tool_call.fetch("tool_name")
-        when "calculator"
-          evaluate_expression(tool_call.dig("arguments", "expression"))
-        when "command_run_list", "command_run_read_output", "command_run_terminate", "command_run_wait", "exec_command", "write_stdin"
-          execute_exec_command_tool(tool_call, tool_invocation:, command_run:)
-        when "process_exec", "process_list", "process_proxy_info", "process_read_output"
-          execute_process_tool(tool_call:, process_run:)
-        when "browser_list", "browser_open", "browser_session_info", "browser_navigate", "browser_get_content", "browser_screenshot", "browser_close"
-          execute_browser_tool(tool_call)
-        when "exec_command"
-        when "workspace_find", "workspace_read", "workspace_stat", "workspace_tree", "workspace_write"
-          execute_workspace_tool(tool_call)
-        when "memory_append_daily", "memory_compact_summary", "memory_get", "memory_list", "memory_search", "memory_store"
-          execute_memory_tool(tool_call)
-        when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
-          execute_web_tool(tool_call)
-        else
-          raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
-        end
-      end
-
-      def evaluate_expression(expression)
-        left, operator, right = expression.to_s.strip.split(/\s+/, 3)
-        left_value = Integer(left)
-        right_value = Integer(right)
-
-        case operator
-        when "+"
-          left_value + right_value
-        when "-"
-          left_value - right_value
-        else
-          raise ArgumentError, "unsupported calculator operator #{operator}"
-        end
-      end
-
-      def execute_exec_command_tool(tool_call, tool_invocation:, command_run:)
-        Fenix::Plugins::System::ExecCommand::Runtime.call(
-          tool_call: tool_call.deep_dup,
-          tool_invocation: tool_invocation.deep_dup,
-          command_run: command_run.deep_dup,
-          collector: @collector,
-          control_client: @control_client,
-          cancellation_probe: @cancellation_probe,
-          current_agent_task_run_id:
-        )
-      end
-
-      def execute_process_tool(tool_call:, process_run:)
-        check_canceled! do
-          report_process_canceled_before_start!(process_run_id: process_run.fetch("process_run_id")) if process_run.present?
-        end
-        Fenix::Plugins::System::Process::Runtime.call(
-          tool_call: tool_call.deep_dup,
-          process_run: process_run&.deep_dup,
-          control_client: @control_client,
-          current_agent_task_run_id:
-        )
-      end
-
-      def execute_workspace_tool(tool_call)
-        Fenix::Plugins::System::Workspace::Runtime.call(
-          tool_call: tool_call.deep_dup,
-          workspace_root: @context.dig("workspace_context", "workspace_root")
-        )
-      end
-
-      def execute_memory_tool(tool_call)
-        Fenix::Plugins::System::Memory::Runtime.call(
-          tool_call: tool_call.deep_dup,
-          workspace_root: @context.dig("workspace_context", "workspace_root"),
-          conversation_id: @context.fetch("conversation_id")
-        )
-      end
-
-      def execute_web_tool(tool_call)
-        Fenix::Plugins::System::Web::Runtime.call(tool_call: tool_call.deep_dup)
-      end
-
-      def execute_browser_tool(tool_call)
-        Fenix::Plugins::System::Browser::Runtime.call(
-          tool_call: tool_call.deep_dup,
-          current_agent_task_run_id:
-        )
+        program_tool_executor.execute(
+          tool_call:,
+          tool_invocation:,
+          command_run:,
+          process_run:
+        ).tool_result
       end
 
       def canceled?
@@ -609,24 +532,6 @@ module Fenix
         tool_name == "process_exec"
       end
 
-      def assert_execution_topology_supported!(tool_name:)
-        return unless registry_backed_tool?(tool_name)
-
-        Fenix::Runtime::ExecutionTopology.assert_registry_backed_execution_supported!(tool_name:)
-      end
-
-      def registry_backed_tool?(tool_name)
-        process_tool?(tool_name) || %w[
-          exec_command
-          write_stdin
-          browser_open
-          browser_navigate
-          browser_get_content
-          browser_screenshot
-          browser_close
-        ].include?(tool_name)
-      end
-
       def provision_process_run!(tool_call)
         @control_client.create_process_run!(
           agent_task_run_id: current_agent_task_run_id,
@@ -645,39 +550,16 @@ module Fenix
       end
 
       def tool_invocation_error_payload(error)
-        case error
-        when Fenix::Hooks::ReviewToolCall::ToolNotVisibleError
-          {
-            "classification" => "authorization",
-            "code" => "tool_not_allowed",
-            "message" => error.message,
-            "retryable" => false,
-          }
-        when Fenix::Hooks::ReviewToolCall::UnsupportedToolError
-          {
-            "classification" => "semantic",
-            "code" => "unsupported_tool",
-            "message" => error.message,
-            "retryable" => false,
-          }
-        when Fenix::Plugins::System::Workspace::Runtime::ValidationError,
-          Fenix::Plugins::System::Memory::Runtime::ValidationError,
-          Fenix::Plugins::System::Web::Runtime::ValidationError,
-          Fenix::Plugins::System::Browser::Runtime::ValidationError
-          {
-            "classification" => "semantic",
-            "code" => "validation_error",
-            "message" => error.message,
-            "retryable" => false,
-          }
-        else
-          {
-            "classification" => "runtime",
-            "code" => "runtime_error",
-            "message" => error.message,
-            "retryable" => false,
-          }
-        end
+        Fenix::Runtime::ProgramToolExecutor.error_payload_for(error)
+      end
+
+      def program_tool_executor
+        @program_tool_executor ||= Fenix::Runtime::ProgramToolExecutor.new(
+          context: @context,
+          collector: @collector,
+          control_client: @control_client,
+          cancellation_probe: @cancellation_probe
+        )
       end
     end
   end

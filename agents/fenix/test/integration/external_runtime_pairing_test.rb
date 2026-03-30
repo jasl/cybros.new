@@ -16,9 +16,11 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_equal "FENIX_DEV_PROXY_PORT", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
     assert_equal 3310, body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "default_external_port")
     assert_equal "/dev/<process_run_id>", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "path_prefix_template")
-    assert_equal "2026-03-24", body.fetch("protocol_version")
+    assert_equal "2026-03-31", body.fetch("protocol_version")
     assert_equal "fenix-0.1.0", body.fetch("sdk_version")
-    assert_equal %w[base_url runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort
+    assert_equal %w[base_url execute_program_tool_path prepare_round_path runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort
+    assert_equal "v1", body.fetch("program_contract").fetch("version")
+    assert_equal %w[prepare_round execute_program_tool], body.fetch("program_contract").fetch("methods")
     assert_equal "Workspace", body.fetch("operator_groups").fetch("workspace").fetch("label")
     assert_includes body.fetch("operator_groups").fetch("workspace").fetch("tool_names"), "workspace_read"
     assert_includes body.fetch("operator_groups").fetch("command_run").fetch("tool_names"), "exec_command"

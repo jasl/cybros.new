@@ -1,0 +1,33 @@
+{
+  "tool_call_id": "tool-call-public-id",
+  "workflow_node_id": "workflow-node-public-id",
+  "conversation_id": "conversation-public-id",
+  "turn_id": "turn-public-id",
+  "tool_name": "calculator",
+  "arguments": {
+    "expression": "2 + 2"
+  },
+  "agent_context": {
+    "profile": "main",
+    "is_subagent": false,
+    "allowed_tool_names": [
+      "calculator"
+    ]
+  },
+  "provider_execution": {
+    "wire_api": "responses",
+    "execution_settings": {
+      "temperature": 0.2
+    }
+  },
+  "model_context": {
+    "provider_handle": "openai",
+    "model_ref": "gpt-4.1-mini",
+    "api_model": "gpt-4.1-mini",
+    "wire_api": "responses",
+    "transport": "http",
+    "tokenizer_hint": "o200k_base",
+    "provider_metadata": {},
+    "model_metadata": {}
+  }
+}
