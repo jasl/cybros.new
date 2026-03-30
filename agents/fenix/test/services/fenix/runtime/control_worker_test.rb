@@ -76,6 +76,34 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
     assert_includes method_ids, "resource_closed"
   end
 
+  test "backs off between empty failed iterations instead of hot looping" do
+    sleeps = []
+    worker = Fenix::Runtime::ControlWorker.new(
+      inline: true,
+      session_factory: lambda {
+        -> {
+          Fenix::Runtime::RealtimeSession::Result.new(
+            status: "failed",
+            processed_count: 0,
+            subscription_confirmed: false,
+            mailbox_results: []
+          )
+        }
+      },
+      mailbox_pump: ->(**) { [] },
+      sleep_handler: ->(duration) { sleeps << duration },
+      idle_sleep_seconds: 0.25,
+      failure_sleep_seconds: 0.5,
+      stop_condition: ->(iteration:, **) { iteration >= 2 }
+    )
+
+    worker.call
+
+    assert_operator sleeps.length, :>=, 1
+    assert_in_delta 0.1, sleeps.first, 0.05
+    assert_operator sleeps.sum, :>=, 0.45
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)
