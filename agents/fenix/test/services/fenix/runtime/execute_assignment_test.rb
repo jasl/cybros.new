@@ -103,10 +103,12 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       .fetch("tool_invocations")
       .fetch(0)
     command_run_id = attached_invocation.dig("response_payload", "command_run_id")
+    attached_pid = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)&.wait_thread&.pid
 
     assert_equal "completed", started.status
     assert_equal "Command run started.", started.output
     assert command_run_id.present?
+    assert attached_pid.present?
 
     write_payload = runtime_assignment_payload(
       mode: "deterministic_tool",
@@ -145,6 +147,8 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal 6, completed_invocation.dig("response_payload", "stdout_bytes")
     refute completed_invocation.fetch("response_payload").key?("stdout")
     refute completed_invocation.fetch("response_payload").key?("stderr")
+    assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
+    assert_process_terminated(attached_pid)
   end
 
   test "process_exec provisions a background service through ProcessRun and keeps tool invocation flow empty" do

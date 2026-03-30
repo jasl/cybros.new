@@ -38,9 +38,7 @@ module Fenix
         end
 
         def release(command_run_id:)
-          synchronize do
-            entries.delete(command_run_id)
-          end
+          terminate(command_run_id:)
         end
 
         def terminate(command_run_id:)
