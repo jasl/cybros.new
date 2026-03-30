@@ -50,6 +50,7 @@ module AgentControl
             "close_outcome_kind" => @resource.close_outcome_kind
           )
         )
+        terminalize_agent_task_command_runs!("interrupted")
         reconcile_agent_task_execution_graph!
       when ProcessRun
         @resource.update!(
@@ -79,6 +80,7 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
+        terminalize_agent_task_command_runs!("failed")
         reconcile_agent_task_execution_graph!
       when ProcessRun
         @resource.update!(
@@ -146,6 +148,18 @@ module AgentControl
       reconcile_agent_task_workflow_node!
       reconcile_agent_task_workflow_run!
       reconcile_agent_task_turn!
+    end
+
+    def terminalize_agent_task_command_runs!(lifecycle_state)
+      return unless @resource.is_a?(AgentTaskRun)
+
+      @resource.command_runs.running.find_each do |command_run|
+        CommandRuns::Terminalize.call(
+          command_run: command_run,
+          lifecycle_state: lifecycle_state,
+          ended_at: @occurred_at
+        )
+      end
     end
 
     def reconcile_agent_task_workflow_node!

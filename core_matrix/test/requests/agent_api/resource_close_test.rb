@@ -206,13 +206,14 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal context[:deployment].public_id, mailbox_item.reload.leased_to_agent_deployment.public_id
   end
 
-  test "resource_closed terminalizes an agent task run and releases its execution lease" do
-    context = build_agent_control_context!
+  test "resource_closed terminalizes an agent task run, interrupts running command runs, and releases its execution lease" do
+    context = build_exec_command_runtime_context!
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
       lifecycle_state: "running",
       started_at: Time.current
     )
+    command_run = create_running_command_run!(agent_task_run)
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
       holder_key: context[:deployment].public_id,
@@ -244,18 +245,20 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "interrupted", agent_task_run.lifecycle_state
     assert_not_nil agent_task_run.finished_at
     assert_equal "closed", agent_task_run.close_state
+    assert command_run.reload.interrupted?
     assert_equal "canceled", context[:workflow_node].reload.lifecycle_state
     assert_not_nil context[:workflow_node].finished_at
     assert_not lease.reload.active?
   end
 
-  test "resource_close_failed marks an agent task run failed instead of interrupted" do
-    context = build_agent_control_context!
+  test "resource_close_failed marks an agent task run failed and fails running command runs" do
+    context = build_exec_command_runtime_context!
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
       lifecycle_state: "running",
       started_at: Time.current
     )
+    command_run = create_running_command_run!(agent_task_run)
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
       holder_key: context[:deployment].public_id,
@@ -288,6 +291,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_not_nil agent_task_run.finished_at
     assert_equal "failed", agent_task_run.close_state
     assert_equal "timed_out_forced", agent_task_run.terminal_payload["close_outcome_kind"]
+    assert command_run.reload.failed?
     assert_equal "failed", context[:workflow_node].reload.lifecycle_state
     assert_not_nil context[:workflow_node].finished_at
     assert_not lease.reload.active?
@@ -369,5 +373,57 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     process_run.reload
     assert_equal "lost", process_run.lifecycle_state
     assert_equal "residual_abandoned", process_run.close_outcome_kind
+  end
+
+  private
+
+  def build_exec_command_runtime_context!
+    build_governed_tool_context!(
+      environment_tool_catalog: [],
+      agent_tool_catalog: [
+        {
+          "tool_name" => "exec_command",
+          "tool_kind" => "kernel_primitive",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/exec_command",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => true,
+          "idempotency_policy" => "best_effort",
+        },
+      ],
+      profile_catalog: {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => ["exec_command"],
+        },
+      }
+    )
+  end
+
+  def create_running_command_run!(agent_task_run)
+    binding = agent_task_run.reload.tool_bindings.joins(:tool_definition).find_by!(
+      tool_definitions: { tool_name: "exec_command" }
+    )
+    invocation = ToolInvocations::Start.call(
+      tool_binding: binding,
+      request_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "sleep 30",
+      },
+      idempotency_key: "tool-call-#{next_test_sequence}",
+      metadata: {
+        "stream_output" => true,
+      }
+    )
+
+    CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "sleep 30",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {}
+    ).command_run
   end
 end

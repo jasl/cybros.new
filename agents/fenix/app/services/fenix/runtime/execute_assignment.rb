@@ -351,6 +351,14 @@ module Fenix
         process_pid = nil
 
         Open3.popen3("/bin/sh", "-lc", command_line.to_s) do |stdin, command_stdout, command_stderr, wait_thr|
+          Fenix::Runtime::CommandRunRegistry.register(
+            command_run_id: command_run_id,
+            agent_task_run_id: current_agent_task_run_id,
+            stdin: stdin,
+            stdout: command_stdout,
+            stderr: command_stderr,
+            wait_thread: wait_thr
+          )
           process_pid = wait_thr.pid
           stdin.close
 
@@ -364,7 +372,13 @@ module Fenix
             remaining = deadline_at - monotonic_now
             raise Timeout::Error, "#{timeout_label} timed out after #{timeout_seconds} seconds" if remaining <= 0
 
-            ready = IO.select(readers.keys, nil, nil, [remaining, 0.1].min)
+            ready =
+              begin
+                IO.select(readers.keys, nil, nil, [remaining, 0.1].min)
+              rescue IOError, Errno::EBADF
+                readers.delete_if { |io, _| io.closed? rescue true }
+                nil
+              end
             next if ready.blank?
 
             ready.first.each do |io|
@@ -382,7 +396,7 @@ module Fenix
                 )
               rescue IO::WaitReadable
                 nil
-              rescue EOFError
+              rescue EOFError, IOError, Errno::EIO
                 readers.delete(io)
               end
             end
@@ -403,6 +417,8 @@ module Fenix
       rescue Timeout::Error
         terminate_subprocess!(pid: process_pid)
         raise
+      ensure
+        Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present?
       end
 
       def start_attached_command_session(command_run_id:, command_line:, timeout_seconds:)

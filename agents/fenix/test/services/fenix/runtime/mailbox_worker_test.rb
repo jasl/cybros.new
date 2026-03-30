@@ -81,6 +81,50 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     nil
   end
 
+  test "agent task close requests terminate one-shot command runs that are still executing" do
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    control_client = build_runtime_control_client
+    payload = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "sleep 30",
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["exec_command"]
+      )
+    )
+    payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+    execution_thread = Thread.new do
+      Fenix::Runtime::ExecuteAssignment.call(mailbox_item: payload, control_client: control_client)
+    end
+
+    command_run_id = nil
+    assert_eventually do
+      command_run_id = control_client.command_run_requests.first&.dig("response", "command_run_id")
+      command_run_id.present? &&
+        Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id).present?
+    end
+
+    Fenix::Runtime::MailboxWorker.call(
+      mailbox_item: {
+        "item_type" => "resource_close_request",
+        "payload" => {
+          "resource_type" => "AgentTaskRun",
+          "resource_id" => agent_task_run_id,
+        },
+      }
+    )
+
+    execution_thread.join(2)
+
+    refute execution_thread.alive?
+    assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
+  ensure
+    execution_thread&.kill if execution_thread&.alive?
+  end
+
   test "process run close requests route into the process manager" do
     mailbox_item = {
       "item_type" => "resource_close_request",
@@ -122,5 +166,17 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
     assert_equal :handled, result
     assert_equal mailbox_item, received_mailbox_item
+  end
+
+  private
+
+  def assert_eventually(timeout_seconds: 2, &block)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    until yield
+      raise "condition was not met before timeout" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+
+      sleep(0.01)
+    end
   end
 end
