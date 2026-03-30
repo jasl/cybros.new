@@ -23,6 +23,7 @@ class RuntimeExecutionJob < ApplicationJob
     result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_execution.mailbox_item_payload,
       attempt: attempt,
+      cancellation_probe: -> { RuntimeExecution.where(id: runtime_execution.id, status: "canceled").exists? },
       on_report: ->(report) { append_report!(runtime_execution_id:, report:, deliver_reports:) }
     )
 

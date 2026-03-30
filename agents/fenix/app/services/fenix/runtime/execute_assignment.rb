@@ -5,17 +5,20 @@ require "timeout"
 module Fenix
   module Runtime
     class ExecuteAssignment
+      CancellationRequestedError = Class.new(StandardError)
+
       Result = Struct.new(:status, :reports, :trace, :output, :error, keyword_init: true)
 
       def self.call(...)
         new(...).call
       end
 
-      def initialize(mailbox_item:, attempt: nil, on_report: nil, control_client: nil)
+      def initialize(mailbox_item:, attempt: nil, on_report: nil, control_client: nil, cancellation_probe: nil)
         @context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
         @collector = Fenix::RuntimeSurface::ReportCollector.new(context: @context, on_report:)
         @attempt = attempt
         @control_client = control_client || Fenix::Runtime::ControlPlane.client
+        @cancellation_probe = cancellation_probe
         @trace = []
         @current_tool_invocation = nil
       end
@@ -23,10 +26,12 @@ module Fenix
       def call
         return fail_unsupported_runtime_plane unless @context.fetch("runtime_plane") == "agent"
 
+        check_canceled!
         @collector.started!
 
         prepared = Fenix::Hooks::PrepareTurn.call(context: @context)
         @trace << prepared.fetch("trace")
+        check_canceled!
 
         compacted = Fenix::Hooks::CompactContext.call(
           messages: prepared.fetch("messages"),
@@ -34,6 +39,7 @@ module Fenix
           likely_model: prepared.fetch("likely_model")
         )
         @trace << compacted.fetch("trace")
+        check_canceled!
 
         case @context.dig("task_payload", "mode")
         when "raise_error"
@@ -62,6 +68,16 @@ module Fenix
         else
           execute_deterministic_tool_flow
         end
+      rescue CancellationRequestedError
+        Result.new(
+          status: "canceled",
+          reports: @collector.reports,
+          trace: @trace,
+          error: {
+            "failure_kind" => "canceled",
+            "last_error_summary" => "execution canceled by agent task close request",
+          }
+        )
       rescue StandardError => error
         handled_error = Fenix::Hooks::HandleError.call(
           error: error,
@@ -84,6 +100,7 @@ module Fenix
       private
 
       def execute_deterministic_tool_flow
+        check_canceled!
         tool_call = build_deterministic_tool_call
         return execute_process_tool_flow(tool_call) if process_tool?(tool_call.fetch("tool_name"))
 
@@ -97,13 +114,16 @@ module Fenix
           allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
         )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
+        check_canceled!
         tool_invocation = provision_tool_invocation!(reviewed_tool_call)
+        check_canceled!
         command_run = provision_command_run_if_needed!(reviewed_tool_call, tool_invocation)
         @current_tool_invocation = @current_tool_invocation.merge(build_current_tool_invocation(
           tool_call: reviewed_tool_call,
           tool_invocation: tool_invocation,
           command_run: command_run
         ))
+        check_canceled!
 
         @collector.progress!(
           progress_payload: {
@@ -151,13 +171,18 @@ module Fenix
       end
 
       def execute_process_tool_flow(tool_call)
+        check_canceled!
         reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
           tool_call: tool_call,
           allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
         )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
+        check_canceled!
 
         process_run = provision_process_run!(reviewed_tool_call)
+        check_canceled! do
+          report_process_canceled_before_start!(process_run_id: process_run.fetch("process_run_id"))
+        end
         tool_result = execute_tool(
           reviewed_tool_call,
           tool_invocation: nil,
@@ -187,6 +212,7 @@ module Fenix
       end
 
       def execute_skill_flow(output:)
+        check_canceled!
         @trace << { "hook" => "skills", "mode" => @context.dig("task_payload", "mode") }
         @collector.complete!(terminal_payload: { "output" => output })
 
@@ -296,6 +322,7 @@ module Fenix
       end
 
       def execute_write_stdin(tool_call:, tool_invocation:, command_run_id:, text:, eof:, wait_for_exit:, timeout_seconds:)
+        check_canceled!
         command_run = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id:)
         raise ArgumentError, "unknown command run #{command_run_id}" if command_run.blank?
         raise ArgumentError, "command run #{command_run_id} is not owned by this agent task" unless command_run.agent_task_run_id == current_agent_task_run_id
@@ -332,6 +359,9 @@ module Fenix
       end
 
       def execute_process_exec(process_run:, command_line:)
+        check_canceled! do
+          report_process_canceled_before_start!(process_run_id: process_run.fetch("process_run_id"))
+        end
         Fenix::Processes::Manager.spawn!(
           process_run_id: process_run.fetch("process_run_id"),
           command_line: command_line,
@@ -345,6 +375,7 @@ module Fenix
       end
 
       def execute_one_shot_command(tool_call:, tool_invocation_id:, command_run_id:, command_line:, timeout_seconds:, timeout_label:)
+        check_canceled!
         stdout = +""
         stderr = +""
         exit_status = nil
@@ -370,6 +401,7 @@ module Fenix
           }
 
           until readers.empty?
+            check_canceled!
             remaining = deadline_at - monotonic_now
             raise Timeout::Error, "#{timeout_label} timed out after #{timeout_seconds} seconds" if remaining <= 0
 
@@ -423,6 +455,7 @@ module Fenix
       end
 
       def start_command_run_session(command_run_id:, command_line:, timeout_seconds:)
+        check_canceled!
         stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
         Fenix::Runtime::CommandRunRegistry.register(
           command_run_id: command_run_id,
@@ -447,6 +480,7 @@ module Fenix
         deadline_at = monotonic_now + timeout_seconds.to_i
 
         loop do
+          check_canceled!
           chunks.concat(read_available_output(command_run:, timeout_seconds: 0.05))
           break unless wait_for_exit
           break unless command_run.wait_thread.alive?
@@ -491,6 +525,8 @@ module Fenix
       end
 
       def emit_tool_output!(tool_call:, tool_invocation_id:, output_chunks:, command_run_id: nil)
+        return if canceled?
+
         @collector.progress!(
           progress_payload: {
             "stage" => "tool_output",
@@ -517,6 +553,33 @@ module Fenix
 
       def monotonic_now
         Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      end
+
+      def canceled?
+        @cancellation_probe&.call == true
+      end
+
+      def check_canceled!(&block)
+        return unless canceled?
+
+        block&.call
+        raise CancellationRequestedError, "execution canceled"
+      end
+
+      def report_process_canceled_before_start!(process_run_id:)
+        @control_client.report!(
+          payload: {
+            "method_id" => "process_exited",
+            "protocol_message_id" => "fenix-process-exited-#{SecureRandom.uuid}",
+            "resource_type" => "ProcessRun",
+            "resource_id" => process_run_id,
+            "lifecycle_state" => "stopped",
+            "metadata" => {
+              "source" => "fenix_runtime",
+              "reason" => "canceled_before_start",
+            },
+          }
+        )
       end
 
       def current_agent_task_run_id
