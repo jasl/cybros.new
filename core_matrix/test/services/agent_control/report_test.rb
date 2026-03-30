@@ -232,8 +232,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", completed_tool_payload.dig("response_payload", "content")
   end
 
-  test "execution progress can stream shell_exec output through tool invocation runtime events" do
-    context = build_shell_exec_agent_control_context!
+  test "execution progress can stream exec_command output through tool invocation runtime events" do
+    context = build_exec_command_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
@@ -266,9 +266,9 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "tool_invocation" => {
             "event" => "started",
             "call_id" => call_id,
-            "tool_name" => "shell_exec",
+            "tool_name" => "exec_command",
             "request_payload" => {
-              "tool_name" => "shell_exec",
+              "tool_name" => "exec_command",
               "command_line" => "printf 'hello\\n'",
             },
           },
@@ -287,7 +287,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "stage" => "tool_output",
           "tool_invocation_output" => {
             "call_id" => call_id,
-            "tool_name" => "shell_exec",
+            "tool_name" => "exec_command",
             "output_chunks" => [
               { "stream" => "stdout", "text" => "hello\n" },
             ],
@@ -309,7 +309,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
             {
               "event" => "completed",
               "call_id" => call_id,
-              "tool_name" => "shell_exec",
+              "tool_name" => "exec_command",
               "response_payload" => {
                 "exit_status" => 0,
                 "content" => "Command exited with status 0 after streaming output.",
@@ -340,7 +340,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     invocation = agent_task_run.reload.tool_invocations.sole
 
     assert_equal invocation.public_id, output_payload.fetch("tool_invocation_id")
-    assert_equal "shell_exec", output_payload.fetch("tool_name")
+    assert_equal "exec_command", output_payload.fetch("tool_name")
     assert_equal call_id, output_payload.fetch("call_id")
     assert_equal "stdout", output_payload.fetch("stream")
     assert_equal "hello\n", output_payload.fetch("text")
@@ -940,17 +940,17 @@ class AgentControlReportTest < ActiveSupport::TestCase
     )
   end
 
-  def build_shell_exec_agent_control_context!
+  def build_exec_command_agent_control_context!
     context = build_agent_control_context!
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: context[:deployment],
       version: 2,
       tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "kernel_primitive",
           "implementation_source" => "agent",
-          "implementation_ref" => "agent/shell_exec",
+          "implementation_ref" => "agent/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => true,
@@ -961,7 +961,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
         "main" => {
           "label" => "Main",
           "description" => "Primary interactive profile",
-          "allowed_tool_names" => ["shell_exec"],
+          "allowed_tool_names" => ["exec_command"],
         },
       },
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),

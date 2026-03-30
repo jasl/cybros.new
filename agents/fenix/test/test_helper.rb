@@ -22,12 +22,14 @@ module ActiveSupport
       clear_enqueued_jobs
       clear_performed_jobs
       Fenix::Runtime::AttemptRegistry.reset!
+      Fenix::Runtime::AttachedCommandSessionRegistry.reset!
     end
 
     teardown do
       clear_enqueued_jobs
       clear_performed_jobs
       Fenix::Runtime::AttemptRegistry.reset!
+      Fenix::Runtime::AttachedCommandSessionRegistry.reset!
     end
 
     # Add more helper methods to be used by all tests here...

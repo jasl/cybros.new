@@ -6,6 +6,8 @@ module Fenix
 
       SUPPORTED_TOOLS = {
         "calculator" => true,
+        "exec_command" => true,
+        "write_stdin" => true,
         "shell_exec" => true,
       }.freeze
 

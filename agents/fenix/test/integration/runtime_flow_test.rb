@@ -99,6 +99,32 @@ class RuntimeFlowTest < ActiveSupport::TestCase
     assert_match(/calculator/, body.fetch("error").fetch("last_error_summary"))
   end
 
+  test "mailbox worker supports exec_command through the attached command contract" do
+    body = run_runtime_execution(
+      runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "exec_command",
+          "command_line" => "printf 'hello\\n'",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      )
+    )
+
+    completed_invocation = body.fetch("reports").last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", body.fetch("status")
+    assert_equal "Command exited with status 0 after streaming output.", body.fetch("output")
+    assert_equal "exec_command", completed_invocation.fetch("tool_name")
+    assert_equal 0, completed_invocation.dig("response_payload", "exit_status")
+    assert_equal true, completed_invocation.dig("response_payload", "output_streamed")
+  end
+
   test "mailbox worker persists runtime failures through handle_error" do
     body = run_runtime_execution(runtime_assignment_payload(mode: "raise_error"))
 

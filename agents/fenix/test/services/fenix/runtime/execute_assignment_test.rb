@@ -29,16 +29,16 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal started_invocation.fetch("call_id"), completed_invocation.fetch("call_id")
   end
 
-  test "shell_exec emits tool output progress and completes with structured command results" do
+  test "exec_command emits tool output progress and completes with structured command results" do
     result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_assignment_payload(
         mode: "deterministic_tool",
         task_payload: {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "command_line" => "printf 'hello\\n'",
         },
         agent_context: default_agent_context.merge(
-          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["shell_exec"]
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
         )
       )
     )
@@ -54,12 +54,12 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       .fetch("tool_invocations")
       .fetch(0)
 
-    assert_equal "shell_exec", started_invocation.fetch("tool_name")
+    assert_equal "exec_command", started_invocation.fetch("tool_name")
     assert_equal started_invocation.fetch("call_id"), output_progress.fetch("call_id")
     assert_equal "stdout", output_progress.fetch("output_chunks").fetch(0).fetch("stream")
     assert_equal "hello\n", output_progress.fetch("output_chunks").fetch(0).fetch("text")
     assert_equal "completed", completed_invocation.fetch("event")
-    assert_equal "shell_exec", completed_invocation.fetch("tool_name")
+    assert_equal "exec_command", completed_invocation.fetch("tool_name")
     assert_equal "Command exited with status 0 after streaming output.", result.output
     assert_equal 0, completed_invocation.dig("response_payload", "exit_status")
     assert_equal true, completed_invocation.dig("response_payload", "output_streamed")
@@ -67,6 +67,96 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal 0, completed_invocation.dig("response_payload", "stderr_bytes")
     refute completed_invocation.fetch("response_payload").key?("stdout")
     refute completed_invocation.fetch("response_payload").key?("stderr")
+  end
+
+  test "exec_command can hand off an attached session to write_stdin and finish with summary-only payloads" do
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    exec_payload = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "cat",
+        "pty" => true,
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+      )
+    )
+    exec_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+    started = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: exec_payload)
+
+    attached_invocation = started.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+    session_id = attached_invocation.dig("response_payload", "session_id")
+
+    assert_equal "completed", started.status
+    assert_equal "Attached command session started.", started.output
+    assert session_id.present?
+
+    write_payload = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "write_stdin",
+        "session_id" => session_id,
+        "text" => "hello\n",
+        "eof" => true,
+        "wait_for_exit" => true,
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+      )
+    )
+    write_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+    finished = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: write_payload)
+
+    output_progress = finished.reports.find do |report|
+      report.dig("progress_payload", "tool_invocation_output").present?
+    end.fetch("progress_payload").fetch("tool_invocation_output")
+    completed_invocation = finished.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", finished.status
+    assert_equal "Attached command session completed with status 0 after streaming output.", finished.output
+    assert_equal session_id, output_progress.fetch("session_id")
+    assert_equal "stdout", output_progress.fetch("output_chunks").fetch(0).fetch("stream")
+    assert_equal "hello\n", output_progress.fetch("output_chunks").fetch(0).fetch("text")
+    assert_equal "write_stdin", completed_invocation.fetch("tool_name")
+    assert_equal session_id, completed_invocation.dig("response_payload", "session_id")
+    assert_equal 0, completed_invocation.dig("response_payload", "exit_status")
+    assert_equal true, completed_invocation.dig("response_payload", "session_closed")
+    assert_equal 6, completed_invocation.dig("response_payload", "stdout_bytes")
+    refute completed_invocation.fetch("response_payload").key?("stdout")
+    refute completed_invocation.fetch("response_payload").key?("stderr")
+  end
+
+  test "shell_exec remains a temporary compatibility alias for one-shot exec_command" do
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "shell_exec",
+          "command_line" => "printf 'hello\\n'",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[shell_exec exec_command]
+        )
+      )
+    )
+
+    completed_invocation = result.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", result.status
+    assert_equal "shell_exec", completed_invocation.fetch("tool_name")
+    assert_equal 0, completed_invocation.dig("response_payload", "exit_status")
   end
 
   test "core matrix model context triggers proactive context compaction before execution" do
