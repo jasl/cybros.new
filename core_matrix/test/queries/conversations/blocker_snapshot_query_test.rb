@@ -19,11 +19,6 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
-    )
-    create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -42,7 +37,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     assert_equal 1, snapshot.work_barrier.active_workflow_count
     assert_equal 1, snapshot.work_barrier.active_agent_task_count
     assert_equal 1, snapshot.work_barrier.open_blocking_interaction_count
-    assert_equal 1, snapshot.work_barrier.running_turn_command_count
+    assert_equal 1, snapshot.work_barrier.running_process_count
     assert_equal 1, snapshot.work_barrier.running_subagent_count
     assert_equal 1, snapshot.close_summary.dig(:tail, :running_background_process_count)
     assert_equal 1, snapshot.dependency_blockers.descendant_lineage_blockers

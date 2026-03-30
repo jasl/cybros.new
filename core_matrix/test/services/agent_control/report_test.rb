@@ -232,12 +232,126 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", completed_tool_payload.dig("response_payload", "content")
   end
 
+  test "execution progress can stream shell_exec output through tool invocation runtime events" do
+    context = build_shell_exec_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    stream_name = ConversationRuntime::StreamName.for_conversation(agent_task_run.conversation)
+    call_id = "tool-call-#{next_test_sequence}"
+
+    broadcasts = capture_broadcasts(stream_name) do
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 15
+      )
+
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_progress",
+        protocol_message_id: "agent-progress-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: {
+          "stage" => "tool_started",
+          "tool_invocation" => {
+            "event" => "started",
+            "call_id" => call_id,
+            "tool_name" => "shell_exec",
+            "request_payload" => {
+              "tool_name" => "shell_exec",
+              "command_line" => "printf 'hello\\n'",
+            },
+          },
+        }
+      )
+
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_progress",
+        protocol_message_id: "agent-progress-output-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: {
+          "stage" => "tool_output",
+          "tool_invocation_output" => {
+            "call_id" => call_id,
+            "tool_name" => "shell_exec",
+            "output_chunks" => [
+              { "stream" => "stdout", "text" => "hello\n" },
+            ],
+          },
+        }
+      )
+
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "execution_complete",
+        protocol_message_id: "agent-complete-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        terminal_payload: {
+          "output" => "shell finished",
+          "tool_invocations" => [
+            {
+              "event" => "completed",
+              "call_id" => call_id,
+              "tool_name" => "shell_exec",
+              "response_payload" => {
+                "exit_status" => 0,
+                "stdout" => "hello\n",
+                "stderr" => "",
+              },
+            },
+          ],
+        }
+      )
+    end
+
+    assert_equal(
+      [
+        "runtime.agent_task.started",
+        "runtime.agent_task.progress",
+        "runtime.tool_invocation.started",
+        "runtime.agent_task.progress",
+        "runtime.tool_invocation.output",
+        "runtime.tool_invocation.completed",
+        "runtime.agent_task.completed",
+      ],
+      broadcasts.map { |payload| payload.fetch("event_kind") }
+    )
+
+    output_payload = broadcasts.fifth.fetch("payload")
+    invocation = agent_task_run.reload.tool_invocations.sole
+
+    assert_equal invocation.public_id, output_payload.fetch("tool_invocation_id")
+    assert_equal "shell_exec", output_payload.fetch("tool_name")
+    assert_equal call_id, output_payload.fetch("call_id")
+    assert_equal "stdout", output_payload.fetch("stream")
+    assert_equal "hello\n", output_payload.fetch("text")
+    assert_equal "hello\n", invocation.response_payload.fetch("stdout")
+  end
+
   test "process_output broadcasts runtime process chunks without mutating durable process payloads" do
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -273,7 +387,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
@@ -491,7 +606,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -556,7 +672,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -621,7 +738,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -674,7 +792,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -788,6 +907,55 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "label" => "Main",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => ["calculator"],
+        },
+      },
+      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    )
+    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
+    context[:turn].update!(
+      resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
+        "capability_snapshot_id" => capability_snapshot.id
+      )
+    )
+
+    conversation = context[:conversation].reload
+    turn = context[:turn].reload
+
+    Conversations::RefreshRuntimeContract.call(conversation: conversation)
+    execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn)
+    turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
+
+    context.merge(
+      conversation: conversation.reload,
+      turn: turn.reload,
+      workflow_run: context[:workflow_run].reload,
+      workflow_node: context[:workflow_node].reload
+    )
+  end
+
+  def build_shell_exec_agent_control_context!
+    context = build_agent_control_context!
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:deployment],
+      version: 2,
+      tool_catalog: [
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "kernel_primitive",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/shell_exec",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => true,
+          "idempotency_policy" => "best_effort",
+        },
+      ],
+      profile_catalog: {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => ["shell_exec"],
         },
       },
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),

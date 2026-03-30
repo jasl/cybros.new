@@ -1,7 +1,7 @@
 require "test_helper"
 
 class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
-  test "workflow process runs remain node-owned and replay status through node events" do
+  test "background process runs retain workflow provenance and replay status through node events" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -27,7 +27,7 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
       nodes: [
         {
           node_key: "process",
-          node_type: "turn_command",
+          node_type: "background_service",
           decision_source: "agent_program",
           metadata: { "policy_sensitive" => true },
         },
@@ -41,9 +41,8 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
     process_run = Processes::Start.call(
       workflow_node: process_node,
       execution_environment: context[:execution_environment],
-      kind: "turn_command",
+      kind: "background_service",
       command_line: "echo hi",
-      timeout_seconds: 30,
       origin_message: turn.selected_input_message
     )
     stopped = Processes::Stop.call(process_run: process_run, reason: "completed")
@@ -53,6 +52,6 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
     assert_equal turn.selected_input_message, stopped.origin_message
     assert_equal context[:execution_environment], stopped.execution_environment
     assert_equal %w[running stopped], WorkflowNodeEvent.where(workflow_node: process_node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }
-    assert_equal "turn_command", AuditLog.find_by!(action: "process_run.started").metadata["kind"]
+    assert_equal "background_service", AuditLog.find_by!(action: "process_run.started").metadata["kind"]
   end
 end

@@ -82,13 +82,8 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    process_run = create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
-      kind: "turn_command"
-    )
     subagent_session = create_turn_scoped_subagent_session!(context: context)
-    [agent_task_run, process_run].each do |resource|
+    [agent_task_run].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
         holder_key: context[:deployment].public_id,
@@ -123,7 +118,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     assert_equal "stale", late_progress.fetch("result")
 
     close_requests = harness.poll!.fetch("mailbox_items")
-    assert_equal 3, close_requests.size
+    assert_equal 2, close_requests.size
 
     close_requests.each do |mailbox_item|
       report_resource_closed!(
@@ -147,7 +142,6 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     assert_equal "stale", late_terminal.fetch("result")
     assert context[:turn].reload.canceled?
     assert context[:workflow_run].reload.canceled?
-    assert process_run.reload.stopped?
     assert_equal "closed", subagent_session.reload.derived_close_status
     assert subagent_session.close_closed?
   end

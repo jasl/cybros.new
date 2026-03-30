@@ -88,6 +88,29 @@ module Fenix
           "streaming_support" => false,
           "idempotency_policy" => "best_effort",
         },
+        {
+          "tool_name" => "shell_exec",
+          "tool_kind" => "kernel_primitive",
+          "implementation_source" => "agent",
+          "implementation_ref" => "fenix/runtime/shell_exec",
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_line" => { "type" => "string" },
+              "timeout_seconds" => { "type" => "integer" },
+            },
+          },
+          "result_schema" => {
+            "type" => "object",
+            "properties" => {
+              "exit_status" => { "type" => "integer" },
+              "stdout" => { "type" => "string" },
+              "stderr" => { "type" => "string" },
+            },
+          },
+          "streaming_support" => true,
+          "idempotency_policy" => "best_effort",
+        },
       ].freeze
       SUBAGENT_TOOL_NAMES = %w[
         subagent_spawn

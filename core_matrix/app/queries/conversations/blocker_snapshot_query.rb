@@ -21,7 +21,6 @@ module Conversations
         active_agent_task_count: agent_task_scope.where(lifecycle_state: "running").count,
         open_interaction_count: interaction_scope.where(lifecycle_state: "open").count,
         open_blocking_interaction_count: interaction_scope.where(lifecycle_state: "open", blocking: true).count,
-        running_turn_command_count: process_scope.where(lifecycle_state: "running", kind: "turn_command").count,
         running_process_count: process_scope.where(lifecycle_state: "running").count,
         running_background_process_count: process_scope.where(lifecycle_state: "running", kind: "background_service").count,
         detached_tool_process_count: 0,

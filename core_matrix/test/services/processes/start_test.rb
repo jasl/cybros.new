@@ -3,15 +3,14 @@ require "test_helper"
 class Processes::StartTest < ActiveSupport::TestCase
   include ActionCable::TestHelper
 
-  test "starts a policy-sensitive turn command with audit and status event" do
+  test "starts a policy-sensitive background service with audit and status event" do
     process_context = build_process_context!
 
     process_run = Processes::Start.call(
       workflow_node: process_context[:workflow_node],
       execution_environment: process_context[:execution_environment],
-      kind: "turn_command",
+      kind: "background_service",
       command_line: "echo hi",
-      timeout_seconds: 30,
       origin_message: process_context[:origin_message]
     )
 
@@ -26,7 +25,7 @@ class Processes::StartTest < ActiveSupport::TestCase
 
     audit_log = AuditLog.find_by!(action: "process_run.started")
     assert_equal process_run, audit_log.subject
-    assert_equal "turn_command", audit_log.metadata["kind"]
+    assert_equal "background_service", audit_log.metadata["kind"]
     assert_equal process_context[:workflow_node].node_key, audit_log.metadata["workflow_node_key"]
   end
 
@@ -38,9 +37,8 @@ class Processes::StartTest < ActiveSupport::TestCase
       Processes::Start.call(
         workflow_node: process_context[:workflow_node],
         execution_environment: process_context[:execution_environment],
-        kind: "turn_command",
+        kind: "background_service",
         command_line: "echo hi",
-        timeout_seconds: 30,
         origin_message: process_context[:origin_message]
       )
     end
@@ -51,7 +49,7 @@ class Processes::StartTest < ActiveSupport::TestCase
     assert_equal "runtime.process_run.started", payload.fetch("event_kind")
     assert_equal process_context[:conversation].public_id, payload.fetch("conversation_id")
     assert_equal process_context[:turn].public_id, payload.fetch("turn_id")
-    assert_equal "turn_command", payload.dig("payload", "kind")
+    assert_equal "background_service", payload.dig("payload", "kind")
     assert_equal "running", payload.dig("payload", "lifecycle_state")
     assert_equal "echo hi", payload.dig("payload", "command_line")
   end

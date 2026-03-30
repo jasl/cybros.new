@@ -60,9 +60,8 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
         Processes::Start.call(
           workflow_node: WorkflowNode.find(workflow_node.id),
           execution_environment: ExecutionEnvironment.find(execution_environment_id),
-          kind: "turn_command",
+          kind: "background_service",
           command_line: "echo #{index}",
-          timeout_seconds: 30,
           origin_message: Message.find(origin_message_id)
         )
       end

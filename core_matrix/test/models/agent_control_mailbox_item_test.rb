@@ -81,7 +81,8 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,

@@ -1,4 +1,6 @@
 require "securerandom"
+require "open3"
+require "timeout"
 
 module Fenix
   module Runtime
@@ -80,12 +82,7 @@ module Fenix
       private
 
       def execute_deterministic_tool_flow
-        expression = @context.dig("task_payload", "expression") || "2 + 2"
-        tool_call = {
-          "call_id" => "tool-call-#{SecureRandom.uuid}",
-          "tool_name" => "calculator",
-          "arguments" => { "expression" => expression },
-        }
+        tool_call = build_deterministic_tool_call
         @current_tool_invocation = tool_call.deep_dup
         reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
           tool_call: tool_call,
@@ -105,7 +102,7 @@ module Fenix
           }
         )
 
-        tool_result = evaluate_expression(reviewed_tool_call.dig("arguments", "expression"))
+        tool_result = execute_tool(reviewed_tool_call)
         projected_result = Fenix::Hooks::ProjectToolResult.call(
           tool_call: reviewed_tool_call,
           tool_result: tool_result
@@ -153,6 +150,43 @@ module Fenix
         )
       end
 
+      def build_deterministic_tool_call
+        tool_name = @context.dig("task_payload", "tool_name") || "calculator"
+        arguments =
+          case tool_name
+          when "calculator"
+            { "expression" => @context.dig("task_payload", "expression") || "2 + 2" }
+          when "shell_exec"
+            {
+              "command_line" => @context.dig("task_payload", "command_line") || "printf 'hello\\n'",
+              "timeout_seconds" => @context.dig("task_payload", "timeout_seconds") || 30,
+            }
+          else
+            {}
+          end
+
+        {
+          "call_id" => "tool-call-#{SecureRandom.uuid}",
+          "tool_name" => tool_name,
+          "arguments" => arguments,
+        }
+      end
+
+      def execute_tool(tool_call)
+        case tool_call.fetch("tool_name")
+        when "calculator"
+          evaluate_expression(tool_call.dig("arguments", "expression"))
+        when "shell_exec"
+          execute_shell_command(
+            tool_call: tool_call,
+            command_line: tool_call.dig("arguments", "command_line"),
+            timeout_seconds: tool_call.dig("arguments", "timeout_seconds")
+          )
+        else
+          raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
+        end
+      end
+
       def evaluate_expression(expression)
         left, operator, right = expression.to_s.strip.split(/\s+/, 3)
         left_value = Integer(left)
@@ -166,6 +200,85 @@ module Fenix
         else
           raise ArgumentError, "unsupported calculator operator #{operator}"
         end
+      end
+
+      def execute_shell_command(tool_call:, command_line:, timeout_seconds:)
+        stdout = +""
+        stderr = +""
+        exit_status = nil
+        process_pid = nil
+
+        Open3.popen3("/bin/sh", "-lc", command_line.to_s) do |stdin, command_stdout, command_stderr, wait_thr|
+          process_pid = wait_thr.pid
+          stdin.close
+
+          deadline_at = monotonic_now + timeout_seconds.to_i
+          readers = {
+            command_stdout => { stream: "stdout", buffer: stdout },
+            command_stderr => { stream: "stderr", buffer: stderr },
+          }
+
+          until readers.empty?
+            remaining = deadline_at - monotonic_now
+            raise Timeout::Error, "shell_exec timed out after #{timeout_seconds} seconds" if remaining <= 0
+
+            ready = IO.select(readers.keys, nil, nil, [remaining, 0.1].min)
+            next if ready.blank?
+
+            ready.first.each do |io|
+              begin
+                chunk = io.read_nonblock(4096)
+                next if chunk.blank?
+
+                stream_details = readers.fetch(io)
+                stream_details.fetch(:buffer) << chunk
+                emit_tool_output!(tool_call:, output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }])
+              rescue IO::WaitReadable
+                nil
+              rescue EOFError
+                readers.delete(io)
+              end
+            end
+          end
+
+          exit_status = wait_thr.value.exitstatus
+        end
+
+        {
+          "exit_status" => exit_status,
+          "stdout" => stdout,
+          "stderr" => stderr,
+        }
+      rescue Timeout::Error
+        terminate_subprocess!(pid: process_pid)
+        raise
+      end
+
+      def emit_tool_output!(tool_call:, output_chunks:)
+        @collector.progress!(
+          progress_payload: {
+            "stage" => "tool_output",
+            "tool_invocation_output" => {
+              "call_id" => tool_call.fetch("call_id"),
+              "tool_name" => tool_call.fetch("tool_name"),
+              "output_chunks" => output_chunks,
+            },
+          }
+        )
+      end
+
+      def terminate_subprocess!(pid:)
+        return if pid.blank?
+
+        Process.kill("TERM", pid)
+        sleep(0.1)
+        Process.kill("KILL", pid)
+      rescue Errno::ESRCH
+        nil
+      end
+
+      def monotonic_now
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
 
       def fail_unsupported_runtime_plane

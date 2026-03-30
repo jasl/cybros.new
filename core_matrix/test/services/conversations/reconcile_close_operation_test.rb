@@ -267,7 +267,6 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
           active_workflow_count: 0,
           active_agent_task_count: 0,
           open_blocking_interaction_count: 0,
-          running_turn_command_count: 0,
           running_subagent_count: 0,
         },
         tail: {

@@ -1,10 +1,10 @@
 require "test_helper"
 
 class ProcessRunTest < ActiveSupport::TestCase
-  test "requires bounded timeout for turn commands and forbids timeout for background services" do
+  test "only allows background services and forbids bounded timeout for them" do
     process_context = build_process_context!
 
-    command = ProcessRun.new(
+    removed_turn_command = ProcessRun.new(
       installation: process_context[:installation],
       workflow_node: process_context[:workflow_node],
       execution_environment: process_context[:execution_environment],
@@ -13,7 +13,6 @@ class ProcessRunTest < ActiveSupport::TestCase
       kind: "turn_command",
       lifecycle_state: "running",
       command_line: "echo hi",
-      timeout_seconds: 30,
       metadata: {}
     )
     background_service = ProcessRun.new(
@@ -29,13 +28,9 @@ class ProcessRunTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    assert command.valid?
+    assert_not removed_turn_command.valid?
+    assert_includes removed_turn_command.errors[:kind], "is not included in the list"
     assert background_service.valid?
-
-    missing_timeout = command.dup
-    missing_timeout.timeout_seconds = nil
-    assert_not missing_timeout.valid?
-    assert_includes missing_timeout.errors[:timeout_seconds], "must exist for turn_command process runs"
 
     forbidden_timeout = background_service.dup
     forbidden_timeout.timeout_seconds = 30
@@ -53,10 +48,9 @@ class ProcessRunTest < ActiveSupport::TestCase
       conversation: process_context[:conversation],
       turn: process_context[:turn],
       origin_message: process_context[:origin_message],
-      kind: "turn_command",
+      kind: "background_service",
       lifecycle_state: "running",
       command_line: "echo hi",
-      timeout_seconds: 30,
       metadata: {}
     )
 
@@ -93,10 +87,9 @@ class ProcessRunTest < ActiveSupport::TestCase
       conversation: process_context[:conversation],
       turn: process_context[:turn],
       origin_message: process_context[:origin_message],
-      kind: "turn_command",
+      kind: "background_service",
       lifecycle_state: "running",
       command_line: "echo hi",
-      timeout_seconds: 30,
       metadata: {}
     )
 
@@ -109,7 +102,8 @@ class ProcessRunTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: process_context[:workflow_node],
       execution_environment: process_context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,

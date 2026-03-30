@@ -11,18 +11,13 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    turn_command = create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
-      kind: "turn_command"
-    )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
       kind: "background_service",
       timeout_seconds: nil
     )
-    [agent_task_run, turn_command, background_service].each do |resource|
+    [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
         holder_key: context[:deployment].public_id,
@@ -48,18 +43,13 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
 
     close_requests = harness.poll!.fetch("mailbox_items").index_by { |item| item.fetch("payload").fetch("resource_id") }
 
-    assert_equal [agent_task_run.public_id, turn_command.public_id].sort, close_requests.keys.sort
+    assert_equal [agent_task_run.public_id], close_requests.keys.sort
     assert_equal "open", background_service.reload.close_state
     assert background_service.running?
 
     report_resource_closed!(
       harness: harness,
       mailbox_item: close_requests.fetch(agent_task_run.public_id),
-      close_outcome_kind: "graceful"
-    )
-    report_resource_closed!(
-      harness: harness,
-      mailbox_item: close_requests.fetch(turn_command.public_id),
       close_outcome_kind: "graceful"
     )
 
@@ -79,11 +69,6 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    turn_command = create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
-      kind: "turn_command"
-    )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
@@ -91,7 +76,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       timeout_seconds: nil
     )
     subagent_session = create_turn_scoped_subagent_session!(context: context)
-    [agent_task_run, turn_command, background_service].each do |resource|
+    [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
         holder_key: context[:deployment].public_id,
@@ -122,11 +107,6 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     report_resource_closed!(
       harness: harness,
       mailbox_item: close_requests.fetch(agent_task_run.public_id),
-      close_outcome_kind: "graceful"
-    )
-    report_resource_closed!(
-      harness: harness,
-      mailbox_item: close_requests.fetch(turn_command.public_id),
       close_outcome_kind: "graceful"
     )
     report_resource_closed!(

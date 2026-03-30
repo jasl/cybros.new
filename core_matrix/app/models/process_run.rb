@@ -4,7 +4,6 @@ class ProcessRun < ApplicationRecord
 
   enum :kind,
     {
-      turn_command: "turn_command",
       background_service: "background_service",
     },
     validate: true
@@ -128,13 +127,6 @@ class ProcessRun < ApplicationRecord
   end
 
   def timeout_rules
-    return if kind.blank?
-
-    if turn_command?
-      errors.add(:timeout_seconds, "must exist for turn_command process runs") if timeout_seconds.blank?
-      return
-    end
-
     errors.add(:timeout_seconds, "must be blank for background_service process runs") if timeout_seconds.present?
   end
 

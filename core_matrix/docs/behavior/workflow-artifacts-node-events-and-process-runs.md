@@ -108,8 +108,7 @@ runtime resources that later tasks now build on are:
   `ProcessRun`; workflow-run ownership is derived through the owning node, while
   `conversation_id` and `turn_id` are redundantly persisted for operational
   filtering exactly as required by the design.
-- v1 kinds are explicit and validated:
-  - `turn_command`
+- `ProcessRun` now models detached background services only:
   - `background_service`
 - v1 lifecycle states are explicit and validated:
   - `running`
@@ -178,6 +177,12 @@ runtime resources that later tasks now build on are:
   - `runtime.agent_task.*`
   - `runtime.tool_invocation.*`
   for frontend progress display without mutating transcript or workflow truth
+- short-lived command execution such as `shell_exec` now rides this path:
+  - durable result and audit land in `ToolInvocation`
+  - stdout/stderr chunks are streamed as
+    `runtime.tool_invocation.output`
+  - command subprocess lifecycle remains subordinate to the owning
+    `AgentTaskRun`
 - agent task runs persist the same durable close fields as other closable
   runtime resources so later interrupt and close orchestration can target one
   stable execution aggregate
@@ -199,7 +204,6 @@ runtime resources that later tasks now build on are:
 
 ## Timeout And Ownership Rules
 
-- `turn_command` requires `timeout_seconds`.
 - `background_service` must not carry a bounded timeout.
 - `conversation_id` must match the owning workflow run conversation.
 - `turn_id` must match the owning workflow run turn.

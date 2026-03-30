@@ -88,7 +88,6 @@ module Conversations
     def request_mainline_resource_closes!(turn:)
       relations = [
         AgentTaskRun.where(turn: turn, lifecycle_state: "running"),
-        ProcessRun.where(turn: turn, lifecycle_state: "running", kind: "turn_command"),
         reusable_subagent_step_scope(turn:),
         turn_scoped_subagent_session_scope(turn:),
       ]
@@ -115,7 +114,6 @@ module Conversations
     def mainline_resource_blockers_cleared?(turn:)
       AgentTaskRun.where(turn: turn, lifecycle_state: "running").none? &&
         HumanInteractionRequest.where(conversation: turn.conversation, turn: turn, lifecycle_state: "open", blocking: true).none? &&
-        ProcessRun.where(turn: turn, lifecycle_state: "running", kind: "turn_command").none? &&
         reusable_subagent_step_scope(turn:).none? &&
         turn_scoped_subagent_session_scope(turn:).merge(SubagentSession.close_pending_or_open).none?
     end

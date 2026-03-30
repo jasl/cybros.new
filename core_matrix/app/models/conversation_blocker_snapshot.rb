@@ -4,7 +4,6 @@ class ConversationBlockerSnapshot
     active_workflow_count
     active_agent_task_count
     open_blocking_interaction_count
-    running_turn_command_count
     running_subagent_count
   ].freeze
 
@@ -29,7 +28,6 @@ class ConversationBlockerSnapshot
     active_agent_task_count
     open_interaction_count
     open_blocking_interaction_count
-    running_turn_command_count
     running_process_count
     running_subagent_count
     active_execution_lease_count
@@ -78,7 +76,6 @@ class ConversationBlockerSnapshot
     :active_agent_task_count,
     :open_interaction_count,
     :open_blocking_interaction_count,
-    :running_turn_command_count,
     :running_process_count,
     :running_background_process_count,
     :detached_tool_process_count,
@@ -101,7 +98,6 @@ class ConversationBlockerSnapshot
     active_agent_task_count: 0,
     open_interaction_count: 0,
     open_blocking_interaction_count: 0,
-    running_turn_command_count: 0,
     running_process_count: 0,
     running_background_process_count: 0,
     detached_tool_process_count: 0,
@@ -123,7 +119,6 @@ class ConversationBlockerSnapshot
     @active_agent_task_count = active_agent_task_count
     @open_interaction_count = open_interaction_count
     @open_blocking_interaction_count = open_blocking_interaction_count
-    @running_turn_command_count = running_turn_command_count
     @running_process_count = running_process_count
     @running_background_process_count = running_background_process_count
     @detached_tool_process_count = detached_tool_process_count

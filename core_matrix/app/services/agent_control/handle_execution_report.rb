@@ -151,10 +151,14 @@ module AgentControl
 
     def apply_tool_invocation_progress!(progress_payload)
       invocation_payload = progress_payload["tool_invocation"]
-      return if invocation_payload.blank?
-      return unless invocation_payload["event"] == "started"
+      if invocation_payload.present? && invocation_payload["event"] == "started"
+        find_or_start_tool_invocation!(invocation_payload)
+      end
 
-      find_or_start_tool_invocation!(invocation_payload)
+      output_payload = progress_payload["tool_invocation_output"]
+      return if output_payload.blank?
+
+      broadcast_tool_invocation_output!(output_payload)
     end
 
     def apply_tool_invocation_terminal_events!
@@ -238,6 +242,31 @@ module AgentControl
           "tool_invocation_id" => tool_invocation.public_id,
           "tool_name" => tool_invocation.tool_definition.tool_name
         ).merge(payload)
+      )
+    end
+
+    def broadcast_tool_invocation_output!(output_payload)
+      invocation = find_tool_invocation_for_output!(output_payload)
+
+      Array(output_payload["output_chunks"]).each do |chunk|
+        broadcast_runtime_event!(
+          "runtime.tool_invocation.output",
+          base_runtime_payload.merge(
+            "tool_invocation_id" => invocation.public_id,
+            "tool_name" => invocation.tool_definition.tool_name,
+            "call_id" => output_payload["call_id"],
+            "stream" => chunk["stream"],
+            "text" => chunk["text"]
+          )
+        )
+      end
+    end
+
+    def find_tool_invocation_for_output!(output_payload)
+      binding = tool_binding_for!(output_payload.fetch("tool_name"))
+
+      binding.tool_invocations.find_by!(
+        idempotency_key: output_payload.fetch("call_id")
       )
     end
 

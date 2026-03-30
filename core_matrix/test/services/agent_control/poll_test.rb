@@ -104,7 +104,8 @@ class AgentControlPollTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
 
     close_request = travel_to(occurred_at) do
@@ -145,7 +146,8 @@ class AgentControlPollTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
 
     close_request = travel_to(occurred_at) do

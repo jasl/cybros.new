@@ -215,8 +215,10 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - turn interrupt targets only mainline blockers:
   - running `AgentTaskRun`
   - blocking `HumanInteractionRequest`
-  - running `ProcessRun(kind = "turn_command")`
   - running turn-bound `SubagentSession`
+- short-lived command execution is no longer a standalone mainline runtime
+  resource; it rides under the owning `AgentTaskRun` as tool-invocation
+  sub-execution
 - turn interrupt does not target detached
   `ProcessRun(kind = "background_service")`
 - the turn and workflow move to `canceled` only after those mainline blockers

@@ -1,7 +1,7 @@
 require "test_helper"
 
 class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
-  test "creates a close fence and requests close for mainline runtime resources and turn-scoped subagent sessions" do
+  test "creates a close fence and requests close for mainline runtime resources while leaving detached background services open" do
     context = build_agent_control_context!
     blocking_request = HumanInteractions::Request.call(
       request_type: "HumanTaskRequest",
@@ -25,21 +25,11 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       holder_key: context[:deployment].public_id,
       heartbeat_timeout_seconds: 30
     )
-    turn_command = create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
-      kind: "turn_command"
-    )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
       kind: "background_service",
       timeout_seconds: nil
-    )
-    Leases::Acquire.call(
-      leased_resource: turn_command,
-      holder_key: context[:deployment].public_id,
-      heartbeat_timeout_seconds: 30
     )
     Leases::Acquire.call(
       leased_resource: background_service,
@@ -63,13 +53,12 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert optional_request.reload.open?
 
     assert_equal "requested", agent_task_run.reload.close_state
-    assert_equal "requested", turn_command.reload.close_state
     assert_equal "requested", turn_scoped_session.reload.close_state
     assert_equal "open", background_service.reload.close_state
 
     close_requests = AgentControlMailboxItem.where(item_type: "resource_close_request").order(:created_at)
-    assert_equal 3, close_requests.count
-    assert_equal [agent_task_run.public_id, turn_command.public_id, turn_scoped_session.public_id].sort,
+    assert_equal 2, close_requests.count
+    assert_equal [agent_task_run.public_id, turn_scoped_session.public_id].sort,
       close_requests.pluck(Arel.sql("payload ->> 'resource_id'")).sort
     assert_equal ["turn_interrupt"], close_requests.reorder(nil).distinct.pluck(Arel.sql("payload ->> 'request_kind'"))
   end

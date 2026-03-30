@@ -118,8 +118,8 @@ orchestration are still defined in:
 - execution report lifecycle handling now lives in
   `HandleExecutionReport` and freshness checks live in
   `ValidateExecutionReportFreshness`
-- `process_output` is the live output report for running `ProcessRun`
-  resources:
+- `process_output` is the live output report for running detached
+  `ProcessRun(kind = "background_service")` resources:
   - it is accepted only for `ProcessRun`
   - the reporting deployment must belong to the owning execution environment
   - when a process lease is active, the report also heartbeats that lease
@@ -127,6 +127,8 @@ orchestration are still defined in:
     text
   - the chunks are broadcast on the temporary conversation runtime stream and
     are not persisted on the `ProcessRun` row
+- short-lived command output does not use `process_output`; it is reported
+  through execution progress as `runtime.tool_invocation.output`
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources

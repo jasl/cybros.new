@@ -152,11 +152,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       holder_key: context[:deployment].public_id,
       heartbeat_timeout_seconds: 30
     )
-    turn_command = create_process_run!(
-      workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
-      kind: "turn_command"
-    )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
@@ -170,7 +165,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       execution_environment: context[:execution_environment],
       agent_deployment: context[:deployment]
     )
-    [turn_command, background_service].each do |resource|
+    [background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
         holder_key: context[:deployment].public_id,
@@ -214,16 +209,13 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
 
     close_requests = AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
     task_close = close_requests.find { |item| item.payload["resource_id"] == agent_task_run.public_id }
-    command_close = close_requests.find { |item| item.payload["resource_id"] == turn_command.public_id }
     subagent_close = close_requests.find { |item| item.payload["resource_id"] == child_session.fetch(:session).public_id }
 
     assert task_close.present?
-    assert command_close.present?
     assert subagent_close.present?
 
     [
       [task_close, "AgentTaskRun", agent_task_run.public_id],
-      [command_close, "ProcessRun", turn_command.public_id],
       [subagent_close, "SubagentSession", child_session.fetch(:session).public_id],
     ].each do |mailbox_item, resource_type, resource_id|
       result = AgentControl::Report.call(

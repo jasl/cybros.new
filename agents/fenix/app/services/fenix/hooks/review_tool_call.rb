@@ -6,6 +6,7 @@ module Fenix
 
       SUPPORTED_TOOLS = {
         "calculator" => true,
+        "shell_exec" => true,
       }.freeze
 
       def self.call(tool_call:, allowed_tool_names:)

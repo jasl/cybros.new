@@ -85,19 +85,20 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
     assert_empty harness.poll!.fetch("mailbox_items").select { |item| item.fetch("item_type") == "execution_assignment" }
   end
 
-  test "close requests outrank queued retry work once turn interrupt is requested" do
+  test "turn interrupt cancels queued retry work without surfacing detached background services as mainline close work" do
     context = build_agent_control_context!
     harness = build_harness(context:)
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     initial_assignment = harness.poll!.fetch("mailbox_items").fetch(0)
     initial_task = scenario.fetch(:agent_task_run)
-    turn_command = create_process_run!(
+    background_service = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
-      leased_resource: turn_command,
+      leased_resource: background_service,
       holder_key: context[:deployment].public_id,
       heartbeat_timeout_seconds: 30
     )
@@ -123,12 +124,10 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
       occurred_at: Time.zone.parse("2026-03-29 10:05:00 UTC")
     )
 
-    first_delivery = harness.poll!(limit: 1).fetch("mailbox_items").fetch(0)
-
-    assert_equal "resource_close_request", first_delivery.fetch("item_type")
-    assert_equal turn_command.public_id, first_delivery.dig("payload", "resource_id")
     assert retried_task.reload.canceled?
     assert_equal "canceled", retry_assignment.reload.status
+    assert_equal "open", background_service.reload.close_state
+    assert_empty harness.poll!(limit: 1).fetch("mailbox_items")
   end
 
   private

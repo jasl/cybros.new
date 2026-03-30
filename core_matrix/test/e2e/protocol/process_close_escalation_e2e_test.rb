@@ -31,7 +31,8 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -39,17 +40,17 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
       heartbeat_timeout_seconds: 30
     )
 
-    Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.zone.parse("2026-03-26 15:30:00 UTC"))
-
-    close_request = correct_harness.poll!.fetch("mailbox_items").find do |mailbox_item|
-      mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id
-    end
+    close_request = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    correct_harness.poll!
 
     wrong_result = wrong_harness.report!(
       method_id: "resource_closed",
       protocol_message_id: "wrong-env-close-#{next_test_sequence}",
-      mailbox_item_id: close_request.fetch("item_id"),
-      close_request_id: close_request.fetch("item_id"),
+      mailbox_item_id: close_request.public_id,
+      close_request_id: close_request.public_id,
       resource_type: "ProcessRun",
       resource_id: process_run.public_id,
       close_outcome_kind: "forced",
@@ -61,14 +62,14 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     assert_equal "requested", process_run.reload.close_state
   end
 
-  test "turn command process supports graceful close" do
+  test "background service supports graceful close" do
     process_run = interrupt_process_run!(close_outcome_kind: "graceful")
 
     assert process_run.reload.stopped?
     assert_equal "graceful", process_run.close_outcome_kind
   end
 
-  test "poll escalates a turn command close request to forced after the grace deadline elapses" do
+  test "poll escalates a background-service close request to forced after the grace deadline elapses" do
     context, harness, process_run, occurred_at = interrupt_process_run_context!
 
     initial_delivery = travel_to(occurred_at) do
@@ -87,7 +88,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     assert_equal "requested", process_run.reload.close_state
   end
 
-  test "turn command process supports forced close after graceful escalation" do
+  test "background service supports forced close after graceful escalation" do
     process_run = interrupt_process_run!(close_outcome_kind: "forced")
 
     assert process_run.reload.stopped?
@@ -114,7 +115,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     assert_equal "completed", close_request.reload.status
   end
 
-  test "turn command process records residual abandonment when forced close still fails" do
+  test "background service records residual abandonment when forced close still fails" do
     process_run = interrupt_process_run!(close_outcome_kind: "residual_abandoned")
 
     assert process_run.reload.lost?
@@ -127,9 +128,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     _context, harness, process_run, occurred_at = interrupt_process_run_context!
 
     close_request = travel_to(occurred_at) do
-      harness.poll!.fetch("mailbox_items").find do |mailbox_item|
-        mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id
-      end
+      harness.poll!.fetch("mailbox_items").find { |mailbox_item| mailbox_item.fetch("payload").fetch("resource_id") == process_run.public_id }
     end
 
     travel_to(occurred_at) do
@@ -158,7 +157,8 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       execution_environment: context[:execution_environment],
-      kind: "turn_command"
+      kind: "background_service",
+      timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
@@ -168,7 +168,10 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     occurred_at = Time.zone.parse("2026-03-26 15:00:00 UTC")
 
     travel_to(occurred_at) do
-      Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: occurred_at)
+      MailboxScenarioBuilder.new(self).close_request!(
+        context: context,
+        resource: process_run
+      )
     end
 
     [context, harness, process_run, occurred_at]
