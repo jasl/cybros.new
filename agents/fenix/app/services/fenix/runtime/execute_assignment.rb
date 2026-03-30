@@ -312,53 +312,27 @@ module Fenix
       end
 
       def execute_exec_command(tool_call:, tool_invocation:, command_run:, command_line:, timeout_seconds:, pty:)
-        return start_command_run_session(command_run_id: command_run.fetch("command_run_id"), timeout_seconds:, command_line:) if pty
-
-        execute_one_shot_command(
-          tool_call: tool_call,
-          tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
-          command_run_id: command_run.fetch("command_run_id"),
-          command_line: command_line,
-          timeout_seconds: timeout_seconds,
-          timeout_label: tool_call.fetch("tool_name")
+        Fenix::Plugins::System::ExecCommand::Runtime.call(
+          tool_call: tool_call.deep_dup,
+          tool_invocation: tool_invocation.deep_dup,
+          command_run: command_run.deep_dup,
+          collector: @collector,
+          control_client: @control_client,
+          cancellation_probe: @cancellation_probe,
+          current_agent_task_run_id:
         )
       end
 
       def execute_write_stdin(tool_call:, tool_invocation:, command_run_id:, text:, eof:, wait_for_exit:, timeout_seconds:)
-        check_canceled!
-        command_run = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id:)
-        raise ArgumentError, "unknown command run #{command_run_id}" if command_run.blank?
-        raise ArgumentError, "command run #{command_run_id} is not owned by this agent task" unless command_run.agent_task_run_id == current_agent_task_run_id
-
-        stdin_bytes = text.to_s.bytesize
-        command_run.stdin.write(text.to_s) if text.present?
-        command_run.stdin.flush if text.present?
-        command_run.stdin.close if eof && !command_run.stdin.closed?
-
-        output_chunks = []
-        output_chunks.concat(drain_attached_output(command_run:, wait_for_exit:, timeout_seconds:))
-        emit_tool_output!(
-          tool_call: tool_call,
-          tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
-          command_run_id: command_run_id,
-          output_chunks:
-        ) if output_chunks.any?
-
-        response_payload = {
-          "command_run_id" => command_run_id,
-          "stdin_bytes" => stdin_bytes,
-          "session_closed" => wait_for_exit,
-          "output_streamed" => command_run.stdout_bytes.positive? || command_run.stderr_bytes.positive?,
-          "stdout_bytes" => command_run.stdout_bytes,
-          "stderr_bytes" => command_run.stderr_bytes,
-        }
-        if wait_for_exit
-          response_payload["exit_status"] = command_run.wait_thread.value.exitstatus
-        end
-
-        response_payload
-      ensure
-        Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if wait_for_exit && command_run_id.present?
+        Fenix::Plugins::System::ExecCommand::Runtime.call(
+          tool_call: tool_call.deep_dup,
+          tool_invocation: tool_invocation.deep_dup,
+          command_run: nil,
+          collector: @collector,
+          control_client: @control_client,
+          cancellation_probe: @cancellation_probe,
+          current_agent_task_run_id:
+        )
       end
 
       def execute_process_exec(process_run:, command_line:)
@@ -375,187 +349,6 @@ module Fenix
           "process_run_id" => process_run.fetch("process_run_id"),
           "lifecycle_state" => "running",
         }
-      end
-
-      def execute_one_shot_command(tool_call:, tool_invocation_id:, command_run_id:, command_line:, timeout_seconds:, timeout_label:)
-        check_canceled!
-        stdout = +""
-        stderr = +""
-        exit_status = nil
-        process_pid = nil
-
-        Open3.popen3("/bin/sh", "-lc", command_line.to_s) do |stdin, command_stdout, command_stderr, wait_thr|
-          Fenix::Runtime::CommandRunRegistry.register(
-            command_run_id: command_run_id,
-            agent_task_run_id: current_agent_task_run_id,
-            stdin: stdin,
-            stdout: command_stdout,
-            stderr: command_stderr,
-            wait_thread: wait_thr
-          )
-          process_pid = wait_thr.pid
-          activate_registered_command_run!(command_run_id)
-          stdin.close
-
-          deadline_at = monotonic_now + timeout_seconds.to_i
-          readers = {
-            command_stdout => { stream: "stdout", buffer: stdout },
-            command_stderr => { stream: "stderr", buffer: stderr },
-          }
-
-          until readers.empty?
-            check_canceled!
-            remaining = deadline_at - monotonic_now
-            raise Timeout::Error, "#{timeout_label} timed out after #{timeout_seconds} seconds" if remaining <= 0
-
-            ready =
-              begin
-                IO.select(readers.keys, nil, nil, [remaining, 0.1].min)
-              rescue IOError, Errno::EBADF
-                readers.delete_if { |io, _| io.closed? rescue true }
-                nil
-              end
-            next if ready.blank?
-
-            ready.first.each do |io|
-              begin
-                chunk = io.read_nonblock(4096)
-                next if chunk.blank?
-
-                stream_details = readers.fetch(io)
-                stream_details.fetch(:buffer) << chunk
-                emit_tool_output!(
-                  tool_call: tool_call,
-                  tool_invocation_id: tool_invocation_id,
-                  command_run_id: command_run_id,
-                  output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }]
-                )
-              rescue IO::WaitReadable
-                nil
-              rescue EOFError, IOError, Errno::EIO
-                readers.delete(io)
-              end
-            end
-          end
-
-          exit_status = wait_thr.value.exitstatus
-        end
-
-        {
-          "command_run_id" => command_run_id,
-          "exit_status" => exit_status,
-          "stdout" => stdout,
-          "stderr" => stderr,
-          "stdout_bytes" => stdout.bytesize,
-          "stderr_bytes" => stderr.bytesize,
-          "output_streamed" => stdout.present? || stderr.present?,
-        }
-      rescue Timeout::Error
-        terminate_subprocess!(pid: process_pid)
-        raise
-      ensure
-        Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present?
-      end
-
-      def start_command_run_session(command_run_id:, command_line:, timeout_seconds:)
-        check_canceled!
-        stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
-        Fenix::Runtime::CommandRunRegistry.register(
-          command_run_id: command_run_id,
-          agent_task_run_id: current_agent_task_run_id,
-          stdin: stdin,
-          stdout: stdout,
-          stderr: stderr,
-          wait_thread: wait_thread
-        )
-        activate_registered_command_run!(command_run_id)
-
-        {
-          "command_run_id" => command_run_id,
-          "attached" => true,
-          "session_closed" => false,
-          "timeout_seconds" => timeout_seconds.to_i,
-        }
-      end
-
-      def drain_attached_output(command_run:, wait_for_exit:, timeout_seconds:)
-        chunks = []
-        deadline_at = monotonic_now + timeout_seconds.to_i
-
-        loop do
-          check_canceled!
-          chunks.concat(read_available_output(command_run:, timeout_seconds: 0.05))
-          break unless wait_for_exit
-          break unless command_run.wait_thread.alive?
-          raise Timeout::Error, "write_stdin timed out after #{timeout_seconds} seconds" if monotonic_now >= deadline_at
-        end
-
-        chunks.concat(read_available_output(command_run:, timeout_seconds: 0.05))
-        chunks
-      end
-
-      def read_available_output(command_run:, timeout_seconds:)
-        readers = {}
-        readers[command_run.stdout] = "stdout" unless command_run.stdout.closed?
-        readers[command_run.stderr] = "stderr" unless command_run.stderr.closed?
-        return [] if readers.empty?
-
-        ready = IO.select(readers.keys, nil, nil, timeout_seconds)
-        return [] if ready.blank?
-
-        output_chunks = []
-
-        ready.first.each do |io|
-          begin
-            chunk = io.read_nonblock(4096)
-            next if chunk.blank?
-
-            stream = readers.fetch(io)
-            if stream == "stdout"
-              command_run.stdout_bytes += chunk.bytesize
-            else
-              command_run.stderr_bytes += chunk.bytesize
-            end
-            output_chunks << { "stream" => stream, "text" => chunk }
-          rescue IO::WaitReadable
-            nil
-          rescue EOFError
-            nil
-          end
-        end
-
-        output_chunks
-      end
-
-      def emit_tool_output!(tool_call:, tool_invocation_id:, output_chunks:, command_run_id: nil)
-        return if canceled?
-
-        @collector.progress!(
-          progress_payload: {
-            "stage" => "tool_output",
-            "tool_invocation_output" => {
-              "tool_invocation_id" => tool_invocation_id,
-              "call_id" => tool_call.fetch("call_id"),
-              "tool_name" => tool_call.fetch("tool_name"),
-              "command_run_id" => command_run_id,
-              "output_chunks" => output_chunks,
-            },
-          }
-        )
-      end
-
-      def terminate_subprocess!(pid:)
-        return if pid.blank?
-
-        Process.kill("TERM", pid)
-        sleep(0.1)
-        Process.kill("KILL", pid)
-      rescue Errno::ESRCH
-        nil
-      end
-
-      def monotonic_now
-        Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
 
       def canceled?
@@ -667,19 +460,6 @@ module Fenix
             "attempt_no" => @context.fetch("attempt_no"),
           }
         )
-      end
-
-      def activate_command_run!(command_run_id)
-        return if command_run_id.blank?
-
-        @control_client.activate_command_run!(command_run_id: command_run_id)
-      end
-
-      def activate_registered_command_run!(command_run_id)
-        activate_command_run!(command_run_id)
-      rescue StandardError
-        Fenix::Runtime::CommandRunRegistry.terminate(command_run_id: command_run_id)
-        raise
       end
 
       def build_current_tool_invocation(tool_call:, tool_invocation:, command_run:)

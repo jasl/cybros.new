@@ -80,6 +80,48 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal [started_invocation.fetch("tool_invocation_id")], control_client.command_run_requests.map { |request| request.fetch("tool_invocation_id") }
   end
 
+  test "exec_command routes through the exec command plugin runtime" do
+    routed_call = nil
+    control_client = build_runtime_control_client
+
+    original_call = Fenix::Plugins::System::ExecCommand::Runtime.method(:call)
+    Fenix::Plugins::System::ExecCommand::Runtime.define_singleton_method(:call) do |**kwargs|
+      routed_call = kwargs
+      {
+        "command_run_id" => kwargs.fetch(:command_run).fetch("command_run_id"),
+        "exit_status" => 0,
+        "output_streamed" => false,
+        "stdout_bytes" => 0,
+        "stderr_bytes" => 0,
+      }
+    end
+
+    begin
+      result = Fenix::Runtime::ExecuteAssignment.call(
+        mailbox_item: runtime_assignment_payload(
+          mode: "deterministic_tool",
+          task_payload: {
+            "tool_name" => "exec_command",
+            "command_line" => "printf 'hello\\n'",
+          },
+          agent_context: default_agent_context.merge(
+            "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+          )
+        ),
+        control_client: control_client
+      )
+
+      assert_equal "completed", result.status
+    ensure
+      Fenix::Plugins::System::ExecCommand::Runtime.define_singleton_method(:call, original_call)
+    end
+
+    assert_equal "exec_command", routed_call.fetch(:tool_call).fetch("tool_name")
+    assert_equal "printf 'hello\\n'", routed_call.fetch(:tool_call).dig("arguments", "command_line")
+    assert routed_call.fetch(:tool_invocation).fetch("tool_invocation_id").present?
+    assert routed_call.fetch(:command_run).fetch("command_run_id").present?
+  end
+
   test "exec_command can hand off an attached command run to write_stdin and finish with summary-only payloads" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     control_client = build_runtime_control_client
@@ -149,6 +191,72 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     refute completed_invocation.fetch("response_payload").key?("stderr")
     assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
     assert_process_terminated(attached_pid)
+  end
+
+  test "write_stdin routes through the exec command plugin runtime" do
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    routed_call = nil
+    control_client = build_runtime_control_client
+
+    exec_payload = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "cat",
+        "pty" => true,
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+      )
+    )
+    exec_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+    started = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: exec_payload, control_client: control_client)
+    command_run_id = started.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+      .dig("response_payload", "command_run_id")
+
+    original_call = Fenix::Plugins::System::ExecCommand::Runtime.method(:call)
+    Fenix::Plugins::System::ExecCommand::Runtime.define_singleton_method(:call) do |**kwargs|
+      routed_call = kwargs
+      {
+        "command_run_id" => kwargs.fetch(:tool_call).dig("arguments", "command_run_id"),
+        "stdin_bytes" => 6,
+        "session_closed" => true,
+        "exit_status" => 0,
+        "stdout_bytes" => 6,
+        "stderr_bytes" => 0,
+        "output_streamed" => true,
+      }
+    end
+
+    begin
+      write_payload = runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "write_stdin",
+          "command_run_id" => command_run_id,
+          "text" => "hello\n",
+          "eof" => true,
+          "wait_for_exit" => true,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      )
+      write_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+      result = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: write_payload, control_client: control_client)
+      assert_equal "completed", result.status
+    ensure
+      Fenix::Plugins::System::ExecCommand::Runtime.define_singleton_method(:call, original_call)
+    end
+
+    assert_equal "write_stdin", routed_call.fetch(:tool_call).fetch("tool_name")
+    assert_equal command_run_id, routed_call.fetch(:tool_call).dig("arguments", "command_run_id")
+    assert routed_call.fetch(:tool_invocation).fetch("tool_invocation_id").present?
   end
 
   test "process_exec provisions a background service through ProcessRun and keeps tool invocation flow empty" do
