@@ -56,6 +56,13 @@ module HumanInteractions
             "blocking" => request.blocking
           )
         )
+        Workflows::CompleteNode.call(
+          workflow_node: workflow_node,
+          event_payload: {
+            "human_interaction_request_id" => request.public_id,
+            "blocking" => request.blocking,
+          }
+        )
 
         wait_for_request!(workflow_run, request) if request.blocking?
         project_event!(request, "human_interaction.opened")

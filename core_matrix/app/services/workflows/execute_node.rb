@@ -35,29 +35,7 @@ module Workflows
     end
 
     def complete_coordination_node!(workflow_node)
-      now = Time.current
-
-      workflow_node.with_lock do
-        workflow_node.reload
-        return workflow_node if workflow_node.terminal?
-
-        workflow_node.update!(
-          lifecycle_state: "completed",
-          started_at: workflow_node.started_at || now,
-          finished_at: now
-        )
-        WorkflowNodeEvent.create!(
-          installation: workflow_node.installation,
-          workflow_run: workflow_node.workflow_run,
-          workflow_node: workflow_node,
-          ordinal: workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
-          event_kind: "status",
-          payload: {
-            "state" => "completed",
-          }
-        )
-      end
-
+      workflow_node = Workflows::CompleteNode.call(workflow_node: workflow_node)
       Workflows::RefreshRunLifecycle.call(workflow_run: workflow_node.workflow_run)
       Workflows::DispatchRunnableNodes.call(workflow_run: workflow_node.workflow_run)
       workflow_node

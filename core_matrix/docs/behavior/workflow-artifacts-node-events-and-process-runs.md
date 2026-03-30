@@ -79,6 +79,10 @@ runtime resources that later tasks now build on are:
     `barrier_join` completes
   - `ProviderExecution::ExecuteTurnStep` and its terminal persistence services
     for provider-backed `turn_step` nodes
+  - `HumanInteractions::Request` when a yielded `human_interaction` node is
+    consumed into a durable request resource
+  - `Workflows::HandleWaitTransitionRequest` when a yielded `subagent_spawn`
+    node is consumed into a durable subagent session
   - `Processes::Start` and `Processes::Stop` for environment-owned process
     resources
 - Phase 2 yield materialization currently records:
@@ -184,6 +188,10 @@ runtime resources that later tasks now build on are:
   `SubagentSession`
 - the durable execution instance remains
   `AgentTaskRun(kind = "subagent_step")`
+- yielded `subagent_spawn` workflow nodes are owner-managed and are marked
+  `completed` as soon as the child session and initial child work are created
+- later parent waiting comes from the barrier/session state, not from leaving a
+  `subagent_spawn` node in `pending`
 - session close requests use the same mailbox-driven close machinery as other
   closable runtime resources
 - when a session close request has no active lease holder, delivery falls back

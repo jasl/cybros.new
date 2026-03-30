@@ -42,6 +42,12 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_equal "agent_step_2", workflow_run.resume_metadata.dig("successor", "node_key")
     assert_equal %w[root agent_turn_step human_gate], workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
     assert_equal "completed", agent_task_run.reload.lifecycle_state
+    assert workflow_run.workflow_nodes.find_by!(node_key: "human_gate").completed?
+    assert_equal ["completed"],
+      workflow_run.workflow_node_events.where(
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "human_gate"),
+        event_kind: "status"
+      ).order(:ordinal).map { |event| event.payload.fetch("state") }
   end
 
   test "rejects opening a human interaction when the frozen workflow feature policy disables it" do

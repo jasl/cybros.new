@@ -3,6 +3,7 @@ require "test_helper"
 class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
   test "human task wait transition re-enters the workflow with a successor agent step after completion" do
     context = build_agent_control_context!
+    complete_root_node!(context.fetch(:workflow_run))
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
@@ -52,15 +53,31 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     edge_sources = WorkflowEdge.where(workflow_run: workflow_run, to_node: successor_node).includes(:from_node).map { |edge| edge.from_node.node_key }
 
     assert workflow_run.ready?
+    assert workflow_run.workflow_nodes.find_by!(node_key: "human_gate").completed?
     assert_equal "turn_step", successor_task.kind
     assert_equal "queued", successor_task.lifecycle_state
     assert_equal "batch-human-2", successor_task.task_payload["resume_batch_id"]
     assert_equal ["human_gate"], edge_sources
     assert_equal "queued", successor_mailbox_item.status
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: successor_mailbox_item,
+      agent_task_run: successor_task
+    )
+    report_execution_complete!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: successor_mailbox_item,
+      agent_task_run: successor_task,
+      terminal_payload: { "output" => "Workflow complete" }
+    )
+
+    assert workflow_run.reload.completed?
   end
 
   test "parallel subagent wait_all barrier re-enters the workflow after all sessions finish" do
     context = build_agent_control_context!
+    complete_root_node!(context.fetch(:workflow_run))
     promote_subagent_runtime_context!(context)
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
@@ -129,11 +146,27 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     edge_sources = WorkflowEdge.where(workflow_run: workflow_run, to_node: successor_node).includes(:from_node).map { |edge| edge.from_node.node_key }.sort
 
     assert workflow_run.ready?
+    assert_equal %w[completed completed],
+      workflow_run.workflow_nodes.where(node_key: %w[subagent_alpha subagent_beta]).order(:ordinal).pluck(:lifecycle_state)
     assert_equal "turn_step", successor_task.kind
     assert_equal "queued", successor_task.lifecycle_state
     assert_equal "batch-subagents-2", successor_task.task_payload["resume_batch_id"]
     assert_equal %w[subagent_alpha subagent_beta], edge_sources
     assert_equal "queued", successor_mailbox_item.status
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: successor_mailbox_item,
+      agent_task_run: successor_task
+    )
+    report_execution_complete!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: successor_mailbox_item,
+      agent_task_run: successor_task,
+      terminal_payload: { "output" => "Workflow complete" }
+    )
+
+    assert workflow_run.reload.completed?
   end
 
   private
@@ -155,5 +188,9 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
       agent_task_run: agent_task_run,
       terminal_payload: { "output" => "done" }
     )
+  end
+
+  def complete_root_node!(workflow_run)
+    Workflows::CompleteNode.call(workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "root"))
   end
 end

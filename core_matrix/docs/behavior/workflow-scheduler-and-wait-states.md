@@ -107,6 +107,8 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
     `HumanInteractionRequest` rows
   - accepted `subagent_spawn` intents become durable `SubagentSession`, child
     conversation, child turn, child workflow, and child `AgentTaskRun` records
+  - those owner-managed yielded nodes are marked `completed` immediately when
+    their durable runtime resources are created
   - `wait_all` stages pause the parent workflow with a durable
     `subagent_barrier`
   - stages with no blocking resource immediately continue through
@@ -300,6 +302,10 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 
 - blocking human interaction requests still move workflows to
   `wait_state = "waiting"`
+- the yielded `human_interaction` workflow node itself is owner-managed and is
+  marked `completed` as soon as the durable request row is created
+- the open request, not the workflow node row, is the durable blocker that
+  keeps the workflow waiting
 - human-interaction conversation-event payloads use the request `public_id`
   rather than the internal row id
 - yielded human-interaction intents are materialized by

@@ -54,6 +54,12 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal %w[root agent_turn_step subagent_alpha subagent_beta], workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
     assert_equal sessions.map(&:public_id).sort,
       spawned_nodes.map { |node| node.metadata.fetch("subagent_session_id") }.sort
+    assert_equal %w[completed completed], spawned_nodes.map(&:lifecycle_state)
+    status_sequences = spawned_nodes.map do |node|
+      workflow_run.workflow_node_events.where(workflow_node: node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }
+    end
+    assert_equal [%w[completed], %w[completed]],
+      status_sequences
   end
 
   test "turn scoped spawn creates one child conversation and one subagent session with initial work" do

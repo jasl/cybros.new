@@ -84,6 +84,12 @@ module Workflows
             "subagent_agent_task_run_id" => result.fetch("agent_task_run_id")
           )
         )
+        Workflows::CompleteNode.call(
+          workflow_node: node,
+          event_payload: {
+            "subagent_session_id" => result.fetch("subagent_session_id"),
+          }
+        )
 
         SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
       end
