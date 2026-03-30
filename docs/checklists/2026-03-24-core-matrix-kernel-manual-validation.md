@@ -112,6 +112,7 @@ jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
 ```
 
 - expected outputs:
+  - `delivery_mode: "realtime"`
   - `expected_dag_shape: ["agent_turn_step"]`
   - `observed_dag_shape: ["agent_turn_step"]`
   - `runtime_execution_status: "completed"`
@@ -129,9 +130,9 @@ jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
 - proof artifact path:
   - `docs/reports/phase-2/2026-03-30-bundled-fenix-fast-terminal/`
 - operator note:
-  - this proves the bundled Fenix mailbox execution path; the runtime output
-    completes on the task/runtime plane and is not projected into
-    `turn.selected_output_message`
+  - this proves the bundled Fenix mailbox execution path over the
+    websocket-first control plane; the runtime output completes on the
+    task/runtime plane and is not projected into `turn.selected_output_message`
 - cleanup steps:
   - none; the script resets and seeds the development database itself
 - last validated:
@@ -1523,6 +1524,7 @@ jq '.' /tmp/phase2_external_fenix_validation.json
 ```
 
 - expected outputs:
+  - `delivery_mode: "realtime"`
   - `registration_bootstrap_state: "pending"`
   - `heartbeat_bootstrap_state: "active"`
   - `expected_dag_shape: ["agent_turn_step"]`

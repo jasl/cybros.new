@@ -3,6 +3,7 @@
 require_relative "./phase2_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
+delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 fingerprint = "phase2-bundled-fast-terminal-runtime"
 
 Phase2AcceptanceSupport.reset_backend_state!
@@ -21,12 +22,14 @@ run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
   runtime_base_url: runtime_base_url,
   content: "Bundled Fenix deterministic tool turn",
   mode: "deterministic_tool",
-  extra_payload: { "expression" => "7 + 5" }
+  extra_payload: { "expression" => "7 + 5" },
+  delivery_mode: delivery_mode
 )
 
 Phase2AcceptanceSupport.write_json(
   {
     "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
+    "delivery_mode" => delivery_mode,
     "execution_environment_id" => bundled.fetch(:runtime).execution_environment.public_id,
     "conversation_id" => run.fetch(:conversation).public_id,
     "turn_id" => run.fetch(:turn).public_id,

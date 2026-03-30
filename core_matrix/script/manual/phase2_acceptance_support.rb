@@ -125,14 +125,35 @@ module Phase2AcceptanceSupport
   end
 
   def run_fenix_mailbox_pump_once!(machine_credential:, limit: 10, inline: true)
+    run_fenix_runtime_task!(
+      task_name: "runtime:mailbox_pump_once",
+      machine_credential:,
+      env: {
+        "LIMIT" => limit.to_s,
+        "INLINE" => inline ? "true" : "false",
+      }
+    )
+  end
+
+  def run_fenix_control_loop_once!(machine_credential:, limit: 10, inline: true, realtime_timeout_seconds: 5)
+    run_fenix_runtime_task!(
+      task_name: "runtime:control_loop_once",
+      machine_credential:,
+      env: {
+        "LIMIT" => limit.to_s,
+        "INLINE" => inline ? "true" : "false",
+        "REALTIME_TIMEOUT_SECONDS" => realtime_timeout_seconds.to_s,
+      }
+    )
+  end
+
+  def run_fenix_runtime_task!(task_name:, machine_credential:, env:)
     project_root = fenix_project_root
-    env = {
+    task_env = {
       "CORE_MATRIX_BASE_URL" => CONTROL_BASE_URL,
       "CORE_MATRIX_MACHINE_CREDENTIAL" => machine_credential,
-      "LIMIT" => limit.to_s,
-      "INLINE" => inline ? "true" : "false",
       "BUNDLE_GEMFILE" => project_root.join("Gemfile").to_s,
-    }
+    }.merge(env)
 
     stdout = nil
     stderr = nil
@@ -140,9 +161,9 @@ module Phase2AcceptanceSupport
 
     Bundler.with_unbundled_env do
       stdout, stderr, status = Open3.capture3(
-        env,
+        task_env,
         "bin/rails",
-        "runtime:mailbox_pump_once",
+        task_name,
         chdir: project_root.to_s
       )
     end
@@ -387,7 +408,8 @@ module Phase2AcceptanceSupport
     runtime_base_url: nil,
     content:,
     mode:,
-    extra_payload: {}
+    extra_payload: {},
+    delivery_mode: "realtime"
   )
     _unused_runtime_base_url = runtime_base_url
     conversation_context = create_conversation!(deployment: deployment)
@@ -401,7 +423,12 @@ module Phase2AcceptanceSupport
       initial_kind: "turn_step",
       initial_payload: { "mode" => mode }.merge(extra_payload)
     )
-    pump_result = run_fenix_mailbox_pump_once!(machine_credential:)
+    pump_result =
+      if delivery_mode == "realtime"
+        run_fenix_control_loop_once!(machine_credential:)
+      else
+        run_fenix_mailbox_pump_once!(machine_credential:)
+      end
     agent_task_run = wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
     mailbox_item = agent_task_run.agent_control_mailbox_items.order(:created_at, :id).last
     raise "expected mailbox item for task run #{agent_task_run.public_id}" if mailbox_item.blank?
