@@ -7,6 +7,7 @@ Active `phase 2` execution plans now live in:
 
 Remaining future-oriented records:
 
+- [2026-03-30-core-matrix-runtime-approval-and-handle-recovery-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-30-core-matrix-runtime-approval-and-handle-recovery-follow-up.md)
 - [2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-advanced-intent-batch-and-join-policy-follow-up.md)
 - [2026-03-24-core-matrix-kernel-ui-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md)
 - [2026-03-25-core-matrix-phase-4-product-shape-exploration-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-25-core-matrix-phase-4-product-shape-exploration-follow-up.md)

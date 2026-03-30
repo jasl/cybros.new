@@ -169,6 +169,34 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
     Fenix::Processes::Manager.reset!
   end
 
+  test "prune_terminated_handles! removes stale local process projections and closes their io" do
+    stdin_read, stdin_write = IO.pipe
+    stdout_read, stdout_write = IO.pipe
+    stderr_read, stderr_write = IO.pipe
+    fake_wait_thread = Struct.new(:alive?).new(false)
+    process_run_id = "process-#{SecureRandom.uuid}"
+
+    Fenix::Processes::Manager.register(
+      process_run_id: process_run_id,
+      stdin: stdin_write,
+      stdout: stdout_read,
+      stderr: stderr_read,
+      wait_thread: fake_wait_thread,
+      start_monitoring: false
+    )
+
+    assert_equal 1, Fenix::Processes::Manager.prune_terminated_handles!
+
+    assert_nil Fenix::Processes::Manager.lookup(process_run_id: process_run_id)
+    assert stdin_write.closed?
+    assert stdout_read.closed?
+    assert stderr_read.closed?
+  ensure
+    stdin_read.close unless stdin_read.closed?
+    stdout_write.close unless stdout_write.closed?
+    stderr_write.close unless stderr_write.closed?
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)

@@ -1,7 +1,10 @@
 module Fenix
   module Processes
     class Manager
-      Entry = Struct.new(
+      # Long-lived process handles are runtime-local projections of kernel-owned
+      # ProcessRun records. They are useful for close/output delivery, but they
+      # are intentionally not a durable fact source.
+      LocalHandle = Struct.new(
         :process_run_id,
         :stdin,
         :stdout,
@@ -21,7 +24,7 @@ module Fenix
         OUTPUT_READ_SIZE = 4096
 
         def register(process_run_id:, stdin:, stdout:, stderr:, wait_thread:, control_client: nil, start_monitoring: true)
-          entry = Entry.new(
+          entry = LocalHandle.new(
             process_run_id: process_run_id,
             stdin: stdin,
             stdout: stdout,
@@ -84,6 +87,25 @@ module Fenix
           report_acknowledged!(mailbox_item: mailbox_item, control_client: client) if deliver_reports && client.present?
           signal_process(entry, strictness: strictness)
           :handled
+        end
+
+        def prune_terminated_handles!
+          stale_entries = synchronize do
+            entries.values.select do |entry|
+              wait_thread = entry.wait_thread
+              wait_thread.nil? || !wait_thread.alive?
+            end
+          end
+
+          stale_entries.each do |entry|
+            cleanup_entry(entry)
+            join_thread(entry.wait_thread)
+            join_thread(entry.stdout_thread)
+            join_thread(entry.stderr_thread)
+            join_thread(entry.watcher_thread)
+          end
+
+          stale_entries.length
         end
 
         def reset!
@@ -294,6 +316,8 @@ module Fenix
           end
 
           close_io(entry.stdin)
+          close_io(entry.stdout)
+          close_io(entry.stderr)
         end
 
         def close_io(io)

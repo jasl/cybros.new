@@ -1,7 +1,9 @@
 module Fenix
   module Runtime
     class CommandRunRegistry
-      Entry = Struct.new(
+      # Attached command handles are runtime-local execution projections.
+      # Kernel-owned CommandRun records remain the only durable source of truth.
+      LocalHandle = Struct.new(
         :command_run_id,
         :agent_task_run_id,
         :stdin,
@@ -16,7 +18,7 @@ module Fenix
       class << self
         def register(command_run_id:, agent_task_run_id:, stdin:, stdout:, stderr:, wait_thread:)
           synchronize do
-            entries[command_run_id] = Entry.new(
+            entries[command_run_id] = LocalHandle.new(
               command_run_id: command_run_id,
               agent_task_run_id: agent_task_run_id,
               stdin: stdin,

@@ -13,15 +13,19 @@ module CommandRuns
     end
 
     def call
-      return @command_run unless @command_run.starting? || @command_run.running?
+      @command_run.with_lock do
+        @command_run.reload
+        return @command_run unless @command_run.starting? || @command_run.running?
 
-      attributes = {
-        lifecycle_state: @lifecycle_state,
-        ended_at: @ended_at,
-      }
-      attributes[:exit_status] = @exit_status unless @exit_status.nil?
-      attributes[:metadata] = @command_run.metadata.merge(@metadata) if @metadata.present?
-      @command_run.update!(attributes)
+        attributes = {
+          lifecycle_state: @lifecycle_state,
+          ended_at: @ended_at,
+        }
+        attributes[:exit_status] = @exit_status unless @exit_status.nil?
+        attributes[:metadata] = @command_run.metadata.merge(@metadata) if @metadata.present?
+        @command_run.update!(attributes)
+      end
+
       @command_run
     end
   end
