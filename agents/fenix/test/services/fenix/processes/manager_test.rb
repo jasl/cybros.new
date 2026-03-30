@@ -127,6 +127,48 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
     assert_equal 0, terminal.fetch("exit_status")
   end
 
+  test "spawn! cleans up the local process when process_started reporting fails" do
+    process_run_id = "process-#{SecureRandom.uuid}"
+    wait_thread = nil
+    process_manager_singleton = Fenix::Processes::Manager.singleton_class
+    original_register = Fenix::Processes::Manager.method(:register)
+    control_client = Class.new do
+      attr_reader :payloads
+
+      def initialize
+        @payloads = []
+      end
+
+      def report!(payload:)
+        payloads << payload.deep_stringify_keys
+        raise "process_started failed" if payload["method_id"] == "process_started"
+
+        { "result" => "accepted" }
+      end
+    end.new
+
+    process_manager_singleton.send(:define_method, :register) do |**kwargs|
+      entry = original_register.call(**kwargs)
+      wait_thread = entry.wait_thread
+      entry
+    end
+
+    assert_raises RuntimeError do
+      Fenix::Processes::Manager.spawn!(
+        process_run_id: process_run_id,
+        command_line: "sleep 30",
+        control_client: control_client
+      )
+    end
+
+    assert_eventually { wait_thread.present? && !wait_thread.alive? }
+    assert_nil Fenix::Processes::Manager.lookup(process_run_id: process_run_id)
+    assert_includes control_client.payloads.map { |payload| payload.fetch("method_id") }, "process_exited"
+  ensure
+    process_manager_singleton.send(:define_method, :register, original_register) if process_manager_singleton && original_register
+    Fenix::Processes::Manager.reset!
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)

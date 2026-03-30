@@ -55,21 +55,7 @@ module Fenix
           start_monitoring!(entry)
           entry
         rescue StandardError => error
-          control_client&.report!(
-            payload: {
-              "method_id" => "process_exited",
-              "protocol_message_id" => "fenix-process-exited-#{SecureRandom.uuid}",
-              "resource_type" => "ProcessRun",
-              "resource_id" => process_run_id,
-              "lifecycle_state" => "failed",
-              "metadata" => {
-                "source" => "fenix_process_manager",
-                "reason" => "spawn_failed",
-                "error_class" => error.class.name,
-                "error_message" => error.message,
-              },
-            }
-          )
+          cleanup_failed_spawn!(entry:, process_run_id:, control_client:, error:)
           raise
         end
 
@@ -245,6 +231,33 @@ module Fenix
           entry.stdout_thread = start_output_thread(entry, stream: "stdout", io: entry.stdout)
           entry.stderr_thread = start_output_thread(entry, stream: "stderr", io: entry.stderr)
           entry.watcher_thread = start_watcher_thread(entry)
+        end
+
+        def cleanup_failed_spawn!(entry:, process_run_id:, control_client:, error:)
+          terminate_process(entry, signal: "KILL") if entry.present?
+          close_io(entry&.stdin)
+          close_io(entry&.stdout)
+          close_io(entry&.stderr)
+          join_thread(entry&.wait_thread)
+          cleanup_entry(entry) if entry.present?
+
+          (entry&.control_client || control_client)&.report!(
+            payload: {
+              "method_id" => "process_exited",
+              "protocol_message_id" => "fenix-process-exited-#{SecureRandom.uuid}",
+              "resource_type" => "ProcessRun",
+              "resource_id" => process_run_id,
+              "lifecycle_state" => "failed",
+              "metadata" => {
+                "source" => "fenix_process_manager",
+                "reason" => "spawn_failed",
+                "error_class" => error.class.name,
+                "error_message" => error.message,
+              },
+            }
+          )
+        rescue StandardError
+          nil
         end
 
         def report_acknowledged!(mailbox_item:, control_client:)
