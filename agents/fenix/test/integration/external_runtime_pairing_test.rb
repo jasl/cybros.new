@@ -60,6 +60,24 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_equal "boolean", body.dig("conversation_override_schema_snapshot", "properties", "subagents", "properties", "enabled", "type")
   end
 
+  test "pairing manifest honors explicit public base url overrides" do
+    original_base_url = ENV["FENIX_PUBLIC_BASE_URL"]
+    ENV["FENIX_PUBLIC_BASE_URL"] = "http://fenix.example.test:3101"
+
+    begin
+      get "/runtime/manifest"
+
+      assert_response :success
+
+      body = JSON.parse(response.body)
+
+      assert_equal "http://fenix.example.test:3101", body.dig("endpoint_metadata", "base_url")
+      assert_equal "http://fenix.example.test:3101", body.dig("environment_connection_metadata", "base_url")
+    ensure
+      ENV["FENIX_PUBLIC_BASE_URL"] = original_base_url
+    end
+  end
+
   test "runtime executions are not exposed as a routable external product endpoint" do
     assert_raises(ActionController::RoutingError) do
       Rails.application.routes.recognize_path("/runtime/executions", method: :post)

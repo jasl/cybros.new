@@ -337,6 +337,10 @@ Key environment variables in the sample:
 - `SECRET_KEY_BASE=...`
   - the sample uses a dev-only placeholder so `production` boots out of the box
   - replace it with a real secret for any non-local deployment
+- `FENIX_PUBLIC_BASE_URL=http://localhost:3101`
+  - the sample publishes the reachable manifest base URL explicitly
+  - set this to the externally reachable origin when a reverse proxy or TLS
+    terminator changes the public scheme/host/port
 - `CORE_MATRIX_BASE_URL`
 - `CORE_MATRIX_MACHINE_CREDENTIAL`
 - `PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright`

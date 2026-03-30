@@ -40,6 +40,7 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_equal ".", fenix_service.fetch("build")
     assert_equal ".", proxy_service.fetch("build")
     assert environment_entries.any? { |entry| entry.start_with?("SECRET_KEY_BASE=") }
+    assert environment_entries.any? { |entry| entry.start_with?("FENIX_PUBLIC_BASE_URL=") }
     assert environment_entries.any? { |entry| entry.start_with?("FENIX_DEV_PROXY_PORT=") }
     assert environment_entries.any? { |entry| entry.start_with?("PLAYWRIGHT_BROWSERS_PATH=") }
     assert proxy_environment_entries.any? { |entry| entry.start_with?("FENIX_DEV_PROXY_PORT=") }
