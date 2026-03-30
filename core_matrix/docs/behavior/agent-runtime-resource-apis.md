@@ -129,6 +129,9 @@ orchestration are still defined in:
     are not persisted on the `ProcessRun` row
 - short-lived command output does not use `process_output`; it is reported
   through execution progress as `runtime.tool_invocation.output`
+- the terminal `ToolInvocation.response_payload` for short-lived commands should
+  keep structured summary data only, such as exit status and streamed byte
+  counts, rather than raw stdout/stderr bodies
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources

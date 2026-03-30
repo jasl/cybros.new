@@ -312,8 +312,10 @@ class AgentControlReportTest < ActiveSupport::TestCase
               "tool_name" => "shell_exec",
               "response_payload" => {
                 "exit_status" => 0,
-                "stdout" => "hello\n",
-                "stderr" => "",
+                "content" => "Command exited with status 0 after streaming output.",
+                "output_streamed" => true,
+                "stdout_bytes" => 6,
+                "stderr_bytes" => 0,
               },
             },
           ],
@@ -342,7 +344,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal call_id, output_payload.fetch("call_id")
     assert_equal "stdout", output_payload.fetch("stream")
     assert_equal "hello\n", output_payload.fetch("text")
-    assert_equal "hello\n", invocation.response_payload.fetch("stdout")
+    assert_equal true, invocation.response_payload.fetch("output_streamed")
+    assert_equal 6, invocation.response_payload.fetch("stdout_bytes")
+    assert_equal 0, invocation.response_payload.fetch("stderr_bytes")
+    refute invocation.response_payload.key?("stdout")
+    refute invocation.response_payload.key?("stderr")
   end
 
   test "process_output broadcasts runtime process chunks without mutating durable process payloads" do

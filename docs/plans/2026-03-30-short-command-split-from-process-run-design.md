@@ -54,7 +54,8 @@ command as a separate kernel-owned runtime resource.
   - `runtime.tool_invocation.output`
 - output chunks are not persisted chunk-by-chunk
 - the final tool result may still persist structured terminal data in
-  `ToolInvocation.response_payload`
+  `ToolInvocation.response_payload`, but only as summary fields such as exit
+  status and byte counts
 
 ## Implementation Shape
 

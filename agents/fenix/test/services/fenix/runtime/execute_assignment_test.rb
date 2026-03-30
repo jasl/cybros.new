@@ -60,8 +60,13 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal "hello\n", output_progress.fetch("output_chunks").fetch(0).fetch("text")
     assert_equal "completed", completed_invocation.fetch("event")
     assert_equal "shell_exec", completed_invocation.fetch("tool_name")
+    assert_equal "Command exited with status 0 after streaming output.", result.output
     assert_equal 0, completed_invocation.dig("response_payload", "exit_status")
-    assert_equal "hello\n", completed_invocation.dig("response_payload", "stdout")
+    assert_equal true, completed_invocation.dig("response_payload", "output_streamed")
+    assert_equal 6, completed_invocation.dig("response_payload", "stdout_bytes")
+    assert_equal 0, completed_invocation.dig("response_payload", "stderr_bytes")
+    refute completed_invocation.fetch("response_payload").key?("stdout")
+    refute completed_invocation.fetch("response_payload").key?("stderr")
   end
 
   test "core matrix model context triggers proactive context compaction before execution" do

@@ -181,6 +181,8 @@ runtime resources that later tasks now build on are:
   - durable result and audit land in `ToolInvocation`
   - stdout/stderr chunks are streamed as
     `runtime.tool_invocation.output`
+  - the durable terminal payload keeps summary fields such as exit status and
+    byte counts, not raw stdout/stderr bodies
   - command subprocess lifecycle remains subordinate to the owning
     `AgentTaskRun`
 - agent task runs persist the same durable close fields as other closable
