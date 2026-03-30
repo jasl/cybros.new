@@ -11,9 +11,10 @@ module Fenix
         new(...).call
       end
 
-      def initialize(mailbox_item:, on_report: nil)
+      def initialize(mailbox_item:, attempt: nil, on_report: nil)
         @context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
         @collector = Fenix::RuntimeSurface::ReportCollector.new(context: @context, on_report:)
+        @attempt = attempt
         @trace = []
         @current_tool_invocation = nil
       end

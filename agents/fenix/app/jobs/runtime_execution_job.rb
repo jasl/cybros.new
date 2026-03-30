@@ -3,6 +3,7 @@ class RuntimeExecutionJob < ApplicationJob
 
   def perform(runtime_execution_id)
     runtime_execution = RuntimeExecution.find(runtime_execution_id)
+    attempt = nil
 
     runtime_execution.with_lock do
       return unless runtime_execution.queued?
@@ -10,8 +11,16 @@ class RuntimeExecutionJob < ApplicationJob
       runtime_execution.update!(status: "running", started_at: runtime_execution.started_at || Time.current)
     end
 
+    attempt = Fenix::Runtime::AttemptRegistry.register(
+      agent_task_run_id: runtime_execution.mailbox_item_payload.dig("payload", "agent_task_run_id"),
+      logical_work_id: runtime_execution.logical_work_id,
+      attempt_no: runtime_execution.attempt_no,
+      runtime_execution_id: runtime_execution.id
+    )
+
     result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_execution.mailbox_item_payload,
+      attempt: attempt,
       on_report: ->(report) { append_report!(runtime_execution_id:, report:) }
     )
 
@@ -35,6 +44,8 @@ class RuntimeExecutionJob < ApplicationJob
       finished_at: Time.current
     )
     raise
+  ensure
+    Fenix::Runtime::AttemptRegistry.release(agent_task_run_id: attempt.agent_task_run_id) if attempt.present?
   end
 
   private

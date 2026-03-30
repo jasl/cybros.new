@@ -21,11 +21,13 @@ module ActiveSupport
       ActiveJob::Base.queue_adapter = :test
       clear_enqueued_jobs
       clear_performed_jobs
+      Fenix::Runtime::AttemptRegistry.reset!
     end
 
     teardown do
       clear_enqueued_jobs
       clear_performed_jobs
+      Fenix::Runtime::AttemptRegistry.reset!
     end
 
     # Add more helper methods to be used by all tests here...

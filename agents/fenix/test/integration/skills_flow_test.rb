@@ -1,6 +1,6 @@
 require "test_helper"
 
-class SkillsFlowTest < ActionDispatch::IntegrationTest
+class SkillsFlowTest < ActiveSupport::TestCase
   test "mailbox worker lists bundled system and curated skills" do
     with_skill_roots do |roots|
       write_skill(root: roots.fetch(:system_root), name: "deploy-agent", description: "Deploy another agent.")
