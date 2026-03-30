@@ -75,7 +75,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
-  test "agent task close requests terminate command sessions and release the active attempt" do
+  test "agent task close requests terminate command runs and release the active attempt" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     stdin = nil
     stdout = nil

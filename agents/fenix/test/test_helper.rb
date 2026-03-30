@@ -106,7 +106,7 @@ module ActiveSupport
         command_run.merge("method_id" => "command_run_activate", "result" => activated ? "activated" : "noop")
       end
 
-      def create_process_run!(agent_task_run_id:, tool_name:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {}, policy_sensitive: nil)
+      def create_process_run!(agent_task_run_id:, tool_name:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {})
         @process_runs_by_key ||= {}
         key = [agent_task_run_id, idempotency_key].join(":")
         if idempotency_key.present? && @process_runs_by_key.key?(key)
@@ -135,7 +135,6 @@ module ActiveSupport
           "timeout_seconds" => timeout_seconds,
           "idempotency_key" => idempotency_key,
           "metadata" => metadata.deep_stringify_keys,
-          "policy_sensitive" => policy_sensitive,
           "response" => response,
         }
         @process_runs_by_key[key] = response if idempotency_key.present?

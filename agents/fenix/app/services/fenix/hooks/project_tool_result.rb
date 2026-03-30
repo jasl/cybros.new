@@ -29,7 +29,7 @@ module Fenix
         if tool_result["attached"] == true && !tool_result.fetch("session_closed", false)
           {
             "tool_name" => tool_name,
-            "content" => "Command session started.",
+            "content" => "Command run started.",
             "command_run_id" => tool_result.fetch("command_run_id"),
             "attached" => true,
             "session_closed" => false,
@@ -66,7 +66,7 @@ module Fenix
         else
           {
             "tool_name" => tool_name,
-            "content" => "Wrote #{tool_result.fetch("stdin_bytes", 0)} bytes to command session.",
+            "content" => "Wrote #{tool_result.fetch("stdin_bytes", 0)} bytes to command run.",
             "command_run_id" => tool_result.fetch("command_run_id"),
             "session_closed" => false,
             "stdin_bytes" => tool_result.fetch("stdin_bytes", 0),
@@ -90,9 +90,9 @@ module Fenix
       end
 
       def self.attached_session_content(exit_status:, output_streamed:)
-        return "Command session completed with status #{exit_status}." unless output_streamed
+        return "Command run completed with status #{exit_status}." unless output_streamed
 
-        "Command session completed with status #{exit_status} after streaming output."
+        "Command run completed with status #{exit_status} after streaming output."
       end
     end
   end

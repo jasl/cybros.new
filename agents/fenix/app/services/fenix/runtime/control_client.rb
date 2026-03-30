@@ -56,7 +56,7 @@ module Fenix
         post_json("/agent_api/command_runs/#{command_run_id}/activate", {})
       end
 
-      def create_process_run!(agent_task_run_id:, tool_name:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {}, policy_sensitive: nil)
+      def create_process_run!(agent_task_run_id:, tool_name:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {})
         post_json("/agent_api/process_runs", {
           agent_task_run_id: agent_task_run_id,
           tool_name: tool_name,
@@ -65,7 +65,6 @@ module Fenix
           timeout_seconds: timeout_seconds,
           idempotency_key: idempotency_key,
           metadata: metadata,
-          policy_sensitive: policy_sensitive,
         }.compact)
       end
 

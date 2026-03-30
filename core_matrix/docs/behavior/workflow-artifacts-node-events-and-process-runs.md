@@ -281,7 +281,6 @@ runtime resources that later tasks now build on are:
   owning workflow node
 - process runs reject workflow-turn or workflow-conversation mismatches
 - process runs reject bounded timeouts on background services
-- process runs reject missing bounded timeouts on turn commands
 - stop requests reject non-running process runs instead of silently mutating
   terminal rows
 - agent task runs reject turn, conversation, workflow, or agent-installation

@@ -14,7 +14,6 @@ module AgentAPI
         command_line: request_payload.fetch("command_line"),
         timeout_seconds: request_payload["timeout_seconds"],
         metadata: request_payload.fetch("metadata", {}),
-        policy_sensitive: request_payload["policy_sensitive"],
         idempotency_key: request_payload["idempotency_key"]
       )
 

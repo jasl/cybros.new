@@ -8,7 +8,7 @@ module Processes
       new(...).call
     end
 
-    def initialize(workflow_node:, execution_environment:, kind:, command_line:, timeout_seconds: nil, origin_message: nil, metadata: {}, policy_sensitive: nil, idempotency_key: nil)
+    def initialize(workflow_node:, execution_environment:, kind:, command_line:, timeout_seconds: nil, origin_message: nil, metadata: {}, idempotency_key: nil)
       @workflow_node = workflow_node
       @execution_environment = execution_environment
       @kind = kind
@@ -16,7 +16,6 @@ module Processes
       @timeout_seconds = timeout_seconds
       @origin_message = origin_message
       @metadata = metadata
-      @policy_sensitive = policy_sensitive
       @idempotency_key = idempotency_key
     end
 

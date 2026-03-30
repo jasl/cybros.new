@@ -80,7 +80,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal [started_invocation.fetch("tool_invocation_id")], control_client.command_run_requests.map { |request| request.fetch("tool_invocation_id") }
   end
 
-  test "exec_command can hand off an attached session to write_stdin and finish with summary-only payloads" do
+  test "exec_command can hand off an attached command run to write_stdin and finish with summary-only payloads" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     control_client = build_runtime_control_client
     exec_payload = runtime_assignment_payload(
@@ -105,7 +105,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     command_run_id = attached_invocation.dig("response_payload", "command_run_id")
 
     assert_equal "completed", started.status
-    assert_equal "Command session started.", started.output
+    assert_equal "Command run started.", started.output
     assert command_run_id.present?
 
     write_payload = runtime_assignment_payload(
@@ -134,7 +134,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       .fetch(0)
 
     assert_equal "completed", finished.status
-    assert_equal "Command session completed with status 0 after streaming output.", finished.output
+    assert_equal "Command run completed with status 0 after streaming output.", finished.output
     assert_equal command_run_id, output_progress.fetch("command_run_id")
     assert_equal "stdout", output_progress.fetch("output_chunks").fetch(0).fetch("stream")
     assert_equal "hello\n", output_progress.fetch("output_chunks").fetch(0).fetch("text")
