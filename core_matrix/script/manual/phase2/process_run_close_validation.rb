@@ -83,49 +83,60 @@ model_context = workflow_run.execution_snapshot.model_context
 process_run = result.fetch(:process_run).reload
 close_request = result.fetch(:close_request)
 
-ManualAcceptanceSupport.write_json(
-  {
-    "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
-    "delivery_mode" => delivery_mode,
-    "execution_environment_id" => bundled.fetch(:runtime).execution_environment.public_id,
-    "conversation_id" => result.fetch(:conversation).public_id,
-    "turn_id" => turn.public_id,
-    "workflow_run_id" => workflow_run.public_id,
-    "agent_task_run_id" => result.fetch(:agent_task_run).public_id,
-    "process_run_id" => process_run.public_id,
-    "close_request_id" => close_request&.public_id,
-    "provider_handle" => model_context["provider_handle"],
-    "model_ref" => model_context["model_ref"],
-    "api_model" => model_context["api_model"],
-    "selector" => workflow_run.normalized_selector,
-    "expected_dag_shape" => ["agent_turn_step"],
-    "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(workflow_run),
-    "expected_conversation_state" => {
-      "conversation_state" => "active",
-      "workflow_lifecycle_state" => "completed",
-      "workflow_wait_state" => "ready",
-      "turn_lifecycle_state" => "active",
-      "agent_task_run_state" => "completed",
-      "process_lifecycle_state" => "stopped",
-      "process_close_state" => "closed",
-      "process_close_outcome_kind" => "graceful",
-    },
-    "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
-      conversation: result.fetch(:conversation),
-      workflow_run: workflow_run,
-      turn: turn,
-      agent_task_run: result.fetch(:agent_task_run),
-      extra: {
-        "process_lifecycle_state" => process_run.reload.lifecycle_state,
-        "process_close_state" => process_run.close_state,
-        "process_close_outcome_kind" => process_run.close_outcome_kind,
-        "close_request_status" => close_request&.reload&.status,
-      }
-    ),
-    "runtime_execution_status" => result.fetch(:execution).fetch("status"),
-    "runtime_output" => result.fetch(:execution)["output"],
-    "close_loop_items" => close_loop.fetch("items").map { |item| item.slice("kind", "mailbox_item_id", "status") },
-    "report_results" => result.fetch(:report_results),
-    "workflow_node_event_states" => WorkflowNodeEvent.where(workflow_node: result.fetch(:agent_task_run).workflow_node).order(:ordinal).pluck(Arel.sql("payload ->> 'state'")),
+expected_dag_shape = ["agent_turn_step"]
+observed_dag_shape = ManualAcceptanceSupport.workflow_node_keys(workflow_run)
+expected_conversation_state = {
+  "conversation_state" => "active",
+  "workflow_lifecycle_state" => "completed",
+  "workflow_wait_state" => "ready",
+  "turn_lifecycle_state" => "active",
+  "agent_task_run_state" => "completed",
+  "process_lifecycle_state" => "stopped",
+  "process_close_state" => "closed",
+  "process_close_outcome_kind" => "graceful",
+}
+observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
+  conversation: result.fetch(:conversation),
+  workflow_run: workflow_run,
+  turn: turn,
+  agent_task_run: result.fetch(:agent_task_run),
+  extra: {
+    "process_lifecycle_state" => process_run.reload.lifecycle_state,
+    "process_close_state" => process_run.close_state,
+    "process_close_outcome_kind" => process_run.close_outcome_kind,
+    "close_request_status" => close_request&.reload&.status,
   }
+)
+
+ManualAcceptanceSupport.write_json(
+  ManualAcceptanceSupport.scenario_result(
+    scenario: "process_run_close_validation",
+    expected_dag_shape: expected_dag_shape,
+    observed_dag_shape: observed_dag_shape,
+    expected_conversation_state: expected_conversation_state,
+    observed_conversation_state: observed_conversation_state,
+    extra: {
+      "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
+      "delivery_mode" => delivery_mode,
+      "execution_environment_id" => bundled.fetch(:runtime).execution_environment.public_id,
+      "conversation_id" => result.fetch(:conversation).public_id,
+      "turn_id" => turn.public_id,
+      "workflow_run_id" => workflow_run.public_id,
+      "agent_task_run_id" => result.fetch(:agent_task_run).public_id,
+      "process_run_id" => process_run.public_id,
+      "close_request_id" => close_request&.public_id,
+      "provider_handle" => model_context["provider_handle"],
+      "model_ref" => model_context["model_ref"],
+      "api_model" => model_context["api_model"],
+      "selector" => workflow_run.normalized_selector,
+      "process_lifecycle_state" => process_run.lifecycle_state,
+      "process_close_state" => process_run.close_state,
+      "process_close_outcome_kind" => process_run.close_outcome_kind,
+      "runtime_execution_status" => result.fetch(:execution).fetch("status"),
+      "runtime_output" => result.fetch(:execution)["output"],
+      "close_loop_items" => close_loop.fetch("items").map { |item| item.slice("kind", "mailbox_item_id", "status") },
+      "report_results" => result.fetch(:report_results),
+      "workflow_node_event_states" => WorkflowNodeEvent.where(workflow_node: result.fetch(:agent_task_run).workflow_node).order(:ordinal).pluck(Arel.sql("payload ->> 'state'")),
+    }
+  )
 )

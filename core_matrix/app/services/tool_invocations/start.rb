@@ -12,21 +12,23 @@ module ToolInvocations
     end
 
     def call
-      ToolInvocation.create!(
-        installation: @tool_binding.installation,
-        agent_task_run: @tool_binding.agent_task_run,
-        tool_binding: @tool_binding,
-        tool_definition: @tool_binding.tool_definition,
-        tool_implementation: @tool_binding.tool_implementation,
-        status: "running",
-        request_payload: @request_payload,
-        response_payload: {},
-        error_payload: {},
-        attempt_no: next_attempt_no,
-        idempotency_key: @idempotency_key,
-        metadata: @metadata,
-        started_at: Time.current
-      )
+      @tool_binding.with_lock do
+        ToolInvocation.create!(
+          installation: @tool_binding.installation,
+          agent_task_run: @tool_binding.agent_task_run,
+          tool_binding: @tool_binding,
+          tool_definition: @tool_binding.tool_definition,
+          tool_implementation: @tool_binding.tool_implementation,
+          status: "running",
+          request_payload: @request_payload,
+          response_payload: {},
+          error_payload: {},
+          attempt_no: next_attempt_no,
+          idempotency_key: @idempotency_key,
+          metadata: @metadata,
+          started_at: Time.current
+        )
+      end
     end
 
     private

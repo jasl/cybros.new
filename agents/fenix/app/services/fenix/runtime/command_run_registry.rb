@@ -43,6 +43,15 @@ module Fenix
           end
         end
 
+        def terminate(command_run_id:)
+          entry = synchronize do
+            entries.delete(command_run_id)
+          end
+          return if entry.nil?
+
+          terminate_entry(entry)
+        end
+
         def terminate_for_agent_task(agent_task_run_id:)
           command_runs = synchronize do
             entries.values.select { |entry| entry.agent_task_run_id == agent_task_run_id }
@@ -92,6 +101,15 @@ module Fenix
         ensure
           entry.stdout.close unless entry.stdout.closed?
           entry.stderr.close unless entry.stderr.closed?
+          join_wait_thread(entry.wait_thread)
+        end
+
+        def join_wait_thread(wait_thread)
+          return if wait_thread.nil? || wait_thread == Thread.current
+
+          wait_thread.join(0.5)
+        rescue StandardError
+          nil
         end
       end
     end

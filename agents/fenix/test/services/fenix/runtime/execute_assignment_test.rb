@@ -241,6 +241,73 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     ActiveJob::Base.singleton_class.define_method(:queue_adapter_name, original_queue_adapter_name)
   end
 
+  test "one-shot exec_command kills the spawned subprocess if command run activation is rejected" do
+    control_client = build_runtime_control_client
+    spawned_pid = nil
+
+    control_client.define_singleton_method(:activate_command_run!) do |command_run_id:|
+      entry = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
+      spawned_pid = entry.wait_thread.pid
+      raise "HTTP 404: command run is no longer activatable"
+    end
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "exec_command",
+          "command_line" => "trap '' TERM; while :; do sleep 1; done",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      ),
+      control_client: control_client
+    )
+
+    assert_equal "failed", result.status
+    assert_match(/activatable/, result.error.fetch("last_error_summary"))
+    assert_nil Fenix::Runtime::CommandRunRegistry.lookup(
+      command_run_id: control_client.command_run_requests.dig(0, "response", "command_run_id")
+    )
+    assert spawned_pid.present?
+    assert_process_terminated(spawned_pid)
+  end
+
+  test "attached exec_command kills the spawned subprocess if command run activation is rejected" do
+    control_client = build_runtime_control_client
+    spawned_pid = nil
+
+    control_client.define_singleton_method(:activate_command_run!) do |command_run_id:|
+      entry = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
+      spawned_pid = entry.wait_thread.pid
+      raise "HTTP 404: command run is no longer activatable"
+    end
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "exec_command",
+          "command_line" => "cat",
+          "pty" => true,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      ),
+      control_client: control_client
+    )
+
+    assert_equal "failed", result.status
+    assert_match(/activatable/, result.error.fetch("last_error_summary"))
+    assert_nil Fenix::Runtime::CommandRunRegistry.lookup(
+      command_run_id: control_client.command_run_requests.dig(0, "response", "command_run_id")
+    )
+    assert spawned_pid.present?
+    assert_process_terminated(spawned_pid)
+  end
+
   test "core matrix model context triggers proactive context compaction before execution" do
     long_messages = 12.times.map do |index|
       { "role" => index.even? ? "user" : "assistant", "content" => "token token token token #{index}" }
@@ -308,5 +375,26 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal "gpt-5.4", result.trace.first.fetch("likely_model")
     assert_equal "researcher", result.trace.first.fetch("profile")
     assert result.reports.all? { |report| report.key?("protocol_message_id") }
+  end
+
+  private
+
+  def assert_process_terminated(pid)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 2
+
+    loop do
+      begin
+        Process.kill(0, pid)
+      rescue Errno::ESRCH
+        assert true
+        return
+      end
+
+      break if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+
+      sleep(0.05)
+    end
+
+    flunk "expected pid #{pid} to terminate"
   end
 end

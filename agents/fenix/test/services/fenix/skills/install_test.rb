@@ -1,6 +1,12 @@
 require "test_helper"
 
 class Fenix::Skills::InstallTest < ActiveSupport::TestCase
+  test "default repository keeps live skills under tmp instead of the tracked skills directory" do
+    repository = Fenix::Skills::Repository.new
+
+    assert_equal Rails.root.join("tmp", "skills-live").to_s, repository.instance_variable_get(:@live_root).to_s
+  end
+
   test "installs a third-party skill through staging and writes provenance" do
     with_skill_roots do |roots|
       source_root = Dir.mktmpdir("fenix-third-party-skill-")

@@ -191,6 +191,9 @@ That surface is sufficient to:
 - read additional files relative to an active skill root
 - stage and promote a third-party skill into the live root
 
+By default, the live skill root now lives under `tmp/skills-live` so runtime
+install state does not pollute the tracked repo tree.
+
 Phase 2 keeps two explicit rules:
 
 - `.system` skill names are reserved and may not be overridden

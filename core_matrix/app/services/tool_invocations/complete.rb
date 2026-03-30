@@ -11,14 +11,20 @@ module ToolInvocations
     end
 
     def call
-      attributes = {
-        status: "succeeded",
-        response_payload: @response_payload,
-        finished_at: Time.current,
-      }
-      attributes[:metadata] = @tool_invocation.metadata.merge(@metadata) if @metadata.present?
+      @tool_invocation.with_lock do
+        @tool_invocation.reload
+        return @tool_invocation unless @tool_invocation.running?
 
-      @tool_invocation.update!(attributes)
+        attributes = {
+          status: "succeeded",
+          response_payload: @response_payload,
+          finished_at: Time.current,
+        }
+        attributes[:metadata] = @tool_invocation.metadata.merge(@metadata) if @metadata.present?
+
+        @tool_invocation.update!(attributes)
+      end
+
       @tool_invocation
     end
   end

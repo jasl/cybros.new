@@ -2,9 +2,9 @@
 
 ENV["RAILS_ENV"] ||= "development"
 
-require_relative "../../../config/environment"
+require_relative "../manual_acceptance_support"
 require "json"
-require_relative "../../test/support/fake_streamable_http_mcp_server"
+require_relative "../../../test/support/fake_streamable_http_mcp_server"
 require_relative "./governed_validation_support"
 
 server = FakeStreamableHttpMcpServer.new.start
@@ -81,35 +81,43 @@ begin
     request_payload: { "arguments" => { "message" => "third" } }
   )
 
-  puts JSON.pretty_generate(
-    {
-      "conversation_id" => task_context.fetch(:conversation).public_id,
-      "turn_id" => task_context.fetch(:turn).public_id,
-      "workflow_run_id" => task_context.fetch(:workflow_run).public_id,
-      "agent_task_run_id" => task_run.public_id,
-      "tool_binding_id" => binding.public_id,
-      "tool_definition_id" => binding.tool_definition.public_id,
-      "tool_implementation_id" => binding.tool_implementation.public_id,
-      "tool_invocation_ids" => [first.public_id, second.public_id, third.public_id],
-      "expected_dag_shape" => ["root->agent_turn_step"],
-      "observed_dag_shape" => GovernedValidationSupport.dag_edges(task_context.fetch(:workflow_run)),
-      "expected_conversation_state" => {
-        "conversation_state" => "active",
-        "workflow_lifecycle_state" => "completed",
-        "workflow_wait_state" => "ready",
-        "turn_lifecycle_state" => "active",
-      },
-      "observed_conversation_state" => GovernedValidationSupport.conversation_state(
-        conversation: task_context.fetch(:conversation),
-        workflow_run: task_context.fetch(:workflow_run)
-      ),
-      "tool_invocation_statuses" => task_run.reload.tool_invocations.order(:attempt_no).pluck(:status),
-      "failure_classification" => second.error_payload.fetch("classification"),
-      "failure_code" => second.error_payload.fetch("code"),
-      "binding_payload" => binding.reload.binding_payload,
-      "issued_session_ids" => server.issued_session_ids,
-      "final_response_payload" => third.response_payload,
-    }
+  expected_dag_shape = ["root->agent_turn_step"]
+  observed_dag_shape = GovernedValidationSupport.dag_edges(task_context.fetch(:workflow_run))
+  expected_conversation_state = {
+    "conversation_state" => "active",
+    "workflow_lifecycle_state" => "active",
+    "workflow_wait_state" => "ready",
+    "turn_lifecycle_state" => "active",
+  }
+  observed_conversation_state = GovernedValidationSupport.conversation_state(
+    conversation: task_context.fetch(:conversation),
+    workflow_run: task_context.fetch(:workflow_run)
+  )
+
+  ManualAcceptanceSupport.write_json(
+    ManualAcceptanceSupport.scenario_result(
+      scenario: "governed_mcp_validation",
+      expected_dag_shape: expected_dag_shape,
+      observed_dag_shape: observed_dag_shape,
+      expected_conversation_state: expected_conversation_state,
+      observed_conversation_state: observed_conversation_state,
+      extra: {
+        "conversation_id" => task_context.fetch(:conversation).public_id,
+        "turn_id" => task_context.fetch(:turn).public_id,
+        "workflow_run_id" => task_context.fetch(:workflow_run).public_id,
+        "agent_task_run_id" => task_run.public_id,
+        "tool_binding_id" => binding.public_id,
+        "tool_definition_id" => binding.tool_definition.public_id,
+        "tool_implementation_id" => binding.tool_implementation.public_id,
+        "tool_invocation_ids" => [first.public_id, second.public_id, third.public_id],
+        "tool_invocation_statuses" => task_run.reload.tool_invocations.order(:attempt_no).pluck(:status),
+        "failure_classification" => second.error_payload.fetch("classification"),
+        "failure_code" => second.error_payload.fetch("code"),
+        "binding_payload" => binding.reload.binding_payload,
+        "issued_session_ids" => server.issued_session_ids,
+        "final_response_payload" => third.response_payload,
+      }
+    )
   )
 ensure
   server&.shutdown

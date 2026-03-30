@@ -53,4 +53,38 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     assert_equal 1, first.attempt_no
     assert_equal 2, second.attempt_no
   end
+
+  test "terminal updates ignore stale copies once an invocation has already terminalized" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
+    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "compact_context" })
+
+    invocation = ToolInvocations::Start.call(tool_binding: binding, request_payload: {})
+    stale_copy = ToolInvocation.find(invocation.id)
+    fresh_copy = ToolInvocation.find(invocation.id)
+
+    ToolInvocations::Complete.call(
+      tool_invocation: fresh_copy,
+      response_payload: { "summary" => "done" },
+      metadata: { "reported_via" => "execution_complete" }
+    )
+
+    ToolInvocations::Fail.call(
+      tool_invocation: stale_copy,
+      error_payload: { "message" => "stale failure" },
+      metadata: { "reported_via" => "execution_fail" }
+    )
+
+    invocation.reload
+
+    assert_equal "succeeded", invocation.status
+    assert_equal({ "summary" => "done" }, invocation.response_payload)
+    assert_equal({}, invocation.error_payload)
+    assert_equal "execution_complete", invocation.metadata.fetch("reported_via")
+  end
 end

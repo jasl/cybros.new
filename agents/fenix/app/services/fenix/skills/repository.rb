@@ -133,7 +133,7 @@ module Fenix
       end
 
       def default_live_root
-        Pathname(ENV["FENIX_LIVE_SKILLS_ROOT"].presence || Rails.root.join("skills"))
+        Pathname(ENV["FENIX_LIVE_SKILLS_ROOT"].presence || Rails.root.join("tmp", "skills-live"))
       end
 
       def default_staging_root

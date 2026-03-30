@@ -126,28 +126,51 @@ serialize_run = lambda do |run|
   }
 end
 
+scenario_12_runs = [
+  serialize_run.call(catalog_run),
+  serialize_run.call(load_system_run),
+  serialize_run.call(read_system_run),
+]
+scenario_13_runs = [
+  serialize_run.call(install_run),
+  serialize_run.call(load_live_run),
+  serialize_run.call(read_live_run),
+]
+
+scenario_runs_passed = lambda do |runs|
+  runs.all? do |serialized_run|
+    serialized_run.fetch("dag_shape") == ["agent_turn_step"] &&
+      serialized_run.fetch("conversation_state") == expected_conversation_state
+  end
+end
+
 ManualAcceptanceSupport.write_json(
   {
+    "scenario" => "fenix_skills_validation",
+    "passed" => scenario_runs_passed.call(scenario_12_runs) && scenario_runs_passed.call(scenario_13_runs),
+    "proof_artifact_path" => nil,
     "deployment_id" => registration.fetch(:deployment).public_id,
     "execution_environment_id" => registration.fetch(:deployment).execution_environment.public_id,
     "heartbeat_bootstrap_state" => registration.fetch(:heartbeat).fetch("bootstrap_state"),
     "scenario_12" => {
+      "passed" => scenario_runs_passed.call(scenario_12_runs),
       "expected_dag_shape" => ["agent_turn_step"],
       "expected_conversation_state" => expected_conversation_state,
-      "catalog_run" => serialize_run.call(catalog_run),
-      "load_system_run" => serialize_run.call(load_system_run),
-      "read_system_run" => serialize_run.call(read_system_run),
+      "catalog_run" => scenario_12_runs[0],
+      "load_system_run" => scenario_12_runs[1],
+      "read_system_run" => scenario_12_runs[2],
       "catalog_names" => Array(catalog_run.fetch(:execution)["output"]).map { |entry| [entry["name"], entry["source_kind"], entry["active"]] },
       "load_system_name" => load_system_run.fetch(:execution).dig("output", "name"),
       "load_system_files" => load_system_run.fetch(:execution).dig("output", "files"),
       "read_system_content" => read_system_run.fetch(:execution).dig("output", "content"),
     },
     "scenario_13" => {
+      "passed" => scenario_runs_passed.call(scenario_13_runs),
       "expected_dag_shape" => ["agent_turn_step"],
       "expected_conversation_state" => expected_conversation_state,
-      "install_run" => serialize_run.call(install_run),
-      "load_live_run" => serialize_run.call(load_live_run),
-      "read_live_run" => serialize_run.call(read_live_run),
+      "install_run" => scenario_13_runs[0],
+      "load_live_run" => scenario_13_runs[1],
+      "read_live_run" => scenario_13_runs[2],
       "install_activation_state" => install_run.fetch(:execution).dig("output", "activation_state"),
       "install_live_root" => install_run.fetch(:execution).dig("output", "live_root"),
       "load_live_name" => load_live_run.fetch(:execution).dig("output", "name"),

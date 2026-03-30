@@ -62,31 +62,58 @@ downgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   content: "Bundled rotation downgrade turn"
 )
 
+expected_dag_shape = ["turn_step"]
+expected_conversation_state = {
+  "conversation_state" => "active",
+  "workflow_lifecycle_state" => "completed",
+  "workflow_wait_state" => "ready",
+  "turn_lifecycle_state" => "completed",
+}.freeze
+
+baseline_state = ManualAcceptanceSupport.workflow_state_hash(
+  conversation: conversation_context.fetch(:conversation),
+  workflow_run: baseline.fetch(:workflow_run),
+  turn: baseline.fetch(:turn)
+)
+upgrade_state = ManualAcceptanceSupport.workflow_state_hash(
+  conversation: conversation_context.fetch(:conversation),
+  workflow_run: upgrade.fetch(:workflow_run),
+  turn: upgrade.fetch(:turn)
+)
+downgrade_state = ManualAcceptanceSupport.workflow_state_hash(
+  conversation: conversation_context.fetch(:conversation),
+  workflow_run: downgrade.fetch(:workflow_run),
+  turn: downgrade.fetch(:turn)
+)
+baseline_dag_shape = ManualAcceptanceSupport.workflow_node_keys(baseline.fetch(:workflow_run))
+upgrade_dag_shape = ManualAcceptanceSupport.workflow_node_keys(upgrade.fetch(:workflow_run))
+downgrade_dag_shape = ManualAcceptanceSupport.workflow_node_keys(downgrade.fetch(:workflow_run))
+
 ManualAcceptanceSupport.write_json(
   {
+    "scenario" => "bundled_rotation_validation",
+    "passed" => [
+      [baseline_dag_shape, baseline_state],
+      [upgrade_dag_shape, upgrade_state],
+      [downgrade_dag_shape, downgrade_state],
+    ].all? { |dag_shape, state| dag_shape == expected_dag_shape && state == expected_conversation_state },
+    "proof_artifact_path" => nil,
     "conversation_id" => conversation_context.fetch(:conversation).public_id,
     "execution_environment_id" => v1.execution_environment.public_id,
     "baseline" => {
+      "passed" => baseline_dag_shape == expected_dag_shape && baseline_state == expected_conversation_state,
       "deployment_id" => v1.deployment.public_id,
       "turn_id" => baseline.fetch(:turn).public_id,
       "workflow_run_id" => baseline.fetch(:workflow_run).public_id,
       "selected_output_message_id" => baseline.fetch(:turn).selected_output_message.public_id,
       "selected_output_content" => baseline.fetch(:turn).selected_output_message.content,
-      "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(baseline.fetch(:workflow_run)),
-      "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
-        conversation: conversation_context.fetch(:conversation),
-        workflow_run: baseline.fetch(:workflow_run),
-        turn: baseline.fetch(:turn)
-      ),
+      "observed_dag_shape" => baseline_dag_shape,
+      "observed_conversation_state" => baseline_state,
     },
-    "expected_dag_shape" => ["turn_step"],
-    "expected_conversation_state" => {
-      "conversation_state" => "active",
-      "workflow_lifecycle_state" => "completed",
-      "workflow_wait_state" => "ready",
-      "turn_lifecycle_state" => "completed",
-    },
+    "expected_dag_shape" => expected_dag_shape,
+    "expected_conversation_state" => expected_conversation_state,
     "upgrade" => {
+      "passed" => upgrade_dag_shape == expected_dag_shape && upgrade_state == expected_conversation_state,
       "previous_deployment_id" => v1.deployment.public_id,
       "new_deployment_id" => v2.deployment.public_id,
       "previous_fingerprint" => v1.deployment.fingerprint,
@@ -100,14 +127,11 @@ ManualAcceptanceSupport.write_json(
       "workflow_run_id" => upgrade.fetch(:workflow_run).public_id,
       "selected_output_message_id" => upgrade.fetch(:turn).selected_output_message.public_id,
       "selected_output_content" => upgrade.fetch(:turn).selected_output_message.content,
-      "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(upgrade.fetch(:workflow_run)),
-      "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
-        conversation: conversation_context.fetch(:conversation),
-        workflow_run: upgrade.fetch(:workflow_run),
-        turn: upgrade.fetch(:turn)
-      ),
+      "observed_dag_shape" => upgrade_dag_shape,
+      "observed_conversation_state" => upgrade_state,
     },
     "downgrade" => {
+      "passed" => downgrade_dag_shape == expected_dag_shape && downgrade_state == expected_conversation_state,
       "previous_deployment_id" => v2.deployment.public_id,
       "new_deployment_id" => v0.deployment.public_id,
       "previous_fingerprint" => v2.deployment.fingerprint,
@@ -121,12 +145,8 @@ ManualAcceptanceSupport.write_json(
       "workflow_run_id" => downgrade.fetch(:workflow_run).public_id,
       "selected_output_message_id" => downgrade.fetch(:turn).selected_output_message.public_id,
       "selected_output_content" => downgrade.fetch(:turn).selected_output_message.content,
-      "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(downgrade.fetch(:workflow_run)),
-      "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
-        conversation: conversation_context.fetch(:conversation),
-        workflow_run: downgrade.fetch(:workflow_run),
-        turn: downgrade.fetch(:turn)
-      ),
+      "observed_dag_shape" => downgrade_dag_shape,
+      "observed_conversation_state" => downgrade_state,
     },
     "current_conversation_agent_deployment_id" => conversation_context.fetch(:conversation).reload.agent_deployment.public_id,
     "current_conversation_agent_deployment_fingerprint" => conversation_context.fetch(:conversation).agent_deployment.fingerprint,
