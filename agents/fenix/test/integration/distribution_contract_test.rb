@@ -43,8 +43,10 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert environment_entries.any? { |entry| entry.start_with?("FENIX_PUBLIC_BASE_URL=") }
     assert environment_entries.any? { |entry| entry.start_with?("FENIX_DEV_PROXY_PORT=") }
     assert environment_entries.any? { |entry| entry.start_with?("PLAYWRIGHT_BROWSERS_PATH=") }
+    assert_includes Array(fenix_service.fetch("volumes")), "fenix_storage:/rails/storage"
     assert proxy_environment_entries.any? { |entry| entry.start_with?("FENIX_DEV_PROXY_PORT=") }
     assert_includes Array(fenix_service.fetch("volumes")), "./workspace:/workspace"
     assert_includes Array(proxy_service.fetch("volumes")), "./workspace:/workspace"
+    assert_includes compose.fetch("volumes").keys, "fenix_storage"
   end
 end

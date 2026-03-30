@@ -326,6 +326,7 @@ as the default sample:
 - `fenix`
   - main Rails runtime
   - mounts `./workspace:/workspace`
+  - persists SQLite state in `/rails/storage`
   - exposes `3101 -> 80`
 - `fenix-dev-proxy`
   - runs [bin/fenix-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/fenix-dev-proxy)
@@ -346,6 +347,14 @@ Key environment variables in the sample:
 - `PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright`
 - `FENIX_DEV_PROXY_PORT=3310`
 - `FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy`
+
+Named volumes in the sample:
+
+- `fenix_storage`
+  - persists `production.sqlite3` under `/rails/storage`
+- `fenix_proxy_routes`
+  - shares the generated Caddy route fragments between `fenix` and
+    `fenix-dev-proxy`
 
 ### Ubuntu 24.04 Bare Metal
 

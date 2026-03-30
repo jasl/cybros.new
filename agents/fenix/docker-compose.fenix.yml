@@ -14,6 +14,7 @@ services:
       - "3101:80"
     volumes:
       - ./workspace:/workspace
+      - fenix_storage:/rails/storage
       - fenix_proxy_routes:/rails/tmp/dev-proxy
 
   fenix-dev-proxy:
@@ -30,4 +31,5 @@ services:
       - fenix_proxy_routes:/rails/tmp/dev-proxy
 
 volumes:
+  fenix_storage:
   fenix_proxy_routes:
