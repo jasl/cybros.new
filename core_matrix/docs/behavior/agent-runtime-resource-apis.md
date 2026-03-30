@@ -328,6 +328,10 @@ orchestration are still defined in:
     after the local subprocess or PTY session is actually live
 - detached long-lived environment processes request one `ProcessRun` through
   `POST /agent_api/process_runs` before local spawn
+- `POST /agent_api/process_runs` still resolves the frozen `process_exec`
+  `ToolBinding` for the owning `AgentTaskRun`; long-lived process creation does
+  not bypass governed tool visibility just because it materializes a
+  `ProcessRun` instead of a `ToolInvocation`
 - capability refresh exposes the winning governed tool definition and
   implementation ids as `public_id` values inside
   `governed_effective_tool_catalog`

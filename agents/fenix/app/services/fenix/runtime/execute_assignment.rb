@@ -634,6 +634,7 @@ module Fenix
       def provision_process_run!(tool_call)
         @control_client.create_process_run!(
           agent_task_run_id: current_agent_task_run_id,
+          tool_name: tool_call.fetch("tool_name"),
           kind: tool_call.dig("arguments", "kind"),
           command_line: tool_call.dig("arguments", "command_line"),
           idempotency_key: tool_call.fetch("call_id"),

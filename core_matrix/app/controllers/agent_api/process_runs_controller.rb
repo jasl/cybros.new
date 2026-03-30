@@ -3,6 +3,10 @@ module AgentAPI
     def create
       agent_task_run = find_agent_task_run!(request_payload.fetch("agent_task_run_id"))
       authorize_agent_task_run!(agent_task_run)
+      tool_name = request_payload.fetch("tool_name")
+      raise ActiveRecord::RecordNotFound, "Couldn't find ToolBinding" unless tool_name == "process_exec"
+
+      find_tool_binding_for_agent_task_run!(agent_task_run, tool_name)
       result = Processes::Provision.call(
         workflow_node: agent_task_run.workflow_node,
         execution_environment: current_execution_environment,

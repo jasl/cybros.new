@@ -174,6 +174,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
 
     assert_equal [], control_client.tool_invocation_requests
     assert_equal [], control_client.command_run_requests
+    assert_equal ["process_exec"], control_client.process_run_requests.map { |request| request.fetch("tool_name") }
     assert_equal ["background_service"], control_client.process_run_requests.map { |request| request.fetch("kind") }
 
     process_run_id = control_client.process_run_requests.first.dig("response", "process_run_id")

@@ -7,6 +7,7 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     post "/agent_api/process_runs",
       params: {
         agent_task_run_id: context[:agent_task_run].public_id,
+        tool_name: "process_exec",
         kind: "background_service",
         command_line: "bin/dev",
         idempotency_key: "process-run-#{next_test_sequence}",
@@ -39,6 +40,7 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     context = build_process_runtime_context!
     request_params = {
       agent_task_run_id: context[:agent_task_run].public_id,
+      tool_name: "process_exec",
       kind: "background_service",
       command_line: "bin/dev",
       idempotency_key: "process-run-#{next_test_sequence}",
@@ -71,6 +73,27 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     post "/agent_api/process_runs",
       params: {
         agent_task_run_id: context[:agent_task_run].id,
+        tool_name: "process_exec",
+        kind: "background_service",
+        command_line: "bin/dev",
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
+
+  test "rejects process run creation when the task does not expose process_exec" do
+    context = build_process_runtime_context!
+    context[:agent_task_run].tool_bindings
+      .joins(:tool_definition)
+      .where(tool_definitions: { tool_name: "process_exec" })
+      .delete_all
+
+    post "/agent_api/process_runs",
+      params: {
+        agent_task_run_id: context[:agent_task_run].public_id,
+        tool_name: "process_exec",
         kind: "background_service",
         command_line: "bin/dev",
       },
@@ -84,6 +107,24 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
 
   def build_process_runtime_context!
     context = build_agent_control_context!(workflow_node_type: "background_service")
+    capability_snapshot = create_capability_snapshot!(
+      agent_deployment: context[:deployment],
+      version: 2,
+      tool_catalog: default_tool_catalog("process_exec")
+    )
+    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
+    execution_snapshot = context[:turn].execution_snapshot.to_h
+    agent_context = execution_snapshot.fetch("agent_context", {})
+    context[:turn].update!(
+      execution_snapshot_payload: execution_snapshot.merge(
+        "agent_context" => agent_context.merge(
+          "allowed_tool_names" => ["process_exec"]
+        )
+      ),
+      resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
+        "capability_snapshot_id" => capability_snapshot.id
+      )
+    )
     agent_task_run = create_agent_task_run!(
       workflow_node: context.fetch(:workflow_node),
       lifecycle_state: "running",

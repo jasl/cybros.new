@@ -105,6 +105,12 @@ module AgentAPI
       authorize_tool_invocation!(command_run.tool_invocation)
     end
 
+    def find_tool_binding_for_agent_task_run!(agent_task_run, tool_name)
+      agent_task_run.tool_bindings
+        .joins(:tool_definition)
+        .find_by!(tool_definitions: { tool_name: tool_name })
+    end
+
     def serialize_message(message)
       {
         "id" => message.public_id,
