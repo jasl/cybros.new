@@ -79,4 +79,47 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   rescue Errno::ESRCH
     nil
   end
+
+  test "process run close requests route into the process manager" do
+    mailbox_item = {
+      "item_type" => "resource_close_request",
+      "item_id" => "close-item-#{SecureRandom.uuid}",
+      "payload" => {
+        "resource_type" => "ProcessRun",
+        "resource_id" => "process-#{SecureRandom.uuid}",
+        "strictness" => "graceful",
+      },
+    }
+
+    received_mailbox_item = nil
+    result = nil
+    test_case = self
+
+    original_close = Fenix::Processes::Manager.method(:close!)
+
+    Fenix::Processes::Manager.singleton_class.define_method(
+      :close!,
+      lambda do |mailbox_item:, deliver_reports:, control_client:|
+        received_mailbox_item = mailbox_item
+        test_case.assert_equal true, deliver_reports
+        test_case.assert_equal :fake_control_client, control_client
+        :handled
+      end
+    )
+
+    begin
+      assert_enqueued_jobs 0 do
+        result = Fenix::Runtime::MailboxWorker.call(
+          mailbox_item: mailbox_item,
+          deliver_reports: true,
+          control_client: :fake_control_client
+        )
+      end
+    ensure
+      Fenix::Processes::Manager.singleton_class.define_method(:close!, original_close)
+    end
+
+    assert_equal :handled, result
+    assert_equal mailbox_item, received_mailbox_item
+  end
 end

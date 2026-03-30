@@ -23,6 +23,7 @@ module ActiveSupport
       clear_performed_jobs
       Fenix::Runtime::AttemptRegistry.reset!
       Fenix::Runtime::AttachedCommandSessionRegistry.reset!
+      Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
     end
 
     teardown do
@@ -30,6 +31,7 @@ module ActiveSupport
       clear_performed_jobs
       Fenix::Runtime::AttemptRegistry.reset!
       Fenix::Runtime::AttachedCommandSessionRegistry.reset!
+      Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
     end
 
     # Add more helper methods to be used by all tests here...

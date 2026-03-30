@@ -42,4 +42,57 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     assert process_run.reload.running?
     assert_equal({}, process_run.close_outcome_payload)
   end
+
+  test "resource_closed broadcasts final output chunks and terminal process state without creating tool invocations" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "background_service",
+      timeout_seconds: nil
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    close_request = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    close_request = AgentControl::Poll.call(
+      deployment: context[:deployment],
+      limit: 10
+    ).find do |mailbox_item|
+      mailbox_item.public_id == close_request.public_id
+    end
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      post "/agent_api/control/report",
+        params: {
+          method_id: "resource_closed",
+          protocol_message_id: "process-close-#{next_test_sequence}",
+          mailbox_item_id: close_request.public_id,
+          close_request_id: close_request.public_id,
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+          close_outcome_kind: "graceful",
+          close_outcome_payload: { "source" => "process_runtime_test" },
+          output_chunks: [
+            { "stream" => "stdout", "text" => "goodbye from process\n" },
+          ],
+        },
+        headers: agent_api_headers(context[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal %w[runtime.process_run.output runtime.process_run.stopped], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal "goodbye from process\n", broadcasts.first.dig("payload", "text")
+    assert_equal "closed", process_run.reload.close_state
+    assert_equal "stopped", process_run.lifecycle_state
+    assert_equal 0, ToolInvocation.count
+  end
 end
