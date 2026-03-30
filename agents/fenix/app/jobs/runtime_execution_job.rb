@@ -11,7 +11,8 @@ class RuntimeExecutionJob < ApplicationJob
     end
 
     result = Fenix::Runtime::ExecuteAssignment.call(
-      mailbox_item: runtime_execution.mailbox_item_payload
+      mailbox_item: runtime_execution.mailbox_item_payload,
+      on_report: ->(report) { append_report!(runtime_execution_id:, report:) }
     )
 
     runtime_execution.update!(
@@ -34,5 +35,16 @@ class RuntimeExecutionJob < ApplicationJob
       finished_at: Time.current
     )
     raise
+  end
+
+  private
+
+  def append_report!(runtime_execution_id:, report:)
+    runtime_execution = RuntimeExecution.find(runtime_execution_id)
+
+    runtime_execution.with_lock do
+      runtime_execution.reload
+      runtime_execution.update!(reports: runtime_execution.reports + [report])
+    end
   end
 end

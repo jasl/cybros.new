@@ -122,12 +122,26 @@ module Phase2AcceptanceSupport
     http_get_json("#{base_url}/runtime/manifest")
   end
 
-  def wait_for_runtime_execution!(base_url:, execution_id:, timeout_seconds: 10, poll_interval_seconds: 0.1)
+  def drain_runtime_execution_reports!(base_url:, execution_id:, timeout_seconds: 10, poll_interval_seconds: 0.1)
     deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+    delivered_count = 0
+    report_results = []
 
     loop do
       execution = http_get_json("#{base_url}/runtime/executions/#{execution_id}")
-      return execution if %w[completed failed].include?(execution.fetch("status"))
+      reports = execution.fetch("reports")
+
+      reports.drop(delivered_count).each do |report|
+        report_results << yield(report)
+      end
+      delivered_count = reports.length
+
+      if %w[completed failed].include?(execution.fetch("status")) && delivered_count == reports.length
+        return {
+          execution: execution,
+          report_results: report_results,
+        }
+      end
 
       if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
         raise "timed out waiting for runtime execution #{execution_id} to finish"
@@ -371,11 +385,10 @@ module Phase2AcceptanceSupport
     raise "expected leased mailbox item for task run" if mailbox_item.blank?
 
     queued_execution = http_post_json("#{runtime_base_url}/runtime/executions", mailbox_item)
-    execution = wait_for_runtime_execution!(
+    execution_drain = drain_runtime_execution_reports!(
       base_url: runtime_base_url,
       execution_id: queued_execution.fetch("execution_id")
-    )
-    report_results = execution.fetch("reports").map do |report|
+    ) do |report|
       http_post_json(
         "#{CONTROL_BASE_URL}/agent_api/control/report",
         report.merge(
@@ -387,6 +400,8 @@ module Phase2AcceptanceSupport
         headers: auth_headers
       ).fetch("result")
     end
+    execution = execution_drain.fetch(:execution)
+    report_results = execution_drain.fetch(:report_results)
 
     run.merge(
       conversation: conversation_context.fetch(:conversation).reload,

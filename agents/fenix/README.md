@@ -81,7 +81,7 @@ creates or reuses one durable runtime execution record, and returns `202
 Accepted` with the execution resource identity.
 
 `GET /runtime/executions/:id` exposes the async execution resource once the job
-has progressed or terminated, including the retained report transcript for
+has progressed or terminated, including incrementally appended reports for
 local validation:
 
 - `execution_started`
