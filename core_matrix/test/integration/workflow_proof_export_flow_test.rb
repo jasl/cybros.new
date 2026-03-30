@@ -14,7 +14,7 @@ class WorkflowProofExportFlowTest < ActionDispatch::IntegrationTest
         [
           "export",
           "--workflow-run-id=#{fixture.fetch(:workflow_run).public_id}",
-          "--scenario=phase2-proof-export",
+          "--scenario=acceptance-proof-export",
           "--out=#{dir}",
         ],
         stdout: stdout,
@@ -25,7 +25,7 @@ class WorkflowProofExportFlowTest < ActionDispatch::IntegrationTest
       assert_equal "", stderr.string
       assert File.exist?(File.join(dir, "proof.md"))
       assert File.exist?(File.join(dir, "run-#{fixture.fetch(:workflow_run).public_id}.mmd"))
-      assert_includes File.read(File.join(dir, "proof.md")), "# phase2-proof-export"
+      assert_includes File.read(File.join(dir, "proof.md")), "# acceptance-proof-export"
     end
   end
 
@@ -39,7 +39,7 @@ class WorkflowProofExportFlowTest < ActionDispatch::IntegrationTest
         [
           "export",
           "--workflow-run-id=#{fixture.fetch(:workflow_run).public_id}",
-          "--scenario=phase2-proof-export",
+          "--scenario=acceptance-proof-export",
           "--out=#{dir}",
         ],
         stdout: first_stdout,
@@ -52,7 +52,7 @@ class WorkflowProofExportFlowTest < ActionDispatch::IntegrationTest
         [
           "export",
           "--workflow-run-id=#{fixture.fetch(:workflow_run).public_id}",
-          "--scenario=phase2-proof-export",
+          "--scenario=acceptance-proof-export",
           "--out=#{dir}",
         ],
         stdout: second_stdout,

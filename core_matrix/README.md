@@ -13,17 +13,17 @@ built-in home for every memory, knowledge, or web capability.
 
 ## Current Status
 
-The current active batch is `Phase 2: Agent Loop Execution`.
+The current active batch is `Agent Loop Execution`.
 
-Milestones A through F are now landed in the Phase 2 workspace, including the
-post-Milestone-C breadth and acceptance batch:
+Milestones A through F are now landed in the current agent-loop workspace,
+including the post-Milestone-C breadth and acceptance batch:
 
 - conversation feature policy and durable stale-work safety
 - workflow-owned wait, human-interaction, and subagent handoff
 - durable tool governance and invocation audit
 - one governed Streamable HTTP MCP path
 - bundled and external `Fenix` runtime plus skill validation flows
-- workflow proof export and committed Phase 2 acceptance evidence
+- workflow proof export and committed acceptance evidence
 
 The authoritative operator script for the final acceptance pass is:
 
@@ -39,8 +39,8 @@ Current authoritative project documents:
 - Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 - Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md`
-- Active Phase 2 plan: `../docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
-- Active Phase 2 index: `../docs/plans/README.md`
+- Active agent-loop plan: `../docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+- Active plan index: `../docs/plans/README.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Behavior notes for landed backend modules: `docs/behavior/`
@@ -76,7 +76,7 @@ claims real loop behavior, validation must include:
 - Phase 1 backend manual validation was rerun on `2026-03-25` against
   `bin/dev` and the checklist at
   `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`.
-- Phase 2 acceptance evidence was captured on `2026-03-30` under
+- Acceptance evidence was captured on `2026-03-30` under
   `../docs/reports/phase-2/`, including bundled/external `Fenix`, real
   provider-backed turns, wait/resume, `process_run`, governed tool/MCP,
   deployment rotation, skills, and proof export.
@@ -85,7 +85,7 @@ claims real loop behavior, validation must include:
   `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
 - The reusable manual-validation harness now lives in
   `script/manual/manual_acceptance_support.rb`.
-- Phase 2 operator scenario scripts live under `script/manual/phase2/*`,
+- Acceptance operator scenario scripts live under `script/manual/phase2/*`,
   reset and seed the development database in-process, and are intended to be
   run with `bundle exec ruby`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by

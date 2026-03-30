@@ -2,7 +2,7 @@ require "json"
 require "minitest/autorun"
 require "open3"
 
-class Phase2FenixContractSmokeTest < Minitest::Test
+class AgentLoopFenixContractSmokeTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
   CONTRACT_FIXTURE_PATH = File.join(
     ROOT,
@@ -12,7 +12,7 @@ class Phase2FenixContractSmokeTest < Minitest::Test
     "core_matrix_fenix_execution_assignment_v1.json"
   )
 
-  def test_core_matrix_and_fenix_accept_the_same_phase2_assignment_fixture
+  def test_core_matrix_and_fenix_accept_the_same_agent_loop_assignment_fixture
     fixture = JSON.parse(File.read(CONTRACT_FIXTURE_PATH))
 
     assert_equal "execution_assignment", fixture.fetch("item_type")

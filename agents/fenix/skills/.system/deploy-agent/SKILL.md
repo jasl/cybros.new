@@ -1,6 +1,6 @@
 ---
 name: deploy-agent
-description: Deploy another agent runtime through the Phase 2 operational flow.
+description: Deploy another agent runtime through the current operational flow.
 ---
 
 Use this skill when Fenix needs to prepare or verify an agent deployment flow.

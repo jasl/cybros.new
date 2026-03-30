@@ -29,10 +29,10 @@ that is intentionally not active yet.
 
 ## Current Direction
 
-- `Phase 1` is the current substrate implementation batch for `core_matrix`.
-- `Phase 2` is the next platform phase: prove the real agent loop end to end.
-- `Phase 3` makes the product usable through Web UI.
-- Later phases widen the product boundary through additional validation
+- The current substrate batch continues to harden `core_matrix` foundations.
+- The current agent-loop validation batch proves the real loop end to end.
+- The next product batch makes the system usable through Web UI.
+- Later batches widen the product boundary through additional validation
   programs, triggers, channels, and eventually extensions.
 
 ## Validation Rule

@@ -55,7 +55,7 @@ module MCP
       session = transport.initialize_session!(
         client_info: {
           "name" => "core-matrix",
-          "version" => "phase2",
+          "version" => "1.0",
         }
       )
       sse_events = transport.open_sse_stream!(session_id: session.fetch("session_id"))

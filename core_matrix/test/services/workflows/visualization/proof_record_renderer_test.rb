@@ -18,7 +18,7 @@ class Workflows::Visualization::ProofRecordRendererTest < ActiveSupport::TestCas
         "date" => "2026-03-30",
         "operator" => "Codex",
         "environment" => "bin/dev",
-        "deployment_identifier" => "bundled:phase2-runtime",
+        "deployment_identifier" => "bundled:runtime",
         "runtime_mode" => "bundled",
         "provider" => "dev",
         "model" => "mock-model",
