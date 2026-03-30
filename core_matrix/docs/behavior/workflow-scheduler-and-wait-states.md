@@ -186,6 +186,9 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   `execution_assignment` mailbox items, and clears workflow wait fields
 - `AgentControl::Poll` must not redeliver an `execution_assignment` once the
   backing `AgentTaskRun` has left `queued`
+- mailbox delivery remains the only product execution path for external or
+  bundled runtimes; the scheduler does not depend on a runtime callback
+  endpoint to start work
 - late mailbox `execution_progress` or terminal execution reports for the
   superseded attempt are rejected as stale
 - local provider completions and failures must re-lock the turn, workflow, and

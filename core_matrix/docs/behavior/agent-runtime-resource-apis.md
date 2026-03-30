@@ -15,6 +15,11 @@ query objects, and kernel-owned services. The control plane uses the same
 machine credential authentication but carries durable mailbox items through
 `poll`, `WebSocket`, and response piggyback delivery.
 
+Runtime pairing manifests remain registration metadata only. Product execution
+and close control do not use a separate runtime callback endpoint such as
+`/runtime/executions`; they ride the mailbox-first control plane described
+here.
+
 ## Status
 
 This document describes the current landed runtime resource plane and the first

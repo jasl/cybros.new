@@ -39,11 +39,9 @@ should land in separate agent programs rather than forcing them into Fenix.
 
 ## Phase 2 Runtime Surface
 
-`Fenix` now exposes three machine-facing Phase 2 endpoints:
+`Fenix` now exposes one stable machine-facing pairing endpoint:
 
 - `GET /runtime/manifest`
-- `POST /runtime/executions`
-- `GET /runtime/executions/:id`
 
 `GET /runtime/manifest` publishes the registration metadata needed for external
 pairing:
@@ -76,27 +74,18 @@ The current pairing contract models `Fenix` as one process serving both:
 That dual role is explicit in the manifest even though Phase 2 still ships it
 as one bundled runtime.
 
-`POST /runtime/executions` accepts one mailbox-shaped execution assignment,
-creates or reuses one durable runtime execution record, and returns `202
-Accepted` with the execution resource identity.
+Normal execution and close control do not use a runtime callback endpoint.
+`Core Matrix` is the orchestration truth and delivers mailbox items through the
+control plane:
 
-`GET /runtime/executions/:id` exposes the async execution resource once the job
-has progressed or terminated, including incrementally appended reports for
-local validation:
+- realtime push over `/cable`
+- `POST /agent_api/control/poll` fallback delivery
+- `POST /agent_api/control/report` for incremental reports back into the kernel
 
-- `execution_started`
-- `execution_progress`
-- `execution_complete`
-- `execution_fail`
-
-The execution endpoint is the agent-plane surface only. If it receives
-environment-plane work, it fails fast with
-`failure_kind = "unsupported_runtime_plane"` instead of pretending both planes
-share one execution entry point.
-
-The current Phase 2 implementation keeps the runtime deterministic, but the
-surface is now sufficient for both bundled validation and external pairing into
-Core Matrix.
+The manifest therefore exists for registration and capability advertisement,
+not for direct execution dispatch. The runtime still keeps deterministic local
+execution logic, but product execution now rides the mailbox-first control
+plane shared by bundled and external pairing.
 
 ## Retained Hook Lifecycle
 
@@ -219,7 +208,7 @@ scenarios `12` and `13`.
 Phase 2 treats release change as deployment rotation:
 
 - boot a new `Fenix` release as a new deployment
-- expose the same manifest and execution endpoints
+- expose the same manifest and mailbox control contract
 - register it with Core Matrix
 - cut future work over once the new deployment reaches healthy runtime
   participation

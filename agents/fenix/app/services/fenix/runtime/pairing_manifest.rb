@@ -236,7 +236,6 @@ module Fenix
           "transport" => "http",
           "base_url" => @base_url,
           "runtime_manifest_path" => "/runtime/manifest",
-          "runtime_execution_path" => "/runtime/executions",
         }
       end
 

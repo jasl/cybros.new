@@ -185,6 +185,8 @@ runtime resources that later tasks now build on are:
     byte counts, not raw stdout/stderr bodies
   - command subprocess lifecycle remains subordinate to the owning
     `AgentTaskRun`
+  - runtime execution of that task is delivered through mailbox control, not a
+    runtime-specific HTTP execution callback
 - agent task runs persist the same durable close fields as other closable
   runtime resources so later interrupt and close orchestration can target one
   stable execution aggregate

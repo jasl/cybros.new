@@ -107,6 +107,8 @@ Related design note:
 
 - external runtimes pair outbound with Core Matrix; normal execution delivery
   does not require the kernel to dial runtime-private addresses
+- the runtime pairing manifest is registration metadata, not a product
+  execution callback surface
 - bundled and external runtimes share the same registration and heartbeat
   substrate once the deployment row exists
 - release change is represented as registering a new deployment, waiting for a
