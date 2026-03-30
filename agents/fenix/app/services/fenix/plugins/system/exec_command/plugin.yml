@@ -71,6 +71,104 @@ tool_catalog:
           type: integer
     streaming_support: true
     idempotency_policy: best_effort
+  - tool_name: command_run_list
+    tool_kind: kernel_primitive
+    operator_group: command_run
+    resource_identity_kind: command_run
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/command_run_list
+    input_schema:
+      type: object
+      properties: {}
+    result_schema:
+      type: object
+      properties:
+        entries:
+          type: array
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: command_run_read_output
+    tool_kind: kernel_primitive
+    operator_group: command_run
+    resource_identity_kind: command_run
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/command_run_read_output
+    input_schema:
+      type: object
+      properties:
+        command_run_id:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        command_run_id:
+          type: string
+        stdout_tail:
+          type: string
+        stderr_tail:
+          type: string
+        stdout_bytes:
+          type: integer
+        stderr_bytes:
+          type: integer
+        session_closed:
+          type: boolean
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: command_run_wait
+    tool_kind: kernel_primitive
+    operator_group: command_run
+    resource_identity_kind: command_run
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/command_run_wait
+    input_schema:
+      type: object
+      properties:
+        command_run_id:
+          type: string
+        timeout_seconds:
+          type: integer
+    result_schema:
+      type: object
+      properties:
+        command_run_id:
+          type: string
+        session_closed:
+          type: boolean
+        exit_status:
+          type: integer
+        stdout_bytes:
+          type: integer
+        stderr_bytes:
+          type: integer
+    streaming_support: true
+    idempotency_policy: best_effort
+  - tool_name: command_run_terminate
+    tool_kind: kernel_primitive
+    operator_group: command_run
+    resource_identity_kind: command_run
+    mutates_state: true
+    implementation_source: agent
+    implementation_ref: fenix/runtime/command_run_terminate
+    input_schema:
+      type: object
+      properties:
+        command_run_id:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        command_run_id:
+          type: string
+        terminated:
+          type: boolean
+        session_closed:
+          type: boolean
+    streaming_support: false
+    idempotency_policy: best_effort
 config_schema: {}
 requirements:
   active_job_topology: local_only

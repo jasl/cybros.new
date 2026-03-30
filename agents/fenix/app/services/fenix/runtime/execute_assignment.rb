@@ -239,6 +239,13 @@ module Fenix
               "timeout_seconds" => @context.dig("task_payload", "timeout_seconds") || 30,
               "pty" => @context.dig("task_payload", "pty") || false,
             }
+          when "command_run_list"
+            {}
+          when "command_run_read_output", "command_run_terminate", "command_run_wait"
+            {
+              "command_run_id" => @context.dig("task_payload", "command_run_id"),
+              "timeout_seconds" => @context.dig("task_payload", "timeout_seconds") || 30,
+            }.compact
           when "write_stdin"
             {
               "command_run_id" => @context.dig("task_payload", "command_run_id"),
@@ -252,6 +259,12 @@ module Fenix
               "command_line" => @context.dig("task_payload", "command_line") || "bin/dev",
               "kind" => @context.dig("task_payload", "kind") || "background_service",
               "proxy_port" => @context.dig("task_payload", "proxy_port"),
+            }
+          when "process_list"
+            {}
+          when "process_read_output", "process_proxy_info"
+            {
+              "process_run_id" => @context.dig("task_payload", "process_run_id"),
             }
           when "workspace_read"
             {
@@ -320,6 +333,12 @@ module Fenix
             {
               "url" => @context.dig("task_payload", "url") || "https://example.com",
             }
+          when "browser_list"
+            {}
+          when "browser_session_info"
+            {
+              "browser_session_id" => @context.dig("task_payload", "browser_session_id"),
+            }
           when "browser_navigate"
             {
               "browser_session_id" => @context.dig("task_payload", "browser_session_id"),
@@ -353,39 +372,19 @@ module Fenix
         case tool_call.fetch("tool_name")
         when "calculator"
           evaluate_expression(tool_call.dig("arguments", "expression"))
+        when "command_run_list", "command_run_read_output", "command_run_terminate", "command_run_wait", "exec_command", "write_stdin"
+          execute_exec_command_tool(tool_call, tool_invocation:, command_run:)
+        when "process_exec", "process_list", "process_proxy_info", "process_read_output"
+          execute_process_tool(tool_call:, process_run:)
+        when "browser_list", "browser_open", "browser_session_info", "browser_navigate", "browser_get_content", "browser_screenshot", "browser_close"
+          execute_browser_tool(tool_call)
         when "exec_command"
-          execute_exec_command(
-            tool_call: tool_call,
-            tool_invocation: tool_invocation,
-            command_run: command_run,
-            command_line: tool_call.dig("arguments", "command_line"),
-            timeout_seconds: tool_call.dig("arguments", "timeout_seconds"),
-            pty: tool_call.dig("arguments", "pty")
-          )
-        when "write_stdin"
-          execute_write_stdin(
-            tool_call: tool_call,
-            tool_invocation: tool_invocation,
-            command_run_id: tool_call.dig("arguments", "command_run_id"),
-            text: tool_call.dig("arguments", "text"),
-            eof: tool_call.dig("arguments", "eof"),
-            wait_for_exit: tool_call.dig("arguments", "wait_for_exit"),
-            timeout_seconds: tool_call.dig("arguments", "timeout_seconds")
-          )
-        when "process_exec"
-          execute_process_exec(
-            tool_call: tool_call,
-            process_run: process_run,
-            command_line: tool_call.dig("arguments", "command_line")
-          )
         when "workspace_find", "workspace_read", "workspace_stat", "workspace_tree", "workspace_write"
           execute_workspace_tool(tool_call)
         when "memory_append_daily", "memory_compact_summary", "memory_get", "memory_list", "memory_search", "memory_store"
           execute_memory_tool(tool_call)
         when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
           execute_web_tool(tool_call)
-        when "browser_open", "browser_navigate", "browser_get_content", "browser_screenshot", "browser_close"
-          execute_browser_tool(tool_call)
         else
           raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
         end
@@ -406,7 +405,7 @@ module Fenix
         end
       end
 
-      def execute_exec_command(tool_call:, tool_invocation:, command_run:, command_line:, timeout_seconds:, pty:)
+      def execute_exec_command_tool(tool_call, tool_invocation:, command_run:)
         Fenix::Plugins::System::ExecCommand::Runtime.call(
           tool_call: tool_call.deep_dup,
           tool_invocation: tool_invocation.deep_dup,
@@ -418,25 +417,13 @@ module Fenix
         )
       end
 
-      def execute_write_stdin(tool_call:, tool_invocation:, command_run_id:, text:, eof:, wait_for_exit:, timeout_seconds:)
-        Fenix::Plugins::System::ExecCommand::Runtime.call(
-          tool_call: tool_call.deep_dup,
-          tool_invocation: tool_invocation.deep_dup,
-          command_run: nil,
-          collector: @collector,
-          control_client: @control_client,
-          cancellation_probe: @cancellation_probe,
-          current_agent_task_run_id:
-        )
-      end
-
-      def execute_process_exec(tool_call:, process_run:, command_line:)
+      def execute_process_tool(tool_call:, process_run:)
         check_canceled! do
-          report_process_canceled_before_start!(process_run_id: process_run.fetch("process_run_id"))
+          report_process_canceled_before_start!(process_run_id: process_run.fetch("process_run_id")) if process_run.present?
         end
         Fenix::Plugins::System::Process::Runtime.call(
           tool_call: tool_call.deep_dup,
-          process_run: process_run.deep_dup,
+          process_run: process_run&.deep_dup,
           control_client: @control_client
         )
       end

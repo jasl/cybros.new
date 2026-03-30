@@ -6,7 +6,7 @@ module Fenix
       ValidationError = Class.new(StandardError)
       HostError = Class.new(StandardError)
 
-      LocalSession = Struct.new(:browser_session_id, :host, keyword_init: true)
+      LocalSession = Struct.new(:browser_session_id, :host, :current_url, keyword_init: true)
 
       class PlaywrightHost
         def initialize(session_id:, node_command: ENV.fetch("FENIX_NODE_COMMAND", "node"), script_path: Rails.root.join("scripts", "browser", "session_host.mjs"))
@@ -56,11 +56,21 @@ module Fenix
         end
 
         def lookup(browser_session_id:)
-          registry[browser_session_id]
+          synchronize do
+            registry[browser_session_id]
+          end
+        end
+
+        def list
+          synchronize do
+            registry.values.sort_by(&:browser_session_id).map { |session| snapshot_for(session) }
+          end
         end
 
         def reset!
-          sessions = registry.values.tap { registry.clear }
+          sessions = synchronize do
+            registry.values.tap { registry.clear }
+          end
           sessions.each { |session| session.host.close }
         end
 
@@ -71,11 +81,36 @@ module Fenix
         end
 
         def register(session)
-          registry[session.browser_session_id] = session
+          synchronize do
+            registry[session.browser_session_id] = session
+          end
         end
 
         def remove(browser_session_id:)
-          registry.delete(browser_session_id)
+          synchronize do
+            registry.delete(browser_session_id)
+          end
+        end
+
+        def update(session)
+          synchronize do
+            registry[session.browser_session_id] = session
+          end
+        end
+
+        def snapshot_for(session)
+          {
+            "browser_session_id" => session.browser_session_id,
+            "current_url" => session.current_url,
+          }.compact
+        end
+
+        def mutex
+          @mutex ||= Mutex.new
+        end
+
+        def synchronize(&block)
+          mutex.synchronize(&block)
         end
       end
 
@@ -95,6 +130,10 @@ module Fenix
           dispatch_to_existing_session("navigate", { "url" => @url })
         when "get_content"
           dispatch_to_existing_session("get_content", {})
+        when "info"
+          session_info
+        when "list"
+          list_sessions
         when "screenshot"
           dispatch_to_existing_session("screenshot", { "full_page" => @full_page })
         when "close"
@@ -112,7 +151,7 @@ module Fenix
         session_id = "browser-session-#{SecureRandom.uuid}"
         host = @host_factory.call(session_id:)
         payload = host.dispatch(command: "open", arguments: { "url" => @url }.compact)
-        self.class.send(:register, LocalSession.new(browser_session_id: session_id, host:))
+        self.class.send(:register, LocalSession.new(browser_session_id: session_id, host:, current_url: payload["current_url"]))
         payload.merge("browser_session_id" => session_id)
       rescue StandardError
         host&.close
@@ -122,6 +161,8 @@ module Fenix
       def dispatch_to_existing_session(command, arguments)
         session = lookup_session!
         payload = session.host.dispatch(command:, arguments:)
+        session.current_url = payload["current_url"] if payload["current_url"].present?
+        self.class.send(:update, session)
         payload.merge("browser_session_id" => session.browser_session_id)
       end
 
@@ -138,6 +179,14 @@ module Fenix
         raise ValidationError, "unknown browser session #{@browser_session_id}" if session.blank?
 
         session
+      end
+
+      def list_sessions
+        { "entries" => self.class.send(:list) }
+      end
+
+      def session_info
+        self.class.send(:snapshot_for, lookup_session!)
       end
 
       def default_host_factory(session_id:)

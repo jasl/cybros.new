@@ -160,8 +160,10 @@ Firecrawl-backed tools use:
 
 `Fenix` now exposes a dedicated browser session surface:
 
+- `browser_list`
 - `browser_open`
 - `browser_navigate`
+- `browser_session_info`
 - `browser_get_content`
 - `browser_screenshot`
 - `browser_close`
@@ -174,6 +176,51 @@ The Docker build installs the Playwright browser bundle during image creation.
 Operators can still override the browser executable path with:
 
 - `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
+
+## Operator Surface
+
+The current runtime surface is organized around five operator object families:
+
+- `workspace`
+- `memory`
+- `command_run`
+- `process_run`
+- `browser_session`
+
+That object model is reflected in the pairing manifest, local `.fenix`
+operator snapshot, and the built-in operator prompt layer.
+
+Attached command runs currently expose:
+
+- `exec_command`
+- `write_stdin`
+- `command_run_list`
+- `command_run_read_output`
+- `command_run_wait`
+- `command_run_terminate`
+
+Detached process runs currently expose:
+
+- `process_exec`
+- `process_list`
+- `process_read_output`
+- `process_proxy_info`
+
+Browser sessions currently expose:
+
+- `browser_list`
+- `browser_open`
+- `browser_session_info`
+- `browser_navigate`
+- `browser_get_content`
+- `browser_screenshot`
+- `browser_close`
+
+For a full local smoke path, run:
+
+```bash
+bin/rails runner script/manual/operator_surface_smoke.rb
+```
 
 ## Retained Hook Lifecycle
 

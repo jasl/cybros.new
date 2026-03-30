@@ -16,6 +16,11 @@ module Fenix
           workspace_root:,
           conversation_id: payload.fetch("conversation_id")
         )
+        agent_context = payload.fetch("agent_context", {})
+        Fenix::Operator::Snapshot.call(
+          workspace_root:,
+          conversation_id: payload.fetch("conversation_id")
+        )
 
         {
           "item_id" => @mailbox_item.fetch("item_id"),
@@ -32,7 +37,7 @@ module Fenix
           "task_payload" => payload.fetch("task_payload", {}),
           "context_messages" => payload.fetch("context_messages", []),
           "budget_hints" => payload.fetch("budget_hints", {}),
-          "agent_context" => payload.fetch("agent_context", {}),
+          "agent_context" => agent_context,
           "provider_execution" => payload.fetch("provider_execution", {}),
           "model_context" => payload.fetch("model_context", {}),
           "workspace_context" => {
@@ -43,7 +48,9 @@ module Fenix
             ),
             "prompts" => Fenix::Prompts::Assembler.call(
               workspace_root:,
-              conversation_id: payload.fetch("conversation_id")
+              conversation_id: payload.fetch("conversation_id"),
+              profile: agent_context.fetch("profile", "main"),
+              is_subagent: agent_context.fetch("is_subagent", false)
             ),
           },
         }

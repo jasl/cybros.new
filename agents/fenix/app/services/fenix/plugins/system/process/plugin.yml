@@ -32,6 +32,75 @@ tool_catalog:
           type: string
     streaming_support: true
     idempotency_policy: best_effort
+  - tool_name: process_list
+    tool_kind: kernel_primitive
+    operator_group: process_run
+    resource_identity_kind: process_run
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/process_list
+    input_schema:
+      type: object
+      properties: {}
+    result_schema:
+      type: object
+      properties:
+        entries:
+          type: array
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: process_read_output
+    tool_kind: kernel_primitive
+    operator_group: process_run
+    resource_identity_kind: process_run
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/process_read_output
+    input_schema:
+      type: object
+      properties:
+        process_run_id:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        process_run_id:
+          type: string
+        stdout_tail:
+          type: string
+        stderr_tail:
+          type: string
+        stdout_bytes:
+          type: integer
+        stderr_bytes:
+          type: integer
+        lifecycle_state:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: process_proxy_info
+    tool_kind: kernel_primitive
+    operator_group: process_run
+    resource_identity_kind: process_run
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/process_proxy_info
+    input_schema:
+      type: object
+      properties:
+        process_run_id:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        process_run_id:
+          type: string
+        proxy_path:
+          type: string
+        proxy_target_url:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
 config_schema: {}
 requirements:
   caddy: optional

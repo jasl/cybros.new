@@ -15,8 +15,15 @@ module Fenix
 
           def call
             case @tool_call.fetch("tool_name")
+            when "browser_list"
+              Fenix::Browser::SessionManager.call(action: "list")
             when "browser_open"
               Fenix::Browser::SessionManager.call(action: "open", url: @tool_call.dig("arguments", "url"))
+            when "browser_session_info"
+              Fenix::Browser::SessionManager.call(
+                action: "info",
+                browser_session_id: @tool_call.dig("arguments", "browser_session_id")
+              )
             when "browser_navigate"
               Fenix::Browser::SessionManager.call(
                 action: "navigate",

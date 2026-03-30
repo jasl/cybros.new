@@ -51,6 +51,10 @@ module Fenix
       def conversation_memory_file
         conversation_context_root&.join("memory.md")
       end
+
+      def conversation_operator_state_file
+        conversation_context_root&.join("operator_state.json")
+      end
     end
   end
 end

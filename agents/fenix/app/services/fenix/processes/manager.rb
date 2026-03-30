@@ -17,11 +17,16 @@ module Fenix
         :close_request_id,
         :strictness,
         :terminal_reported,
+        :stdout_bytes,
+        :stderr_bytes,
+        :stdout_tail,
+        :stderr_tail,
         keyword_init: true
       )
 
       class << self
         OUTPUT_READ_SIZE = 4096
+        OUTPUT_TAIL_LIMIT_BYTES = 8192
 
         def register(process_run_id:, stdin:, stdout:, stderr:, wait_thread:, control_client: nil, start_monitoring: true)
           entry = LocalHandle.new(
@@ -31,7 +36,11 @@ module Fenix
             stderr: stderr,
             wait_thread: wait_thread,
             control_client: control_client || Fenix::Runtime::ControlPlane.client,
-            terminal_reported: false
+            terminal_reported: false,
+            stdout_bytes: 0,
+            stderr_bytes: 0,
+            stdout_tail: +"",
+            stderr_tail: +""
           )
 
           synchronize do
@@ -66,6 +75,51 @@ module Fenix
           synchronize do
             entries[process_run_id]
           end
+        end
+
+        def append_output(process_run_id:, stream:, text:)
+          synchronize do
+            entry = entries[process_run_id]
+            return if entry.blank?
+
+            bytes = text.to_s.bytesize
+            case stream
+            when "stdout"
+              entry.stdout_bytes += bytes
+              entry.stdout_tail = trim_tail(entry.stdout_tail, text)
+            when "stderr"
+              entry.stderr_bytes += bytes
+              entry.stderr_tail = trim_tail(entry.stderr_tail, text)
+            else
+              raise ArgumentError, "unsupported process stream #{stream}"
+            end
+
+            snapshot_for(entry)
+          end
+        end
+
+        def list
+          synchronize do
+            entries.values.sort_by(&:process_run_id).map { |entry| snapshot_for(entry) }
+          end
+        end
+
+        def output_snapshot(process_run_id:)
+          synchronize do
+            entry = entries[process_run_id]
+            snapshot_for(entry) if entry.present?
+          end
+        end
+
+        def proxy_info(process_run_id:)
+          proxy_entry = Fenix::Processes::ProxyRegistry.lookup(process_run_id:)
+          return nil if proxy_entry.blank?
+
+          {
+            "process_run_id" => process_run_id,
+            "proxy_path" => proxy_entry.fetch("path_prefix"),
+            "proxy_target_url" => proxy_entry.fetch("target_url"),
+          }
         end
 
         def close!(mailbox_item:, deliver_reports:, control_client: nil)
@@ -158,6 +212,7 @@ module Fenix
         end
 
         def report_output_chunk(entry, stream:, text:)
+          append_output(process_run_id: entry.process_run_id, stream:, text:)
           entry.control_client&.report!(
             payload: {
               "method_id" => "process_output",
@@ -335,6 +390,25 @@ module Fenix
           thread.join(0.5)
         rescue StandardError
           nil
+        end
+
+        def snapshot_for(entry)
+          {
+            "process_run_id" => entry.process_run_id,
+            "lifecycle_state" => entry.wait_thread&.alive? ? "running" : "stopped",
+            "stdout_bytes" => entry.stdout_bytes,
+            "stderr_bytes" => entry.stderr_bytes,
+            "stdout_tail" => entry.stdout_tail.dup,
+            "stderr_tail" => entry.stderr_tail.dup,
+          }.merge(proxy_info(process_run_id: entry.process_run_id) || {})
+        end
+
+        def trim_tail(existing, text)
+          combined = +"#{existing}#{text}"
+          bytes = combined.bytes
+          return combined if bytes.length <= OUTPUT_TAIL_LIMIT_BYTES
+
+          bytes.last(OUTPUT_TAIL_LIMIT_BYTES).pack("C*").force_encoding(combined.encoding)
         end
 
         def entries

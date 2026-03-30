@@ -99,4 +99,31 @@ class Fenix::Browser::SessionManagerTest < ActiveSupport::TestCase
     assert_equal "image/png", screenshot.fetch("mime_type")
     assert_equal %w[open navigate get_content screenshot], host.commands.map { |entry| entry.fetch("command") }
   end
+
+  test "list and info expose registered session metadata" do
+    host = FakeHost.new(commands: [], closed: false)
+    host_factory = ->(session_id:) { host }
+
+    opened = Fenix::Browser::SessionManager.call(
+      action: "open",
+      url: "https://example.com",
+      host_factory:
+    )
+    browser_session_id = opened.fetch("browser_session_id")
+
+    Fenix::Browser::SessionManager.call(
+      action: "navigate",
+      browser_session_id:,
+      url: "https://example.com/docs",
+      host_factory:
+    )
+
+    listed = Fenix::Browser::SessionManager.call(action: "list", host_factory:)
+    info = Fenix::Browser::SessionManager.call(action: "info", browser_session_id:, host_factory:)
+
+    assert_equal browser_session_id, listed.fetch("entries").fetch(0).fetch("browser_session_id")
+    assert_equal "https://example.com/docs", listed.fetch("entries").fetch(0).fetch("current_url")
+    assert_equal browser_session_id, info.fetch("browser_session_id")
+    assert_equal "https://example.com/docs", info.fetch("current_url")
+  end
 end

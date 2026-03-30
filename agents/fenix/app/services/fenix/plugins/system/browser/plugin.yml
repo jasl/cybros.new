@@ -24,6 +24,23 @@ tool_catalog:
           type: string
     streaming_support: false
     idempotency_policy: best_effort
+  - tool_name: browser_list
+    tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_list
+    input_schema:
+      type: object
+      properties: {}
+    result_schema:
+      type: object
+      properties:
+        entries:
+          type: array
+    streaming_support: false
+    idempotency_policy: best_effort
   - tool_name: browser_navigate
     tool_kind: kernel_primitive
     operator_group: browser_session
@@ -37,6 +54,27 @@ tool_catalog:
         browser_session_id:
           type: string
         url:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        current_url:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: browser_session_info
+    tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_session_info
+    input_schema:
+      type: object
+      properties:
+        browser_session_id:
           type: string
     result_schema:
       type: object

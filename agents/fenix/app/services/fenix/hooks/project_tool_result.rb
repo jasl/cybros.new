@@ -14,10 +14,14 @@ module Fenix
           project_browser_close(tool_name:, tool_result:)
         when "browser_get_content"
           project_browser_get_content(tool_name:, tool_result:)
+        when "browser_list"
+          project_browser_list(tool_name:, tool_result:)
         when "browser_navigate"
           project_browser_navigate(tool_name:, tool_result:)
         when "browser_open"
           project_browser_open(tool_name:, tool_result:)
+        when "browser_session_info"
+          project_browser_session_info(tool_name:, tool_result:)
         when "browser_screenshot"
           project_browser_screenshot(tool_name:, tool_result:)
         when "exec_command"
@@ -40,10 +44,24 @@ module Fenix
           project_memory_store(tool_name:, tool_result:)
         when "process_exec"
           project_process_exec(tool_name:, tool_result:)
+        when "process_list"
+          project_process_list(tool_name:, tool_result:)
+        when "process_proxy_info"
+          project_process_proxy_info(tool_name:, tool_result:)
+        when "process_read_output"
+          project_process_read_output(tool_name:, tool_result:)
         when "web_fetch"
           project_web_fetch(tool_name:, tool_result:)
         when "web_search"
           project_search_results(tool_name:, tool_result:)
+        when "command_run_list"
+          project_command_run_list(tool_name:, tool_result:)
+        when "command_run_read_output"
+          project_command_run_read_output(tool_name:, tool_result:)
+        when "command_run_terminate"
+          project_command_run_terminate(tool_name:, tool_result:)
+        when "command_run_wait"
+          project_command_run_wait(tool_name:, tool_result:)
         when "workspace_find"
           project_workspace_find(tool_name:, tool_result:)
         when "workspace_read"
@@ -85,6 +103,60 @@ module Fenix
             "stderr_bytes" => tool_result.fetch("stderr_bytes", stderr.bytesize),
           }
         end
+      end
+
+      def self.project_command_run_list(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Listed #{tool_result.fetch("entries").size} attached command runs.",
+          "entries" => tool_result.fetch("entries"),
+        }
+      end
+
+      def self.project_command_run_read_output(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Read buffered output for command run #{tool_result.fetch("command_run_id")}.",
+          "command_run_id" => tool_result.fetch("command_run_id"),
+          "session_closed" => tool_result.fetch("session_closed"),
+          "stdout_tail" => tool_result.fetch("stdout_tail"),
+          "stderr_tail" => tool_result.fetch("stderr_tail"),
+          "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+          "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+        }
+      end
+
+      def self.project_command_run_terminate(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Terminated command run #{tool_result.fetch("command_run_id")}.",
+          "command_run_id" => tool_result.fetch("command_run_id"),
+          "terminated" => tool_result.fetch("terminated"),
+          "session_closed" => tool_result.fetch("session_closed"),
+          "exit_status" => tool_result["exit_status"],
+          "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+          "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+          "stdout_tail" => tool_result.fetch("stdout_tail"),
+          "stderr_tail" => tool_result.fetch("stderr_tail"),
+        }.compact
+      end
+
+      def self.project_command_run_wait(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => attached_session_content(
+            exit_status: tool_result.fetch("exit_status"),
+            output_streamed: tool_result.fetch("output_streamed")
+          ),
+          "command_run_id" => tool_result.fetch("command_run_id"),
+          "session_closed" => tool_result.fetch("session_closed"),
+          "exit_status" => tool_result.fetch("exit_status"),
+          "output_streamed" => tool_result.fetch("output_streamed"),
+          "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+          "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+          "stdout_tail" => tool_result.fetch("stdout_tail"),
+          "stderr_tail" => tool_result.fetch("stderr_tail"),
+        }
       end
 
       def self.project_write_stdin(tool_name:, tool_result:)
@@ -130,12 +202,58 @@ module Fenix
         }
       end
 
+      def self.project_process_list(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Listed #{tool_result.fetch("entries").size} active process runs.",
+          "entries" => tool_result.fetch("entries"),
+        }
+      end
+
+      def self.project_process_proxy_info(tool_name:, tool_result:)
+        content =
+          if tool_result["proxy_path"].present?
+            "Process run #{tool_result.fetch("process_run_id")} is available at #{tool_result.fetch("proxy_path")}."
+          else
+            "Process run #{tool_result.fetch("process_run_id")} has no proxy route."
+          end
+
+        {
+          "tool_name" => tool_name,
+          "content" => content,
+          "process_run_id" => tool_result.fetch("process_run_id"),
+          "proxy_path" => tool_result["proxy_path"],
+          "proxy_target_url" => tool_result["proxy_target_url"],
+        }.compact
+      end
+
+      def self.project_process_read_output(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Read buffered output for process run #{tool_result.fetch("process_run_id")}.",
+          "process_run_id" => tool_result.fetch("process_run_id"),
+          "stdout_tail" => tool_result.fetch("stdout_tail"),
+          "stderr_tail" => tool_result.fetch("stderr_tail"),
+          "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+          "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+          "lifecycle_state" => tool_result.fetch("lifecycle_state"),
+        }
+      end
+
       def self.project_browser_open(tool_name:, tool_result:)
         {
           "tool_name" => tool_name,
           "content" => "Browser session #{tool_result.fetch("browser_session_id")} opened at #{tool_result.fetch("current_url")}.",
           "browser_session_id" => tool_result.fetch("browser_session_id"),
           "current_url" => tool_result.fetch("current_url"),
+        }
+      end
+
+      def self.project_browser_list(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Listed #{tool_result.fetch("entries").size} browser sessions.",
+          "entries" => tool_result.fetch("entries"),
         }
       end
 
@@ -175,6 +293,15 @@ module Fenix
           "browser_session_id" => tool_result.fetch("browser_session_id"),
           "closed" => tool_result.fetch("closed"),
         }
+      end
+
+      def self.project_browser_session_info(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Browser session #{tool_result.fetch("browser_session_id")} is at #{tool_result.fetch("current_url")}.",
+          "browser_session_id" => tool_result.fetch("browser_session_id"),
+          "current_url" => tool_result["current_url"],
+        }.compact
       end
 
       def self.project_web_fetch(tool_name:, tool_result:)

@@ -36,6 +36,7 @@ module Fenix
       def seed_files!
         seed_file(layout.root_memory_file, "# Fenix root memory\n")
         seed_file(layout.conversation_summary_file, "")
+        seed_file(layout.conversation_operator_state_file, "{}\n")
         seed_metadata_file
       end
 

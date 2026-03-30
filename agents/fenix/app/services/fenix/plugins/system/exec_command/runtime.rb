@@ -23,6 +23,14 @@ module Fenix
 
           def call
             case @tool_call.fetch("tool_name")
+            when "command_run_list"
+              execute_command_run_list
+            when "command_run_read_output"
+              execute_command_run_read_output
+            when "command_run_terminate"
+              execute_command_run_terminate
+            when "command_run_wait"
+              execute_command_run_wait
             when "exec_command"
               execute_exec_command
             when "write_stdin"
@@ -33,6 +41,71 @@ module Fenix
           end
 
           private
+
+          def execute_command_run_list
+            {
+              "entries" => Fenix::Runtime::CommandRunRegistry.list(agent_task_run_id: @current_agent_task_run_id),
+            }
+          end
+
+          def execute_command_run_read_output
+            check_canceled!
+            command_run_id = @tool_call.dig("arguments", "command_run_id")
+            command_run = lookup_owned_command_run!(command_run_id)
+
+            output_chunks = read_available_output(command_run:, timeout_seconds: 0.05, command_run_id:)
+            emit_tool_output!(command_run_id:, output_chunks:) if output_chunks.any?
+
+            snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id:)
+            raise ArgumentError, "unknown command run #{command_run_id}" if snapshot.blank?
+
+            snapshot.merge("session_closed" => false)
+          end
+
+          def execute_command_run_terminate
+            check_canceled!
+            command_run_id = @tool_call.dig("arguments", "command_run_id")
+            lookup_owned_command_run!(command_run_id)
+
+            snapshot = Fenix::Runtime::CommandRunRegistry.terminate(command_run_id:)
+            raise ArgumentError, "unknown command run #{command_run_id}" if snapshot.blank?
+
+            snapshot
+          end
+
+          def execute_command_run_wait
+            check_canceled!
+            command_run_id = @tool_call.dig("arguments", "command_run_id")
+            timeout_seconds = @tool_call.dig("arguments", "timeout_seconds") || 30
+            command_run = lookup_owned_command_run!(command_run_id)
+
+            output_chunks = drain_attached_output(
+              command_run:,
+              wait_for_exit: true,
+              timeout_seconds:
+            )
+            emit_tool_output!(command_run_id:, output_chunks:) if output_chunks.any?
+
+            snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id:)
+            exit_status = command_run.wait_thread.value.exitstatus
+
+            snapshot&.merge(
+              "session_closed" => true,
+              "exit_status" => exit_status,
+              "output_streamed" => snapshot.fetch("stdout_bytes").positive? || snapshot.fetch("stderr_bytes").positive?
+            ) || {
+              "command_run_id" => command_run_id,
+              "session_closed" => true,
+              "exit_status" => exit_status,
+              "output_streamed" => false,
+              "stdout_bytes" => 0,
+              "stderr_bytes" => 0,
+              "stdout_tail" => "",
+              "stderr_tail" => "",
+            }
+          ensure
+            Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present?
+          end
 
           def execute_exec_command
             return start_command_run_session if @tool_call.dig("arguments", "pty")
@@ -67,13 +140,22 @@ module Fenix
             )
             emit_tool_output!(command_run_id:, output_chunks:) if output_chunks.any?
 
+            snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id:) || {
+              "stdout_bytes" => command_run.stdout_bytes,
+              "stderr_bytes" => command_run.stderr_bytes,
+              "stdout_tail" => "",
+              "stderr_tail" => "",
+            }
+
             response_payload = {
               "command_run_id" => command_run_id,
               "stdin_bytes" => stdin_bytes,
               "session_closed" => wait_for_exit,
-              "output_streamed" => command_run.stdout_bytes.positive? || command_run.stderr_bytes.positive?,
-              "stdout_bytes" => command_run.stdout_bytes,
-              "stderr_bytes" => command_run.stderr_bytes,
+              "output_streamed" => snapshot.fetch("stdout_bytes").positive? || snapshot.fetch("stderr_bytes").positive?,
+              "stdout_bytes" => snapshot.fetch("stdout_bytes"),
+              "stderr_bytes" => snapshot.fetch("stderr_bytes"),
+              "stdout_tail" => snapshot.fetch("stdout_tail"),
+              "stderr_tail" => snapshot.fetch("stderr_tail"),
             }
             response_payload["exit_status"] = command_run.wait_thread.value.exitstatus if wait_for_exit
             response_payload
@@ -129,6 +211,11 @@ module Fenix
 
                     stream_details = readers.fetch(io)
                     stream_details.fetch(:buffer) << chunk
+                    Fenix::Runtime::CommandRunRegistry.append_output(
+                      command_run_id:,
+                      stream: stream_details.fetch(:stream),
+                      text: chunk
+                    )
                     emit_tool_output!(
                       command_run_id:,
                       output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }]
@@ -198,7 +285,7 @@ module Fenix
             chunks
           end
 
-          def read_available_output(command_run:, timeout_seconds:)
+          def read_available_output(command_run:, timeout_seconds:, command_run_id: command_run.command_run_id)
             readers = {}
             readers[command_run.stdout] = "stdout" unless command_run.stdout.closed?
             readers[command_run.stderr] = "stderr" unless command_run.stderr.closed?
@@ -213,11 +300,11 @@ module Fenix
                 next if chunk.blank?
 
                 stream = readers.fetch(io)
-                if stream == "stdout"
-                  command_run.stdout_bytes += chunk.bytesize
-                else
-                  command_run.stderr_bytes += chunk.bytesize
-                end
+                Fenix::Runtime::CommandRunRegistry.append_output(
+                  command_run_id: command_run.command_run_id,
+                  stream: stream,
+                  text: chunk
+                )
                 output_chunks << { "stream" => stream, "text" => chunk }
               rescue IO::WaitReadable
                 nil
@@ -249,6 +336,14 @@ module Fenix
           rescue StandardError
             Fenix::Runtime::CommandRunRegistry.terminate(command_run_id:)
             raise
+          end
+
+          def lookup_owned_command_run!(command_run_id)
+            command_run = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id:)
+            raise ArgumentError, "unknown command run #{command_run_id}" if command_run.blank?
+            raise ArgumentError, "command run #{command_run_id} is not owned by this agent task" unless command_run.agent_task_run_id == @current_agent_task_run_id
+
+            command_run
           end
 
           def terminate_subprocess!(pid:)

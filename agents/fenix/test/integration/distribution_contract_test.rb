@@ -27,6 +27,8 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_match(/Ubuntu 24\.04/i, readme)
     assert_match(/macOS/i, readme)
     assert_match(/FENIX_DEV_PROXY_PORT/, readme)
+    assert_match(/workspace.*memory.*command_run.*process_run.*browser_session/im, readme)
+    assert_match(/operator_surface_smoke\.rb/, readme)
     assert_match(/FROM base AS ruby-runtime/, dockerfile)
     assert_match(/cache\.ruby-lang\.org/, dockerfile)
     assert_match(/setpriv --reuid/, entrypoint)
