@@ -39,7 +39,7 @@ should land in separate agent programs rather than forcing them into Fenix.
 
 ## Phase 2 Runtime Surface
 
-`Fenix` now exposes two machine-facing Phase 2 endpoints:
+`Fenix` now exposes three machine-facing Phase 2 endpoints:
 
 - `GET /runtime/manifest`
 - `POST /runtime/executions`
