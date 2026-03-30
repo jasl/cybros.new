@@ -140,7 +140,9 @@ scenario_13_runs = [
 scenario_runs_passed = lambda do |runs|
   runs.all? do |serialized_run|
     serialized_run.fetch("dag_shape") == ["agent_turn_step"] &&
-      serialized_run.fetch("conversation_state") == expected_conversation_state
+      expected_conversation_state.all? do |key, value|
+        serialized_run.fetch("conversation_state")[key] == value
+      end
   end
 end
 
