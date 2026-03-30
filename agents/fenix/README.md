@@ -308,3 +308,58 @@ Phase 2 treats release change as deployment rotation:
 
 There is no in-place self-updater in Phase 2. Upgrade and downgrade are the
 same kernel-facing operation.
+
+## Distribution Contract
+
+`Fenix` now documents one concrete distribution shape that matches the pairing
+manifest:
+
+- Docker Compose is the default deployment path
+- Ubuntu 24.04 is the canonical bare-metal host
+- macOS remains a best-effort development environment
+
+### Docker Compose
+
+Use [docker-compose.fenix.yml](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docker-compose.fenix.yml)
+as the default sample:
+
+- `fenix`
+  - main Rails runtime
+  - mounts `./workspace:/workspace`
+  - exposes `3101 -> 80`
+- `fenix-dev-proxy`
+  - runs [bin/fenix-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/fenix-dev-proxy)
+  - serves the fixed-port developer proxy on `3310`
+  - shares `tmp/dev-proxy/routes.caddy` through the `fenix_proxy_routes` volume
+
+Key environment variables in the sample:
+
+- `CORE_MATRIX_BASE_URL`
+- `CORE_MATRIX_MACHINE_CREDENTIAL`
+- `PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright`
+- `FENIX_DEV_PROXY_PORT=3310`
+- `FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy`
+
+### Ubuntu 24.04 Bare Metal
+
+The canonical bare-metal target is Ubuntu 24.04. Operators should:
+
+- install runtime dependencies with
+  [bootstrap-runtime-deps.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps.sh)
+- run `npm ci`
+- run `npx playwright install chromium`
+- provide `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_MACHINE_CREDENTIAL`
+- start the Rails runtime and, when proxy paths are needed, start
+  `bin/fenix-dev-proxy`
+
+### macOS Development Caveats
+
+macOS is supported for development and validation, but not treated as the
+canonical appliance baseline:
+
+- use
+  [bootstrap-runtime-deps-darwin.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps-darwin.sh)
+- run `npm ci`
+- run `npx playwright install chromium`
+- keep using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only if you intentionally
+  want a non-default browser binary
