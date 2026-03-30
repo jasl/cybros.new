@@ -276,6 +276,21 @@ module Fenix
               "title" => @context.dig("task_payload", "title").to_s,
               "scope" => @context.dig("task_payload", "scope") || "daily",
             }
+          when "web_fetch"
+            {
+              "url" => @context.dig("task_payload", "url") || "https://example.com",
+            }
+          when "web_search", "firecrawl_search"
+            {
+              "query" => @context.dig("task_payload", "query").to_s,
+              "limit" => @context.dig("task_payload", "limit") || 5,
+              "provider" => @context.dig("task_payload", "provider") || "firecrawl",
+            }
+          when "firecrawl_scrape"
+            {
+              "url" => @context.dig("task_payload", "url") || "https://example.com",
+              "formats" => Array(@context.dig("task_payload", "formats")).presence || ["markdown"],
+            }
           else
             {}
           end
@@ -319,6 +334,8 @@ module Fenix
           execute_workspace_tool(tool_call)
         when "memory_get", "memory_search", "memory_store"
           execute_memory_tool(tool_call)
+        when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
+          execute_web_tool(tool_call)
         else
           raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
         end
@@ -392,6 +409,10 @@ module Fenix
           workspace_root: @context.dig("workspace_context", "workspace_root"),
           conversation_id: @context.fetch("conversation_id")
         )
+      end
+
+      def execute_web_tool(tool_call)
+        Fenix::Plugins::System::Web::Runtime.call(tool_call: tool_call.deep_dup)
       end
 
       def canceled?
@@ -586,7 +607,8 @@ module Fenix
             "retryable" => false,
           }
         when Fenix::Plugins::System::Workspace::Runtime::ValidationError,
-          Fenix::Plugins::System::Memory::Runtime::ValidationError
+          Fenix::Plugins::System::Memory::Runtime::ValidationError,
+          Fenix::Plugins::System::Web::Runtime::ValidationError
           {
             "classification" => "semantic",
             "code" => "validation_error",

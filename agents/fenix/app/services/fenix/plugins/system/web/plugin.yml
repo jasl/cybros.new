@@ -1,0 +1,101 @@
+plugin_id: system.web
+version: 1
+display_name: Web
+default_runtime_plane: environment
+tool_catalog:
+  - tool_name: web_fetch
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/web_fetch
+    input_schema:
+      type: object
+      properties:
+        url:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        url:
+          type: string
+        content:
+          type: string
+        content_type:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: web_search
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/web_search
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+        limit:
+          type: integer
+        provider:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        provider:
+          type: string
+        query:
+          type: string
+        results:
+          type: array
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: firecrawl_search
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/firecrawl_search
+    input_schema:
+      type: object
+      properties:
+        query:
+          type: string
+        limit:
+          type: integer
+    result_schema:
+      type: object
+      properties:
+        provider:
+          type: string
+        query:
+          type: string
+        results:
+          type: array
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: firecrawl_scrape
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/firecrawl_scrape
+    input_schema:
+      type: object
+      properties:
+        url:
+          type: string
+        formats:
+          type: array
+    result_schema:
+      type: object
+      properties:
+        url:
+          type: string
+        markdown:
+          type: string
+        metadata:
+          type: object
+    streaming_support: false
+    idempotency_policy: best_effort
+config_schema: {}
+requirements:
+  firecrawl_api: optional
+env_contract:
+  FIRECRAWL_API_KEY:
+    required: false
+  FIRECRAWL_BASE_URL:
+    required: false

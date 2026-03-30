@@ -12,6 +12,10 @@ module Fenix
           }
         when "exec_command"
           project_exec_command(tool_name:, tool_result:)
+        when "firecrawl_scrape"
+          project_firecrawl_scrape(tool_name:, tool_result:)
+        when "firecrawl_search"
+          project_search_results(tool_name:, tool_result:)
         when "memory_get"
           project_memory_get(tool_name:, tool_result:)
         when "memory_search"
@@ -20,6 +24,10 @@ module Fenix
           project_memory_store(tool_name:, tool_result:)
         when "process_exec"
           project_process_exec(tool_name:, tool_result:)
+        when "web_fetch"
+          project_web_fetch(tool_name:, tool_result:)
+        when "web_search"
+          project_search_results(tool_name:, tool_result:)
         when "workspace_read"
           project_workspace_read(tool_name:, tool_result:)
         when "workspace_write"
@@ -93,6 +101,16 @@ module Fenix
         }
       end
 
+      def self.project_web_fetch(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => tool_result.fetch("content"),
+          "url" => tool_result.fetch("url"),
+          "content_type" => tool_result.fetch("content_type"),
+          "redirects" => tool_result.fetch("redirects"),
+        }
+      end
+
       def self.project_workspace_read(tool_name:, tool_result:)
         {
           "tool_name" => tool_name,
@@ -144,6 +162,38 @@ module Fenix
           "scope" => tool_result.fetch("scope"),
           "memory_path" => tool_result.fetch("memory_path"),
           "bytes_written" => tool_result.fetch("bytes_written"),
+        }
+      end
+
+      def self.project_search_results(tool_name:, tool_result:)
+        results = tool_result.fetch("results")
+        content =
+          if results.empty?
+            "No search results."
+          else
+            results.map.with_index(1) do |result, index|
+              "#{index}. #{result.fetch("title", result.fetch("url", "Untitled"))} - #{result.fetch("url", "")}".strip
+            end.join("\n")
+          end
+
+        {
+          "tool_name" => tool_name,
+          "content" => content,
+          "provider" => tool_result.fetch("provider"),
+          "query" => tool_result.fetch("query"),
+          "results" => results,
+        }
+      end
+
+      def self.project_firecrawl_scrape(tool_name:, tool_result:)
+        markdown = tool_result.fetch("markdown")
+
+        {
+          "tool_name" => tool_name,
+          "content" => markdown,
+          "url" => tool_result.fetch("url"),
+          "markdown" => markdown,
+          "metadata" => tool_result.fetch("metadata"),
         }
       end
 

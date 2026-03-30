@@ -117,6 +117,31 @@ Detached long-lived services therefore follow this contract:
 - the persistent control worker reports `process_started`, `process_output`,
   `process_exited`, and `resource_close_*` over the control plane
 
+## Web Tool Surface
+
+`Fenix` now exposes a first local web capability slice through the environment
+tool catalog:
+
+- `web_fetch`
+  - local `http/https` fetch with SSRF/private-address blocking
+  - redirect targets are revalidated before following
+  - HTML is reduced to readable text for the agent-facing payload
+- `web_search`
+  - generic provider-backed search entrypoint
+  - current default provider is Firecrawl
+- `firecrawl_search`
+  - explicit Firecrawl search surface
+- `firecrawl_scrape`
+  - explicit Firecrawl scrape surface
+
+Firecrawl-backed tools use:
+
+- `FIRECRAWL_API_KEY`
+  - required for `web_search`, `firecrawl_search`, and `firecrawl_scrape`
+- `FIRECRAWL_BASE_URL`
+  - optional override
+  - defaults to `https://api.firecrawl.dev`
+
 ## Retained Hook Lifecycle
 
 Phase 2 keeps a stage-shaped runtime surface instead of collapsing behavior
