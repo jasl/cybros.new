@@ -306,6 +306,9 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   marked `completed` as soon as the durable request row is created
 - the open request, not the workflow node row, is the durable blocker that
   keeps the workflow waiting
+- non-blocking human interaction requests do not leave the workflow stalled;
+  after request creation the workflow immediately refreshes lifecycle and
+  dispatches any newly runnable successors
 - human-interaction conversation-event payloads use the request `public_id`
   rather than the internal row id
 - yielded human-interaction intents are materialized by

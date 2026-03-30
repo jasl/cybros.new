@@ -66,6 +66,7 @@ module HumanInteractions
 
         wait_for_request!(workflow_run, request) if request.blocking?
         project_event!(request, "human_interaction.opened")
+        advance_workflow!(workflow_run)
         request
       end
     end
@@ -126,6 +127,12 @@ module HumanInteractions
 
     def stream_key_for(request)
       "human_interaction_request:#{request.id}"
+    end
+
+    def advance_workflow!(workflow_run)
+      current_workflow_run = workflow_run.reload
+      Workflows::RefreshRunLifecycle.call(workflow_run: current_workflow_run)
+      Workflows::DispatchRunnableNodes.call(workflow_run: current_workflow_run)
     end
 
     def raise_invalid!(record, attribute, message)

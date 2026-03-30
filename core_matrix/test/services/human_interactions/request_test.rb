@@ -1,6 +1,8 @@
 require "test_helper"
 
 class HumanInteractions::RequestTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "execution complete wait transition materializes a blocking human task request on the workflow" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -128,6 +130,40 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_equal "human_interaction_request:#{request.id}", event.stream_key
     assert_equal 0, event.stream_revision
     assert_equal request.public_id, event.payload["request_id"]
+  end
+
+  test "non-blocking human interaction completion dispatches runnable successors" do
+    context = build_human_interaction_context!
+    workflow_run = context.fetch(:workflow_run)
+
+    Workflows::Mutate.call(
+      workflow_run: workflow_run,
+      nodes: [
+        {
+          node_key: "leaf",
+          node_type: "turn_step",
+          decision_source: "system",
+          metadata: {},
+        },
+      ],
+      edges: [
+        { from_node_key: "human_gate", to_node_key: "leaf" },
+      ]
+    )
+    Workflows::CompleteNode.call(workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "root"))
+
+    assert_enqueued_jobs 1 do
+      HumanInteractions::Request.call(
+        request_type: "HumanTaskRequest",
+        workflow_node: workflow_run.reload.workflow_nodes.find_by!(node_key: "human_gate"),
+        blocking: false,
+        request_payload: { "instructions" => "Optional task" }
+      )
+    end
+
+    leaf = workflow_run.reload.workflow_nodes.find_by!(node_key: "leaf")
+
+    assert leaf.queued?
   end
 
   test "rejects opening a human interaction on a pending delete conversation" do
