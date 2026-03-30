@@ -28,6 +28,53 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     end
   end
 
+  test "agent task close requests cancel queued runtime executions before they start" do
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
+      "item_type" => "execution_assignment"
+    )
+    mailbox_item.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+    runtime_execution = nil
+    execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
+    original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
+    calls = []
+
+    execute_assignment_singleton.send(:define_method, :call) do |**kwargs|
+      calls << kwargs
+      Fenix::Runtime::ExecuteAssignment::Result.new(
+        status: "completed",
+        reports: [],
+        trace: [],
+        output: "done"
+      )
+    end
+
+    assert_enqueued_jobs 1 do
+      runtime_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+    end
+
+    Fenix::Runtime::MailboxWorker.call(
+      mailbox_item: {
+        "item_type" => "resource_close_request",
+        "item_id" => "close-item-#{SecureRandom.uuid}",
+        "payload" => {
+          "resource_type" => "AgentTaskRun",
+          "resource_id" => agent_task_run_id,
+        },
+      }
+    )
+
+    perform_enqueued_jobs
+
+    assert_equal [], calls
+    assert_equal "canceled", runtime_execution.reload.status
+  ensure
+    Fenix::Runtime::AttemptRegistry.reset!
+    Fenix::Runtime::CommandRunRegistry.reset!
+    execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
+  end
+
   test "agent task close requests terminate command sessions and release the active attempt" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     stdin = nil

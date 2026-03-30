@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_30_190000) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_30_223000) do
   create_table "runtime_executions", force: :cascade do |t|
+    t.string "agent_task_run_id"
     t.integer "attempt_no", null: false
     t.datetime "created_at", null: false
     t.json "error_payload"
@@ -28,6 +29,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_190000) do
     t.string "status", default: "queued", null: false
     t.json "trace", default: [], null: false
     t.datetime "updated_at", null: false
+    t.index ["agent_task_run_id", "status"], name: "index_runtime_executions_on_agent_task_run_id_and_status"
     t.index ["execution_id"], name: "index_runtime_executions_on_execution_id", unique: true
     t.index ["mailbox_item_id", "attempt_no"], name: "index_runtime_executions_on_mailbox_item_id_and_attempt_no", unique: true
   end

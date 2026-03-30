@@ -6,6 +6,8 @@ class RuntimeExecutionJob < ApplicationJob
     attempt = nil
 
     runtime_execution.with_lock do
+      runtime_execution.reload
+      return if runtime_execution.canceled?
       return unless runtime_execution.queued?
 
       runtime_execution.update!(status: "running", started_at: runtime_execution.started_at || Time.current)
@@ -24,15 +26,11 @@ class RuntimeExecutionJob < ApplicationJob
       on_report: ->(report) { append_report!(runtime_execution_id:, report:, deliver_reports:) }
     )
 
-    runtime_execution.update!(
-      status: result.status,
-      reports: result.reports,
-      trace: result.trace,
-      output_payload: result.output,
-      error_payload: result.error,
-      finished_at: Time.current
-    )
+    persist_terminal_result!(runtime_execution:, result:)
   rescue StandardError => error
+    runtime_execution.reload
+    return if runtime_execution.canceled?
+
     runtime_execution.update!(
       status: "failed",
       reports: runtime_execution.reports,
@@ -55,9 +53,27 @@ class RuntimeExecutionJob < ApplicationJob
 
     runtime_execution.with_lock do
       runtime_execution.reload
+      return if runtime_execution.canceled?
+
       runtime_execution.update!(reports: runtime_execution.reports + [report])
     end
 
     Fenix::Runtime::ControlPlane.report!(payload: report) if deliver_reports
+  end
+
+  def persist_terminal_result!(runtime_execution:, result:)
+    runtime_execution.with_lock do
+      runtime_execution.reload
+      return if runtime_execution.canceled?
+
+      runtime_execution.update!(
+        status: result.status,
+        reports: result.reports,
+        trace: result.trace,
+        output_payload: result.output,
+        error_payload: result.error,
+        finished_at: Time.current
+      )
+    end
   end
 end

@@ -123,4 +123,48 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     Fenix::Runtime::AttemptRegistry.reset!
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
+
+  test "keeps a runtime execution canceled when cancellation lands before terminal persistence" do
+    runtime_execution = RuntimeExecution.create!(
+      mailbox_item_id: "mailbox-item-4",
+      protocol_message_id: "protocol-message-4",
+      logical_work_id: "logical-work-4",
+      attempt_no: 1,
+      runtime_plane: "agent",
+      status: "queued",
+      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
+      reports: [],
+      trace: []
+    )
+
+    execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
+    original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
+
+    execute_assignment_singleton.send(:define_method, :call) do |mailbox_item:, on_report: nil, attempt:|
+      runtime_execution.update_columns(
+        status: "canceled",
+        finished_at: Time.current,
+        error_payload: {
+          "failure_kind" => "canceled",
+          "last_error_summary" => "execution canceled by close request",
+        }
+      )
+
+      Fenix::Runtime::ExecuteAssignment::Result.new(
+        status: "completed",
+        reports: [],
+        trace: [],
+        output: "done"
+      )
+    end
+
+    RuntimeExecutionJob.perform_now(runtime_execution.id)
+
+    runtime_execution.reload
+    assert_equal "canceled", runtime_execution.status
+    assert_equal "canceled", runtime_execution.error_payload.fetch("failure_kind")
+  ensure
+    Fenix::Runtime::AttemptRegistry.reset!
+    execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
+  end
 end

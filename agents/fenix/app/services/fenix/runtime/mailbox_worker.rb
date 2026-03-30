@@ -33,6 +33,7 @@ module Fenix
 
       def create_runtime_execution!
         RuntimeExecution.create!(
+          agent_task_run_id: @mailbox_item.dig("payload", "agent_task_run_id"),
           mailbox_item_id: @mailbox_item.fetch("item_id"),
           protocol_message_id: @mailbox_item.fetch("protocol_message_id"),
           logical_work_id: @mailbox_item.fetch("logical_work_id"),
@@ -67,6 +68,7 @@ module Fenix
         Fenix::Runtime::CommandRunRegistry.terminate_for_agent_task(
           agent_task_run_id: agent_task_run_id
         )
+        cancel_runtime_executions!(agent_task_run_id:)
         Fenix::Runtime::AttemptRegistry.release(agent_task_run_id: agent_task_run_id)
         report_close_lifecycle! if @deliver_reports
 
@@ -99,6 +101,16 @@ module Fenix
           RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: @deliver_reports)
         else
           RuntimeExecutionJob.perform_later(runtime_execution.id, deliver_reports: @deliver_reports)
+        end
+      end
+
+      def cancel_runtime_executions!(agent_task_run_id:)
+        RuntimeExecution.active_for_agent_task(agent_task_run_id).find_each do |runtime_execution|
+          runtime_execution.cancel!(
+            request_kind: @mailbox_item.dig("payload", "request_kind"),
+            reason_kind: @mailbox_item.dig("payload", "reason_kind"),
+            occurred_at: Time.current
+          )
         end
       end
 
