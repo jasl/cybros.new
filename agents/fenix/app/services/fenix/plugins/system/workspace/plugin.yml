@@ -1,0 +1,8 @@
+plugin_id: system.workspace
+version: 1
+display_name: Workspace
+default_runtime_plane: environment
+tool_catalog: []
+config_schema: {}
+requirements: {}
+env_contract: {}

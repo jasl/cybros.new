@@ -20,6 +20,8 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("agent_plane").fetch("protocol_methods").map { |entry| entry.fetch("method_id") }, "execution_started"
     assert_equal body.fetch("profile_catalog"), body.fetch("agent_plane").fetch("profile_catalog")
     assert_includes body.fetch("profile_catalog").keys, "main"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "write_stdin"
     assert_equal body.fetch("tool_catalog"), body.fetch("agent_plane").fetch("tool_catalog")
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "compact_context"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"

@@ -18,7 +18,7 @@ module Fenix
         resource_closed
         resource_close_failed
       ].freeze
-      TOOL_CATALOG = [
+      CODE_OWNED_TOOL_CATALOG = [
         {
           "tool_name" => "compact_context",
           "tool_kind" => "agent_observation",
@@ -89,61 +89,6 @@ module Fenix
           "idempotency_policy" => "best_effort",
         },
         {
-          "tool_name" => "exec_command",
-          "tool_kind" => "kernel_primitive",
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/runtime/exec_command",
-          "input_schema" => {
-            "type" => "object",
-            "properties" => {
-              "command_line" => { "type" => "string" },
-              "timeout_seconds" => { "type" => "integer" },
-              "pty" => { "type" => "boolean" },
-            },
-          },
-          "result_schema" => {
-            "type" => "object",
-            "properties" => {
-              "exit_status" => { "type" => "integer" },
-              "command_run_id" => { "type" => "string" },
-              "output_streamed" => { "type" => "boolean" },
-              "stdout_bytes" => { "type" => "integer" },
-              "stderr_bytes" => { "type" => "integer" },
-            },
-          },
-          "streaming_support" => true,
-          "idempotency_policy" => "best_effort",
-        },
-        {
-          "tool_name" => "write_stdin",
-          "tool_kind" => "kernel_primitive",
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/runtime/write_stdin",
-          "input_schema" => {
-            "type" => "object",
-            "properties" => {
-              "command_run_id" => { "type" => "string" },
-              "text" => { "type" => "string" },
-              "eof" => { "type" => "boolean" },
-              "wait_for_exit" => { "type" => "boolean" },
-              "timeout_seconds" => { "type" => "integer" },
-            },
-          },
-          "result_schema" => {
-            "type" => "object",
-            "properties" => {
-              "command_run_id" => { "type" => "string" },
-              "stdin_bytes" => { "type" => "integer" },
-              "session_closed" => { "type" => "boolean" },
-              "exit_status" => { "type" => "integer" },
-              "stdout_bytes" => { "type" => "integer" },
-              "stderr_bytes" => { "type" => "integer" },
-            },
-          },
-          "streaming_support" => true,
-          "idempotency_policy" => "best_effort",
-        },
-        {
           "tool_name" => "process_exec",
           "tool_kind" => "kernel_primitive",
           "implementation_source" => "agent",
@@ -173,19 +118,6 @@ module Fenix
         subagent_close
         subagent_list
       ].freeze
-      TOOL_NAMES = TOOL_CATALOG.map { |entry| entry.fetch("tool_name") }.freeze
-      PROFILE_CATALOG = {
-        "main" => {
-          "label" => "Main",
-          "description" => "Primary interactive profile",
-          "allowed_tool_names" => TOOL_NAMES + SUBAGENT_TOOL_NAMES,
-        },
-        "researcher" => {
-          "label" => "Researcher",
-          "description" => "Delegated research profile",
-          "allowed_tool_names" => TOOL_NAMES + (SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
-        },
-      }.freeze
       CONFIG_SCHEMA_SNAPSHOT = {
         "type" => "object",
         "properties" => {
@@ -245,8 +177,6 @@ module Fenix
         },
       }.freeze
       ENVIRONMENT_KIND = "local".freeze
-      ENVIRONMENT_TOOL_CATALOG = [].freeze
-
       def self.call(...)
         new(...).call
       end
@@ -264,13 +194,13 @@ module Fenix
           "environment_fingerprint" => environment_fingerprint,
           "environment_connection_metadata" => endpoint_metadata,
           "environment_capability_payload" => environment_capability_payload,
-          "environment_tool_catalog" => ENVIRONMENT_TOOL_CATALOG,
+          "environment_tool_catalog" => environment_tool_catalog,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "endpoint_metadata" => endpoint_metadata,
           "protocol_methods" => protocol_methods,
-          "tool_catalog" => TOOL_CATALOG,
-          "profile_catalog" => PROFILE_CATALOG,
+          "tool_catalog" => tool_catalog,
+          "profile_catalog" => profile_catalog,
           "agent_plane" => agent_plane,
           "environment_plane" => environment_plane,
           "effective_tool_catalog" => effective_tool_catalog,
@@ -298,8 +228,8 @@ module Fenix
         {
           "runtime_plane" => "agent",
           "protocol_methods" => protocol_methods,
-          "tool_catalog" => TOOL_CATALOG,
-          "profile_catalog" => PROFILE_CATALOG,
+          "tool_catalog" => tool_catalog,
+          "profile_catalog" => profile_catalog,
           "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
           "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,
@@ -310,7 +240,32 @@ module Fenix
         {
           "runtime_plane" => "environment",
           "capability_payload" => environment_capability_payload,
-          "tool_catalog" => ENVIRONMENT_TOOL_CATALOG,
+          "tool_catalog" => environment_tool_catalog,
+        }
+      end
+
+      def tool_catalog
+        @tool_catalog ||= CODE_OWNED_TOOL_CATALOG + plugin_catalog.tool_catalog
+      end
+
+      def environment_tool_catalog
+        @environment_tool_catalog ||= plugin_catalog.environment_tool_catalog
+      end
+
+      def profile_catalog
+        tool_names = tool_catalog.map { |entry| entry.fetch("tool_name") }
+
+        {
+          "main" => {
+            "label" => "Main",
+            "description" => "Primary interactive profile",
+            "allowed_tool_names" => tool_names + SUBAGENT_TOOL_NAMES,
+          },
+          "researcher" => {
+            "label" => "Researcher",
+            "description" => "Delegated research profile",
+            "allowed_tool_names" => tool_names + (SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
+          },
         }
       end
 
@@ -341,7 +296,7 @@ module Fenix
         ordinary_entries = {}
         ordinary_order = []
 
-        [ENVIRONMENT_TOOL_CATALOG, TOOL_CATALOG].each do |catalog|
+        [environment_tool_catalog, tool_catalog].each do |catalog|
           catalog.each do |entry|
             tool_name = entry.fetch("tool_name")
             next if ordinary_entries.key?(tool_name)
@@ -356,6 +311,10 @@ module Fenix
 
       def environment_fingerprint
         "fenix:#{Socket.gethostname}"
+      end
+
+      def plugin_catalog
+        @plugin_catalog ||= Fenix::Plugins::Registry.default.catalog
       end
 
       def version_file_contents(relative_path)
