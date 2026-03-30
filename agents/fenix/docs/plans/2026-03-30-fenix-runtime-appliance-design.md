@@ -8,8 +8,8 @@
 
 ## Goal
 
-Turn `agents/fenix` from the current Phase 2 minimal runtime into a default,
-distributable runtime appliance that:
+Turn `agents/fenix` from the current post-phase2 validated runtime baseline
+into a default, distributable runtime appliance that:
 
 - remains compatible with Core Matrix's `AgentDeployment + ExecutionEnvironment`
   model
@@ -138,6 +138,9 @@ Rules:
   into the workspace.
 - `SOUL.md`, `USER.md`, and `MEMORY.md` at the workspace root are optional user
   override files.
+- Follow the OpenClaw bootstrap split: keep top-level prompt and curated-memory
+  files small enough to inject every run, and keep bulk/diary-style notes in
+  `.fenix/memory/daily/` rather than in the always-injected files.
 - `.env` and `.env.agent` are optional overlays applied at:
   - workspace root
   - conversation directory
@@ -168,6 +171,16 @@ Prompt assembly order should be:
 
 Memory management should remain visible on disk, not only in SQL or transient
 context payloads.
+
+The memory policy should follow the OpenClaw shape closely:
+
+- workspace-root `SOUL.md`, `USER.md`, and curated `MEMORY.md` are bootstrap
+  overlays and should stay concise
+- daily/raw notes belong under `.fenix/memory/daily/YYYY-MM-DD.md`
+- daily memory files are not auto-injected every turn; they are read on demand
+  by memory tools or compaction/summarization flows
+- subagent/minimal prompt modes should use a narrower injected subset than the
+  main conversation path so child runs do not inherit the full memory payload
 
 Minimum scopes:
 
@@ -242,10 +255,14 @@ Suggested manifest shape:
 - `env_contract`
 - optional `healthcheck`
 - optional `bootstrap`
+- optional future slot metadata or runtime hints
 
-The first cut can support only built-in Ruby-backed plugins plus configuration
-driven provider adapters. It does not need to execute arbitrary third-party Ruby
-code from the workspace on day one.
+The manifest schema should be intentionally wider than the first runtime cut.
+If a field is not needed yet, Fenix may accept and retain it while treating the
+corresponding implementation surface as a no-op or stub. The first cut can
+support only built-in Ruby-backed plugins plus configuration driven provider
+adapters. It does not need to execute arbitrary third-party Ruby code from the
+workspace on day one.
 
 ## Command And Process Model
 

@@ -25,7 +25,7 @@
 - The following still need implementation and remain in scope for this plan:
   - runtime foundation metadata and packaging
   - plugin-registry-backed manifest composition
-  - `.fenix` workspace bootstrap and memory overlay
+  - `.fenix` workspace bootstrap and OpenClaw-style memory overlay
   - local web/browser/proxy surfaces
 - Re-read the current versions of:
   - `app/services/fenix/runtime/pairing_manifest.rb`
@@ -131,6 +131,8 @@ Expected: FAIL because the plugin registry does not yet exist.
 
 - Add plugin manifest parsing and registry loading.
 - Move ordinary tool declarations out of static manifest constants.
+- Accept the broader manifest schema even when some surfaces remain stub/no-op
+  in the first cut.
 - Keep Core Matrix reserved tools and built-in hook tools outside the normal
   plugin collision path.
 
@@ -194,6 +196,10 @@ Expected: FAIL because the workspace bootstrap and overlay services do not yet e
 - Create `.fenix` bootstrap services.
 - Keep `AGENTS.md` code-owned.
 - Allow `SOUL.md`, `USER.md`, and `MEMORY.md` root overrides.
+- Follow the OpenClaw memory split:
+  - concise root bootstrap files
+  - curated long-term `MEMORY.md`
+  - non-injected daily memory files under `.fenix/memory/daily/`
 - Add conversation metadata caching in `.fenix/conversations/<public_id>/meta.json`.
 
 **Step 4: Run tests to verify they pass**
