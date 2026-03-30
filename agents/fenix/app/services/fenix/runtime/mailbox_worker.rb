@@ -7,8 +7,10 @@ module Fenix
         new(...).call
       end
 
-      def initialize(mailbox_item:)
+      def initialize(mailbox_item:, deliver_reports: false, control_client: nil)
         @mailbox_item = mailbox_item.deep_stringify_keys
+        @deliver_reports = deliver_reports
+        @control_client = control_client
       end
 
       def call
@@ -21,7 +23,7 @@ module Fenix
         )
         runtime_execution ||= create_runtime_execution!
 
-        RuntimeExecutionJob.perform_later(runtime_execution.id) if runtime_execution.previously_new_record?
+        RuntimeExecutionJob.perform_later(runtime_execution.id, deliver_reports: @deliver_reports) if runtime_execution.previously_new_record?
         runtime_execution
       end
 
@@ -59,8 +61,33 @@ module Fenix
           agent_task_run_id: agent_task_run_id
         )
         Fenix::Runtime::AttemptRegistry.release(agent_task_run_id: agent_task_run_id)
+        report_close_lifecycle! if @deliver_reports
 
         :handled
+      end
+
+      def report_close_lifecycle!
+        return if @control_client.blank?
+
+        acknowledgment = base_close_report("resource_close_acknowledged")
+        terminal = base_close_report("resource_closed").merge(
+          "close_outcome_kind" => "graceful",
+          "close_outcome_payload" => { "source" => "fenix_runtime" }
+        )
+
+        @control_client.report!(payload: acknowledgment)
+        @control_client.report!(payload: terminal)
+      end
+
+      def base_close_report(method_id)
+        {
+          "method_id" => method_id,
+          "protocol_message_id" => "fenix-#{method_id}-#{SecureRandom.uuid}",
+          "mailbox_item_id" => @mailbox_item.fetch("item_id"),
+          "close_request_id" => @mailbox_item.fetch("item_id"),
+          "resource_type" => @mailbox_item.dig("payload", "resource_type"),
+          "resource_id" => @mailbox_item.dig("payload", "resource_id"),
+        }
       end
     end
   end

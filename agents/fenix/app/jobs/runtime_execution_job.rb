@@ -1,7 +1,7 @@
 class RuntimeExecutionJob < ApplicationJob
   queue_as :default
 
-  def perform(runtime_execution_id)
+  def perform(runtime_execution_id, deliver_reports: false)
     runtime_execution = RuntimeExecution.find(runtime_execution_id)
     attempt = nil
 
@@ -21,7 +21,7 @@ class RuntimeExecutionJob < ApplicationJob
     result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_execution.mailbox_item_payload,
       attempt: attempt,
-      on_report: ->(report) { append_report!(runtime_execution_id:, report:) }
+      on_report: ->(report) { append_report!(runtime_execution_id:, report:, deliver_reports:) }
     )
 
     runtime_execution.update!(
@@ -50,12 +50,14 @@ class RuntimeExecutionJob < ApplicationJob
 
   private
 
-  def append_report!(runtime_execution_id:, report:)
+  def append_report!(runtime_execution_id:, report:, deliver_reports:)
     runtime_execution = RuntimeExecution.find(runtime_execution_id)
 
     runtime_execution.with_lock do
       runtime_execution.reload
       runtime_execution.update!(reports: runtime_execution.reports + [report])
     end
+
+    Fenix::Runtime::ControlPlane.report!(payload: report) if deliver_reports
   end
 end
