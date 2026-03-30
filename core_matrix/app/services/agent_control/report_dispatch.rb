@@ -7,6 +7,9 @@ module AgentControl
       execution_fail
       execution_interrupted
     ].freeze
+    RUNTIME_RESOURCE_METHODS = %w[
+      process_output
+    ].freeze
     CLOSE_METHODS = %w[
       resource_close_acknowledged
       resource_closed
@@ -38,6 +41,7 @@ module AgentControl
 
     def handler_class
       return HandleExecutionReport if EXECUTION_METHODS.include?(@method_id)
+      return HandleRuntimeResourceReport if RUNTIME_RESOURCE_METHODS.include?(@method_id)
       return HandleCloseReport if CLOSE_METHODS.include?(@method_id)
       return HandleHealthReport if HEALTH_METHODS.include?(@method_id)
 

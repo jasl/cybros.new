@@ -40,6 +40,7 @@ module Processes
               }.tap { |payload| payload["exit_status"] = @exit_status if @exit_status.present? }
             )
 
+            broadcast_runtime_event!
             @process_run
           end
         end
@@ -56,6 +57,17 @@ module Processes
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def broadcast_runtime_event!
+      Processes::BroadcastRuntimeEvent.call(
+        process_run: @process_run,
+        event_kind: "runtime.process_run.stopped",
+        payload: {
+          "reason" => @reason,
+          "exit_status" => @exit_status,
+        }.compact
+      )
     end
   end
 end

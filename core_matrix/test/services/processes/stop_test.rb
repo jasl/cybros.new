@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Processes::StopTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
+
   test "stops a running background service and appends a status event" do
     process_context = build_process_context!
     process_run = Processes::Start.call(
@@ -20,6 +22,33 @@ class Processes::StopTest < ActiveSupport::TestCase
     last_event = WorkflowNodeEvent.where(workflow_node: process_context[:workflow_node]).order(:ordinal).last
     assert_equal "status", last_event.event_kind
     assert_equal "stopped", last_event.payload["state"]
+  end
+
+  test "broadcasts runtime.process_run.stopped on the conversation runtime stream" do
+    process_context = build_process_context!
+    process_run = Processes::Start.call(
+      workflow_node: process_context[:workflow_node],
+      execution_environment: process_context[:execution_environment],
+      kind: "background_service",
+      command_line: "bin/dev",
+      origin_message: process_context[:origin_message]
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(process_context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      Processes::Stop.call(process_run: process_run, reason: "manual_stop")
+    end
+
+    assert_equal 1, broadcasts.size
+    payload = broadcasts.first
+
+    assert_equal "runtime.process_run.stopped", payload.fetch("event_kind")
+    assert_equal process_context[:conversation].public_id, payload.fetch("conversation_id")
+    assert_equal process_context[:turn].public_id, payload.fetch("turn_id")
+    assert_equal process_run.public_id, payload.dig("payload", "process_run_id")
+    assert_equal "background_service", payload.dig("payload", "kind")
+    assert_equal "stopped", payload.dig("payload", "lifecycle_state")
+    assert_equal "manual_stop", payload.dig("payload", "reason")
   end
 
   private

@@ -217,6 +217,8 @@ runtime resources that later tasks now build on are:
   - derives `conversation` and `turn` from the owning workflow run
   - appends one `WorkflowNodeEvent` with `event_kind=status` and
     `payload.state=running`
+  - broadcasts one temporary `runtime.process_run.started` event for live UI
+    consumers
   - records an `AuditLog` row when the workflow node metadata marks the process
     as policy-sensitive or the service input overrides that flag
 - `Processes::Stop` is the application-service boundary for terminating a
@@ -228,6 +230,15 @@ runtime resources that later tasks now build on are:
   - records `stop_reason` in process metadata
   - appends one `WorkflowNodeEvent` with `event_kind=status` and
     `payload.state=stopped`
+  - broadcasts one temporary `runtime.process_run.stopped` event for live UI
+    consumers
+- terminal close handling may also broadcast:
+  - `runtime.process_run.output` for stdout/stderr chunks supplied by the
+    reporting runtime
+  - `runtime.process_run.stopped`
+  - `runtime.process_run.lost`
+- those runtime-stream payloads are not persisted on `ProcessRun`; the durable
+  row only keeps lifecycle, close, and metadata facts
 
 ## Failure Modes
 

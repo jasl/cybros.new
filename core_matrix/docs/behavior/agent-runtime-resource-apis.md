@@ -118,6 +118,15 @@ orchestration are still defined in:
 - execution report lifecycle handling now lives in
   `HandleExecutionReport` and freshness checks live in
   `ValidateExecutionReportFreshness`
+- `process_output` is the live output report for running `ProcessRun`
+  resources:
+  - it is accepted only for `ProcessRun`
+  - the reporting deployment must belong to the owning execution environment
+  - when a process lease is active, the report also heartbeats that lease
+  - payload carries `output_chunks`, each with transport-only stdout/stderr
+    text
+  - the chunks are broadcast on the temporary conversation runtime stream and
+    are not persisted on the `ProcessRun` row
 - `resource_close_acknowledged`, `resource_closed`, and
   `resource_close_failed` update the durable close fields on closable runtime
   resources
@@ -132,6 +141,9 @@ orchestration are still defined in:
   `Conversations::ReconcileCloseOperation` through the resource's owning
   conversation. `SubagentSession` close reports also refresh the child
   conversation because the session itself owns that transcript container.
+- terminal process close reports may also carry `output_chunks`; those chunks
+  are broadcast before the terminal `runtime.process_run.*` event and are not
+  persisted durably
 - environment-owned close reports are only accepted from deployments attached
   to the owning execution environment
 - `deployment_health_report` now routes through `HandleHealthReport` and

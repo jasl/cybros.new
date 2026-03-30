@@ -59,6 +59,7 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
+        broadcast_process_run_terminal!("runtime.process_run.#{@resource.lifecycle_state}")
       when SubagentSession
         @resource.update!(
           observed_status: terminal_observed_status
@@ -86,6 +87,7 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
+        broadcast_process_run_terminal!("runtime.process_run.lost")
       when SubagentSession
         @resource.update!(
           observed_status: "failed"
@@ -134,6 +136,21 @@ module AgentControl
       return "interrupted" if @mailbox_item.payload["request_kind"] == "turn_interrupt"
 
       "completed"
+    end
+
+    def broadcast_process_run_terminal!(event_kind)
+      return unless @resource.is_a?(ProcessRun)
+
+      Processes::BroadcastRuntimeEvent.call(
+        process_run: @resource,
+        event_kind: event_kind,
+        occurred_at: @occurred_at,
+        payload: {
+          "close_state" => @resource.close_state,
+          "close_outcome_kind" => @resource.close_outcome_kind,
+          "close_outcome_payload" => @resource.close_outcome_payload,
+        }
+      )
     end
 
     def conversations_for_close_reconciliation

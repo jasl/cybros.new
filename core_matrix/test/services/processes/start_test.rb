@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Processes::StartTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
+
   test "starts a policy-sensitive turn command with audit and status event" do
     process_context = build_process_context!
 
@@ -25,6 +27,32 @@ class Processes::StartTest < ActiveSupport::TestCase
     assert_equal process_run, audit_log.subject
     assert_equal "turn_command", audit_log.metadata["kind"]
     assert_equal process_context[:workflow_node].node_key, audit_log.metadata["workflow_node_key"]
+  end
+
+  test "broadcasts runtime.process_run.started on the conversation runtime stream" do
+    process_context = build_process_context!
+    stream_name = ConversationRuntime::StreamName.for_conversation(process_context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      Processes::Start.call(
+        workflow_node: process_context[:workflow_node],
+        execution_environment: process_context[:execution_environment],
+        kind: "turn_command",
+        command_line: "echo hi",
+        timeout_seconds: 30,
+        origin_message: process_context[:origin_message]
+      )
+    end
+
+    assert_equal 1, broadcasts.size
+    payload = broadcasts.first
+
+    assert_equal "runtime.process_run.started", payload.fetch("event_kind")
+    assert_equal process_context[:conversation].public_id, payload.fetch("conversation_id")
+    assert_equal process_context[:turn].public_id, payload.fetch("turn_id")
+    assert_equal "turn_command", payload.dig("payload", "kind")
+    assert_equal "running", payload.dig("payload", "lifecycle_state")
+    assert_equal "echo hi", payload.dig("payload", "command_line")
   end
 
   private

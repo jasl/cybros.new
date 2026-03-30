@@ -34,6 +34,7 @@ module Processes
 
           append_status_event!(process_run: process_run, state: "running")
           record_audit!(process_run) if policy_sensitive?
+          broadcast_runtime_event!(process_run)
           process_run
         end
       end
@@ -76,6 +77,17 @@ module Processes
           kind: process_run.kind,
           workflow_node_key: @workflow_node.node_key,
         }
+      )
+    end
+
+    def broadcast_runtime_event!(process_run)
+      Processes::BroadcastRuntimeEvent.call(
+        process_run: process_run,
+        event_kind: "runtime.process_run.started",
+        payload: {
+          "command_line" => process_run.command_line,
+          "timeout_seconds" => process_run.timeout_seconds,
+        }.compact
       )
     end
   end

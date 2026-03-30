@@ -53,12 +53,24 @@ module AgentControl
     end
 
     def handle_terminal_close_report!(resource, close_state:)
+      broadcast_process_output_chunks!(resource)
+
       ApplyCloseOutcome.call(
         resource: resource,
         mailbox_item: mailbox_item,
         close_state: close_state,
         close_outcome_kind: @payload.fetch("close_outcome_kind"),
         close_outcome_payload: @payload.fetch("close_outcome_payload", {}),
+        occurred_at: @occurred_at
+      )
+    end
+
+    def broadcast_process_output_chunks!(resource)
+      return unless resource.is_a?(ProcessRun)
+
+      Processes::BroadcastOutputChunks.call(
+        process_run: resource,
+        output_chunks: @payload["output_chunks"],
         occurred_at: @occurred_at
       )
     end

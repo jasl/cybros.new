@@ -109,11 +109,17 @@ hatches, or runtime-private wait state. It establishes:
   - current event families include:
     - `runtime.assistant_output.*`
     - `runtime.workflow_node.*`
+    - `runtime.process_run.*`
     - `runtime.agent_task.*`
     - `runtime.tool_invocation.*`
 - Assistant-output deltas are transport-only. The durable transcript remains
   the final persisted `AgentMessage` written after the producing node or task
   completes.
+- `ProcessRun` runtime output is also transport-only:
+  - `runtime.process_run.output` may carry stdout/stderr chunks for live UI
+    display
+  - those chunks are never appended to transcript history and are not
+    persisted on `ProcessRun`
 - Runtime-stream payloads therefore help web/app clients render in-flight work
   without turning partial output into append-only transcript history.
 - The first consumer surface is `PublicationRuntimeChannel`, which allows

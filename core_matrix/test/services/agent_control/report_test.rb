@@ -232,6 +232,42 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", completed_tool_payload.dig("response_payload", "content")
   end
 
+  test "process_output broadcasts runtime process chunks without mutating durable process payloads" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "process_output",
+        protocol_message_id: "process-output-#{next_test_sequence}",
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        output_chunks: [
+          { "stream" => "stdout", "text" => "line 1\n" },
+          { "stream" => "stdout", "text" => "line 2\n" },
+        ]
+      )
+    end
+
+    assert_equal ["runtime.process_run.output", "runtime.process_run.output"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal process_run.public_id, broadcasts.first.dig("payload", "process_run_id")
+    assert_equal "stdout", broadcasts.first.dig("payload", "stream")
+    assert_equal "line 1\n", broadcasts.first.dig("payload", "text")
+    assert_equal({}, process_run.reload.close_outcome_payload)
+    assert process_run.running?
+  end
+
   test "execution_fail materializes denied agent-owned tool invocations with explicit rejection details" do
     context = build_calculator_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -551,6 +587,98 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "stale", terminal_result.code
     assert process_run.reload.close_failed?
     assert_equal "timed_out_forced", process_run.close_outcome_kind
+  end
+
+  test "resource_closed broadcasts process output chunks and a stopped runtime event" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    close_request = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "resource_closed",
+        protocol_message_id: "close-output-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: {},
+        output_chunks: [
+          { "stream" => "stdout", "text" => "hello\n" },
+          { "stream" => "stderr", "text" => "warning\n" },
+        ]
+      )
+    end
+
+    assert_equal(
+      [
+        "runtime.process_run.output",
+        "runtime.process_run.output",
+        "runtime.process_run.stopped",
+      ],
+      broadcasts.map { |payload| payload.fetch("event_kind") }
+    )
+    assert_equal process_run.public_id, broadcasts.first.dig("payload", "process_run_id")
+    assert_equal "stdout", broadcasts.first.dig("payload", "stream")
+    assert_equal "hello\n", broadcasts.first.dig("payload", "text")
+    assert_equal "stderr", broadcasts.second.dig("payload", "stream")
+    assert_equal "warning\n", broadcasts.second.dig("payload", "text")
+    assert_equal "stopped", broadcasts.third.dig("payload", "lifecycle_state")
+  end
+
+  test "resource_close_failed broadcasts a lost runtime event for process runs" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    close_request = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      AgentControl::Report.call(
+        deployment: context[:deployment],
+        method_id: "resource_close_failed",
+        protocol_message_id: "close-lost-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "timed_out_forced",
+        close_outcome_payload: { "reason" => "force_deadline_elapsed" }
+      )
+    end
+
+    assert_equal ["runtime.process_run.lost"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal process_run.public_id, broadcasts.first.dig("payload", "process_run_id")
+    assert_equal "lost", broadcasts.first.dig("payload", "lifecycle_state")
+    assert_equal "timed_out_forced", broadcasts.first.dig("payload", "close_outcome_kind")
   end
 
   test "duplicate resource close terminal reports do not re-enter close reconciliation" do
