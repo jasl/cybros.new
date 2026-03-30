@@ -33,4 +33,14 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_nil body.dig("conversation_override_schema_snapshot", "properties", "selector")
     assert_equal "boolean", body.dig("conversation_override_schema_snapshot", "properties", "subagents", "properties", "enabled", "type")
   end
+
+  test "runtime executions are not exposed as a routable external product endpoint" do
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/runtime/executions", method: :post)
+    end
+
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/runtime/executions/runtime-execution-1", method: :get)
+    end
+  end
 end
