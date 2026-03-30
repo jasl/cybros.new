@@ -7,7 +7,12 @@ module Fenix
       SUPPORTED_TOOLS = {
         "calculator" => true,
         "exec_command" => true,
+        "memory_get" => true,
+        "memory_search" => true,
+        "memory_store" => true,
         "process_exec" => true,
+        "workspace_read" => true,
+        "workspace_write" => true,
         "write_stdin" => true,
       }.freeze
 

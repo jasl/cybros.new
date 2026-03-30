@@ -252,6 +252,30 @@ module Fenix
               "command_line" => @context.dig("task_payload", "command_line") || "bin/dev",
               "kind" => @context.dig("task_payload", "kind") || "background_service",
             }
+          when "workspace_read"
+            {
+              "path" => @context.dig("task_payload", "path") || "README.md",
+            }
+          when "workspace_write"
+            {
+              "path" => @context.dig("task_payload", "path") || "notes/output.txt",
+              "content" => @context.dig("task_payload", "content").to_s,
+            }
+          when "memory_get"
+            {
+              "scope" => @context.dig("task_payload", "scope") || "all",
+            }
+          when "memory_search"
+            {
+              "query" => @context.dig("task_payload", "query").to_s,
+              "limit" => @context.dig("task_payload", "limit") || 5,
+            }
+          when "memory_store"
+            {
+              "text" => @context.dig("task_payload", "text").to_s,
+              "title" => @context.dig("task_payload", "title").to_s,
+              "scope" => @context.dig("task_payload", "scope") || "daily",
+            }
           else
             {}
           end
@@ -291,6 +315,10 @@ module Fenix
             process_run: process_run,
             command_line: tool_call.dig("arguments", "command_line")
           )
+        when "workspace_read", "workspace_write"
+          execute_workspace_tool(tool_call)
+        when "memory_get", "memory_search", "memory_store"
+          execute_memory_tool(tool_call)
         else
           raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
         end
@@ -349,6 +377,21 @@ module Fenix
           "process_run_id" => process_run.fetch("process_run_id"),
           "lifecycle_state" => "running",
         }
+      end
+
+      def execute_workspace_tool(tool_call)
+        Fenix::Plugins::System::Workspace::Runtime.call(
+          tool_call: tool_call.deep_dup,
+          workspace_root: @context.dig("workspace_context", "workspace_root")
+        )
+      end
+
+      def execute_memory_tool(tool_call)
+        Fenix::Plugins::System::Memory::Runtime.call(
+          tool_call: tool_call.deep_dup,
+          workspace_root: @context.dig("workspace_context", "workspace_root"),
+          conversation_id: @context.fetch("conversation_id")
+        )
       end
 
       def canceled?
@@ -539,6 +582,14 @@ module Fenix
           {
             "classification" => "semantic",
             "code" => "unsupported_tool",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Plugins::System::Workspace::Runtime::ValidationError,
+          Fenix::Plugins::System::Memory::Runtime::ValidationError
+          {
+            "classification" => "semantic",
+            "code" => "validation_error",
             "message" => error.message,
             "retryable" => false,
           }

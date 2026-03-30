@@ -47,6 +47,10 @@ module Fenix
       def conversation_summary_file
         conversation_context_root&.join("summary.md")
       end
+
+      def conversation_memory_file
+        conversation_context_root&.join("memory.md")
+      end
     end
   end
 end

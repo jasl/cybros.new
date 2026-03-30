@@ -17,6 +17,12 @@ module Fenix
         layout.conversation_summary_file.read
       end
 
+      def conversation_memory
+        return "" unless layout.conversation_memory_file&.exist?
+
+        layout.conversation_memory_file.read
+      end
+
       def daily_memory_root
         layout.daily_memory_root
       end

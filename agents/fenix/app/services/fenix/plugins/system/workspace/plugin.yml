@@ -2,7 +2,48 @@ plugin_id: system.workspace
 version: 1
 display_name: Workspace
 default_runtime_plane: environment
-tool_catalog: []
+tool_catalog:
+  - tool_name: workspace_read
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/workspace_read
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+        bytes_read:
+          type: integer
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: workspace_write
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/workspace_write
+    input_schema:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        path:
+          type: string
+        bytes_written:
+          type: integer
+    streaming_support: false
+    idempotency_policy: best_effort
 config_schema: {}
-requirements: {}
+requirements:
+  workspace_root: mounted
 env_contract: {}

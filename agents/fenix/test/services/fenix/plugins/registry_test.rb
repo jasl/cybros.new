@@ -10,5 +10,10 @@ class Fenix::Plugins::RegistryTest < ActiveSupport::TestCase
     assert_includes registry.manifests.map(&:plugin_id), "system.memory"
     assert_includes catalog.environment_tool_names, "exec_command"
     assert_includes catalog.environment_tool_names, "write_stdin"
+    assert_includes catalog.environment_tool_names, "workspace_read"
+    assert_includes catalog.environment_tool_names, "workspace_write"
+    assert_includes catalog.environment_tool_names, "memory_get"
+    assert_includes catalog.environment_tool_names, "memory_search"
+    assert_includes catalog.environment_tool_names, "memory_store"
   end
 end
