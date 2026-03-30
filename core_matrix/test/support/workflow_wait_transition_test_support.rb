@@ -35,7 +35,7 @@ module WorkflowWaitTransitionTestSupport
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: context.fetch(:deployment),
       version: 2,
-      tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
+      tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,

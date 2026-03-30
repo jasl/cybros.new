@@ -49,7 +49,7 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
     assert_equal (0..3).to_a, reloaded_run.workflow_edges.where(from_node: root_node).order(:ordinal).pluck(:ordinal)
   end
 
-  test "allocates unique workflow node event ordinals across concurrent process starts" do
+  test "allocates unique workflow node event ordinals across concurrent process provisions" do
     process_context = build_process_context!
     workflow_node = process_context[:workflow_node]
     execution_environment_id = process_context[:execution_environment].id
@@ -57,13 +57,13 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
 
     process_runs = assert_parallel_success!(
       run_in_parallel(5) do |index|
-        Processes::Start.call(
+        Processes::Provision.call(
           workflow_node: WorkflowNode.find(workflow_node.id),
           execution_environment: ExecutionEnvironment.find(execution_environment_id),
           kind: "background_service",
           command_line: "echo #{index}",
           origin_message: Message.find(origin_message_id)
-        )
+        ).process_run
       end
     )
 
@@ -71,24 +71,27 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
     assert_equal (0..4).to_a, WorkflowNodeEvent.where(workflow_node: workflow_node).order(:ordinal).pluck(:ordinal)
   end
 
-  test "allocates unique workflow node event ordinals across concurrent process stops" do
+  test "allocates unique workflow node event ordinals across concurrent process exits" do
     process_context = build_process_context!
     process_runs = 4.times.map do |index|
-      Processes::Start.call(
+      process_run = Processes::Provision.call(
         workflow_node: process_context[:workflow_node],
         execution_environment: process_context[:execution_environment],
         kind: "background_service",
         command_line: "bin/service_#{index}",
         origin_message: process_context[:origin_message]
-      )
+      ).process_run
+      Processes::Activate.call(process_run: process_run)
+      process_run
     end
 
     stopped_runs = assert_parallel_success!(
       run_parallel_operations(
         *process_runs.map.with_index do |process_run, index|
           proc do
-            Processes::Stop.call(
+            Processes::Exit.call(
               process_run: ProcessRun.find(process_run.id),
+              lifecycle_state: "stopped",
               reason: "stop_#{index}"
             )
           end
@@ -97,7 +100,7 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
     )
 
     assert_equal 4, stopped_runs.count(&:stopped?)
-    assert_equal (0..7).to_a, WorkflowNodeEvent.where(workflow_node: process_context[:workflow_node]).order(:ordinal).pluck(:ordinal)
+    assert_equal (0..11).to_a, WorkflowNodeEvent.where(workflow_node: process_context[:workflow_node]).order(:ordinal).pluck(:ordinal)
   end
 
   private

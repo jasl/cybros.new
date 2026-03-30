@@ -8,7 +8,7 @@ class AgentDeployments::BootstrapTest < ActiveSupport::TestCase
       deployment: context[:agent_deployment],
       workspace: context[:workspace],
       manifest_snapshot: {
-        "seeded_skills" => ["shell_exec"],
+        "seeded_skills" => ["exec_command"],
         "environment_overlay" => { "sandbox" => "workspace-write" },
       }
     )
@@ -28,7 +28,7 @@ class AgentDeployments::BootstrapTest < ActiveSupport::TestCase
     assert_equal "system", workflow_run.workflow_nodes.first.decision_source
     assert_equal(
       {
-        "seeded_skills" => ["shell_exec"],
+        "seeded_skills" => ["exec_command"],
         "environment_overlay" => { "sandbox" => "workspace-write" },
       },
       workflow_run.workflow_nodes.first.metadata["bootstrap_manifest_snapshot"]

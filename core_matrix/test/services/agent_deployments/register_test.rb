@@ -39,10 +39,10 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
       ],
       tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "kernel_primitive",
           "implementation_source" => "kernel",
-          "implementation_ref" => "kernel/shell_exec",
+          "implementation_ref" => "kernel/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
@@ -108,10 +108,10 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
       ],
       tool_catalog: [
         {
-          tool_name: "shell_exec",
+          tool_name: "exec_command",
           tool_kind: "kernel_primitive",
           implementation_source: "kernel",
-          implementation_ref: "kernel/shell_exec",
+          implementation_ref: "kernel/exec_command",
           input_schema: { type: "object", properties: {} },
           result_schema: { type: "object", properties: {} },
           streaming_support: false,
@@ -133,7 +133,7 @@ class AgentDeployments::RegisterTest < ActiveSupport::TestCase
     )
 
     assert_equal ["agent_health", "capabilities_handshake"], result.capability_snapshot.protocol_methods.map { |entry| entry.fetch("method_id") }
-    assert_equal ["shell_exec"], result.capability_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], result.capability_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal "workspace-write", result.capability_snapshot.default_config_snapshot.fetch("sandbox")
   end
 end

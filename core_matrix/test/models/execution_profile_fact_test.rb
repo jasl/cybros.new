@@ -23,7 +23,7 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
       turn_id: 202,
       workflow_node_key: "tool-step",
       fact_kind: "tool_call",
-      fact_key: "shell_exec",
+      fact_key: "exec_command",
       count_value: 1,
       success: true,
       occurred_at: Time.utc(2026, 3, 24, 12, 0, 0),
@@ -94,7 +94,7 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
       user: create_user!(installation: other_installation),
       workspace: create_workspace!(installation: other_installation),
       fact_kind: "tool_call",
-      fact_key: "shell_exec",
+      fact_key: "exec_command",
       occurred_at: Time.utc(2026, 3, 24, 12, 0, 0),
       metadata: {}
     )

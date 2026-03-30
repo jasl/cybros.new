@@ -10,7 +10,7 @@ module Fenix
             "tool_name" => tool_name,
             "content" => "The calculator returned #{tool_result}.",
           }
-        when "shell_exec", "exec_command"
+        when "exec_command"
           project_exec_command(tool_name:, tool_result:)
         when "process_exec"
           project_process_exec(tool_name:, tool_result:)

@@ -83,7 +83,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     deployment_id = registration[:deployment].id
-    expected_tool_catalog = default_tool_catalog("shell_exec", "subagent_spawn")
+    expected_tool_catalog = default_tool_catalog("exec_command", "subagent_spawn")
 
     results = assert_parallel_success!(
       run_in_parallel(5) do
@@ -121,7 +121,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     updated_configuration = bundled_agent_configuration(
       enabled: true,
       sdk_version: "fenix-0.2.0",
-      tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn")
+      tool_catalog: default_tool_catalog("exec_command", "subagent_spawn")
     )
 
     results = assert_parallel_success!(

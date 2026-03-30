@@ -10,7 +10,7 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
       attempt_no: 1,
       started_at: 2.minutes.ago,
       finished_at: 1.minute.ago,
-      task_payload: { "step" => "execute", "tool_name" => "shell_exec" },
+      task_payload: { "step" => "execute", "tool_name" => "exec_command" },
       terminal_payload: {
         "retryable" => true,
         "retry_scope" => "step",
@@ -49,7 +49,7 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     assert_equal(
       {
         "step" => "execute",
-        "tool_name" => "shell_exec",
+        "tool_name" => "exec_command",
         "delivery_kind" => "step_retry",
         "previous_attempt_no" => 1,
       },
@@ -71,7 +71,7 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
       attempt_no: 1,
       started_at: 2.minutes.ago,
       finished_at: 1.minute.ago,
-      task_payload: { "step" => "execute", "tool_name" => "shell_exec" },
+      task_payload: { "step" => "execute", "tool_name" => "exec_command" },
       terminal_payload: {
         "retryable" => true,
         "retry_scope" => "step",

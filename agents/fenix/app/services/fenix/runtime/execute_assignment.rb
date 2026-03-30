@@ -204,7 +204,7 @@ module Fenix
           case tool_name
           when "calculator"
             { "expression" => @context.dig("task_payload", "expression") || "2 + 2" }
-          when "shell_exec", "exec_command"
+          when "exec_command"
             {
               "command_line" => @context.dig("task_payload", "command_line") || "printf 'hello\\n'",
               "timeout_seconds" => @context.dig("task_payload", "timeout_seconds") || 30,
@@ -238,7 +238,7 @@ module Fenix
         case tool_call.fetch("tool_name")
         when "calculator"
           evaluate_expression(tool_call.dig("arguments", "expression"))
-        when "shell_exec", "exec_command"
+        when "exec_command"
           execute_exec_command(
             tool_call: tool_call,
             tool_invocation: tool_invocation,
@@ -553,7 +553,7 @@ module Fenix
       end
 
       def provision_command_run_if_needed!(tool_call, tool_invocation)
-        return unless %w[shell_exec exec_command].include?(tool_call.fetch("tool_name"))
+        return unless tool_call.fetch("tool_name") == "exec_command"
 
         @control_client.create_command_run!(
           tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
@@ -600,7 +600,7 @@ module Fenix
       end
 
       def streaming_tool?(tool_name)
-        %w[shell_exec exec_command write_stdin].include?(tool_name)
+        %w[exec_command write_stdin].include?(tool_name)
       end
 
       def process_tool?(tool_name)

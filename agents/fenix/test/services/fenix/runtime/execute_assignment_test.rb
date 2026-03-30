@@ -184,34 +184,6 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert Fenix::Processes::Manager.lookup(process_run_id: process_run_id).present?
   end
 
-  test "shell_exec remains a temporary compatibility alias for one-shot exec_command" do
-    control_client = build_runtime_control_client
-    result = Fenix::Runtime::ExecuteAssignment.call(
-      mailbox_item: runtime_assignment_payload(
-        mode: "deterministic_tool",
-        task_payload: {
-          "tool_name" => "shell_exec",
-          "command_line" => "printf 'hello\\n'",
-        },
-        agent_context: default_agent_context.merge(
-          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[shell_exec exec_command]
-        )
-      ),
-      control_client: control_client
-    )
-
-    completed_invocation = result.reports.last
-      .fetch("terminal_payload")
-      .fetch("tool_invocations")
-      .fetch(0)
-
-    assert_equal "completed", result.status
-    assert_equal "shell_exec", completed_invocation.fetch("tool_name")
-    assert completed_invocation.fetch("tool_invocation_id").present?
-    assert completed_invocation.fetch("command_run_id").present?
-    assert_equal 0, completed_invocation.dig("response_payload", "exit_status")
-  end
-
   test "core matrix model context triggers proactive context compaction before execution" do
     long_messages = 12.times.map do |index|
       { "role" => index.even? ? "user" : "assistant", "content" => "token token token token #{index}" }

@@ -230,7 +230,7 @@ runtime resources that later tasks now build on are:
 - queued `AgentTaskRun` rows must not carry `started_at` or `finished_at`
 - terminal `AgentTaskRun` rows must persist both `started_at` and `finished_at`
 
-## Start And Stop Services
+## Process Lifecycle Services
 
 - `Processes::Provision` is the kernel-first application-service boundary for
   opening a detached workflow process resource.
@@ -248,11 +248,6 @@ runtime resources that later tasks now build on are:
   - broadcasts one temporary `runtime.process_run.started` event for live UI
     consumers
   - records an `AuditLog` row when the process is actually live
-- `Processes::Stop` is the application-service boundary for terminating a
-  running process resource.
-- Stop currently:
-  - requires the process run to still be `running`
-  - transitions the process to `stopped`
 - `Processes::Exit` is the runtime-side terminalization boundary for detached
   processes that stop without an explicit close request.
 - Exit currently:
@@ -297,7 +292,7 @@ runtime resources that later tasks now build on are:
   checks instead of inferring cross-record identity from loose IDs alone.
 - Local Rails validation guides were used again for the
   `errors.add` plus `ActiveRecord::RecordInvalid` service-boundary pattern used
-  in `Processes::Stop`.
+  in `Processes::Activate` and `Processes::Exit`.
 - Local Active Storage guides confirmed the `has_one_attached` model pattern is
   the right durable boundary for file-backed workflow artifacts in this task.
 - No `references/` implementation was treated as authoritative for Task 10.1;

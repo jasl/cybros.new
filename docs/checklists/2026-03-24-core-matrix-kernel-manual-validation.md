@@ -220,10 +220,10 @@ bundled_configuration = {
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -597,10 +597,10 @@ bundled_configuration = {
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -879,10 +879,10 @@ bundled_configuration = {
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -1904,10 +1904,10 @@ bundled_configuration = {
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -2134,10 +2134,10 @@ registration = AgentDeployments::Register.call(
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -2298,7 +2298,7 @@ end
 bootstrap = AgentDeployments::Bootstrap.call(
   deployment: deployment,
   workspace: workspace,
-  manifest_snapshot: { "seeded_skills" => ["shell_exec"] }
+  manifest_snapshot: { "seeded_skills" => ["exec_command"] }
 )
 
 conversation = Conversations::CreateRoot.call(workspace: workspace)
@@ -2334,10 +2334,10 @@ drifted_snapshot = CapabilitySnapshot.create!(
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -2523,10 +2523,10 @@ capability_snapshot = CapabilitySnapshot.create!(
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -2866,10 +2866,10 @@ CapabilitySnapshot.create!(
   protocol_methods: [{ "method_id" => "agent_health" }],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -3114,10 +3114,10 @@ capability = CapabilitySnapshot.create!(
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -3310,10 +3310,10 @@ CapabilitySnapshot.create!(
   protocol_methods: [{ "method_id" => "agent_health" }],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -3519,10 +3519,10 @@ registration = AgentDeployments::Register.call(
   ],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,
@@ -3816,10 +3816,10 @@ CapabilitySnapshot.create!(
   protocol_methods: [{ "method_id" => "agent_health" }],
   tool_catalog: [
     {
-      "tool_name" => "shell_exec",
+      "tool_name" => "exec_command",
       "tool_kind" => "kernel_primitive",
       "implementation_source" => "kernel",
-      "implementation_ref" => "kernel/shell_exec",
+      "implementation_ref" => "kernel/exec_command",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,

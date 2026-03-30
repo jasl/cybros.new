@@ -12,10 +12,10 @@ module ExecutionEnvironments
         environment_capability_payload: { conversation_attachment_upload: true },
         environment_tool_catalog: [
           {
-            tool_name: "shell_exec",
+            tool_name: "exec_command",
             tool_kind: "environment_runtime",
             implementation_source: "environment",
-            implementation_ref: "runtime/shell_exec",
+            implementation_ref: "runtime/exec_command",
             input_schema: { type: "object", properties: {} },
             result_schema: { type: "object", properties: {} },
             streaming_support: false,
@@ -29,10 +29,10 @@ module ExecutionEnvironments
         capability_payload: { conversation_attachment_upload: true },
         tool_catalog: [
           {
-            tool_name: "shell_exec",
+            tool_name: "exec_command",
             tool_kind: "environment_runtime",
             implementation_source: "environment",
-            implementation_ref: "runtime/shell_exec",
+            implementation_ref: "runtime/exec_command",
             input_schema: { type: "object", properties: {} },
             result_schema: { type: "object", properties: {} },
             streaming_support: false,

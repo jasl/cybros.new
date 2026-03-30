@@ -18,10 +18,10 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
       ],
       tool_catalog: [
         {
-          tool_name: "shell_exec",
+          tool_name: "exec_command",
           tool_kind: "kernel_primitive",
           implementation_source: "kernel",
-          implementation_ref: "kernel/shell_exec",
+          implementation_ref: "kernel/exec_command",
           input_schema: { type: "object", properties: {} },
           result_schema: { type: "object", properties: {} },
           streaming_support: false,
@@ -61,7 +61,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal "active", first.deployment.bootstrap_state
     assert first.deployment.healthy?
     assert_equal default_profile_catalog, first.capability_snapshot.profile_catalog
-    assert_equal ["shell_exec"], first.capability_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], first.capability_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal false, first.execution_environment.capability_payload.fetch("conversation_attachment_upload")
   end
 

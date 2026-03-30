@@ -9,7 +9,7 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
     contract = RuntimeCapabilityContract.build(
       execution_environment: deployment.execution_environment,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-      tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
+      tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -24,7 +24,7 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
     assert_equal 1, snapshot.version
     assert_equal snapshot, deployment.reload.active_capability_snapshot
     assert_equal default_profile_catalog, snapshot.profile_catalog
-    assert_equal %w[shell_exec subagent_spawn], snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal %w[exec_command subagent_spawn], snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
   end
 
   test "reuses and reactivates an existing matching snapshot" do
@@ -33,7 +33,7 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
       agent_deployment: deployment,
       version: 1,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-      tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
+      tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -43,9 +43,9 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
       agent_deployment: deployment,
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-      tool_catalog: default_tool_catalog("shell_exec"),
+      tool_catalog: default_tool_catalog("exec_command"),
       profile_catalog: default_profile_catalog.deep_merge(
-        "researcher" => { "allowed_tool_names" => %w[shell_exec] }
+        "researcher" => { "allowed_tool_names" => %w[exec_command] }
       ),
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -69,7 +69,7 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
       agent_deployment: deployment,
       version: 1,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-      tool_catalog: default_tool_catalog("shell_exec"),
+      tool_catalog: default_tool_catalog("exec_command"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -82,7 +82,7 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
       runtime_capability_contract: RuntimeCapabilityContract.build(
         execution_environment: deployment.execution_environment,
         protocol_methods: existing_snapshot.protocol_methods,
-        tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
+        tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
         profile_catalog: existing_snapshot.profile_catalog,
         config_schema_snapshot: existing_snapshot.config_schema_snapshot,
         conversation_override_schema_snapshot: existing_snapshot.conversation_override_schema_snapshot,
@@ -93,6 +93,6 @@ class CapabilitySnapshots::ReconcileTest < ActiveSupport::TestCase
     assert_equal 2, snapshot.version
     assert_equal snapshot, deployment.reload.active_capability_snapshot
     assert_equal [1, 2], deployment.capability_snapshots.order(:version).pluck(:version)
-    assert_equal %w[shell_exec subagent_spawn], snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal %w[exec_command subagent_spawn], snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
   end
 end

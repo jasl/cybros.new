@@ -7,10 +7,10 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
       environment_capability_payload: { conversation_attachment_upload: false },
       environment_tool_catalog: [
         {
-          tool_name: "shell_exec",
+          tool_name: "exec_command",
           tool_kind: "environment_runtime",
           implementation_source: "execution_environment",
-          implementation_ref: "env/shell_exec",
+          implementation_ref: "env/exec_command",
           input_schema: { type: "object", properties: {} },
           result_schema: { type: "object", properties: {} },
           streaming_support: false,
@@ -22,10 +22,10 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
       default_config_snapshot: profile_aware_default_config_snapshot,
       tool_catalog: [
         {
-          tool_name: "shell_exec",
+          tool_name: "exec_command",
           tool_kind: "agent_observation",
           implementation_source: "agent",
-          implementation_ref: "agent/shell_exec",
+          implementation_ref: "agent/exec_command",
           input_schema: { type: "object", properties: {} },
           result_schema: { type: "object", properties: {} },
           streaming_support: false,
@@ -56,8 +56,8 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
     assert_equal 3, contract.default_config_snapshot.dig("subagents", "max_depth")
     assert_nil contract.conversation_override_schema_snapshot.dig("properties", "interactive")
     assert_equal "boolean", contract.conversation_override_schema_snapshot.dig("properties", "subagents", "properties", "enabled", "type")
-    assert_equal ["shell_exec"], contract.environment_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
-    assert_equal ["shell_exec", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], contract.environment_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal false, contract.conversation_payload(
       execution_environment_id: registration[:execution_environment].public_id,
       agent_deployment_id: registration[:deployment].public_id

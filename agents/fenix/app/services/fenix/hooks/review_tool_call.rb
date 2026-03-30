@@ -9,7 +9,6 @@ module Fenix
         "exec_command" => true,
         "process_exec" => true,
         "write_stdin" => true,
-        "shell_exec" => true,
       }.freeze
 
       def self.call(tool_call:, allowed_tool_names:)

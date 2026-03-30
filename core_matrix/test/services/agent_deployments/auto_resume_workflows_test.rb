@@ -30,7 +30,7 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment],
       version: 3,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context[:agent_deployment].update!(active_capability_snapshot: drifted_snapshot)
@@ -231,7 +231,7 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
@@ -307,7 +307,7 @@ class AgentDeployments::AutoResumeWorkflowsTest < ActiveSupport::TestCase
       agent_deployment: deployment,
       version: 1,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )

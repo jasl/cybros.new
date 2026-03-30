@@ -7,7 +7,7 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
       agent_deployment: deployment,
       version: 1,
       protocol_methods: default_protocol_methods("agent_health"),
-      tool_catalog: default_tool_catalog("shell_exec")
+      tool_catalog: default_tool_catalog("exec_command")
     )
     create_capability_snapshot!(
       agent_deployment: deployment,
@@ -35,7 +35,7 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
 
   test "renders outward payloads through the shared runtime capability contract" do
     snapshot = create_capability_snapshot!(
-      tool_catalog: default_tool_catalog("shell_exec"),
+      tool_catalog: default_tool_catalog("exec_command"),
       protocol_methods: default_protocol_methods("agent_health")
     )
     contract = RuntimeCapabilityContract.build(capability_snapshot: snapshot)
@@ -59,7 +59,7 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
   test "matches runtime contracts across the full agent-plane surface" do
     snapshot = create_capability_snapshot!(
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -73,7 +73,7 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
       protocol_methods: snapshot.protocol_methods,
       tool_catalog: snapshot.tool_catalog,
       profile_catalog: default_profile_catalog.deep_merge(
-        "researcher" => { "allowed_tool_names" => %w[shell_exec] }
+        "researcher" => { "allowed_tool_names" => %w[exec_command] }
       ),
       config_schema_snapshot: snapshot.config_schema_snapshot,
       conversation_override_schema_snapshot: snapshot.conversation_override_schema_snapshot,

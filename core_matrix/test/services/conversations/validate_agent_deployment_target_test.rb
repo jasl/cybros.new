@@ -100,7 +100,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
         "capabilities_handshake",
         "conversation_transcript_list"
       ),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
@@ -138,7 +138,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
         "capabilities_handshake",
         "conversation_transcript_list"
       ),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -173,7 +173,7 @@ class Conversations::ValidateAgentDeploymentTargetTest < ActiveSupport::TestCase
     agent_installation:,
     execution_environment:,
     protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-    tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+    tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
     profile_catalog: default_profile_catalog,
     config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
     conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },

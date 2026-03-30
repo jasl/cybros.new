@@ -412,8 +412,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
   test "freezes child agent context with profile session lineage and allowed tool names" do
     context = prepare_profile_aware_execution_context!(
       profile_catalog: profile_catalog_with_allowed_tool_names(
-        main_tool_names: %w[shell_exec compact_context] + RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES,
-        researcher_tool_names: %w[shell_exec subagent_send subagent_wait subagent_close subagent_list]
+        main_tool_names: %w[exec_command compact_context] + RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES,
+        researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       )
     )
     root_conversation = Conversations::CreateRoot.call(
@@ -457,7 +457,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: context[:agent_deployment],
       version: 2,
-      tool_catalog: default_tool_catalog("shell_exec", "compact_context"),
+      tool_catalog: default_tool_catalog("exec_command", "compact_context"),
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,

@@ -9,10 +9,10 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
       default_config_snapshot: profile_aware_default_config_snapshot,
       environment_tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "environment_runtime",
           "implementation_source" => "execution_environment",
-          "implementation_ref" => "env/shell_exec",
+          "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
@@ -21,10 +21,10 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
       ],
       tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "agent_observation",
           "implementation_source" => "agent",
-          "implementation_ref" => "agent/shell_exec",
+          "implementation_ref" => "agent/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
@@ -52,7 +52,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
       execution_environment: registration[:execution_environment],
       capability_snapshot: registration[:capability_snapshot]
     )
-    shell_entry = response_body.fetch("effective_tool_catalog").find { |entry| entry.fetch("tool_name") == "shell_exec" }
+    shell_entry = response_body.fetch("effective_tool_catalog").find { |entry| entry.fetch("tool_name") == "exec_command" }
 
     assert_equal "capabilities_refresh", response_body["method_id"]
     assert_equal registration[:execution_environment].public_id, response_body["execution_environment_id"]
@@ -64,8 +64,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_nil response_body.dig("conversation_override_schema_snapshot", "properties", "interactive")
     assert_equal "boolean", response_body.dig("conversation_override_schema_snapshot", "properties", "subagents", "properties", "enabled", "type")
     assert_equal ["agent_health", "capabilities_handshake"], response_body["protocol_methods"].map { |entry| entry.fetch("method_id") }
-    assert_equal ["shell_exec", "compact_context"], response_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
-    assert_equal ["shell_exec"], response_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command", "compact_context"], response_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], response_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
     assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
     assert_equal contract.environment_plane, response_body.fetch("environment_plane")
@@ -88,7 +88,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
           conversation_attachment_upload: false,
         },
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "capabilities_refresh"),
-        tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
+        tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
         profile_catalog: default_profile_catalog,
         config_schema_snapshot: profile_aware_config_schema_snapshot,
         conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -139,7 +139,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
         sdk_version: "fenix-0.2.0",
         environment_capability_payload: ["invalid-capability"],
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-        tool_catalog: default_tool_catalog("shell_exec"),
+        tool_catalog: default_tool_catalog("exec_command"),
         profile_catalog: ["invalid-profile"],
         config_schema_snapshot: "invalid-schema",
         conversation_override_schema_snapshot: "invalid-overrides",
@@ -172,7 +172,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
         sdk_version: "fenix-0.2.0",
         environment_capability_payload: { conversation_attachment_upload: false },
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-        tool_catalog: default_tool_catalog("shell_exec"),
+        tool_catalog: default_tool_catalog("exec_command"),
         profile_catalog: ["invalid-profile"],
         config_schema_snapshot: "invalid-schema",
         conversation_override_schema_snapshot: "invalid-overrides",

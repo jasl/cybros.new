@@ -1,5 +1,7 @@
 module Processes
   class Provision
+    LEASE_TIMEOUT_SECONDS = 30
+
     Result = Struct.new(:process_run, :created, keyword_init: true)
 
     def self.call(...)
@@ -80,7 +82,7 @@ module Processes
       Leases::Acquire.call(
         leased_resource: process_run,
         holder_key: delivery_endpoint.public_id,
-        heartbeat_timeout_seconds: Processes::Start::LEASE_TIMEOUT_SECONDS
+        heartbeat_timeout_seconds: LEASE_TIMEOUT_SECONDS
       )
     end
 

@@ -13,15 +13,15 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
       capability_snapshot: context.fetch(:capability_snapshot)
     ).order(:tool_name)
 
-    assert_equal %w[compact_context shell_exec subagent_spawn], definitions.pluck(:tool_name)
+    assert_equal %w[compact_context exec_command subagent_spawn], definitions.pluck(:tool_name)
     assert_equal "replaceable", definitions.find_by!(tool_name: "compact_context").governance_mode
-    assert_equal "whitelist_only", definitions.find_by!(tool_name: "shell_exec").governance_mode
+    assert_equal "whitelist_only", definitions.find_by!(tool_name: "exec_command").governance_mode
     assert_equal "reserved", definitions.find_by!(tool_name: "subagent_spawn").governance_mode
 
-    shell_definition = definitions.find_by!(tool_name: "shell_exec")
-    assert_equal %w[agent/shell_exec env/shell_exec],
+    shell_definition = definitions.find_by!(tool_name: "exec_command")
+    assert_equal %w[agent/exec_command env/exec_command],
       shell_definition.tool_implementations.order(:implementation_ref).pluck(:implementation_ref)
-    assert_equal "env/shell_exec",
+    assert_equal "env/exec_command",
       shell_definition.tool_implementations.find_by!(default_for_snapshot: true).implementation_ref
 
     subagent_definition = definitions.find_by!(tool_name: "subagent_spawn")

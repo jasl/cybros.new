@@ -271,7 +271,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: context[:agent_deployment],
       version: 2,
-      tool_catalog: default_tool_catalog("shell_exec", *allowed_tool_names),
+      tool_catalog: default_tool_catalog("exec_command", *allowed_tool_names),
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,

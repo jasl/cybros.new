@@ -31,10 +31,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     registration = register_profile_aware_runtime!(
       environment_tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "environment_runtime",
           "implementation_source" => "execution_environment",
-          "implementation_ref" => "env/shell_exec",
+          "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
@@ -43,10 +43,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       ],
       tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "agent_observation",
           "implementation_source" => "agent",
-          "implementation_ref" => "agent/shell_exec",
+          "implementation_ref" => "agent/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
@@ -57,7 +57,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     conversation = create_root_conversation_for!(registration)
 
     contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
-    shell_entry = contract.fetch("tool_catalog").find { |entry| entry.fetch("tool_name") == "shell_exec" }
+    shell_entry = contract.fetch("tool_catalog").find { |entry| entry.fetch("tool_name") == "exec_command" }
 
     assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
   end
@@ -129,10 +129,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
   test "visible child tools stay a subset of visible parent tools after profile masking" do
     registration = register_profile_aware_runtime!(
       profile_catalog: profile_catalog_with_allowed_tool_names(
-        main_tool_names: %w[shell_exec compact_context] + SUBAGENT_TOOL_NAMES,
-        researcher_tool_names: %w[shell_exec subagent_send subagent_wait subagent_close subagent_list]
+        main_tool_names: %w[exec_command compact_context] + SUBAGENT_TOOL_NAMES,
+        researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       ),
-      tool_catalog: default_tool_catalog("shell_exec", "compact_context")
+      tool_catalog: default_tool_catalog("exec_command", "compact_context")
     )
     root_conversation = create_root_conversation_for!(registration)
     child = create_subagent_conversation_chain!(
@@ -157,10 +157,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
   test "masked tools reject direct invocation even when the caller guesses the tool name" do
     registration = register_profile_aware_runtime!(
       profile_catalog: profile_catalog_with_allowed_tool_names(
-        main_tool_names: %w[shell_exec compact_context] + SUBAGENT_TOOL_NAMES,
-        researcher_tool_names: %w[shell_exec subagent_send subagent_wait subagent_close subagent_list]
+        main_tool_names: %w[exec_command compact_context] + SUBAGENT_TOOL_NAMES,
+        researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       ),
-      tool_catalog: default_tool_catalog("shell_exec", "compact_context")
+      tool_catalog: default_tool_catalog("exec_command", "compact_context")
     )
     child = create_subagent_conversation_chain!(
       registration: registration,
@@ -197,7 +197,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
 
   private
 
-  def register_profile_aware_runtime!(environment_capability_payload: {}, environment_tool_catalog: [], tool_catalog: default_tool_catalog("shell_exec"), profile_catalog: default_profile_catalog, default_config_snapshot: profile_aware_default_config_snapshot)
+  def register_profile_aware_runtime!(environment_capability_payload: {}, environment_tool_catalog: [], tool_catalog: default_tool_catalog("exec_command"), profile_catalog: default_profile_catalog, default_config_snapshot: profile_aware_default_config_snapshot)
     register_agent_runtime!(
       environment_capability_payload: environment_capability_payload,
       environment_tool_catalog: environment_tool_catalog,

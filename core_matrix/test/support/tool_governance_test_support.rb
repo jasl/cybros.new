@@ -4,10 +4,10 @@ module ToolGovernanceTestSupport
   def governed_environment_tool_catalog
     [
       {
-        "tool_name" => "shell_exec",
+        "tool_name" => "exec_command",
         "tool_kind" => "environment_runtime",
         "implementation_source" => "execution_environment",
-        "implementation_ref" => "env/shell_exec",
+        "implementation_ref" => "env/exec_command",
         "input_schema" => { "type" => "object", "properties" => {} },
         "result_schema" => { "type" => "object", "properties" => {} },
         "streaming_support" => false,
@@ -19,10 +19,10 @@ module ToolGovernanceTestSupport
   def governed_agent_tool_catalog
     [
       {
-        "tool_name" => "shell_exec",
+        "tool_name" => "exec_command",
         "tool_kind" => "agent_observation",
         "implementation_source" => "agent",
-        "implementation_ref" => "agent/shell_exec",
+        "implementation_ref" => "agent/exec_command",
         "input_schema" => { "type" => "object", "properties" => {} },
         "result_schema" => { "type" => "object", "properties" => {} },
         "streaming_support" => false,
@@ -56,7 +56,7 @@ module ToolGovernanceTestSupport
       "main" => {
         "label" => "Main",
         "description" => "Primary interactive profile",
-        "allowed_tool_names" => %w[shell_exec compact_context subagent_spawn],
+        "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
       },
     }
   end

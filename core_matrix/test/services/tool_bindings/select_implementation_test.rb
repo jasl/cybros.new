@@ -35,10 +35,10 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
 
     definition = ToolDefinition.find_by!(
       capability_snapshot: context.fetch(:capability_snapshot),
-      tool_name: "shell_exec"
+      tool_name: "exec_command"
     )
     runtime_override = definition.tool_implementations.find_by!(
-      implementation_ref: "agent/shell_exec"
+      implementation_ref: "agent/exec_command"
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do

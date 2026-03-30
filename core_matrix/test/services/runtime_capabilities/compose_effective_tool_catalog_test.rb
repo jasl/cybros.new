@@ -13,17 +13,17 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     registration = register_agent_runtime!(
       environment_tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "environment_runtime",
           "implementation_source" => "execution_environment",
-          "implementation_ref" => "env/shell_exec",
+          "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: default_tool_catalog("shell_exec", "compact_context")
+      tool_catalog: default_tool_catalog("exec_command", "compact_context")
     )
     contract = RuntimeCapabilityContract.build(
       execution_environment: registration[:execution_environment],
@@ -43,7 +43,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
   test "injects reserved subagent tools into the base effective catalog" do
     registration = register_agent_runtime!(
       environment_tool_catalog: [],
-      tool_catalog: default_tool_catalog("shell_exec")
+      tool_catalog: default_tool_catalog("exec_command")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
@@ -70,7 +70,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: default_tool_catalog("subagent_spawn", "shell_exec")
+      tool_catalog: default_tool_catalog("subagent_spawn", "exec_command")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(

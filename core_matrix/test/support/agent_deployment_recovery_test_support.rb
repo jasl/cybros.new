@@ -80,7 +80,7 @@ module AgentDeploymentRecoveryTestSupport
       agent_deployment: deployment,
       version: 1,
       protocol_methods: active_snapshot&.protocol_methods || default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: active_snapshot&.tool_catalog || default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: active_snapshot&.tool_catalog || default_tool_catalog("exec_command", "workspace_variables_get"),
       profile_catalog: active_snapshot&.profile_catalog || {},
       config_schema_snapshot: active_snapshot&.config_schema_snapshot || default_config_schema_snapshot(include_selector_slots: true),
       conversation_override_schema_snapshot: active_snapshot&.conversation_override_schema_snapshot || {},

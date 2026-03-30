@@ -38,20 +38,21 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
     )
     process_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "process")
 
-    process_run = Processes::Start.call(
+    process_run = Processes::Provision.call(
       workflow_node: process_node,
       execution_environment: context[:execution_environment],
       kind: "background_service",
       command_line: "echo hi",
       origin_message: turn.selected_input_message
-    )
-    stopped = Processes::Stop.call(process_run: process_run, reason: "completed")
+    ).process_run
+    Processes::Activate.call(process_run: process_run)
+    stopped = Processes::Exit.call(process_run: process_run, lifecycle_state: "stopped", reason: "completed")
 
     assert_equal conversation, stopped.conversation
     assert_equal turn, stopped.turn
     assert_equal turn.selected_input_message, stopped.origin_message
     assert_equal context[:execution_environment], stopped.execution_environment
-    assert_equal %w[running stopped], WorkflowNodeEvent.where(workflow_node: process_node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }
+    assert_equal %w[starting running stopped], WorkflowNodeEvent.where(workflow_node: process_node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }
     assert_equal "background_service", AuditLog.find_by!(action: "process_run.started").metadata["kind"]
   end
 end

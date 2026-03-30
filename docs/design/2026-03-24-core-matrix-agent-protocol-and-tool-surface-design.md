@@ -308,7 +308,7 @@ Core Matrix remains a strong-kernel system.
 
 When they are model-visible, they must publish reserved `core_matrix__*`
 `tool_name` values rather than competing for ordinary tool names such as
-`shell_exec`.
+`exec_command`.
 
 ### Agent Observation
 

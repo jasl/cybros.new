@@ -10,7 +10,7 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
 
     body = JSON.parse(response.body)
     governed_catalog = body.fetch("governed_effective_tool_catalog")
-    shell_entry = governed_catalog.find { |entry| entry.fetch("tool_name") == "shell_exec" }
+    shell_entry = governed_catalog.find { |entry| entry.fetch("tool_name") == "exec_command" }
     compact_entry = governed_catalog.find { |entry| entry.fetch("tool_name") == "compact_context" }
     subagent_entry = governed_catalog.find { |entry| entry.fetch("tool_name") == "subagent_spawn" }
 
@@ -23,7 +23,7 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
 
   test "capabilities handshake rejects runtime attempts to use the reserved core_matrix prefix" do
     registration = register_agent_runtime!(
-      tool_catalog: default_tool_catalog("shell_exec")
+      tool_catalog: default_tool_catalog("exec_command")
     )
     previous_snapshot_id = registration.fetch(:deployment).active_capability_snapshot_id
 
@@ -35,10 +35,10 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
         tool_catalog: [
           {
-            "tool_name" => "core_matrix__shell_exec",
+            "tool_name" => "core_matrix__exec_command",
             "tool_kind" => "agent_observation",
             "implementation_source" => "agent",
-            "implementation_ref" => "agent/core_matrix__shell_exec",
+            "implementation_ref" => "agent/core_matrix__exec_command",
             "input_schema" => { "type" => "object", "properties" => {} },
             "result_schema" => { "type" => "object", "properties" => {} },
             "streaming_support" => false,

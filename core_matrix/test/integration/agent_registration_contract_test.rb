@@ -25,10 +25,10 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
         },
         environment_tool_catalog: [
           {
-            tool_name: "shell_exec",
+            tool_name: "exec_command",
             tool_kind: "environment_runtime",
             implementation_source: "execution_environment",
-            implementation_ref: "env/shell_exec",
+            implementation_ref: "env/exec_command",
             input_schema: { type: "object", properties: {} },
             result_schema: { type: "object", properties: {} },
             streaming_support: false,
@@ -44,7 +44,7 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
         sdk_version: "fenix-0.1.0",
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
         profile_catalog: default_profile_catalog,
-        tool_catalog: default_tool_catalog("shell_exec", "subagent_spawn"),
+        tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
         config_schema_snapshot: profile_aware_config_schema_snapshot,
         conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
         default_config_snapshot: profile_aware_default_config_snapshot,
@@ -69,8 +69,8 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     assert_equal "main", capability_body.dig("default_config_snapshot", "interactive", "profile")
     assert_equal 3, capability_body.dig("default_config_snapshot", "subagents", "max_depth")
     assert_nil capability_body.dig("conversation_override_schema_snapshot", "properties", "interactive")
-    assert_equal ["shell_exec"], capability_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
-    assert_equal ["shell_exec", "subagent_spawn"], capability_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], capability_body.fetch("environment_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command", "subagent_spawn"], capability_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert capability_body["protocol_methods"].all? { |entry| entry.fetch("method_id").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| %w[kernel_primitive agent_observation effect_intent].include?(entry.fetch("tool_kind")) }

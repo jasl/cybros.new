@@ -19,7 +19,7 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context[:agent_deployment].update!(active_capability_snapshot: drifted_snapshot)
@@ -66,7 +66,7 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
       agent_installation: context[:agent_installation],
       execution_environment: context[:execution_environment],
       profile_catalog: default_profile_catalog.deep_merge(
-        "researcher" => { "allowed_tool_names" => %w[shell_exec] }
+        "researcher" => { "allowed_tool_names" => %w[exec_command] }
       )
     )
     AgentDeployments::RecordHeartbeat.call(
@@ -93,7 +93,7 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
@@ -150,7 +150,7 @@ class AgentDeployments::BuildRecoveryPlanTest < ActiveSupport::TestCase
       agent_deployment: deployment,
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,

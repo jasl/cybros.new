@@ -270,7 +270,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     capability_snapshot = create_capability_snapshot!(
       agent_deployment: context[:deployment],
       version: 2,
-      tool_catalog: default_tool_catalog("shell_exec"),
+      tool_catalog: default_tool_catalog("exec_command"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,

@@ -71,7 +71,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent_installation: context[:agent_installation],
       execution_environment: context[:execution_environment],
       protocol_methods: default_protocol_methods("agent_health"),
-      tool_catalog: default_tool_catalog("shell_exec")
+      tool_catalog: default_tool_catalog("exec_command")
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -317,7 +317,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
@@ -357,7 +357,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent_deployment: context[:agent_deployment],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
@@ -476,7 +476,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     agent_installation:,
     execution_environment: create_execution_environment!(installation: installation),
     protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-    tool_catalog: default_tool_catalog("shell_exec", "workspace_variables_get"),
+    tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
     selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
   )
     agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(

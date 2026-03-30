@@ -66,10 +66,10 @@ class ExecutionEnvironmentTest < ActiveSupport::TestCase
       capability_payload: { "conversation_attachment_upload" => false },
       tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "environment_runtime",
           "implementation_source" => "execution_environment",
-          "implementation_ref" => "env/shell_exec",
+          "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,

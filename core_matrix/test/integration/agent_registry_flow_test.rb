@@ -34,10 +34,10 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
       ],
       tool_catalog: [
         {
-          "tool_name" => "shell_exec",
+          "tool_name" => "exec_command",
           "tool_kind" => "kernel_primitive",
           "implementation_source" => "kernel",
-          "implementation_ref" => "kernel/shell_exec",
+          "implementation_ref" => "kernel/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,

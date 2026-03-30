@@ -404,7 +404,7 @@ module ActiveSupport
         agent_deployment: agent_deployment,
         version: version,
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
-        tool_catalog: tool_catalog || default_tool_catalog("shell_exec"),
+        tool_catalog: tool_catalog || default_tool_catalog("exec_command"),
         config_schema_snapshot: config_schema_snapshot,
         conversation_override_schema_snapshot: conversation_override_schema_snapshot,
         default_config_snapshot: default_config_snapshot,
@@ -418,7 +418,7 @@ module ActiveSupport
     end
 
     def default_tool_catalog(*tool_names)
-      names = tool_names.presence || %w[shell_exec]
+      names = tool_names.presence || %w[exec_command]
 
       names.map do |tool_name|
         {
@@ -764,10 +764,10 @@ module ActiveSupport
         ],
         tool_catalog: [
           {
-            "tool_name" => "shell_exec",
+            "tool_name" => "exec_command",
             "tool_kind" => "kernel_primitive",
             "implementation_source" => "kernel",
-            "implementation_ref" => "kernel/shell_exec",
+            "implementation_ref" => "kernel/exec_command",
             "input_schema" => { "type" => "object", "properties" => {} },
             "result_schema" => { "type" => "object", "properties" => {} },
             "streaming_support" => false,
@@ -1217,7 +1217,7 @@ module ActiveSupport
       return if turn.pinned_capability_snapshot.present?
       return if turn.agent_deployment.active_capability_snapshot.present?
 
-      allowed_tool_names = Array(turn.execution_snapshot.agent_context["allowed_tool_names"]).presence || %w[shell_exec]
+      allowed_tool_names = Array(turn.execution_snapshot.agent_context["allowed_tool_names"]).presence || %w[exec_command]
       capability_snapshot = create_capability_snapshot!(
         agent_deployment: turn.agent_deployment,
         tool_catalog: default_tool_catalog(*allowed_tool_names)

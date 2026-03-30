@@ -21,24 +21,24 @@ class ExecutionProfiling::SummaryQueryTest < ActiveSupport::TestCase
       user: user,
       workspace: workspace,
       fact_kind: "tool_call",
-      fact_key: "shell_exec",
+      fact_key: "exec_command",
       count_value: 2,
       duration_ms: 120,
       success: true,
       occurred_at: Time.utc(2026, 3, 24, 12, 0, 0),
-      metadata: { "tool" => "shell_exec" }
+      metadata: { "tool" => "exec_command" }
     )
     ExecutionProfiling::RecordFact.call(
       installation: installation,
       user: user,
       workspace: workspace,
       fact_kind: "tool_call",
-      fact_key: "shell_exec",
+      fact_key: "exec_command",
       count_value: 1,
       duration_ms: 80,
       success: false,
       occurred_at: Time.utc(2026, 3, 24, 12, 5, 0),
-      metadata: { "tool" => "shell_exec" }
+      metadata: { "tool" => "exec_command" }
     )
     ExecutionProfiling::RecordFact.call(
       installation: installation,
@@ -55,12 +55,12 @@ class ExecutionProfiling::SummaryQueryTest < ActiveSupport::TestCase
       user: user,
       workspace: workspace,
       fact_kind: "tool_call",
-      fact_key: "shell_exec",
+      fact_key: "exec_command",
       count_value: 10,
       duration_ms: 500,
       success: true,
       occurred_at: Time.utc(2026, 3, 24, 13, 0, 0),
-      metadata: { "tool" => "shell_exec" }
+      metadata: { "tool" => "exec_command" }
     )
 
     result = ExecutionProfiling::SummaryQuery.call(
@@ -69,15 +69,15 @@ class ExecutionProfiling::SummaryQueryTest < ActiveSupport::TestCase
       ended_at: Time.utc(2026, 3, 24, 12, 59, 59)
     )
 
-    shell_exec = result.find { |entry| entry.fact_kind == "tool_call" && entry.fact_key == "shell_exec" }
+    exec_command = result.find { |entry| entry.fact_kind == "tool_call" && entry.fact_key == "exec_command" }
     approval_wait = result.find { |entry| entry.fact_kind == "approval_wait" && entry.fact_key == "publish_gate" }
 
-    assert_equal 2, shell_exec.event_count
-    assert_equal 3, shell_exec.total_count_value
-    assert_equal 200, shell_exec.total_duration_ms
-    assert_equal 1, shell_exec.success_count
-    assert_equal 1, shell_exec.failure_count
-    assert_equal Time.utc(2026, 3, 24, 12, 5, 0), shell_exec.last_occurred_at
+    assert_equal 2, exec_command.event_count
+    assert_equal 3, exec_command.total_count_value
+    assert_equal 200, exec_command.total_duration_ms
+    assert_equal 1, exec_command.success_count
+    assert_equal 1, exec_command.failure_count
+    assert_equal Time.utc(2026, 3, 24, 12, 5, 0), exec_command.last_occurred_at
 
     assert_equal 1, approval_wait.event_count
     assert_equal 0, approval_wait.total_count_value
