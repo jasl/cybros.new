@@ -35,7 +35,7 @@ module ProviderExecution
         raise_invalid!(@workflow_node, :lifecycle_state, "must be pending or queued before provider execution")
       end
 
-      append_status_event!("running")
+      claim_running!
       broadcast_workflow_node_event!("runtime.workflow_node.started", state: "running")
       output_stream.start!
 
@@ -83,13 +83,15 @@ module ProviderExecution
       )
       raise dispatch_error.error
     rescue StaleExecutionError
-      output_stream.fail!(code: "stale_execution", message: "provider execution result is stale")
-      broadcast_workflow_node_event!(
-        "runtime.workflow_node.canceled",
-        state: "canceled",
-        code: "stale_execution",
-        error_message: "provider execution result is stale"
-      )
+      if output_stream.started?
+        output_stream.fail!(code: "stale_execution", message: "provider execution result is stale")
+        broadcast_workflow_node_event!(
+          "runtime.workflow_node.canceled",
+          state: "canceled",
+          code: "stale_execution",
+          error_message: "provider execution result is stale"
+        )
+      end
       raise
     end
 
@@ -111,24 +113,21 @@ module ProviderExecution
       end
     end
 
-    def append_status_event!(state, **payload)
+    def claim_running!
       @workflow_node.with_lock do
         now = Time.current
 
         @workflow_node.reload
-        if state == "running"
-          @workflow_node.update!(
-            lifecycle_state: "running",
-            started_at: @workflow_node.started_at || now,
-            finished_at: nil
-          )
-        elsif state.in?(%w[completed failed canceled])
-          @workflow_node.update!(
-            lifecycle_state: state,
-            started_at: @workflow_node.started_at || now,
-            finished_at: now
-          )
+        raise StaleExecutionError, "provider execution result is stale" if @workflow_node.terminal? || @workflow_node.running?
+        unless @workflow_node.pending? || @workflow_node.queued?
+          raise_invalid!(@workflow_node, :lifecycle_state, "must be pending or queued before provider execution")
         end
+
+        @workflow_node.update!(
+          lifecycle_state: "running",
+          started_at: @workflow_node.started_at || now,
+          finished_at: nil
+        )
 
         WorkflowNodeEvent.create!(
           installation: @workflow_run.installation,
@@ -136,7 +135,7 @@ module ProviderExecution
           workflow_node: @workflow_node,
           ordinal: @workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
           event_kind: "status",
-          payload: payload.merge("state" => state)
+          payload: { "state" => "running" }
         )
       end
     end

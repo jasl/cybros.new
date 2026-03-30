@@ -41,7 +41,7 @@ module AgentControl
       stale! unless @deployment.execution_environment_id == process_run.execution_environment_id
 
       execution_lease = process_run.execution_lease
-      return unless execution_lease&.active?
+      stale! unless execution_lease&.active?
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,

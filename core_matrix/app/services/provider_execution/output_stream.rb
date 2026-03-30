@@ -14,10 +14,16 @@ module ProviderExecution
       @flush_bytes = flush_bytes
       @buffer = +""
       @sequence = 0
+      @started = false
     end
 
     def start!
+      @started = true
       broadcast!("runtime.assistant_output.started", base_payload)
+    end
+
+    def started?
+      @started
     end
 
     def push(delta)

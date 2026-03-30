@@ -1,5 +1,7 @@
 module Processes
   class Start
+    LEASE_TIMEOUT_SECONDS = 30
+
     def self.call(...)
       new(...).call
     end
@@ -32,6 +34,7 @@ module Processes
             metadata: @metadata
           )
 
+          acquire_process_lease!(process_run)
           append_status_event!(process_run: process_run, state: "running")
           record_audit!(process_run) if policy_sensitive?
           broadcast_runtime_event!(process_run)
@@ -54,6 +57,19 @@ module Processes
           "process_run_id" => process_run.id,
           "kind" => process_run.kind,
         }
+      )
+    end
+
+    def acquire_process_lease!(process_run)
+      delivery_endpoint = ExecutionEnvironments::ResolveDeliveryEndpoint.call(
+        execution_environment: process_run.execution_environment
+      )
+      return if delivery_endpoint.blank?
+
+      Leases::Acquire.call(
+        leased_resource: process_run,
+        holder_key: delivery_endpoint.public_id,
+        heartbeat_timeout_seconds: LEASE_TIMEOUT_SECONDS
       )
     end
 

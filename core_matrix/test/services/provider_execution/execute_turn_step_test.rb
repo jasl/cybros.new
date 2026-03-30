@@ -98,4 +98,49 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", completed_payload.fetch("content")
     assert_equal workflow_run.turn.reload.selected_output_message.public_id, completed_payload.fetch("message_id")
   end
+
+  test "rejects a turn_step that was already claimed running before dispatch" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-direct-step-running",
+        choices: [
+          {
+            message: { role: "assistant", content: "Should not dispatch" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 8,
+          total_tokens: 20,
+        },
+      }
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(
+      lifecycle_state: "running",
+      started_at: Time.current,
+      finished_at: nil
+    )
+
+    assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_node,
+          messages: turn_step_messages_for(workflow_run),
+          adapter: adapter
+        )
+      end
+    end
+
+    assert_nil adapter.last_request
+    assert_equal 0, WorkflowNodeEvent.where(workflow_node: workflow_node, event_kind: "status").count
+  end
 end

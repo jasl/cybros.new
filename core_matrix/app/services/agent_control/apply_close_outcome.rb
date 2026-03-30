@@ -50,6 +50,7 @@ module AgentControl
             "close_outcome_kind" => @resource.close_outcome_kind
           )
         )
+        reconcile_agent_task_execution_graph!
       when ProcessRun
         @resource.update!(
           lifecycle_state: @resource.close_outcome_kind == "residual_abandoned" ? "lost" : "stopped",
@@ -78,6 +79,7 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
+        reconcile_agent_task_execution_graph!
       when ProcessRun
         @resource.update!(
           lifecycle_state: "lost",
@@ -136,6 +138,75 @@ module AgentControl
       return "interrupted" if @mailbox_item.payload["request_kind"] == "turn_interrupt"
 
       "completed"
+    end
+
+    def reconcile_agent_task_execution_graph!
+      return unless @resource.is_a?(AgentTaskRun)
+
+      reconcile_agent_task_workflow_node!
+      reconcile_agent_task_workflow_run!
+      reconcile_agent_task_turn!
+    end
+
+    def reconcile_agent_task_workflow_node!
+      workflow_node = @resource.workflow_node
+      return if workflow_node.blank?
+
+      terminal_state = @resource.failed? ? "failed" : "canceled"
+      started_at = workflow_node.started_at || @resource.started_at || @occurred_at
+
+      workflow_node.with_lock do
+        workflow_node.reload
+
+        workflow_node.update!(
+          lifecycle_state: terminal_state,
+          started_at: terminal_state == "canceled" ? workflow_node.started_at || @resource.started_at : started_at,
+          finished_at: workflow_node.finished_at || @occurred_at
+        )
+
+        WorkflowNodeEvent.create!(
+          installation: workflow_node.installation,
+          workflow_run: workflow_node.workflow_run,
+          workflow_node: workflow_node,
+          ordinal: workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
+          event_kind: "status",
+          payload: {
+            "state" => terminal_state,
+            "close_state" => @resource.close_state,
+            "close_outcome_kind" => @resource.close_outcome_kind,
+          }
+        )
+      end
+    end
+
+    def reconcile_agent_task_workflow_run!
+      workflow_run = @resource.workflow_run
+      return if workflow_run.blank? || !workflow_run.active?
+
+      lifecycle_state = @resource.failed? ? "failed" : "canceled"
+      updates = { lifecycle_state: lifecycle_state }.merge(Workflows::WaitState.ready_attributes)
+
+      if @mailbox_item.payload["request_kind"] == "turn_interrupt"
+        updates[:cancellation_requested_at] = workflow_run.cancellation_requested_at || @occurred_at
+        updates[:cancellation_reason_kind] = "turn_interrupted"
+      end
+
+      workflow_run.update!(updates)
+    end
+
+    def reconcile_agent_task_turn!
+      turn = @resource.turn
+      return if turn.blank? || !turn.active?
+
+      lifecycle_state = @resource.failed? ? "failed" : "canceled"
+      updates = { lifecycle_state: lifecycle_state }
+
+      if @mailbox_item.payload["request_kind"] == "turn_interrupt"
+        updates[:cancellation_requested_at] = turn.cancellation_requested_at || @occurred_at
+        updates[:cancellation_reason_kind] = "turn_interrupted"
+      end
+
+      turn.update!(updates)
     end
 
     def broadcast_process_run_terminal!(event_kind)

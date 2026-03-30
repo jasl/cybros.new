@@ -244,6 +244,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "interrupted", agent_task_run.lifecycle_state
     assert_not_nil agent_task_run.finished_at
     assert_equal "closed", agent_task_run.close_state
+    assert_equal "canceled", context[:workflow_node].reload.lifecycle_state
+    assert_not_nil context[:workflow_node].finished_at
     assert_not lease.reload.active?
   end
 
@@ -286,6 +288,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_not_nil agent_task_run.finished_at
     assert_equal "failed", agent_task_run.close_state
     assert_equal "timed_out_forced", agent_task_run.terminal_payload["close_outcome_kind"]
+    assert_equal "failed", context[:workflow_node].reload.lifecycle_state
+    assert_not_nil context[:workflow_node].finished_at
     assert_not lease.reload.active?
   end
 

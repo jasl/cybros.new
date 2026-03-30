@@ -268,6 +268,33 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert process_run.running?
   end
 
+  test "process_output is stale when the running process has no active execution lease" do
+    context = build_rotated_runtime_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_environment: context[:execution_environment],
+      kind: "turn_command"
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
+
+    broadcasts = capture_broadcasts(stream_name) do
+      result = AgentControl::Report.call(
+        deployment: context[:previous_deployment],
+        method_id: "process_output",
+        protocol_message_id: "process-output-no-lease-#{next_test_sequence}",
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        output_chunks: [
+          { "stream" => "stdout", "text" => "orphaned\n" },
+        ]
+      )
+
+      assert_equal "stale", result.code
+    end
+
+    assert_empty broadcasts
+  end
+
   test "execution_fail materializes denied agent-owned tool invocations with explicit rejection details" do
     context = build_calculator_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

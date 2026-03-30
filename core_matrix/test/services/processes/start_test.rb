@@ -19,6 +19,7 @@ class Processes::StartTest < ActiveSupport::TestCase
     assert_equal process_context[:conversation], process_run.conversation
     assert_equal process_context[:turn], process_run.turn
     assert_equal process_context[:origin_message], process_run.origin_message
+    assert_equal process_context[:agent_deployment].public_id, process_run.execution_lease&.holder_key
 
     status_event = WorkflowNodeEvent.find_by!(workflow_node: process_context[:workflow_node], event_kind: "status")
     assert_equal "running", status_event.payload["state"]
