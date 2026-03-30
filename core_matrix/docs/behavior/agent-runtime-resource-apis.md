@@ -152,11 +152,21 @@ orchestration are still defined in:
 - short-lived command resources are created in two steps before local spawn:
   - `POST /agent_api/tool_invocations`
   - `POST /agent_api/command_runs`
+- those create APIs are valid only while the backing parent execution is still
+  live:
+  - `tool_invocations` require `AgentTaskRun.lifecycle_state = running` and no
+    in-flight close request
+  - `command_runs` require a running `ToolInvocation` whose backing
+    `AgentTaskRun` is still live
+  - `command_run_activate` also rejects activation once the parent execution is
+    closing or terminal
 - detached long-lived process resources are created before local spawn through:
   - `POST /agent_api/process_runs`
 - that create payload includes `tool_name = "process_exec"` so the kernel can
   resolve the frozen governed `ToolBinding` before it allocates the durable
   `ProcessRun`
+- `process_runs` creation likewise requires the backing `AgentTaskRun` to still
+  be running and free of a close request
 - detached long-lived process tools such as `process_exec` then activate that
   durable resource through `process_started`; they do not create `ToolInvocation`
   rows or `CommandRun` rows

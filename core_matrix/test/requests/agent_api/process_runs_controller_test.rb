@@ -103,6 +103,27 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "rejects process run creation once the task has a close request in flight" do
+    context = build_process_runtime_context!
+    context[:agent_task_run].update!(
+      close_requested_at: Time.current,
+      close_state: "requested",
+      close_reason_kind: "turn_interrupted"
+    )
+
+    post "/agent_api/process_runs",
+      params: {
+        agent_task_run_id: context[:agent_task_run].public_id,
+        tool_name: "process_exec",
+        kind: "background_service",
+        command_line: "bin/dev",
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
+
   private
 
   def build_process_runtime_context!

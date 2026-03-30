@@ -2,7 +2,7 @@ module AgentAPI
   class ProcessRunsController < BaseController
     def create
       agent_task_run = find_agent_task_run!(request_payload.fetch("agent_task_run_id"))
-      authorize_agent_task_run!(agent_task_run)
+      authorize_active_agent_task_run!(agent_task_run)
       tool_name = request_payload.fetch("tool_name")
       raise ActiveRecord::RecordNotFound, "Couldn't find ToolBinding" unless tool_name == "process_exec"
 

@@ -97,12 +97,29 @@ module AgentAPI
       raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun"
     end
 
+    def authorize_active_agent_task_run!(agent_task_run)
+      authorize_agent_task_run!(agent_task_run)
+      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" unless agent_task_run.running?
+      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.close_requested_at.present?
+    end
+
     def authorize_tool_invocation!(tool_invocation)
       authorize_agent_task_run!(tool_invocation.agent_task_run)
     end
 
+    def authorize_running_tool_invocation!(tool_invocation)
+      authorize_tool_invocation!(tool_invocation)
+      authorize_active_agent_task_run!(tool_invocation.agent_task_run)
+      raise ActiveRecord::RecordNotFound, "Couldn't find ToolInvocation" unless tool_invocation.running?
+    end
+
     def authorize_command_run!(command_run)
       authorize_tool_invocation!(command_run.tool_invocation)
+    end
+
+    def authorize_live_command_run!(command_run)
+      authorize_command_run!(command_run)
+      authorize_running_tool_invocation!(command_run.tool_invocation)
     end
 
     def find_tool_binding_for_agent_task_run!(agent_task_run, tool_name)

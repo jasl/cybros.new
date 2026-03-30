@@ -93,6 +93,28 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "rejects tool invocation creation once the task has a close request in flight" do
+    context = build_runtime_command_context!
+    context[:agent_task_run].update!(
+      close_requested_at: Time.current,
+      close_state: "requested",
+      close_reason_kind: "turn_interrupted"
+    )
+
+    post "/agent_api/tool_invocations",
+      params: {
+        agent_task_run_id: context[:agent_task_run].public_id,
+        tool_name: "exec_command",
+        request_payload: {
+          command_line: "printf 'hello\\n'",
+        },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
+
   private
 
   def build_runtime_command_context!

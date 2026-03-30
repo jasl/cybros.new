@@ -150,6 +150,50 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "rejects command run creation once the parent tool invocation is terminal" do
+    context = build_runtime_command_context!
+    invocation = create_exec_command_invocation!(context)
+    ToolInvocations::Complete.call(
+      tool_invocation: invocation,
+      response_payload: {
+        "exit_status" => 0,
+      }
+    )
+
+    post "/agent_api/command_runs",
+      params: {
+        tool_invocation_id: invocation.public_id,
+        command_line: "printf 'hello\\n'",
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
+
+  test "rejects command run activation once the parent task has a close request in flight" do
+    context = build_runtime_command_context!
+    invocation = create_exec_command_invocation!(context)
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "printf 'hello\\n'",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {}
+    ).command_run
+    context[:agent_task_run].update!(
+      close_requested_at: Time.current,
+      close_state: "requested",
+      close_reason_kind: "turn_interrupted"
+    )
+
+    post "/agent_api/command_runs/#{command_run.public_id}/activate",
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
+
   private
 
   def create_exec_command_invocation!(context)
