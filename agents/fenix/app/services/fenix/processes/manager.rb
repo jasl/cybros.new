@@ -315,6 +315,7 @@ module Fenix
             entries.delete(entry.process_run_id) if current_entry.equal?(entry)
           end
 
+          Fenix::Processes::ProxyRegistry.unregister(process_run_id: entry.process_run_id) if defined?(Fenix::Processes::ProxyRegistry)
           close_io(entry.stdin)
           close_io(entry.stdout)
           close_io(entry.stderr)

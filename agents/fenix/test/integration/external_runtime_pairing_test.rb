@@ -13,6 +13,9 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert body.fetch("environment_fingerprint").present?
     assert_equal "/runtime/manifest", body.dig("endpoint_metadata", "runtime_manifest_path")
     assert_equal false, body.fetch("environment_plane").fetch("capability_payload").fetch("conversation_attachment_upload")
+    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
+    assert_equal 3310, body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "default_external_port")
+    assert_equal "/dev/<process_run_id>", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "path_prefix_template")
     assert_equal "2026-03-24", body.fetch("protocol_version")
     assert_equal "fenix-0.1.0", body.fetch("sdk_version")
     assert_equal %w[base_url runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort

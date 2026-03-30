@@ -254,15 +254,15 @@ module Fenix
           def terminate_subprocess!(pid:)
             return if pid.blank?
 
-            Process.kill("TERM", pid)
+            ::Process.kill("TERM", pid)
             sleep(0.1)
-            Process.kill("KILL", pid)
+            ::Process.kill("KILL", pid)
           rescue Errno::ESRCH
             nil
           end
 
           def monotonic_now
-            Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
           end
 
           def canceled?

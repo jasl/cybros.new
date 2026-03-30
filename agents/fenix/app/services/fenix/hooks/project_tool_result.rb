@@ -103,11 +103,18 @@ module Fenix
       end
 
       def self.project_process_exec(tool_name:, tool_result:)
+        content = "Background service started as process run #{tool_result.fetch("process_run_id")}."
+        if tool_result["proxy_path"].present?
+          content = "#{content} Available at #{tool_result.fetch("proxy_path")}."
+        end
+
         {
           "tool_name" => tool_name,
-          "content" => "Background service started as process run #{tool_result.fetch("process_run_id")}.",
+          "content" => content,
           "process_run_id" => tool_result.fetch("process_run_id"),
           "lifecycle_state" => tool_result.fetch("lifecycle_state"),
+          "proxy_path" => tool_result["proxy_path"],
+          "proxy_target_url" => tool_result["proxy_target_url"],
         }
       end
 

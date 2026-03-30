@@ -117,6 +117,20 @@ Detached long-lived services therefore follow this contract:
 - the persistent control worker reports `process_started`, `process_output`,
   `process_exited`, and `resource_close_*` over the control plane
 
+Long-lived services are now plugin-backed rather than hardcoded in the pairing
+manifest. `process_exec` routes through a dedicated process runtime family:
+
+- [plugin.yml](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/plugins/system/process/plugin.yml)
+- [runtime.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/plugins/system/process/runtime.rb)
+- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/launcher.rb)
+
+When a tool call passes `proxy_port`, `Fenix` also registers a stable fixed-port
+proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy
+routes into `tmp/dev-proxy/routes.caddy`, and
+[bin/fenix-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/fenix-dev-proxy)
+boots Caddy with [config/caddy/Caddyfile](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/config/caddy/Caddyfile)
+to expose those paths on the external proxy port.
+
 ## Web Tool Surface
 
 `Fenix` now exposes a first local web capability slice through the environment

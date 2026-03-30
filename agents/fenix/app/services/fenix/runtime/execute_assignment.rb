@@ -251,6 +251,7 @@ module Fenix
             {
               "command_line" => @context.dig("task_payload", "command_line") || "bin/dev",
               "kind" => @context.dig("task_payload", "kind") || "background_service",
+              "proxy_port" => @context.dig("task_payload", "proxy_port"),
             }
           when "workspace_read"
             {
@@ -349,6 +350,7 @@ module Fenix
           )
         when "process_exec"
           execute_process_exec(
+            tool_call: tool_call,
             process_run: process_run,
             command_line: tool_call.dig("arguments", "command_line")
           )
@@ -404,20 +406,15 @@ module Fenix
         )
       end
 
-      def execute_process_exec(process_run:, command_line:)
+      def execute_process_exec(tool_call:, process_run:, command_line:)
         check_canceled! do
           report_process_canceled_before_start!(process_run_id: process_run.fetch("process_run_id"))
         end
-        Fenix::Processes::Manager.spawn!(
-          process_run_id: process_run.fetch("process_run_id"),
-          command_line: command_line,
+        Fenix::Plugins::System::Process::Runtime.call(
+          tool_call: tool_call.deep_dup,
+          process_run: process_run.deep_dup,
           control_client: @control_client
         )
-
-        {
-          "process_run_id" => process_run.fetch("process_run_id"),
-          "lifecycle_state" => "running",
-        }
       end
 
       def execute_workspace_tool(tool_call)
@@ -535,6 +532,9 @@ module Fenix
           metadata: {
             "logical_work_id" => @context.fetch("logical_work_id"),
             "attempt_no" => @context.fetch("attempt_no"),
+            "proxy" => {
+              "target_port" => tool_call.dig("arguments", "proxy_port"),
+            }.compact.presence,
           }
         )
       end
@@ -622,6 +622,9 @@ module Fenix
           metadata: {
             "logical_work_id" => @context.fetch("logical_work_id"),
             "attempt_no" => @context.fetch("attempt_no"),
+            "proxy" => {
+              "target_port" => tool_call.dig("arguments", "proxy_port"),
+            }.compact.presence,
           }
         )
       end

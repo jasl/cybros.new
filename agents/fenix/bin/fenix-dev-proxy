@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROUTES_FILE="${FENIX_DEV_PROXY_ROUTES_FILE:-$ROOT_DIR/tmp/dev-proxy/routes.caddy}"
+
+mkdir -p "$(dirname "$ROUTES_FILE")"
+touch "$ROUTES_FILE"
+
+exec caddy run --config "$ROOT_DIR/config/caddy/Caddyfile" --adapter caddyfile

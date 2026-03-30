@@ -88,28 +88,6 @@ module Fenix
           "streaming_support" => false,
           "idempotency_policy" => "best_effort",
         },
-        {
-          "tool_name" => "process_exec",
-          "tool_kind" => "kernel_primitive",
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/runtime/process_exec",
-          "input_schema" => {
-            "type" => "object",
-            "properties" => {
-              "command_line" => { "type" => "string" },
-              "kind" => { "type" => "string" },
-            },
-          },
-          "result_schema" => {
-            "type" => "object",
-            "properties" => {
-              "process_run_id" => { "type" => "string" },
-              "lifecycle_state" => { "type" => "string" },
-            },
-          },
-          "streaming_support" => true,
-          "idempotency_policy" => "best_effort",
-        },
       ].freeze
       SUBAGENT_TOOL_NAMES = %w[
         subagent_spawn
@@ -273,6 +251,12 @@ module Fenix
         {
           "conversation_attachment_upload" => false,
           "runtime_foundation" => runtime_foundation,
+          "fixed_port_dev_proxy" => {
+            "external_port_env" => "FENIX_DEV_PROXY_PORT",
+            "default_external_port" => 3310,
+            "routes_file_env" => "FENIX_DEV_PROXY_ROUTES_FILE",
+            "path_prefix_template" => "/dev/<process_run_id>",
+          },
         }
       end
 
