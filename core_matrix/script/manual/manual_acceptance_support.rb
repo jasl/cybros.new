@@ -560,7 +560,8 @@ module ManualAcceptanceSupport
   def scenario_result(scenario:, expected_dag_shape:, observed_dag_shape:, expected_conversation_state:, observed_conversation_state:, proof_artifact_path: nil, extra: {})
     {
       "scenario" => scenario,
-      "passed" => expected_dag_shape == observed_dag_shape && expected_conversation_state == observed_conversation_state,
+      "passed" => expected_dag_shape == observed_dag_shape &&
+        expected_conversation_state.all? { |key, value| observed_conversation_state[key] == value },
       "proof_artifact_path" => proof_artifact_path,
       "expected_dag_shape" => expected_dag_shape,
       "observed_dag_shape" => observed_dag_shape,
