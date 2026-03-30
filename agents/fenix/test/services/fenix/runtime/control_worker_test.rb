@@ -1,6 +1,44 @@
 require "test_helper"
 
 class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
+  test "leaves long-lived process handles registered when the control worker exits" do
+    control_client = build_runtime_control_client
+    Fenix::Runtime::ControlPlane.client = control_client
+
+    assignment = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "process_exec",
+        "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["process_exec"]
+      )
+    ).merge("item_type" => "execution_assignment")
+
+    worker = Fenix::Runtime::ControlWorker.new(
+      control_client: control_client,
+      inline: true,
+      session_factory: -> { -> { Fenix::Runtime::RealtimeSession::Result.new(status: "timed_out", processed_count: 0, subscription_confirmed: false) } },
+      mailbox_pump: lambda do |limit:, control_client:, inline:|
+        [assignment].first(limit).map do |item|
+          Fenix::Runtime::MailboxWorker.call(
+            mailbox_item: item,
+            deliver_reports: true,
+            control_client: control_client,
+            inline: inline
+          )
+        end
+      end,
+      stop_condition: ->(iteration:, **) { iteration >= 1 }
+    )
+
+    worker.call
+
+    process_run_id = control_client.process_run_requests.fetch(0).dig("response", "process_run_id")
+    assert_not_nil Fenix::Processes::Manager.lookup(process_run_id: process_run_id)
+  end
+
   test "retains long-lived process handles across loop iterations so a later close request can settle gracefully" do
     control_client = build_runtime_control_client
     Fenix::Runtime::ControlPlane.client = control_client
