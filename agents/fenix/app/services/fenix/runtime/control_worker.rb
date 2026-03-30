@@ -35,16 +35,7 @@ module Fenix
           break if @stop_requested
 
           iteration += 1
-          result = @control_loop.call(
-            limit: @limit,
-            inline: @inline,
-            control_client: @control_client,
-            session_factory: @session_factory,
-            timeout_seconds: @timeout_seconds,
-            mailbox_pump: @mailbox_pump,
-            stop_after_first_mailbox_item: false,
-            mailbox_item_timeout_seconds: nil
-          )
+          result = run_control_loop
           break if @stop_condition&.call(result:, iteration:)
 
           sleep_after_iteration(result)
@@ -87,6 +78,31 @@ module Fenix
         Fenix::Runtime::CommandRunRegistry.reset!
         Fenix::Runtime::AttemptRegistry.reset!
         Fenix::Processes::Manager.reset!
+      end
+
+      def run_control_loop
+        @control_loop.call(
+          limit: @limit,
+          inline: @inline,
+          control_client: @control_client,
+          session_factory: @session_factory,
+          timeout_seconds: @timeout_seconds,
+          mailbox_pump: @mailbox_pump,
+          stop_after_first_mailbox_item: false,
+          mailbox_item_timeout_seconds: nil
+        )
+      rescue StandardError => error
+        Fenix::Runtime::ControlLoop::Result.new(
+          transport: "error",
+          realtime_result: Fenix::Runtime::RealtimeSession::Result.new(
+            status: "failed",
+            processed_count: 0,
+            subscription_confirmed: false,
+            error_message: error.message,
+            mailbox_results: []
+          ),
+          mailbox_results: []
+        )
       end
 
       def monotonic_now

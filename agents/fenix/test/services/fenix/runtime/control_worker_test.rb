@@ -133,6 +133,43 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
     assert_nil received_kwargs.first.fetch(:mailbox_item_timeout_seconds)
   end
 
+  test "survives a transient control loop exception and retries instead of exiting" do
+    iterations = 0
+    sleeps = []
+
+    control_loop = lambda do |**|
+      iterations += 1
+      raise "transient control failure" if iterations == 1
+
+      Fenix::Runtime::ControlLoop::Result.new(
+        transport: "poll",
+        realtime_result: Fenix::Runtime::RealtimeSession::Result.new(
+          status: "timed_out",
+          processed_count: 0,
+          subscription_confirmed: false,
+          mailbox_results: []
+        ),
+        mailbox_results: []
+      )
+    end
+
+    worker = Fenix::Runtime::ControlWorker.new(
+      inline: true,
+      control_loop: control_loop,
+      sleep_handler: ->(duration) { sleeps << duration },
+      idle_sleep_seconds: 0.25,
+      failure_sleep_seconds: 0.5,
+      stop_condition: ->(iteration:, **) { iteration >= 2 }
+    )
+
+    worker.call
+
+    assert_equal 2, iterations
+    assert_operator sleeps.length, :>=, 1
+    assert_in_delta 0.1, sleeps.first, 0.05
+    assert_operator sleeps.sum, :>=, 0.45
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)
