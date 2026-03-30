@@ -158,6 +158,71 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
+  test "persists streamed tool output as summary-only while still delivering live chunks" do
+    runtime_execution = RuntimeExecution.create!(
+      mailbox_item_id: "mailbox-item-4b",
+      protocol_message_id: "protocol-message-4b",
+      logical_work_id: "logical-work-4b",
+      attempt_no: 1,
+      runtime_plane: "agent",
+      status: "queued",
+      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
+      reports: [],
+      trace: []
+    )
+
+    execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
+    original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
+    streamed_progress = {
+      "method_id" => "execution_progress",
+      "progress_payload" => {
+        "stage" => "tool_output",
+        "tool_invocation_output" => {
+          "tool_invocation_id" => "tool-invocation-1",
+          "call_id" => "tool-call-1",
+          "tool_name" => "exec_command",
+          "command_run_id" => "command-run-1",
+          "output_chunks" => [
+            { "stream" => "stdout", "text" => "hello\n" },
+            { "stream" => "stderr", "text" => "warn\n" },
+          ],
+        },
+      },
+    }
+
+    execute_assignment_singleton.send(:define_method, :call) do |mailbox_item:, on_report: nil, attempt:, cancellation_probe: nil|
+      started = { "method_id" => "execution_started" }
+      completed = { "method_id" => "execution_complete", "terminal_payload" => { "output" => "done" } }
+
+      on_report.call(started)
+      on_report.call(streamed_progress)
+      on_report.call(completed)
+
+      Fenix::Runtime::ExecuteAssignment::Result.new(
+        status: "completed",
+        reports: [started, streamed_progress, completed],
+        trace: [],
+        output: "done"
+      )
+    end
+
+    RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: true)
+
+    persisted_output = runtime_execution.reload.reports.second.fetch("progress_payload").fetch("tool_invocation_output")
+    delivered_output = Fenix::Runtime::ControlPlane.client.reported_payloads.second.fetch("progress_payload").fetch("tool_invocation_output")
+
+    refute persisted_output.key?("output_chunks")
+    assert_equal 2, persisted_output.fetch("output_chunk_count")
+    assert_equal 11, persisted_output.fetch("output_byte_count")
+    assert_equal %w[stderr stdout], persisted_output.fetch("output_streams")
+    assert_equal({ "stderr" => 5, "stdout" => 6 }, persisted_output.fetch("stream_byte_count"))
+
+    assert_equal streamed_progress.dig("progress_payload", "tool_invocation_output", "output_chunks"),
+      delivered_output.fetch("output_chunks")
+  ensure
+    execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
+  end
+
   test "does not provision tool side effects after cancellation lands during tool review" do
     runtime_execution = RuntimeExecution.create!(
       mailbox_item_id: "mailbox-item-5",

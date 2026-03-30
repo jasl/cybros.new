@@ -55,7 +55,7 @@ class RuntimeExecutionJob < ApplicationJob
       runtime_execution.reload
       return if runtime_execution.canceled?
 
-      runtime_execution.update!(reports: runtime_execution.reports + [report])
+      runtime_execution.update!(reports: runtime_execution.reports + [sanitize_report_for_persistence(report)])
     end
 
     Fenix::Runtime::ControlPlane.report!(payload: report) if deliver_reports
@@ -68,12 +68,29 @@ class RuntimeExecutionJob < ApplicationJob
 
       runtime_execution.update!(
         status: result.status,
-        reports: result.reports,
+        reports: result.reports.map { |report| sanitize_report_for_persistence(report) },
         trace: result.trace,
         output_payload: result.output,
         error_payload: result.error,
         finished_at: Time.current
       )
     end
+  end
+
+  def sanitize_report_for_persistence(report)
+    report = report.deep_dup
+    tool_output = report.dig("progress_payload", "tool_invocation_output")
+    return report if tool_output.blank? || !tool_output.key?("output_chunks")
+
+    output_chunks = Array(tool_output.delete("output_chunks"))
+    stream_bytes = output_chunks.each_with_object(Hash.new(0)) do |chunk, counts|
+      counts[chunk["stream"].to_s] += chunk["text"].to_s.bytesize
+    end
+
+    tool_output["output_chunk_count"] = output_chunks.size
+    tool_output["output_byte_count"] = stream_bytes.values.sum
+    tool_output["output_streams"] = stream_bytes.keys.sort
+    tool_output["stream_byte_count"] = stream_bytes
+    report
   end
 end
