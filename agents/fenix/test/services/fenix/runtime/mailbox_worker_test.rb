@@ -28,7 +28,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     end
   end
 
-  test "agent task close requests terminate attached command sessions and release the active attempt" do
+  test "agent task close requests terminate command sessions and release the active attempt" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     stdin = nil
     stdout = nil

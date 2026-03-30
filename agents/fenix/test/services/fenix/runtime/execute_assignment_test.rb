@@ -105,7 +105,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     command_run_id = attached_invocation.dig("response_payload", "command_run_id")
 
     assert_equal "completed", started.status
-    assert_equal "Attached command session started.", started.output
+    assert_equal "Command session started.", started.output
     assert command_run_id.present?
 
     write_payload = runtime_assignment_payload(
@@ -134,7 +134,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       .fetch(0)
 
     assert_equal "completed", finished.status
-    assert_equal "Attached command session completed with status 0 after streaming output.", finished.output
+    assert_equal "Command session completed with status 0 after streaming output.", finished.output
     assert_equal command_run_id, output_progress.fetch("command_run_id")
     assert_equal "stdout", output_progress.fetch("output_chunks").fetch(0).fetch("stream")
     assert_equal "hello\n", output_progress.fetch("output_chunks").fetch(0).fetch("text")

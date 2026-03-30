@@ -99,7 +99,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
     assert_match(/calculator/, body.fetch("error").fetch("last_error_summary"))
   end
 
-  test "mailbox worker supports exec_command through the attached command contract" do
+  test "mailbox worker supports exec_command through the command run contract" do
     body = run_runtime_execution(
       runtime_assignment_payload(
         mode: "deterministic_tool",

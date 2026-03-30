@@ -283,7 +283,7 @@ module Fenix
       end
 
       def execute_exec_command(tool_call:, tool_invocation:, command_run:, command_line:, timeout_seconds:, pty:)
-        return start_attached_command_session(command_run_id: command_run.fetch("command_run_id"), timeout_seconds:, command_line:) if pty
+        return start_command_run_session(command_run_id: command_run.fetch("command_run_id"), timeout_seconds:, command_line:) if pty
 
         execute_one_shot_command(
           tool_call: tool_call,
@@ -422,7 +422,7 @@ module Fenix
         Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present?
       end
 
-      def start_attached_command_session(command_run_id:, command_line:, timeout_seconds:)
+      def start_command_run_session(command_run_id:, command_line:, timeout_seconds:)
         stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
         Fenix::Runtime::CommandRunRegistry.register(
           command_run_id: command_run_id,
