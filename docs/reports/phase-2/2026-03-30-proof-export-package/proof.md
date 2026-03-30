@@ -3,17 +3,17 @@
 - Date: 2026-03-30
 - Operator: Codex
 - Environment: bin/dev + AGENT_FENIX_PORT=3101 bin/dev
-- Deployment Identifier: external:019d3f28-faa8-79c2-b3b8-5b6a03821d6a
+- Deployment Identifier: external:019d3f2f-23b1-7951-a046-75f7debfec9e
 - Runtime Mode: external
 - Provider: dev
 - Model: mock-model
-- Workspace: 019d3f28-fae2-764e-880e-f4f29c835094
-- Conversation: 019d3f28-faf4-71de-a721-ed39908bc8fb
-- Turn: 019d3f28-fb5e-7292-8fd8-e3083fb44ed9
-- WorkflowRun: 019d3f28-fb8b-741e-b1d6-58efc6722c2a
+- Workspace: 019d3f2f-23e5-7f68-a123-59a2e3403456
+- Conversation: 019d3f2f-23f4-7f36-be04-f5964048fb01
+- Turn: 019d3f2f-2453-71f6-961c-c54725836834
+- WorkflowRun: 019d3f2f-247f-72e0-bfe5-2550964a7b7a
 - Node Count: 1
 - Edge Count: 0
-- Mermaid Artifact: ./run-019d3f28-fb8b-741e-b1d6-58efc6722c2a.mmd
+- Mermaid Artifact: ./run-019d3f2f-247f-72e0-bfe5-2550964a7b7a.mmd
 
 ## Expected DAG Shape
 - agent_turn_step
