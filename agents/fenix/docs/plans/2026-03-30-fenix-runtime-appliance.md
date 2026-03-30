@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Turn `agents/fenix` into a distributable Ubuntu 24.04 runtime appliance with pluggable environment tools, `.fenix` workspace state, Firecrawl-backed web capabilities, browser automation, and `ProcessRun`-aligned long-lived service support.
+**Goal:** Turn `agents/fenix` from the current post-Phase-2 validated runtime into a distributable Ubuntu 24.04 runtime appliance with pluggable environment tools, `.fenix` workspace state, Firecrawl-backed web capabilities, browser automation, and `ProcessRun`-aligned long-lived service support.
 
 **Architecture:** Keep the shipped product as one default Fenix runtime service while separating agent-plane logic from environment-plane logic inside the implementation. Replace the current hardcoded tool catalog with a registry-backed composition model, keep Core Matrix reserved tools outside the plugin collision domain, and split attached command execution from long-lived process execution.
 
@@ -12,11 +12,27 @@
 
 ## Preconditions
 
-- Do not execute this plan until the current `agents/fenix` refactors have
-  settled.
+- This plan has been revalidated against the current post-Phase-2 baseline.
+  Execute it from the current runtime-control/resource-contract shape instead
+  of the older minimal-runtime assumptions.
+- The following are already landed and should be treated as baseline, not
+  greenfield work:
+  - websocket-first mailbox control
+  - `runtime:control_loop_forever`
+  - `ToolInvocation` / `CommandRun` / `ProcessRun` create APIs
+  - `exec_command`, `write_stdin`, and `process_exec`
+  - skill loading and install flows
+- The following still need implementation and remain in scope for this plan:
+  - runtime foundation metadata and packaging
+  - plugin-registry-backed manifest composition
+  - `.fenix` workspace bootstrap and memory overlay
+  - local web/browser/proxy surfaces
 - Re-read the current versions of:
   - `app/services/fenix/runtime/pairing_manifest.rb`
+  - `app/services/fenix/runtime/control_loop.rb`
+  - `app/services/fenix/runtime/control_worker.rb`
   - `app/services/fenix/runtime/execute_assignment.rb`
+  - `app/services/fenix/processes/manager.rb`
   - `app/services/fenix/runtime_surface/report_collector.rb`
   - `test/integration/external_runtime_pairing_test.rb`
   - `test/integration/runtime_flow_test.rb`
@@ -192,7 +208,7 @@ git add app/services/fenix/workspace app/services/fenix/memory/store.rb app/serv
 git commit -m "plan: add fenix workspace bootstrap and prompt overlay"
 ```
 
-### Task 4: Replace `shell_exec` with pluggable attached command tools
+### Task 4: Refactor attached command tools behind pluggable runtimes
 
 **Files:**
 - Create: `app/services/fenix/plugins/system/exec_command/runtime.rb`
@@ -210,17 +226,18 @@ Cover:
 - streamed stdout/stderr progress
 - PTY command handoff via durable `command_run_id`
 - `write_stdin` polling and write behavior
-- temporary compatibility alias from `shell_exec` if retained
 
 **Step 2: Run tests to verify they fail**
 
 Run: `bin/rails test test/services/fenix/runtime/execute_assignment_test.rb test/integration/runtime_flow_test.rb`
-Expected: FAIL because the attached command plugin flow is not yet implemented.
+Expected: FAIL because the attached command path is still wired directly inside
+`ExecuteAssignment` rather than through plugin runtime composition.
 
 **Step 3: Write minimal implementation**
 
-- Move command execution out of ad hoc manifest logic into the `exec_command`
-  plugin runtime.
+- Preserve the existing external tool names and the `CommandRun` contract.
+- Move command execution out of the direct `ExecuteAssignment` branch logic into
+  the `exec_command` plugin runtime.
 - Keep streamed output on the `runtime.tool_invocation.output` path.
 - Support `write_stdin` only for PTY-backed attached sessions.
 - Keep terminal tool payloads summary-only.
@@ -234,7 +251,7 @@ Expected: PASS
 
 ```bash
 git add app/services/fenix/plugins/system/exec_command/runtime.rb app/services/fenix/runtime/execute_assignment.rb app/services/fenix/hooks/project_tool_result.rb app/services/fenix/hooks/review_tool_call.rb test/services/fenix/runtime/execute_assignment_test.rb test/integration/runtime_flow_test.rb
-git commit -m "plan: add pluggable exec command tools"
+git commit -m "plan: pluginize exec command tools"
 ```
 
 ### Task 5: Add workspace and memory tool plugins
@@ -370,7 +387,7 @@ git add app/services/fenix/browser app/services/fenix/plugins/system/browser Doc
 git commit -m "plan: add browser and playwright plugin"
 ```
 
-### Task 8: Add long-lived process tools and fixed-port dev proxy
+### Task 8: Refactor long-lived process tools and add fixed-port dev proxy
 
 **Files:**
 - Create: `app/services/fenix/processes/launcher.rb`
@@ -397,11 +414,13 @@ Cover:
 **Step 2: Run tests to verify they fail**
 
 Run: `bin/rails test test/services/fenix/processes/launcher_test.rb test/services/fenix/processes/proxy_registry_test.rb test/integration/process_tools_flow_test.rb`
-Expected: FAIL because no long-lived process plugin or proxy registry exists.
+Expected: FAIL because the long-lived process path is not yet expressed as a
+plugin/runtime family and no proxy registry exists.
 
 **Step 3: Write minimal implementation**
 
-- Introduce a distinct long-lived process tool family.
+- Preserve the current `process_exec` name and `ProcessRun`-first contract.
+- Introduce a distinct long-lived process plugin/runtime family.
 - Keep attached command tools separate.
 - Wire process-backed routes into a fixed-port Caddy proxy.
 - Ensure the tool payloads carry enough metadata to reconcile with Core Matrix

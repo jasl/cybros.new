@@ -3,8 +3,8 @@
 ## Status
 
 - Date: 2026-03-30
-- Status: approved draft
-- Execution status: do not implement until the current parallel refactors settle and this document is revalidated against the latest `agents/fenix` and `core_matrix` state
+- Status: approved draft, revalidated against the current post-Phase-2 runtime baseline
+- Execution status: ready to execute from the current `agents/fenix` and `core_matrix` state; refresh again only if the mailbox/control or runtime-resource contracts change materially
 
 ## Goal
 
@@ -25,13 +25,18 @@ distributable runtime appliance that:
 - `core_matrix` already models one stable `ExecutionEnvironment` plus one active
   `AgentDeployment` per conversation and already supports
   `agent_plane` / `environment_plane` / `effective_tool_catalog`.
-- `agents/fenix` still exposes a Phase 2 style manifest and currently handles
-  only agent-plane execution.
+- `agents/fenix` still exposes a mostly static pairing manifest and hardcoded
+  tool composition, but it now handles both mailbox-driven agent execution and
+  environment-plane process control over the shared control plane.
 - `subagent_spawn`, `subagent_send`, `subagent_wait`, `subagent_close`, and
   `subagent_list` are Core Matrix reserved tools and should not be redefined as
   normal Fenix plugins.
-- `shell_exec` is evolving toward streamed output, but streamed output alone does
-  not make it a non-pluggable special case.
+- attached commands already use `exec_command` / `write_stdin` and the
+  `CommandRun` contract; detached services already use `process_exec` and the
+  `ProcessRun` contract.
+- `agents/fenix` does not yet expose runtime foundation metadata, `.fenix`
+  workspace bootstrap, plugin-registry-backed manifest composition, local web
+  tooling, browser tooling, or fixed-port proxy support.
 - Long-lived developer services should use the Core Matrix `ProcessRun` and
   `resource_close_*` contracts instead of pretending to be ordinary short-lived
   tool invocations.
@@ -221,9 +226,9 @@ Ruby constant and instead compose it from a registry.
 
 Suggested plugin roots:
 
-- code-owned system plugins: `/rails/plugins/system`
-- code-owned curated plugins: `/rails/plugins/curated`
-- live workspace plugins: `/workspace/.fenix/plugins`
+- code-owned system plugin manifests under `app/services/fenix/plugins/system`
+- code-owned curated plugin manifests under `app/services/fenix/plugins/curated`
+- live workspace plugins under `/workspace/.fenix/plugins`
 
 Suggested manifest shape:
 
@@ -262,8 +267,9 @@ Behavior:
 - terminal result belongs to one `ToolInvocation`
 - timeout/local terminate is handled inside the tool runtime
 
-This should replace the current ad hoc `shell_exec` naming over time, though an
-alias or migration path may be kept temporarily for compatibility.
+The current baseline already exposes these names and resource contracts. The
+appliance work should preserve the external tool names while moving the
+implementation behind plugin-registry-backed composition.
 
 ### Long-lived process tools
 

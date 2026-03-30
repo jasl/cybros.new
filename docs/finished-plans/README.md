@@ -16,10 +16,27 @@ Current Phase 2 finished records:
   [2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-a-substrate-adjustments.md),
   [2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-b-provider-execution-foundation.md),
   [2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md)
+- Root execution archives:
+  [2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md),
+  [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md),
+  [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md),
+  [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md),
+  [2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md),
+  [2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md),
+  [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md),
+  [2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md)
 - Closeout records:
   [2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md),
   [2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md),
-  [2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md)
+  [2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md),
+  [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md),
+  [2026-03-30-short-command-split-from-process-run-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-short-command-split-from-process-run-design.md),
+  [2026-03-30-websocket-first-runtime-mailbox-control-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-websocket-first-runtime-mailbox-control-design.md),
+  [2026-03-30-websocket-first-runtime-mailbox-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-websocket-first-runtime-mailbox-control.md)
+- Superseded records kept for historical context:
+  [2026-03-30-core-matrix-phase-2-milestone-d-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-milestone-d-sequential-execution-plan.md),
+  [2026-03-30-core-matrix-phase-2-milestone-e-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-milestone-e-sequential-execution-plan.md),
+  [2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md)
 
 The archived Milestone C record now also serves as the index for the completed
 runtime-boundary, audit, consolidation, subagent-session, and iterative

@@ -4,7 +4,7 @@
 
 Superseded on `2026-03-30` by:
 
-- [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md)
+- [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md)
 
 ## Why This Was Replaced
 

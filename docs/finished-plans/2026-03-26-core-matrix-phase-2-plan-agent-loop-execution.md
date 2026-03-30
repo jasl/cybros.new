@@ -105,7 +105,7 @@ The active unattended execution batch for the current phase is:
 
 The active follow-up source of truth for the remaining Phase 2 batch is:
 
-- [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md)
+- [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md)
 
 This follow-up supersedes the earlier sequential-execution package. Do not use
 the old workflow-wide or milestone-sequential documents to guide current Phase 2
@@ -124,19 +124,19 @@ Completed milestone archives:
 
 ### Milestone D: Kernel Runtime Breadth
 
-- `Task D1`: [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
-- `Task D2`: [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
+- `Task D1`: [2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-conversation-feature-policy-and-stale-work-safety.md)
+- `Task D2`: [2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-wait-state-human-interaction-and-subagents.md)
 
 ### Milestone E: Capability And Connector Breadth
 
-- `Task E1`: [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
-- `Task E2`: [2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md)
+- `Task E1`: [2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-unified-capability-governance.md)
+- `Task E2`: [2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-streamable-http-mcp-under-governance.md)
 
 ### Milestone F: Validation Breadth And Acceptance
 
-- `Task F1`: [2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md)
-- `Task F2`: [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
-- `Task F3`: [2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md)
+- `Task F1`: [2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-fenix-skills-compatibility-and-operational-flows.md)
+- `Task F2`: [2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-workflow-proof-export-and-validation-artifacts.md)
+- `Task F3`: [2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-run-verification-and-manual-acceptance.md)
 
 ## Success Criteria
 
