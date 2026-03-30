@@ -31,6 +31,11 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "web_search"
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "firecrawl_search"
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "firecrawl_scrape"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_open"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_navigate"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_get_content"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_screenshot"
+    assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_close"
     assert_equal body.fetch("tool_catalog"), body.fetch("agent_plane").fetch("tool_catalog")
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "compact_context"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"
@@ -40,6 +45,8 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "web_search"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "write_stdin"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "process_exec"
+    assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_open"
+    assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_get_content"
     assert body.fetch("effective_tool_catalog").any? { |entry| entry.fetch("tool_name") == "compact_context" }
     assert_equal "main", body.dig("default_config_snapshot", "interactive", "profile")
     assert_equal true, body.dig("default_config_snapshot", "subagents", "enabled")

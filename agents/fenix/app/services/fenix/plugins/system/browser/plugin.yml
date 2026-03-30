@@ -1,0 +1,112 @@
+plugin_id: system.browser
+version: 1
+display_name: Browser
+default_runtime_plane: environment
+tool_catalog:
+  - tool_name: browser_open
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_open
+    input_schema:
+      type: object
+      properties:
+        url:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        current_url:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: browser_navigate
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_navigate
+    input_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        url:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        current_url:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: browser_get_content
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_get_content
+    input_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        current_url:
+          type: string
+        content:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: browser_screenshot
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_screenshot
+    input_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        full_page:
+          type: boolean
+    result_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        current_url:
+          type: string
+        mime_type:
+          type: string
+        image_base64:
+          type: string
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: browser_close
+    tool_kind: kernel_primitive
+    implementation_source: agent
+    implementation_ref: fenix/runtime/browser_close
+    input_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        browser_session_id:
+          type: string
+        closed:
+          type: boolean
+    streaming_support: false
+    idempotency_policy: best_effort
+config_schema: {}
+requirements:
+  playwright_core: required
+  chromium: required
+env_contract:
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:
+    required: false

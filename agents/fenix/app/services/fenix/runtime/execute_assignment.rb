@@ -291,6 +291,28 @@ module Fenix
               "url" => @context.dig("task_payload", "url") || "https://example.com",
               "formats" => Array(@context.dig("task_payload", "formats")).presence || ["markdown"],
             }
+          when "browser_open"
+            {
+              "url" => @context.dig("task_payload", "url") || "https://example.com",
+            }
+          when "browser_navigate"
+            {
+              "browser_session_id" => @context.dig("task_payload", "browser_session_id"),
+              "url" => @context.dig("task_payload", "url") || "https://example.com",
+            }
+          when "browser_get_content"
+            {
+              "browser_session_id" => @context.dig("task_payload", "browser_session_id"),
+            }
+          when "browser_screenshot"
+            {
+              "browser_session_id" => @context.dig("task_payload", "browser_session_id"),
+              "full_page" => @context.dig("task_payload", "full_page") != false,
+            }
+          when "browser_close"
+            {
+              "browser_session_id" => @context.dig("task_payload", "browser_session_id"),
+            }
           else
             {}
           end
@@ -336,6 +358,8 @@ module Fenix
           execute_memory_tool(tool_call)
         when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
           execute_web_tool(tool_call)
+        when "browser_open", "browser_navigate", "browser_get_content", "browser_screenshot", "browser_close"
+          execute_browser_tool(tool_call)
         else
           raise ArgumentError, "unsupported deterministic tool #{tool_call.fetch("tool_name")}"
         end
@@ -413,6 +437,10 @@ module Fenix
 
       def execute_web_tool(tool_call)
         Fenix::Plugins::System::Web::Runtime.call(tool_call: tool_call.deep_dup)
+      end
+
+      def execute_browser_tool(tool_call)
+        Fenix::Plugins::System::Browser::Runtime.call(tool_call: tool_call.deep_dup)
       end
 
       def canceled?
@@ -573,7 +601,15 @@ module Fenix
       end
 
       def registry_backed_tool?(tool_name)
-        process_tool?(tool_name) || %w[exec_command write_stdin].include?(tool_name)
+        process_tool?(tool_name) || %w[
+          exec_command
+          write_stdin
+          browser_open
+          browser_navigate
+          browser_get_content
+          browser_screenshot
+          browser_close
+        ].include?(tool_name)
       end
 
       def provision_process_run!(tool_call)
@@ -608,7 +644,8 @@ module Fenix
           }
         when Fenix::Plugins::System::Workspace::Runtime::ValidationError,
           Fenix::Plugins::System::Memory::Runtime::ValidationError,
-          Fenix::Plugins::System::Web::Runtime::ValidationError
+          Fenix::Plugins::System::Web::Runtime::ValidationError,
+          Fenix::Plugins::System::Browser::Runtime::ValidationError
           {
             "classification" => "semantic",
             "code" => "validation_error",

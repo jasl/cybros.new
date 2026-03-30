@@ -142,6 +142,25 @@ Firecrawl-backed tools use:
   - optional override
   - defaults to `https://api.firecrawl.dev`
 
+## Browser Tool Surface
+
+`Fenix` now exposes a dedicated browser session surface:
+
+- `browser_open`
+- `browser_navigate`
+- `browser_get_content`
+- `browser_screenshot`
+- `browser_close`
+
+Browser sessions remain runtime-local handles rather than kernel-owned
+resources. The first cut uses Playwright-managed Chromium through
+[session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/browser/session_host.mjs).
+
+The Docker build installs the Playwright browser bundle during image creation.
+Operators can still override the browser executable path with:
+
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
+
 ## Retained Hook Lifecycle
 
 Phase 2 keeps a stage-shaped runtime surface instead of collapsing behavior

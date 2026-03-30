@@ -5,6 +5,11 @@ module Fenix
       ToolNotVisibleError = Class.new(UnsupportedToolError)
 
       SUPPORTED_TOOLS = {
+        "browser_close" => true,
+        "browser_get_content" => true,
+        "browser_navigate" => true,
+        "browser_open" => true,
+        "browser_screenshot" => true,
         "calculator" => true,
         "exec_command" => true,
         "firecrawl_scrape" => true,

@@ -9,6 +9,7 @@ class Fenix::Plugins::RegistryTest < ActiveSupport::TestCase
     assert_includes registry.manifests.map(&:plugin_id), "system.workspace"
     assert_includes registry.manifests.map(&:plugin_id), "system.memory"
     assert_includes registry.manifests.map(&:plugin_id), "system.web"
+    assert_includes registry.manifests.map(&:plugin_id), "system.browser"
     assert_includes catalog.environment_tool_names, "exec_command"
     assert_includes catalog.environment_tool_names, "write_stdin"
     assert_includes catalog.environment_tool_names, "workspace_read"
@@ -20,5 +21,10 @@ class Fenix::Plugins::RegistryTest < ActiveSupport::TestCase
     assert_includes catalog.environment_tool_names, "web_search"
     assert_includes catalog.environment_tool_names, "firecrawl_search"
     assert_includes catalog.environment_tool_names, "firecrawl_scrape"
+    assert_includes catalog.environment_tool_names, "browser_open"
+    assert_includes catalog.environment_tool_names, "browser_navigate"
+    assert_includes catalog.environment_tool_names, "browser_get_content"
+    assert_includes catalog.environment_tool_names, "browser_screenshot"
+    assert_includes catalog.environment_tool_names, "browser_close"
   end
 end

@@ -10,6 +10,16 @@ module Fenix
             "tool_name" => tool_name,
             "content" => "The calculator returned #{tool_result}.",
           }
+        when "browser_close"
+          project_browser_close(tool_name:, tool_result:)
+        when "browser_get_content"
+          project_browser_get_content(tool_name:, tool_result:)
+        when "browser_navigate"
+          project_browser_navigate(tool_name:, tool_result:)
+        when "browser_open"
+          project_browser_open(tool_name:, tool_result:)
+        when "browser_screenshot"
+          project_browser_screenshot(tool_name:, tool_result:)
         when "exec_command"
           project_exec_command(tool_name:, tool_result:)
         when "firecrawl_scrape"
@@ -98,6 +108,53 @@ module Fenix
           "content" => "Background service started as process run #{tool_result.fetch("process_run_id")}.",
           "process_run_id" => tool_result.fetch("process_run_id"),
           "lifecycle_state" => tool_result.fetch("lifecycle_state"),
+        }
+      end
+
+      def self.project_browser_open(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Browser session #{tool_result.fetch("browser_session_id")} opened at #{tool_result.fetch("current_url")}.",
+          "browser_session_id" => tool_result.fetch("browser_session_id"),
+          "current_url" => tool_result.fetch("current_url"),
+        }
+      end
+
+      def self.project_browser_navigate(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Browser session navigated to #{tool_result.fetch("current_url")}.",
+          "browser_session_id" => tool_result.fetch("browser_session_id"),
+          "current_url" => tool_result.fetch("current_url"),
+        }
+      end
+
+      def self.project_browser_get_content(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => tool_result.fetch("content"),
+          "browser_session_id" => tool_result.fetch("browser_session_id"),
+          "current_url" => tool_result.fetch("current_url"),
+        }
+      end
+
+      def self.project_browser_screenshot(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Captured screenshot for browser session #{tool_result.fetch("browser_session_id")}.",
+          "browser_session_id" => tool_result.fetch("browser_session_id"),
+          "current_url" => tool_result.fetch("current_url"),
+          "mime_type" => tool_result.fetch("mime_type"),
+          "image_base64" => tool_result.fetch("image_base64"),
+        }
+      end
+
+      def self.project_browser_close(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Browser session #{tool_result.fetch("browser_session_id")} closed.",
+          "browser_session_id" => tool_result.fetch("browser_session_id"),
+          "closed" => tool_result.fetch("closed"),
         }
       end
 
