@@ -185,6 +185,62 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert Fenix::Processes::Manager.lookup(process_run_id: process_run_id).present?
   end
 
+  test "exec_command fails fast when the active job adapter is not local to the runtime worker" do
+    original_queue_adapter_name = ActiveJob::Base.method(:queue_adapter_name)
+    ActiveJob::Base.singleton_class.define_method(:queue_adapter_name) { "solid_queue" }
+
+    control_client = build_runtime_control_client
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "exec_command",
+          "command_line" => "printf 'hello\\n'",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      ),
+      control_client: control_client
+    )
+
+    assert_equal "failed", result.status
+    assert_equal "unsupported_execution_topology", result.error.fetch("failure_kind")
+    assert_match(/solid_queue/, result.error.fetch("last_error_summary"))
+    assert_equal [], control_client.tool_invocation_requests
+    assert_equal [], control_client.command_run_requests
+  ensure
+    ActiveJob::Base.singleton_class.define_method(:queue_adapter_name, original_queue_adapter_name)
+  end
+
+  test "process_exec fails fast when the active job adapter is not local to the runtime worker" do
+    original_queue_adapter_name = ActiveJob::Base.method(:queue_adapter_name)
+    ActiveJob::Base.singleton_class.define_method(:queue_adapter_name) { "solid_queue" }
+
+    control_client = build_runtime_control_client
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "process_exec",
+          "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["process_exec"]
+        )
+      ),
+      control_client: control_client
+    )
+
+    assert_equal "failed", result.status
+    assert_equal "unsupported_execution_topology", result.error.fetch("failure_kind")
+    assert_match(/solid_queue/, result.error.fetch("last_error_summary"))
+    assert_equal [], control_client.process_run_requests
+    assert_equal [], control_client.reported_payloads
+  ensure
+    ActiveJob::Base.singleton_class.define_method(:queue_adapter_name, original_queue_adapter_name)
+  end
+
   test "core matrix model context triggers proactive context compaction before execution" do
     long_messages = 12.times.map do |index|
       { "role" => index.even? ? "user" : "assistant", "content" => "token token token token #{index}" }

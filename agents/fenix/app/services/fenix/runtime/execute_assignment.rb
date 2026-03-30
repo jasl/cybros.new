@@ -78,6 +78,8 @@ module Fenix
             "last_error_summary" => "execution canceled by agent task close request",
           }
         )
+      rescue Fenix::Runtime::ExecutionTopology::UnsupportedActiveJobAdapterError => error
+        fail_unsupported_execution_topology(error)
       rescue StandardError => error
         handled_error = Fenix::Hooks::HandleError.call(
           error: error,
@@ -102,6 +104,7 @@ module Fenix
       def execute_deterministic_tool_flow
         check_canceled!
         tool_call = build_deterministic_tool_call
+        assert_execution_topology_supported!(tool_name: tool_call.fetch("tool_name"))
         return execute_process_tool_flow(tool_call) if process_tool?(tool_call.fetch("tool_name"))
 
         @current_tool_invocation = {
@@ -602,6 +605,24 @@ module Fenix
         )
       end
 
+      def fail_unsupported_execution_topology(error)
+        failure_payload = {
+          "failure_kind" => "unsupported_execution_topology",
+          "last_error_summary" => error.message,
+          "retryable" => false,
+          "active_job_adapter" => Fenix::Runtime::ExecutionTopology.queue_adapter_name,
+        }
+        @trace << { "hook" => "execution_topology", "error" => error.message }
+        @collector.fail!(terminal_payload: failure_payload)
+
+        Result.new(
+          status: "failed",
+          reports: @collector.reports,
+          trace: @trace,
+          error: failure_payload
+        )
+      end
+
       def failed_tool_invocation_payload(error)
         return if @current_tool_invocation.blank?
 
@@ -692,6 +713,16 @@ module Fenix
 
       def process_tool?(tool_name)
         tool_name == "process_exec"
+      end
+
+      def assert_execution_topology_supported!(tool_name:)
+        return unless registry_backed_tool?(tool_name)
+
+        Fenix::Runtime::ExecutionTopology.assert_registry_backed_execution_supported!(tool_name:)
+      end
+
+      def registry_backed_tool?(tool_name)
+        process_tool?(tool_name) || %w[exec_command write_stdin].include?(tool_name)
       end
 
       def provision_process_run!(tool_call)
