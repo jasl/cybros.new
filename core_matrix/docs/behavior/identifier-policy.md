@@ -28,13 +28,24 @@ agent-facing boundaries:
 - `AgentInstallation`
 - `ExecutionEnvironment`
 - `AgentDeployment`
+- `AgentControlMailboxItem`
 - `Conversation`
 - `Turn`
 - `Message`
 - `MessageAttachment`
 - `WorkflowRun`
 - `WorkflowNode`
+- `AgentTaskRun`
+- `SubagentSession`
+- `ToolBinding`
+- `ToolDefinition`
+- `ToolImplementation`
+- `ToolInvocation`
+- `CommandRun`
+- `ProcessRun`
 - `HumanInteractionRequest`
+- `ConversationCloseOperation`
+- `ImplementationSource`
 - `Publication`
 
 ## Boundary Rules

@@ -8,6 +8,7 @@ module Fenix
         session_factory: nil,
         timeout_seconds: 5,
         mailbox_pump: Fenix::Runtime::MailboxPump,
+        control_loop: Fenix::Runtime::ControlLoop,
         stop_condition: nil,
         idle_sleep_seconds: 0.25,
         failure_sleep_seconds: 1.0,
@@ -19,6 +20,7 @@ module Fenix
         @session_factory = session_factory
         @timeout_seconds = timeout_seconds
         @mailbox_pump = mailbox_pump
+        @control_loop = control_loop
         @stop_condition = stop_condition
         @idle_sleep_seconds = idle_sleep_seconds
         @failure_sleep_seconds = failure_sleep_seconds
@@ -33,13 +35,15 @@ module Fenix
           break if @stop_requested
 
           iteration += 1
-          result = Fenix::Runtime::ControlLoop.call(
+          result = @control_loop.call(
             limit: @limit,
             inline: @inline,
             control_client: @control_client,
             session_factory: @session_factory,
             timeout_seconds: @timeout_seconds,
-            mailbox_pump: @mailbox_pump
+            mailbox_pump: @mailbox_pump,
+            stop_after_first_mailbox_item: false,
+            mailbox_item_timeout_seconds: nil
           )
           break if @stop_condition&.call(result:, iteration:)
 

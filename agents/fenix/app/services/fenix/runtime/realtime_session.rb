@@ -23,13 +23,22 @@ module Fenix
         new(...).call
       end
 
-      def initialize(base_url:, machine_credential:, on_mailbox_item:, timeout_seconds: 5, websocket_factory: nil, stop_after_first_mailbox_item: false)
+      def initialize(
+        base_url:,
+        machine_credential:,
+        on_mailbox_item:,
+        timeout_seconds: 5,
+        websocket_factory: nil,
+        stop_after_first_mailbox_item: false,
+        mailbox_item_timeout_seconds: nil
+      )
         @base_url = base_url
         @machine_credential = machine_credential
         @on_mailbox_item = on_mailbox_item
         @timeout_seconds = timeout_seconds
         @websocket_factory = websocket_factory || method(:default_websocket_factory)
         @stop_after_first_mailbox_item = stop_after_first_mailbox_item
+        @mailbox_item_timeout_seconds = mailbox_item_timeout_seconds
         @events = Queue.new
         @processed_count = 0
         @subscription_confirmed = false
@@ -39,11 +48,14 @@ module Fenix
       end
 
       def call
+        @started_at = monotonic_now
         @socket = @websocket_factory.call(cable_url, websocket_headers) do |socket|
           install_handlers(socket)
         end
 
         loop do
+          raise Timeout::Error if mailbox_item_timeout_reached?
+
           handle_event(next_event)
           break if finished?
         end
@@ -169,6 +181,13 @@ module Fenix
 
       def finished?
         @closed == true
+      end
+
+      def mailbox_item_timeout_reached?
+        return false if @mailbox_item_timeout_seconds.blank?
+        return false if @processed_count.positive?
+
+        monotonic_now >= @started_at + @mailbox_item_timeout_seconds
       end
 
       def build_result(status:, error_message: nil)

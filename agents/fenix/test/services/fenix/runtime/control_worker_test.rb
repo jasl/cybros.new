@@ -104,6 +104,35 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
     assert_operator sleeps.sum, :>=, 0.45
   end
 
+  test "keeps the realtime session open across items instead of forcing one-shot delivery" do
+    received_kwargs = []
+
+    control_loop = lambda do |**kwargs|
+      received_kwargs << kwargs
+      Fenix::Runtime::ControlLoop::Result.new(
+        transport: "realtime",
+        realtime_result: Fenix::Runtime::RealtimeSession::Result.new(
+          status: "disconnected",
+          processed_count: 0,
+          subscription_confirmed: true,
+          mailbox_results: []
+        ),
+        mailbox_results: []
+      )
+    end
+
+    worker = Fenix::Runtime::ControlWorker.new(
+      inline: true,
+      control_loop: control_loop,
+      stop_condition: ->(iteration:, **) { iteration >= 1 }
+    )
+
+    worker.call
+
+    assert_equal false, received_kwargs.first.fetch(:stop_after_first_mailbox_item)
+    assert_nil received_kwargs.first.fetch(:mailbox_item_timeout_seconds)
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)

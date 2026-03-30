@@ -136,6 +136,56 @@ class Fenix::Runtime::RealtimeSessionTest < ActiveSupport::TestCase
     assert_equal true, result.reconnect
   end
 
+  test "mailbox-item timeout still fires when the socket only receives pings" do
+    socket = FakeSocket.new(sent_frames: [], closed: false)
+    result_queue = Queue.new
+    stop_pinging = false
+
+    session = Fenix::Runtime::RealtimeSession.new(
+      base_url: "http://127.0.0.1:3000",
+      machine_credential: "machine-credential",
+      timeout_seconds: 1,
+      mailbox_item_timeout_seconds: 0.05,
+      on_mailbox_item: ->(_mailbox_item) { flunk "did not expect mailbox item" },
+      websocket_factory: lambda do |_url, _headers, &block|
+        block.call(socket)
+        socket
+      end
+    )
+
+    thread = Thread.new do
+      result_queue << session.call
+    end
+
+    wait_for_handler!(socket, :open)
+    socket.emit(:open)
+    socket.emit(:message, { "type" => "welcome" })
+    socket.emit(
+      :message,
+      {
+        "identifier" => Fenix::Runtime::RealtimeSession::SUBSCRIPTION_IDENTIFIER,
+        "type" => "confirm_subscription",
+      }
+    )
+
+    ping_thread = Thread.new do
+      until stop_pinging
+        socket.emit(:message, { "type" => "ping", "message" => Time.now.to_f })
+        sleep(0.005)
+      end
+    end
+
+    result = result_queue.pop
+    stop_pinging = true
+    ping_thread.join
+    thread.join
+
+    assert_equal "timed_out", result.status
+    assert_equal 0, result.processed_count
+    assert_equal true, result.subscription_confirmed
+    assert socket.closed
+  end
+
   private
 
   def wait_for_handler!(socket, event)
