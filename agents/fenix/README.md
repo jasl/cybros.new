@@ -43,6 +43,7 @@ should land in separate agent programs rather than forcing them into Fenix.
 
 - `GET /runtime/manifest`
 - `POST /runtime/executions`
+- `GET /runtime/executions/:id`
 
 `GET /runtime/manifest` publishes the registration metadata needed for external
 pairing:
@@ -75,8 +76,13 @@ The current pairing contract models `Fenix` as one process serving both:
 That dual role is explicit in the manifest even though Phase 2 still ships it
 as one bundled runtime.
 
-`POST /runtime/executions` accepts one mailbox-shaped execution assignment and
-returns a deterministic report transcript for local validation:
+`POST /runtime/executions` accepts one mailbox-shaped execution assignment,
+creates or reuses one durable runtime execution record, and returns `202
+Accepted` with the execution resource identity.
+
+`GET /runtime/executions/:id` exposes the async execution resource once the job
+has progressed or terminated, including the retained report transcript for
+local validation:
 
 - `execution_started`
 - `execution_progress`

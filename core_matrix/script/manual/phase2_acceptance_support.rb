@@ -122,6 +122,21 @@ module Phase2AcceptanceSupport
     http_get_json("#{base_url}/runtime/manifest")
   end
 
+  def wait_for_runtime_execution!(base_url:, execution_id:, timeout_seconds: 10, poll_interval_seconds: 0.1)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    loop do
+      execution = http_get_json("#{base_url}/runtime/executions/#{execution_id}")
+      return execution if %w[completed failed].include?(execution.fetch("status"))
+
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "timed out waiting for runtime execution #{execution_id} to finish"
+      end
+
+      sleep(poll_interval_seconds)
+    end
+  end
+
   def create_external_agent_installation!(installation:, actor:, key:, display_name:)
     agent_installation = AgentInstallation.create!(
       installation: installation,
@@ -355,7 +370,11 @@ module Phase2AcceptanceSupport
     end
     raise "expected leased mailbox item for task run" if mailbox_item.blank?
 
-    execution = http_post_json("#{runtime_base_url}/runtime/executions", mailbox_item)
+    queued_execution = http_post_json("#{runtime_base_url}/runtime/executions", mailbox_item)
+    execution = wait_for_runtime_execution!(
+      base_url: runtime_base_url,
+      execution_id: queued_execution.fetch("execution_id")
+    )
     report_results = execution.fetch("reports").map do |report|
       http_post_json(
         "#{CONTROL_BASE_URL}/agent_api/control/report",
