@@ -40,7 +40,9 @@ Rails.application.routes.draw do
     end
     resources :human_interactions, only: :create
     resources :tool_invocations, only: :create
-    resources :command_runs, only: :create
+    resources :command_runs, only: :create do
+      post :activate, on: :member
+    end
     resources :process_runs, only: :create
     post "control/poll", to: "control#poll"
     post "control/report", to: "control#report"

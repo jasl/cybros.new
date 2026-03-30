@@ -39,6 +39,10 @@ module Fenix
         }.compact)
       end
 
+      def activate_command_run!(command_run_id:)
+        post_json("/agent_api/command_runs/#{command_run_id}/activate", {})
+      end
+
       def create_process_run!(agent_task_run_id:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {}, policy_sensitive: nil)
         post_json("/agent_api/process_runs", {
           agent_task_run_id: agent_task_run_id,
@@ -60,7 +64,7 @@ module Fenix
         request["Authorization"] = %(Token token="#{@machine_credential}")
         request.body = JSON.generate(payload)
 
-        response = Net::HTTP.start(uri.host, uri.port) do |http|
+        response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
           http.request(request)
         end
 

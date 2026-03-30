@@ -153,7 +153,7 @@ module AgentControl
     def terminalize_agent_task_command_runs!(lifecycle_state)
       return unless @resource.is_a?(AgentTaskRun)
 
-      @resource.command_runs.running.find_each do |command_run|
+      @resource.command_runs.where(lifecycle_state: %w[starting running]).find_each do |command_run|
         CommandRuns::Terminalize.call(
           command_run: command_run,
           lifecycle_state: lifecycle_state,

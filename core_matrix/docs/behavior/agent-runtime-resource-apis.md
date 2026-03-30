@@ -321,6 +321,11 @@ orchestration are still defined in:
   effects begin
 - command tools that need an attached process handle additionally request one
   `CommandRun` through `POST /agent_api/command_runs`
+- `CommandRun` creation is an allocation step, not proof that the local
+  command already exists:
+  - create returns `lifecycle_state = "starting"`
+  - runtime must follow with `POST /agent_api/command_runs/:id/activate`
+    after the local subprocess or PTY session is actually live
 - detached long-lived environment processes request one `ProcessRun` through
   `POST /agent_api/process_runs` before local spawn
 - capability refresh exposes the winning governed tool definition and

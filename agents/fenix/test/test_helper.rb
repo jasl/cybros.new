@@ -14,6 +14,7 @@ module ActiveSupport
       :reported_payloads,
       :tool_invocation_requests,
       :command_run_requests,
+      :command_run_activations,
       :process_run_requests,
       :tool_invocations_by_key,
       :tool_invocations_by_id,
@@ -72,7 +73,7 @@ module ActiveSupport
           "command_run_id" => "command-run-#{SecureRandom.uuid}",
           "tool_invocation_id" => tool_invocation_id,
           "agent_task_run_id" => tool_invocation.fetch("agent_task_run_id"),
-          "lifecycle_state" => "running",
+          "lifecycle_state" => "starting",
           "command_line" => command_line,
           "timeout_seconds" => timeout_seconds,
           "pty" => pty,
@@ -88,6 +89,21 @@ module ActiveSupport
         }
         command_runs_by_invocation[tool_invocation_id] = response
         response
+      end
+
+      def activate_command_run!(command_run_id:)
+        command_run = command_runs_by_invocation.values.find do |entry|
+          entry.fetch("command_run_id") == command_run_id
+        end
+        raise KeyError, "unknown command run #{command_run_id}" if command_run.blank?
+
+        activated = command_run.fetch("lifecycle_state") == "starting"
+        command_run["lifecycle_state"] = "running"
+        command_run_activations << {
+          "command_run_id" => command_run_id,
+          "result" => activated ? "activated" : "noop",
+        }
+        command_run.merge("method_id" => "command_run_activate", "result" => activated ? "activated" : "noop")
       end
 
       def create_process_run!(agent_task_run_id:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {}, policy_sensitive: nil)
@@ -237,6 +253,7 @@ module ActiveSupport
         reported_payloads: [],
         tool_invocation_requests: [],
         command_run_requests: [],
+        command_run_activations: [],
         process_run_requests: [],
         tool_invocations_by_key: {},
         tool_invocations_by_id: {},

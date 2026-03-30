@@ -3,6 +3,7 @@ class CommandRun < ApplicationRecord
 
   enum :lifecycle_state,
     {
+      starting: "starting",
       running: "running",
       completed: "completed",
       failed: "failed",
@@ -64,7 +65,7 @@ class CommandRun < ApplicationRecord
   def lifecycle_timestamps
     errors.add(:started_at, "must exist") if started_at.blank?
 
-    if running?
+    if starting? || running?
       errors.add(:ended_at, "must be blank while command run is running") if ended_at.present?
       return
     end

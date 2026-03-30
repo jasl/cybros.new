@@ -16,5 +16,16 @@ module AgentAPI
         result: result.created ? "created" : "duplicate",
       }.merge(serialize_command_run(result.command_run)), status: result.created ? :created : :ok
     end
+
+    def activate
+      command_run = find_command_run!(params.fetch(:id))
+      authorize_command_run!(command_run)
+      result = CommandRuns::Activate.call(command_run: command_run)
+
+      render json: {
+        method_id: "command_run_activate",
+        result: result.activated ? "activated" : "noop",
+      }.merge(serialize_command_run(result.command_run)), status: result.activated ? :created : :ok
+    end
   end
 end

@@ -13,7 +13,7 @@ module CommandRuns
     end
 
     def call
-      return @command_run unless @command_run.running?
+      return @command_run unless @command_run.starting? || @command_run.running?
 
       attributes = {
         lifecycle_state: @lifecycle_state,

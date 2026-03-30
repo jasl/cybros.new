@@ -82,6 +82,13 @@ module AgentAPI
       )
     end
 
+    def find_command_run!(command_run_id)
+      CommandRun.find_by!(
+        public_id: command_run_id,
+        installation_id: current_deployment.installation_id
+      )
+    end
+
     def authorize_agent_task_run!(agent_task_run)
       raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.agent_installation_id != current_deployment.agent_installation_id
       raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.conversation.execution_environment_id != current_execution_environment.id
@@ -92,6 +99,10 @@ module AgentAPI
 
     def authorize_tool_invocation!(tool_invocation)
       authorize_agent_task_run!(tool_invocation.agent_task_run)
+    end
+
+    def authorize_command_run!(command_run)
+      authorize_tool_invocation!(command_run.tool_invocation)
     end
 
     def serialize_message(message)

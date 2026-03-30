@@ -418,12 +418,14 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       }
     )
 
-    CommandRuns::Provision.call(
+    command_run = CommandRuns::Provision.call(
       tool_invocation: invocation,
       command_line: "sleep 30",
       timeout_seconds: 30,
       pty: false,
       metadata: {}
     ).command_run
+    CommandRuns::Activate.call(command_run: command_run)
+    command_run
   end
 end

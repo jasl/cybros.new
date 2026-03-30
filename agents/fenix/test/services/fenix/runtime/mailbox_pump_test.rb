@@ -17,6 +17,7 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
         reported_payloads: [],
         tool_invocation_requests: [],
         command_run_requests: [],
+        command_run_activations: [],
         process_run_requests: [],
         tool_invocations_by_key: {},
         tool_invocations_by_id: {},
@@ -38,6 +39,7 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
         reported_payloads: [],
         tool_invocation_requests: [],
         command_run_requests: [],
+        command_run_activations: [],
         process_run_requests: [],
         tool_invocations_by_key: {},
         tool_invocations_by_id: {},
@@ -50,6 +52,10 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
         pty: pty,
         metadata: metadata
       )
+    end
+
+    def activate_command_run!(command_run_id:)
+      @delegate.activate_command_run!(command_run_id: command_run_id)
     end
   end
 

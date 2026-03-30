@@ -5,7 +5,7 @@ class AddCommandRuns < ActiveRecord::Migration[8.2]
       t.references :agent_task_run, null: false, foreign_key: true
       t.references :tool_invocation, null: false, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
-      t.string :lifecycle_state, null: false, default: "running"
+      t.string :lifecycle_state, null: false, default: "starting"
       t.string :command_line, null: false
       t.integer :timeout_seconds
       t.boolean :pty, null: false, default: false

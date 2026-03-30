@@ -385,7 +385,7 @@ module AgentControl
         end
       return if terminal_command_state.blank?
 
-      agent_task_run.command_runs.running.find_each do |command_run|
+      agent_task_run.command_runs.where(lifecycle_state: %w[starting running]).find_each do |command_run|
         CommandRuns::Terminalize.call(
           command_run: command_run,
           lifecycle_state: terminal_command_state,

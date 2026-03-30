@@ -27,12 +27,63 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "created", response_body.fetch("result")
     assert_equal invocation.public_id, response_body.fetch("tool_invocation_id")
     assert_equal context[:agent_task_run].public_id, response_body.fetch("agent_task_run_id")
-    assert_equal "running", response_body.fetch("lifecycle_state")
+    assert_equal "starting", response_body.fetch("lifecycle_state")
     assert_equal true, response_body.fetch("pty")
     assert_equal "workspace-write", command_run.metadata.fetch("sandbox")
     assert_equal invocation, command_run.tool_invocation
     assert_equal context[:agent_task_run], command_run.agent_task_run
+    assert command_run.starting?
     refute_includes response.body, %("#{command_run.id}")
+  end
+
+  test "activates a starting command run through the machine facing api" do
+    context = build_runtime_command_context!
+    invocation = create_exec_command_invocation!(context)
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "printf 'hello\\n'",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {}
+    ).command_run
+
+    post "/agent_api/command_runs/#{command_run.public_id}/activate",
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :created
+
+    response_body = JSON.parse(response.body)
+
+    assert_equal "command_run_activate", response_body.fetch("method_id")
+    assert_equal "activated", response_body.fetch("result")
+    assert_equal command_run.public_id, response_body.fetch("command_run_id")
+    assert_equal "running", response_body.fetch("lifecycle_state")
+    assert command_run.reload.running?
+  end
+
+  test "activation is idempotent once a command run is already running" do
+    context = build_runtime_command_context!
+    invocation = create_exec_command_invocation!(context)
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "printf 'hello\\n'",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {}
+    ).command_run
+    CommandRuns::Activate.call(command_run: command_run)
+
+    post "/agent_api/command_runs/#{command_run.public_id}/activate",
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :ok
+
+    response_body = JSON.parse(response.body)
+    assert_equal "command_run_activate", response_body.fetch("method_id")
+    assert_equal "noop", response_body.fetch("result")
+    assert_equal "running", response_body.fetch("lifecycle_state")
   end
 
   test "reuses the same command run when the create request is retried" do
@@ -75,6 +126,24 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
         tool_invocation_id: invocation.id,
         command_line: "printf 'hello\\n'",
       },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
+
+  test "rejects raw bigint command run ids on activation" do
+    context = build_runtime_command_context!
+    invocation = create_exec_command_invocation!(context)
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "printf 'hello\\n'",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {}
+    ).command_run
+
+    post "/agent_api/command_runs/#{command_run.id}/activate",
       headers: agent_api_headers(context[:machine_credential]),
       as: :json
 

@@ -23,7 +23,7 @@ module CommandRuns
           installation: @tool_invocation.installation,
           agent_task_run: @tool_invocation.agent_task_run,
           tool_invocation: @tool_invocation,
-          lifecycle_state: "running",
+          lifecycle_state: "starting",
           command_line: @command_line,
           timeout_seconds: @timeout_seconds,
           pty: @pty,

@@ -360,6 +360,7 @@ module Fenix
             wait_thread: wait_thr
           )
           process_pid = wait_thr.pid
+          activate_command_run!(command_run_id)
           stdin.close
 
           deadline_at = monotonic_now + timeout_seconds.to_i
@@ -431,6 +432,7 @@ module Fenix
           stderr: stderr,
           wait_thread: wait_thread
         )
+        activate_command_run!(command_run_id)
 
         {
           "command_run_id" => command_run_id,
@@ -581,6 +583,12 @@ module Fenix
             "attempt_no" => @context.fetch("attempt_no"),
           }
         )
+      end
+
+      def activate_command_run!(command_run_id)
+        return if command_run_id.blank?
+
+        @control_client.activate_command_run!(command_run_id: command_run_id)
       end
 
       def build_current_tool_invocation(tool_call:, tool_invocation:, command_run:)

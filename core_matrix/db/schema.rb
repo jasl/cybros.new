@@ -282,7 +282,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_175000) do
     t.datetime "ended_at"
     t.integer "exit_status"
     t.bigint "installation_id", null: false
-    t.string "lifecycle_state", default: "running", null: false
+    t.string "lifecycle_state", default: "starting", null: false
     t.jsonb "metadata", default: {}, null: false
     t.boolean "pty", default: false, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false

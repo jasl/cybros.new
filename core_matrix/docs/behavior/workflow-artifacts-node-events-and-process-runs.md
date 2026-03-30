@@ -185,6 +185,9 @@ runtime resources that later tasks now build on are:
   for frontend progress display without mutating transcript or workflow truth
 - short-lived command execution such as `exec_command` now rides this path:
   - durable result and audit land in `ToolInvocation`
+  - kernel allocation creates one `CommandRun` in `starting`
+  - runtime flips that `CommandRun` to `running` only after the local command
+    handle is live
   - stdout/stderr chunks are streamed as
     `runtime.tool_invocation.output`
   - the durable terminal payload keeps summary fields such as exit status and
