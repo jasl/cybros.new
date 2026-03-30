@@ -214,6 +214,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       started_at: Time.current
     )
     command_run = create_running_command_run!(agent_task_run)
+    invocation = command_run.tool_invocation
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
       holder_key: context[:deployment].public_id,
@@ -246,6 +247,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_not_nil agent_task_run.finished_at
     assert_equal "closed", agent_task_run.close_state
     assert command_run.reload.interrupted?
+    assert invocation.reload.canceled?
     assert_equal "canceled", context[:workflow_node].reload.lifecycle_state
     assert_not_nil context[:workflow_node].finished_at
     assert_not lease.reload.active?
@@ -259,6 +261,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       started_at: Time.current
     )
     command_run = create_running_command_run!(agent_task_run)
+    invocation = command_run.tool_invocation
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
       holder_key: context[:deployment].public_id,
@@ -292,6 +295,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "failed", agent_task_run.close_state
     assert_equal "timed_out_forced", agent_task_run.terminal_payload["close_outcome_kind"]
     assert command_run.reload.failed?
+    assert invocation.reload.failed?
     assert_equal "failed", context[:workflow_node].reload.lifecycle_state
     assert_not_nil context[:workflow_node].finished_at
     assert_not lease.reload.active?

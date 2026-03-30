@@ -50,6 +50,7 @@ module AgentControl
             "close_outcome_kind" => @resource.close_outcome_kind
           )
         )
+        terminalize_agent_task_tool_invocations!("canceled")
         terminalize_agent_task_command_runs!("interrupted")
         reconcile_agent_task_execution_graph!
       when ProcessRun
@@ -80,6 +81,7 @@ module AgentControl
             "close_request_kind" => @mailbox_item.payload["request_kind"]
           )
         )
+        terminalize_agent_task_tool_invocations!("failed")
         terminalize_agent_task_command_runs!("failed")
         reconcile_agent_task_execution_graph!
       when ProcessRun
@@ -159,6 +161,38 @@ module AgentControl
           lifecycle_state: lifecycle_state,
           ended_at: @occurred_at
         )
+      end
+    end
+
+    def terminalize_agent_task_tool_invocations!(status)
+      return unless @resource.is_a?(AgentTaskRun)
+
+      @resource.tool_invocations.where(status: "running").find_each do |tool_invocation|
+        attributes = {
+          status: status,
+          finished_at: @occurred_at,
+          metadata: tool_invocation.metadata.merge(
+            "close_outcome_kind" => @resource.close_outcome_kind,
+            "close_request_kind" => @mailbox_item.payload["request_kind"]
+          ),
+        }
+        if status == "failed"
+          attributes[:error_payload] = {
+            "classification" => "runtime",
+            "code" => "execution_close_failed",
+            "message" => "tool invocation failed because the agent task close failed",
+            "retryable" => false,
+          }
+        else
+          attributes[:error_payload] = {
+            "classification" => "runtime",
+            "code" => "execution_closed",
+            "message" => "tool invocation was canceled because the agent task closed",
+            "retryable" => false,
+          }
+        end
+
+        tool_invocation.update!(attributes)
       end
     end
 
