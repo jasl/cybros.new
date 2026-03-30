@@ -126,4 +126,42 @@ class Fenix::Browser::SessionManagerTest < ActiveSupport::TestCase
     assert_equal browser_session_id, info.fetch("browser_session_id")
     assert_equal "https://example.com/docs", info.fetch("current_url")
   end
+
+  test "list and info can be scoped to the owning agent task" do
+    first_host = FakeHost.new(commands: [], closed: false)
+    second_host = FakeHost.new(commands: [], closed: false)
+    hosts = [first_host, second_host]
+    host_factory = ->(session_id:) { hosts.shift || FakeHost.new(commands: [], closed: false) }
+
+    owned = Fenix::Browser::SessionManager.call(
+      action: "open",
+      url: "https://example.com",
+      host_factory:,
+      agent_task_run_id: "task-1"
+    )
+    Fenix::Browser::SessionManager.call(
+      action: "open",
+      url: "https://example.org",
+      host_factory:,
+      agent_task_run_id: "task-2"
+    )
+
+    listed = Fenix::Browser::SessionManager.call(action: "list", agent_task_run_id: "task-1")
+    info = Fenix::Browser::SessionManager.call(
+      action: "info",
+      browser_session_id: owned.fetch("browser_session_id"),
+      agent_task_run_id: "task-1"
+    )
+
+    assert_equal [owned.fetch("browser_session_id")], listed.fetch("entries").map { |entry| entry.fetch("browser_session_id") }
+    assert_equal owned.fetch("browser_session_id"), info.fetch("browser_session_id")
+
+    assert_raises(Fenix::Browser::SessionManager::ValidationError) do
+      Fenix::Browser::SessionManager.call(
+        action: "info",
+        browser_session_id: owned.fetch("browser_session_id"),
+        agent_task_run_id: "task-2"
+      )
+    end
+  end
 end

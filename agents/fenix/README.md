@@ -30,14 +30,14 @@ Fenix is not:
 When Core Matrix needs to validate materially different product shapes, those
 should land in separate agent programs rather than forcing them into Fenix.
 
-## Phase Role
+## Role Today
 
-- `Phase 2`: prove the real agent loop end to end
-- `Phase 3`: become the first full Web product on top of the validated kernel
-- `Phase 4`: remain one validated product while other agent programs prove the
+- prove the real agent loop end to end
+- become the first full Web product on top of the validated kernel
+- remain one validated product while other agent programs prove the
   kernel is reusable beyond Fenix
 
-## Phase 2 Runtime Surface
+## Runtime Surface
 
 `Fenix` now exposes one stable machine-facing pairing endpoint:
 
@@ -84,7 +84,7 @@ The current pairing contract models `Fenix` as one process serving both:
 - `AgentRuntime`
 - `ExecutionEnvironmentRuntime`
 
-That dual role is explicit in the manifest even though Phase 2 still ships it
+That dual role is explicit in the manifest even though the current runtime still ships it
 as one bundled runtime.
 
 Normal execution and close control do not use a runtime callback endpoint.
@@ -224,7 +224,7 @@ bin/rails runner script/manual/operator_surface_smoke.rb
 
 ## Retained Hook Lifecycle
 
-Phase 2 keeps a stage-shaped runtime surface instead of collapsing behavior
+`Fenix` keeps a stage-shaped runtime surface instead of collapsing behavior
 into one opaque callback.
 
 Current retained hooks:
@@ -268,7 +268,7 @@ before or after message counts in the hook trace.
 
 ## Current Validation Path
 
-The current Phase 2 runtime path is intentionally small and deterministic:
+The current runtime validation path is intentionally small and deterministic:
 
 - `deterministic_tool` reviews a local calculator tool call, projects the tool
   result, and finalizes a user-facing output
@@ -284,9 +284,9 @@ conversation-visible tool set into `agent_context.allowed_tool_names`, and
 `Fenix::Hooks::ReviewToolCall` treats that frozen set as a real execution-time
 constraint rather than trace-only metadata.
 
-## Phase 2 Skill Surface
+## Skill Surface
 
-`Fenix` now keeps the Phase 2 skill boundary inside the agent program rather
+`Fenix` now keeps the skill boundary inside the agent program rather
 than pushing skills into `Core Matrix`.
 
 Skill roots are separated intentionally:
@@ -312,7 +312,7 @@ That surface is sufficient to:
 By default, the live skill root now lives under `tmp/skills-live` so runtime
 install state does not pollute the tracked repo tree.
 
-Phase 2 keeps two explicit rules:
+The current runtime keeps two explicit rules:
 
 - `.system` skill names are reserved and may not be overridden
 - installs become effective on the next top-level turn, not mid-turn
@@ -321,7 +321,7 @@ The built-in `deploy-agent` system skill exists to prove that `Fenix` can use
 its own skill mechanism for an operational workflow, not just passive
 instruction storage.
 
-## Phase 2 Acceptance Runtime Layout
+## Manual Acceptance Runtime Layout
 
 The retained manual-acceptance layout uses two local `Fenix` processes:
 
@@ -334,18 +334,18 @@ The retained manual-acceptance layout uses two local `Fenix` processes:
     validation when the operator script needs one persistent mailbox worker
 - `AGENT_FENIX_PORT=3102 ... bin/dev`
   - dedicated skills-validation runtime
-  - `FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills`
-  - `FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging`
-  - `FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups`
+  - `FENIX_LIVE_SKILLS_ROOT=/tmp/fenix-live-skills`
+  - `FENIX_STAGING_SKILLS_ROOT=/tmp/fenix-staging`
+  - `FENIX_BACKUP_SKILLS_ROOT=/tmp/fenix-backups`
 
 The dedicated `3102` runtime keeps live, staging, and backup skill writes out
-of the repo tree so the Phase 2 skill catalog stays reproducible. The manual
-acceptance scripts intentionally clear those `/tmp/phase2-fenix-*` roots before
+of the repo tree so the checked-in skill catalog stays reproducible. The manual
+acceptance scripts intentionally clear those `/tmp/fenix-*` roots before
 scenarios `12` and `13`.
 
 ## Deployment Rotation
 
-Phase 2 treats release change as deployment rotation:
+`Fenix` treats release change as deployment rotation:
 
 - boot a new `Fenix` release as a new deployment
 - expose the same manifest and mailbox control contract
@@ -353,7 +353,7 @@ Phase 2 treats release change as deployment rotation:
 - cut future work over once the new deployment reaches healthy runtime
   participation
 
-There is no in-place self-updater in Phase 2. Upgrade and downgrade are the
+There is no in-place self-updater in the current runtime. Upgrade and downgrade are the
 same kernel-facing operation.
 
 ## Distribution Contract
@@ -372,7 +372,7 @@ as the default sample:
 
 - `fenix`
   - main Rails runtime
-  - mounts `./workspace:/workspace`
+  - mounts `./tmp/docker-workspace:/workspace`
   - persists SQLite state in `/rails/storage`
   - exposes `3101 -> 80`
 - `fenix-dev-proxy`

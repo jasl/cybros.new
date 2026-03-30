@@ -25,6 +25,7 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
 
       Fenix::Processes::Manager.register(
         process_run_id: "process-#{SecureRandom.uuid}",
+        agent_task_run_id: "task-1",
         stdin: stdin,
         stdout: stdout,
         stderr: stderr,
@@ -103,6 +104,7 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
 
     Fenix::Processes::Manager.spawn!(
       process_run_id: process_run_id,
+      agent_task_run_id: "task-1",
       command_line: "printf 'hello from process\\n'",
       control_client: control_client
     )
@@ -156,6 +158,7 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
     assert_raises RuntimeError do
       Fenix::Processes::Manager.spawn!(
         process_run_id: process_run_id,
+        agent_task_run_id: "task-1",
         command_line: "sleep 30",
         control_client: control_client
       )
@@ -178,6 +181,7 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
 
     Fenix::Processes::Manager.register(
       process_run_id: process_run_id,
+      agent_task_run_id: "task-1",
       stdin: stdin_write,
       stdout: stdout_read,
       stderr: stderr_read,

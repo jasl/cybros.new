@@ -9,11 +9,12 @@ module Fenix
             new(...).call
           end
 
-          def initialize(tool_call:, process_run:, control_client: nil, launcher: Fenix::Processes::Launcher)
+          def initialize(tool_call:, process_run:, control_client: nil, launcher: Fenix::Processes::Launcher, current_agent_task_run_id:)
             @tool_call = tool_call.deep_stringify_keys
             @process_run = process_run&.deep_stringify_keys
             @control_client = control_client
             @launcher = launcher
+            @current_agent_task_run_id = current_agent_task_run_id
           end
 
           def call
@@ -26,14 +27,18 @@ module Fenix
                 control_client: @control_client
               )
             when "process_list"
-              { "entries" => Fenix::Processes::Manager.list }
+              { "entries" => Fenix::Processes::Manager.list(agent_task_run_id: @current_agent_task_run_id) }
             when "process_proxy_info"
+              lookup_owned_process_run!
+
               Fenix::Processes::Manager.proxy_info(process_run_id: @tool_call.dig("arguments", "process_run_id")) || {
                 "process_run_id" => @tool_call.dig("arguments", "process_run_id"),
                 "proxy_path" => nil,
                 "proxy_target_url" => nil,
               }
             when "process_read_output"
+              lookup_owned_process_run!
+
               snapshot = Fenix::Processes::Manager.output_snapshot(process_run_id: @tool_call.dig("arguments", "process_run_id"))
               raise ValidationError, "unknown process run #{@tool_call.dig("arguments", "process_run_id")}" if snapshot.blank?
 
@@ -41,6 +46,17 @@ module Fenix
             else
               raise ValidationError, "unsupported process runtime tool #{@tool_call.fetch("tool_name")}"
             end
+          end
+
+          private
+
+          def lookup_owned_process_run!
+            process_run_id = @tool_call.dig("arguments", "process_run_id")
+            entry = Fenix::Processes::Manager.lookup(process_run_id:)
+            raise ValidationError, "unknown process run #{process_run_id}" if entry.blank?
+            raise ValidationError, "process run #{process_run_id} is not owned by this agent task" unless entry.agent_task_run_id == @current_agent_task_run_id
+
+            entry
           end
         end
       end

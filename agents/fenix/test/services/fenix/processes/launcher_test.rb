@@ -25,6 +25,7 @@ class Fenix::Processes::LauncherTest < ActiveSupport::TestCase
     result = Fenix::Processes::Launcher.call(
       process_run: {
         "process_run_id" => "process-run-1",
+        "agent_task_run_id" => "task-1",
       },
       command_line: "bin/dev",
       proxy_port: 4100,
@@ -33,6 +34,7 @@ class Fenix::Processes::LauncherTest < ActiveSupport::TestCase
     )
 
     assert_equal "process-run-1", spawned.fetch(:process_run_id)
+    assert_equal "task-1", spawned.fetch(:agent_task_run_id)
     assert_equal "bin/dev", spawned.fetch(:command_line)
     assert_equal "process-run-1", registered.fetch(:process_run_id)
     assert_equal 4100, registered.fetch(:target_port)
@@ -58,6 +60,7 @@ class Fenix::Processes::LauncherTest < ActiveSupport::TestCase
     result = Fenix::Processes::Launcher.call(
       process_run: {
         "process_run_id" => "process-run-2",
+        "agent_task_run_id" => "task-2",
       },
       command_line: "bin/dev",
       manager: manager,
@@ -65,6 +68,7 @@ class Fenix::Processes::LauncherTest < ActiveSupport::TestCase
     )
 
     assert_equal "process-run-2", spawned.fetch(:process_run_id)
+    assert_equal "task-2", spawned.fetch(:agent_task_run_id)
     assert_equal "running", result.fetch("lifecycle_state")
     assert_nil result["proxy_path"]
   end

@@ -424,7 +424,8 @@ module Fenix
         Fenix::Plugins::System::Process::Runtime.call(
           tool_call: tool_call.deep_dup,
           process_run: process_run&.deep_dup,
-          control_client: @control_client
+          control_client: @control_client,
+          current_agent_task_run_id:
         )
       end
 
@@ -448,7 +449,10 @@ module Fenix
       end
 
       def execute_browser_tool(tool_call)
-        Fenix::Plugins::System::Browser::Runtime.call(tool_call: tool_call.deep_dup)
+        Fenix::Plugins::System::Browser::Runtime.call(
+          tool_call: tool_call.deep_dup,
+          current_agent_task_run_id:
+        )
       end
 
       def canceled?

@@ -5,7 +5,7 @@ module Fenix
     class ProxyRegistry
       class << self
         def default
-          @default ||= new
+          @default ||= new(routes_path: default_routes_path)
         end
 
         def register(...)
@@ -22,6 +22,16 @@ module Fenix
 
         def reset!
           default.reset!
+        end
+
+        def reset_default!
+          @default = nil
+        end
+
+        private
+
+        def default_routes_path
+          ENV.fetch("FENIX_DEV_PROXY_ROUTES_FILE", Rails.root.join("tmp", "dev-proxy", "routes.caddy").to_s)
         end
       end
 

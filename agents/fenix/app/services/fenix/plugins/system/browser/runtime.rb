@@ -9,42 +9,52 @@ module Fenix
             new(...).call
           end
 
-          def initialize(tool_call:)
+          def initialize(tool_call:, current_agent_task_run_id:)
             @tool_call = tool_call.deep_stringify_keys
+            @current_agent_task_run_id = current_agent_task_run_id
           end
 
           def call
             case @tool_call.fetch("tool_name")
             when "browser_list"
-              Fenix::Browser::SessionManager.call(action: "list")
+              Fenix::Browser::SessionManager.call(action: "list", agent_task_run_id: @current_agent_task_run_id)
             when "browser_open"
-              Fenix::Browser::SessionManager.call(action: "open", url: @tool_call.dig("arguments", "url"))
+              Fenix::Browser::SessionManager.call(
+                action: "open",
+                url: @tool_call.dig("arguments", "url"),
+                agent_task_run_id: @current_agent_task_run_id
+              )
             when "browser_session_info"
               Fenix::Browser::SessionManager.call(
                 action: "info",
-                browser_session_id: @tool_call.dig("arguments", "browser_session_id")
+                browser_session_id: @tool_call.dig("arguments", "browser_session_id"),
+                agent_task_run_id: @current_agent_task_run_id
               )
             when "browser_navigate"
               Fenix::Browser::SessionManager.call(
                 action: "navigate",
                 browser_session_id: @tool_call.dig("arguments", "browser_session_id"),
-                url: @tool_call.dig("arguments", "url")
+                url: @tool_call.dig("arguments", "url"),
+                agent_task_run_id: @current_agent_task_run_id
               )
             when "browser_get_content"
               Fenix::Browser::SessionManager.call(
                 action: "get_content",
-                browser_session_id: @tool_call.dig("arguments", "browser_session_id")
+                browser_session_id: @tool_call.dig("arguments", "browser_session_id"),
+                agent_task_run_id: @current_agent_task_run_id
               )
             when "browser_screenshot"
               Fenix::Browser::SessionManager.call(
                 action: "screenshot",
                 browser_session_id: @tool_call.dig("arguments", "browser_session_id"),
-                full_page: @tool_call.dig("arguments", "full_page") != false
+                full_page: @tool_call.dig("arguments", "full_page") != false,
+                agent_task_run_id: @current_agent_task_run_id
               )
             when "browser_close"
               Fenix::Browser::SessionManager.call(
                 action: "close",
-                browser_session_id: @tool_call.dig("arguments", "browser_session_id")
+                browser_session_id: @tool_call.dig("arguments", "browser_session_id"),
+                agent_task_run_id: @current_agent_task_run_id
               )
             else
               raise ArgumentError, "unsupported browser runtime tool #{@tool_call.fetch("tool_name")}"

@@ -154,6 +154,10 @@ module ActiveSupport
       ActiveJob::Base.queue_adapter = :test
       clear_enqueued_jobs
       clear_performed_jobs
+      @original_proxy_routes_file = ENV["FENIX_DEV_PROXY_ROUTES_FILE"]
+      ENV["FENIX_DEV_PROXY_ROUTES_FILE"] = Rails.root.join("tmp", "dev-proxy", "test-#{Process.pid}.caddy").to_s
+      Fenix::Processes::ProxyRegistry.reset_default! if defined?(Fenix::Processes::ProxyRegistry)
+      Fenix::Processes::ProxyRegistry.reset! if defined?(Fenix::Processes::ProxyRegistry)
       @original_control_plane_client = Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client) ?
         Fenix::Runtime::ControlPlane.instance_variable_get(:@client) :
         :__undefined__
@@ -170,8 +174,11 @@ module ActiveSupport
       else
         Fenix::Runtime::ControlPlane.client = @original_control_plane_client
       end
+      ENV["FENIX_DEV_PROXY_ROUTES_FILE"] = @original_proxy_routes_file
+      Fenix::Processes::ProxyRegistry.reset_default! if defined?(Fenix::Processes::ProxyRegistry)
       Fenix::Runtime::CommandRunRegistry.reset!
       Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
+      Fenix::Processes::ProxyRegistry.reset! if defined?(Fenix::Processes::ProxyRegistry)
     end
 
     # Add more helper methods to be used by all tests here...

@@ -13,7 +13,7 @@ services:
     ports:
       - "3101:80"
     volumes:
-      - ./workspace:/workspace
+      - ./tmp/docker-workspace:/workspace
       - fenix_storage:/rails/storage
       - fenix_proxy_routes:/rails/tmp/dev-proxy
 
@@ -27,7 +27,7 @@ services:
     ports:
       - "3310:3310"
     volumes:
-      - ./workspace:/workspace
+      - ./tmp/docker-workspace:/workspace
       - fenix_proxy_routes:/rails/tmp/dev-proxy
 
 volumes:

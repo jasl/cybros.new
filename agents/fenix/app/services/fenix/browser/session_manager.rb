@@ -6,7 +6,7 @@ module Fenix
       ValidationError = Class.new(StandardError)
       HostError = Class.new(StandardError)
 
-      LocalSession = Struct.new(:browser_session_id, :host, :current_url, keyword_init: true)
+      LocalSession = Struct.new(:browser_session_id, :agent_task_run_id, :host, :current_url, keyword_init: true)
 
       class PlaywrightHost
         def initialize(session_id:, node_command: ENV.fetch("FENIX_NODE_COMMAND", "node"), script_path: Rails.root.join("scripts", "browser", "session_host.mjs"))
@@ -61,9 +61,12 @@ module Fenix
           end
         end
 
-        def list
+        def list(agent_task_run_id: nil)
           synchronize do
-            registry.values.sort_by(&:browser_session_id).map { |session| snapshot_for(session) }
+            registry.values
+              .select { |session| agent_task_run_id.blank? || session.agent_task_run_id == agent_task_run_id }
+              .sort_by(&:browser_session_id)
+              .map { |session| snapshot_for(session) }
           end
         end
 
@@ -101,6 +104,7 @@ module Fenix
         def snapshot_for(session)
           {
             "browser_session_id" => session.browser_session_id,
+            "agent_task_run_id" => session.agent_task_run_id,
             "current_url" => session.current_url,
           }.compact
         end
@@ -114,12 +118,13 @@ module Fenix
         end
       end
 
-      def initialize(action:, browser_session_id: nil, url: nil, full_page: true, host_factory: nil)
+      def initialize(action:, browser_session_id: nil, url: nil, full_page: true, host_factory: nil, agent_task_run_id: nil)
         @action = action
         @browser_session_id = browser_session_id
         @url = url
         @full_page = full_page
         @host_factory = host_factory || method(:default_host_factory)
+        @agent_task_run_id = agent_task_run_id
       end
 
       def call
@@ -151,7 +156,7 @@ module Fenix
         session_id = "browser-session-#{SecureRandom.uuid}"
         host = @host_factory.call(session_id:)
         payload = host.dispatch(command: "open", arguments: { "url" => @url }.compact)
-        self.class.send(:register, LocalSession.new(browser_session_id: session_id, host:, current_url: payload["current_url"]))
+        self.class.send(:register, LocalSession.new(browser_session_id: session_id, agent_task_run_id: @agent_task_run_id, host:, current_url: payload["current_url"]))
         payload.merge("browser_session_id" => session_id)
       rescue StandardError
         host&.close
@@ -177,12 +182,15 @@ module Fenix
       def lookup_session!
         session = self.class.lookup(browser_session_id: @browser_session_id)
         raise ValidationError, "unknown browser session #{@browser_session_id}" if session.blank?
+        if @agent_task_run_id.present? && session.agent_task_run_id != @agent_task_run_id
+          raise ValidationError, "browser session #{@browser_session_id} is not owned by this agent task"
+        end
 
         session
       end
 
       def list_sessions
-        { "entries" => self.class.send(:list) }
+        { "entries" => self.class.send(:list, agent_task_run_id: @agent_task_run_id) }
       end
 
       def session_info

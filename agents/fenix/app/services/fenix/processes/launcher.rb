@@ -17,6 +17,7 @@ module Fenix
       def call
         @manager.spawn!(
           process_run_id: @process_run.fetch("process_run_id"),
+          agent_task_run_id: @process_run.fetch("agent_task_run_id"),
           command_line: @command_line,
           control_client: @control_client
         )

@@ -7,18 +7,19 @@ module Fenix
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:)
+      def initialize(workspace_root:, conversation_id:, agent_task_run_id:)
         @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:)
         @memory_store = Fenix::Memory::Store.new(workspace_root:, conversation_id:)
+        @agent_task_run_id = agent_task_run_id
       end
 
       def call
         snapshot = {
           "workspace" => workspace_section,
           "memory" => memory_section,
-          "command_runs" => Fenix::Runtime::CommandRunRegistry.list,
-          "process_runs" => Fenix::Processes::Manager.list,
-          "browser_sessions" => Fenix::Browser::SessionManager.list,
+          "command_runs" => Fenix::Runtime::CommandRunRegistry.list(agent_task_run_id: @agent_task_run_id),
+          "process_runs" => Fenix::Processes::Manager.list(agent_task_run_id: @agent_task_run_id),
+          "browser_sessions" => Fenix::Browser::SessionManager.list(agent_task_run_id: @agent_task_run_id),
         }
 
         path = @layout.conversation_operator_state_file

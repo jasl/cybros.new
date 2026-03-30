@@ -47,11 +47,14 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
     stderr = nil
     wait_thread = nil
     process_run_id = "process-run-#{SecureRandom.uuid}"
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    allowed_tool_names = default_agent_context.fetch("allowed_tool_names") + %w[process_list process_read_output process_proxy_info]
     begin
       stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", "sleep 30")
 
       Fenix::Processes::Manager.register(
         process_run_id: process_run_id,
+        agent_task_run_id: agent_task_run_id,
         stdin: stdin,
         stdout: stdout,
         stderr: stderr,
@@ -65,14 +68,12 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
       )
       Fenix::Processes::ProxyRegistry.register(process_run_id: process_run_id, target_port: 4200)
 
-      allowed_tool_names = default_agent_context.fetch("allowed_tool_names") + %w[process_list process_read_output process_proxy_info]
-
       listed = Fenix::Runtime::ExecuteAssignment.call(
         mailbox_item: runtime_assignment_payload(
           mode: "deterministic_tool",
           task_payload: { "tool_name" => "process_list" },
           agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
-        )
+        ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
       )
       listed_invocation = listed.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
       assert listed_invocation.dig("response_payload", "entries").any? { |entry| entry.fetch("process_run_id") == process_run_id }
@@ -85,7 +86,7 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
             "process_run_id" => process_run_id,
           },
           agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
-        )
+        ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
       )
       output_invocation = output.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
       assert_equal "process output\n", output_invocation.dig("response_payload", "stdout_tail")
@@ -98,7 +99,7 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
             "process_run_id" => process_run_id,
           },
           agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
-        )
+        ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
       )
       proxy_invocation = proxy_info.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
       assert_equal "/dev/#{process_run_id}", proxy_invocation.dig("response_payload", "proxy_path")
@@ -111,5 +112,71 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
       stderr&.close unless stderr.nil? || stderr.closed?
       Process.kill("KILL", wait_thread.pid) if wait_thread&.alive?
     end
+  end
+
+  test "process operator helpers stay scoped to the current agent task" do
+    owned_stdin, owned_stdout, owned_stderr, owned_wait_thread = Open3.popen3("/bin/sh", "-lc", "sleep 30")
+    foreign_stdin, foreign_stdout, foreign_stderr, foreign_wait_thread = Open3.popen3("/bin/sh", "-lc", "sleep 30")
+    owned_process_run_id = "process-run-#{SecureRandom.uuid}"
+    foreign_process_run_id = "process-run-#{SecureRandom.uuid}"
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+
+    mailbox_item = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: { "tool_name" => "process_list" },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[process_list process_read_output]
+      )
+    )
+    mailbox_item.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+
+    Fenix::Processes::Manager.register(
+      process_run_id: owned_process_run_id,
+      agent_task_run_id: agent_task_run_id,
+      stdin: owned_stdin,
+      stdout: owned_stdout,
+      stderr: owned_stderr,
+      wait_thread: owned_wait_thread,
+      start_monitoring: false
+    )
+    Fenix::Processes::Manager.register(
+      process_run_id: foreign_process_run_id,
+      agent_task_run_id: "task-foreign",
+      stdin: foreign_stdin,
+      stdout: foreign_stdout,
+      stderr: foreign_stderr,
+      wait_thread: foreign_wait_thread,
+      start_monitoring: false
+    )
+
+    listed = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: mailbox_item.deep_dup)
+    listed_invocation = listed.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
+
+    assert_equal [owned_process_run_id], listed_invocation.dig("response_payload", "entries").map { |entry| entry.fetch("process_run_id") }
+
+    foreign_read = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "process_read_output",
+          "process_run_id" => foreign_process_run_id,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[process_list process_read_output]
+        ),
+        conversation_id: mailbox_item.dig("payload", "conversation_id")
+      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+    )
+
+    assert_equal "failed", foreign_read.status
+    assert_match(/not owned by this agent task/, foreign_read.error.fetch("last_error_summary"))
+  ensure
+    Fenix::Processes::Manager.reset!
+    Fenix::Processes::ProxyRegistry.reset!
+    [owned_stdin, owned_stdout, owned_stderr, foreign_stdin, foreign_stdout, foreign_stderr].each do |io|
+      io&.close unless io.nil? || io.closed?
+    end
+    Process.kill("KILL", owned_wait_thread.pid) if owned_wait_thread&.alive?
+    Process.kill("KILL", foreign_wait_thread.pid) if foreign_wait_thread&.alive?
   end
 end

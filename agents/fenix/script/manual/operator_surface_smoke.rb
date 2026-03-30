@@ -110,6 +110,7 @@ end
 
 workspace_root = Fenix::Workspace::Layout.default_root
 conversation_id = "conversation-#{SecureRandom.uuid}"
+agent_task_run_id = "task-operator-smoke"
 layout = Fenix::Workspace::Bootstrap.call(workspace_root:, conversation_id:)
 
 root = Pathname.new(workspace_root)
@@ -156,7 +157,7 @@ control_client = ControlClient.new(
 )
 
 tool_invocation = control_client.create_tool_invocation!(
-  agent_task_run_id: "task-operator-smoke",
+  agent_task_run_id: agent_task_run_id,
   tool_name: "exec_command",
   request_payload: { "tool_name" => "exec_command", "arguments" => { "command_line" => "cat", "pty" => true } },
   idempotency_key: "operator-smoke-exec",
@@ -174,7 +175,7 @@ collector = Fenix::RuntimeSurface::ReportCollector.new(
     "protocol_message_id" => "operator-smoke",
     "runtime_plane" => "agent",
     "item_id" => "item-operator-smoke",
-    "agent_task_run_id" => "task-operator-smoke",
+    "agent_task_run_id" => agent_task_run_id,
     "logical_work_id" => "logical-work-operator-smoke",
     "attempt_no" => 1,
   }
@@ -187,7 +188,7 @@ started = exec_runtime.call(
   collector: collector,
   control_client: control_client,
   cancellation_probe: nil,
-  current_agent_task_run_id: "task-operator-smoke"
+  current_agent_task_run_id: agent_task_run_id
 )
 command_run_id = started.fetch("command_run_id")
 exec_runtime.call(
@@ -197,7 +198,7 @@ exec_runtime.call(
   collector: collector,
   control_client: control_client,
   cancellation_probe: nil,
-  current_agent_task_run_id: "task-operator-smoke"
+  current_agent_task_run_id: agent_task_run_id
 )
 command_snapshot = exec_runtime.call(
   tool_call: { "tool_name" => "command_run_wait", "call_id" => "call-3", "arguments" => { "command_run_id" => command_run_id, "timeout_seconds" => 5 } },
@@ -206,12 +207,12 @@ command_snapshot = exec_runtime.call(
   collector: collector,
   control_client: control_client,
   cancellation_probe: nil,
-  current_agent_task_run_id: "task-operator-smoke"
+  current_agent_task_run_id: agent_task_run_id
 )
 puts "[command_run] exit_status=#{command_snapshot.fetch("exit_status")} stdout_bytes=#{command_snapshot.fetch("stdout_bytes")}"
 
 process_run = control_client.create_process_run!(
-  agent_task_run_id: "task-operator-smoke",
+  agent_task_run_id: agent_task_run_id,
   tool_name: "process_exec",
   kind: "background_service",
   command_line: "sleep 30",
@@ -227,47 +228,38 @@ process_runtime = Fenix::Plugins::System::Process::Runtime
 process_list = process_runtime.call(
   tool_call: { "tool_name" => "process_list", "arguments" => {} },
   process_run: nil,
-  control_client: control_client
+  control_client: control_client,
+  current_agent_task_run_id: agent_task_run_id
 )
 process_proxy = process_runtime.call(
   tool_call: { "tool_name" => "process_proxy_info", "arguments" => { "process_run_id" => launcher_result.fetch("process_run_id") } },
   process_run: nil,
-  control_client: control_client
+  control_client: control_client,
+  current_agent_task_run_id: agent_task_run_id
 )
 puts "[process_run] active=#{process_list.fetch("entries").length} proxy=#{process_proxy.fetch("proxy_path")}"
 
-host_factory = lambda do |session_id:|
-  Struct.new(:commands, :closed, keyword_init: true).new(commands: [], closed: false).tap do |host|
-    def host.dispatch(command:, arguments:)
-      case command
-      when "open"
-        { "current_url" => arguments["url"] }
-      when "navigate"
-        { "current_url" => arguments["url"] }
-      when "close"
-        self.closed = true
-        { "closed" => true }
-      else
-        {}
-      end
-    end
-
-    def host.close
-      self.closed = true
-    end
-  end
-end
-
-browser_open = Fenix::Browser::SessionManager.call(action: "open", url: "https://example.com", host_factory:)
-browser_list = Fenix::Browser::SessionManager.call(action: "list", host_factory:)
+browser_open = Fenix::Browser::SessionManager.call(action: "open", url: "https://example.com", agent_task_run_id:)
+Fenix::Browser::SessionManager.call(
+  action: "navigate",
+  browser_session_id: browser_open.fetch("browser_session_id"),
+  url: "https://example.com",
+  agent_task_run_id:
+)
+browser_list = Fenix::Browser::SessionManager.call(action: "list", agent_task_run_id:)
 browser_info = Fenix::Browser::SessionManager.call(
   action: "info",
   browser_session_id: browser_open.fetch("browser_session_id"),
-  host_factory:
+  agent_task_run_id:
 )
 puts "[browser_session] active=#{browser_list.fetch("entries").length} current_url=#{browser_info.fetch("current_url")}"
+Fenix::Browser::SessionManager.call(
+  action: "close",
+  browser_session_id: browser_open.fetch("browser_session_id"),
+  agent_task_run_id:
+)
 
-snapshot = Fenix::Operator::Snapshot.call(workspace_root:, conversation_id:)
+snapshot = Fenix::Operator::Snapshot.call(workspace_root:, conversation_id:, agent_task_run_id:)
 puts "[operator_state] file=#{layout.conversation_operator_state_file} keys=#{snapshot.keys.join(", ")}"
 
 Fenix::Browser::SessionManager.reset!

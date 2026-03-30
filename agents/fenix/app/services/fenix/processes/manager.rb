@@ -6,6 +6,7 @@ module Fenix
       # are intentionally not a durable fact source.
       LocalHandle = Struct.new(
         :process_run_id,
+        :agent_task_run_id,
         :stdin,
         :stdout,
         :stderr,
@@ -28,9 +29,10 @@ module Fenix
         OUTPUT_READ_SIZE = 4096
         OUTPUT_TAIL_LIMIT_BYTES = 8192
 
-        def register(process_run_id:, stdin:, stdout:, stderr:, wait_thread:, control_client: nil, start_monitoring: true)
+        def register(process_run_id:, agent_task_run_id:, stdin:, stdout:, stderr:, wait_thread:, control_client: nil, start_monitoring: true)
           entry = LocalHandle.new(
             process_run_id: process_run_id,
+            agent_task_run_id: agent_task_run_id,
             stdin: stdin,
             stdout: stdout,
             stderr: stderr,
@@ -51,10 +53,11 @@ module Fenix
           entry
         end
 
-        def spawn!(process_run_id:, command_line:, control_client: nil)
+        def spawn!(process_run_id:, agent_task_run_id:, command_line:, control_client: nil)
           stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
           entry = register(
             process_run_id: process_run_id,
+            agent_task_run_id: agent_task_run_id,
             stdin: stdin,
             stdout: stdout,
             stderr: stderr,
@@ -98,9 +101,12 @@ module Fenix
           end
         end
 
-        def list
+        def list(agent_task_run_id: nil)
           synchronize do
-            entries.values.sort_by(&:process_run_id).map { |entry| snapshot_for(entry) }
+            entries.values
+              .select { |entry| agent_task_run_id.blank? || entry.agent_task_run_id == agent_task_run_id }
+              .sort_by(&:process_run_id)
+              .map { |entry| snapshot_for(entry) }
           end
         end
 
@@ -395,6 +401,7 @@ module Fenix
         def snapshot_for(entry)
           {
             "process_run_id" => entry.process_run_id,
+            "agent_task_run_id" => entry.agent_task_run_id,
             "lifecycle_state" => entry.wait_thread&.alive? ? "running" : "stopped",
             "stdout_bytes" => entry.stdout_bytes,
             "stderr_bytes" => entry.stderr_bytes,

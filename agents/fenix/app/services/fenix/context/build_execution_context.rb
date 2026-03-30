@@ -19,7 +19,8 @@ module Fenix
         agent_context = payload.fetch("agent_context", {})
         Fenix::Operator::Snapshot.call(
           workspace_root:,
-          conversation_id: payload.fetch("conversation_id")
+          conversation_id: payload.fetch("conversation_id"),
+          agent_task_run_id: payload.fetch("agent_task_run_id")
         )
 
         {
