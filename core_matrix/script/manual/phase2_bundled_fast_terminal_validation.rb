@@ -36,7 +36,7 @@ Phase2AcceptanceSupport.write_json(
     "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
     "expected_conversation_state" => {
       "conversation_state" => "active",
-      "workflow_lifecycle_state" => "active",
+      "workflow_lifecycle_state" => "completed",
       "workflow_wait_state" => "ready",
       "turn_lifecycle_state" => "active",
       "agent_task_run_state" => "completed",

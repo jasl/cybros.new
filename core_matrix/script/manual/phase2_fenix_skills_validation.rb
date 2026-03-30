@@ -101,7 +101,7 @@ read_live_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
 
 expected_conversation_state = {
   "conversation_state" => "active",
-  "workflow_lifecycle_state" => "active",
+  "workflow_lifecycle_state" => "completed",
   "workflow_wait_state" => "ready",
   "turn_lifecycle_state" => "active",
   "agent_task_run_state" => "completed",

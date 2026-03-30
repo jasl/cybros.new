@@ -117,7 +117,7 @@ jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
   - `runtime_execution_status: "completed"`
   - `runtime_output: "The calculator returned 12."`
   - `observed_conversation_state.conversation_state: "active"`
-  - `observed_conversation_state.workflow_lifecycle_state: "active"`
+  - `observed_conversation_state.workflow_lifecycle_state: "completed"`
   - `observed_conversation_state.workflow_wait_state: "ready"`
   - `observed_conversation_state.turn_lifecycle_state: "active"`
   - `observed_conversation_state.agent_task_run_state: "completed"`

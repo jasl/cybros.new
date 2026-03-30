@@ -7,10 +7,11 @@ module Fenix
         new(...).call
       end
 
-      def initialize(mailbox_item:, deliver_reports: false, control_client: nil)
+      def initialize(mailbox_item:, deliver_reports: false, control_client: nil, inline: false)
         @mailbox_item = mailbox_item.deep_stringify_keys
         @deliver_reports = deliver_reports
         @control_client = control_client
+        @inline = inline
       end
 
       def call
@@ -23,8 +24,8 @@ module Fenix
         )
         runtime_execution ||= create_runtime_execution!
 
-        RuntimeExecutionJob.perform_later(runtime_execution.id, deliver_reports: @deliver_reports) if runtime_execution.previously_new_record?
-        runtime_execution
+        enqueue_or_run!(runtime_execution) if runtime_execution.previously_new_record?
+        @inline ? runtime_execution.reload : runtime_execution
       end
 
       private
@@ -77,6 +78,14 @@ module Fenix
 
         @control_client.report!(payload: acknowledgment)
         @control_client.report!(payload: terminal)
+      end
+
+      def enqueue_or_run!(runtime_execution)
+        if @inline
+          RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: @deliver_reports)
+        else
+          RuntimeExecutionJob.perform_later(runtime_execution.id, deliver_reports: @deliver_reports)
+        end
       end
 
       def base_close_report(method_id)

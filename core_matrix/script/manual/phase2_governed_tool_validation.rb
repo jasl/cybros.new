@@ -83,7 +83,7 @@ puts JSON.pretty_generate(
     "observed_dag_shape" => Phase2GovernedValidationSupport.dag_edges(task_context.fetch(:workflow_run)),
     "expected_conversation_state" => {
       "conversation_state" => "active",
-      "workflow_lifecycle_state" => "active",
+      "workflow_lifecycle_state" => "completed",
       "workflow_wait_state" => "ready",
       "turn_lifecycle_state" => "active",
     },

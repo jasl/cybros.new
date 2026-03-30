@@ -4,6 +4,8 @@ require "action_controller"
 require "fileutils"
 require "json"
 require "net/http"
+require "open3"
+require "pathname"
 require "stringio"
 require "uri"
 require_relative "../../config/environment"
@@ -122,33 +124,58 @@ module Phase2AcceptanceSupport
     http_get_json("#{base_url}/runtime/manifest")
   end
 
-  def drain_runtime_execution_reports!(base_url:, execution_id:, timeout_seconds: 10, poll_interval_seconds: 0.1)
+  def run_fenix_mailbox_pump_once!(machine_credential:, limit: 10, inline: true)
+    project_root = fenix_project_root
+    env = {
+      "CORE_MATRIX_BASE_URL" => CONTROL_BASE_URL,
+      "CORE_MATRIX_MACHINE_CREDENTIAL" => machine_credential,
+      "LIMIT" => limit.to_s,
+      "INLINE" => inline ? "true" : "false",
+      "BUNDLE_GEMFILE" => project_root.join("Gemfile").to_s,
+    }
+
+    stdout = nil
+    stderr = nil
+    status = nil
+
+    Bundler.with_unbundled_env do
+      stdout, stderr, status = Open3.capture3(
+        env,
+        "bin/rails",
+        "runtime:mailbox_pump_once",
+        chdir: project_root.to_s
+      )
+    end
+
+    raise "fenix mailbox pump failed: #{stderr.presence || stdout}" unless status.success?
+
+    JSON.parse(stdout)
+  end
+
+  def fenix_project_root
+    Pathname.new(ENV.fetch("FENIX_PROJECT_ROOT", Rails.root.join("..", "agents", "fenix").to_s))
+  end
+
+  def wait_for_agent_task_terminal!(agent_task_run:, timeout_seconds: 10, poll_interval_seconds: 0.1)
     deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
-    delivered_count = 0
-    report_results = []
 
     loop do
-      execution = http_get_json("#{base_url}/runtime/executions/#{execution_id}")
-      reports = execution.fetch("reports")
-
-      reports.drop(delivered_count).each do |report|
-        report_results << yield(report)
-      end
-      delivered_count = reports.length
-
-      if %w[completed failed].include?(execution.fetch("status")) && delivered_count == reports.length
-        return {
-          execution: execution,
-          report_results: report_results,
-        }
-      end
+      reloaded = agent_task_run.reload
+      return reloaded if %w[completed failed interrupted canceled].include?(reloaded.lifecycle_state)
 
       if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
-        raise "timed out waiting for runtime execution #{execution_id} to finish"
+        raise "timed out waiting for agent task run #{agent_task_run.public_id} to finish"
       end
 
       sleep(poll_interval_seconds)
     end
+  end
+
+  def report_results_for(agent_task_run:)
+    AgentControlReportReceipt
+      .where(agent_task_run:)
+      .order(:created_at, :id)
+      .pluck(:result_code)
   end
 
   def create_external_agent_installation!(installation:, actor:, key:, display_name:)
@@ -357,11 +384,12 @@ module Phase2AcceptanceSupport
   def run_fenix_mailbox_task!(
     deployment:,
     machine_credential:,
-    runtime_base_url:,
+    runtime_base_url: nil,
     content:,
     mode:,
     extra_payload: {}
   )
+    _unused_runtime_base_url = runtime_base_url
     conversation_context = create_conversation!(deployment: deployment)
     run = start_turn_workflow_on_conversation!(
       conversation: conversation_context.fetch(:conversation),
@@ -373,41 +401,21 @@ module Phase2AcceptanceSupport
       initial_kind: "turn_step",
       initial_payload: { "mode" => mode }.merge(extra_payload)
     )
-    auth_headers = token_headers(machine_credential)
-    poll = http_post_json(
-      "#{CONTROL_BASE_URL}/agent_api/control/poll",
-      { limit: 10 },
-      headers: auth_headers
-    )
-    mailbox_item = poll.fetch("mailbox_items").find do |item|
-      item.dig("payload", "agent_task_run_id") == run.fetch(:agent_task_run).public_id
-    end
-    raise "expected leased mailbox item for task run" if mailbox_item.blank?
+    pump_result = run_fenix_mailbox_pump_once!(machine_credential:)
+    agent_task_run = wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
+    mailbox_item = agent_task_run.agent_control_mailbox_items.order(:created_at, :id).last
+    raise "expected mailbox item for task run #{agent_task_run.public_id}" if mailbox_item.blank?
 
-    queued_execution = http_post_json("#{runtime_base_url}/runtime/executions", mailbox_item)
-    execution_drain = drain_runtime_execution_reports!(
-      base_url: runtime_base_url,
-      execution_id: queued_execution.fetch("execution_id")
-    ) do |report|
-      http_post_json(
-        "#{CONTROL_BASE_URL}/agent_api/control/report",
-        report.merge(
-          mailbox_item_id: mailbox_item.fetch("item_id"),
-          agent_task_run_id: run.fetch(:agent_task_run).public_id,
-          logical_work_id: mailbox_item.fetch("logical_work_id"),
-          attempt_no: mailbox_item.fetch("attempt_no")
-        ),
-        headers: auth_headers
-      ).fetch("result")
+    execution = pump_result.fetch("items").find do |item|
+      item["kind"] == "runtime_execution" && item["mailbox_item_id"] == mailbox_item.public_id
     end
-    execution = execution_drain.fetch(:execution)
-    report_results = execution_drain.fetch(:report_results)
+    raise "expected runtime execution summary for mailbox item #{mailbox_item.public_id}" if execution.blank?
 
     run.merge(
       conversation: conversation_context.fetch(:conversation).reload,
       mailbox_item: mailbox_item,
       execution: execution,
-      report_results: report_results
+      report_results: report_results_for(agent_task_run:)
     )
   end
 

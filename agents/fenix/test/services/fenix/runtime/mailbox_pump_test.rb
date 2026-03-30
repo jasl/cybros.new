@@ -45,6 +45,27 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
       client.reported_payloads.map { |payload| payload.fetch("method_id") }
   end
 
+  test "inline poll tick runs the mailbox item to completion without enqueuing a job" do
+    client = FakeControlClient.new(
+      mailbox_items: [
+        runtime_assignment_payload(mode: "deterministic_tool").merge("item_type" => "execution_assignment"),
+      ],
+      reported_payloads: []
+    )
+    Fenix::Runtime::ControlPlane.client = client
+
+    results = nil
+
+    assert_enqueued_jobs 0 do
+      results = Fenix::Runtime::MailboxPump.call(limit: 10, inline: true)
+    end
+
+    assert_equal 1, results.length
+    assert_equal "completed", results.first.status
+    assert_equal %w[execution_started execution_progress execution_complete],
+      client.reported_payloads.map { |payload| payload.fetch("method_id") }
+  end
+
   test "poll tick handles agent task close requests locally and reports close lifecycle" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     stdin = nil
