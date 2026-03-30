@@ -5,6 +5,9 @@ default_runtime_plane: environment
 tool_catalog:
   - tool_name: browser_open
     tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/browser_open
     input_schema:
@@ -23,6 +26,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: browser_navigate
     tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/browser_navigate
     input_schema:
@@ -43,6 +49,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: browser_get_content
     tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/browser_get_content
     input_schema:
@@ -63,6 +72,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: browser_screenshot
     tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/browser_screenshot
     input_schema:
@@ -87,6 +99,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: browser_close
     tool_kind: kernel_primitive
+    operator_group: browser_session
+    resource_identity_kind: browser_session
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/browser_close
     input_schema:

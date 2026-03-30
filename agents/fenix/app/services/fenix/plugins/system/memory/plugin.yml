@@ -5,6 +5,9 @@ default_runtime_plane: environment
 tool_catalog:
   - tool_name: memory_get
     tool_kind: kernel_primitive
+    operator_group: memory
+    resource_identity_kind: memory_scope
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/memory_get
     input_schema:
@@ -27,6 +30,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: memory_search
     tool_kind: kernel_primitive
+    operator_group: memory
+    resource_identity_kind: memory_scope
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/memory_search
     input_schema:
@@ -47,6 +53,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: memory_store
     tool_kind: kernel_primitive
+    operator_group: memory
+    resource_identity_kind: memory_scope
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/memory_store
     input_schema:

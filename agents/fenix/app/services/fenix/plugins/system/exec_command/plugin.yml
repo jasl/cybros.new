@@ -5,6 +5,9 @@ default_runtime_plane: environment
 tool_catalog:
   - tool_name: exec_command
     tool_kind: kernel_primitive
+    operator_group: command_run
+    resource_identity_kind: command_run
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/exec_command
     input_schema:
@@ -33,6 +36,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: write_stdin
     tool_kind: kernel_primitive
+    operator_group: command_run
+    resource_identity_kind: command_run
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/write_stdin
     input_schema:

@@ -19,6 +19,9 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_equal "2026-03-24", body.fetch("protocol_version")
     assert_equal "fenix-0.1.0", body.fetch("sdk_version")
     assert_equal %w[base_url runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort
+    assert_equal "Workspace", body.fetch("operator_groups").fetch("workspace").fetch("label")
+    assert_includes body.fetch("operator_groups").fetch("workspace").fetch("tool_names"), "workspace_read"
+    assert_includes body.fetch("operator_groups").fetch("command_run").fetch("tool_names"), "exec_command"
     assert_includes body.fetch("protocol_methods").map { |entry| entry.fetch("method_id") }, "execution_started"
     assert_includes body.fetch("agent_plane").fetch("protocol_methods").map { |entry| entry.fetch("method_id") }, "execution_started"
     assert_equal body.fetch("profile_catalog"), body.fetch("agent_plane").fetch("profile_catalog")
@@ -39,6 +42,8 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_get_content"
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_screenshot"
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_close"
+    assert body.fetch("environment_tool_catalog").any? { |entry| entry.fetch("tool_name") == "workspace_read" && entry.fetch("operator_group") == "workspace" }
+    assert body.fetch("environment_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" && entry.fetch("operator_group") == "command_run" && entry.fetch("supports_streaming_output") == true }
     assert_equal body.fetch("tool_catalog"), body.fetch("agent_plane").fetch("tool_catalog")
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "compact_context"
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"

@@ -5,6 +5,9 @@ default_runtime_plane: environment
 tool_catalog:
   - tool_name: process_exec
     tool_kind: kernel_primitive
+    operator_group: process_run
+    resource_identity_kind: process_run
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/process_exec
     input_schema:

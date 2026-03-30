@@ -5,6 +5,9 @@ default_runtime_plane: environment
 tool_catalog:
   - tool_name: workspace_read
     tool_kind: kernel_primitive
+    operator_group: workspace
+    resource_identity_kind: workspace_path
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/workspace_read
     input_schema:
@@ -25,6 +28,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: workspace_write
     tool_kind: kernel_primitive
+    operator_group: workspace
+    resource_identity_kind: workspace_path
+    mutates_state: true
     implementation_source: agent
     implementation_ref: fenix/runtime/workspace_write
     input_schema:

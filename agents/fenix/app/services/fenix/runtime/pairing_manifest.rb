@@ -22,6 +22,9 @@ module Fenix
         {
           "tool_name" => "compact_context",
           "tool_kind" => "agent_observation",
+          "operator_group" => "agent_core",
+          "resource_identity_kind" => "agent_context",
+          "mutates_state" => false,
           "implementation_source" => "agent",
           "implementation_ref" => "fenix/hooks/compact_context",
           "input_schema" => {
@@ -45,6 +48,9 @@ module Fenix
         {
           "tool_name" => "estimate_messages",
           "tool_kind" => "agent_observation",
+          "operator_group" => "agent_core",
+          "resource_identity_kind" => "agent_context",
+          "mutates_state" => false,
           "implementation_source" => "agent",
           "implementation_ref" => "fenix/hooks/estimate_messages",
           "input_schema" => { "type" => "object", "properties" => { "messages" => { "type" => "array" } } },
@@ -55,6 +61,9 @@ module Fenix
         {
           "tool_name" => "estimate_tokens",
           "tool_kind" => "agent_observation",
+          "operator_group" => "agent_core",
+          "resource_identity_kind" => "agent_context",
+          "mutates_state" => false,
           "implementation_source" => "agent",
           "implementation_ref" => "fenix/hooks/estimate_tokens",
           "input_schema" => {
@@ -71,6 +80,9 @@ module Fenix
         {
           "tool_name" => "calculator",
           "tool_kind" => "agent_observation",
+          "operator_group" => "agent_core",
+          "resource_identity_kind" => "agent_context",
+          "mutates_state" => false,
           "implementation_source" => "agent",
           "implementation_ref" => "fenix/runtime/calculator",
           "input_schema" => {
@@ -173,6 +185,7 @@ module Fenix
           "environment_connection_metadata" => endpoint_metadata,
           "environment_capability_payload" => environment_capability_payload,
           "environment_tool_catalog" => environment_tool_catalog,
+          "operator_groups" => operator_groups,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "endpoint_metadata" => endpoint_metadata,
@@ -258,6 +271,10 @@ module Fenix
             "path_prefix_template" => "/dev/<process_run_id>",
           },
         }
+      end
+
+      def operator_groups
+        @operator_groups ||= Fenix::Operator::Catalog.new(tool_catalog: effective_tool_catalog).groups
       end
 
       def runtime_foundation

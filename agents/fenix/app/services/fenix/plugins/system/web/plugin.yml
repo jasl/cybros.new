@@ -5,6 +5,9 @@ default_runtime_plane: environment
 tool_catalog:
   - tool_name: web_fetch
     tool_kind: kernel_primitive
+    operator_group: web
+    resource_identity_kind: web_request
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/web_fetch
     input_schema:
@@ -25,6 +28,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: web_search
     tool_kind: kernel_primitive
+    operator_group: web
+    resource_identity_kind: web_request
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/web_search
     input_schema:
@@ -49,6 +55,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: firecrawl_search
     tool_kind: kernel_primitive
+    operator_group: web
+    resource_identity_kind: web_request
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/firecrawl_search
     input_schema:
@@ -71,6 +80,9 @@ tool_catalog:
     idempotency_policy: best_effort
   - tool_name: firecrawl_scrape
     tool_kind: kernel_primitive
+    operator_group: web
+    resource_identity_kind: web_request
+    mutates_state: false
     implementation_source: agent
     implementation_ref: fenix/runtime/firecrawl_scrape
     input_schema:

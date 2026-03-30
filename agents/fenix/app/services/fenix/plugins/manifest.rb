@@ -17,7 +17,7 @@ module Fenix
         @version = payload.fetch("version")
         @display_name = payload.fetch("display_name")
         @default_runtime_plane = payload.fetch("default_runtime_plane")
-        @tool_catalog = Array(payload.fetch("tool_catalog", [])).map(&:dup)
+        @tool_catalog = Array(payload.fetch("tool_catalog", [])).map(&:deep_stringify_keys)
         @config_schema = payload.fetch("config_schema", {})
         @requirements = payload.fetch("requirements", {})
         @env_contract = payload.fetch("env_contract", {})
