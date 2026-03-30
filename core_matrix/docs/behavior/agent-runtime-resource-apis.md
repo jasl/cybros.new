@@ -154,6 +154,9 @@ orchestration are still defined in:
   - `POST /agent_api/command_runs`
 - detached long-lived process resources are created before local spawn through:
   - `POST /agent_api/process_runs`
+- that create payload includes `tool_name = "process_exec"` so the kernel can
+  resolve the frozen governed `ToolBinding` before it allocates the durable
+  `ProcessRun`
 - detached long-lived process tools such as `process_exec` then activate that
   durable resource through `process_started`; they do not create `ToolInvocation`
   rows or `CommandRun` rows

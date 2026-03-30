@@ -5,9 +5,22 @@ require "uri"
 module Fenix
   module Runtime
     class ControlClient
-      def initialize(base_url:, machine_credential:)
+      DEFAULT_OPEN_TIMEOUT = 5
+      DEFAULT_READ_TIMEOUT = 30
+      DEFAULT_WRITE_TIMEOUT = 30
+
+      def initialize(
+        base_url:,
+        machine_credential:,
+        open_timeout: DEFAULT_OPEN_TIMEOUT,
+        read_timeout: DEFAULT_READ_TIMEOUT,
+        write_timeout: DEFAULT_WRITE_TIMEOUT
+      )
         @base_url = base_url
         @machine_credential = machine_credential
+        @open_timeout = open_timeout
+        @read_timeout = read_timeout
+        @write_timeout = write_timeout
       end
 
       def poll(limit:)
@@ -65,7 +78,14 @@ module Fenix
         request["Authorization"] = %(Token token="#{@machine_credential}")
         request.body = JSON.generate(payload)
 
-        response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
+        response = Net::HTTP.start(
+          uri.host,
+          uri.port,
+          use_ssl: uri.scheme == "https",
+          open_timeout: @open_timeout,
+          read_timeout: @read_timeout,
+          write_timeout: @write_timeout
+        ) do |http|
           http.request(request)
         end
 
