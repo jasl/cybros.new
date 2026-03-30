@@ -38,41 +38,62 @@ module Fenix
           "target_url" => "http://127.0.0.1:#{Integer(target_port)}",
         }
 
-        entries = load_entries
-        entries[process_run_id] = entry
-        persist_entries(entries)
+        with_entries do |entries|
+          entries[process_run_id] = entry
+        end
         entry
       end
 
       def lookup(process_run_id:)
-        load_entries[process_run_id]
+        with_entries do |entries|
+          entries[process_run_id]
+        end
       end
 
       def unregister(process_run_id:)
-        entries = load_entries
-        entry = entries.delete(process_run_id)
-        persist_entries(entries)
-        entry
+        with_entries do |entries|
+          entries.delete(process_run_id)
+        end
       end
 
       def reset!
-        persist_entries({})
+        with_entries do |entries|
+          entries.clear
+        end
       end
 
       private
 
-      def load_entries
-        return {} unless @state_path.exist?
+      def with_entries
+        @state_path.dirname.mkpath
+        @routes_path.dirname.mkpath
 
-        JSON.parse(@state_path.read)
+        File.open(@state_path, File::RDWR | File::CREAT, 0o644) do |state_file|
+          state_file.flock(File::LOCK_EX)
+          entries = load_entries_from(state_file)
+          result = yield(entries)
+          persist_entries(state_file, entries)
+          result
+        ensure
+          state_file.flock(File::LOCK_UN)
+        end
+      end
+
+      def load_entries_from(state_file)
+        state_file.rewind
+        raw = state_file.read
+        return {} if raw.blank?
+
+        JSON.parse(raw)
       rescue JSON::ParserError
         {}
       end
 
-      def persist_entries(entries)
-        @state_path.dirname.mkpath
-        @routes_path.dirname.mkpath
-        @state_path.write(JSON.pretty_generate(entries))
+      def persist_entries(state_file, entries)
+        state_file.rewind
+        state_file.truncate(0)
+        state_file.write(JSON.pretty_generate(entries))
+        state_file.flush
         @routes_path.write(render_routes(entries))
       end
 
