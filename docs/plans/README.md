@@ -2,10 +2,15 @@
 
 This directory contains active execution plans for `core_matrix`.
 
-## Current Status (`2026-03-30`)
+## Current Status (`2026-03-31`)
 
-There are no open `core_matrix` implementation plans in this directory right
-now.
+The active cross-project execution plan in this directory is:
+
+- [2026-03-31-fenix-provider-backed-agent-loop.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop.md)
+
+Its companion design document is:
+
+- [2026-03-31-fenix-provider-backed-agent-loop-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop-design.md)
 
 The full Phase 2 plan chain, task records, follow-up designs, and superseded
 sequential milestone notes were archived to
