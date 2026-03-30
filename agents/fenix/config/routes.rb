@@ -9,6 +9,5 @@ Rails.application.routes.draw do
   # root "posts#index"
   namespace :runtime do
     resource :manifest, only: :show
-    resources :executions, only: [:create, :show]
   end
 end

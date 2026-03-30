@@ -1,7 +1,7 @@
 require "test_helper"
 
 class SkillsFlowTest < ActionDispatch::IntegrationTest
-  test "runtime execution lists bundled system and curated skills" do
+  test "mailbox worker lists bundled system and curated skills" do
     with_skill_roots do |roots|
       write_skill(root: roots.fetch(:system_root), name: "deploy-agent", description: "Deploy another agent.")
       write_skill(root: roots.fetch(:curated_root), name: "research-brief", description: "Write a brief.")
@@ -16,7 +16,7 @@ class SkillsFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "runtime execution loads the built-in deploy-agent skill" do
+  test "mailbox worker loads the built-in deploy-agent skill" do
     with_skill_roots do |roots|
       write_skill(
         root: roots.fetch(:system_root),
@@ -85,22 +85,32 @@ class SkillsFlowTest < ActionDispatch::IntegrationTest
   private
 
   def run_runtime_execution(payload)
-    execution_id = nil
+    runtime_execution = nil
 
     assert_enqueued_jobs 1 do
-      post "/runtime/executions", params: payload, as: :json
-      assert_response :accepted
-
-      queued_body = JSON.parse(response.body)
-      assert_equal "queued", queued_body.fetch("status")
-      execution_id = queued_body.fetch("execution_id")
+      runtime_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: payload)
+      assert_equal "queued", runtime_execution.status
     end
 
     perform_enqueued_jobs
 
-    get "/runtime/executions/#{execution_id}"
-    assert_response :success
+    serialize_runtime_execution(runtime_execution.reload)
+  end
 
-    JSON.parse(response.body)
+  def serialize_runtime_execution(runtime_execution)
+    {
+      "execution_id" => runtime_execution.execution_id,
+      "status" => runtime_execution.status,
+      "output" => runtime_execution.output_payload,
+      "error" => runtime_execution.error_payload,
+      "reports" => runtime_execution.reports,
+      "trace" => runtime_execution.trace,
+      "mailbox_item_id" => runtime_execution.mailbox_item_id,
+      "logical_work_id" => runtime_execution.logical_work_id,
+      "attempt_no" => runtime_execution.attempt_no,
+      "runtime_plane" => runtime_execution.runtime_plane,
+      "started_at" => runtime_execution.started_at,
+      "finished_at" => runtime_execution.finished_at,
+    }.compact
   end
 end

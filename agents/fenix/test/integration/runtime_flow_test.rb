@@ -1,7 +1,7 @@
 require "test_helper"
 
-class RuntimeFlowTest < ActionDispatch::IntegrationTest
-  test "runtime execution endpoint enqueues work and exposes terminal reports through the execution resource" do
+class RuntimeFlowTest < ActiveSupport::TestCase
+  test "mailbox worker enqueues work and exposes terminal reports through the runtime execution record" do
     body = run_runtime_execution(runtime_assignment_payload(mode: "deterministic_tool"))
 
     assert_equal %w[execution_started execution_progress execution_complete],
@@ -59,7 +59,7 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal "researcher", prepared.dig("trace", "profile")
   end
 
-  test "runtime execution endpoint keeps one shared flow for subagent assignments" do
+  test "mailbox worker keeps one shared flow for subagent assignments" do
     body = run_runtime_execution(
       runtime_assignment_payload(
         mode: "deterministic_tool",
@@ -82,7 +82,7 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal true, body.fetch("trace").first.fetch("is_subagent")
   end
 
-  test "runtime execution endpoint persists failed executions for masked direct tool invocation" do
+  test "mailbox worker persists failed executions for masked direct tool invocation" do
     body = run_runtime_execution(
       runtime_assignment_payload(
         mode: "deterministic_tool",
@@ -99,7 +99,7 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_match(/calculator/, body.fetch("error").fetch("last_error_summary"))
   end
 
-  test "runtime execution endpoint persists runtime failures through handle_error" do
+  test "mailbox worker persists runtime failures through handle_error" do
     body = run_runtime_execution(runtime_assignment_payload(mode: "raise_error"))
 
     assert_equal %w[execution_started execution_fail],
@@ -109,56 +109,59 @@ class RuntimeFlowTest < ActionDispatch::IntegrationTest
     assert_equal "runtime_error", body.fetch("error").fetch("failure_kind")
   end
 
-  test "runtime execution endpoint persists unsupported runtime-plane failures" do
+  test "mailbox worker persists unsupported runtime-plane failures" do
     body = run_runtime_execution(runtime_assignment_payload(runtime_plane: "environment"))
 
     assert_equal "failed", body.fetch("status")
     assert_equal "unsupported_runtime_plane", body.fetch("error").fetch("failure_kind")
   end
 
-  test "runtime execution endpoint is idempotent for duplicate assignment delivery" do
+  test "mailbox worker is idempotent for duplicate assignment delivery" do
     payload = runtime_assignment_payload(mode: "deterministic_tool")
-    first_execution_id = nil
-    second_execution_id = nil
+    first_execution = nil
+    second_execution = nil
 
     assert_enqueued_jobs 1 do
-      post "/runtime/executions", params: payload, as: :json
-      assert_response :accepted
-      first_execution_id = JSON.parse(response.body).fetch("execution_id")
-
-      post "/runtime/executions", params: payload, as: :json
-      assert_response :accepted
-      second_execution_id = JSON.parse(response.body).fetch("execution_id")
+      first_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: payload)
+      second_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: payload)
     end
 
-    assert_equal first_execution_id, second_execution_id
+    assert_equal first_execution.id, second_execution.id
 
     perform_enqueued_jobs
 
-    get "/runtime/executions/#{first_execution_id}"
-    assert_response :success
-    assert_equal "completed", JSON.parse(response.body).fetch("status")
+    assert_equal "completed", first_execution.reload.status
   end
 
   private
 
   def run_runtime_execution(payload)
-    execution_id = nil
+    runtime_execution = nil
 
     assert_enqueued_jobs 1 do
-      post "/runtime/executions", params: payload, as: :json
-      assert_response :accepted
-
-      queued_body = JSON.parse(response.body)
-      assert_equal "queued", queued_body.fetch("status")
-      execution_id = queued_body.fetch("execution_id")
+      runtime_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: payload)
+      assert_equal "queued", runtime_execution.status
     end
 
     perform_enqueued_jobs
 
-    get "/runtime/executions/#{execution_id}"
-    assert_response :success
+    serialize_runtime_execution(runtime_execution.reload)
+  end
 
-    JSON.parse(response.body)
+  def serialize_runtime_execution(runtime_execution)
+    {
+      "execution_id" => runtime_execution.execution_id,
+      "status" => runtime_execution.status,
+      "output" => runtime_execution.output_payload,
+      "error" => runtime_execution.error_payload,
+      "reports" => runtime_execution.reports,
+      "trace" => runtime_execution.trace,
+      "mailbox_item_id" => runtime_execution.mailbox_item_id,
+      "logical_work_id" => runtime_execution.logical_work_id,
+      "attempt_no" => runtime_execution.attempt_no,
+      "runtime_plane" => runtime_execution.runtime_plane,
+      "started_at" => runtime_execution.started_at,
+      "finished_at" => runtime_execution.finished_at,
+    }.compact
   end
 end
