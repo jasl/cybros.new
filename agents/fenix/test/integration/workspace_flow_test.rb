@@ -75,4 +75,76 @@ class WorkspaceFlowTest < ActiveSupport::TestCase
     assert_equal "workspace_read", failed_invocation.fetch("tool_name")
     assert_equal "validation_error", failed_invocation.dig("error_payload", "code")
   end
+
+  test "workspace_tree, workspace_stat, and workspace_find expose workspace metadata" do
+    workspace_root = Pathname.new(Fenix::Workspace::Layout.default_root)
+    relative_path = "notes/operator-#{SecureRandom.hex(4)}.md"
+    full_path = workspace_root.join(relative_path)
+    FileUtils.mkdir_p(full_path.dirname)
+    full_path.write("operator workspace\n")
+
+    tree_result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "workspace_tree",
+          "path" => "notes",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[workspace_tree workspace_stat workspace_find]
+        )
+      )
+    )
+
+    tree_invocation = tree_result.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", tree_result.status
+    assert tree_invocation.dig("response_payload", "entries").any? { |entry| entry.fetch("path") == relative_path }
+
+    stat_result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "workspace_stat",
+          "path" => relative_path,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["workspace_stat"]
+        )
+      )
+    )
+
+    stat_invocation = stat_result.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", stat_result.status
+    assert_equal "file", stat_invocation.dig("response_payload", "node_type")
+    assert_equal "operator workspace\n".bytesize, stat_invocation.dig("response_payload", "size_bytes")
+
+    find_result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "workspace_find",
+          "query" => "operator-",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["workspace_find"]
+        )
+      )
+    )
+
+    find_invocation = find_result.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", find_result.status
+    assert find_invocation.dig("response_payload", "matches").any? { |entry| entry.fetch("path") == relative_path }
+  end
 end

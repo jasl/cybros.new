@@ -17,8 +17,14 @@ module Fenix
 
           def call
             case @tool_call.fetch("tool_name")
+            when "memory_append_daily"
+              memory_append_daily
+            when "memory_compact_summary"
+              memory_compact_summary
             when "memory_get"
               memory_get
+            when "memory_list"
+              memory_list
             when "memory_search"
               memory_search
             when "memory_store"
@@ -31,6 +37,36 @@ module Fenix
           private
 
           attr_reader :layout, :memory_repository
+
+          def memory_append_daily
+            text = @tool_call.dig("arguments", "text").to_s
+            title = @tool_call.dig("arguments", "title").to_s
+            raise ValidationError, "memory_append_daily text must be present" if text.blank?
+
+            path = memory_repository.store_text(scope: "daily", text:, title:)
+
+            {
+              "scope" => "daily",
+              "memory_path" => relative_path(path),
+              "bytes_written" => text.bytesize,
+            }
+          end
+
+          def memory_compact_summary
+            text = @tool_call.dig("arguments", "text").to_s
+            scope = @tool_call.dig("arguments", "scope").presence || "conversation"
+            raise ValidationError, "memory_compact_summary text must be present" if text.blank?
+
+            path = memory_repository.compact_summary(scope:, text:)
+
+            {
+              "scope" => scope,
+              "memory_path" => relative_path(path),
+              "bytes_written" => text.bytesize,
+            }
+          rescue ArgumentError => error
+            raise ValidationError, error.message
+          end
 
           def memory_get
             scope = @tool_call.dig("arguments", "scope").presence || "all"
@@ -57,6 +93,17 @@ module Fenix
             else
               raise ValidationError, "unsupported memory_get scope #{scope}"
             end
+          end
+
+          def memory_list
+            scope = @tool_call.dig("arguments", "scope").presence || "all"
+
+            {
+              "scope" => scope,
+              "entries" => memory_repository.list_entries(scope:),
+            }
+          rescue ArgumentError => error
+            raise ValidationError, error.message
           end
 
           def memory_search
@@ -86,26 +133,15 @@ module Fenix
             scope = @tool_call.dig("arguments", "scope").presence || "daily"
             raise ValidationError, "memory_store text must be present" if text.blank?
 
-            path =
-              case scope
-              when "daily"
-                next_daily_memory_path(title:)
-              when "conversation"
-                layout.conversation_memory_file
-              when "root"
-                layout.root_memory_file
-              else
-                raise ValidationError, "unsupported memory_store scope #{scope}"
-              end
-
-            FileUtils.mkdir_p(path.dirname)
-            path.write(text)
+            path = memory_repository.store_text(scope:, text:, title:)
 
             {
               "scope" => scope,
               "memory_path" => relative_path(path),
               "bytes_written" => text.bytesize,
             }
+          rescue ArgumentError => error
+            raise ValidationError, error.message
           end
 
           def search_source_paths
@@ -125,12 +161,6 @@ module Fenix
 
             match_index = content.downcase.index(query.downcase) || 0
             content[[match_index - 40, 0].max, query.length + 80].to_s.strip
-          end
-
-          def next_daily_memory_path(title:)
-            slug = title.parameterize.presence || "memory"
-            timestamp = Time.current.utc.strftime("%Y%m%dT%H%M%S")
-            layout.daily_memory_root.join("#{timestamp}-#{slug}-#{SecureRandom.hex(4)}.md")
           end
 
           def relative_path(path)

@@ -16,8 +16,14 @@ module Fenix
 
           def call
             case @tool_call.fetch("tool_name")
+            when "workspace_find"
+              workspace_find
             when "workspace_read"
               workspace_read
+            when "workspace_stat"
+              workspace_stat
+            when "workspace_tree"
+              workspace_tree
             when "workspace_write"
               workspace_write
             else
@@ -26,6 +32,27 @@ module Fenix
           end
 
           private
+
+          def workspace_find
+            query = @tool_call.dig("arguments", "query").to_s.strip
+            limit = positive_limit(@tool_call.dig("arguments", "limit"), default: 20)
+            raise ValidationError, "workspace_find query must be present" if query.blank?
+
+            search_root = resolve_workspace_path_or_root(@tool_call.dig("arguments", "path"))
+            raise ValidationError, "workspace path #{relative_path(search_root)} does not exist" unless search_root.exist?
+
+            matches = searchable_paths(search_root).filter_map do |path|
+              next unless relative_path(path).downcase.include?(query.downcase)
+
+              workspace_entry(path)
+            end.first(limit)
+
+            {
+              "path" => relative_path(search_root),
+              "query" => query,
+              "matches" => matches,
+            }
+          end
 
           def workspace_read
             path = resolve_workspace_path!(@tool_call.dig("arguments", "path"))
@@ -40,6 +67,31 @@ module Fenix
             }
           end
 
+          def workspace_stat
+            path = resolve_workspace_path_or_root(@tool_call.dig("arguments", "path"))
+            raise ValidationError, "workspace path #{relative_path(path)} does not exist" unless path.exist?
+
+            workspace_entry(path)
+          end
+
+          def workspace_tree
+            path = resolve_workspace_path_or_root(@tool_call.dig("arguments", "path"))
+            limit = positive_limit(@tool_call.dig("arguments", "limit"), default: 200)
+            raise ValidationError, "workspace path #{relative_path(path)} does not exist" unless path.exist?
+
+            entries =
+              if path.file?
+                [workspace_entry(path)]
+              else
+                searchable_paths(path).map { |entry| workspace_entry(entry) }.first(limit)
+              end
+
+            {
+              "path" => relative_path(path),
+              "entries" => entries,
+            }
+          end
+
           def workspace_write
             path = resolve_workspace_path!(@tool_call.dig("arguments", "path"))
             content = @tool_call.dig("arguments", "content").to_s
@@ -51,6 +103,34 @@ module Fenix
               "path" => relative_path(path),
               "bytes_written" => content.bytesize,
             }
+          end
+
+          def workspace_entry(path)
+            node_type = path.directory? ? "directory" : "file"
+
+            {
+              "path" => relative_path(path),
+              "node_type" => node_type,
+              "size_bytes" => path.file? ? path.size : 0,
+            }
+          end
+
+          def searchable_paths(path)
+            return [path] if path.file?
+
+            path.glob("**/*", File::FNM_DOTMATCH)
+              .reject { |entry| dot_entry?(entry) || reserved_runtime_state?(entry) }
+              .sort_by(&:to_s)
+          end
+
+          def dot_entry?(path)
+            %w[. ..].include?(path.basename.to_s)
+          end
+
+          def resolve_workspace_path_or_root(raw_path)
+            return @workspace_root if raw_path.to_s.blank? || raw_path.to_s == "."
+
+            resolve_workspace_path!(raw_path)
           end
 
           def resolve_workspace_path!(raw_path)
@@ -72,6 +152,18 @@ module Fenix
             end
 
             resolved
+          end
+
+          def reserved_runtime_state?(path)
+            reserved_root = @workspace_root.join(".fenix").cleanpath
+            reserved_root_prefix = "#{reserved_root}#{File::SEPARATOR}"
+
+            path == reserved_root || path.to_s.start_with?(reserved_root_prefix)
+          end
+
+          def positive_limit(raw_limit, default:)
+            value = raw_limit.to_i
+            value.positive? ? value : default
           end
 
           def relative_path(path)

@@ -26,8 +26,14 @@ module Fenix
           project_firecrawl_scrape(tool_name:, tool_result:)
         when "firecrawl_search"
           project_search_results(tool_name:, tool_result:)
+        when "memory_append_daily"
+          project_memory_store(tool_name:, tool_result:)
+        when "memory_compact_summary"
+          project_memory_compact_summary(tool_name:, tool_result:)
         when "memory_get"
           project_memory_get(tool_name:, tool_result:)
+        when "memory_list"
+          project_memory_list(tool_name:, tool_result:)
         when "memory_search"
           project_memory_search(tool_name:, tool_result:)
         when "memory_store"
@@ -38,8 +44,14 @@ module Fenix
           project_web_fetch(tool_name:, tool_result:)
         when "web_search"
           project_search_results(tool_name:, tool_result:)
+        when "workspace_find"
+          project_workspace_find(tool_name:, tool_result:)
         when "workspace_read"
           project_workspace_read(tool_name:, tool_result:)
+        when "workspace_stat"
+          project_workspace_stat(tool_name:, tool_result:)
+        when "workspace_tree"
+          project_workspace_tree(tool_name:, tool_result:)
         when "workspace_write"
           project_workspace_write(tool_name:, tool_result:)
         when "write_stdin"
@@ -194,6 +206,35 @@ module Fenix
         }
       end
 
+      def self.project_workspace_tree(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Listed #{tool_result.fetch("entries").size} workspace entries under #{tool_result.fetch("path")}.",
+          "path" => tool_result.fetch("path"),
+          "entries" => tool_result.fetch("entries"),
+        }
+      end
+
+      def self.project_workspace_stat(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Workspace path #{tool_result.fetch("path")} is a #{tool_result.fetch("node_type")}.",
+          "path" => tool_result.fetch("path"),
+          "node_type" => tool_result.fetch("node_type"),
+          "size_bytes" => tool_result.fetch("size_bytes"),
+        }
+      end
+
+      def self.project_workspace_find(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Found #{tool_result.fetch("matches").size} workspace paths matching #{tool_result.fetch("query")}.",
+          "path" => tool_result.fetch("path"),
+          "query" => tool_result.fetch("query"),
+          "matches" => tool_result.fetch("matches"),
+        }
+      end
+
       def self.project_memory_get(tool_name:, tool_result:)
         sections = []
         sections << "Root memory:\n#{tool_result.fetch("root_memory")}" if tool_result["root_memory"].present?
@@ -219,10 +260,29 @@ module Fenix
         }
       end
 
+      def self.project_memory_list(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Listed #{tool_result.fetch("entries").size} memory entries.",
+          "scope" => tool_result.fetch("scope"),
+          "entries" => tool_result.fetch("entries"),
+        }
+      end
+
       def self.project_memory_store(tool_name:, tool_result:)
         {
           "tool_name" => tool_name,
           "content" => "Stored memory at #{tool_result.fetch("memory_path")}.",
+          "scope" => tool_result.fetch("scope"),
+          "memory_path" => tool_result.fetch("memory_path"),
+          "bytes_written" => tool_result.fetch("bytes_written"),
+        }
+      end
+
+      def self.project_memory_compact_summary(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "Updated #{tool_result.fetch("scope")} summary at #{tool_result.fetch("memory_path")}.",
           "scope" => tool_result.fetch("scope"),
           "memory_path" => tool_result.fetch("memory_path"),
           "bytes_written" => tool_result.fetch("bytes_written"),

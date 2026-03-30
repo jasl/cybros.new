@@ -78,6 +78,77 @@ tool_catalog:
           type: integer
     streaming_support: false
     idempotency_policy: best_effort
+  - tool_name: memory_list
+    tool_kind: kernel_primitive
+    operator_group: memory
+    resource_identity_kind: memory_scope
+    mutates_state: false
+    implementation_source: agent
+    implementation_ref: fenix/runtime/memory_list
+    input_schema:
+      type: object
+      properties:
+        scope:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        scope:
+          type: string
+        entries:
+          type: array
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: memory_append_daily
+    tool_kind: kernel_primitive
+    operator_group: memory
+    resource_identity_kind: memory_scope
+    mutates_state: true
+    implementation_source: agent
+    implementation_ref: fenix/runtime/memory_append_daily
+    input_schema:
+      type: object
+      properties:
+        text:
+          type: string
+        title:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        scope:
+          type: string
+        memory_path:
+          type: string
+        bytes_written:
+          type: integer
+    streaming_support: false
+    idempotency_policy: best_effort
+  - tool_name: memory_compact_summary
+    tool_kind: kernel_primitive
+    operator_group: memory
+    resource_identity_kind: memory_scope
+    mutates_state: true
+    implementation_source: agent
+    implementation_ref: fenix/runtime/memory_compact_summary
+    input_schema:
+      type: object
+      properties:
+        text:
+          type: string
+        scope:
+          type: string
+    result_schema:
+      type: object
+      properties:
+        scope:
+          type: string
+        memory_path:
+          type: string
+        bytes_written:
+          type: integer
+    streaming_support: false
+    idempotency_policy: best_effort
 config_schema: {}
 requirements:
   fenix_memory_layout: required

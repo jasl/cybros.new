@@ -257,12 +257,36 @@ module Fenix
             {
               "path" => @context.dig("task_payload", "path") || "README.md",
             }
+          when "workspace_tree", "workspace_stat"
+            {
+              "path" => @context.dig("task_payload", "path") || ".",
+            }
+          when "workspace_find"
+            {
+              "path" => @context.dig("task_payload", "path") || ".",
+              "query" => @context.dig("task_payload", "query").to_s,
+              "limit" => @context.dig("task_payload", "limit") || 20,
+            }
           when "workspace_write"
             {
               "path" => @context.dig("task_payload", "path") || "notes/output.txt",
               "content" => @context.dig("task_payload", "content").to_s,
             }
+          when "memory_append_daily"
+            {
+              "text" => @context.dig("task_payload", "text").to_s,
+              "title" => @context.dig("task_payload", "title").to_s,
+            }
+          when "memory_compact_summary"
+            {
+              "text" => @context.dig("task_payload", "text").to_s,
+              "scope" => @context.dig("task_payload", "scope") || "conversation",
+            }
           when "memory_get"
+            {
+              "scope" => @context.dig("task_payload", "scope") || "all",
+            }
+          when "memory_list"
             {
               "scope" => @context.dig("task_payload", "scope") || "all",
             }
@@ -354,9 +378,9 @@ module Fenix
             process_run: process_run,
             command_line: tool_call.dig("arguments", "command_line")
           )
-        when "workspace_read", "workspace_write"
+        when "workspace_find", "workspace_read", "workspace_stat", "workspace_tree", "workspace_write"
           execute_workspace_tool(tool_call)
-        when "memory_get", "memory_search", "memory_store"
+        when "memory_append_daily", "memory_compact_summary", "memory_get", "memory_list", "memory_search", "memory_store"
           execute_memory_tool(tool_call)
         when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
           execute_web_tool(tool_call)

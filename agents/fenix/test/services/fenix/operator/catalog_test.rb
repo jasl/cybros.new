@@ -6,7 +6,7 @@ class Fenix::Operator::CatalogTest < ActiveSupport::TestCase
     groups = Fenix::Operator::Catalog.new(tool_catalog: registry.catalog.environment_tool_catalog).groups
 
     assert_equal "Workspace", groups.fetch("workspace").fetch("label")
-    assert_equal %w[workspace_read workspace_write], groups.fetch("workspace").fetch("tool_names")
+    assert_equal %w[workspace_read workspace_write workspace_tree workspace_stat workspace_find], groups.fetch("workspace").fetch("tool_names")
     assert_equal ["workspace_path"], groups.fetch("workspace").fetch("resource_identity_kinds")
 
     assert_equal "Command Run", groups.fetch("command_run").fetch("label")

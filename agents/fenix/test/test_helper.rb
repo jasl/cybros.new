@@ -183,7 +183,7 @@ module ActiveSupport
       )
     end
 
-    def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context)
+    def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context, conversation_id: nil)
       {
         "item_id" => "mailbox-item-#{SecureRandom.uuid}",
         "protocol_message_id" => "kernel-assignment-#{SecureRandom.uuid}",
@@ -194,7 +194,7 @@ module ActiveSupport
           "agent_task_run_id" => "task-#{SecureRandom.uuid}",
           "workflow_run_id" => "workflow-#{SecureRandom.uuid}",
           "workflow_node_id" => "node-#{SecureRandom.uuid}",
-          "conversation_id" => "conversation-#{SecureRandom.uuid}",
+          "conversation_id" => conversation_id || "conversation-#{SecureRandom.uuid}",
           "turn_id" => "turn-#{SecureRandom.uuid}",
           "kind" => "turn_step",
           "task_payload" => { "mode" => mode, "expression" => "2 + 2" }.merge(task_payload),
