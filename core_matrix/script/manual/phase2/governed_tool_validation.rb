@@ -2,11 +2,11 @@
 
 ENV["RAILS_ENV"] ||= "development"
 
-require_relative "../../config/environment"
+require_relative "../../../config/environment"
 require "json"
-require_relative "./phase2_governed_validation_support"
+require_relative "./governed_validation_support"
 
-runtime_context = Phase2GovernedValidationSupport.bootstrap_runtime!(
+runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   agent_key: "phase2-governed-tool",
   display_name: "Phase 2 Governed Tool Runtime",
   environment_fingerprint: "phase2-governed-tool-environment",
@@ -33,7 +33,7 @@ runtime_context = Phase2GovernedValidationSupport.bootstrap_runtime!(
   }
 )
 
-task_context = Phase2GovernedValidationSupport.create_task_context!(
+task_context = GovernedValidationSupport.create_task_context!(
   workspace: runtime_context.fetch(:workspace),
   deployment: runtime_context.fetch(:runtime).deployment,
   capability_snapshot: runtime_context.fetch(:runtime).capability_snapshot,
@@ -80,14 +80,14 @@ puts JSON.pretty_generate(
     "tool_invocation_id" => completed.public_id,
     "governance_mode" => binding.tool_definition.governance_mode,
     "expected_dag_shape" => ["root->agent_turn_step"],
-    "observed_dag_shape" => Phase2GovernedValidationSupport.dag_edges(task_context.fetch(:workflow_run)),
+    "observed_dag_shape" => GovernedValidationSupport.dag_edges(task_context.fetch(:workflow_run)),
     "expected_conversation_state" => {
       "conversation_state" => "active",
       "workflow_lifecycle_state" => "completed",
       "workflow_wait_state" => "ready",
       "turn_lifecycle_state" => "active",
     },
-    "observed_conversation_state" => Phase2GovernedValidationSupport.conversation_state(
+    "observed_conversation_state" => GovernedValidationSupport.conversation_state(
       conversation: task_context.fetch(:conversation),
       workflow_run: task_context.fetch(:workflow_run)
     ),

@@ -83,9 +83,11 @@ claims real loop behavior, validation must include:
 - The checklist now standardizes on a reusable
   `core_matrix_reset_backend_state` helper built on
   `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
-- Phase 2 operator scripts under `script/manual/phase2_*` reset and seed the
-  development database in-process and are intended to be run with
-  `bundle exec ruby`.
+- The reusable manual-validation harness now lives in
+  `script/manual/manual_acceptance_support.rb`.
+- Phase 2 operator scenario scripts live under `script/manual/phase2/*`,
+  reset and seed the development database in-process, and are intended to be
+  run with `bundle exec ruby`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
   stable `environment_fingerprint`; the manual checklist currently exports that
   through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
@@ -103,8 +105,8 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
-bundle exec ruby script/manual/phase2_bundled_fast_terminal_validation.rb
-bundle exec ruby script/manual/phase2_provider_backed_turn_validation.rb
+bundle exec ruby script/manual/phase2/bundled_fast_terminal_validation.rb
+bundle exec ruby script/manual/phase2/provider_backed_turn_validation.rb
 bundle exec ruby script/manual/workflow_proof_export.rb export ...
 ```
 

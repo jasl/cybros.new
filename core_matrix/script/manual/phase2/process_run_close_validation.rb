@@ -1,14 +1,14 @@
 #!/usr/bin/env ruby
 
-require_relative "./phase2_acceptance_support"
+require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 fingerprint = "phase2-process-run-runtime"
 
-Phase2AcceptanceSupport.reset_backend_state!
-bootstrap = Phase2AcceptanceSupport.bootstrap_and_seed!
-bundled = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
+ManualAcceptanceSupport.reset_backend_state!
+bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   environment_fingerprint: "phase2-process-run-environment",
@@ -19,13 +19,13 @@ bundled = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
 result = nil
 close_loop = { "items" => [] }
 
-Phase2AcceptanceSupport.with_fenix_control_worker!(
+ManualAcceptanceSupport.with_fenix_control_worker!(
   machine_credential: bundled.fetch(:machine_credential),
   realtime_timeout_seconds: delivery_mode == "realtime" ? 5 : 0
 ) do
   result ||= begin
-    conversation_context = Phase2AcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
-    run = Phase2AcceptanceSupport.start_turn_workflow_on_conversation!(
+    conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
+    run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
       conversation: conversation_context.fetch(:conversation),
       deployment: bundled.fetch(:runtime).deployment,
       content: "Start a long-running background service and then close it gracefully.",
@@ -39,15 +39,15 @@ Phase2AcceptanceSupport.with_fenix_control_worker!(
         "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
       }
     )
-    agent_task_run = Phase2AcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
-    process_run = Phase2AcceptanceSupport.wait_for_process_run!(workflow_node: agent_task_run.workflow_node)
-    Phase2AcceptanceSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
+    agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
+    process_run = ManualAcceptanceSupport.wait_for_process_run!(workflow_node: agent_task_run.workflow_node)
+    ManualAcceptanceSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
 
     run.merge(
       conversation: conversation_context.fetch(:conversation).reload,
       agent_task_run: agent_task_run,
       process_run: process_run.reload,
-      report_results: Phase2AcceptanceSupport.report_results_for(agent_task_run: agent_task_run),
+      report_results: ManualAcceptanceSupport.report_results_for(agent_task_run: agent_task_run),
       execution: {
         "status" => "completed",
         "output" => agent_task_run.terminal_payload["output"],
@@ -67,7 +67,7 @@ Phase2AcceptanceSupport.with_fenix_control_worker!(
     protocol_message_id: "phase2-process-run-close"
   )
 
-  Phase2AcceptanceSupport.wait_for_process_run_state!(
+  ManualAcceptanceSupport.wait_for_process_run_state!(
     process_run: process_run,
     lifecycle_states: "stopped",
     close_states: "closed",
@@ -83,7 +83,7 @@ model_context = workflow_run.execution_snapshot.model_context
 process_run = result.fetch(:process_run).reload
 close_request = result.fetch(:close_request)
 
-Phase2AcceptanceSupport.write_json(
+ManualAcceptanceSupport.write_json(
   {
     "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
     "delivery_mode" => delivery_mode,
@@ -99,7 +99,7 @@ Phase2AcceptanceSupport.write_json(
     "api_model" => model_context["api_model"],
     "selector" => workflow_run.normalized_selector,
     "expected_dag_shape" => ["agent_turn_step"],
-    "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(workflow_run),
+    "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(workflow_run),
     "expected_conversation_state" => {
       "conversation_state" => "active",
       "workflow_lifecycle_state" => "completed",
@@ -110,7 +110,7 @@ Phase2AcceptanceSupport.write_json(
       "process_close_state" => "closed",
       "process_close_outcome_kind" => "graceful",
     },
-    "observed_conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+    "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
       conversation: result.fetch(:conversation),
       workflow_run: workflow_run,
       turn: turn,

@@ -1,14 +1,14 @@
 #!/usr/bin/env ruby
 
-require_relative "./phase2_acceptance_support"
+require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 fingerprint = "phase2-bundled-fast-terminal-runtime"
 
-Phase2AcceptanceSupport.reset_backend_state!
-bootstrap = Phase2AcceptanceSupport.bootstrap_and_seed!
-bundled = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
+ManualAcceptanceSupport.reset_backend_state!
+bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   environment_fingerprint: "phase2-bundled-fast-terminal-environment",
@@ -16,7 +16,7 @@ bundled = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
   sdk_version: "fenix-0.1.0"
 )
 
-run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: bundled.fetch(:runtime).deployment,
   machine_credential: bundled.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
@@ -26,7 +26,7 @@ run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
   delivery_mode: delivery_mode
 )
 
-Phase2AcceptanceSupport.write_json(
+ManualAcceptanceSupport.write_json(
   {
     "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
     "delivery_mode" => delivery_mode,
@@ -36,7 +36,7 @@ Phase2AcceptanceSupport.write_json(
     "workflow_run_id" => run.fetch(:workflow_run).public_id,
     "agent_task_run_id" => run.fetch(:agent_task_run).public_id,
     "expected_dag_shape" => ["agent_turn_step"],
-    "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
+    "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
     "expected_conversation_state" => {
       "conversation_state" => "active",
       "workflow_lifecycle_state" => "completed",
@@ -44,7 +44,7 @@ Phase2AcceptanceSupport.write_json(
       "turn_lifecycle_state" => "active",
       "agent_task_run_state" => "completed",
     },
-    "observed_conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+    "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
       conversation: run.fetch(:conversation),
       workflow_run: run.fetch(:workflow_run),
       turn: run.fetch(:turn),

@@ -1,13 +1,13 @@
 #!/usr/bin/env ruby
 
-require_relative "./phase2_acceptance_support"
+require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 
-Phase2AcceptanceSupport.reset_backend_state!
-bootstrap = Phase2AcceptanceSupport.bootstrap_and_seed!
+ManualAcceptanceSupport.reset_backend_state!
+bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
 
-v1 = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
+v1 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   environment_fingerprint: "phase2-bundled-rotation-environment",
@@ -15,14 +15,14 @@ v1 = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
   sdk_version: "fenix-0.1.0"
 ).fetch(:runtime)
 
-conversation_context = Phase2AcceptanceSupport.create_conversation!(deployment: v1.deployment)
-baseline = Phase2AcceptanceSupport.execute_provider_turn_on_conversation!(
+conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: v1.deployment)
+baseline = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   conversation: conversation_context.fetch(:conversation),
   deployment: v1.deployment,
   content: "Bundled rotation baseline turn"
 )
 
-v2 = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
+v2 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   environment_fingerprint: "phase2-bundled-rotation-environment",
@@ -36,13 +36,13 @@ upgrade_switch = Conversations::SwitchAgentDeployment.call(
   conversation: conversation_context.fetch(:conversation).reload,
   agent_deployment: v2.deployment
 )
-upgrade = Phase2AcceptanceSupport.execute_provider_turn_on_conversation!(
+upgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   conversation: conversation_context.fetch(:conversation).reload,
   deployment: v2.deployment,
   content: "Bundled rotation upgrade turn"
 )
 
-v0 = Phase2AcceptanceSupport.register_bundled_runtime_from_manifest!(
+v0 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   environment_fingerprint: "phase2-bundled-rotation-environment",
@@ -56,13 +56,13 @@ downgrade_switch = Conversations::SwitchAgentDeployment.call(
   conversation: conversation_context.fetch(:conversation).reload,
   agent_deployment: v0.deployment
 )
-downgrade = Phase2AcceptanceSupport.execute_provider_turn_on_conversation!(
+downgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   conversation: conversation_context.fetch(:conversation).reload,
   deployment: v0.deployment,
   content: "Bundled rotation downgrade turn"
 )
 
-Phase2AcceptanceSupport.write_json(
+ManualAcceptanceSupport.write_json(
   {
     "conversation_id" => conversation_context.fetch(:conversation).public_id,
     "execution_environment_id" => v1.execution_environment.public_id,
@@ -72,8 +72,8 @@ Phase2AcceptanceSupport.write_json(
       "workflow_run_id" => baseline.fetch(:workflow_run).public_id,
       "selected_output_message_id" => baseline.fetch(:turn).selected_output_message.public_id,
       "selected_output_content" => baseline.fetch(:turn).selected_output_message.content,
-      "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(baseline.fetch(:workflow_run)),
-      "observed_conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+      "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(baseline.fetch(:workflow_run)),
+      "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
         conversation: conversation_context.fetch(:conversation),
         workflow_run: baseline.fetch(:workflow_run),
         turn: baseline.fetch(:turn)
@@ -100,8 +100,8 @@ Phase2AcceptanceSupport.write_json(
       "workflow_run_id" => upgrade.fetch(:workflow_run).public_id,
       "selected_output_message_id" => upgrade.fetch(:turn).selected_output_message.public_id,
       "selected_output_content" => upgrade.fetch(:turn).selected_output_message.content,
-      "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(upgrade.fetch(:workflow_run)),
-      "observed_conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+      "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(upgrade.fetch(:workflow_run)),
+      "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
         conversation: conversation_context.fetch(:conversation),
         workflow_run: upgrade.fetch(:workflow_run),
         turn: upgrade.fetch(:turn)
@@ -121,8 +121,8 @@ Phase2AcceptanceSupport.write_json(
       "workflow_run_id" => downgrade.fetch(:workflow_run).public_id,
       "selected_output_message_id" => downgrade.fetch(:turn).selected_output_message.public_id,
       "selected_output_content" => downgrade.fetch(:turn).selected_output_message.content,
-      "observed_dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(downgrade.fetch(:workflow_run)),
-      "observed_conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+      "observed_dag_shape" => ManualAcceptanceSupport.workflow_node_keys(downgrade.fetch(:workflow_run)),
+      "observed_conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
         conversation: conversation_context.fetch(:conversation),
         workflow_run: downgrade.fetch(:workflow_run),
         turn: downgrade.fetch(:turn)

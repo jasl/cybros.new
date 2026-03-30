@@ -42,8 +42,9 @@ and the retained Phase 2 acceptance operator path.
   - specialized-role exhaustion hard failure
   - one-time manual resume override
   - drift-triggered manual retry
-- Phase 2 acceptance now additionally relies on concrete operator scripts under
-  `script/manual/phase2_*`, run with `bundle exec ruby`, to cover:
+- Phase 2 acceptance now additionally relies on the reusable harness in
+  `script/manual/manual_acceptance_support.rb` plus concrete operator scripts
+  under `script/manual/phase2/*`, run with `bundle exec ruby`, to cover:
   - bundled `Fenix` fast terminal
   - real provider-backed bundled turn using `.env`-materialized
     `OPENROUTER_API_KEY`

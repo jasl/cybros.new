@@ -53,14 +53,14 @@ Before any real acceptance run:
 - make sure each scenario records expected and observed DAG shape plus
   expected and observed conversation-state results
 - keep the concrete operator scripts anchored on:
-  - `bundle exec ruby script/manual/phase2_bundled_fast_terminal_validation.rb`
-  - `bundle exec ruby script/manual/phase2_provider_backed_turn_validation.rb`
-  - `bundle exec ruby script/manual/phase2_process_run_close_validation.rb`
-  - `bundle exec ruby script/manual/phase2_bundled_rotation_validation.rb`
-  - `bundle exec ruby script/manual/phase2_external_fenix_validation.rb`
-  - `bundle exec ruby script/manual/phase2_fenix_skills_validation.rb`
-  - `bundle exec ruby script/manual/phase2_governed_tool_validation.rb`
-  - `bundle exec ruby script/manual/phase2_governed_mcp_validation.rb`
+  - `bundle exec ruby script/manual/phase2/bundled_fast_terminal_validation.rb`
+  - `bundle exec ruby script/manual/phase2/provider_backed_turn_validation.rb`
+  - `bundle exec ruby script/manual/phase2/process_run_close_validation.rb`
+  - `bundle exec ruby script/manual/phase2/bundled_rotation_validation.rb`
+  - `bundle exec ruby script/manual/phase2/external_fenix_validation.rb`
+  - `bundle exec ruby script/manual/phase2/fenix_skills_validation.rb`
+  - `bundle exec ruby script/manual/phase2/governed_tool_validation.rb`
+  - `bundle exec ruby script/manual/phase2/governed_mcp_validation.rb`
   - `bundle exec ruby script/manual/workflow_proof_export.rb export ...`
 
 The checklist must cover at least:

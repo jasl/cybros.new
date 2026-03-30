@@ -105,7 +105,7 @@ acceptance run.
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2_bundled_fast_terminal_validation.rb \
+bundle exec ruby script/manual/phase2/bundled_fast_terminal_validation.rb \
   > /tmp/phase2_bundled_fast_terminal_validation.json
 
 jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
@@ -151,7 +151,7 @@ jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2_provider_backed_turn_validation.rb \
+bundle exec ruby script/manual/phase2/provider_backed_turn_validation.rb \
   > /tmp/phase2_provider_backed_turn_validation.json
 
 jq '.' /tmp/phase2_provider_backed_turn_validation.json
@@ -1253,7 +1253,7 @@ RUBY
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2_process_run_close_validation.rb \
+bundle exec ruby script/manual/phase2/process_run_close_validation.rb \
   > /tmp/phase2_process_run_close_validation.json
 
 jq '.' /tmp/phase2_process_run_close_validation.json
@@ -1314,7 +1314,7 @@ jq '.' /tmp/phase2_process_run_close_validation.json
 ```bash
 core_matrix_reset_backend_state
 
-bundle exec ruby script/manual/phase2_governed_tool_validation.rb
+bundle exec ruby script/manual/phase2/governed_tool_validation.rb
 ```
 
 - expected outputs:
@@ -1401,7 +1401,7 @@ RUBY
 ```bash
 core_matrix_reset_backend_state
 
-bundle exec ruby script/manual/phase2_governed_mcp_validation.rb
+bundle exec ruby script/manual/phase2/governed_mcp_validation.rb
 ```
 
 - expected outputs:
@@ -1438,7 +1438,7 @@ bundle exec ruby script/manual/phase2_governed_mcp_validation.rb
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2_bundled_rotation_validation.rb \
+bundle exec ruby script/manual/phase2/bundled_rotation_validation.rb \
   > /tmp/phase2_bundled_rotation_validation.json
 
 jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_conversation_state, upgrade}' \
@@ -1484,7 +1484,7 @@ jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_con
 
 ```bash
 test -f /tmp/phase2_bundled_rotation_validation.json || \
-  bundle exec ruby script/manual/phase2_bundled_rotation_validation.rb \
+  bundle exec ruby script/manual/phase2/bundled_rotation_validation.rb \
     > /tmp/phase2_bundled_rotation_validation.json
 
 jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_conversation_state, downgrade, current_conversation_agent_deployment_id, current_conversation_agent_deployment_fingerprint}' \
@@ -1527,7 +1527,7 @@ jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_con
 
 ```bash
 FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3101 \
-  bundle exec ruby script/manual/phase2_external_fenix_validation.rb \
+  bundle exec ruby script/manual/phase2/external_fenix_validation.rb \
   > /tmp/phase2_external_fenix_validation.json
 
 jq '.' /tmp/phase2_external_fenix_validation.json
@@ -1580,7 +1580,7 @@ FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3102 \
 FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
 FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
 FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
-bundle exec ruby script/manual/phase2_fenix_skills_validation.rb \
+bundle exec ruby script/manual/phase2/fenix_skills_validation.rb \
   > /tmp/phase2_fenix_skills_validation.json
 
 jq '{deployment_id, execution_environment_id, heartbeat_bootstrap_state, scenario_12}' \
@@ -1629,7 +1629,7 @@ test -f /tmp/phase2_fenix_skills_validation.json || \
   FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
   FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
   FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
-  bundle exec ruby script/manual/phase2_fenix_skills_validation.rb \
+  bundle exec ruby script/manual/phase2/fenix_skills_validation.rb \
     > /tmp/phase2_fenix_skills_validation.json
 
 jq '{deployment_id, execution_environment_id, scenario_13}' \
@@ -1669,7 +1669,7 @@ jq '{deployment_id, execution_environment_id, scenario_13}' \
 ```bash
 test -f /tmp/phase2_external_fenix_validation.json || \
   FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3101 \
-  bundle exec ruby script/manual/phase2_external_fenix_validation.rb \
+  bundle exec ruby script/manual/phase2/external_fenix_validation.rb \
     > /tmp/phase2_external_fenix_validation.json
 
 PHASE2_WORKFLOW_RUN_ID=$(jq -r '.workflow_run_id' /tmp/phase2_external_fenix_validation.json)

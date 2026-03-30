@@ -1,22 +1,22 @@
 #!/usr/bin/env ruby
 
 require "fileutils"
-require_relative "./phase2_acceptance_support"
+require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3102")
 live_root = ENV.fetch("FENIX_LIVE_SKILLS_ROOT", "/tmp/phase2-fenix-live-skills")
 staging_root = ENV.fetch("FENIX_STAGING_SKILLS_ROOT", "/tmp/phase2-fenix-staging")
 backup_root = ENV.fetch("FENIX_BACKUP_SKILLS_ROOT", "/tmp/phase2-fenix-backups")
 
-Phase2AcceptanceSupport.reset_backend_state!
-bootstrap = Phase2AcceptanceSupport.bootstrap_and_seed!
-external = Phase2AcceptanceSupport.create_external_agent_installation!(
+ManualAcceptanceSupport.reset_backend_state!
+bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+external = ManualAcceptanceSupport.create_external_agent_installation!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: "fenix-skills",
   display_name: "Fenix Skills Runtime"
 )
-registration = Phase2AcceptanceSupport.register_external_runtime!(
+registration = ManualAcceptanceSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
   environment_fingerprint: "phase2-fenix-skills-environment",
@@ -45,14 +45,14 @@ File.write(
 )
 File.write(source_root.join("references", "checklist.md"), "# Checklist\n")
 
-catalog_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+catalog_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: registration.fetch(:deployment),
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "List available skills.",
   mode: "skills_catalog_list"
 )
-load_system_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+load_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: registration.fetch(:deployment),
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
@@ -60,7 +60,7 @@ load_system_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
   mode: "skills_load",
   extra_payload: { "skill_name" => "deploy-agent" }
 )
-read_system_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+read_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: registration.fetch(:deployment),
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
@@ -71,7 +71,7 @@ read_system_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
     "relative_path" => "scripts/deploy_agent.rb",
   }
 )
-install_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+install_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: registration.fetch(:deployment),
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
@@ -79,7 +79,7 @@ install_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
   mode: "skills_install",
   extra_payload: { "source_path" => source_root.to_s }
 )
-load_live_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+load_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: registration.fetch(:deployment),
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
@@ -87,7 +87,7 @@ load_live_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
   mode: "skills_load",
   extra_payload: { "skill_name" => "portable-notes" }
 )
-read_live_run = Phase2AcceptanceSupport.run_fenix_mailbox_task!(
+read_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: registration.fetch(:deployment),
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
@@ -113,8 +113,8 @@ serialize_run = lambda do |run|
     "turn_id" => run.fetch(:turn).public_id,
     "workflow_run_id" => run.fetch(:workflow_run).public_id,
     "agent_task_run_id" => run.fetch(:agent_task_run).public_id,
-    "dag_shape" => Phase2AcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
-    "conversation_state" => Phase2AcceptanceSupport.workflow_state_hash(
+    "dag_shape" => ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
+    "conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
       conversation: run.fetch(:conversation),
       workflow_run: run.fetch(:workflow_run),
       turn: run.fetch(:turn),
@@ -126,7 +126,7 @@ serialize_run = lambda do |run|
   }
 end
 
-Phase2AcceptanceSupport.write_json(
+ManualAcceptanceSupport.write_json(
   {
     "deployment_id" => registration.fetch(:deployment).public_id,
     "execution_environment_id" => registration.fetch(:deployment).execution_environment.public_id,

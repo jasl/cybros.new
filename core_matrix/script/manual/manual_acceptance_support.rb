@@ -11,7 +11,7 @@ require "uri"
 require "timeout"
 require_relative "../../config/environment"
 
-module Phase2AcceptanceSupport
+module ManualAcceptanceSupport
   module_function
 
   CONTROL_BASE_URL = ENV.fetch("CORE_MATRIX_BASE_URL", "http://127.0.0.1:3000")
@@ -241,6 +241,21 @@ module Phase2AcceptanceSupport
     end
   end
 
+  def wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds: 15, poll_interval_seconds: 0.1)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    loop do
+      reloaded = workflow_run.reload
+      return reloaded if %w[completed failed canceled].include?(reloaded.lifecycle_state)
+
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "timed out waiting for workflow run #{reloaded.public_id} to finish"
+      end
+
+      sleep(poll_interval_seconds)
+    end
+  end
+
   def wait_for_process_run_state!(process_run:, lifecycle_states:, close_states: nil, timeout_seconds: 10, poll_interval_seconds: 0.1)
     deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
     lifecycle_states = Array(lifecycle_states)
@@ -455,6 +470,7 @@ module Phase2AcceptanceSupport
       workflow_run: workflow_run,
       messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
     )
+    wait_for_workflow_run_terminal!(workflow_run:)
   end
 
   def execute_provider_turn_on_conversation!(conversation:, deployment:, content:)

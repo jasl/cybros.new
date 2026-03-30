@@ -1,4 +1,4 @@
-module Phase2GovernedValidationSupport
+module GovernedValidationSupport
   module_function
 
   DEFAULT_PROTOCOL_METHODS = [
