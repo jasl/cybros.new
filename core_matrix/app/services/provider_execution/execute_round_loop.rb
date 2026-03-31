@@ -85,6 +85,7 @@ module ProviderExecution
       round_deltas = []
       dispatch_result = ProviderExecution::DispatchRequest.call(
         workflow_run: @workflow_run,
+        workflow_node: @workflow_node,
         request_context: @request_context,
         messages: provider_messages_for(
           prepared_round.fetch("messages"),

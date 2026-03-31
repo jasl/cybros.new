@@ -138,10 +138,9 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
       version: 1,
       providers: {
         "openai" => valid_provider_definition(
-          request_governor: {
-            max_concurrent_requests: 12,
-            throttle_limit: 600,
-            throttle_period_seconds: 60,
+          admission_control: {
+            max_concurrent_requests: 4,
+            cooldown_seconds: 15,
           },
           models: {
             "gpt-5.3-chat-latest" => valid_model_definition(
@@ -167,7 +166,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
     model = catalog.fetch(:providers).fetch("openai").fetch(:models).fetch("gpt-5.3-chat-latest")
 
     refute model.fetch(:enabled)
-    assert_equal 12, catalog.fetch(:providers).fetch("openai").dig(:request_governor, :max_concurrent_requests)
+    assert_equal 4, catalog.fetch(:providers).fetch("openai").dig(:admission_control, :max_concurrent_requests)
     assert_equal(
       {
         "reasoning_effort" => "medium",
@@ -352,16 +351,15 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
     end
   end
 
-  test "rejects invalid provider request governor values" do
+  test "rejects invalid provider admission control values" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
       ProviderCatalog::Validate.call(
         version: 1,
         providers: {
           "openai" => valid_provider_definition(
-            request_governor: {
+            admission_control: {
               max_concurrent_requests: 0,
-              throttle_limit: 600,
-              throttle_period_seconds: 60,
+              cooldown_seconds: 15,
             }
           ),
         },
@@ -371,7 +369,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.message, "request_governor"
+    assert_includes error.message, "admission_control"
     assert_includes error.message, "max_concurrent_requests"
   end
 

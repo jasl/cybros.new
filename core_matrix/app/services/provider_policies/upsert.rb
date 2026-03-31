@@ -4,14 +4,11 @@ module ProviderPolicies
       new(...).call
     end
 
-    def initialize(installation:, actor:, provider_handle:, enabled:, max_concurrent_requests: nil, throttle_limit: nil, throttle_period_seconds: nil, selection_defaults: {})
+    def initialize(installation:, actor:, provider_handle:, enabled:, selection_defaults: {})
       @installation = installation
       @actor = actor
       @provider_handle = provider_handle
       @enabled = enabled
-      @max_concurrent_requests = max_concurrent_requests
-      @throttle_limit = throttle_limit
-      @throttle_period_seconds = throttle_period_seconds
       @selection_defaults = selection_defaults
     end
 
@@ -27,9 +24,6 @@ module ProviderPolicies
         )
         policy.assign_attributes(
           enabled: @enabled,
-          max_concurrent_requests: @max_concurrent_requests,
-          throttle_limit: @throttle_limit,
-          throttle_period_seconds: @throttle_period_seconds,
           selection_defaults: @selection_defaults
         )
         policy.save!

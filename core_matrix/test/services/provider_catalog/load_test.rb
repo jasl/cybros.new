@@ -23,8 +23,8 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
       assert_equal "api_key", catalog.provider("openrouter").fetch(:credential_kind)
       assert_equal "oauth_codex", catalog.provider("codex_subscription").fetch(:credential_kind)
       assert_equal %w[development test], catalog.provider("dev").fetch(:environments)
-      assert_equal 12, catalog.provider("openai").dig(:request_governor, :max_concurrent_requests)
-      assert_equal 300, catalog.provider("openrouter").dig(:request_governor, :throttle_limit)
+      assert_equal 4, catalog.provider("openai").dig(:admission_control, :max_concurrent_requests)
+      assert_equal 20, catalog.provider("openrouter").dig(:admission_control, :cooldown_seconds)
       refute_includes catalog.role_candidates("main"), "dev/mock-model"
       assert_equal ["dev/mock-model"], catalog.role_candidates("mock")
       refute catalog.provider("local").fetch(:enabled)

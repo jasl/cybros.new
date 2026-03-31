@@ -40,96 +40,63 @@ module ProviderExecution
       end
     end
 
-    def self.acquire(installation:, provider_handle:, effective_catalog:, cache: Rails.cache, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
-      new(
-        installation: installation,
-        provider_handle: provider_handle,
-        effective_catalog: effective_catalog,
-        cache: cache,
-        now: now,
-        lease_ttl_seconds: lease_ttl_seconds
-      ).acquire
+    def self.acquire(**kwargs)
+      new(**kwargs).acquire
     end
 
-    def self.release(installation:, provider_handle:, effective_catalog:, cache: Rails.cache, lease_token:, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
-      new(
-        installation: installation,
-        provider_handle: provider_handle,
-        effective_catalog: effective_catalog,
-        cache: cache,
-        now: now,
-        lease_ttl_seconds: lease_ttl_seconds
-      ).release(lease_token: lease_token)
+    def self.release(lease_token:, **kwargs)
+      new(**kwargs).release(lease_token: lease_token)
     end
 
-    def self.renew(installation:, provider_handle:, effective_catalog:, cache: Rails.cache, lease_token:, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
-      new(
-        installation: installation,
-        provider_handle: provider_handle,
-        effective_catalog: effective_catalog,
-        cache: cache,
-        now: now,
-        lease_ttl_seconds: lease_ttl_seconds
-      ).renew(lease_token: lease_token)
+    def self.renew(lease_token:, **kwargs)
+      new(**kwargs).renew(lease_token: lease_token)
     end
 
-    def self.record_rate_limit!(installation:, provider_handle:, effective_catalog:, cache: Rails.cache, retry_after: nil, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
-      new(
-        installation: installation,
-        provider_handle: provider_handle,
-        effective_catalog: effective_catalog,
-        cache: cache,
-        now: now,
-        lease_ttl_seconds: lease_ttl_seconds
-      ).record_rate_limit!(retry_after: retry_after)
+    def self.record_rate_limit!(retry_after: nil, **kwargs)
+      new(**kwargs).record_rate_limit!(retry_after: retry_after)
     end
 
-    def initialize(installation:, provider_handle:, effective_catalog:, cache: Rails.cache, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
+    def initialize(installation:, provider_handle:, effective_catalog:, workflow_run: nil, workflow_node: nil, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
       @installation = installation
       @provider_handle = provider_handle.to_s
       @effective_catalog = effective_catalog
-      @cache = cache
+      @workflow_run = workflow_run
+      @workflow_node = workflow_node
       @now = now
       @lease_ttl_seconds = [lease_ttl_seconds.to_i, 1].max
     end
 
     def acquire
-      governor = governor_config
-      return allow! if governor.blank?
+      admission_control = admission_control_config
+      return allow! if admission_control.blank?
 
-      with_lock do
-        leases = prune_expired_leases(read_leases)
-        throttle_timestamps = prune_expired_timestamps(read_throttle_timestamps, governor)
-        cooldown_until = read_cooldown_until
+      with_control_lock do |control|
+        expire_stale_leases!
 
-        if cooldown_until.present? && cooldown_until > @now
-          persist_state(leases:, throttle_timestamps:, cooldown_until:)
-          return block!(reason: "cooldown", retry_at: cooldown_until)
+        if control.cooldown_until.present? && control.cooldown_until > @now
+          return block!(reason: "cooldown", retry_at: control.cooldown_until)
         end
 
-        max_concurrent_requests = governor["max_concurrent_requests"].to_i
-        if max_concurrent_requests.positive? && leases.size >= max_concurrent_requests
-          persist_state(leases:, throttle_timestamps:, cooldown_until: nil)
-          retry_at = Time.at(leases.values.min).utc
-          return block!(reason: "max_concurrent_requests", retry_at:)
-        end
-
-        throttle_limit = governor["throttle_limit"].to_i
-        throttle_period_seconds = governor["throttle_period_seconds"].to_i
-        if throttle_limit.positive? &&
-            throttle_period_seconds.positive? &&
-            throttle_timestamps.size >= throttle_limit
-          retry_at = Time.at(throttle_timestamps.first + throttle_period_seconds).utc
-          persist_state(leases:, throttle_timestamps:, cooldown_until: nil)
-          return block!(reason: "throttle_limit", retry_at:)
+        max_concurrent_requests = admission_control.fetch("max_concurrent_requests", 0).to_i
+        active_leases = active_leases_relation
+        if max_concurrent_requests.positive? && active_leases.count >= max_concurrent_requests
+          retry_at = active_leases.minimum(:expires_at) || (@now + 1.second)
+          return block!(reason: "max_concurrent_requests", retry_at: retry_at)
         end
 
         lease_token = SecureRandom.uuid
         lease_expires_at = @now + @lease_ttl_seconds
-        leases[lease_token] = lease_expires_at.to_f
-        throttle_timestamps << @now.to_f
-
-        persist_state(leases:, throttle_timestamps:, cooldown_until: nil)
+        ProviderRequestLease.create!(
+          installation: @installation,
+          workflow_run: @workflow_run,
+          workflow_node: @workflow_node,
+          provider_handle: @provider_handle,
+          lease_token: lease_token,
+          acquired_at: @now,
+          last_heartbeat_at: @now,
+          expires_at: lease_expires_at,
+          metadata: {}
+        )
 
         Decision.new(
           allowed: true,
@@ -144,55 +111,45 @@ module ProviderExecution
 
     def release(lease_token:)
       return if lease_token.blank?
-      return if governor_config.blank?
+      return if admission_control_config.blank?
 
-      with_lock do
-        leases = prune_expired_leases(read_leases)
-        leases.delete(lease_token.to_s)
-        persist_state(
-          leases: leases,
-          throttle_timestamps: prune_expired_timestamps(read_throttle_timestamps, governor_config),
-          cooldown_until: read_cooldown_until
+      with_control_lock do |_control|
+        active_leases_relation.where(lease_token: lease_token.to_s).update_all(
+          released_at: @now,
+          release_reason: "completed",
+          updated_at: @now
         )
       end
     end
 
     def renew(lease_token:)
       return if lease_token.blank?
-      return if governor_config.blank?
+      return if admission_control_config.blank?
 
-      with_lock do
-        leases = prune_expired_leases(read_leases)
-        token = lease_token.to_s
-        next unless leases.key?(token)
-
-        leases[token] = (@now + @lease_ttl_seconds).to_f
-        persist_state(
-          leases: leases,
-          throttle_timestamps: prune_expired_timestamps(read_throttle_timestamps, governor_config),
-          cooldown_until: read_cooldown_until
-        )
-      end
+      active_leases_relation.where(lease_token: lease_token.to_s).update_all(
+        last_heartbeat_at: @now,
+        expires_at: @now + @lease_ttl_seconds,
+        updated_at: @now
+      )
     end
 
     def record_rate_limit!(retry_after: nil)
-      return if governor_config.blank?
+      return if admission_control_config.blank?
 
-      cooldown_until = @now + normalize_retry_after(retry_after)
-
-      with_lock do
-        persist_state(
-          leases: prune_expired_leases(read_leases),
-          throttle_timestamps: prune_expired_timestamps(read_throttle_timestamps, governor_config),
-          cooldown_until: [read_cooldown_until, cooldown_until].compact.max
+      with_control_lock do |control|
+        expire_stale_leases!
+        control.update!(
+          cooldown_until: [control.cooldown_until, @now + normalize_retry_after(retry_after)].compact.max,
+          last_rate_limited_at: @now,
+          last_rate_limit_reason: "upstream_rate_limit"
         )
       end
     end
 
     private
 
-    def governor_config
-      @governor_config ||= @effective_catalog.provider_governor(@provider_handle)
+    def admission_control_config
+      @admission_control_config ||= @effective_catalog.provider_admission_control(@provider_handle)
     end
 
     def allow!
@@ -217,87 +174,54 @@ module ProviderExecution
       )
     end
 
-    def lock_name
-      "provider-request-governor:#{installation_cache_key}:#{@provider_handle}"
-    end
-
-    def installation_cache_key
-      @installation&.id || "global"
-    end
-
-    def leases_cache_key
-      "provider-request-governor:leases:#{installation_cache_key}:#{@provider_handle}"
-    end
-
-    def throttle_cache_key
-      "provider-request-governor:throttle:#{installation_cache_key}:#{@provider_handle}"
-    end
-
-    def cooldown_cache_key
-      "provider-request-governor:cooldown:#{installation_cache_key}:#{@provider_handle}"
-    end
-
-    def with_lock(&block)
-      ProviderPolicy.with_advisory_lock(lock_name, &block)
-    end
-
-    def read_leases
-      (@cache.read(leases_cache_key) || {}).transform_values(&:to_f)
-    end
-
-    def read_throttle_timestamps
-      Array(@cache.read(throttle_cache_key)).map(&:to_f)
-    end
-
-    def read_cooldown_until
-      value = @cache.read(cooldown_cache_key)
-      return nil if value.blank?
-
-      Time.at(value.to_f).utc
-    end
-
-    def persist_state(leases:, throttle_timestamps:, cooldown_until:)
-      @cache.write(leases_cache_key, leases, expires_in: DEFAULT_LEASE_TTL_SECONDS)
-
-      throttle_expires_in = [governor_config["throttle_period_seconds"].to_i, DEFAULT_COOLDOWN_SECONDS].max
-      @cache.write(throttle_cache_key, throttle_timestamps, expires_in: throttle_expires_in)
-
-      if cooldown_until.present? && cooldown_until > @now
-        @cache.write(cooldown_cache_key, cooldown_until.to_f, expires_in: [(cooldown_until - @now).ceil, 1].max)
-      else
-        @cache.delete(cooldown_cache_key)
+    def with_control_lock
+      control = find_or_create_control!
+      control.with_lock do
+        control.reload
+        yield control
       end
     end
 
-    def prune_expired_leases(leases)
-      now_f = @now.to_f
-      leases.each_with_object({}) do |(token, expires_at), active|
-        active[token] = expires_at if expires_at > now_f
+    def find_or_create_control!
+      ProviderRequestControl.find_or_create_by!(
+        installation: @installation,
+        provider_handle: @provider_handle
+      ) do |control|
+        control.metadata = {}
       end
+    rescue ActiveRecord::RecordNotUnique
+      retry
     end
 
-    def prune_expired_timestamps(timestamps, governor)
-      period = governor["throttle_period_seconds"].to_i
-      return [] if period <= 0
+    def active_leases_relation
+      ProviderRequestLease.active.for_provider(
+        installation: @installation,
+        provider_handle: @provider_handle
+      )
+    end
 
-      cutoff = @now.to_f - period
-      timestamps.select { |timestamp| timestamp >= cutoff }.sort
+    def expire_stale_leases!
+      active_leases_relation.where("expires_at <= ?", @now).update_all(
+        released_at: @now,
+        release_reason: "expired",
+        updated_at: @now
+      )
     end
 
     def normalize_retry_after(retry_after)
-      return DEFAULT_COOLDOWN_SECONDS if retry_after.blank?
+      return default_cooldown_seconds if retry_after.blank?
 
-      if retry_after.is_a?(Numeric)
-        return [retry_after.to_i, 1].max
-      end
+      integer_value = Integer(retry_after, exception: false)
+      return [integer_value, 1].max if integer_value.present?
 
-      string = retry_after.to_s.strip
-      return [string.to_i, 1].max if string.match?(/\A\d+\z/)
-
-      parsed_time = Time.httpdate(string)
+      parsed_time = Time.httpdate(retry_after.to_s)
       [((parsed_time - @now).ceil), 1].max
     rescue ArgumentError
-      DEFAULT_COOLDOWN_SECONDS
+      default_cooldown_seconds
+    end
+
+    def default_cooldown_seconds
+      [admission_control_config.fetch("cooldown_seconds", DEFAULT_COOLDOWN_SECONDS).to_i, 1].max
     end
   end
 end

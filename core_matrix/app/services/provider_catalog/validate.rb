@@ -54,7 +54,7 @@ module ProviderCatalog
           requires_credential: validate_boolean!(provider_definition["requires_credential"], "provider #{provider_handle} requires_credential"),
           credential_kind: validate_string!(provider_definition["credential_kind"], "provider #{provider_handle} credential_kind"),
           metadata: normalize_hash(provider_definition["metadata"], label: "provider #{provider_handle} metadata").deep_symbolize_keys,
-          request_governor: validate_request_governor(provider_handle, provider_definition["request_governor"]),
+          admission_control: validate_admission_control(provider_handle, provider_definition["admission_control"]),
           models: validate_models(provider_handle, wire_api, models),
         }
       end
@@ -128,23 +128,19 @@ module ProviderCatalog
       }
     end
 
-    def validate_request_governor(provider_handle, raw_request_governor)
-      return {} if raw_request_governor.nil?
+    def validate_admission_control(provider_handle, raw_admission_control)
+      return {} if raw_admission_control.nil?
 
-      request_governor = normalize_hash(raw_request_governor, label: "provider #{provider_handle} request_governor")
+      admission_control = normalize_hash(raw_admission_control, label: "provider #{provider_handle} admission_control")
 
       {
         max_concurrent_requests: validate_positive_number!(
-          request_governor["max_concurrent_requests"],
-          "provider #{provider_handle} request_governor max_concurrent_requests"
+          admission_control["max_concurrent_requests"],
+          "provider #{provider_handle} admission_control max_concurrent_requests"
         ).to_i,
-        throttle_limit: validate_positive_number!(
-          request_governor["throttle_limit"],
-          "provider #{provider_handle} request_governor throttle_limit"
-        ).to_i,
-        throttle_period_seconds: validate_positive_number!(
-          request_governor["throttle_period_seconds"],
-          "provider #{provider_handle} request_governor throttle_period_seconds"
+        cooldown_seconds: validate_positive_number!(
+          admission_control["cooldown_seconds"],
+          "provider #{provider_handle} admission_control cooldown_seconds"
         ).to_i,
       }
     end

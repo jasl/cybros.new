@@ -50,11 +50,11 @@ module Workflows
     def queue_name_for(workflow_node)
       case workflow_node.node_type
       when "turn_step"
-        "llm_requests"
+        RuntimeTopology::CoreMatrix.llm_queue_name(workflow_node.turn.resolved_provider_handle)
       when "tool_call"
-        "tool_calls"
+        RuntimeTopology::CoreMatrix.shared_queue_name("tool_calls")
       else
-        "workflow_default"
+        RuntimeTopology::CoreMatrix.shared_queue_name("workflow_default")
       end
     end
   end

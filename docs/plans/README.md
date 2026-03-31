@@ -6,7 +6,6 @@ This directory contains active execution plans for `core_matrix`.
 
 The active execution plans in this directory are:
 
-- [2026-04-01-solid-queue-provider-governor.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-01-solid-queue-provider-governor.md)
 - [2026-03-31-core-matrix-loop-fenix-program.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-loop-fenix-program.md)
 - [2026-03-31-core-matrix-parallel-tool-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-parallel-tool-execution.md)
 

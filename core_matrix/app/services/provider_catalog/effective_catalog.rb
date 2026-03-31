@@ -41,16 +41,14 @@ module ProviderCatalog
       @catalog.role_candidates(role_name)
     end
 
-    def provider_governor(provider_handle)
+    def provider_admission_control(provider_handle)
       provider_key = provider_handle.to_s
       provider_definition = provider(provider_key)
-      policy = ProviderPolicy.find_by(installation: @installation, provider_handle: provider_key)
-      defaults = provider_definition.fetch(:request_governor, {})
+      defaults = provider_definition.fetch(:admission_control, {})
 
       {
-        "max_concurrent_requests" => policy&.max_concurrent_requests || defaults[:max_concurrent_requests],
-        "throttle_limit" => policy&.throttle_limit || defaults[:throttle_limit],
-        "throttle_period_seconds" => policy&.throttle_period_seconds || defaults[:throttle_period_seconds],
+        "max_concurrent_requests" => defaults[:max_concurrent_requests],
+        "cooldown_seconds" => defaults[:cooldown_seconds],
       }.compact
     end
 

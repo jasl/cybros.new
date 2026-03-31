@@ -26,7 +26,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil, cache: Rails.cache)
+    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil, workflow_node: nil)
       @workflow_run = workflow_run
       @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
@@ -37,7 +37,7 @@ module ProviderExecution
       @effective_catalog = effective_catalog if effective_catalog.present?
       @provider_request_id = provider_request_id
       @on_delta = on_delta
-      @cache = cache
+      @workflow_node = workflow_node
     end
 
     def call
@@ -46,7 +46,7 @@ module ProviderExecution
         workflow_run: @workflow_run,
         request_context: @request_context,
         effective_catalog: @effective_catalog,
-        cache: @cache
+        workflow_node: @workflow_node
       ) do
         case @request_context.wire_api
         when "responses"

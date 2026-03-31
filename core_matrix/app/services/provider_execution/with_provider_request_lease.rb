@@ -6,11 +6,11 @@ module ProviderExecution
 
     LeaseRenewer = Struct.new(:thread, :mutex, :condition_variable, :stopped, keyword_init: true)
 
-    def initialize(workflow_run:, request_context:, effective_catalog:, cache: Rails.cache, governor: ProviderExecution::ProviderRequestGovernor, lease_renew_interval_seconds: nil)
+    def initialize(workflow_run:, request_context:, effective_catalog:, workflow_node: nil, governor: ProviderExecution::ProviderRequestGovernor, lease_renew_interval_seconds: nil)
       @workflow_run = workflow_run
       @request_context = request_context
       @effective_catalog = effective_catalog
-      @cache = cache
+      @workflow_node = workflow_node
       @governor = governor
       @lease_renew_interval_seconds = lease_renew_interval_seconds || @governor::DEFAULT_LEASE_RENEW_INTERVAL_SECONDS
     end
@@ -20,7 +20,8 @@ module ProviderExecution
         installation: @workflow_run.installation,
         provider_handle: @request_context.provider_handle,
         effective_catalog: @effective_catalog,
-        cache: @cache
+        workflow_run: @workflow_run,
+        workflow_node: @workflow_node
       )
 
       unless decision.allowed?
@@ -39,7 +40,6 @@ module ProviderExecution
           installation: @workflow_run.installation,
           provider_handle: @request_context.provider_handle,
           effective_catalog: @effective_catalog,
-          cache: @cache,
           retry_after: error.headers["retry-after"] || error.headers["Retry-After"]
         )
 
@@ -58,7 +58,6 @@ module ProviderExecution
         installation: @workflow_run.installation,
         provider_handle: @request_context.provider_handle,
         effective_catalog: @effective_catalog,
-        cache: @cache,
         lease_token: decision&.lease_token
       )
     end
@@ -87,7 +86,6 @@ module ProviderExecution
             installation: @workflow_run.installation,
             provider_handle: @request_context.provider_handle,
             effective_catalog: @effective_catalog,
-            cache: @cache,
             lease_token: decision.lease_token
           )
         end
@@ -113,8 +111,7 @@ module ProviderExecution
       seconds = @governor.new(
         installation: @workflow_run.installation,
         provider_handle: @request_context.provider_handle,
-        effective_catalog: @effective_catalog,
-        cache: @cache
+        effective_catalog: @effective_catalog
       ).send(:normalize_retry_after, retry_after)
       Time.current + seconds
     end

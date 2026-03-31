@@ -46,15 +46,27 @@ governance stay separate concerns:
 
 ### ProviderPolicy
 
-- `ProviderPolicy` stores enablement, concurrency, throttling, and provider-side
-  selection defaults for one provider handle inside one installation.
+- `ProviderPolicy` stores enablement and provider-side selection defaults for
+  one provider handle inside one installation.
 - One installation keeps at most one policy row per provider handle.
 - `enabled = false` is the installation-scoped dynamic override for temporarily
   disabling an otherwise catalog-visible provider.
-- Throttling remains explicit through paired limit and period fields instead of
-  hidden rate-limit heuristics.
 - The model itself keeps only structural validation; provider-handle membership
   in the catalog is enforced at the write-service boundary.
+
+### ProviderRequestControl
+
+- `ProviderRequestControl` stores durable per-installation/provider admission
+  state such as the current cooldown window after an upstream rate limit.
+- One installation keeps at most one control row per provider handle.
+- This row is runtime coordination state, not user-managed configuration.
+
+### ProviderRequestLease
+
+- `ProviderRequestLease` stores one admitted in-flight provider request.
+- Active leases enforce the hard per-provider concurrency cap declared in the
+  catalog's `admission_control` block.
+- Expired or completed requests release their lease explicitly in SQL.
 
 ## Services
 
@@ -82,9 +94,18 @@ governance stay separate concerns:
 - Upserts one `ProviderPolicy` by installation and provider handle.
 - Validates the provider handle against the current catalog snapshot before the
   row is saved.
-- Persists provider enablement, concurrency, throttling, and selection-default
-  settings through one audited boundary.
+- Persists provider enablement and selection-default settings through one
+  audited boundary.
 - Writes `provider_policy.upserted` audit rows.
+
+### `ProviderExecution::ProviderRequestGovernor`
+
+- Enforces provider `admission_control` limits through durable SQL state.
+- Creates one `ProviderRequestLease` for each admitted request.
+- Blocks new requests when the active lease count reaches
+  `max_concurrent_requests`.
+- Writes provider cooldown state into `ProviderRequestControl` after upstream
+  `429` responses.
 
 ### `ProviderCatalog::EffectiveCatalog#availability`
 

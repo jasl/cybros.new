@@ -1281,7 +1281,10 @@ Store installation facts in the database:
 
 `ProviderEntitlement` covers subscription or quota constructs such as a rolling five-hour Codex limit.
 
-`ProviderPolicy` covers enablement, concurrency, throttling, and default selection rules.
+`ProviderPolicy` covers enablement and default selection rules.
+
+Provider request concurrency and cooldown state live separately in durable
+runtime coordination rows rather than installation policy overrides.
 
 All of these are `global`, not personal.
 

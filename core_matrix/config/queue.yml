@@ -1,24 +1,40 @@
+<%
+  runtime_topology = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}
+  runtime_topology = runtime_topology.deep_stringify_keys
+
+  queue_workers = []
+
+  runtime_topology.fetch("llm_queues").each_value do |worker|
+    queue_workers << {
+      "queues" => worker.fetch("queue"),
+      "threads" => ENV.fetch(worker.fetch("threads_env"), worker.fetch("default_threads")),
+      "processes" => ENV.fetch(worker.fetch("processes_env"), worker.fetch("default_processes")),
+      "polling_interval" => worker.fetch("polling_interval")
+    }
+  end
+
+  runtime_topology.fetch("shared_queues").each_value do |worker|
+    queue_workers << {
+      "queues" => worker.fetch("queue"),
+      "threads" => ENV.fetch(worker.fetch("threads_env"), worker.fetch("default_threads")),
+      "processes" => ENV.fetch(worker.fetch("processes_env"), worker.fetch("default_processes")),
+      "polling_interval" => worker.fetch("polling_interval")
+    }
+  end
+%>
 default: &default
   dispatchers:
-    - polling_interval: 1
-      batch_size: 500
+<% runtime_topology.fetch("dispatchers").each do |dispatcher| %>
+    - polling_interval: <%= dispatcher.fetch("polling_interval") %>
+      batch_size: <%= dispatcher.fetch("batch_size") %>
+<% end %>
   workers:
-    - queues: "llm_requests"
-      threads: <%= ENV.fetch("SQ_THREADS_LLM", 8) %>
-      processes: <%= ENV.fetch("SQ_PROCESSES_LLM", 1) %>
-      polling_interval: 0.1
-    - queues: "tool_calls"
-      threads: <%= ENV.fetch("SQ_THREADS_TOOLS", 6) %>
-      processes: <%= ENV.fetch("SQ_PROCESSES_TOOLS", 1) %>
-      polling_interval: 0.1
-    - queues: "workflow_default"
-      threads: <%= ENV.fetch("SQ_THREADS_WORKFLOW", 3) %>
-      processes: <%= ENV.fetch("SQ_PROCESSES_WORKFLOW", 1) %>
-      polling_interval: 0.1
-    - queues: "maintenance"
-      threads: <%= ENV.fetch("SQ_THREADS_MAINTENANCE", 1) %>
-      processes: <%= ENV.fetch("SQ_PROCESSES_MAINTENANCE", 1) %>
-      polling_interval: 0.1
+<% queue_workers.each do |worker| %>
+    - queues: "<%= worker.fetch("queues") %>"
+      threads: <%= worker.fetch("threads") %>
+      processes: <%= worker.fetch("processes") %>
+      polling_interval: <%= worker.fetch("polling_interval") %>
+<% end %>
 
 development:
   <<: *default

@@ -28,10 +28,7 @@ class ProviderGovernanceFlowTest < ActionDispatch::IntegrationTest
       actor: actor,
       provider_handle: "openai",
       enabled: true,
-      max_concurrent_requests: 2,
-      throttle_limit: 60,
-      throttle_period_seconds: 60,
-      selection_defaults: {}
+      selection_defaults: { "interactive" => "role:main" }
     )
 
     assert_equal installation, credential.installation

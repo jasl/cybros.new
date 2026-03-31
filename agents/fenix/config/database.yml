@@ -1,15 +1,8 @@
 <%
-  fenix_queue_thread_defaults = [
-    ENV.fetch("SQ_THREADS_PREPARE", 2).to_i,
-    ENV.fetch("SQ_THREADS_PURE_TOOLS", 6).to_i,
-    ENV.fetch("SQ_THREADS_PROCESS_TOOLS", 2).to_i,
-    ENV.fetch("SQ_THREADS_RUNTIME_CONTROL", 2).to_i,
-    ENV.fetch("SQ_THREADS_MAINTENANCE", 1).to_i,
-  ]
-  fenix_default_db_pool = [
-    ENV.fetch("RAILS_MAX_THREADS", 5).to_i,
-    fenix_queue_thread_defaults.max + 2,
-  ].max
+  runtime_topology = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}
+  runtime_topology = runtime_topology.deep_stringify_keys
+  primary_pool = runtime_topology.fetch("database_pools").fetch("primary")
+  queue_pool = runtime_topology.fetch("database_pools").fetch("queue")
 %>
 # SQLite. Versions 3.8.0 and up are supported.
 #   gem install sqlite3
@@ -19,24 +12,32 @@
 #
 default: &default
   adapter: sqlite3
-  max_connections: <%= ENV.fetch("FENIX_DB_POOL") { ENV.fetch("RAILS_DB_POOL") { fenix_default_db_pool } } %>
   timeout: 5000
 
 development:
   primary:
     <<: *default
     database: storage/development.sqlite3
+    max_connections: <%= ENV.fetch(primary_pool.fetch("env"), primary_pool.fetch("default")) %>
   queue:
     <<: *default
     database: storage/queue_development.sqlite3
     migrations_paths: db/queue_migrate
+    max_connections: <%= ENV.fetch(queue_pool.fetch("env"), queue_pool.fetch("default")) %>
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
 test:
-  <<: *default
-  database: storage/test.sqlite3
+  primary:
+    <<: *default
+    database: storage/test.sqlite3
+    max_connections: <%= ENV.fetch(primary_pool.fetch("env"), primary_pool.fetch("default")) %>
+  queue:
+    <<: *default
+    database: storage/queue_test.sqlite3
+    migrations_paths: db/queue_migrate
+    max_connections: <%= ENV.fetch(queue_pool.fetch("env"), queue_pool.fetch("default")) %>
 
 # SQLite3 write its data on the local filesystem, as such it requires
 # persistent disks. If you are deploying to a managed service, you should
@@ -48,7 +49,9 @@ production:
   primary:
     <<: *default
     database: storage/production.sqlite3
+    max_connections: <%= ENV.fetch(primary_pool.fetch("env"), primary_pool.fetch("default")) %>
   queue:
     <<: *default
     database: storage/queue_production.sqlite3
     migrations_paths: db/queue_migrate
+    max_connections: <%= ENV.fetch(queue_pool.fetch("env"), queue_pool.fetch("default")) %>
