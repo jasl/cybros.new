@@ -23,6 +23,11 @@ module Workflows
           adapter: @adapter,
           program_exchange: @program_exchange
         )
+      when "tool_call"
+        ProviderExecution::ExecuteToolNode.call(
+          workflow_node: current_node,
+          program_exchange: @program_exchange
+        )
       when "turn_root", "barrier_join"
         complete_coordination_node!(current_node)
       else

@@ -68,6 +68,7 @@ module ToolBindings
       definition.policy_payload = {
         "default_implementation_ref" => effective_entry.fetch("implementation_ref"),
         "default_implementation_source" => effective_entry.fetch("implementation_source"),
+        "execution_policy" => execution_policy_for(effective_entry),
       }
       definition.save! if definition.new_record? || definition.changed?
       definition
@@ -150,11 +151,22 @@ module ToolBindings
         "result_schema",
         "streaming_support",
         "idempotency_policy"
+      ).merge(
+        "execution_policy" => execution_policy_for(candidate)
       )
     end
 
     def installation
       @installation ||= @capability_snapshot.agent_deployment.installation
+    end
+
+    def execution_policy_for(entry)
+      policy = entry["execution_policy"]
+      policy = policy.deep_stringify_keys if policy.is_a?(Hash)
+
+      {
+        "parallel_safe" => policy&.fetch("parallel_safe", false) || false,
+      }
     end
   end
 end

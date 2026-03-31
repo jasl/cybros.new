@@ -145,6 +145,7 @@ module ToolBindings
         "capability_snapshot_version" => capability_snapshot.version,
         "governance_mode" => definition.governance_mode,
         "round_scoped" => round_scoped,
+        "execution_policy" => execution_policy_for(definition: definition, implementation: implementation),
       }
       binding.save! if binding.new_record? || binding.changed?
       binding
@@ -202,12 +203,30 @@ module ToolBindings
         "result_schema",
         "streaming_support",
         "idempotency_policy"
+      ).merge(
+        "execution_policy" => execution_policy_for(tool_entry: tool_entry)
       )
     end
 
     def raise_invalid!(message)
       @workflow_node.errors.add(:base, message)
       raise ActiveRecord::RecordInvalid, @workflow_node
+    end
+
+    def execution_policy_for(definition: nil, implementation: nil, tool_entry: nil)
+      policy =
+        if tool_entry.present?
+          tool_entry["execution_policy"]
+        else
+          implementation&.metadata&.dig("execution_policy") ||
+            definition&.policy_payload&.dig("execution_policy")
+        end
+
+      policy = policy.deep_stringify_keys if policy.is_a?(Hash)
+
+      {
+        "parallel_safe" => policy&.fetch("parallel_safe", false) || false,
+      }
     end
   end
 end

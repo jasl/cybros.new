@@ -3,7 +3,7 @@
 ## Status
 
 - Date: 2026-03-31
-- Status: proposed follow-up design
+- Status: implemented
 - Depends on:
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-loop-fenix-program-design.md`
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md`
@@ -50,6 +50,24 @@ It does not cover:
   provider round is prepared.
 - MCP widening should happen later through overlay policy, not by relaxing the
   kernel default.
+
+## Implemented Shape
+
+The current repository now implements this design in the following concrete
+shape:
+
+- `turn_step` nodes execute exactly one provider round
+- provider tool calls materialize as explicit `tool_call` workflow nodes
+- each stage fans in through a `barrier_join` node
+- the next provider round resumes through a successor `turn_step` node
+- prior tool results are rebuilt durably from ordered predecessor `tool_call`
+  nodes
+- `execution_policy.parallel_safe` is frozen onto tool definitions,
+  implementations, and workflow-node bindings
+- MCP tools remain `parallel_safe = false` by default
+- overlay widening resolves from
+  `CapabilitySnapshot.default_config_snapshot["tool_policy_overlays"]`
+- the initial audited built-in allowlist contains only `subagent_list`
 
 ## Why Graph-First Matters
 

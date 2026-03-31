@@ -58,6 +58,9 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
     assert_equal "boolean", contract.conversation_override_schema_snapshot.dig("properties", "subagents", "properties", "enabled", "type")
     assert_equal ["exec_command"], contract.environment_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["exec_command", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert contract.environment_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.agent_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.effective_tool_catalog.all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
     assert_equal false, contract.conversation_payload(
       execution_environment_id: registration[:execution_environment].public_id,
       agent_deployment_id: registration[:deployment].public_id

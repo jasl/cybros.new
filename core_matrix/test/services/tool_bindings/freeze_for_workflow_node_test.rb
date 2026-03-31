@@ -62,6 +62,8 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     assert_equal context.fetch(:workflow_node), binding.workflow_node
     assert_equal "fenix/runtime/workspace_write_file", binding.tool_implementation.implementation_ref
     assert_equal true, binding.binding_payload.fetch("round_scoped")
+    assert_equal false, binding.binding_payload.dig("execution_policy", "parallel_safe")
+    assert_equal false, binding.tool_implementation.metadata.dig("execution_policy", "parallel_safe")
   end
 
   test "rejects round tool catalogs that try to override reserved core matrix tools" do
@@ -86,5 +88,20 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors.full_messages.join(", "), "round tool catalog must not override reserved core matrix tool subagent_spawn"
+  end
+
+  test "freezes default execution policy onto workflow-node-owned bindings" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    binding = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: context.fetch(:workflow_node)
+    ).includes(:tool_definition, :tool_implementation).find { |entry| entry.tool_definition.tool_name == "compact_context" }
+
+    assert_equal false, binding.binding_payload.dig("execution_policy", "parallel_safe")
+    assert_equal false, binding.tool_implementation.metadata.dig("execution_policy", "parallel_safe")
   end
 end

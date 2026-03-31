@@ -136,6 +136,9 @@ module RuntimeCapabilities
         },
         "streaming_support" => false,
         "idempotency_policy" => "best_effort",
+        "execution_policy" => {
+          "parallel_safe" => true,
+        },
       },
     ].freeze
 

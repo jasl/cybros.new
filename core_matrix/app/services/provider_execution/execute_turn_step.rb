@@ -37,8 +37,6 @@ module ProviderExecution
 
       claim_running!
       broadcast_workflow_node_event!("runtime.workflow_node.started", state: "running")
-      output_stream.start!
-
       loop_result = ProviderExecution::ExecuteRoundLoop.call(
         workflow_node: @workflow_node,
         transcript: @messages,
@@ -47,25 +45,47 @@ module ProviderExecution
         program_exchange: @program_exchange
       )
 
-      result = ProviderExecution::PersistTurnStepSuccess.call(
-        workflow_node: @workflow_node,
-        request_context: @request_context,
-        provider_result: loop_result.dispatch_result.provider_result,
-        provider_request_id: loop_result.dispatch_result.provider_request_id,
-        messages_count: loop_result.messages_count,
-        duration_ms: loop_result.dispatch_result.duration_ms,
-        output_content: loop_result.normalized_response.fetch("output_text")
-      )
-      output_deltas = loop_result.output_deltas.presence || [result.output_message.content]
-      output_deltas.each { |delta| output_stream.push(delta) }
-      output_stream.complete!(message: result.output_message)
-      broadcast_workflow_node_event!(
-        "runtime.workflow_node.completed",
-        state: "completed",
-        provider_request_id: loop_result.dispatch_result.provider_request_id,
-        output_message_id: result.output_message.public_id
-      )
-      result
+      if loop_result.final?
+        result = ProviderExecution::PersistTurnStepSuccess.call(
+          workflow_node: @workflow_node,
+          request_context: @request_context,
+          provider_result: loop_result.dispatch_result.provider_result,
+          provider_request_id: loop_result.dispatch_result.provider_request_id,
+          messages_count: loop_result.messages_count,
+          duration_ms: loop_result.dispatch_result.duration_ms,
+          output_content: loop_result.normalized_response.fetch("output_text")
+        )
+        output_stream.start!
+        output_deltas = loop_result.output_deltas.presence || [result.output_message.content]
+        output_deltas.each { |delta| output_stream.push(delta) }
+        output_stream.complete!(message: result.output_message)
+        broadcast_workflow_node_event!(
+          "runtime.workflow_node.completed",
+          state: "completed",
+          provider_request_id: loop_result.dispatch_result.provider_request_id,
+          output_message_id: result.output_message.public_id
+        )
+        result
+      else
+        result = ProviderExecution::PersistTurnStepYield.call(
+          workflow_node: @workflow_node,
+          request_context: @request_context,
+          provider_result: loop_result.dispatch_result.provider_result,
+          provider_request_id: loop_result.dispatch_result.provider_request_id,
+          messages_count: loop_result.messages_count,
+          duration_ms: loop_result.dispatch_result.duration_ms,
+          tool_batch_result: loop_result.tool_batch_result,
+          round_bindings: ToolBinding.where(
+            workflow_node: @workflow_node
+          ).includes(:tool_definition, :tool_implementation).to_a
+        )
+        broadcast_workflow_node_event!(
+          "runtime.workflow_node.completed",
+          state: "completed",
+          provider_request_id: loop_result.dispatch_result.provider_request_id
+        )
+        result
+      end
     rescue ProviderExecution::ExecuteRoundLoop::RoundRequestFailed => dispatch_error
       ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
@@ -75,7 +95,7 @@ module ProviderExecution
         messages_count: dispatch_error.messages_count,
         duration_ms: dispatch_error.duration_ms
       )
-      output_stream.fail!(code: "provider_request_failed", message: dispatch_error.error.message)
+      output_stream.fail!(code: "provider_request_failed", message: dispatch_error.error.message) if output_stream.started?
       broadcast_workflow_node_event!(
         "runtime.workflow_node.failed",
         state: "failed",
@@ -92,7 +112,7 @@ module ProviderExecution
         messages_count: error.messages_count,
         duration_ms: 0
       )
-      output_stream.fail!(code: "provider_round_limit_exceeded", message: error.message)
+      output_stream.fail!(code: "provider_round_limit_exceeded", message: error.message) if output_stream.started?
       broadcast_workflow_node_event!(
         "runtime.workflow_node.failed",
         state: "failed",

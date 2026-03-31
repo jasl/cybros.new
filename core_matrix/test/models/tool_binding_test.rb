@@ -127,4 +127,18 @@ class ToolBindingTest < ActiveSupport::TestCase
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:tool_definition], "has already been bound for the workflow node"
   end
+
+  test "preserves frozen execution policy in binding payload" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    binding = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: context.fetch(:workflow_node)
+    ).find { |entry| entry.tool_definition.tool_name == "compact_context" }
+
+    assert_equal({ "parallel_safe" => false }, binding.binding_payload.fetch("execution_policy"))
+  end
 end

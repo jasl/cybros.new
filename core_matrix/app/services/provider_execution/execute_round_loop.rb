@@ -28,14 +28,24 @@ module ProviderExecution
     end
 
     Result = Struct.new(
+      :kind,
       :dispatch_result,
       :normalized_response,
       :prepared_round,
       :prior_tool_results,
       :output_deltas,
       :messages_count,
+      :tool_batch_result,
       keyword_init: true
-    )
+    ) do
+      def final?
+        kind == "final"
+      end
+
+      def yielded_tool_batch?
+        kind == "tool_batch"
+      end
+    end
 
     def self.call(...)
       new(...).call
@@ -56,93 +66,88 @@ module ProviderExecution
     end
 
     def call
-      prior_tool_results = []
-      round_count = 0
-      last_messages_count = @transcript.length
+      prior_tool_results = ProviderExecution::LoadPriorToolResults.call(workflow_node: @workflow_node)
       core_matrix_binding_ids = visible_core_matrix_binding_ids
+      prepared_round = ProviderExecution::PrepareProgramRound.call(
+        workflow_node: @workflow_node,
+        transcript: @transcript,
+        prior_tool_results: prior_tool_results,
+        program_exchange: @program_exchange
+      )
+      program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
+        workflow_node: @workflow_node,
+        tool_catalog: prepared_round.fetch("program_tools")
+      ).pluck(:id)
+      round_bindings = ToolBinding.where(
+        id: (core_matrix_binding_ids + program_binding_ids).uniq
+      ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
 
-      loop do
-        round_count += 1
-        if round_count > @max_rounds
-          raise RoundLimitExceeded.new(
-            max_rounds: @max_rounds,
-            attempted_rounds: round_count,
-            messages_count: last_messages_count
-          )
-        end
+      round_deltas = []
+      dispatch_result = ProviderExecution::DispatchRequest.call(
+        workflow_run: @workflow_run,
+        request_context: @request_context,
+        messages: provider_messages_for(
+          prepared_round.fetch("messages"),
+          prior_tool_results
+        ),
+        tools: provider_tools_for(round_bindings),
+        tool_choice: round_bindings.any? ? "auto" : nil,
+        adapter: @adapter,
+        effective_catalog: @effective_catalog,
+        provider_request_id: SecureRandom.uuid,
+        on_delta: ->(delta) { round_deltas << delta }
+      )
+      normalized_response = ProviderExecution::NormalizeProviderResponse.call(
+        provider_result: dispatch_result.provider_result
+      )
 
-        prepared_round = ProviderExecution::PrepareProgramRound.call(
-          workflow_node: @workflow_node,
-          transcript: @transcript,
-          prior_tool_results: prior_tool_results,
-          program_exchange: @program_exchange
-        )
-        last_messages_count = prepared_round.fetch("messages").length
-        program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
-          workflow_node: @workflow_node,
-          tool_catalog: prepared_round.fetch("program_tools")
-        ).pluck(:id)
-        round_bindings = ToolBinding.where(
-          id: (core_matrix_binding_ids + program_binding_ids).uniq
-        ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+      return Result.new(
+        kind: "final",
+        dispatch_result: dispatch_result,
+        normalized_response: normalized_response,
+        prepared_round: prepared_round,
+        prior_tool_results: prior_tool_results,
+        output_deltas: round_deltas,
+        messages_count: prepared_round.fetch("messages").length
+      ) if normalized_response.fetch("tool_calls").empty?
 
-        round_deltas = []
-        dispatch_result = ProviderExecution::DispatchRequest.call(
-          workflow_run: @workflow_run,
-          request_context: @request_context,
-          messages: provider_messages_for(
-            prepared_round.fetch("messages"),
-            prior_tool_results
-          ),
-          tools: provider_tools_for(round_bindings),
-          tool_choice: round_bindings.any? ? "auto" : nil,
-          adapter: @adapter,
-          effective_catalog: @effective_catalog,
-          provider_request_id: SecureRandom.uuid,
-          on_delta: ->(delta) { round_deltas << delta }
-        )
-        normalized_response = ProviderExecution::NormalizeProviderResponse.call(
-          provider_result: dispatch_result.provider_result
-        )
-
-        return Result.new(
-          dispatch_result: dispatch_result,
-          normalized_response: normalized_response,
-          prepared_round: prepared_round,
-          prior_tool_results: prior_tool_results,
-          output_deltas: round_deltas,
+      attempted_rounds = current_round_index + 1
+      if attempted_rounds > @max_rounds
+        raise RoundLimitExceeded.new(
+          max_rounds: @max_rounds,
+          attempted_rounds: attempted_rounds,
           messages_count: prepared_round.fetch("messages").length
-        ) if normalized_response.fetch("tool_calls").empty?
-
-        new_tool_results = normalized_response.fetch("tool_calls").map do |tool_call|
-          routed_result = ProviderExecution::RouteToolCall.call(
-            workflow_node: @workflow_node,
-            tool_call: tool_call,
-            round_bindings: round_bindings,
-            program_exchange: @program_exchange
-          )
-          ProviderExecution::AppendToolResult.call(
-            tool_call: tool_call,
-            routed_result: routed_result
-          )
-        end
-
-        prior_tool_results.concat(new_tool_results)
-      rescue ProviderExecution::DispatchRequest::RequestFailed => error
-        raise RoundRequestFailed.new(
-          error: error.error,
-          duration_ms: error.duration_ms,
-          provider_request_id: error.provider_request_id,
-          messages_count: prepared_round.fetch("messages").length
-        )
-      rescue ProviderExecution::ProgramMailboxExchange::ExchangeError => error
-        raise RoundRequestFailed.new(
-          error: error,
-          duration_ms: 0,
-          provider_request_id: nil,
-          messages_count: prepared_round.present? ? prepared_round.fetch("messages").length : @transcript.length
         )
       end
+
+      Result.new(
+        kind: "tool_batch",
+        dispatch_result: dispatch_result,
+        normalized_response: normalized_response,
+        prepared_round: prepared_round,
+        prior_tool_results: prior_tool_results,
+        output_deltas: round_deltas,
+        messages_count: prepared_round.fetch("messages").length,
+        tool_batch_result: ProviderExecution::BuildToolExecutionBatch.call(
+          workflow_node: @workflow_node,
+          tool_calls: normalized_response.fetch("tool_calls"),
+          round_bindings: round_bindings
+        )
+      )
+    rescue ProviderExecution::DispatchRequest::RequestFailed => error
+      raise RoundRequestFailed.new(
+        error: error.error,
+        duration_ms: error.duration_ms,
+        provider_request_id: error.provider_request_id,
+        messages_count: prepared_round.fetch("messages").length
+      )
+    rescue ProviderExecution::ProgramMailboxExchange::ExchangeError => error
+      raise RoundRequestFailed.new(
+        error: error,
+        duration_ms: 0,
+        provider_request_id: nil,
+        messages_count: prepared_round.present? ? prepared_round.fetch("messages").length : @transcript.length
+      )
     end
 
     private
@@ -249,6 +254,11 @@ module ProviderExecution
       provider_execution = @workflow_run.execution_snapshot.provider_execution
 
       provider_execution.dig("loop_policy", "max_rounds").presence || DEFAULT_MAX_ROUNDS
+    end
+
+    def current_round_index
+      value = @workflow_node.metadata["provider_round_index"]
+      value.present? ? value.to_i : 1
     end
 
     def visible_core_matrix_binding_ids

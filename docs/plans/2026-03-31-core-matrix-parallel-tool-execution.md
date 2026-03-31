@@ -7,6 +7,12 @@ tool definitions with frozen execution metadata, materializing parallel-safe
 tool batches as workflow stages, and preserving ordered tool-result re-entry
 into the next provider round.
 
+**Current Status:** Implemented on this branch. The runtime now executes one
+provider round per `turn_step`, materializes provider tool calls into explicit
+`tool_call -> barrier_join -> turn_step` graph structure, and resolves
+`execution_policy.parallel_safe` through frozen tool metadata plus capability
+snapshot overlays.
+
 **Architecture:** `Core Matrix` stays graph-first. Provider rounds only
 normalize model tool calls and hand them to workflow batch materialization.
 Scheduler-visible stages are derived from frozen `execution_policy`

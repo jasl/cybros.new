@@ -23,9 +23,12 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
       shell_definition.tool_implementations.order(:implementation_ref).pluck(:implementation_ref)
     assert_equal "env/exec_command",
       shell_definition.tool_implementations.find_by!(default_for_snapshot: true).implementation_ref
+    assert_equal false, shell_definition.policy_payload.dig("execution_policy", "parallel_safe")
+    assert shell_definition.tool_implementations.all? { |implementation| implementation.metadata.dig("execution_policy", "parallel_safe") == false }
 
     subagent_definition = definitions.find_by!(tool_name: "subagent_spawn")
     assert_equal "core_matrix/subagent_spawn",
       subagent_definition.tool_implementations.find_by!(default_for_snapshot: true).implementation_ref
+    assert_equal false, subagent_definition.policy_payload.dig("execution_policy", "parallel_safe")
   end
 end

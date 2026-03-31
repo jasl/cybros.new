@@ -145,6 +145,76 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "Responses provider result", workflow_run.turn.reload.selected_output_message.content
   end
 
+  test "materializes tool calls as workflow nodes and leaves the turn active for graph re-entry" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-tool-batch-1",
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              tool_calls: [
+                {
+                  id: "call-calculator-1",
+                  type: "function",
+                  function: {
+                    name: "calculator",
+                    arguments: JSON.generate(expression: "2 + 2"),
+                  },
+                },
+              ],
+            },
+            finish_reason: "tool_calls",
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 4,
+          total_tokens: 16,
+        },
+      }
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => turn_step_messages_for(workflow_run),
+          "program_tools" => [round_budget_calculator_tool_entry],
+        },
+      ]
+    )
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: adapter,
+        program_exchange: program_exchange
+      )
+    end
+
+    workflow_run.reload
+    tool_node = workflow_run.workflow_nodes.find_by!(node_key: "provider_round_1_tool_1")
+    join_node = workflow_run.workflow_nodes.find_by!(node_key: "provider_round_1_join_1")
+    successor = workflow_run.workflow_nodes.find_by!(node_key: "provider_round_2")
+
+    assert workflow_run.active?
+    assert workflow_run.turn.reload.active?
+    assert_equal "completed", workflow_node.reload.lifecycle_state
+    assert_equal "queued", tool_node.reload.lifecycle_state
+    assert_equal "pending", join_node.reload.lifecycle_state
+    assert_equal "pending", successor.reload.lifecycle_state
+    assert_equal ["provider_round_1_tool_1"], successor.metadata.fetch("prior_tool_node_keys")
+    assert_equal [], program_exchange.execute_program_tool_requests
+  end
+
   test "rejects a turn_step that was already claimed running before dispatch" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
@@ -269,14 +339,11 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal(
       [
         "runtime.workflow_node.started",
-        "runtime.assistant_output.started",
-        "runtime.assistant_output.failed",
         "runtime.workflow_node.failed",
       ],
       broadcasts.map { |payload| payload.fetch("event_kind") }
     )
-    assert_equal "provider_round_limit_exceeded", broadcasts.third.fetch("payload").fetch("code")
-    assert_equal "provider_round_limit_exceeded", broadcasts.fourth.fetch("payload").fetch("code")
+    assert_equal "provider_round_limit_exceeded", broadcasts.second.fetch("payload").fetch("code")
   end
 
   private

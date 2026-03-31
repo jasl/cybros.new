@@ -58,7 +58,7 @@ class RuntimeCapabilityContract
   end
 
   def environment_tool_catalog
-    @environment_tool_catalog.deep_dup
+    normalize_tool_catalog(@environment_tool_catalog)
   end
 
   def protocol_methods
@@ -66,7 +66,7 @@ class RuntimeCapabilityContract
   end
 
   def agent_tool_catalog
-    @agent_tool_catalog.deep_dup
+    normalize_tool_catalog(@agent_tool_catalog)
   end
 
   def config_schema_snapshot
@@ -127,14 +127,20 @@ class RuntimeCapabilityContract
         if reserved_core_matrix_tool?(tool_name)
           next if reserved_entries.key?(tool_name)
 
-          reserved_entries[tool_name] = entry.deep_dup
+          reserved_entries[tool_name] = normalize_effective_tool_entry(
+            entry,
+            overlays: tool_policy_overlays
+          )
           reserved_order << tool_name
           next
         end
 
         next if ordinary_entries.key?(tool_name)
 
-        ordinary_entries[tool_name] = entry.deep_dup
+        ordinary_entries[tool_name] = normalize_effective_tool_entry(
+          entry,
+          overlays: tool_policy_overlays
+        )
         ordinary_order << tool_name
       end
     end
@@ -196,5 +202,38 @@ class RuntimeCapabilityContract
 
   def reserved_core_matrix_tool?(tool_name)
     tool_name.start_with?("core_matrix__") || RESERVED_SUBAGENT_TOOL_NAMES.include?(tool_name)
+  end
+
+  def normalize_effective_tool_entry(entry, overlays: [])
+    normalized_entry = entry.deep_dup
+    normalized_entry["execution_policy"] = RuntimeCapabilities::ResolveToolExecutionPolicy.call(
+      tool_entry: normalized_entry,
+      overlays: overlays
+    )
+    normalized_entry
+  end
+
+  def normalize_tool_catalog(catalog)
+    Array(catalog).map { |entry| normalize_effective_tool_entry(entry) }
+  end
+
+  def normalize_execution_policy(policy)
+    policy_hash =
+      case policy
+      when Hash
+        policy.deep_stringify_keys
+      else
+        {}
+      end
+
+    {
+      "parallel_safe" => policy_hash.fetch("parallel_safe", false),
+    }
+  end
+
+  def tool_policy_overlays
+    Array(@default_config_snapshot["tool_policy_overlays"]).filter_map do |entry|
+      entry.is_a?(Hash) ? entry.deep_stringify_keys : nil
+    end
   end
 end
