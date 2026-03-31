@@ -54,6 +54,34 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     assert_equal 2, second.attempt_no
   end
 
+  test "records invocation lifecycle for workflow-node-owned bindings" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    binding = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: context.fetch(:workflow_node)
+    ).joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
+
+    invocation = ToolInvocations::Start.call(
+      tool_binding: binding,
+      request_payload: { "conversation_id" => context.fetch(:conversation).public_id }
+    )
+
+    ToolInvocations::Complete.call(
+      tool_invocation: invocation,
+      response_payload: { "summary" => "workflow-node scoped tool completed" }
+    )
+
+    invocation.reload
+
+    assert_equal "succeeded", invocation.status
+    assert_nil invocation.agent_task_run
+    assert_equal context.fetch(:workflow_node), invocation.workflow_node
+  end
+
   test "terminal updates ignore stale copies once an invocation has already terminalized" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(

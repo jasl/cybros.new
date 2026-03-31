@@ -11,10 +11,11 @@ module Fenix
             new(...).call
           end
 
-          def initialize(tool_call:, tool_invocation:, command_run:, collector:, control_client:, cancellation_probe:, current_agent_task_run_id:)
+          def initialize(tool_call:, tool_invocation:, command_run:, workspace_root:, collector:, control_client:, cancellation_probe:, current_agent_task_run_id:)
             @tool_call = tool_call
             @tool_invocation = tool_invocation
             @command_run = command_run
+            @workspace_root = workspace_root.presence || Dir.pwd
             @collector = collector
             @control_client = control_client
             @cancellation_probe = cancellation_probe
@@ -171,7 +172,7 @@ module Fenix
             process_pid = nil
             command_run_id = @command_run.fetch("command_run_id")
 
-            Open3.popen3("/bin/sh", "-lc", command_line.to_s) do |stdin, command_stdout, command_stderr, wait_thr|
+            Open3.popen3("/bin/sh", "-lc", command_line.to_s, chdir: @workspace_root) do |stdin, command_stdout, command_stderr, wait_thr|
               Fenix::Runtime::CommandRunRegistry.register(
                 command_run_id:,
                 agent_task_run_id: @current_agent_task_run_id,
@@ -250,7 +251,12 @@ module Fenix
           def start_command_run_session
             check_canceled!
             command_run_id = @command_run.fetch("command_run_id")
-            stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", @tool_call.dig("arguments", "command_line").to_s)
+            stdin, stdout, stderr, wait_thread = Open3.popen3(
+              "/bin/sh",
+              "-lc",
+              @tool_call.dig("arguments", "command_line").to_s,
+              chdir: @workspace_root
+            )
             Fenix::Runtime::CommandRunRegistry.register(
               command_run_id:,
               agent_task_run_id: @current_agent_task_run_id,

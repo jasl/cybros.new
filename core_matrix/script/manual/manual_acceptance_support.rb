@@ -315,15 +315,12 @@ module ManualAcceptanceSupport
         enrollment_token: enrollment_token,
         environment_fingerprint: environment_fingerprint,
         environment_kind: "local",
-        environment_connection_metadata: {
-          transport: "http",
-          base_url: runtime_base_url,
-        },
+        environment_connection_metadata: manifest.fetch("environment_connection_metadata", {
+          "transport" => "http",
+          "base_url" => runtime_base_url,
+        }),
         fingerprint: fingerprint,
-        endpoint_metadata: {
-          transport: "http",
-          base_url: runtime_base_url,
-        },
+        endpoint_metadata: manifest.fetch("endpoint_metadata"),
         protocol_version: manifest.fetch("protocol_version"),
         sdk_version: manifest.fetch("sdk_version"),
         environment_capability_payload: manifest.fetch("environment_capability_payload", {}),
@@ -379,6 +376,7 @@ module ManualAcceptanceSupport
           "transport" => "http",
           "base_url" => runtime_base_url,
         },
+        endpoint_metadata: manifest.fetch("endpoint_metadata"),
         environment_capability_payload: manifest.fetch("environment_capability_payload", {}),
         environment_tool_catalog: manifest.fetch("environment_tool_catalog", []),
         fingerprint: fingerprint,
@@ -465,12 +463,13 @@ module ManualAcceptanceSupport
     }
   end
 
-  def execute_provider_workflow!(workflow_run:)
-    Workflows::ExecuteRun.call(
+  def execute_provider_workflow!(workflow_run:, timeout_seconds: 180)
+    dispatched_node = Workflows::ExecuteRun.call(
       workflow_run: workflow_run,
       messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
     )
-    wait_for_workflow_run_terminal!(workflow_run:)
+    execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
+    wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds:)
   end
 
   def execute_provider_turn_on_conversation!(conversation:, deployment:, content:)
@@ -621,5 +620,16 @@ module ManualAcceptanceSupport
     true
   rescue Errno::ESRCH
     false
+  end
+
+  def execute_inline_if_queued!(workflow_node:)
+    current_node = WorkflowNode.find_by(public_id: workflow_node.public_id)
+    return if current_node.blank?
+    return unless current_node.queued? || current_node.pending?
+
+    Workflows::ExecuteNode.call(
+      workflow_node: current_node,
+      messages: current_node.workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+    )
   end
 end

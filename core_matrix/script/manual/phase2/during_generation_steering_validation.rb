@@ -11,6 +11,13 @@ bundled_configuration = {
   environment_kind: "local",
   environment_fingerprint: "phase2-d-steering-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
+  endpoint_metadata: {
+    "transport" => "http",
+    "base_url" => "http://127.0.0.1:4100",
+    "runtime_manifest_path" => "/runtime/manifest",
+    "prepare_round_path" => "/runtime/rounds/prepare",
+    "execute_program_tool_path" => "/runtime/program_tools/execute",
+  },
   fingerprint: "phase2-d-steering-runtime",
   protocol_version: "2026-03-24",
   sdk_version: "fenix-0.1.0",

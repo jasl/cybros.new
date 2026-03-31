@@ -13,13 +13,14 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, request_context:, provider_result:, provider_request_id:, messages_count:, duration_ms:)
+    def initialize(workflow_node:, request_context:, provider_result:, provider_request_id:, messages_count:, duration_ms:, output_content: nil)
       @workflow_node = workflow_node
       @request_context = ProviderRequestContext.wrap(request_context)
       @provider_result = provider_result
       @provider_request_id = provider_request_id
       @messages_count = messages_count
       @duration_ms = duration_ms
+      @output_content = output_content
       @workflow_run = workflow_node.workflow_run
       @turn = workflow_node.turn
     end
@@ -33,7 +34,7 @@ module ProviderExecution
         ProviderExecution::WithFreshExecutionStateLock.call(workflow_node: @workflow_node) do |current_node, current_workflow_run, current_turn|
           output_message = Turns::CreateOutputVariant.call(
             turn: current_turn,
-            content: @provider_result.content.to_s,
+            content: final_output_content,
             source_input_message: current_turn.selected_input_message
           )
           usage_event = ProviderUsage::RecordEvent.call(
@@ -113,6 +114,10 @@ module ProviderExecution
         "output_tokens" => payload[:completion_tokens] || payload["completion_tokens"] || payload[:output_tokens] || payload["output_tokens"],
         "total_tokens" => payload[:total_tokens] || payload["total_tokens"],
       }.compact
+    end
+
+    def final_output_content
+      @final_output_content ||= @output_content.to_s.presence || @provider_result.content.to_s
     end
 
     def evaluate_usage(usage)

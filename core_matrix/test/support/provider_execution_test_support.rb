@@ -1,4 +1,67 @@
 module ProviderExecutionTestSupport
+  FakeHttpResponse = Struct.new(:code, :body, :headers, keyword_init: true)
+
+  class FakeProgramClient
+    attr_reader :prepare_round_requests, :execute_program_tool_requests
+
+    def initialize(prepared_rounds: nil, program_tool_results: nil)
+      @prepared_rounds = Array(prepared_rounds).map { |entry| deep_copy(entry) }
+      @program_tool_results = (program_tool_results || {}).deep_stringify_keys
+      @prepare_round_requests = []
+      @execute_program_tool_requests = []
+    end
+
+    def prepare_round(body:)
+      payload = body.deep_stringify_keys
+      @prepare_round_requests << payload
+
+      round = @prepared_rounds.shift || {
+        "messages" => payload.fetch("transcript"),
+        "program_tools" => [],
+      }
+      deep_copy(round)
+    end
+
+    def execute_program_tool(body:)
+      payload = body.deep_stringify_keys
+      @execute_program_tool_requests << payload
+
+      responder = @program_tool_results[payload["tool_call_id"]] || @program_tool_results[payload["tool_name"]]
+      response = responder.respond_to?(:call) ? responder.call(body: payload) : responder
+
+      deep_copy(response || {
+        "status" => "completed",
+        "result" => {},
+      })
+    end
+
+    private
+
+    def deep_copy(value)
+      JSON.parse(JSON.generate(value))
+    end
+  end
+
+  class FakeJsonTransport
+    attr_reader :last_uri, :last_method, :last_headers, :last_body
+
+    def initialize(response: nil, &block)
+      @response = response
+      @block = block
+    end
+
+    def call(uri:, method:, headers:, body:)
+      @last_uri = uri
+      @last_method = method
+      @last_headers = headers
+      @last_body = body
+
+      return @block.call(uri:, method:, headers:, body:) if @block
+
+      @response || FakeHttpResponse.new(code: "200", body: "{}", headers: {})
+    end
+  end
+
   class FakeChatCompletionsAdapter < SimpleInference::HTTPAdapter
     attr_reader :last_request
 
@@ -52,6 +115,50 @@ module ProviderExecutionTestSupport
     end
   end
 
+  class FakeQueuedChatCompletionsAdapter < SimpleInference::HTTPAdapter
+    attr_reader :requests
+
+    def initialize(response_bodies:)
+      @response_bodies = Array(response_bodies).map(&:deep_dup)
+      @requests = []
+    end
+
+    def call(env)
+      @requests << env
+      response_body = @response_bodies.shift || raise("no queued chat completion response available")
+      request_index = @requests.length
+
+      {
+        status: 200,
+        headers: {
+          "content-type" => "application/json",
+          "x-request-id" => "queued-chat-request-#{request_index}",
+        },
+        body: JSON.generate(response_body),
+      }
+    end
+  end
+
+  class FakeResponsesAdapter < SimpleInference::HTTPAdapter
+    attr_reader :last_request
+
+    def initialize(response_body:)
+      @response_body = response_body
+    end
+
+    def call(env)
+      @last_request = env
+      {
+        status: 200,
+        headers: {
+          "content-type" => "application/json",
+          "x-request-id" => "responses-request-1",
+        },
+        body: JSON.generate(@response_body),
+      }
+    end
+  end
+
   def build_mock_chat_catalog
     catalog_definition = test_provider_catalog_definition.deep_dup
     catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
@@ -70,6 +177,15 @@ module ProviderExecutionTestSupport
         repetition_penalty: 1.1,
       }
     )
+
+    build_test_provider_catalog_from(catalog_definition)
+  end
+
+  def build_mock_responses_catalog
+    catalog_definition = test_provider_catalog_definition.deep_dup
+    catalog_definition[:providers][:dev][:adapter_key] = "mock_llm_responses"
+    catalog_definition[:providers][:dev][:wire_api] = "responses"
+    catalog_definition[:providers][:dev][:responses_path] = "/v1/responses"
 
     build_test_provider_catalog_from(catalog_definition)
   end

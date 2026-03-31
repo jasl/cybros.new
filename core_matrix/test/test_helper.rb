@@ -399,6 +399,21 @@ module ActiveSupport
       }.merge(attrs))
     end
 
+    def default_runtime_connection_metadata(base_url: "https://agents.example.test")
+      {
+        "transport" => "http",
+        "base_url" => base_url,
+      }
+    end
+
+    def default_fenix_endpoint_metadata(base_url: "https://agents.example.test")
+      default_runtime_connection_metadata(base_url: base_url).merge(
+        "runtime_manifest_path" => "/runtime/manifest",
+        "prepare_round_path" => "/runtime/rounds/prepare",
+        "execute_program_tool_path" => "/runtime/program_tools/execute"
+      )
+    end
+
     def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: nil, tool_catalog: nil, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
       CapabilitySnapshot.create!({
         agent_deployment: agent_deployment,
@@ -558,10 +573,7 @@ module ActiveSupport
       environment_tool_catalog: execution_environment&.tool_catalog || [],
       protocol_methods: default_protocol_methods,
       tool_catalog: default_tool_catalog,
-      endpoint_metadata: {
-        "transport" => "http",
-        "base_url" => "https://agents.example.test",
-      },
+      endpoint_metadata: default_fenix_endpoint_metadata,
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: default_config_schema_snapshot,
       conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
@@ -579,7 +591,7 @@ module ActiveSupport
         enrollment_token: enrollment.plaintext_token,
         environment_fingerprint: environment_fingerprint,
         environment_kind: environment_kind,
-        environment_connection_metadata: environment_connection_metadata || endpoint_metadata,
+        environment_connection_metadata: environment_connection_metadata || default_runtime_connection_metadata(base_url: endpoint_metadata.fetch("base_url")),
         environment_capability_payload: environment_capability_payload,
         environment_tool_catalog: environment_tool_catalog,
         fingerprint: "runtime-#{next_test_sequence}",
@@ -646,7 +658,8 @@ module ActiveSupport
       agent_deployment = create_agent_deployment!(
         installation: installation,
         agent_installation: agent_installation,
-        execution_environment: execution_environment
+        execution_environment: execution_environment,
+        endpoint_metadata: default_fenix_endpoint_metadata
       )
       user_agent_binding = create_user_agent_binding!(
         installation: installation,
@@ -741,7 +754,8 @@ module ActiveSupport
     end
 
     def bundled_agent_configuration(enabled: true, **attrs)
-      {
+      explicit_endpoint_metadata = attrs.key?(:endpoint_metadata)
+      configuration = {
         enabled: enabled,
         agent_key: "fenix",
         display_name: "Bundled Fenix",
@@ -749,10 +763,8 @@ module ActiveSupport
         lifecycle_state: "active",
         environment_kind: "local",
         environment_fingerprint: "bundled-fenix-environment",
-        connection_metadata: {
-          "transport" => "http",
-          "base_url" => "http://127.0.0.1:4100",
-        },
+        connection_metadata: default_runtime_connection_metadata(base_url: "http://127.0.0.1:4100"),
+        endpoint_metadata: default_fenix_endpoint_metadata(base_url: "http://127.0.0.1:4100"),
         environment_capability_payload: {},
         environment_tool_catalog: [],
         fingerprint: "bundled-fenix-runtime",
@@ -786,6 +798,13 @@ module ActiveSupport
           "sandbox" => "workspace-write",
         },
       }.merge(attrs)
+
+      unless explicit_endpoint_metadata
+        configuration[:endpoint_metadata] = default_fenix_endpoint_metadata(
+          base_url: configuration.fetch(:connection_metadata).fetch("base_url")
+        )
+      end
+      configuration
     end
 
     def attach_selected_output!(turn, content:, variant_index: 0)

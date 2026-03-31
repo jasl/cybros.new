@@ -102,8 +102,10 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert second.deployment.healthy?
     assert_equal "fenix-0.2.0", second.deployment.sdk_version
     assert_equal({ "source" => "bundled_runtime" }, second.deployment.health_metadata)
-    assert_equal second.execution_environment.connection_metadata, second.deployment.endpoint_metadata
     assert_equal "http://127.0.0.1:4200", second.execution_environment.connection_metadata.fetch("base_url")
+    assert_equal "http://127.0.0.1:4200", second.deployment.endpoint_metadata.fetch("base_url")
+    assert_equal "/runtime/rounds/prepare", second.deployment.endpoint_metadata.fetch("prepare_round_path")
+    assert_equal "/runtime/program_tools/execute", second.deployment.endpoint_metadata.fetch("execute_program_tool_path")
     assert_equal true, second.execution_environment.capability_payload.fetch("conversation_attachment_upload")
     assert_equal(
       AgentDeployment.digest_machine_credential("bundled-runtime:bundled-fenix-runtime-v2"),

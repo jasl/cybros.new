@@ -21,7 +21,7 @@
       "max_output_tokens": 128000
     },
     "advisory_hints": {
-      "recommended_compaction_threshold": 120
+      "recommended_compaction_threshold": 900000
     }
   },
   "agent_context": {

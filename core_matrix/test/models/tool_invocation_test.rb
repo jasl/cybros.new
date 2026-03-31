@@ -1,6 +1,34 @@
 require "test_helper"
 
 class ToolInvocationTest < ActiveSupport::TestCase
+  test "can stay aligned with a workflow-node-owned binding" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    binding = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: context.fetch(:workflow_node)
+    ).joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
+
+    invocation = ToolInvocation.new(
+      installation: context.fetch(:workflow_node).installation,
+      workflow_node: context.fetch(:workflow_node),
+      tool_binding: binding,
+      tool_definition: binding.tool_definition,
+      tool_implementation: binding.tool_implementation,
+      status: "running",
+      request_payload: {},
+      response_payload: {},
+      error_payload: {},
+      attempt_no: 1,
+      started_at: Time.current
+    )
+
+    assert invocation.valid?
+  end
+
   test "requires invocation records to stay aligned with the frozen binding" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(

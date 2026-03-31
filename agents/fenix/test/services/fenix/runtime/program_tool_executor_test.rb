@@ -57,4 +57,35 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     assert_equal "stdout", result.output_chunks.first.fetch("stream")
     assert_equal "hello\n", result.output_chunks.first.fetch("text")
   end
+
+  test "exec_command runs relative to the workspace root" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      executor = Fenix::Runtime::ProgramToolExecutor.new(
+        context: {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "agent_context" => { "allowed_tool_names" => ["exec_command"] },
+          "workspace_context" => { "workspace_root" => workspace_root },
+        }
+      )
+
+      result = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-2",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "pwd",
+            "timeout_seconds" => 5,
+            "pty" => false,
+          },
+        },
+        command_run: {
+          "command_run_id" => "command-run-2",
+        }
+      )
+
+      assert_equal Pathname.new(workspace_root).realpath.to_s, Pathname.new(result.tool_result.fetch("stdout").strip).realpath.to_s
+    end
+  end
 end

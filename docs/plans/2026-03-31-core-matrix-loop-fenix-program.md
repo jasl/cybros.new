@@ -4,7 +4,7 @@
 
 **Goal:** Move the provider-backed repeated agent loop into `core_matrix`, keep `agents/fenix` as the agent-program layer that prepares prompts and executes program-owned tools, and preserve the real 2048 browser capstone as the final acceptance gate.
 
-**Architecture:** `Core Matrix` and `Fenix` are intentionally orthogonal and fully complementary. `Core Matrix` owns the outer round loop, provider transport, generic tool calling, Streamable HTTP MCP support, workflow DAG progression, and durable proof. `Fenix` exposes a small HTTP program contract: one endpoint prepares each round's messages and visible program tools, and one endpoint executes only Fenix-owned tools when `Core Matrix` routes them back. Dynamic per-round program tools must be materialized as workflow-node-scoped durable records so tool, command, and process proof no longer depends on `AgentTaskRun`.
+**Architecture:** `Core Matrix` and `Fenix` are intentionally fully orthogonal and fully complementary. `Core Matrix` owns the outer round loop, provider transport, generic tool calling, Streamable HTTP MCP support, workflow DAG progression, and durable proof. `Fenix` exposes a small HTTP program contract: one endpoint prepares each round's messages and visible program tools, and one endpoint executes only Fenix-owned tools when `Core Matrix` routes them back. Dynamic per-round program tools must be materialized as workflow-node-scoped durable records so tool, command, and process proof no longer depends on `AgentTaskRun`.
 
 **Tech Stack:** Ruby on Rails, Minitest, Active Job, `SimpleInference`, Streamable HTTP MCP, Net::HTTP/HTTPX, JSON contract fixtures, Dockerized `Fenix`, browser-based manual acceptance.
 
@@ -14,6 +14,8 @@
 
 - This implementation may be destructive. Do not preserve compatibility with
   the rejected Fenix-first loop boundary.
+- Treat destructive change as the default posture for this branch when it
+  produces a cleaner final `Core Matrix` plus `Fenix` split.
 - Do not add transitional adapters or compatibility shims unless a real
   external dependency forces it.
 - If the current Core Matrix capability surface is missing something needed for
@@ -306,7 +308,7 @@ Expected: FAIL because `workflow_node_id` does not exist on the durable tool rec
 
 **Step 3: Add the migration and the new workflow-node projection**
 
-Make `agent_task_run_id` optional for tool bindings, tool invocations, and command runs, add `workflow_node_id`, and keep compatibility for existing mailbox-driven paths.
+Make `agent_task_run_id` optional for tool bindings, tool invocations, and command runs, add `workflow_node_id`, and treat `workflow_node` as the durable execution owner for the new outer-loop path.
 
 ```ruby
 change_table :tool_bindings do |t|

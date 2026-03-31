@@ -30,12 +30,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
+    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: turn_step_messages_for(workflow_run),
-        adapter: adapter
+        adapter: adapter,
+        program_client: program_client
       )
     end
 
@@ -64,6 +66,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
+    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
@@ -71,7 +74,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         ProviderExecution::ExecuteTurnStep.call(
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: turn_step_messages_for(workflow_run),
-          adapter: adapter
+          adapter: adapter,
+          program_client: program_client
         )
       end
     end
@@ -97,6 +101,48 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", delta_payload.fetch("delta")
     assert_equal "The calculator returned 4.", completed_payload.fetch("content")
     assert_equal workflow_run.turn.reload.selected_output_message.public_id, completed_payload.fetch("message_id")
+  end
+
+  test "persists normalized responses-api output text instead of raw provider_result content" do
+    catalog = build_mock_responses_catalog
+    adapter = ProviderExecutionTestSupport::FakeResponsesAdapter.new(
+      response_body: {
+        "output" => [
+          {
+            "type" => "message",
+            "content" => [
+              {
+                "type" => "output_text",
+                "text" => "Responses provider result",
+              },
+            ],
+          },
+        ],
+        "usage" => {
+          "input_tokens" => 9,
+          "output_tokens" => 5,
+          "total_tokens" => 14,
+        },
+      }
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
+        messages: turn_step_messages_for(workflow_run),
+        adapter: adapter,
+        program_client: program_client
+      )
+    end
+
+    assert_equal "Responses provider result", workflow_run.turn.reload.selected_output_message.content
   end
 
   test "rejects a turn_step that was already claimed running before dispatch" do
@@ -142,5 +188,117 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     assert_nil adapter.last_request
     assert_equal 0, WorkflowNodeEvent.where(workflow_node: workflow_node, event_kind: "status").count
+  end
+
+  test "persists a failed turn when the provider round budget is exceeded" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(
+      response_bodies: [
+        {
+          id: "chatcmpl-round-budget-1",
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                tool_calls: [
+                  {
+                    id: "call-calculator-1",
+                    type: "function",
+                    function: {
+                      name: "calculator",
+                      arguments: JSON.generate(expression: "2 + 2"),
+                    },
+                  },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+          usage: {
+            prompt_tokens: 12,
+            completion_tokens: 4,
+            total_tokens: 16,
+          },
+        },
+      ]
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+        "max_rounds" => 1,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_client = ProviderExecutionTestSupport::FakeProgramClient.new(
+      prepared_rounds: [
+        {
+          "messages" => turn_step_messages_for(workflow_run),
+          "program_tools" => [round_budget_calculator_tool_entry],
+        },
+      ],
+      program_tool_results: {
+        "call-calculator-1" => {
+          "status" => "completed",
+          "result" => { "value" => 4 },
+        },
+      }
+    )
+    stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
+
+    broadcasts = capture_broadcasts(stream_name) do
+      error = assert_raises(ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded) do
+        with_stubbed_provider_catalog(catalog) do
+          ProviderExecution::ExecuteTurnStep.call(
+            workflow_node: workflow_node,
+            messages: turn_step_messages_for(workflow_run),
+            adapter: adapter,
+            program_client: program_client
+          )
+        end
+      end
+
+      assert_equal "provider round loop exceeded 1 rounds", error.message
+    end
+
+    assert_equal "failed", workflow_run.reload.lifecycle_state
+    assert_equal "failed", workflow_run.turn.reload.lifecycle_state
+    assert_equal "failed", workflow_node.reload.lifecycle_state
+    assert_equal(
+      [
+        "runtime.workflow_node.started",
+        "runtime.assistant_output.started",
+        "runtime.assistant_output.failed",
+        "runtime.workflow_node.failed",
+      ],
+      broadcasts.map { |payload| payload.fetch("event_kind") }
+    )
+    assert_equal "provider_round_limit_exceeded", broadcasts.third.fetch("payload").fetch("code")
+    assert_equal "provider_round_limit_exceeded", broadcasts.fourth.fetch("payload").fetch("code")
+  end
+
+  private
+
+  def round_budget_calculator_tool_entry
+    {
+      "tool_name" => "calculator",
+      "tool_kind" => "agent_observation",
+      "implementation_source" => "agent",
+      "implementation_ref" => "fenix/runtime/calculator",
+      "input_schema" => {
+        "type" => "object",
+        "properties" => {
+          "expression" => { "type" => "string" },
+        },
+      },
+      "result_schema" => {
+        "type" => "object",
+        "properties" => {
+          "value" => { "type" => "integer" },
+        },
+      },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
   end
 end

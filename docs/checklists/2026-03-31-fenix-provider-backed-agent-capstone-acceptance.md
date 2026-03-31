@@ -22,6 +22,14 @@ must behave like a real coding agent that can:
 - edit a real workspace and run a real development server
 - produce a browser application that a human can actually play
 
+For this capstone, `Core Matrix` and `Fenix` are treated as fully orthogonal
+and fully complementary:
+
+- `Core Matrix` owns the provider-backed loop, tool calling substrate, generic
+  MCP support, workflow orchestration, and durable proof
+- `Fenix` owns prompt preparation, skills policy, and execution of
+  program-owned tools through the published runtime contract
+
 ## Fixed Acceptance Workload
 
 The capstone task is fixed:
@@ -52,7 +60,9 @@ workspace contents in `tmp/fenix`.
 ### Agent Behavior
 
 - the work must run through the real conversation and turn model
-- `Fenix` must use its configured provider-backed execution path
+- `Core Matrix` must execute the repeated provider-backed loop
+- `Fenix` must provide prompt preparation and program-owned tool execution
+  through the published runtime endpoints
 - the work must use the real tool surface rather than offline file injection
 - the work must be eligible to use installed skills and subagents
 - the run must leave proof that subagent work actually happened when the agent

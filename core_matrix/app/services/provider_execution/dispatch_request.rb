@@ -26,10 +26,12 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_run:, request_context:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil)
+    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil)
       @workflow_run = workflow_run
       @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
+      @tools = Array(tools).map { |entry| normalize_tool_definition(entry.deep_stringify_keys) }
+      @tool_choice = tool_choice
       @adapter = adapter
       @effective_catalog = ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog)
       @effective_catalog = effective_catalog if effective_catalog.present?
@@ -39,30 +41,18 @@ module ProviderExecution
 
     def call
       started_monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      provider_result = if @on_delta.present?
-        build_client.chat(
-          model: @request_context.api_model,
-          messages: @messages,
-          max_tokens: @request_context.hard_limits["max_output_tokens"],
-          stream: true,
-          include_usage: true,
-          **@request_context.execution_settings.symbolize_keys
-        ) do |delta|
-          @on_delta.call(delta)
+      provider_result =
+        case @request_context.wire_api
+        when "responses"
+          dispatch_responses_request
+        else
+          dispatch_chat_request
         end
-      else
-        build_client.chat(
-          model: @request_context.api_model,
-          messages: @messages,
-          max_tokens: @request_context.hard_limits["max_output_tokens"],
-          **@request_context.execution_settings.symbolize_keys
-        )
-      end
 
       Result.new(
         provider_result: provider_result,
         provider_request_id: provider_request_id_for(provider_result),
-        content: provider_result.content.to_s,
+        content: provider_result_content(provider_result),
         usage: normalize_usage(provider_result.usage),
         duration_ms: elapsed_ms_since(started_monotonic)
       )
@@ -78,13 +68,25 @@ module ProviderExecution
 
     def build_client
       provider_definition = @effective_catalog.provider(@request_context.provider_handle)
+      adapter = @adapter || SimpleInference::HTTPAdapters::HTTPX.new
 
-      SimpleInference::Client.new(
-        base_url: provider_definition.fetch(:base_url),
-        api_key: credential_secret_for(provider_definition),
-        headers: provider_definition.fetch(:headers, {}),
-        adapter: @adapter || SimpleInference::HTTPAdapters::HTTPX.new
-      )
+      case @request_context.wire_api
+      when "responses"
+        SimpleInference::Protocols::OpenAIResponses.new(
+          base_url: provider_definition.fetch(:base_url),
+          api_key: credential_secret_for(provider_definition),
+          headers: provider_definition.fetch(:headers, {}),
+          responses_path: provider_definition.fetch(:responses_path),
+          adapter: adapter
+        )
+      else
+        SimpleInference::Client.new(
+          base_url: provider_definition.fetch(:base_url),
+          api_key: credential_secret_for(provider_definition),
+          headers: provider_definition.fetch(:headers, {}),
+          adapter: adapter
+        )
+      end
     end
 
     def credential_secret_for(provider_definition)
@@ -102,10 +104,24 @@ module ProviderExecution
         candidate = message.is_a?(Hash) ? message : nil
         next if candidate.blank?
 
-        {
-          "role" => candidate["role"] || candidate[:role],
-          "content" => candidate["content"] || candidate[:content],
-        }.compact
+        normalized = candidate.deep_stringify_keys.slice(
+          "role",
+          "content",
+          "tool_call_id",
+          "call_id",
+          "name",
+          "tool_calls",
+          "type",
+          "output",
+          "arguments",
+          "id"
+        )
+        tool_call_id = candidate["tool_call_id"] || candidate[:tool_call_id]
+
+        normalized["tool_call_id"] = tool_call_id if tool_call_id.present?
+        normalized["call_id"] = candidate["call_id"] || candidate[:call_id] || tool_call_id if tool_call_id.present? || candidate["call_id"].present? || candidate[:call_id].present?
+        normalized["name"] = candidate["name"] || candidate[:name] if (candidate["name"] || candidate[:name]).present?
+        normalized.compact
       end
     end
 
@@ -119,6 +135,52 @@ module ProviderExecution
       }.compact
     end
 
+    def dispatch_chat_request
+      request = {
+        model: @request_context.api_model,
+        messages: @messages,
+        max_tokens: @request_context.hard_limits["max_output_tokens"],
+        **@request_context.execution_settings.symbolize_keys
+      }
+      request[:tools] = @tools if @tools.present?
+      request[:tool_choice] = @tool_choice if @tool_choice.present?
+
+      if stream_chat_request?
+        build_client.chat(**request, stream: true, include_usage: true) do |delta|
+          @on_delta.call(delta)
+        end
+      else
+        build_client.chat(**request)
+      end
+    end
+
+    def dispatch_responses_request
+      request = {
+        model: @request_context.api_model,
+        input: @messages,
+        max_output_tokens: @request_context.hard_limits["max_output_tokens"],
+        **@request_context.execution_settings.symbolize_keys
+      }
+      request[:tools] = @tools if @tools.present?
+      request[:tool_choice] = @tool_choice if @tool_choice.present?
+
+      if @on_delta.present?
+        build_client.responses(**request, stream: true, include_usage: true) do |delta|
+          @on_delta.call(delta)
+        end
+      else
+        build_client.responses(**request)
+      end
+    end
+
+    def provider_result_content(provider_result)
+      if provider_result.respond_to?(:output_text)
+        provider_result.output_text.to_s
+      else
+        provider_result.content.to_s
+      end
+    end
+
     def provider_request_id_for(provider_result)
       provider_result.response.headers["x-request-id"] ||
         provider_result.response.body&.fetch("id", nil) ||
@@ -129,6 +191,47 @@ module ProviderExecution
       return 0 if started_monotonic.nil?
 
       ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_monotonic) * 1000).round
+    end
+
+    def normalize_tool_definition(entry)
+      normalized_entry = entry.deep_dup
+
+      if normalized_entry["function"].is_a?(Hash)
+        normalized_entry["function"] = normalized_entry["function"].deep_dup
+        normalized_entry["function"]["parameters"] = normalize_schema(normalized_entry["function"]["parameters"])
+      elsif normalized_entry["parameters"].is_a?(Hash)
+        normalized_entry["parameters"] = normalize_schema(normalized_entry["parameters"])
+      end
+
+      normalized_entry
+    end
+
+    def stream_chat_request?
+      @on_delta.present? && @tools.blank?
+    end
+
+    def normalize_schema(schema)
+      normalized = schema.is_a?(Hash) ? schema.deep_stringify_keys.deep_dup : {}
+
+      if normalized["type"] == "array"
+        normalized["items"] = normalize_schema(normalized["items"])
+      elsif normalized["items"].is_a?(Hash)
+        normalized["items"] = normalize_schema(normalized["items"])
+      end
+
+      if normalized["properties"].is_a?(Hash)
+        normalized["properties"] = normalized["properties"].each_with_object({}) do |(key, value), properties|
+          properties[key] = normalize_schema(value)
+        end
+      end
+
+      %w[anyOf oneOf allOf].each do |keyword|
+        next unless normalized[keyword].is_a?(Array)
+
+        normalized[keyword] = normalized[keyword].map { |entry| normalize_schema(entry) }
+      end
+
+      normalized
     end
   end
 end

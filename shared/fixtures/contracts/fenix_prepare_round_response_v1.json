@@ -1,13 +1,8 @@
 {
-  "messages": [
-    {
-      "role": "system",
-      "content": "You are Fenix."
-    },
-    {
-      "role": "user",
-      "content": "Please calculate 2 + 2."
-    }
+  "message_roles": [
+    "system",
+    "system",
+    "user"
   ],
   "likely_model": "gpt-4.1-mini",
   "program_tool_names": [

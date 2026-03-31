@@ -1,0 +1,245 @@
+{
+  "initial": {
+    "title": "game-2048",
+    "board": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        4,
+        0
+      ]
+    ],
+    "score": 0,
+    "bestTile": 4,
+    "controls": "Arrows / WASD",
+    "overlayText": "",
+    "nonZeroTiles": 2,
+    "restartVisible": true
+  },
+  "spawnChecks": [
+    {
+      "key": "ArrowUp",
+      "beforeTiles": 2,
+      "afterTiles": 3,
+      "beforeScore": 0,
+      "afterScore": 0,
+      "board": [
+        [
+          2,
+          0,
+          4,
+          0
+        ],
+        [
+          0,
+          0,
+          2,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "key": "ArrowRight",
+      "beforeTiles": 3,
+      "afterTiles": 4,
+      "beforeScore": 0,
+      "afterScore": 0,
+      "board": [
+        [
+          0,
+          0,
+          2,
+          4
+        ],
+        [
+          2,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "key": "ArrowDown",
+      "beforeTiles": 4,
+      "afterTiles": 5,
+      "beforeScore": 0,
+      "afterScore": 0,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          4
+        ],
+        [
+          2,
+          0,
+          2,
+          2
+        ]
+      ]
+    },
+    {
+      "key": "ArrowLeft",
+      "beforeTiles": 5,
+      "afterTiles": 5,
+      "beforeScore": 0,
+      "afterScore": 4,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          4,
+          0,
+          2
+        ],
+        [
+          4,
+          2,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "spawnVerified": true,
+  "mergeVerified": true,
+  "autoplaySteps": 248,
+  "gameOverReached": true,
+  "preRestartState": {
+    "title": "game-2048",
+    "board": [
+      [
+        2,
+        32,
+        4,
+        2
+      ],
+      [
+        8,
+        2,
+        8,
+        256
+      ],
+      [
+        32,
+        64,
+        128,
+        4
+      ],
+      [
+        2,
+        8,
+        4,
+        2
+      ]
+    ],
+    "score": 3092,
+    "bestTile": 256,
+    "controls": "Arrows / WASD",
+    "overlayText": "Game overNo moves remain. Try again.",
+    "nonZeroTiles": 16,
+    "restartVisible": true
+  },
+  "restarted": {
+    "title": "game-2048",
+    "board": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        2
+      ]
+    ],
+    "score": 0,
+    "bestTile": 2,
+    "controls": "Arrows / WASD",
+    "overlayText": "",
+    "nonZeroTiles": 2,
+    "restartVisible": true
+  }
+}

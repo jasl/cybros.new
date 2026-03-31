@@ -1,6 +1,33 @@
 require "test_helper"
 
 class ToolBindingTest < ActiveSupport::TestCase
+  test "can bind a governed tool directly to a workflow node" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    definition = ToolDefinition.find_by!(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      tool_name: "compact_context"
+    )
+    implementation = definition.tool_implementations.find_by!(
+      implementation_ref: "agent/compact_context"
+    )
+
+    binding = ToolBinding.new(
+      installation: context.fetch(:workflow_node).installation,
+      workflow_node: context.fetch(:workflow_node),
+      tool_definition: definition,
+      tool_implementation: implementation,
+      binding_reason: "snapshot_default",
+      binding_payload: {}
+    )
+
+    assert binding.valid?
+  end
+
   test "belongs to the same installation and task projection as its binding target" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
@@ -62,5 +89,42 @@ class ToolBindingTest < ActiveSupport::TestCase
 
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:tool_definition], "has already been bound for the task"
+  end
+
+  test "freezes at most one workflow-node-owned binding per tool definition" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    definition = ToolDefinition.find_by!(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      tool_name: "compact_context"
+    )
+    implementation = definition.tool_implementations.find_by!(
+      implementation_ref: "agent/compact_context"
+    )
+
+    ToolBinding.create!(
+      installation: context.fetch(:workflow_node).installation,
+      workflow_node: context.fetch(:workflow_node),
+      tool_definition: definition,
+      tool_implementation: implementation,
+      binding_reason: "snapshot_default",
+      binding_payload: {}
+    )
+
+    duplicate = ToolBinding.new(
+      installation: context.fetch(:workflow_node).installation,
+      workflow_node: context.fetch(:workflow_node),
+      tool_definition: definition,
+      tool_implementation: implementation,
+      binding_reason: "snapshot_default",
+      binding_payload: {}
+    )
+
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:tool_definition], "has already been bound for the workflow node"
   end
 end

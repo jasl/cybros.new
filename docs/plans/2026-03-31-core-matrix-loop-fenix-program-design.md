@@ -22,6 +22,10 @@ is a complementary system:
 
 Both are required to complete the full agent application.
 
+`Core Matrix` and `Fenix` should be treated as fully orthogonal components with
+fully complementary responsibilities. Neither should absorb the other's core
+ownership boundary.
+
 ## Architectural Position
 
 The old March 31 direction chose a Fenix-first runtime loop. This replacement
@@ -133,6 +137,7 @@ Instead, skills affect the system only indirectly through `Fenix`:
 `Fenix` and `Core Matrix` are fully complementary.
 
 - They are intentionally orthogonal.
+- Their responsibilities are fully complementary.
 - `Fenix` provides the thought
 - `Core Matrix` provides the loop, body, and durable reflexes
 

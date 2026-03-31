@@ -44,6 +44,8 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_get_content"
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_screenshot"
     assert_includes body.fetch("environment_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_close"
+    assert body.fetch("environment_tool_catalog").all? { |entry| entry.fetch("tool_kind") == "environment_runtime" }
+    assert body.fetch("environment_tool_catalog").all? { |entry| entry.fetch("implementation_source") == "execution_environment" }
     assert body.fetch("environment_tool_catalog").any? { |entry| entry.fetch("tool_name") == "workspace_read" && entry.fetch("operator_group") == "workspace" }
     assert body.fetch("environment_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" && entry.fetch("operator_group") == "command_run" && entry.fetch("supports_streaming_output") == true }
     assert_equal body.fetch("tool_catalog"), body.fetch("agent_plane").fetch("tool_catalog")

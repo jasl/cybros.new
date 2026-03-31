@@ -13,20 +13,29 @@ class CommandRun < ApplicationRecord
     validate: true
 
   belongs_to :installation
-  belongs_to :agent_task_run
+  belongs_to :agent_task_run, optional: true
+  belongs_to :workflow_node, optional: true
   belongs_to :tool_invocation
 
   before_validation :default_started_at, on: :create
 
   validates :command_line, presence: true
   validate :metadata_must_be_hash
+  validate :execution_subject_present
   validate :installation_matches_task
+  validate :installation_matches_workflow_node
   validate :installation_matches_tool_invocation
-  validate :tool_invocation_matches_task
+  validate :tool_invocation_matches_execution_subject
   validate :tool_invocation_tool_name
   validate :lifecycle_timestamps
 
   private
+
+  def execution_subject_present
+    return if agent_task_run.present? || workflow_node.present?
+
+    errors.add(:base, "must belong to an agent task run or workflow node")
+  end
 
   def default_started_at
     self.started_at ||= Time.current if lifecycle_state.present?
@@ -42,17 +51,28 @@ class CommandRun < ApplicationRecord
     errors.add(:installation, "must match the task installation")
   end
 
+  def installation_matches_workflow_node
+    return if workflow_node.blank? || workflow_node.installation_id == installation_id
+
+    errors.add(:installation, "must match the workflow node installation")
+  end
+
   def installation_matches_tool_invocation
     return if tool_invocation.blank? || tool_invocation.installation_id == installation_id
 
     errors.add(:installation, "must match the tool invocation installation")
   end
 
-  def tool_invocation_matches_task
-    return if tool_invocation.blank? || agent_task_run.blank?
-    return if tool_invocation.agent_task_run_id == agent_task_run_id
+  def tool_invocation_matches_execution_subject
+    return if tool_invocation.blank?
 
-    errors.add(:tool_invocation, "must belong to the same agent task run")
+    if tool_invocation.agent_task_run_id != agent_task_run_id
+      errors.add(:agent_task_run, "must match the tool invocation task")
+    end
+
+    if tool_invocation.workflow_node_id != workflow_node_id
+      errors.add(:workflow_node, "must match the tool invocation workflow node")
+    end
   end
 
   def tool_invocation_tool_name

@@ -58,6 +58,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       }
     )
     workflow_run = nil
+    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_openrouter_turn_step_workflow_run!
@@ -67,7 +68,8 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       Workflows::ExecuteNode.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
-        adapter: adapter
+        adapter: adapter,
+        program_client: program_client
       )
     end
 

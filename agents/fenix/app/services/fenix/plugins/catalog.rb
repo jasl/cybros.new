@@ -12,7 +12,12 @@ module Fenix
       end
 
       def environment_tool_catalog
-        @environment_tool_catalog ||= decorate(manifests.select(&:environment_plane?).flat_map(&:tool_catalog))
+        @environment_tool_catalog ||= decorate(manifests.select(&:environment_plane?).flat_map(&:tool_catalog)).map do |entry|
+          entry.merge(
+            "tool_kind" => "environment_runtime",
+            "implementation_source" => "execution_environment"
+          )
+        end
       end
 
       def agent_tool_catalog

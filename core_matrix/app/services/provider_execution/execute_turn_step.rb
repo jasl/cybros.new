@@ -9,12 +9,13 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil)
+    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, program_client: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @turn = workflow_node.turn
       @messages = normalize_messages(messages)
       @adapter = adapter
+      @program_client = program_client
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
       @request_context = BuildRequestContext.call(
         turn: @turn,
@@ -29,7 +30,6 @@ module ProviderExecution
       raise_invalid!(@workflow_run, :wait_state, "must be ready to execute provider work") unless @workflow_run.ready?
       raise_invalid!(@turn, :lifecycle_state, "must be active to execute provider work") unless @turn.active?
       raise_invalid!(@workflow_node, :base, "must provide at least one provider message") if @messages.empty?
-      raise_invalid!(@turn, :resolved_config_snapshot, "must use a supported provider wire API") unless @request_context.wire_api == "chat_completions"
       raise_invalid!(@workflow_node, :base, "already has terminal execution status") if @workflow_node.terminal?
       unless @workflow_node.pending? || @workflow_node.queued? || @workflow_node.running?
         raise_invalid!(@workflow_node, :lifecycle_state, "must be pending or queued before provider execution")
@@ -39,39 +39,40 @@ module ProviderExecution
       broadcast_workflow_node_event!("runtime.workflow_node.started", state: "running")
       output_stream.start!
 
-      dispatch_result = ProviderExecution::DispatchRequest.call(
-        workflow_run: @workflow_run,
-        request_context: @request_context,
-        messages: @messages,
+      loop_result = ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: @workflow_node,
+        transcript: @messages,
         adapter: @adapter,
         effective_catalog: @effective_catalog,
-        provider_request_id: @provider_request_id,
-        on_delta: ->(delta) { output_stream.push(delta) }
+        program_client: @program_client
       )
 
       result = ProviderExecution::PersistTurnStepSuccess.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
-        provider_result: dispatch_result.provider_result,
-        provider_request_id: dispatch_result.provider_request_id,
-        messages_count: @messages.length,
-        duration_ms: dispatch_result.duration_ms
+        provider_result: loop_result.dispatch_result.provider_result,
+        provider_request_id: loop_result.dispatch_result.provider_request_id,
+        messages_count: loop_result.messages_count,
+        duration_ms: loop_result.dispatch_result.duration_ms,
+        output_content: loop_result.normalized_response.fetch("output_text")
       )
+      output_deltas = loop_result.output_deltas.presence || [result.output_message.content]
+      output_deltas.each { |delta| output_stream.push(delta) }
       output_stream.complete!(message: result.output_message)
       broadcast_workflow_node_event!(
         "runtime.workflow_node.completed",
         state: "completed",
-        provider_request_id: dispatch_result.provider_request_id,
+        provider_request_id: loop_result.dispatch_result.provider_request_id,
         output_message_id: result.output_message.public_id
       )
       result
-    rescue ProviderExecution::DispatchRequest::RequestFailed => dispatch_error
+    rescue ProviderExecution::ExecuteRoundLoop::RoundRequestFailed => dispatch_error
       ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
         error: dispatch_error.error,
         provider_request_id: dispatch_error.provider_request_id,
-        messages_count: @messages.length,
+        messages_count: dispatch_error.messages_count,
         duration_ms: dispatch_error.duration_ms
       )
       output_stream.fail!(code: "provider_request_failed", message: dispatch_error.error.message)
@@ -82,6 +83,23 @@ module ProviderExecution
         error_message: dispatch_error.error.message
       )
       raise dispatch_error.error
+    rescue ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded => error
+      ProviderExecution::PersistTurnStepFailure.call(
+        workflow_node: @workflow_node,
+        request_context: @request_context,
+        error: error,
+        provider_request_id: nil,
+        messages_count: error.messages_count,
+        duration_ms: 0
+      )
+      output_stream.fail!(code: "provider_round_limit_exceeded", message: error.message)
+      broadcast_workflow_node_event!(
+        "runtime.workflow_node.failed",
+        state: "failed",
+        code: "provider_round_limit_exceeded",
+        error_message: error.message
+      )
+      raise
     rescue StaleExecutionError
       if output_stream.started?
         output_stream.fail!(code: "stale_execution", message: "provider execution result is stale")

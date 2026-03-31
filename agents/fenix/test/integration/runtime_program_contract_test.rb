@@ -39,7 +39,7 @@ class RuntimeProgramContractTest < ActionDispatch::IntegrationTest
 
   def normalize_prepare_round_response(body)
     {
-      "messages" => body.fetch("messages"),
+      "message_roles" => body.fetch("messages").map { |entry| entry.fetch("role") },
       "likely_model" => body.fetch("likely_model"),
       "program_tool_names" => body.fetch("program_tools").map { |entry| entry.fetch("tool_name") },
       "trace_hooks" => body.fetch("trace").map { |entry| entry.fetch("hook") },

@@ -4,10 +4,11 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_node:, messages: nil, adapter: nil)
+    def initialize(workflow_node:, messages: nil, adapter: nil, program_client: nil)
       @workflow_node = workflow_node
       @messages = messages
       @adapter = adapter
+      @program_client = program_client
     end
 
     def call
@@ -19,7 +20,8 @@ module Workflows
         ProviderExecution::ExecuteTurnStep.call(
           workflow_node: current_node,
           messages: @messages || default_messages(current_node),
-          adapter: @adapter
+          adapter: @adapter,
+          program_client: @program_client
         )
       when "turn_root", "barrier_join"
         complete_coordination_node!(current_node)

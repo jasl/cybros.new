@@ -44,7 +44,7 @@ module Fenix
             "turn_id" => @payload.fetch("turn_id"),
             "workflow_run_id" => @payload.fetch("workflow_run_id"),
             "workflow_node_id" => @payload.fetch("workflow_node_id"),
-            "context_messages" => transcript_messages + prior_tool_result_messages,
+            "context_messages" => transcript_messages,
             "context_imports" => Array(@payload.fetch("context_imports", [])).map(&:deep_stringify_keys),
             "prior_tool_results" => Array(@payload.fetch("prior_tool_results", [])).map(&:deep_stringify_keys),
             "budget_hints" => @payload.fetch("budget_hints", {}).deep_stringify_keys,
@@ -76,26 +76,6 @@ module Fenix
             "content" => candidate.fetch("content"),
           }
         end
-      end
-
-      def prior_tool_result_messages
-        Array(@payload.fetch("prior_tool_results", [])).filter_map do |entry|
-          candidate = entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : nil
-          next if candidate.blank?
-
-          {
-            "role" => "tool",
-            "tool_call_id" => candidate["tool_call_id"] || candidate["call_id"],
-            "name" => candidate["tool_name"],
-            "content" => serialize_tool_result_content(candidate["result"] || candidate["response"] || candidate["content"]),
-          }.compact
-        end
-      end
-
-      def serialize_tool_result_content(value)
-        return value if value.is_a?(String)
-
-        JSON.generate(value)
       end
     end
   end

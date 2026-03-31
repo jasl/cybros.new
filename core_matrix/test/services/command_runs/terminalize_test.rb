@@ -1,6 +1,32 @@
 require "test_helper"
 
 class CommandRunsTerminalizeTest < ActiveSupport::TestCase
+  test "provisions workflow-node-owned command runs from workflow-node-owned invocations" do
+    context = build_workflow_node_command_context!
+    binding = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: context.fetch(:workflow_node)
+    ).joins(:tool_definition).find_by!(tool_definitions: { tool_name: "exec_command" })
+    invocation = ToolInvocations::Start.call(
+      tool_binding: binding,
+      request_payload: {
+        "command_line" => "printf 'hello\\n'",
+        "timeout_seconds" => 30,
+        "pty" => false,
+      }
+    )
+
+    command_run = CommandRuns::Provision.call(
+      tool_invocation: invocation,
+      command_line: "printf 'hello\\n'",
+      timeout_seconds: 30,
+      pty: false,
+      metadata: {}
+    ).command_run
+
+    assert_nil command_run.agent_task_run
+    assert_equal context.fetch(:workflow_node), command_run.workflow_node
+  end
+
   test "does not let a stale command run instance overwrite an existing terminal state" do
     context = build_runtime_command_context!
     invocation = create_exec_command_invocation!(context)
@@ -39,6 +65,20 @@ class CommandRunsTerminalizeTest < ActiveSupport::TestCase
   end
 
   private
+
+  def build_workflow_node_command_context!
+    context = build_governed_tool_context!(
+      environment_tool_catalog: [],
+      agent_tool_catalog: runtime_command_tool_catalog,
+      profile_catalog: runtime_command_profile_catalog
+    )
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_environment: context.fetch(:execution_environment)
+    )
+
+    context
+  end
 
   def create_exec_command_invocation!(context)
     binding = context[:agent_task_run].reload.tool_bindings.joins(:tool_definition).find_by!(

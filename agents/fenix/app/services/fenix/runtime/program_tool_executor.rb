@@ -114,6 +114,7 @@ module Fenix
               tool_call: normalized_tool_call,
               tool_invocation: normalize_tool_invocation(tool_invocation, normalized_tool_call),
               command_run: normalize_command_run(command_run, normalized_tool_call),
+              workspace_root: @context.dig("workspace_context", "workspace_root"),
               collector: @collector,
               control_client: @control_client,
               cancellation_probe: @cancellation_probe,

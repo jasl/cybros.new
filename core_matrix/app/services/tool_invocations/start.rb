@@ -16,6 +16,7 @@ module ToolInvocations
         ToolInvocation.create!(
           installation: @tool_binding.installation,
           agent_task_run: @tool_binding.agent_task_run,
+          workflow_node: @tool_binding.workflow_node,
           tool_binding: @tool_binding,
           tool_definition: @tool_binding.tool_definition,
           tool_implementation: @tool_binding.tool_implementation,
