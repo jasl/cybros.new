@@ -80,6 +80,21 @@ class ExecutionEnvironmentTest < ActiveSupport::TestCase
     contract = RuntimeCapabilityContract.build(execution_environment: environment)
 
     assert_equal environment.capability_payload, contract.environment_plane.fetch("capability_payload")
-    assert_equal environment.tool_catalog, contract.environment_plane.fetch("tool_catalog")
+    assert_equal(
+      [
+        {
+          "tool_name" => "exec_command",
+          "tool_kind" => "environment_runtime",
+          "implementation_source" => "execution_environment",
+          "implementation_ref" => "env/exec_command",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+          "execution_policy" => { "parallel_safe" => false },
+        },
+      ],
+      contract.environment_plane.fetch("tool_catalog")
+    )
   end
 end

@@ -1,10 +1,12 @@
 class AddWaitStateToWorkflowRuns < ActiveRecord::Migration[8.2]
   def change
-    add_column :workflow_runs, :wait_state, :string, null: false, default: "ready"
-    add_column :workflow_runs, :wait_reason_kind, :string
-    add_column :workflow_runs, :wait_reason_payload, :jsonb, null: false, default: {}
-    add_column :workflow_runs, :waiting_since_at, :datetime
-    add_column :workflow_runs, :blocking_resource_type, :string
-    add_column :workflow_runs, :blocking_resource_id, :string
+    change_table :workflow_runs, bulk: true do |t|
+      t.string :wait_state, null: false, default: "ready"
+      t.string :wait_reason_kind
+      t.jsonb :wait_reason_payload, null: false, default: {}
+      t.datetime :waiting_since_at
+      t.string :blocking_resource_type
+      t.string :blocking_resource_id
+    end
   end
 end

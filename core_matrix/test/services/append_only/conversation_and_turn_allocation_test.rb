@@ -106,10 +106,11 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     )
 
     snapshots = CapabilitySnapshot.where(agent_deployment_id: deployment_id).order(:version)
+    normalized_tool_catalog = RuntimeCapabilityContract.build(tool_catalog: expected_tool_catalog).agent_tool_catalog
 
     assert_equal [1, 2], snapshots.pluck(:version)
     assert results.all? { |result| result.capability_snapshot.version == 2 }
-    assert_equal expected_tool_catalog, registration[:deployment].reload.active_capability_snapshot.tool_catalog
+    assert_equal normalized_tool_catalog, registration[:deployment].reload.active_capability_snapshot.tool_catalog
   end
 
   test "reuses one reconciled bundled capability snapshot version across concurrent registration passes" do

@@ -86,30 +86,38 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     end
     add_index :agent_control_report_receipts, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_report_receipts_protocol_message"
 
-    add_column :agent_deployments, :realtime_link_state, :string, null: false, default: "disconnected"
-    add_column :agent_deployments, :control_activity_state, :string, null: false, default: "offline"
-    add_column :agent_deployments, :last_control_activity_at, :datetime
+    change_table :agent_deployments, bulk: true do |t|
+      t.string :realtime_link_state, null: false, default: "disconnected"
+      t.string :control_activity_state, null: false, default: "offline"
+      t.datetime :last_control_activity_at
+    end
 
-    add_column :process_runs, :public_id, :uuid, null: false, default: -> { "uuidv7()" }
-    add_column :process_runs, :close_state, :string, null: false, default: "open"
-    add_column :process_runs, :close_reason_kind, :string
-    add_column :process_runs, :close_requested_at, :datetime
-    add_column :process_runs, :close_grace_deadline_at, :datetime
-    add_column :process_runs, :close_force_deadline_at, :datetime
-    add_column :process_runs, :close_acknowledged_at, :datetime
-    add_column :process_runs, :close_outcome_kind, :string
-    add_column :process_runs, :close_outcome_payload, :jsonb, null: false, default: {}
+    change_table :process_runs, bulk: true do |t|
+      t.uuid :public_id, null: false, default: -> { "uuidv7()" }
+      t.string :close_state, null: false, default: "open"
+      t.string :close_reason_kind
+      t.datetime :close_requested_at
+      t.datetime :close_grace_deadline_at
+      t.datetime :close_force_deadline_at
+      t.datetime :close_acknowledged_at
+      t.string :close_outcome_kind
+      t.jsonb :close_outcome_payload, null: false, default: {}
+    end
+
     add_index :process_runs, :public_id, unique: true
 
-    add_column :subagent_sessions, :public_id, :uuid, null: false, default: -> { "uuidv7()" }
-    add_column :subagent_sessions, :close_state, :string, null: false, default: "open"
-    add_column :subagent_sessions, :close_reason_kind, :string
-    add_column :subagent_sessions, :close_requested_at, :datetime
-    add_column :subagent_sessions, :close_grace_deadline_at, :datetime
-    add_column :subagent_sessions, :close_force_deadline_at, :datetime
-    add_column :subagent_sessions, :close_acknowledged_at, :datetime
-    add_column :subagent_sessions, :close_outcome_kind, :string
-    add_column :subagent_sessions, :close_outcome_payload, :jsonb, null: false, default: {}
+    change_table :subagent_sessions, bulk: true do |t|
+      t.uuid :public_id, null: false, default: -> { "uuidv7()" }
+      t.string :close_state, null: false, default: "open"
+      t.string :close_reason_kind
+      t.datetime :close_requested_at
+      t.datetime :close_grace_deadline_at
+      t.datetime :close_force_deadline_at
+      t.datetime :close_acknowledged_at
+      t.string :close_outcome_kind
+      t.jsonb :close_outcome_payload, null: false, default: {}
+    end
+
     add_index :subagent_sessions, :public_id, unique: true
   end
 end

@@ -28,6 +28,7 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
       t.references :installation, null: false, foreign_key: true
       t.references :tool_definition, null: false, foreign_key: true
       t.references :implementation_source, null: false, foreign_key: true
+      t.references :workflow_node, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :implementation_ref, null: false
       t.jsonb :input_schema, null: false, default: {}
@@ -44,23 +45,31 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
 
     create_table :tool_bindings do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :agent_task_run, null: false, foreign_key: true
       t.references :tool_definition, null: false, foreign_key: true
       t.references :tool_implementation, null: false, foreign_key: true
+      t.references :agent_task_run, foreign_key: true
+      t.references :workflow_node, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
+      t.string :idempotency_key
       t.string :binding_reason, null: false
       t.jsonb :binding_payload, null: false, default: {}
       t.timestamps
     end
     add_index :tool_bindings, :public_id, unique: true
     add_index :tool_bindings, [:agent_task_run_id, :tool_definition_id], unique: true, name: "idx_tool_bindings_task_definition"
+    add_index :tool_bindings,
+              [:workflow_node_id, :tool_definition_id],
+              unique: true,
+              where: "workflow_node_id IS NOT NULL AND agent_task_run_id IS NULL",
+              name: "idx_tool_bindings_node_definition"
 
     create_table :tool_invocations do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :agent_task_run, null: false, foreign_key: true
       t.references :tool_binding, null: false, foreign_key: true
       t.references :tool_definition, null: false, foreign_key: true
       t.references :tool_implementation, null: false, foreign_key: true
+      t.references :agent_task_run, foreign_key: true
+      t.references :workflow_node, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :status, null: false
       t.jsonb :request_payload, null: false, default: {}

@@ -13,8 +13,6 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.string :source_ref_id
       t.string :idempotency_key
       t.string :external_event_key
-      t.bigint :selected_input_message_id
-      t.bigint :selected_output_message_id
       t.datetime :cancellation_requested_at
       t.string :cancellation_reason_kind
       t.string :pinned_deployment_fingerprint, null: false
@@ -28,11 +26,11 @@ class CreateTurns < ActiveRecord::Migration[8.2]
     add_index :turns, [:conversation_id, :sequence], unique: true
     add_index :turns, :public_id, unique: true
     add_check_constraint :turns,
-      "(cancellation_reason_kind IS NULL OR cancellation_reason_kind IN ('conversation_deleted', 'conversation_archived'))",
-      name: "chk_turns_cancellation_reason_kind"
+                         "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))",
+                         name: "chk_turns_cancellation_reason_kind"
     add_check_constraint :turns,
-      "((cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL) OR (cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL))",
-      name: "chk_turns_cancellation_pairing"
+                         "((cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL) OR (cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL))",
+                         name: "chk_turns_cancellation_pairing"
 
     change_table :conversations, bulk: true do |t|
       t.string :interactive_selector_mode, null: false, default: "auto"

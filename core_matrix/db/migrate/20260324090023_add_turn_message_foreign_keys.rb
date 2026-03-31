@@ -1,9 +1,8 @@
 class AddTurnMessageForeignKeys < ActiveRecord::Migration[8.2]
   def change
-    add_index :turns, :selected_input_message_id
-    add_index :turns, :selected_output_message_id
-
-    add_foreign_key :turns, :messages, column: :selected_input_message_id
-    add_foreign_key :turns, :messages, column: :selected_output_message_id
+    change_table :turns, bulk: true do |t|
+      t.references :selected_input_message, foreign_key: { to_table: :messages }
+      t.references :selected_output_message, foreign_key: { to_table: :messages }
+    end
   end
 end

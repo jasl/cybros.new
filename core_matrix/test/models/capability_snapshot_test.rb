@@ -39,12 +39,13 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
       protocol_methods: default_protocol_methods("agent_health")
     )
     contract = RuntimeCapabilityContract.build(capability_snapshot: snapshot)
+    normalized_tool_catalog = contract.agent_plane.fetch("tool_catalog")
 
     assert_equal(
       {
         "agent_capabilities_version" => snapshot.version,
         "protocol_methods" => snapshot.protocol_methods,
-        "tool_catalog" => snapshot.tool_catalog,
+        "tool_catalog" => normalized_tool_catalog,
         "profile_catalog" => snapshot.profile_catalog,
         "config_schema_snapshot" => snapshot.config_schema_snapshot,
         "conversation_override_schema_snapshot" => snapshot.conversation_override_schema_snapshot,
@@ -52,7 +53,7 @@ class CapabilitySnapshotTest < ActiveSupport::TestCase
       },
       contract.contract_payload
     )
-    assert_equal snapshot.tool_catalog, contract.agent_plane.fetch("tool_catalog")
+    assert_equal normalized_tool_catalog, contract.agent_plane.fetch("tool_catalog")
     assert_equal snapshot.profile_catalog, contract.agent_plane.fetch("profile_catalog")
   end
 

@@ -19,10 +19,10 @@ class CreateWorkflowRuns < ActiveRecord::Migration[8.2]
       where: "((lifecycle_state)::text = 'active'::text)",
       name: "index_workflow_runs_on_conversation_id_active"
     add_check_constraint :workflow_runs,
-      "(cancellation_reason_kind IS NULL OR cancellation_reason_kind IN ('conversation_deleted', 'conversation_archived'))",
-      name: "chk_workflow_runs_cancellation_reason_kind"
+                         "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))",
+                         name: "chk_workflow_runs_cancellation_reason_kind"
     add_check_constraint :workflow_runs,
-      "((cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL) OR (cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL))",
-      name: "chk_workflow_runs_cancellation_pairing"
+                         "((cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL) OR (cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL))",
+                         name: "chk_workflow_runs_cancellation_pairing"
   end
 end

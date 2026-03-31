@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_31_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_30_174000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -847,6 +847,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_31_120000) do
     t.jsonb "binding_payload", default: {}, null: false
     t.string "binding_reason", null: false
     t.datetime "created_at", null: false
+    t.string "idempotency_key"
     t.bigint "installation_id", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.bigint "tool_definition_id", null: false
@@ -893,12 +894,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_31_120000) do
     t.boolean "streaming_support", default: false, null: false
     t.bigint "tool_definition_id", null: false
     t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id"
     t.index ["implementation_source_id"], name: "index_tool_implementations_on_implementation_source_id"
     t.index ["installation_id"], name: "index_tool_implementations_on_installation_id"
     t.index ["public_id"], name: "index_tool_implementations_on_public_id", unique: true
     t.index ["tool_definition_id", "implementation_ref"], name: "idx_tool_implementations_definition_ref", unique: true
     t.index ["tool_definition_id"], name: "idx_tool_implementations_one_default", unique: true, where: "default_for_snapshot"
     t.index ["tool_definition_id"], name: "index_tool_implementations_on_tool_definition_id"
+    t.index ["workflow_node_id"], name: "index_tool_implementations_on_workflow_node_id"
   end
 
   create_table "tool_invocations", force: :cascade do |t|
@@ -1349,6 +1352,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_31_120000) do
   add_foreign_key "tool_implementations", "implementation_sources"
   add_foreign_key "tool_implementations", "installations"
   add_foreign_key "tool_implementations", "tool_definitions"
+  add_foreign_key "tool_implementations", "workflow_nodes"
   add_foreign_key "tool_invocations", "agent_task_runs"
   add_foreign_key "tool_invocations", "installations"
   add_foreign_key "tool_invocations", "tool_bindings"

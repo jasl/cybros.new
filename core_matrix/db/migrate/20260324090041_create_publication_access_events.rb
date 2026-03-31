@@ -11,6 +11,7 @@ class CreatePublicationAccessEvents < ActiveRecord::Migration[8.2]
       t.timestamps
     end
 
-    add_index :publication_access_events, [:publication_id, :accessed_at], name: "idx_publication_access_events_publication_accessed_at"
+    add_index :publication_access_events, [:publication_id, :accessed_at],
+              name: "idx_publication_access_events_publication_accessed_at"
   end
 end
