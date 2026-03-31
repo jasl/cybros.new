@@ -72,8 +72,13 @@
     },
     "provider_execution": {
       "wire_api": "responses",
-      "loop_settings": {
-        "max_rounds": 64
+      "loop_policy": {
+        "max_rounds": 64,
+        "parallel_tool_calls": false,
+        "max_parallel_tool_calls": 1,
+        "loop_detection": {
+          "enabled": false
+        }
       },
       "execution_settings": {
         "reasoning_effort": "high",

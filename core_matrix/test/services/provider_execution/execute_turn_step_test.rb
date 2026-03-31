@@ -225,7 +225,9 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
         "temperature" => 0.4,
-        "max_rounds" => 1,
+        "loop_policy" => {
+          "max_rounds" => 1,
+        },
       },
       catalog: catalog
     )

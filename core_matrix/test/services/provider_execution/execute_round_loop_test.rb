@@ -235,7 +235,11 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_mock_turn_step_workflow_run!(
-        resolved_config_snapshot: { "max_rounds" => 1 },
+        resolved_config_snapshot: {
+          "loop_policy" => {
+            "max_rounds" => 1,
+          },
+        },
         catalog: catalog
       )
     end

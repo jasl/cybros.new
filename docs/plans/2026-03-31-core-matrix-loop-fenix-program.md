@@ -39,8 +39,11 @@ Implemented on this branch:
   and terminal `agent_program_completed` / `agent_program_failed` reports
 - provider round execution, tool routing, and workflow execution tests were
   updated to the new `program_exchange` collaboration surface
+- `provider_execution.loop_policy` is now the canonical loop-control contract;
+  only `max_rounds` is active today, while parallel-tool and loop-detection
+  fields are reserved for follow-up work
 
-Still pending on this plan:
+Completed on this plan:
 
 - broader verification beyond the focused suites already run
 - final browser-based 2048 acceptance and proof package refresh

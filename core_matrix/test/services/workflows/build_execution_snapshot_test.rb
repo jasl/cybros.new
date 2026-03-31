@@ -78,7 +78,17 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("api_model")
     assert_equal "responses", snapshot.provider_execution.fetch("wire_api")
-    assert_equal({ "max_rounds" => 64 }, snapshot.provider_execution.fetch("loop_settings"))
+    assert_equal(
+      {
+        "max_rounds" => 64,
+        "parallel_tool_calls" => false,
+        "max_parallel_tool_calls" => 1,
+        "loop_detection" => {
+          "enabled" => false,
+        },
+      },
+      snapshot.provider_execution.fetch("loop_policy")
+    )
     assert_equal(
       ProviderRequestSettingsSchema.for("responses").merge_execution_settings(
         request_defaults: test_provider_catalog_definition
@@ -294,7 +304,9 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
           "temperature" => 0.4,
           "presence_penalty" => 0.6,
           "sandbox" => "workspace-write",
-          "max_rounds" => 80,
+          "loop_policy" => {
+            "max_rounds" => 80,
+          },
         },
         resolved_model_selection_snapshot: {}
       )
@@ -326,7 +338,17 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       },
       snapshot.provider_execution.fetch("execution_settings")
     )
-    assert_equal({ "max_rounds" => 80 }, snapshot.provider_execution.fetch("loop_settings"))
+    assert_equal(
+      {
+        "max_rounds" => 80,
+        "parallel_tool_calls" => false,
+        "max_parallel_tool_calls" => 1,
+        "loop_detection" => {
+          "enabled" => false,
+        },
+      },
+      snapshot.provider_execution.fetch("loop_policy")
+    )
   end
 
   test "rejects invalid runtime request overrides while building the execution snapshot" do
@@ -362,7 +384,12 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       content: "Current input",
       agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {
-        "config" => { "temperature" => 0.2 },
+        "config" => {
+          "temperature" => 0.2,
+          "loop_policy" => {
+            "max_rounds" => 72,
+          },
+        },
         "execution_context" => {
           "identity" => {
             "user_id" => context[:user].public_id,
@@ -382,7 +409,17 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       ),
       snapshot.provider_execution.fetch("execution_settings")
     )
-    assert_equal({ "max_rounds" => 64 }, snapshot.provider_execution.fetch("loop_settings"))
+    assert_equal(
+      {
+        "max_rounds" => 72,
+        "parallel_tool_calls" => false,
+        "max_parallel_tool_calls" => 1,
+        "loop_detection" => {
+          "enabled" => false,
+        },
+      },
+      snapshot.provider_execution.fetch("loop_policy")
+    )
   end
 
   test "rejects invalid provider round budget overrides" do
@@ -396,14 +433,18 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       conversation: conversation,
       content: "Current input",
       agent_deployment: context[:agent_deployment],
-      resolved_config_snapshot: { "max_rounds" => 0 },
+      resolved_config_snapshot: {
+        "loop_policy" => {
+          "max_rounds" => 0,
+        },
+      },
       resolved_model_selection_snapshot: {}
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) { build_execution_snapshot_for!(turn: turn) }
 
     assert_equal turn, error.record
-    assert_includes error.record.errors[:resolved_config_snapshot], "runtime_override max_rounds must be an integer between 1 and 256"
+    assert_includes error.record.errors[:resolved_config_snapshot], "runtime_override loop_policy.max_rounds must be an integer between 1 and 256"
   end
 
   test "freezes root agent context with the main profile and visible tool names" do

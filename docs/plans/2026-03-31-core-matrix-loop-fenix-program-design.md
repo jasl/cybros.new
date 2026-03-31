@@ -3,7 +3,7 @@
 ## Status
 
 - Date: 2026-03-31
-- Status: implemented baseline, wider verification and 2048 acceptance pending
+- Status: implemented, verified, and accepted with the 2048 proof package
 - Supersedes:
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop-design.md`
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop.md`
@@ -26,11 +26,18 @@ Implemented:
   `/runtime/program_tools/execute` callback endpoints.
 - `Fenix` now handles both `prepare_round` and `execute_program_tool` as
   mailbox work through `Fenix::Runtime::ExecuteAgentProgramRequest`.
+- `Core Matrix` now freezes loop control as `provider_execution.loop_policy`
+  instead of a single `loop_settings` hash.
+- Only `loop_policy.max_rounds` is active today. `parallel_tool_calls`,
+  `max_parallel_tool_calls`, and `loop_detection` are reserved contract fields
+  for later follow-up and do not change execution semantics yet.
 
-Still pending:
+Verified:
 
-- wider regression audit beyond the focused suites already exercised
-- final end-to-end 2048 acceptance proof on the new mailbox-first baseline
+- focused Core Matrix and Fenix regression suites covering mailbox exchange,
+  round preparation, execution assignment shape, and provider loop behavior
+- full repository verification matrix
+- end-to-end 2048 acceptance with refreshed proof artifacts
 
 ## Goal
 

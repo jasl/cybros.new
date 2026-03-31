@@ -1,8 +1,5 @@
 module Workflows
   class BuildExecutionSnapshot
-    DEFAULT_MAX_PROVIDER_ROUNDS = 64
-    MAX_PROVIDER_ROUNDS_LIMIT = 256
-
     def self.call(...)
       new(...).call
     end
@@ -65,9 +62,7 @@ module Workflows
       {
         "wire_api" => provider_definition.fetch(:wire_api),
         "execution_settings" => execution_settings,
-        "loop_settings" => {
-          "max_rounds" => provider_loop_max_rounds,
-        },
+        "loop_policy" => provider_loop_policy,
       }
     end
 
@@ -266,24 +261,10 @@ module Workflows
       raise_invalid!(error.message)
     end
 
-    def provider_loop_max_rounds
-      value = provider_loop_config.fetch("max_rounds", DEFAULT_MAX_PROVIDER_ROUNDS)
-
-      unless value.is_a?(Integer) && value.between?(1, MAX_PROVIDER_ROUNDS_LIMIT)
-        raise_invalid!(
-          "runtime_override max_rounds must be an integer between 1 and #{MAX_PROVIDER_ROUNDS_LIMIT}"
-        )
-      end
-
-      value
-    end
-
-    def provider_loop_config
-      raw_config = @turn.resolved_config_snapshot.deep_stringify_keys
-      wrapped_config = raw_config["config"]
-      candidate = wrapped_config.is_a?(Hash) ? raw_config.merge(wrapped_config.deep_stringify_keys) : raw_config
-
-      candidate.slice("max_rounds")
+    def provider_loop_policy
+      ProviderLoopPolicy.build(runtime_overrides: @turn.resolved_config_snapshot)
+    rescue ProviderLoopPolicy::InvalidPolicy => error
+      raise_invalid!(error.message)
     end
 
     def deep_stringify(value)
