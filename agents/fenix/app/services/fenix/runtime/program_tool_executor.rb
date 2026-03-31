@@ -29,6 +29,10 @@ module Fenix
             "command_run_id" => command_run_id,
           }
         end
+
+        def report!(payload:)
+          payload
+        end
       end
 
       def self.call(...)

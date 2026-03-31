@@ -63,4 +63,28 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     assert_equal "fenix/runtime/workspace_write_file", binding.tool_implementation.implementation_ref
     assert_equal true, binding.binding_payload.fetch("round_scoped")
   end
+
+  test "rejects round tool catalogs that try to override reserved core matrix tools" do
+    context = build_governed_tool_context!
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      ProviderExecution::MaterializeRoundTools.call(
+        workflow_node: context.fetch(:workflow_node),
+        tool_catalog: [
+          {
+            "tool_name" => "subagent_spawn",
+            "tool_kind" => "effect_intent",
+            "implementation_source" => "agent",
+            "implementation_ref" => "fenix/runtime/subagent_spawn",
+            "input_schema" => { "type" => "object", "properties" => {} },
+            "result_schema" => { "type" => "object", "properties" => {} },
+            "streaming_support" => false,
+            "idempotency_policy" => "best_effort",
+          },
+        ]
+      )
+    end
+
+    assert_includes error.record.errors.full_messages.join(", "), "round tool catalog must not override reserved core matrix tool subagent_spawn"
+  end
 end

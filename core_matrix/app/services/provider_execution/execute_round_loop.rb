@@ -59,6 +59,7 @@ module ProviderExecution
       prior_tool_results = []
       round_count = 0
       last_messages_count = @transcript.length
+      core_matrix_binding_ids = visible_core_matrix_binding_ids
 
       loop do
         round_count += 1
@@ -77,9 +78,12 @@ module ProviderExecution
           client: @program_client
         )
         last_messages_count = prepared_round.fetch("messages").length
-        round_bindings = ProviderExecution::MaterializeRoundTools.call(
+        program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
           workflow_node: @workflow_node,
           tool_catalog: prepared_round.fetch("program_tools")
+        ).pluck(:id)
+        round_bindings = ToolBinding.where(
+          id: (core_matrix_binding_ids + program_binding_ids).uniq
         ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
 
         round_deltas = []
@@ -236,6 +240,14 @@ module ProviderExecution
 
     def configured_max_rounds
       @workflow_run.execution_snapshot.provider_execution.dig("loop_settings", "max_rounds").presence || DEFAULT_MAX_ROUNDS
+    end
+
+    def visible_core_matrix_binding_ids
+      ToolBindings::FreezeForWorkflowNode.call(
+        workflow_node: @workflow_node
+      ).joins(tool_implementation: :implementation_source).where(
+        implementation_sources: { source_kind: "core_matrix" }
+      ).distinct.pluck(:id)
     end
   end
 end

@@ -241,7 +241,7 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
     assert_equal "calculator", tool_message.fetch("name")
   end
 
-  test "uses non-streaming chat-completions when tools are present so tool calls remain inspectable" do
+  test "streams chat-completions even when tools are present so tool-enabled turns still emit deltas" do
     catalog = build_mock_chat_catalog
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
@@ -250,33 +250,8 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
       catalog: catalog
     )
     request_context = build_request_context_for(workflow_run, catalog: catalog)
-    adapter = TrackingChatAdapter.new(
-      response_body: {
-        id: "chatcmpl-tool-step-tracking",
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              tool_calls: [
-                {
-                  id: "call_1",
-                  type: "function",
-                  function: {
-                    name: "calculator",
-                    arguments: "{\"expression\":\"2 + 2\"}",
-                  },
-                },
-              ],
-            },
-            finish_reason: "tool_calls",
-          },
-        ],
-        usage: {
-          prompt_tokens: 12,
-          completion_tokens: 8,
-          total_tokens: 20,
-        },
-      }
+    adapter = ProviderExecutionTestSupport::FakeStreamingChatCompletionsAdapter.new(
+      chunks: ["Tool-capable ", "turn"]
     )
     deltas = []
 
@@ -300,11 +275,12 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
       on_delta: ->(delta) { deltas << delta }
     )
 
-    assert_equal 1, adapter.call_requests.length
-    assert_equal 0, adapter.stream_requests.length
-    assert_empty deltas
-    assert_equal "tool_calls", result.provider_result.finish_reason
-    assert_equal "tool_calls", result.provider_result.response.body.dig("choices", 0, "finish_reason")
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+
+    assert_equal true, request_body.fetch("stream")
+    assert_equal "calculator", request_body.fetch("tools").first.fetch("function").fetch("name")
+    assert_equal ["Tool-capable ", "turn"], deltas
+    assert_equal "Tool-capable turn", result.content
   end
 
   test "normalizes provider tool schemas so array parameters always include items" do

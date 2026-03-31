@@ -207,7 +207,7 @@ module ProviderExecution
     end
 
     def stream_chat_request?
-      @on_delta.present? && @tools.blank?
+      @on_delta.present?
     end
 
     def normalize_schema(schema)

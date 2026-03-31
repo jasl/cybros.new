@@ -70,6 +70,42 @@ module ProviderExecution
             result: { "error" => response.fetch("error") }
           )
         end
+      when "core_matrix"
+        provision = ToolInvocations::Provision.call(
+          tool_binding: binding,
+          request_payload: {
+            "arguments" => @tool_call.fetch("arguments", {}),
+          },
+          idempotency_key: @tool_call.fetch("call_id"),
+          metadata: {
+            "provider_format" => @tool_call["provider_format"],
+          }.compact
+        )
+        invocation = provision.tool_invocation
+        return existing_result(binding:, invocation:) unless provision.created
+
+        begin
+          result = ProviderExecution::ExecuteCoreMatrixTool.call(
+            workflow_node: @workflow_node,
+            tool_call: @tool_call
+          )
+          ToolInvocations::Complete.call(
+            tool_invocation: invocation,
+            response_payload: result
+          )
+          Result.new(
+            tool_call: @tool_call,
+            tool_binding: binding,
+            tool_invocation: invocation.reload,
+            result: result
+          )
+        rescue StandardError => error
+          ToolInvocations::Fail.call(
+            tool_invocation: invocation,
+            error_payload: execution_error_payload_for(error)
+          )
+          raise
+        end
       else
         raise ArgumentError, "unsupported tool implementation source #{binding.tool_implementation.implementation_source.source_kind}"
       end
@@ -115,6 +151,25 @@ module ProviderExecution
           "summary" => response["summary"],
           "output_chunks" => response["output_chunks"],
         }.compact,
+      }
+    end
+
+    def execution_error_payload_for(error)
+      classification =
+        case error
+        when ActiveRecord::RecordNotFound, KeyError
+          "semantic"
+        when ActiveRecord::RecordInvalid
+          "authorization"
+        else
+          "runtime"
+        end
+
+      {
+        "classification" => classification,
+        "code" => "tool_execution_failed",
+        "message" => error.message,
+        "retryable" => false,
       }
     end
   end

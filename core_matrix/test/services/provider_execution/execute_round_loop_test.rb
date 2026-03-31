@@ -191,6 +191,66 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal 1, program_client.prepare_round_requests.length
   end
 
+  test "exposes visible core matrix tools even when fenix returns no program tools for the round" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-round-core-matrix",
+        choices: [
+          {
+            message: { role: "assistant", content: "No tool call needed." },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 9,
+          completion_tokens: 4,
+          total_tokens: 13,
+        },
+      }
+    )
+    workflow_node = nil
+    transcript = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      context = build_governed_tool_context!(
+        profile_catalog: {
+          "main" => {
+            "label" => "Main",
+            "description" => "Primary interactive profile",
+            "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
+          },
+        }
+      )
+      workflow_node = context.fetch(:workflow_node)
+      transcript = turn_step_messages_for(context.fetch(:workflow_run))
+    end
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: workflow_node,
+        transcript: transcript,
+        adapter: adapter,
+        effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_node.installation, catalog: catalog),
+        program_client: ProviderExecutionTestSupport::FakeProgramClient.new(
+          prepared_rounds: [
+            {
+              "messages" => transcript,
+              "program_tools" => [],
+            },
+          ]
+        )
+      )
+    end
+
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+    subagent_spawn = request_body.fetch("tools").find { |entry| entry.dig("function", "name") == "subagent_spawn" }
+
+    assert subagent_spawn.present?
+    assert_equal "string", subagent_spawn.dig("function", "parameters", "properties", "content", "type")
+    assert_equal ["content"], subagent_spawn.dig("function", "parameters", "required")
+  end
+
   private
 
   def calculator_tool_entry

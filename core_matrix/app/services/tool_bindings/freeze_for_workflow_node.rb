@@ -56,7 +56,9 @@ module ToolBindings
     end
 
     def requested_tool_catalog
-      @requested_tool_catalog ||= @tool_catalog.uniq { |entry| entry.fetch("tool_name") }
+      @requested_tool_catalog ||= @tool_catalog.uniq { |entry| entry.fetch("tool_name") }.tap do |catalog|
+        catalog.each { |entry| validate_round_tool_entry!(entry) }
+      end
     end
 
     def requested_tool_names
@@ -152,10 +154,21 @@ module ToolBindings
       tool_name = tool_entry.fetch("tool_name")
       source = tool_entry.fetch("implementation_source")
 
-      return "reserved" if tool_name.start_with?(CapabilitySnapshot::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
+      return "reserved" if reserved_tool_name?(tool_name)
       return "whitelist_only" if source == "execution_environment"
 
       "replaceable"
+    end
+
+    def validate_round_tool_entry!(tool_entry)
+      tool_name = tool_entry.fetch("tool_name")
+      return unless reserved_tool_name?(tool_name) || tool_entry.fetch("implementation_source") == "core_matrix"
+
+      raise_invalid!("round tool catalog must not override reserved core matrix tool #{tool_name}")
+    end
+
+    def reserved_tool_name?(tool_name)
+      tool_name.start_with?(CapabilitySnapshot::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
     end
 
     def find_or_create_source!(tool_entry)

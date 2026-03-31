@@ -77,6 +77,43 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_match(/\Asession-\d+\z/, result.tool_binding.reload.binding_payload.dig("mcp", "session_id"))
   end
 
+  test "routes core matrix tools without delegating back to the fenix program client" do
+    context = build_governed_tool_context!(
+      profile_catalog: {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn subagent_list],
+        },
+      }
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+
+    result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-subagent-list-1",
+        "tool_name" => "subagent_list",
+        "arguments" => {},
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_client: program_client
+    )
+
+    invocation = result.tool_invocation.reload
+
+    assert_equal({ "entries" => [] }, result.result)
+    assert_equal "succeeded", invocation.status
+    assert_equal workflow_node, invocation.workflow_node
+    assert_equal "subagent_list", invocation.tool_definition.tool_name
+    assert_equal [], program_client.execute_program_tool_requests
+  end
+
   private
 
   def calculator_tool_entry
