@@ -280,6 +280,108 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal 1, program_exchange.prepare_round_requests.length
   end
 
+  test "ignores legacy loop_settings when loop_policy is absent" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(
+      response_bodies: [
+        {
+          id: "chatcmpl-round-1",
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                tool_calls: [
+                  {
+                    id: "call-calculator-1",
+                    type: "function",
+                    function: {
+                      name: "calculator",
+                      arguments: JSON.generate(expression: "2 + 2"),
+                    },
+                  },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+          usage: {
+            prompt_tokens: 12,
+            completion_tokens: 4,
+            total_tokens: 16,
+          },
+        },
+        {
+          id: "chatcmpl-round-2",
+          choices: [
+            {
+              message: { role: "assistant", content: "The answer is 4." },
+              finish_reason: "stop",
+            },
+          ],
+          usage: {
+            prompt_tokens: 18,
+            completion_tokens: 6,
+            total_tokens: 24,
+          },
+        },
+      ]
+    )
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {}, catalog: catalog)
+    end
+
+    original_snapshot = workflow_run.execution_snapshot.to_h
+    legacy_snapshot = TurnExecutionSnapshot.new(
+      original_snapshot.merge(
+        "provider_execution" => original_snapshot.fetch("provider_execution").except("loop_policy").merge(
+          "loop_settings" => {
+            "max_rounds" => 1,
+          }
+        )
+      )
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_run.define_singleton_method(:execution_snapshot) { legacy_snapshot }
+    workflow_node.define_singleton_method(:workflow_run) { workflow_run }
+    transcript = turn_step_messages_for(workflow_run)
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => transcript,
+          "program_tools" => [calculator_tool_entry],
+        },
+        {
+          "messages" => transcript,
+          "program_tools" => [],
+        },
+      ],
+      program_tool_results: {
+        "call-calculator-1" => {
+          "status" => "completed",
+          "result" => { "value" => 4 },
+          "summary" => "4",
+        },
+      }
+    )
+
+    result = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      result = ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: workflow_node,
+        transcript: transcript,
+        adapter: adapter,
+        effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+        program_exchange: program_exchange
+      )
+    end
+
+    assert_equal "The answer is 4.", result.normalized_response.fetch("output_text")
+    assert_equal 2, adapter.requests.length
+  end
+
   test "exposes visible core matrix tools even when fenix returns no program tools for the round" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(

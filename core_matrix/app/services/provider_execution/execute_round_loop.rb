@@ -248,9 +248,7 @@ module ProviderExecution
     def configured_max_rounds
       provider_execution = @workflow_run.execution_snapshot.provider_execution
 
-      provider_execution.dig("loop_policy", "max_rounds").presence ||
-        provider_execution.dig("loop_settings", "max_rounds").presence ||
-        DEFAULT_MAX_ROUNDS
+      provider_execution.dig("loop_policy", "max_rounds").presence || DEFAULT_MAX_ROUNDS
     end
 
     def visible_core_matrix_binding_ids
