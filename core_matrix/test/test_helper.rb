@@ -96,6 +96,11 @@ module ActiveSupport
               access_model: "bundled_subscription",
               owner_scope: "installation",
             },
+            request_governor: {
+              max_concurrent_requests: 12,
+              throttle_limit: 600,
+              throttle_period_seconds: 60,
+            },
             models: {
               "gpt-5.4" => test_model_definition(
                 display_name: "GPT-5.4",
@@ -131,6 +136,11 @@ module ActiveSupport
               api_family: "responses",
               owner_scope: "installation",
             },
+            request_governor: {
+              max_concurrent_requests: 12,
+              throttle_limit: 600,
+              throttle_period_seconds: 60,
+            },
             models: {
               "gpt-5.4" => test_model_definition(
                 display_name: "GPT-5.4",
@@ -163,6 +173,11 @@ module ActiveSupport
             metadata: {
               provider_family: "openrouter",
               owner_scope: "installation",
+            },
+            request_governor: {
+              max_concurrent_requests: 8,
+              throttle_limit: 300,
+              throttle_period_seconds: 60,
             },
             models: {
               "openai-gpt-5.4" => test_model_definition(
@@ -199,6 +214,11 @@ module ActiveSupport
               provider_family: "mock",
               owner_scope: "installation",
             },
+            request_governor: {
+              max_concurrent_requests: 4,
+              throttle_limit: 240,
+              throttle_period_seconds: 60,
+            },
             models: {
               "mock-model" => test_model_definition(
                 display_name: "Mock Model",
@@ -231,6 +251,11 @@ module ActiveSupport
             metadata: {
               provider_family: "local",
               owner_scope: "installation",
+            },
+            request_governor: {
+              max_concurrent_requests: 2,
+              throttle_limit: 120,
+              throttle_period_seconds: 60,
             },
             models: {
               "qwen3-14b" => test_model_definition(
@@ -271,7 +296,7 @@ module ActiveSupport
       }
     end
 
-    def test_provider_definition(display_name:, enabled:, environments:, adapter_key:, base_url:, wire_api:, transport:, responses_path:, requires_credential:, credential_kind:, metadata:, models:)
+    def test_provider_definition(display_name:, enabled:, environments:, adapter_key:, base_url:, wire_api:, transport:, responses_path:, requires_credential:, credential_kind:, metadata:, models:, request_governor: {})
       {
         display_name: display_name,
         enabled: enabled,
@@ -285,6 +310,7 @@ module ActiveSupport
         requires_credential: requires_credential,
         credential_kind: credential_kind,
         metadata: metadata,
+        request_governor: request_governor,
         models: models,
       }
     end

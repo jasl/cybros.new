@@ -9,7 +9,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
     runtime_execution = nil
 
-    assert_enqueued_jobs 1 do
+    assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_pure_tools") do
       runtime_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
     end
 
@@ -25,6 +25,46 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_enqueued_jobs 0 do
       duplicate = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
       assert_equal runtime_execution.id, duplicate.id
+    end
+  end
+
+  test "registry-backed execution assignments route to the runtime_process_tools queue" do
+    mailbox_item = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: { "tool_name" => "exec_command", "command_line" => "printf 'hello\\n'" },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+      )
+    ).merge("item_type" => "execution_assignment")
+
+    assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_process_tools") do
+      Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+    end
+  end
+
+  test "prepare_round agent program requests route to the runtime_prepare_round queue" do
+    mailbox_item = {
+      "item_type" => "agent_program_request",
+      "item_id" => "mailbox-item-#{SecureRandom.uuid}",
+      "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
+      "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
+      "attempt_no" => 1,
+      "runtime_plane" => "agent",
+      "payload" => {
+        "request_kind" => "prepare_round",
+        "workflow_run_id" => "workflow-#{SecureRandom.uuid}",
+        "workflow_node_id" => "workflow-node-#{SecureRandom.uuid}",
+        "conversation_id" => "conversation-#{SecureRandom.uuid}",
+        "turn_id" => "turn-#{SecureRandom.uuid}",
+        "agent_task_run_id" => "task-#{SecureRandom.uuid}",
+        "transcript" => default_context_messages,
+        "budget_hints" => {},
+        "agent_context" => default_agent_context,
+      },
+    }
+
+    assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_prepare_round") do
+      Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
     end
   end
 

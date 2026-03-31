@@ -1,5 +1,5 @@
 class RuntimeExecutionJob < ApplicationJob
-  queue_as :default
+  queue_as :runtime_control
 
   def perform(runtime_execution_id, deliver_reports: false)
     runtime_execution = RuntimeExecution.find(runtime_execution_id)

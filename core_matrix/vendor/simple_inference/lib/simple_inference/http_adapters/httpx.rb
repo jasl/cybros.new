@@ -21,8 +21,18 @@ module SimpleInference
   module HTTPAdapters
     # Fiber-friendly HTTP adapter built on HTTPX.
     class HTTPX < HTTPAdapter
-      def initialize(timeout: nil, client: ::HTTPX)
+      class << self
+        def default_client
+          # HTTPX's persistent plugin loads fiber_concurrency in current 1.7.x
+          # releases. That makes the session compatible with scheduler-managed
+          # fibers without forcing the application to install a scheduler.
+          @default_client ||= ::HTTPX.plugin(:persistent)
+        end
+      end
+
+      def initialize(timeout: nil, client: nil)
         @timeout = timeout
+        client ||= self.class.default_client
 
         unless client == ::HTTPX || client.is_a?(::HTTPX::Session)
           raise SimpleInference::ConfigurationError,

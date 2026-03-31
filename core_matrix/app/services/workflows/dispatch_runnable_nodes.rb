@@ -31,7 +31,8 @@ module Workflows
       end
 
       dispatched_node_ids.each do |workflow_node_id|
-        Workflows::ExecuteNodeJob.perform_later(workflow_node_id)
+        workflow_node = WorkflowNode.find_by_public_id!(workflow_node_id)
+        Workflows::ExecuteNodeJob.set(queue: queue_name_for(workflow_node)).perform_later(workflow_node_id)
       end
 
       WorkflowNode.where(public_id: dispatched_node_ids).order(:ordinal).to_a
@@ -44,6 +45,17 @@ module Workflows
       return nodes if @workflow_node_key.blank?
 
       nodes.select { |workflow_node| workflow_node.node_key == @workflow_node_key }
+    end
+
+    def queue_name_for(workflow_node)
+      case workflow_node.node_type
+      when "turn_step"
+        "llm_requests"
+      when "tool_call"
+        "tool_calls"
+      else
+        "workflow_default"
+      end
     end
   end
 end

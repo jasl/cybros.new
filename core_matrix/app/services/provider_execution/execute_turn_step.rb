@@ -79,13 +79,27 @@ module ProviderExecution
             workflow_node: @workflow_node
           ).includes(:tool_definition, :tool_implementation).to_a
         )
-        broadcast_workflow_node_event!(
+      broadcast_workflow_node_event!(
           "runtime.workflow_node.completed",
           state: "completed",
           provider_request_id: loop_result.dispatch_result.provider_request_id
         )
         result
       end
+    rescue ProviderExecution::ProviderRequestGovernor::AdmissionRefused => error
+      if @workflow_run.reload.canceled? || @turn.reload.canceled?
+        raise StaleExecutionError, "provider execution result is stale"
+      end
+
+      requeue_for_provider_retry!(error)
+      broadcast_workflow_node_event!(
+        "runtime.workflow_node.queued",
+        state: "queued",
+        code: "provider_request_deferred",
+        reason: error.reason,
+        retry_at: error.retry_at.iso8601
+      )
+      raise
     rescue ProviderExecution::ExecuteRoundLoop::RoundRequestFailed => dispatch_error
       ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
@@ -174,6 +188,33 @@ module ProviderExecution
           ordinal: @workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
           event_kind: "status",
           payload: { "state" => "running" }
+        )
+      end
+    end
+
+    def requeue_for_provider_retry!(error)
+      @workflow_node.with_lock do
+        @workflow_node.reload
+        return if @workflow_node.terminal?
+
+        @workflow_node.update!(
+          lifecycle_state: "queued",
+          started_at: nil,
+          finished_at: nil
+        )
+
+        WorkflowNodeEvent.create!(
+          installation: @workflow_run.installation,
+          workflow_run: @workflow_run,
+          workflow_node: @workflow_node,
+          ordinal: @workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
+          event_kind: "status",
+          payload: {
+            "state" => "queued",
+            "code" => "provider_request_deferred",
+            "reason" => error.reason,
+            "retry_at" => error.retry_at.iso8601,
+          }
         )
       end
     end

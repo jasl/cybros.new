@@ -2,15 +2,18 @@
 
 This directory contains active execution plans for `core_matrix`.
 
-## Current Status (`2026-03-31`)
+## Current Status (`2026-04-01`)
 
-The active cross-project execution plan in this directory is:
+The active execution plans in this directory are:
 
-- [2026-03-31-fenix-provider-backed-agent-loop.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop.md)
+- [2026-04-01-solid-queue-provider-governor.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-01-solid-queue-provider-governor.md)
+- [2026-03-31-core-matrix-loop-fenix-program.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-loop-fenix-program.md)
+- [2026-03-31-core-matrix-parallel-tool-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-parallel-tool-execution.md)
 
-Its companion design document is:
+Related design documents in this directory:
 
-- [2026-03-31-fenix-provider-backed-agent-loop-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop-design.md)
+- [2026-03-31-core-matrix-loop-fenix-program-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-loop-fenix-program-design.md)
+- [2026-03-31-core-matrix-parallel-tool-execution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-parallel-tool-execution-design.md)
 
 The full Phase 2 plan chain, task records, follow-up designs, and superseded
 sequential milestone notes were archived to

@@ -11,6 +11,7 @@
 - [finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md): completed plans that passed their verification gates
 - [archived-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/README.md): superseded or historical material kept for traceability
 - [checklists](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/README.md): manual validation and verification checklists
+- [operations](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/queue-topology-and-provider-governor.md): runtime queue topology, scaling knobs, and provider governor guidance
 
 ## Lifecycle
 

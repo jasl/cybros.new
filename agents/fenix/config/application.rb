@@ -36,9 +36,12 @@ module Fenix
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-    # Runtime control keeps live command and process handles in worker-local
-    # memory, so the default queue adapter must execute inside this process.
-    config.active_job.queue_adapter = :async
+    # Runtime jobs are isolated onto SolidQueue worker pools. Fenix is
+    # currently a single-machine deployment because it also acts as the
+    # effective ExecutionEnvironment and owns registry-backed runtime state.
+    # Those tools are routed into a dedicated queue so operators can keep that
+    # pool narrow on the same host.
+    config.active_job.queue_adapter = :solid_queue
 
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.

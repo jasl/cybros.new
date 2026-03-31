@@ -1,3 +1,16 @@
+<%
+  fenix_queue_thread_defaults = [
+    ENV.fetch("SQ_THREADS_PREPARE", 2).to_i,
+    ENV.fetch("SQ_THREADS_PURE_TOOLS", 6).to_i,
+    ENV.fetch("SQ_THREADS_PROCESS_TOOLS", 2).to_i,
+    ENV.fetch("SQ_THREADS_RUNTIME_CONTROL", 2).to_i,
+    ENV.fetch("SQ_THREADS_MAINTENANCE", 1).to_i,
+  ]
+  fenix_default_db_pool = [
+    ENV.fetch("RAILS_MAX_THREADS", 5).to_i,
+    fenix_queue_thread_defaults.max + 2,
+  ].max
+%>
 # SQLite. Versions 3.8.0 and up are supported.
 #   gem install sqlite3
 #
@@ -6,12 +19,17 @@
 #
 default: &default
   adapter: sqlite3
-  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  max_connections: <%= ENV.fetch("FENIX_DB_POOL") { ENV.fetch("RAILS_DB_POOL") { fenix_default_db_pool } } %>
   timeout: 5000
 
 development:
-  <<: *default
-  database: storage/development.sqlite3
+  primary:
+    <<: *default
+    database: storage/development.sqlite3
+  queue:
+    <<: *default
+    database: storage/queue_development.sqlite3
+    migrations_paths: db/queue_migrate
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
@@ -27,5 +45,10 @@ test:
 # Similarly, if you deploy your application as a Docker container, you must
 # ensure the database is located in a persisted volume.
 production:
-  <<: *default
-  database: storage/production.sqlite3
+  primary:
+    <<: *default
+    database: storage/production.sqlite3
+  queue:
+    <<: *default
+    database: storage/queue_production.sqlite3
+    migrations_paths: db/queue_migrate

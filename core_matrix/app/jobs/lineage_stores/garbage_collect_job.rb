@@ -1,6 +1,6 @@
 module LineageStores
   class GarbageCollectJob < ApplicationJob
-    queue_as :default
+    queue_as :maintenance
 
     def perform
       LineageStores::GarbageCollect.call

@@ -83,6 +83,21 @@ class TestHTTPXAdapter < Minitest::Test
     assert_includes error.message, "client must be"
   end
 
+  def test_default_client_is_a_memoized_httpx_session
+    first = SimpleInference::HTTPAdapters::HTTPX.default_client
+    second = SimpleInference::HTTPAdapters::HTTPX.default_client
+
+    assert_kind_of ::HTTPX::Session, first
+    assert_same first, second
+  end
+
+  def test_default_client_includes_fiber_concurrency_via_persistent_plugin
+    session = SimpleInference::HTTPAdapters::HTTPX.default_client
+
+    assert_includes session.class.ancestors, ::HTTPX::Plugins::Persistent::InstanceMethods
+    assert_includes session.class.ancestors, ::HTTPX::Plugins::FiberConcurrency::InstanceMethods
+  end
+
   def test_call_stream_yields_chunks_for_event_stream
     response =
       FakeStreamResponse.new(

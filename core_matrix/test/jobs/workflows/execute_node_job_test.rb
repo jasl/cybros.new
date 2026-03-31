@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Workflows::ExecuteNodeJobTest < ActiveSupport::TestCase
+  test "uses workflow_default as the fallback queue" do
+    assert_equal "workflow_default", Workflows::ExecuteNodeJob.queue_name
+  end
+
   test "skips a workflow node that is already terminal" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(

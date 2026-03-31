@@ -1,6 +1,11 @@
 require "test_helper"
 
 class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
+  test "execution topology marks runtime_process_tools as the registry-backed queue" do
+    assert Fenix::Runtime::ExecutionTopology.registry_backed_queue?("runtime_process_tools")
+    refute Fenix::Runtime::ExecutionTopology.registry_backed_queue?("runtime_pure_tools")
+  end
+
   test "deterministic tool path emits start progress and complete reports through retained hooks" do
     result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_assignment_payload(mode: "deterministic_tool")
@@ -297,7 +302,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert Fenix::Processes::Manager.lookup(process_run_id: process_run_id).present?
   end
 
-  test "exec_command fails fast when the active job adapter is not local to the runtime worker" do
+  test "exec_command remains supported when the active job adapter is solid_queue" do
     original_queue_adapter_name = ActiveJob::Base.method(:queue_adapter_name)
     ActiveJob::Base.singleton_class.define_method(:queue_adapter_name) { "solid_queue" }
 
@@ -316,16 +321,14 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       control_client: control_client
     )
 
-    assert_equal "failed", result.status
-    assert_equal "unsupported_execution_topology", result.error.fetch("failure_kind")
-    assert_match(/solid_queue/, result.error.fetch("last_error_summary"))
-    assert_equal [], control_client.tool_invocation_requests
-    assert_equal [], control_client.command_run_requests
+    assert_equal "completed", result.status
+    assert_equal ["exec_command"], control_client.tool_invocation_requests.map { |request| request.fetch("tool_name") }
+    assert_equal 1, control_client.command_run_requests.length
   ensure
     ActiveJob::Base.singleton_class.define_method(:queue_adapter_name, original_queue_adapter_name)
   end
 
-  test "process_exec fails fast when the active job adapter is not local to the runtime worker" do
+  test "process_exec remains supported when the active job adapter is solid_queue" do
     original_queue_adapter_name = ActiveJob::Base.method(:queue_adapter_name)
     ActiveJob::Base.singleton_class.define_method(:queue_adapter_name) { "solid_queue" }
 
@@ -344,11 +347,8 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
       control_client: control_client
     )
 
-    assert_equal "failed", result.status
-    assert_equal "unsupported_execution_topology", result.error.fetch("failure_kind")
-    assert_match(/solid_queue/, result.error.fetch("last_error_summary"))
-    assert_equal [], control_client.process_run_requests
-    assert_equal [], control_client.reported_payloads
+    assert_equal "completed", result.status
+    assert_equal ["process_exec"], control_client.process_run_requests.map { |request| request.fetch("tool_name") }
   ensure
     ActiveJob::Base.singleton_class.define_method(:queue_adapter_name, original_queue_adapter_name)
   end

@@ -107,7 +107,9 @@ module Fenix
         if @inline
           RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: @deliver_reports)
         else
-          RuntimeExecutionJob.perform_later(runtime_execution.id, deliver_reports: @deliver_reports)
+          RuntimeExecutionJob
+            .set(queue: Fenix::Runtime::ExecutionTopology.runtime_execution_queue_name(mailbox_item: runtime_execution.mailbox_item_payload))
+            .perform_later(runtime_execution.id, deliver_reports: @deliver_reports)
         end
       end
 

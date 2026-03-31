@@ -1,6 +1,10 @@
 require "test_helper"
 
 class RuntimeExecutionJobTest < ActiveJob::TestCase
+  test "uses runtime_control as the fallback queue" do
+    assert_equal "runtime_control", RuntimeExecutionJob.queue_name
+  end
+
   test "does not re-execute an assignment that is already running" do
     runtime_execution = RuntimeExecution.create!(
       mailbox_item_id: "mailbox-item-1",

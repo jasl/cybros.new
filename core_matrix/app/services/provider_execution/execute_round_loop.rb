@@ -134,6 +134,8 @@ module ProviderExecution
           round_bindings: round_bindings
         )
       )
+    rescue ProviderExecution::ProviderRequestGovernor::AdmissionRefused
+      raise
     rescue ProviderExecution::DispatchRequest::RequestFailed => error
       raise RoundRequestFailed.new(
         error: error.error,

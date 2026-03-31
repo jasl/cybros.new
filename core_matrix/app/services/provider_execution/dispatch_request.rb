@@ -26,7 +26,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil)
+    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil, cache: Rails.cache)
       @workflow_run = workflow_run
       @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
@@ -37,17 +37,24 @@ module ProviderExecution
       @effective_catalog = effective_catalog if effective_catalog.present?
       @provider_request_id = provider_request_id
       @on_delta = on_delta
+      @cache = cache
     end
 
     def call
       started_monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      provider_result =
+      provider_result = ProviderExecution::WithProviderRequestLease.call(
+        workflow_run: @workflow_run,
+        request_context: @request_context,
+        effective_catalog: @effective_catalog,
+        cache: @cache
+      ) do
         case @request_context.wire_api
         when "responses"
           dispatch_responses_request
         else
           dispatch_chat_request
         end
+      end
 
       Result.new(
         provider_result: provider_result,
@@ -56,6 +63,8 @@ module ProviderExecution
         usage: normalize_usage(provider_result.usage),
         duration_ms: elapsed_ms_since(started_monotonic)
       )
+    rescue ProviderExecution::ProviderRequestGovernor::AdmissionRefused
+      raise
     rescue SimpleInference::Error => error
       raise RequestFailed.new(
         error: error,

@@ -54,6 +54,7 @@ module ProviderCatalog
           requires_credential: validate_boolean!(provider_definition["requires_credential"], "provider #{provider_handle} requires_credential"),
           credential_kind: validate_string!(provider_definition["credential_kind"], "provider #{provider_handle} credential_kind"),
           metadata: normalize_hash(provider_definition["metadata"], label: "provider #{provider_handle} metadata").deep_symbolize_keys,
+          request_governor: validate_request_governor(provider_handle, provider_definition["request_governor"]),
           models: validate_models(provider_handle, wire_api, models),
         }
       end
@@ -124,6 +125,27 @@ module ProviderCatalog
           video: multimodal_inputs["video"],
           file: multimodal_inputs["file"],
         },
+      }
+    end
+
+    def validate_request_governor(provider_handle, raw_request_governor)
+      return {} if raw_request_governor.nil?
+
+      request_governor = normalize_hash(raw_request_governor, label: "provider #{provider_handle} request_governor")
+
+      {
+        max_concurrent_requests: validate_positive_number!(
+          request_governor["max_concurrent_requests"],
+          "provider #{provider_handle} request_governor max_concurrent_requests"
+        ).to_i,
+        throttle_limit: validate_positive_number!(
+          request_governor["throttle_limit"],
+          "provider #{provider_handle} request_governor throttle_limit"
+        ).to_i,
+        throttle_period_seconds: validate_positive_number!(
+          request_governor["throttle_period_seconds"],
+          "provider #{provider_handle} request_governor throttle_period_seconds"
+        ).to_i,
       }
     end
 
