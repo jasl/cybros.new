@@ -104,8 +104,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal({ "source" => "bundled_runtime" }, second.deployment.health_metadata)
     assert_equal "http://127.0.0.1:4200", second.execution_environment.connection_metadata.fetch("base_url")
     assert_equal "http://127.0.0.1:4200", second.deployment.endpoint_metadata.fetch("base_url")
-    assert_equal "/runtime/rounds/prepare", second.deployment.endpoint_metadata.fetch("prepare_round_path")
-    assert_equal "/runtime/program_tools/execute", second.deployment.endpoint_metadata.fetch("execute_program_tool_path")
+    assert_equal "/runtime/manifest", second.deployment.endpoint_metadata.fetch("runtime_manifest_path")
     assert_equal true, second.execution_environment.capability_payload.fetch("conversation_attachment_upload")
     assert_equal(
       AgentDeployment.digest_machine_credential("bundled-runtime:bundled-fenix-runtime-v2"),

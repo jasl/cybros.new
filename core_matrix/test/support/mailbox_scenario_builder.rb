@@ -38,4 +38,19 @@ class MailboxScenarioBuilder
       mailbox_item: mailbox_item,
     }
   end
+
+  def agent_program_request!(context:, request_kind:, payload:, logical_work_id:, attempt_no: 1)
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_deployment: context.fetch(:deployment),
+      request_kind: request_kind,
+      payload: payload,
+      logical_work_id: logical_work_id,
+      attempt_no: attempt_no,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    {
+      mailbox_item: mailbox_item,
+    }
+  end
 end

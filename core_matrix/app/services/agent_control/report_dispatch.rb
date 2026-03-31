@@ -17,6 +17,10 @@ module AgentControl
       resource_closed
       resource_close_failed
     ].freeze
+    AGENT_PROGRAM_METHODS = %w[
+      agent_program_completed
+      agent_program_failed
+    ].freeze
     HEALTH_METHODS = %w[deployment_health_report].freeze
 
     def self.call(...)
@@ -45,6 +49,7 @@ module AgentControl
       return HandleExecutionReport if EXECUTION_METHODS.include?(@method_id)
       return HandleRuntimeResourceReport if RUNTIME_RESOURCE_METHODS.include?(@method_id)
       return HandleCloseReport if CLOSE_METHODS.include?(@method_id)
+      return HandleAgentProgramReport if AGENT_PROGRAM_METHODS.include?(@method_id)
       return HandleHealthReport if HEALTH_METHODS.include?(@method_id)
 
       raise ArgumentError, "unknown control report #{@method_id}"

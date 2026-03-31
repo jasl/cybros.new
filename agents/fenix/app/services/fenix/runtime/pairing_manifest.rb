@@ -9,6 +9,8 @@ module Fenix
         agent_health
         capabilities_handshake
         capabilities_refresh
+        agent_program_completed
+        agent_program_failed
         execution_started
         execution_progress
         execution_complete
@@ -221,14 +223,14 @@ module Fenix
           "transport" => "http",
           "base_url" => @base_url,
           "runtime_manifest_path" => "/runtime/manifest",
-          "prepare_round_path" => "/runtime/rounds/prepare",
-          "execute_program_tool_path" => "/runtime/program_tools/execute",
         }
       end
 
       def program_contract
         {
           "version" => "v1",
+          "transport" => "mailbox-first",
+          "delivery" => %w[websocket_push poll],
           "methods" => %w[prepare_round execute_program_tool],
         }
       end

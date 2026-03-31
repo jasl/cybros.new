@@ -123,7 +123,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       }
     )
     workflow_run = nil
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_mock_turn_step_workflow_run!(
@@ -142,7 +142,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
         adapter: adapter,
-        program_client: program_client
+        program_exchange: program_exchange
       )
     end
 
@@ -194,7 +194,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       end
     end.new
     workflow_run = nil
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
@@ -206,7 +206,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter,
-          program_client: program_client
+          program_exchange: program_exchange
         )
       end
 
@@ -248,7 +248,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
         },
       }
     )
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
@@ -256,7 +256,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter,
-          program_client: program_client
+          program_exchange: program_exchange
         )
       end
 
@@ -284,7 +284,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       status: 429,
       response_body: { error: { message: "too_late" } }
     )
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
@@ -292,7 +292,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
           adapter: adapter,
-          program_client: program_client
+          program_exchange: program_exchange
         )
       end
 

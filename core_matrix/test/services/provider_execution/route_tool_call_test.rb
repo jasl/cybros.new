@@ -9,14 +9,14 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     @mcp_server.shutdown
   end
 
-  test "routes agent-owned round tools back to the fenix program client with workflow-node durable proof" do
+  test "routes agent-owned round tools back through the program mailbox exchange with workflow-node durable proof" do
     context = build_governed_tool_context!
     workflow_node = context.fetch(:workflow_node)
     round_bindings = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: workflow_node,
       tool_catalog: [calculator_tool_entry]
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new(
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
       program_tool_results: {
         "call-calculator-1" => {
           "status" => "completed",
@@ -35,7 +35,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_client: program_client
+      program_exchange: program_exchange
     )
 
     invocation = result.tool_invocation.reload
@@ -46,8 +46,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_nil invocation.agent_task_run
     assert_equal({ "expression" => "2 + 2" }, invocation.request_payload.fetch("arguments"))
     assert_equal({ "value" => 4 }, invocation.response_payload)
-    assert_equal "call-calculator-1", program_client.execute_program_tool_requests.first.fetch("tool_call_id")
-    assert_equal workflow_node.public_id, program_client.execute_program_tool_requests.first.fetch("workflow_node_id")
+    assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("tool_call_id")
+    assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("workflow_node_id")
   end
 
   test "routes round-visible MCP tools through the generic MCP executor" do
@@ -77,7 +77,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_match(/\Asession-\d+\z/, result.tool_binding.reload.binding_payload.dig("mcp", "session_id"))
   end
 
-  test "routes core matrix tools without delegating back to the fenix program client" do
+  test "routes core matrix tools without delegating back to the program mailbox exchange" do
     context = build_governed_tool_context!(
       profile_catalog: {
         "main" => {
@@ -91,7 +91,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     result = ProviderExecution::RouteToolCall.call(
       workflow_node: workflow_node,
@@ -102,7 +102,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_client: program_client
+      program_exchange: program_exchange
     )
 
     invocation = result.tool_invocation.reload
@@ -111,7 +111,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "subagent_list", invocation.tool_definition.tool_name
-    assert_equal [], program_client.execute_program_tool_requests
+    assert_equal [], program_exchange.execute_program_tool_requests
   end
 
   private

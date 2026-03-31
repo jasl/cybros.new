@@ -10,7 +10,6 @@ class RuntimeExecution < ApplicationRecord
     validate: true
 
   validates :execution_id, presence: true, uniqueness: true
-  validates :agent_task_run_id, presence: true, on: :create
   validates :mailbox_item_id, presence: true
   validates :protocol_message_id, presence: true
   validates :logical_work_id, presence: true

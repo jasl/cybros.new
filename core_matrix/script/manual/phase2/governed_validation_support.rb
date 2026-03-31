@@ -69,8 +69,6 @@ module GovernedValidationSupport
           "transport" => "http",
           "base_url" => "http://127.0.0.1:4100",
           "runtime_manifest_path" => "/runtime/manifest",
-          "prepare_round_path" => "/runtime/rounds/prepare",
-          "execute_program_tool_path" => "/runtime/program_tools/execute",
         },
         environment_capability_payload: environment_capability_payload,
         environment_tool_catalog: environment_tool_catalog,

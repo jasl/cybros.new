@@ -30,14 +30,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: turn_step_messages_for(workflow_run),
         adapter: adapter,
-        program_client: program_client
+        program_exchange: program_exchange
       )
     end
 
@@ -66,7 +66,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
@@ -75,7 +75,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: turn_step_messages_for(workflow_run),
           adapter: adapter,
-          program_client: program_client
+          program_exchange: program_exchange
         )
       end
     end
@@ -131,14 +131,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: turn_step_messages_for(workflow_run),
         adapter: adapter,
-        program_client: program_client
+        program_exchange: program_exchange
       )
     end
 
@@ -230,7 +230,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new(
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
@@ -253,7 +253,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
             workflow_node: workflow_node,
             messages: turn_step_messages_for(workflow_run),
             adapter: adapter,
-            program_client: program_client
+            program_exchange: program_exchange
           )
         end
       end

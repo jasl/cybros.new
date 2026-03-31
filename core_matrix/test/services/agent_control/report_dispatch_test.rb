@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControl::ReportDispatchTest < ActiveSupport::TestCase
-  test "routes execution, runtime-resource, close, and health reports to the correct handler" do
+  test "routes execution, runtime-resource, close, agent-program, and health reports to the correct handler" do
     context = build_agent_control_context!
 
     assert_instance_of AgentControl::HandleExecutionReport, AgentControl::ReportDispatch.call(
@@ -17,6 +17,11 @@ class AgentControl::ReportDispatchTest < ActiveSupport::TestCase
     assert_instance_of AgentControl::HandleCloseReport, AgentControl::ReportDispatch.call(
       deployment: context[:deployment],
       method_id: "resource_closed",
+      payload: {}
+    )
+    assert_instance_of AgentControl::HandleAgentProgramReport, AgentControl::ReportDispatch.call(
+      deployment: context[:deployment],
+      method_id: "agent_program_completed",
       payload: {}
     )
     assert_instance_of AgentControl::HandleHealthReport, AgentControl::ReportDispatch.call(

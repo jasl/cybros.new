@@ -9,13 +9,13 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, program_client: nil)
+    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, program_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @turn = workflow_node.turn
       @messages = normalize_messages(messages)
       @adapter = adapter
-      @program_client = program_client
+      @program_exchange = program_exchange
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
       @request_context = BuildRequestContext.call(
         turn: @turn,
@@ -44,7 +44,7 @@ module ProviderExecution
         transcript: @messages,
         adapter: @adapter,
         effective_catalog: @effective_catalog,
-        program_client: @program_client
+        program_exchange: @program_exchange
       )
 
       result = ProviderExecution::PersistTurnStepSuccess.call(

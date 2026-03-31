@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
-  test "repeats provider rounds after a fenix program tool call and forwards tool results into the next prepare_round" do
+  test "repeats provider rounds after an agent program tool call and forwards tool results into the next prepare_round" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(
       response_bodies: [
@@ -54,7 +54,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     end
 
     transcript = turn_step_messages_for(workflow_run)
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new(
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -82,16 +82,16 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
-        program_client: program_client
+        program_exchange: program_exchange
       )
     end
 
     assert_equal "The answer is 4.", result.normalized_response.fetch("output_text")
     assert_equal 2, adapter.requests.length
-    assert_equal 2, program_client.prepare_round_requests.length
+    assert_equal 2, program_exchange.prepare_round_requests.length
     assert_equal(
       { "value" => 4 },
-      program_client.prepare_round_requests.second.fetch("prior_tool_results").first.fetch("result")
+      program_exchange.prepare_round_requests.second.fetch("prior_tool_results").first.fetch("result")
     )
 
     second_request_body = JSON.parse(adapter.requests.second.fetch(:body))
@@ -156,7 +156,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     end
 
     transcript = turn_step_messages_for(workflow_run)
-    program_client = ProviderExecutionTestSupport::FakeProgramClient.new(
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -179,7 +179,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           transcript: transcript,
           adapter: adapter,
           effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
-          program_client: program_client
+          program_exchange: program_exchange
         )
       end
     end
@@ -188,7 +188,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal 2, error.attempted_rounds
     assert_equal transcript.length, error.messages_count
     assert_equal 1, adapter.requests.length
-    assert_equal 1, program_client.prepare_round_requests.length
+    assert_equal 1, program_exchange.prepare_round_requests.length
   end
 
   test "exposes visible core matrix tools even when fenix returns no program tools for the round" do
@@ -232,7 +232,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_node.installation, catalog: catalog),
-        program_client: ProviderExecutionTestSupport::FakeProgramClient.new(
+        program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new(
           prepared_rounds: [
             {
               "messages" => transcript,

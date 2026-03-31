@@ -3,10 +3,34 @@
 ## Status
 
 - Date: 2026-03-31
-- Status: approved draft
+- Status: implemented baseline, wider verification and 2048 acceptance pending
 - Supersedes:
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop-design.md`
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop.md`
+
+## Current Implementation Status
+
+The repository now reflects the mailbox-first version of this design.
+
+Implemented:
+
+- `Core Matrix` owns provider transport and repeated provider rounds.
+- `Core Matrix` no longer uses a synchronous direct `Fenix` HTTP client for
+  `prepare_round` or `execute_program_tool`.
+- `Core Matrix` creates durable `agent_program_request` mailbox items and
+  waits for terminal control-plane reports through
+  `ProviderExecution::ProgramMailboxExchange`.
+- `Core Matrix` accepts `agent_program_completed` and `agent_program_failed`
+  reports and records them against durable mailbox receipts.
+- `Fenix` no longer exposes direct `/runtime/rounds/prepare` or
+  `/runtime/program_tools/execute` callback endpoints.
+- `Fenix` now handles both `prepare_round` and `execute_program_tool` as
+  mailbox work through `Fenix::Runtime::ExecuteAgentProgramRequest`.
+
+Still pending:
+
+- wider regression audit beyond the focused suites already exercised
+- final end-to-end 2048 acceptance proof on the new mailbox-first baseline
 
 ## Goal
 
@@ -14,8 +38,7 @@ Reframe the `Core Matrix + Fenix` architecture so the top-level agent loop runs
 in `Core Matrix`, while `Fenix` remains an agent program that provides prompt
 construction, skills policy, and program-owned tools.
 
-The target end state is not a `Fenix`-owned runtime brain. The target end state
-is a complementary system:
+The target end state is a complementary system:
 
 - `Core Matrix` provides the loop kernel
 - `Fenix` provides the agent-program intelligence
@@ -42,6 +65,29 @@ The new position is:
 This makes `Core Matrix` the reusable execution substrate and keeps `Fenix`
 focused on agent-specific cognition and environment-dependent capabilities.
 
+## Hard Protocol Constraint
+
+`Core Matrix` must not directly dispatch application work into an agent program
+through synchronous request/response RPC.
+
+That means:
+
+- no `Core Matrix -> Fenix` execution HTTP callback endpoint for normal round
+  preparation
+- no `Core Matrix -> Fenix` execution HTTP callback endpoint for normal
+  program-tool execution
+- no hidden side channel that bypasses the durable control plane
+
+The only allowed initiation path is mailbox-first control-plane delivery:
+
+- durable mailbox item written by `Core Matrix`
+- realtime websocket push as an optimization
+- poll as the fallback delivery mechanism
+- report messages back into `Core Matrix` as the completion path
+
+WebSocket is therefore a delivery optimization, not the business protocol.
+Mailbox state is the durable truth.
+
 ## Core Matrix Responsibilities
 
 `Core Matrix` owns the generic loop substrate and durable orchestration:
@@ -51,7 +97,8 @@ focused on agent-specific cognition and environment-dependent capabilities.
 - provider session lifecycle and transport to LLM APIs
 - request credentials, routing, usage accounting, and streaming output
 - repeated round execution:
-  - prepare round
+  - request round preparation
+  - await round-preparation report
   - call provider
   - inspect tool calls
   - execute tools
@@ -65,6 +112,7 @@ focused on agent-specific cognition and environment-dependent capabilities.
   - `ProcessRun`
   - workflow wait transitions
   - subagent orchestration artifacts
+  - agent-program mailbox requests and reports
 - audit, proof export, interrupt, retry, and governance behavior
 
 `Core Matrix` must not understand skill internals, skill packaging, or any
@@ -92,7 +140,8 @@ agent-program-specific prompt construction policy.
 
 `Fenix` does not own the outer provider loop and does not directly drive the
 world. It produces the "thought side" of a round and executes only the
-program-owned actions that `Core Matrix` routes back to it.
+program-owned actions that `Core Matrix` routes to it through the mailbox-first
+control plane.
 
 ## Why Provider Session Belongs In Core Matrix
 
@@ -138,8 +187,8 @@ Instead, skills affect the system only indirectly through `Fenix`:
 
 - They are intentionally orthogonal.
 - Their responsibilities are fully complementary.
-- `Fenix` provides the thought
-- `Core Matrix` provides the loop, body, and durable reflexes
+- `Fenix` provides the thought.
+- `Core Matrix` provides the loop, body, and durable reflexes.
 
 Without `Core Matrix`, `Fenix` has no complete execution loop.
 
@@ -157,52 +206,32 @@ Orthogonal here means:
 
 The overlap between them should be protocol only, not duplicated ownership.
 
-## Migration Posture
+## Mailbox-First Program Contract
 
-This redesign is allowed to be destructive.
+The logical operations between `Core Matrix` and `Fenix` remain:
 
-- do not preserve compatibility with the rejected Fenix-first loop split
-- do not add compatibility shims solely to keep transitional code alive
-- prefer replacing old boundaries outright when the new boundary is clear
-- if a schema or persistence model is wrong for the new design, fix it at the
-  source rather than layering adapters around it
+- `prepare_round`
+- `execute_program_tool`
 
-For database work during implementation:
-
-- migration files may be rewritten in place when that produces a cleaner final
-  schema for this branch
-- regenerating `schema.rb` from a clean database is acceptable
-
-The implementation should stop for discussion only when a real architectural
-conflict appears. Otherwise it should proceed automatically through execution
-and acceptance.
-
-## Round Contracts
-
-The implementation should converge on two primary contracts between
-`Core Matrix` and `Fenix`.
-
-Exact method or endpoint names may change, but the boundary should remain the
-same.
+But they are not synchronous RPC methods. They are mailbox work families with
+durable request and reply semantics.
 
 ### 1. `prepare_round`
-
-Called by `Core Matrix` before every provider round.
 
 Purpose:
 
 - ask the agent program to prepare this round's cognition package
 
-Inputs should include:
+Request payload should include:
 
-- turn, conversation, workflow, and assignment identifiers
+- turn, conversation, workflow, and mailbox identifiers
 - current transcript and context imports
 - budget and compaction hints
 - visible environment and profile metadata
 - prior tool results accumulated in the current loop
 - cancellation or round-control hints as needed
 
-Outputs should include:
+Reply payload should include:
 
 - final `messages` for the provider request
 - program-owned visible tools and JSON schemas
@@ -210,19 +239,19 @@ Outputs should include:
 
 Semantics:
 
-- `Fenix` may choose skills here
-- `Fenix` may read `SKILL.md` or skill-relative files here
-- `Core Matrix` consumes only the resulting prompt and tool surface
+- `Core Matrix` creates a mailbox item for round preparation
+- websocket may wake a connected runtime immediately
+- polling must still be sufficient when websocket delivery is absent
+- `Fenix` executes the preparation locally and reports the result back
+- `Core Matrix` waits on durable report completion, not an HTTP response
 
 ### 2. `execute_program_tool`
-
-Called by `Core Matrix` when the model selects a Fenix-owned tool.
 
 Purpose:
 
 - execute a program-side tool inside the Fenix runtime environment
 
-Inputs should include:
+Request payload should include:
 
 - `tool_call_id`
 - `tool_name`
@@ -230,7 +259,7 @@ Inputs should include:
 - conversation, turn, workflow, and runtime identifiers
 - any execution metadata needed for reporting
 
-Outputs should include:
+Reply payload should include:
 
 - structured tool result
 - optional streamed progress or output chunks
@@ -238,8 +267,10 @@ Outputs should include:
 
 Semantics:
 
+- `Core Matrix` creates a mailbox item for program-tool execution
+- `Fenix` executes the program-owned action inside its local runtime
+- `Fenix` reports completion or failure back through the control plane
 - `Core Matrix` still owns the surrounding tool-calling loop
-- `Fenix` executes only the program-side action requested
 
 ## Tool Categories
 
@@ -264,8 +295,8 @@ This keeps MCP support reusable across agent programs.
 
 ### Program-owned tools
 
-Declared by `Fenix` during `prepare_round` and executed by `Fenix` through
-`execute_program_tool`.
+Declared by `Fenix` during round preparation and executed by `Fenix` through
+the mailbox-first program-tool request/reply path.
 
 These include tools that depend on Fenix-local runtime capabilities or
 skill-aware behavior.
@@ -277,28 +308,32 @@ The top-level loop belongs to `Core Matrix`.
 One round should work like this:
 
 1. `Core Matrix` begins or resumes an agent task round.
-2. `Core Matrix` calls `Fenix.prepare_round`.
-3. `Fenix` returns round messages and program-owned visible tools.
-4. `Core Matrix` merges those program-owned tools with any kernel-native and
+2. `Core Matrix` enqueues a `prepare_round` mailbox request.
+3. `Fenix` receives that work over websocket push or poll.
+4. `Fenix` executes local prompt assembly and reports round messages plus
+   program-owned visible tools.
+5. `Core Matrix` merges those program-owned tools with any kernel-native and
    MCP-backed tools that should be visible for the round.
-5. `Core Matrix` performs the provider API request itself.
-6. If the model returns terminal content:
+6. `Core Matrix` performs the provider API request itself.
+7. If the model returns terminal content:
    - `Core Matrix` persists output
    - `Core Matrix` advances the workflow
    - the loop ends
-7. If the model returns tool calls:
+8. If the model returns tool calls:
    - `Core Matrix` routes each tool call by category
    - kernel-native tools run in `Core Matrix`
    - MCP tools run through generic MCP support
-   - Fenix-owned tools run through `Fenix.execute_program_tool`
-8. `Core Matrix` appends tool results to round state.
-9. `Core Matrix` repeats the loop until terminal output or a wait condition.
+   - Fenix-owned tools are enqueued back to the agent program through the
+     mailbox-first control plane
+9. `Core Matrix` appends tool results to round state.
+10. `Core Matrix` repeats the loop until terminal output or a wait condition.
 
 This preserves one owner for the loop and one owner for program cognition.
 
 ## Workflow And Subagent Behavior
 
-Subagents remain kernel-owned orchestration, not Fenix-owned loop infrastructure.
+Subagents remain kernel-owned orchestration, not Fenix-owned loop
+infrastructure.
 
 That means:
 
@@ -319,6 +354,32 @@ Compatibility with the earlier Fenix-first loop design is not required.
 The old direction should be treated as superseded, not as a shape that the new
 system must preserve.
 
+Compatibility with any synchronous HTTP program-contract experiment is also not
+required. That branch direction should be treated as a rejected intermediate
+state.
+
+## Migration Posture
+
+This redesign is allowed to be destructive.
+
+- do not preserve compatibility with the rejected Fenix-first loop split
+- do not preserve compatibility with the rejected synchronous HTTP program
+  contract
+- do not add compatibility shims solely to keep transitional code alive
+- prefer replacing old boundaries outright when the new boundary is clear
+- if a schema or persistence model is wrong for the new design, fix it at the
+  source rather than layering adapters around it
+
+For database work during implementation:
+
+- migration files may be rewritten in place when that produces a cleaner final
+  schema for this branch
+- regenerating `schema.rb` from a clean database is acceptable
+
+The implementation should stop for discussion only when a real architectural
+conflict appears. Otherwise it should proceed automatically through execution
+and acceptance.
+
 ## Validation Target
 
 The acceptance style from the earlier work remains valid and should be
@@ -332,17 +393,34 @@ The key manual proof is still:
 - a finished browser-based `2048` game
 
 This manual validation should be performed by the agent through the
-`Core Matrix`-owned loop, with `Fenix` participating only through the new
-agent-program contracts.
+`Core Matrix`-owned loop, with `Fenix` participating only through the
+mailbox-first agent-program protocol.
 
 ## Success Criteria
 
 This design succeeds when:
 
-- `Core Matrix` owns the repeated provider-backed loop
-- `Core Matrix` owns provider transport and generic tool-calling orchestration
-- `Core Matrix` owns generic Streamable HTTP MCP execution
-- `Fenix` owns prompt shaping, skills policy, and program-owned tools
-- `Core Matrix` does not model skills as a kernel concept
-- the combined system can complete the browser-based `2048` validation through
-  the normal conversation and tool loop
+- `Core Matrix` owns provider transport, repeated loop control, generic tool
+  routing, and durable proof
+- `Fenix` owns prompt assembly, skills policy, and execution of program-owned
+  tools
+- `Core Matrix` never directly dispatches application work into `Fenix` through
+  synchronous RPC
+- mailbox state remains the durable truth for cross-app agent-program work
+- websocket and poll are interchangeable delivery paths for the same mailbox
+  work items
+- reports from `Fenix` are sufficient for `Core Matrix` to continue the loop
+  without hidden in-memory coupling
+- MCP remains reusable inside `Core Matrix`
+- skills remain optional and agent-program-specific inside `Fenix`
+- the real browser `2048` validation completes through the final architecture
+
+## Non-Goals
+
+This design does not attempt to:
+
+- make skills a kernel feature
+- move prompt policy into `Core Matrix`
+- make `Fenix` the owner of provider transport
+- keep direct execution HTTP callbacks as a supported boundary
+- collapse the mailbox control plane into a best-effort transport shortcut

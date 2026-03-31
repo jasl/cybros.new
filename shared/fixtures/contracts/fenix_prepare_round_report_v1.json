@@ -1,0 +1,47 @@
+{
+  "method_id": "agent_program_completed",
+  "mailbox_item_id": "mailbox-item-public-id",
+  "logical_work_id": "prepare-round:workflow-node-public-id",
+  "attempt_no": 1,
+  "runtime_plane": "agent",
+  "request_kind": "prepare_round",
+  "workflow_node_id": "workflow-node-public-id",
+  "conversation_id": "conversation-public-id",
+  "turn_id": "turn-public-id",
+  "response_payload": {
+    "messages": [
+      {
+        "role": "system"
+      },
+      {
+        "role": "system"
+      },
+      {
+        "role": "user"
+      }
+    ],
+    "program_tools": [
+      {
+        "tool_name": "compact_context"
+      },
+      {
+        "tool_name": "estimate_messages"
+      },
+      {
+        "tool_name": "estimate_tokens"
+      },
+      {
+        "tool_name": "calculator"
+      }
+    ],
+    "likely_model": "gpt-4.1-mini",
+    "trace": [
+      {
+        "hook": "prepare_turn"
+      },
+      {
+        "hook": "compact_context"
+      }
+    ]
+  }
+}

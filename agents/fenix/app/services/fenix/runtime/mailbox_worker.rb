@@ -17,7 +17,7 @@ module Fenix
       def call
         return handle_agent_task_close! if agent_task_close_request?
         return handle_process_run_close! if process_run_close_request?
-        raise UnsupportedMailboxItemError, "unsupported mailbox item #{@mailbox_item.fetch("item_type", "execution_assignment")}" unless execution_assignment?
+        raise UnsupportedMailboxItemError, "unsupported mailbox item #{@mailbox_item.fetch("item_type", "execution_assignment")}" unless executable_mailbox_item?
 
         runtime_execution = RuntimeExecution.find_by(
           mailbox_item_id: @mailbox_item.fetch("item_id"),
@@ -50,6 +50,14 @@ module Fenix
 
       def execution_assignment?
         @mailbox_item.fetch("item_type", "execution_assignment") == "execution_assignment"
+      end
+
+      def agent_program_request?
+        @mailbox_item.fetch("item_type", nil) == "agent_program_request"
+      end
+
+      def executable_mailbox_item?
+        execution_assignment? || agent_program_request?
       end
 
       def agent_task_close_request?

@@ -2,11 +2,48 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Move the provider-backed repeated agent loop into `core_matrix`, keep `agents/fenix` as the agent-program layer that prepares prompts and executes program-owned tools, and preserve the real 2048 browser capstone as the final acceptance gate.
+**Goal:** Move the provider-backed repeated agent loop into `core_matrix`, keep
+`agents/fenix` as the agent-program layer that prepares prompts and executes
+program-owned tools, and preserve the real 2048 browser capstone as the final
+acceptance gate.
 
-**Architecture:** `Core Matrix` and `Fenix` are intentionally fully orthogonal and fully complementary. `Core Matrix` owns the outer round loop, provider transport, generic tool calling, Streamable HTTP MCP support, workflow DAG progression, and durable proof. `Fenix` exposes a small HTTP program contract: one endpoint prepares each round's messages and visible program tools, and one endpoint executes only Fenix-owned tools when `Core Matrix` routes them back. Dynamic per-round program tools must be materialized as workflow-node-scoped durable records so tool, command, and process proof no longer depends on `AgentTaskRun`.
+**Architecture:** `Core Matrix` and `Fenix` are intentionally fully orthogonal
+and fully complementary. `Core Matrix` owns the outer round loop, provider
+transport, generic tool calling, Streamable HTTP MCP support, workflow DAG
+progression, and durable proof. `Fenix` participates only through the
+mailbox-first control plane: `Core Matrix` enqueues durable work, websocket
+push and poll deliver it, and `Fenix` reports results back. Dynamic per-round
+program tools must be materialized as workflow-node-scoped durable records so
+tool, command, and process proof no longer depends on `AgentTaskRun`.
 
-**Tech Stack:** Ruby on Rails, Minitest, Active Job, `SimpleInference`, Streamable HTTP MCP, Net::HTTP/HTTPX, JSON contract fixtures, Dockerized `Fenix`, browser-based manual acceptance.
+**Tech Stack:** Ruby on Rails, Minitest, Active Job, Action Cable,
+`SimpleInference`, Streamable HTTP MCP, durable mailbox records, JSON contract
+fixtures, Dockerized `Fenix`, browser-based manual acceptance.
+
+## Current Status
+
+Core implementation is now on the mailbox-first boundary described here.
+
+Implemented on this branch:
+
+- mailbox-first shared contract fixtures replaced the old direct HTTP request
+  and response fixtures
+- `Fenix` manifest advertises mailbox-first program participation
+- direct `Fenix` runtime callback routes for `prepare_round` and
+  `execute_program_tool` were removed
+- `Fenix` mailbox execution now handles `agent_program_request` work for both
+  `prepare_round` and `execute_program_tool`
+- `Core Matrix` direct `FenixProgramClient` bridge was deleted
+- `Core Matrix` now uses `ProviderExecution::ProgramMailboxExchange`
+- `Core Matrix` now persists and routes `agent_program_request` mailbox items
+  and terminal `agent_program_completed` / `agent_program_failed` reports
+- provider round execution, tool routing, and workflow execution tests were
+  updated to the new `program_exchange` collaboration surface
+
+Still pending on this plan:
+
+- broader verification beyond the focused suites already run
+- final browser-based 2048 acceptance and proof package refresh
 
 ---
 
@@ -16,6 +53,8 @@
   the rejected Fenix-first loop boundary.
 - Treat destructive change as the default posture for this branch when it
   produces a cleaner final `Core Matrix` plus `Fenix` split.
+- Do not preserve compatibility with the rejected synchronous HTTP program
+  contract.
 - Do not add transitional adapters or compatibility shims unless a real
   external dependency forces it.
 - If the current Core Matrix capability surface is missing something needed for
@@ -39,62 +78,48 @@ bin/rails db:reset
   real blocker. Otherwise continue automatically through implementation,
   verification, and the 2048 acceptance run.
 
-### Task 1: Freeze The New Cross-App Program Contract
+## Task 1: Freeze The Mailbox-First Program Protocol
 
 **Files:**
-- Create: `shared/fixtures/contracts/core_matrix_fenix_prepare_round_v1.json`
-- Create: `shared/fixtures/contracts/fenix_prepare_round_response_v1.json`
-- Create: `shared/fixtures/contracts/core_matrix_fenix_execute_program_tool_v1.json`
-- Create: `shared/fixtures/contracts/fenix_execute_program_tool_response_v1.json`
+- Create: `shared/fixtures/contracts/core_matrix_fenix_prepare_round_mailbox_item_v1.json`
+- Create: `shared/fixtures/contracts/fenix_prepare_round_report_v1.json`
+- Create: `shared/fixtures/contracts/core_matrix_fenix_execute_program_tool_mailbox_item_v1.json`
+- Create: `shared/fixtures/contracts/fenix_execute_program_tool_report_v1.json`
 - Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
 - Test: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 - Test: `core_matrix/test/integration/external_fenix_pairing_flow_test.rb`
 
 **Step 1: Write the failing contract assertions**
 
-Add fixture-backed expectations that the Fenix manifest advertises the new program endpoints and versioned contract metadata.
+Add fixture-backed expectations that the Fenix manifest advertises mailbox-first
+control-plane participation rather than direct execution endpoints.
 
 ```ruby
 manifest = Fenix::Runtime::PairingManifest.call(base_url: "https://fenix.example.test")
 
 assert_equal "2026-03-31", manifest.fetch("protocol_version")
-assert_equal "/runtime/rounds/prepare", manifest.dig("endpoint_metadata", "prepare_round_path")
-assert_equal "/runtime/program_tools/execute", manifest.dig("endpoint_metadata", "execute_program_tool_path")
-assert_equal ["prepare_round", "execute_program_tool"], manifest.fetch("program_contract").fetch("methods")
+assert_equal "mailbox-first", manifest.dig("program_contract", "transport")
+assert_equal ["prepare_round", "execute_program_tool"], manifest.dig("program_contract", "methods")
+assert_equal ["websocket_push", "poll"], manifest.dig("program_contract", "delivery")
+assert_equal "/agent_api/control/report", manifest.dig("control_plane", "report_path")
 ```
 
 **Step 2: Run the focused tests and confirm they fail**
 
 Run: `cd agents/fenix && bin/rails test test/integration/external_runtime_pairing_test.rb`
 
-Expected: FAIL because the manifest does not yet expose `prepare_round_path`, `execute_program_tool_path`, or the bumped protocol version.
+Expected: FAIL because the manifest still describes the rejected direct program
+HTTP contract.
 
 Run: `cd core_matrix && bin/rails test test/integration/external_fenix_pairing_flow_test.rb`
 
-Expected: FAIL once the Core Matrix side starts asserting the richer manifest payload.
+Expected: FAIL once the Core Matrix side starts asserting the mailbox-first
+manifest payload.
 
 **Step 3: Add the shared fixtures and manifest fields**
 
-Update the manifest to advertise the new program contract explicitly and keep the payload small and machine-readable.
-
-```ruby
-def endpoint_metadata
-  {
-    "transport" => "http",
-    "base_url" => @base_url,
-    "runtime_manifest_path" => "/runtime/manifest",
-    "prepare_round_path" => "/runtime/rounds/prepare",
-    "execute_program_tool_path" => "/runtime/program_tools/execute",
-  }
-end
-
-def program_contract
-  {
-    "version" => "v1",
-    "methods" => %w[prepare_round execute_program_tool],
-  }
-end
-```
+Update the manifest to advertise the mailbox-first program contract explicitly
+and keep the payload small and machine-readable.
 
 **Step 4: Re-run the contract tests**
 
@@ -109,76 +134,86 @@ Expected: PASS with the new manifest metadata preserved through registration.
 **Step 5: Commit**
 
 ```bash
-git add shared/fixtures/contracts/core_matrix_fenix_prepare_round_v1.json shared/fixtures/contracts/fenix_prepare_round_response_v1.json shared/fixtures/contracts/core_matrix_fenix_execute_program_tool_v1.json shared/fixtures/contracts/fenix_execute_program_tool_response_v1.json agents/fenix/app/services/fenix/runtime/pairing_manifest.rb agents/fenix/test/integration/external_runtime_pairing_test.rb core_matrix/test/integration/external_fenix_pairing_flow_test.rb
-git commit -m "docs: freeze core matrix fenix program contract"
+git add shared/fixtures/contracts/core_matrix_fenix_prepare_round_mailbox_item_v1.json shared/fixtures/contracts/fenix_prepare_round_report_v1.json shared/fixtures/contracts/core_matrix_fenix_execute_program_tool_mailbox_item_v1.json shared/fixtures/contracts/fenix_execute_program_tool_report_v1.json agents/fenix/app/services/fenix/runtime/pairing_manifest.rb agents/fenix/test/integration/external_runtime_pairing_test.rb core_matrix/test/integration/external_fenix_pairing_flow_test.rb
+git commit -m "docs: freeze mailbox-first program contract"
 ```
 
-### Task 2: Implement `Fenix.prepare_round`
+## Task 2: Add Durable Core Matrix Request-Reply Coordination For Agent Program Work
 
 **Files:**
-- Create: `agents/fenix/app/controllers/runtime/rounds_controller.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- Modify: `agents/fenix/config/routes.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
-- Test: `agents/fenix/test/integration/runtime_flow_test.rb`
+- Create: `core_matrix/app/services/agent_programs/request_round_preparation.rb`
+- Create: `core_matrix/app/services/agent_programs/request_program_tool_execution.rb`
+- Create: `core_matrix/app/services/agent_programs/await_mailbox_report.rb`
+- Create: `core_matrix/app/services/agent_programs/program_mailbox_payloads.rb`
+- Modify: `core_matrix/app/services/agent_control/create_execution_assignment.rb`
+- Modify: `core_matrix/app/services/agent_control/handle_execution_report.rb`
+- Test: `core_matrix/test/services/agent_programs/request_round_preparation_test.rb`
+- Test: `core_matrix/test/services/agent_programs/request_program_tool_execution_test.rb`
+- Test: `core_matrix/test/services/agent_programs/await_mailbox_report_test.rb`
 
-**Step 1: Write the failing tests for the round-preparation API**
+**Step 1: Write the failing coordinator tests**
 
-Assert that `POST /runtime/rounds/prepare` accepts the Core Matrix payload and returns prepared messages plus a round-local program tool catalog.
+Cover one successful round-preparation request, one successful program-tool
+request, timeout behavior, and correlation by mailbox item plus logical work id.
 
-```ruby
-post "/runtime/rounds/prepare", params: {
-  conversation_id: "conversation-1",
-  turn_id: "turn-1",
-  workflow_run_id: "workflow-run-1",
-  workflow_node_id: "workflow-node-1",
-  transcript: [{ role: "user", content: "build 2048" }],
-  context_imports: [],
-  prior_tool_results: [],
-  budget_hints: { advisory_hints: { recommended_compaction_threshold: 900_000 } },
-  model_context: { model_ref: "gpt-5.4", api_model: "gpt-5.4" },
-  agent_context: { profile: "main", is_subagent: false }
-}
+**Step 2: Run the focused tests and confirm the coordination layer is missing**
 
-assert_response :success
-assert response.parsed_body.fetch("messages").any?
-assert response.parsed_body.fetch("program_tools").all? { |entry| entry.key?("tool_name") }
+Run: `cd core_matrix && bin/rails test test/services/agent_programs/request_round_preparation_test.rb test/services/agent_programs/request_program_tool_execution_test.rb test/services/agent_programs/await_mailbox_report_test.rb`
+
+Expected: FAIL because there is no mailbox request-reply coordinator for
+agent-program work.
+
+**Step 3: Implement durable request-reply helpers**
+
+The helpers should:
+
+- create mailbox items for `prepare_round` and `execute_program_tool`
+- record correlation identifiers in payload and metadata
+- await terminal reports from the existing control-plane report stream
+- surface structured success and structured failure back to provider execution
+
+**Step 4: Re-run the focused coordination tests**
+
+Run: `cd core_matrix && bin/rails test test/services/agent_programs/request_round_preparation_test.rb test/services/agent_programs/request_program_tool_execution_test.rb test/services/agent_programs/await_mailbox_report_test.rb`
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+git add core_matrix/app/services/agent_programs/request_round_preparation.rb core_matrix/app/services/agent_programs/request_program_tool_execution.rb core_matrix/app/services/agent_programs/await_mailbox_report.rb core_matrix/app/services/agent_programs/program_mailbox_payloads.rb core_matrix/app/services/agent_control/create_execution_assignment.rb core_matrix/app/services/agent_control/handle_execution_report.rb core_matrix/test/services/agent_programs/request_round_preparation_test.rb core_matrix/test/services/agent_programs/request_program_tool_execution_test.rb core_matrix/test/services/agent_programs/await_mailbox_report_test.rb
+git commit -m "feat: add mailbox program request reply coordination"
 ```
 
-**Step 2: Run the Fenix tests and confirm the API is missing**
+## Task 3: Teach Fenix To Execute `prepare_round` From Mailbox Work
+
+**Files:**
+- Create: `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
+- Create: `agents/fenix/app/services/fenix/runtime/execute_prepare_round_mailbox_item.rb`
+- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_once.rb`
+- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_forever.rb`
+- Modify: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- Test: `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
+- Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
+- Test: `agents/fenix/test/integration/runtime_flow_test.rb`
+
+**Step 1: Write the failing tests for mailbox-driven round preparation**
+
+Assert that a `prepare_round` mailbox item produces a structured control-plane
+report containing prepared messages and a round-local program tool catalog.
+
+**Step 2: Run the Fenix tests and confirm the mailbox handler is missing**
 
 Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/prepare_round_test.rb`
 
-Expected: FAIL because the route and service do not exist.
+Expected: FAIL because the mailbox executor does not yet understand
+`prepare_round`.
 
-**Step 3: Implement the service with the existing Fenix hooks**
+**Step 3: Implement the handler with the existing Fenix hooks**
 
-Keep the service thin: build round context, call the existing prompt/compaction hooks, let Fenix choose skills internally, and return only the final messages plus visible program tools.
-
-```ruby
-module Fenix
-  module Runtime
-    class PrepareRound
-      def call
-        prepared = Fenix::Hooks::PrepareTurn.call(context: round_context)
-        compacted = Fenix::Hooks::CompactContext.call(
-          messages: prepared.fetch("messages"),
-          budget_hints: round_context.fetch("budget_hints"),
-          likely_model: prepared.fetch("likely_model")
-        )
-
-        {
-          "messages" => compacted.fetch("messages"),
-          "program_tools" => visible_program_tools,
-          "trace" => [prepared.fetch("trace"), compacted.fetch("trace")],
-        }
-      end
-    end
-  end
-end
-```
+Keep the service thin: build round context, call the existing prompt and
+compaction hooks, let Fenix choose skills internally, and report only the final
+messages plus visible program tools.
 
 **Step 4: Run the Fenix round-preparation tests**
 
@@ -189,68 +224,40 @@ Expected: PASS, and the existing runtime flow tests should still pass.
 **Step 5: Commit**
 
 ```bash
-git add agents/fenix/app/controllers/runtime/rounds_controller.rb agents/fenix/app/services/fenix/runtime/prepare_round.rb agents/fenix/config/routes.rb agents/fenix/app/services/fenix/runtime/pairing_manifest.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/fenix/runtime/prepare_round_test.rb agents/fenix/test/integration/runtime_flow_test.rb
-git commit -m "feat: add fenix prepare round contract"
+git add agents/fenix/app/services/fenix/runtime/prepare_round.rb agents/fenix/app/services/fenix/runtime/execute_prepare_round_mailbox_item.rb agents/fenix/app/services/fenix/runtime/control_loop_once.rb agents/fenix/app/services/fenix/runtime/control_loop_forever.rb agents/fenix/app/services/fenix/context/build_execution_context.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/fenix/runtime/prepare_round_test.rb agents/fenix/test/integration/runtime_flow_test.rb
+git commit -m "feat: handle mailbox round preparation in fenix"
 ```
 
-### Task 3: Implement `Fenix.execute_program_tool` By Extracting Shared Program Tool Logic
+## Task 4: Extract Program Tool Execution And Route It Through Mailbox Work
 
 **Files:**
-- Create: `agents/fenix/app/controllers/runtime/program_tools_controller.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/execute_program_tool.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/program_tool_executor.rb`
+- Create: `agents/fenix/app/services/fenix/runtime/execute_program_tool_mailbox_item.rb`
 - Modify: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-- Modify: `agents/fenix/config/routes.rb`
+- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_once.rb`
+- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_forever.rb`
 - Test: `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`
-- Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
 - Test: `agents/fenix/test/services/fenix/runtime/program_tool_executor_test.rb`
+- Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
 
-**Step 1: Write the failing tests for HTTP program tool execution**
+**Step 1: Write the failing tests for mailbox program-tool execution**
 
-Cover a calculator-style tool, an `exec_command` tool that provisions command-run metadata, and a rejected tool name.
+Cover a calculator-style tool, an `exec_command` tool that provisions
+command-run metadata, and a rejected tool name, all through mailbox execution
+and reports.
 
-```ruby
-post "/runtime/program_tools/execute", params: {
-  tool_call_id: "call-1",
-  tool_name: "calculator",
-  arguments: { expression: "2 + 2" },
-  workflow_node_id: "workflow-node-1",
-  agent_context: { allowed_tool_names: ["calculator"] }
-}
-
-assert_response :success
-assert_equal 4, response.parsed_body.dig("result", "value")
-assert_equal "completed", response.parsed_body.fetch("status")
-```
-
-**Step 2: Run the Fenix tests and confirm the new endpoint is absent**
+**Step 2: Run the Fenix tests and confirm the new mailbox path is absent**
 
 Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/execute_assignment_test.rb`
 
-Expected: FAIL because `execute_program_tool` and the reusable executor are not present.
+Expected: FAIL because `execute_program_tool` mailbox handling and the reusable
+executor are not present.
 
-**Step 3: Extract the tool-execution core and reuse it**
+**Step 3: Extract the deterministic tool path and reuse it**
 
-Move the deterministic tool path out of `ExecuteAssignment` into a reusable service so both the legacy mailbox path and the new HTTP path share the same implementation.
-
-```ruby
-module Fenix
-  module Runtime
-    class ProgramToolExecutor
-      def call(tool_call:, context:)
-        reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
-          tool_call: tool_call,
-          allowed_tool_names: context.dig("agent_context", "allowed_tool_names")
-        )
-
-        execute_tool(reviewed_tool_call, context:)
-      end
-    end
-  end
-end
-```
-
-Update `ExecuteAssignment` to delegate to `ProgramToolExecutor` instead of owning the deterministic flow inline.
+Move the deterministic tool path out of `ExecuteAssignment` into a reusable
+service so both the legacy assignment path and the new mailbox path share the
+same implementation.
 
 **Step 4: Re-run the Fenix execution tests**
 
@@ -261,14 +268,14 @@ Expected: PASS, including existing `exec_command` and `write_stdin` behaviors.
 **Step 5: Commit**
 
 ```bash
-git add agents/fenix/app/controllers/runtime/program_tools_controller.rb agents/fenix/app/services/fenix/runtime/execute_program_tool.rb agents/fenix/app/services/fenix/runtime/program_tool_executor.rb agents/fenix/app/services/fenix/runtime/execute_assignment.rb agents/fenix/config/routes.rb agents/fenix/test/services/fenix/runtime/program_tool_executor_test.rb agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb agents/fenix/test/integration/runtime_program_contract_test.rb
-git commit -m "feat: add fenix program tool execution api"
+git add agents/fenix/app/services/fenix/runtime/program_tool_executor.rb agents/fenix/app/services/fenix/runtime/execute_program_tool_mailbox_item.rb agents/fenix/app/services/fenix/runtime/execute_assignment.rb agents/fenix/app/services/fenix/runtime/control_loop_once.rb agents/fenix/app/services/fenix/runtime/control_loop_forever.rb agents/fenix/test/services/fenix/runtime/program_tool_executor_test.rb agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb agents/fenix/test/integration/runtime_program_contract_test.rb
+git commit -m "feat: route program tools through mailbox execution"
 ```
 
-### Task 4: Move Durable Tool Proof From `AgentTaskRun` To `WorkflowNode`
+## Task 5: Move Durable Tool Proof From `AgentTaskRun` To `WorkflowNode`
 
 **Files:**
-- Create: `core_matrix/db/migrate/20260331120000_add_workflow_node_projection_to_tool_runtime_records.rb`
+- Modify: `core_matrix/db/migrate/*tool_runtime_records*.rb`
 - Modify: `core_matrix/app/models/tool_binding.rb`
 - Modify: `core_matrix/app/models/tool_invocation.rb`
 - Modify: `core_matrix/app/models/command_run.rb`
@@ -279,54 +286,28 @@ git commit -m "feat: add fenix program tool execution api"
 - Modify: `core_matrix/app/services/command_runs/provision.rb`
 - Test: `core_matrix/test/models/tool_binding_test.rb`
 - Test: `core_matrix/test/models/tool_invocation_test.rb`
-- Test: `core_matrix/test/services/tool_bindings/freeze_for_task_test.rb`
+- Test: `core_matrix/test/services/tool_bindings/freeze_for_workflow_node_test.rb`
 - Test: `core_matrix/test/services/tool_invocations/lifecycle_test.rb`
 - Test: `core_matrix/test/services/command_runs/terminalize_test.rb`
 
 **Step 1: Write the failing persistence tests**
 
-Add tests that provision a tool binding directly for a `turn_step` workflow node without an `AgentTaskRun`, then create a tool invocation and command run from that binding.
-
-```ruby
-binding = ToolBindings::FreezeForWorkflowNode.call(workflow_node: workflow_node, tool_catalog: round_tool_catalog).first
-
-invocation = ToolInvocations::Start.call(
-  tool_binding: binding,
-  request_payload: { "arguments" => { "expression" => "2 + 2" } }
-)
-
-assert_equal workflow_node, binding.workflow_node
-assert_nil binding.agent_task_run
-assert_equal workflow_node, invocation.workflow_node
-```
+Add tests that provision a tool binding directly for a `workflow_node` without
+an `AgentTaskRun`, then create a tool invocation and command run from that
+binding.
 
 **Step 2: Run the focused Core Matrix tests and confirm the schema is missing**
 
 Run: `cd core_matrix && bin/rails test test/models/tool_binding_test.rb test/models/tool_invocation_test.rb test/services/tool_invocations/lifecycle_test.rb`
 
-Expected: FAIL because `workflow_node_id` does not exist on the durable tool records.
+Expected: FAIL because `workflow_node_id` does not yet own the durable tool
+records cleanly enough for the new outer-loop path.
 
-**Step 3: Add the migration and the new workflow-node projection**
+**Step 3: Add the workflow-node projection**
 
-Make `agent_task_run_id` optional for tool bindings, tool invocations, and command runs, add `workflow_node_id`, and treat `workflow_node` as the durable execution owner for the new outer-loop path.
-
-```ruby
-change_table :tool_bindings do |t|
-  t.references :workflow_node, foreign_key: true
-end
-
-change_table :tool_invocations do |t|
-  t.references :workflow_node, foreign_key: true
-  change_column_null :agent_task_run_id, true
-end
-
-change_table :command_runs do |t|
-  t.references :workflow_node, foreign_key: true
-  change_column_null :agent_task_run_id, true
-end
-```
-
-Generalize the services so they can derive installation, turn, and conversation from `workflow_node` when no `agent_task_run` is present.
+Make `agent_task_run_id` optional where needed, add `workflow_node_id`, and
+treat `workflow_node` as the durable execution owner for the new outer-loop
+path.
 
 **Step 4: Run migrations and the focused Core Matrix tests**
 
@@ -341,349 +322,216 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/db/migrate/20260331120000_add_workflow_node_projection_to_tool_runtime_records.rb core_matrix/app/models/tool_binding.rb core_matrix/app/models/tool_invocation.rb core_matrix/app/models/command_run.rb core_matrix/app/models/agent_task_run.rb core_matrix/app/services/tool_bindings/freeze_for_workflow_node.rb core_matrix/app/services/tool_invocations/start.rb core_matrix/app/services/tool_invocations/provision.rb core_matrix/app/services/command_runs/provision.rb core_matrix/test/models/tool_binding_test.rb core_matrix/test/models/tool_invocation_test.rb core_matrix/test/services/tool_bindings/freeze_for_task_test.rb core_matrix/test/services/tool_invocations/lifecycle_test.rb core_matrix/test/services/command_runs/terminalize_test.rb
+git add core_matrix/db/migrate core_matrix/app/models/tool_binding.rb core_matrix/app/models/tool_invocation.rb core_matrix/app/models/command_run.rb core_matrix/app/models/agent_task_run.rb core_matrix/app/services/tool_bindings/freeze_for_workflow_node.rb core_matrix/app/services/tool_invocations/start.rb core_matrix/app/services/tool_invocations/provision.rb core_matrix/app/services/command_runs/provision.rb core_matrix/test/models/tool_binding_test.rb core_matrix/test/models/tool_invocation_test.rb core_matrix/test/services/tool_bindings/freeze_for_workflow_node_test.rb core_matrix/test/services/tool_invocations/lifecycle_test.rb core_matrix/test/services/command_runs/terminalize_test.rb
 git commit -m "refactor: project tool proof onto workflow nodes"
 ```
 
-### Task 5: Add The Core Matrix Fenix Program Client And Round-Scoped Tool Materialization
+## Task 6: Materialize Round-Local Program Tools And Replace The HTTP Client Bridge
 
 **Files:**
-- Create: `core_matrix/app/services/provider_execution/fenix_program_client.rb`
+- Delete: `core_matrix/app/services/provider_execution/fenix_program_client.rb`
+- Delete: `core_matrix/test/services/provider_execution/fenix_program_client_test.rb`
 - Create: `core_matrix/app/services/provider_execution/prepare_program_round.rb`
 - Create: `core_matrix/app/services/provider_execution/materialize_round_tools.rb`
-- Modify: `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
+- Modify: `core_matrix/app/services/provider_execution/route_tool_call.rb`
+- Modify: `core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb`
 - Modify: `core_matrix/app/services/tool_bindings/freeze_for_workflow_node.rb`
-- Test: `core_matrix/test/services/provider_execution/fenix_program_client_test.rb`
 - Test: `core_matrix/test/services/provider_execution/prepare_program_round_test.rb`
+- Test: `core_matrix/test/services/provider_execution/route_tool_call_test.rb`
 - Test: `core_matrix/test/services/tool_bindings/freeze_for_workflow_node_test.rb`
 
-**Step 1: Write the failing client and materialization tests**
+**Step 1: Write the failing tests for mailbox-backed round preparation**
 
-Cover one successful `prepare_round` call, one HTTP failure, and one round-local tool catalog with a dynamic Fenix tool that is not present in the static capability snapshot.
+Cover one successful `prepare_round` mailbox request, one structured failure,
+and one round-local tool catalog with a dynamic Fenix tool that is not present
+in the static capability snapshot.
 
-```ruby
-response = ProviderExecution::PrepareProgramRound.call(
-  workflow_node: workflow_node,
-  transcript: transcript,
-  prior_tool_results: []
-)
+**Step 2: Run the Core Matrix tests and confirm the HTTP bridge is wrong**
 
-assert_equal "assistant", response.fetch("messages").last.fetch("role")
-assert_equal "workspace_write_file", response.fetch("program_tools").first.fetch("tool_name")
-```
+Run: `cd core_matrix && bin/rails test test/services/provider_execution/prepare_program_round_test.rb test/services/provider_execution/route_tool_call_test.rb test/services/tool_bindings/freeze_for_workflow_node_test.rb`
 
-**Step 2: Run the Core Matrix tests and confirm the new services do not exist**
+Expected: FAIL because the provider execution path still assumes direct HTTP
+dispatch into `Fenix`.
 
-Run: `cd core_matrix && bin/rails test test/services/provider_execution/fenix_program_client_test.rb test/services/provider_execution/prepare_program_round_test.rb test/services/tool_bindings/freeze_for_workflow_node_test.rb`
+**Step 3: Replace direct dispatch with mailbox coordination**
 
-Expected: FAIL because the client and round-tool materialization services are not implemented.
+`PrepareProgramRound` should call the new mailbox request-reply coordinator.
+`RouteToolCall` should enqueue program-tool execution when the selected binding
+belongs to the agent-program side.
 
-**Step 3: Implement the HTTP client and round-tool freezing**
+`MaterializeRoundTools` should create or reuse workflow-node-scoped tool
+bindings for the exact tool set `Fenix` exposes for this round, even when the
+tool name is absent from the static capability snapshot.
 
-The Core Matrix client should read the Fenix endpoint metadata from the active deployment and POST JSON payloads directly.
+**Step 4: Re-run the mailbox-backed round tests**
 
-```ruby
-client.post_json(
-  path: deployment.endpoint_metadata.fetch("prepare_round_path"),
-  body: {
-    conversation_id: workflow_run.conversation.public_id,
-    turn_id: workflow_run.turn.public_id,
-    workflow_run_id: workflow_run.public_id,
-    workflow_node_id: workflow_node.public_id,
-    transcript: transcript,
-    context_imports: workflow_run.execution_snapshot.context_imports,
-    prior_tool_results: prior_tool_results,
-    budget_hints: workflow_run.execution_snapshot.budget_hints,
-    model_context: workflow_run.execution_snapshot.model_context,
-    agent_context: workflow_run.execution_snapshot.agent_context,
-  }
-)
-```
-
-`MaterializeRoundTools` should create or reuse workflow-node-scoped tool bindings for the exact tool set Fenix exposes for this round, even when the tool name is absent from the static capability snapshot.
-
-**Step 4: Re-run the client and materialization tests**
-
-Run: `cd core_matrix && bin/rails test test/services/provider_execution/fenix_program_client_test.rb test/services/provider_execution/prepare_program_round_test.rb test/services/tool_bindings/freeze_for_workflow_node_test.rb`
+Run: `cd core_matrix && bin/rails test test/services/provider_execution/prepare_program_round_test.rb test/services/provider_execution/route_tool_call_test.rb test/services/tool_bindings/freeze_for_workflow_node_test.rb`
 
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/services/provider_execution/fenix_program_client.rb core_matrix/app/services/provider_execution/prepare_program_round.rb core_matrix/app/services/provider_execution/materialize_round_tools.rb core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb core_matrix/app/services/tool_bindings/freeze_for_workflow_node.rb core_matrix/test/services/provider_execution/fenix_program_client_test.rb core_matrix/test/services/provider_execution/prepare_program_round_test.rb core_matrix/test/services/tool_bindings/freeze_for_workflow_node_test.rb
-git commit -m "feat: fetch and materialize fenix round tools"
+git add core_matrix/app/services/provider_execution/prepare_program_round.rb core_matrix/app/services/provider_execution/materialize_round_tools.rb core_matrix/app/services/provider_execution/route_tool_call.rb core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb core_matrix/app/services/tool_bindings/freeze_for_workflow_node.rb core_matrix/test/services/provider_execution/prepare_program_round_test.rb core_matrix/test/services/provider_execution/route_tool_call_test.rb core_matrix/test/services/tool_bindings/freeze_for_workflow_node_test.rb
+git rm core_matrix/app/services/provider_execution/fenix_program_client.rb core_matrix/test/services/provider_execution/fenix_program_client_test.rb
+git commit -m "refactor: replace fenix http bridge with mailbox coordination"
 ```
 
-### Task 6: Teach Provider Dispatch To Send Tools And Parse Tool Calls
+## Task 7: Run The Provider Round Loop Through Mailbox-Backed Program Participation
 
 **Files:**
+- Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
+- Modify: `core_matrix/app/services/provider_execution/append_tool_result.rb`
 - Modify: `core_matrix/app/services/provider_execution/dispatch_request.rb`
-- Create: `core_matrix/app/services/provider_execution/normalize_provider_response.rb`
-- Modify: `core_matrix/app/services/provider_execution/execute_turn_step.rb`
-- Modify: `core_matrix/test/services/provider_execution/dispatch_request_test.rb`
-- Test: `core_matrix/test/services/provider_execution/normalize_provider_response_test.rb`
-- Test: `core_matrix/test/integration/provider_backed_turn_execution_test.rb`
-- Modify: `core_matrix/vendor/simple_inference/lib/simple_inference/protocols/openai_compatible.rb`
-- Modify: `core_matrix/vendor/simple_inference/lib/simple_inference/protocols/openai_responses.rb`
-- Test: `core_matrix/vendor/simple_inference/test/test_protocol_contract.rb`
-- Test: `core_matrix/vendor/simple_inference/test/test_openai_responses_protocol.rb`
-
-**Step 1: Write the failing provider tests**
-
-Add one chat-completions test that asserts `tools` and `tool_choice` are serialized, and one response-normalization test that converts a provider result with tool calls into a uniform structure.
-
-```ruby
-result = ProviderExecution::DispatchRequest.call(
-  workflow_run: workflow_run,
-  request_context: request_context,
-  messages: turn_step_messages_for(workflow_run),
-  tools: [{ "type" => "function", "function" => { "name" => "calculator", "parameters" => { "type" => "object" } } }],
-  tool_choice: "auto",
-  adapter: adapter
-)
-
-request_body = JSON.parse(adapter.last_request.fetch(:body))
-assert_equal "auto", request_body.fetch("tool_choice")
-assert_equal "calculator", request_body.fetch("tools").first.fetch("function").fetch("name")
-```
-
-**Step 2: Run the provider tests and confirm tools are not passed through**
-
-Run: `cd core_matrix && bin/rails test test/services/provider_execution/dispatch_request_test.rb test/services/provider_execution/normalize_provider_response_test.rb`
-
-Expected: FAIL because `DispatchRequest` ignores tool definitions and there is no normalized tool-call shape yet.
-
-Run: `cd core_matrix/vendor/simple_inference && bundle exec rake`
-
-Expected: FAIL once the new protocol expectations are added.
-
-**Step 3: Wire tool definitions through `SimpleInference` and normalize the result**
-
-Teach `DispatchRequest` to accept `tools:` and `tool_choice:`, pass them through to the client, and return a normalized structure that always includes either terminal text or tool calls.
-
-```ruby
-provider_result = build_client.chat(
-  model: @request_context.api_model,
-  messages: @messages,
-  tools: @tools,
-  tool_choice: @tool_choice,
-  max_tokens: @request_context.hard_limits["max_output_tokens"],
-  **@request_context.execution_settings.symbolize_keys
-)
-
-normalized = ProviderExecution::NormalizeProviderResponse.call(provider_result:)
-```
-
-**Step 4: Re-run the provider and vendored gem tests**
-
-Run: `cd core_matrix && bin/rails test test/services/provider_execution/dispatch_request_test.rb test/services/provider_execution/normalize_provider_response_test.rb test/integration/provider_backed_turn_execution_test.rb`
-
-Expected: PASS.
-
-Run: `cd core_matrix/vendor/simple_inference && bundle exec rake`
-
-Expected: PASS.
-
-**Step 5: Commit**
-
-```bash
-git add core_matrix/app/services/provider_execution/dispatch_request.rb core_matrix/app/services/provider_execution/normalize_provider_response.rb core_matrix/app/services/provider_execution/execute_turn_step.rb core_matrix/test/services/provider_execution/dispatch_request_test.rb core_matrix/test/services/provider_execution/normalize_provider_response_test.rb core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/vendor/simple_inference/lib/simple_inference/protocols/openai_compatible.rb core_matrix/vendor/simple_inference/lib/simple_inference/protocols/openai_responses.rb core_matrix/vendor/simple_inference/test/test_protocol_contract.rb core_matrix/vendor/simple_inference/test/test_openai_responses_protocol.rb
-git commit -m "feat: add provider tool calling support"
-```
-
-### Task 7: Build The Core Matrix Repeated Round Loop And Tool Router
-
-**Files:**
-- Create: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
-- Create: `core_matrix/app/services/provider_execution/route_tool_call.rb`
-- Create: `core_matrix/app/services/provider_execution/append_tool_result.rb`
 - Modify: `core_matrix/app/services/provider_execution/execute_turn_step.rb`
 - Modify: `core_matrix/app/services/workflows/execute_node.rb`
-- Modify: `core_matrix/app/services/mcp/invoke_tool.rb`
 - Test: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
-- Test: `core_matrix/test/services/provider_execution/route_tool_call_test.rb`
+- Test: `core_matrix/test/services/provider_execution/dispatch_request_test.rb`
+- Test: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
 - Test: `core_matrix/test/integration/provider_backed_turn_execution_test.rb`
-- Test: `core_matrix/test/integration/streamable_http_mcp_flow_test.rb`
 
-**Step 1: Write the failing loop tests**
+**Step 1: Write the failing end-to-end loop tests**
 
-Cover these cases:
-- terminal provider text on the first round
-- provider tool call to a Core Matrix reserved tool
-- provider tool call to an MCP tool
-- provider tool call to a Fenix program tool that then feeds another provider round
+Cover one successful `prepare_round`, one program-owned tool execution, one
+kernel-native tool execution, and one round-local tool catalog inside a full
+provider-backed turn.
 
-```ruby
-result = ProviderExecution::ExecuteRoundLoop.call(workflow_node: workflow_node, adapter: adapter)
+**Step 2: Run the focused Core Matrix tests and confirm the loop is still tied to the wrong bridge**
 
-assert_equal "completed", result.workflow_node.lifecycle_state
-assert_equal ["prepare_round", "provider_request", "program_tool", "provider_request"], result.trace.map { |entry| entry.fetch("phase") }
-assert_equal "Final answer", result.output_message.content
-```
+Run: `cd core_matrix && bin/rails test test/services/provider_execution/execute_round_loop_test.rb test/services/provider_execution/dispatch_request_test.rb test/services/provider_execution/execute_turn_step_test.rb test/integration/provider_backed_turn_execution_test.rb`
 
-**Step 2: Run the loop tests and confirm only single-shot execution exists**
+Expected: FAIL because the loop still assumes direct program callbacks or does
+not yet await mailbox-backed replies cleanly.
 
-Run: `cd core_matrix && bin/rails test test/services/provider_execution/execute_round_loop_test.rb test/services/provider_execution/route_tool_call_test.rb`
+**Step 3: Implement the mailbox-backed loop**
 
-Expected: FAIL because `ExecuteTurnStep` still assumes one provider request and immediate terminal persistence.
+The round loop should:
 
-**Step 3: Implement the loop and router**
+- request round preparation through the mailbox coordinator
+- merge program-owned tools with kernel-native and MCP tools
+- call the provider
+- route program-owned tool calls back through mailbox execution
+- append reported tool results and continue the loop
 
-`ExecuteRoundLoop` should repeatedly call Fenix for round preparation, invoke the provider, route tool calls, append tool results, and stop only on terminal text or wait/interrupt conditions.
+**Step 4: Re-run the focused Core Matrix tests**
 
-```ruby
-loop do
-  prepared = ProviderExecution::PrepareProgramRound.call(workflow_node: @workflow_node, transcript: transcript, prior_tool_results: tool_results)
-  bindings = ProviderExecution::MaterializeRoundTools.call(workflow_node: @workflow_node, round_tools: prepared.fetch("program_tools"))
-  provider_result = ProviderExecution::DispatchRequest.call(..., tools: provider_tools_for(bindings))
-  normalized = ProviderExecution::NormalizeProviderResponse.call(provider_result: provider_result.provider_result)
-
-  break persist_terminal!(normalized) if normalized.fetch("tool_calls").empty?
-
-  tool_results = normalized.fetch("tool_calls").map do |tool_call|
-    ProviderExecution::RouteToolCall.call(workflow_node: @workflow_node, tool_call: tool_call, round_bindings: bindings)
-  end
-end
-```
-
-**Step 4: Re-run the Core Matrix loop tests**
-
-Run: `cd core_matrix && bin/rails test test/services/provider_execution/execute_round_loop_test.rb test/services/provider_execution/route_tool_call_test.rb test/integration/provider_backed_turn_execution_test.rb test/integration/streamable_http_mcp_flow_test.rb`
+Run: `cd core_matrix && bin/rails test test/services/provider_execution/execute_round_loop_test.rb test/services/provider_execution/dispatch_request_test.rb test/services/provider_execution/execute_turn_step_test.rb test/integration/provider_backed_turn_execution_test.rb`
 
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/services/provider_execution/execute_round_loop.rb core_matrix/app/services/provider_execution/route_tool_call.rb core_matrix/app/services/provider_execution/append_tool_result.rb core_matrix/app/services/provider_execution/execute_turn_step.rb core_matrix/app/services/workflows/execute_node.rb core_matrix/app/services/mcp/invoke_tool.rb core_matrix/test/services/provider_execution/execute_round_loop_test.rb core_matrix/test/services/provider_execution/route_tool_call_test.rb core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/test/integration/streamable_http_mcp_flow_test.rb
-git commit -m "feat: run repeated agent rounds in core matrix"
+git add core_matrix/app/services/provider_execution/execute_round_loop.rb core_matrix/app/services/provider_execution/append_tool_result.rb core_matrix/app/services/provider_execution/dispatch_request.rb core_matrix/app/services/provider_execution/execute_turn_step.rb core_matrix/app/services/workflows/execute_node.rb core_matrix/test/services/provider_execution/execute_round_loop_test.rb core_matrix/test/services/provider_execution/dispatch_request_test.rb core_matrix/test/services/provider_execution/execute_turn_step_test.rb core_matrix/test/integration/provider_backed_turn_execution_test.rb
+git commit -m "feat: run provider loop through mailbox-backed program participation"
 ```
 
-### Task 8: Rewire Subagent And Resume Paths To Re-Enter The Same Core Matrix Loop
+## Task 8: Remove Rejected HTTP Program-Contract Code Paths
 
 **Files:**
-- Modify: `core_matrix/app/services/subagent_sessions/spawn.rb`
-- Modify: `core_matrix/app/services/workflows/re_enter_agent.rb`
-- Modify: `core_matrix/app/services/workflows/create_for_turn.rb`
-- Modify: `core_matrix/test/services/subagent_sessions/spawn_test.rb`
-- Create: `core_matrix/test/services/workflows/re_enter_agent_test.rb`
-- Modify: `core_matrix/test/services/workflows/create_for_turn_test.rb`
-- Modify: `core_matrix/test/services/workflows/step_retry_test.rb`
+- Delete any Fenix runtime controllers or routes added only for direct program
+  HTTP callbacks
+- Delete any Core Matrix tests that assert direct HTTP program dispatch
+- Modify docs and READMEs that still describe the rejected callback model
 
-**Step 1: Write the failing workflow tests**
+**Step 1: Write the failing cleanup assertions**
 
-Assert that subagent child turns and post-wait re-entry schedule a normal runnable `turn_step` node instead of creating an `AgentTaskRun` mailbox assignment.
+Add tests or static assertions that the manifest no longer advertises direct
+program execution endpoints and that no provider execution path references the
+deleted HTTP bridge.
 
-```ruby
-result = SubagentSessions::Spawn.call(...)
+**Step 2: Run the focused cleanup tests**
 
-workflow_run = WorkflowRun.find_by_public_id!(result.fetch("workflow_run_id"))
-assert_equal "turn_step", workflow_run.workflow_nodes.first.node_type
-assert_empty AgentTaskRun.where(workflow_run: workflow_run)
-```
+Run: `cd agents/fenix && bin/rails test test/integration/external_runtime_pairing_test.rb test/integration/runtime_program_contract_test.rb`
 
-**Step 2: Run the workflow tests and confirm they still create mailbox work**
+Run: `cd core_matrix && bin/rails test test/integration/external_fenix_pairing_flow_test.rb test/services/provider_execution/prepare_program_round_test.rb`
 
-Run: `cd core_matrix && bin/rails test test/services/subagent_sessions/spawn_test.rb test/services/workflows/create_for_turn_test.rb test/services/workflows/step_retry_test.rb test/services/workflows/re_enter_agent_test.rb`
+Expected: FAIL until the rejected HTTP path is fully removed.
 
-Expected: FAIL because subagent and re-entry paths still materialize `AgentTaskRun` work.
+**Step 3: Remove the dead code and update docs**
 
-**Step 3: Switch those paths to the shared loop**
+Delete direct program callback controllers, routes, client code, and tests that
+encode the wrong architecture.
 
-Make subagent child workflows and re-entry successor nodes use `turn_step` execution through the normal workflow scheduler.
-
-```ruby
-workflow_run = Workflows::CreateForTurn.call(
-  turn: child_turn,
-  root_node_key: "subagent_step_1",
-  root_node_type: "turn_step",
-  decision_source: "system",
-  metadata: { "subagent_session_id" => session.public_id }
-)
-
-Workflows::DispatchRunnableNodes.call(workflow_run: workflow_run)
-```
-
-Keep `AgentTaskRun` only for truly mailbox-owned runtime work that still remains after this migration.
-
-**Step 4: Re-run the workflow tests**
-
-Run: `cd core_matrix && bin/rails test test/services/subagent_sessions/spawn_test.rb test/services/workflows/create_for_turn_test.rb test/services/workflows/step_retry_test.rb test/services/workflows/re_enter_agent_test.rb`
+**Step 4: Re-run the cleanup tests**
 
 Expected: PASS.
 
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/services/subagent_sessions/spawn.rb core_matrix/app/services/workflows/re_enter_agent.rb core_matrix/app/services/workflows/create_for_turn.rb core_matrix/test/services/subagent_sessions/spawn_test.rb core_matrix/test/services/workflows/re_enter_agent_test.rb core_matrix/test/services/workflows/create_for_turn_test.rb core_matrix/test/services/workflows/step_retry_test.rb
-git commit -m "refactor: route subagent turns through core matrix loop"
+git add agents/fenix core_matrix docs
+git commit -m "refactor: remove rejected http program contract"
 ```
 
-### Task 9: Update The Capstone Checklist And Run The Real 2048 Acceptance
+## Task 9: Verify End-To-End And Perform The 2048 Acceptance Run
 
 **Files:**
-- Modify: `docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
-- Create: `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048/turns.md`
-- Create: `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048/conversation-transcript.md`
-- Create: `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048/collaboration-notes.md`
-- Create: `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048/runtime-and-deployment.md`
-- Create: `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048/workspace-artifacts.md`
-- Create: `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048/playability-verification.md`
+- Update or create proof artifacts under
+  `docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048`
 
-**Step 1: Update the checklist language before the live run**
+**Step 1: Run focused verification for `agents/fenix`**
 
-Rewrite only the architectural assertions that are now stale:
-- `Core Matrix` owns the provider-backed loop
-- `Fenix` must be reachable through the new program HTTP contract
-- the acceptance workload remains the browser-based React `2048` game built through the real conversation path
-
-```markdown
-- `Core Matrix` must execute the repeated provider-backed loop
-- `Fenix` must provide prompt preparation and program-owned tool execution through the published runtime endpoints
-- the final application must still be a playable browser-based React `2048` game
+```bash
+cd agents/fenix
+bin/brakeman --no-pager
+bin/bundler-audit
+bin/rubocop -f github
+bin/rails db:test:prepare test
 ```
 
-**Step 2: Run the full automated verification before the capstone**
+Expected: PASS.
 
-Run: `cd agents/fenix && bin/brakeman --no-pager && bin/bundler-audit && bin/rubocop -f github && bin/rails db:test:prepare test`
+**Step 2: Run focused verification for `core_matrix`**
+
+```bash
+cd core_matrix
+bin/brakeman --no-pager
+bin/bundler-audit
+bin/rubocop -f github
+bun run lint:js
+bin/rails db:test:prepare test
+bin/rails db:test:prepare test:system
+```
 
 Expected: PASS.
 
-Run: `cd core_matrix && bin/brakeman --no-pager && bin/bundler-audit && bin/rubocop -f github && bun run lint:js && bin/rails db:test:prepare test && bin/rails db:test:prepare test:system`
+**Step 3: Perform the manual browser acceptance**
 
-Expected: PASS.
+Acceptance must prove:
 
-Run: `cd core_matrix/vendor/simple_inference && bundle exec rake`
+- a real `Core Matrix` turn enters the provider-backed round loop
+- `Fenix` participates only through mailbox-first control-plane work
+- the browser workload is real and visible
+- the agent manually operates the browser through the normal tool surface
+- the browser-based `2048` game finishes successfully
 
-Expected: PASS.
+**Step 4: Capture the proof package**
 
-**Step 3: Perform the real manual capstone**
+Record:
 
-Use the real stack, not a special debug path:
-- start `Core Matrix`
-- start Dockerized `Fenix`
-- mount `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix`
-- send a real conversation asking for a React `2048` game
-- let the system complete the work through the new Core Matrix loop and Fenix tool callbacks
-- play the finished game manually in a browser
-
-Record every turn by `public_id` only and collect the proof package in the artifact directory above.
-
-**Step 4: Verify the proof package and checklist**
-
-Run: `git diff --check`
-
-Expected: PASS.
-
-Manually confirm:
-- the generated app is playable
-- the browser run proves movement, merges, score, game-over, and restart
-- the proof package explains the observed DAG and tool activity
+- mailbox items and reports for at least one `prepare_round`
+- mailbox items and reports for at least one program-owned tool execution
+- runtime transcripts and screenshots
+- final acceptance notes showing the `2048` completion path
 
 **Step 5: Commit**
 
 ```bash
-git add docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048
-git commit -m "docs: record core matrix fenix 2048 capstone acceptance"
+git add docs/checklists/artifacts/2026-03-31-core-matrix-loop-fenix-2048
+git commit -m "test: verify mailbox-first core matrix fenix acceptance"
 ```
+
+## Expected Final State
+
+At the end of this plan:
+
+- `Core Matrix` owns provider transport and the repeated loop
+- `Core Matrix` never directly dispatches application work into `Fenix`
+  through synchronous RPC
+- mailbox work is the only normal cross-app execution protocol
+- websocket push and poll are interchangeable delivery mechanisms
+- `Fenix` still owns prompt policy, skills, and program-owned tools
+- round-local tool catalogs are durable at the workflow-node boundary
+- the rejected direct HTTP bridge is gone
+- the browser-based `2048` acceptance proof is complete

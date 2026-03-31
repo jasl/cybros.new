@@ -37,7 +37,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
         body: "Always record findings in a scratchpad before editing.\n"
       )
 
-      payload = shared_contract_fixture("core_matrix_fenix_prepare_round_v1").merge(
+      payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item_v1").fetch("payload").merge(
         "transcript" => [
           {
             "role" => "user",
@@ -96,7 +96,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
   end
 
   def high_budget_prepare_round_payload
-    shared_contract_fixture("core_matrix_fenix_prepare_round_v1").merge(
+    shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item_v1").fetch("payload").merge(
       "budget_hints" => {
         "hard_limits" => {
           "context_window_tokens" => 1_000_000,

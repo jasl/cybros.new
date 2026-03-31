@@ -4,16 +4,16 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, transcript:, prior_tool_results:, client: nil)
+    def initialize(workflow_node:, transcript:, prior_tool_results:, program_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
-      @client = client || ProviderExecution::FenixProgramClient.new(agent_deployment: workflow_node.turn.agent_deployment)
+      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_deployment: workflow_node.turn.agent_deployment)
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
       @prior_tool_results = Array(prior_tool_results).map { |entry| entry.deep_stringify_keys }
     end
 
     def call
-      response = @client.prepare_round(body: request_payload)
+      response = @program_exchange.prepare_round(payload: request_payload)
       validate_response!(response)
       response
     end
@@ -37,8 +37,8 @@ module ProviderExecution
     end
 
     def validate_response!(response)
-      raise ProviderExecution::FenixProgramClient::ProtocolError.new(code: "invalid_prepare_round_response", message: "Fenix prepare_round response must include messages") unless response["messages"].is_a?(Array)
-      raise ProviderExecution::FenixProgramClient::ProtocolError.new(code: "invalid_prepare_round_response", message: "Fenix prepare_round response must include program_tools") unless response["program_tools"].is_a?(Array)
+      raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include messages") unless response["messages"].is_a?(Array)
+      raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include program_tools") unless response["program_tools"].is_a?(Array)
     end
   end
 end

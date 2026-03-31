@@ -1,18 +1,11 @@
 require "test_helper"
 
 class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
-  test "builds the fenix prepare_round payload from workflow execution state" do
+  test "builds the agent program prepare_round payload from workflow execution state" do
     context = build_governed_tool_context!
-    context.fetch(:deployment).update!(
-      endpoint_metadata: context.fetch(:deployment).endpoint_metadata.merge(
-        "prepare_round_path" => "/runtime/rounds/prepare",
-        "execute_program_tool_path" => "/runtime/program_tools/execute"
-      )
-    )
-    transport = ProviderExecutionTestSupport::FakeJsonTransport.new(
-      response: ProviderExecutionTestSupport::FakeHttpResponse.new(
-        code: "200",
-        body: JSON.generate(
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      prepared_rounds: [
+        {
           "messages" => [
             { "role" => "assistant", "content" => "Round prepared" },
           ],
@@ -29,13 +22,8 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
             },
           ],
           "likely_model" => "gpt-5.4"
-        ),
-        headers: {}
-      )
-    )
-    client = ProviderExecution::FenixProgramClient.new(
-      agent_deployment: context.fetch(:deployment),
-      transport: transport
+        },
+      ]
     )
     transcript = context.fetch(:workflow_run).context_messages.map { |entry| entry.slice("role", "content") }
 
@@ -43,20 +31,20 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
       workflow_node: context.fetch(:workflow_node),
       transcript: transcript,
       prior_tool_results: [],
-      client: client
+      program_exchange: program_exchange
     )
 
-    request_body = JSON.parse(transport.last_body)
+    request_payload = program_exchange.prepare_round_requests.last
 
     assert_equal "Round prepared", response.fetch("messages").last.fetch("content")
     assert_equal "workspace_write_file", response.fetch("program_tools").first.fetch("tool_name")
-    assert_equal context.fetch(:conversation).public_id, request_body.fetch("conversation_id")
-    assert_equal context.fetch(:workflow_node).public_id, request_body.fetch("workflow_node_id")
-    assert_equal transcript, request_body.fetch("transcript")
-    assert_equal context.fetch(:workflow_run).context_imports, request_body.fetch("context_imports")
-    assert_equal context.fetch(:workflow_run).budget_hints, request_body.fetch("budget_hints")
-    assert_equal context.fetch(:workflow_run).provider_execution, request_body.fetch("provider_execution")
-    assert_equal context.fetch(:workflow_run).model_context, request_body.fetch("model_context")
-    assert_equal context.fetch(:workflow_run).execution_snapshot.agent_context, request_body.fetch("agent_context")
+    assert_equal context.fetch(:conversation).public_id, request_payload.fetch("conversation_id")
+    assert_equal context.fetch(:workflow_node).public_id, request_payload.fetch("workflow_node_id")
+    assert_equal transcript, request_payload.fetch("transcript")
+    assert_equal context.fetch(:workflow_run).context_imports, request_payload.fetch("context_imports")
+    assert_equal context.fetch(:workflow_run).budget_hints, request_payload.fetch("budget_hints")
+    assert_equal context.fetch(:workflow_run).provider_execution, request_payload.fetch("provider_execution")
+    assert_equal context.fetch(:workflow_run).model_context, request_payload.fetch("model_context")
+    assert_equal context.fetch(:workflow_run).execution_snapshot.agent_context, request_payload.fetch("agent_context")
   end
 end

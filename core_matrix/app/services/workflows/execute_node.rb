@@ -4,11 +4,11 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_node:, messages: nil, adapter: nil, program_client: nil)
+    def initialize(workflow_node:, messages: nil, adapter: nil, program_exchange: nil)
       @workflow_node = workflow_node
       @messages = messages
       @adapter = adapter
-      @program_client = program_client
+      @program_exchange = program_exchange
     end
 
     def call
@@ -21,7 +21,7 @@ module Workflows
           workflow_node: current_node,
           messages: @messages || default_messages(current_node),
           adapter: @adapter,
-          program_client: @program_client
+          program_exchange: @program_exchange
         )
       when "turn_root", "barrier_join"
         complete_coordination_node!(current_node)

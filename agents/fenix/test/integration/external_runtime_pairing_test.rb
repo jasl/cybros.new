@@ -18,8 +18,9 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_equal "/dev/<process_run_id>", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "path_prefix_template")
     assert_equal "2026-03-31", body.fetch("protocol_version")
     assert_equal "fenix-0.1.0", body.fetch("sdk_version")
-    assert_equal %w[base_url execute_program_tool_path prepare_round_path runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort
-    assert_equal "v1", body.fetch("program_contract").fetch("version")
+    assert_equal %w[base_url runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort
+    assert_equal "mailbox-first", body.fetch("program_contract").fetch("transport")
+    assert_equal %w[websocket_push poll], body.fetch("program_contract").fetch("delivery")
     assert_equal %w[prepare_round execute_program_tool], body.fetch("program_contract").fetch("methods")
     assert_equal "Workspace", body.fetch("operator_groups").fetch("workspace").fetch("label")
     assert_includes body.fetch("operator_groups").fetch("workspace").fetch("tool_names"), "workspace_read"
@@ -94,6 +95,16 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
 
     assert_raises(ActionController::RoutingError) do
       Rails.application.routes.recognize_path("/runtime/executions/runtime-execution-1", method: :get)
+    end
+  end
+
+  test "direct runtime callback endpoints for prepare_round and execute_program_tool are not routable" do
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/runtime/rounds/prepare", method: :post)
+    end
+
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/runtime/program_tools/execute", method: :post)
     end
   end
 end

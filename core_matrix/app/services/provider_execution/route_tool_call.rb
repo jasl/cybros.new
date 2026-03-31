@@ -6,11 +6,11 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, tool_call:, round_bindings:, program_client: nil)
+    def initialize(workflow_node:, tool_call:, round_bindings:, program_exchange: nil)
       @workflow_node = workflow_node
       @tool_call = tool_call.deep_stringify_keys
       @round_bindings = Array(round_bindings)
-      @program_client = program_client || ProviderExecution::FenixProgramClient.new(agent_deployment: workflow_node.turn.agent_deployment)
+      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_deployment: workflow_node.turn.agent_deployment)
     end
 
     def call
@@ -44,7 +44,7 @@ module ProviderExecution
         invocation = provision.tool_invocation
         return existing_result(binding:, invocation:) unless provision.created
 
-        response = @program_client.execute_program_tool(body: execute_program_tool_payload(invocation:))
+        response = @program_exchange.execute_program_tool(payload: execute_program_tool_payload(invocation:))
         if response.fetch("status") == "completed"
           ToolInvocations::Complete.call(
             tool_invocation: invocation,

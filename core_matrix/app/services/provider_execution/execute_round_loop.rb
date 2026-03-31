@@ -41,7 +41,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, program_client: nil, max_rounds: nil)
+    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, program_exchange: nil, max_rounds: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @request_context = ProviderExecution::BuildRequestContext.call(
@@ -51,7 +51,7 @@ module ProviderExecution
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
       @adapter = adapter
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
-      @program_client = program_client || ProviderExecution::FenixProgramClient.new(agent_deployment: workflow_node.turn.agent_deployment)
+      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_deployment: workflow_node.turn.agent_deployment)
       @max_rounds = max_rounds || configured_max_rounds
     end
 
@@ -75,7 +75,7 @@ module ProviderExecution
           workflow_node: @workflow_node,
           transcript: @transcript,
           prior_tool_results: prior_tool_results,
-          client: @program_client
+          program_exchange: @program_exchange
         )
         last_messages_count = prepared_round.fetch("messages").length
         program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
@@ -119,7 +119,7 @@ module ProviderExecution
             workflow_node: @workflow_node,
             tool_call: tool_call,
             round_bindings: round_bindings,
-            program_client: @program_client
+            program_exchange: @program_exchange
           )
           ProviderExecution::AppendToolResult.call(
             tool_call: tool_call,
@@ -134,6 +134,13 @@ module ProviderExecution
           duration_ms: error.duration_ms,
           provider_request_id: error.provider_request_id,
           messages_count: prepared_round.fetch("messages").length
+        )
+      rescue ProviderExecution::ProgramMailboxExchange::ExchangeError => error
+        raise RoundRequestFailed.new(
+          error: error,
+          duration_ms: 0,
+          provider_request_id: nil,
+          messages_count: prepared_round.present? ? prepared_round.fetch("messages").length : @transcript.length
         )
       end
     end

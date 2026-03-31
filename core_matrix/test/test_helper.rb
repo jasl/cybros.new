@@ -408,9 +408,7 @@ module ActiveSupport
 
     def default_fenix_endpoint_metadata(base_url: "https://agents.example.test")
       default_runtime_connection_metadata(base_url: base_url).merge(
-        "runtime_manifest_path" => "/runtime/manifest",
-        "prepare_round_path" => "/runtime/rounds/prepare",
-        "execute_program_tool_path" => "/runtime/program_tools/execute"
+        "runtime_manifest_path" => "/runtime/manifest"
       )
     end
 

@@ -1,7 +1,7 @@
 module ProviderExecutionTestSupport
   FakeHttpResponse = Struct.new(:code, :body, :headers, keyword_init: true)
 
-  class FakeProgramClient
+  class FakeProgramExchange
     attr_reader :prepare_round_requests, :execute_program_tool_requests
 
     def initialize(prepared_rounds: nil, program_tool_results: nil)
@@ -11,8 +11,8 @@ module ProviderExecutionTestSupport
       @execute_program_tool_requests = []
     end
 
-    def prepare_round(body:)
-      payload = body.deep_stringify_keys
+    def prepare_round(payload:)
+      payload = payload.deep_stringify_keys
       @prepare_round_requests << payload
 
       round = @prepared_rounds.shift || {
@@ -22,12 +22,12 @@ module ProviderExecutionTestSupport
       deep_copy(round)
     end
 
-    def execute_program_tool(body:)
-      payload = body.deep_stringify_keys
+    def execute_program_tool(payload:)
+      payload = payload.deep_stringify_keys
       @execute_program_tool_requests << payload
 
       responder = @program_tool_results[payload["tool_call_id"]] || @program_tool_results[payload["tool_name"]]
-      response = responder.respond_to?(:call) ? responder.call(body: payload) : responder
+      response = responder.respond_to?(:call) ? responder.call(payload: payload) : responder
 
       deep_copy(response || {
         "status" => "completed",

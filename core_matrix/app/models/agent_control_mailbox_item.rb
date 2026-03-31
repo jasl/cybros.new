@@ -6,6 +6,7 @@ class AgentControlMailboxItem < ApplicationRecord
   enum :item_type,
     {
       execution_assignment: "execution_assignment",
+      agent_program_request: "agent_program_request",
       resource_close_request: "resource_close_request",
       capabilities_refresh_request: "capabilities_refresh_request",
       recovery_notice: "recovery_notice",
