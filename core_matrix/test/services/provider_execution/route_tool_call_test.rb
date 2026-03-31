@@ -48,6 +48,10 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal({ "value" => 4 }, invocation.response_payload)
     assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("tool_call_id")
     assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("workflow_node_id")
+    assert_equal(
+      { "deployment_public_id" => context.fetch(:deployment).public_id },
+      program_exchange.execute_program_tool_requests.first.fetch("runtime_identity")
+    )
   end
 
   test "routes round-visible MCP tools through the generic MCP executor" do

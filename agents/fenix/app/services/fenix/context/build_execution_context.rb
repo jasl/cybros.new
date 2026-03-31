@@ -11,16 +11,19 @@ module Fenix
 
       def call
         payload = @mailbox_item.fetch("payload")
+        runtime_identity = payload.fetch("runtime_identity", {}).deep_stringify_keys
         workspace_root = Fenix::Workspace::Layout.default_root
         Fenix::Workspace::Bootstrap.call(
           workspace_root:,
-          conversation_id: payload.fetch("conversation_id")
+          conversation_id: payload.fetch("conversation_id"),
+          deployment_public_id: runtime_identity["deployment_public_id"]
         )
         agent_context = payload.fetch("agent_context", {})
         Fenix::Operator::Snapshot.call(
           workspace_root:,
           conversation_id: payload.fetch("conversation_id"),
-          agent_task_run_id: payload.fetch("agent_task_run_id")
+          agent_task_run_id: payload.fetch("agent_task_run_id"),
+          deployment_public_id: runtime_identity["deployment_public_id"]
         )
 
         {
@@ -41,15 +44,18 @@ module Fenix
           "agent_context" => agent_context,
           "provider_execution" => payload.fetch("provider_execution", {}),
           "model_context" => payload.fetch("model_context", {}),
+          "runtime_identity" => runtime_identity,
           "workspace_context" => {
             "workspace_root" => workspace_root,
             "env_overlay" => Fenix::Workspace::EnvOverlay.call(
               workspace_root:,
-              conversation_id: payload.fetch("conversation_id")
+              conversation_id: payload.fetch("conversation_id"),
+              deployment_public_id: runtime_identity["deployment_public_id"]
             ),
             "prompts" => Fenix::Prompts::Assembler.call(
               workspace_root:,
               conversation_id: payload.fetch("conversation_id"),
+              deployment_public_id: runtime_identity["deployment_public_id"],
               profile: agent_context.fetch("profile", "main"),
               is_subagent: agent_context.fetch("is_subagent", false)
             ),

@@ -3,8 +3,8 @@ module Fenix
     class Store
       attr_reader :layout
 
-      def initialize(workspace_root:, conversation_id:)
-        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:)
+      def initialize(workspace_root:, conversation_id:, deployment_public_id: nil)
+        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
       end
 
       def root_memory_path

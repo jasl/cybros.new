@@ -139,6 +139,9 @@ module ProviderExecution
         "agent_context" => @workflow_node.workflow_run.execution_snapshot.agent_context,
         "provider_execution" => @workflow_node.workflow_run.provider_execution,
         "model_context" => @workflow_node.workflow_run.model_context,
+        "runtime_identity" => {
+          "deployment_public_id" => @workflow_node.turn.agent_deployment.public_id,
+        },
         "tool_invocation" => {
           "tool_invocation_id" => invocation.public_id,
         },

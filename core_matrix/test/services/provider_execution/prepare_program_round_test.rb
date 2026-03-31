@@ -46,5 +46,9 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
     assert_equal context.fetch(:workflow_run).provider_execution, request_payload.fetch("provider_execution")
     assert_equal context.fetch(:workflow_run).model_context, request_payload.fetch("model_context")
     assert_equal context.fetch(:workflow_run).execution_snapshot.agent_context, request_payload.fetch("agent_context")
+    assert_equal(
+      { "deployment_public_id" => context.fetch(:deployment).public_id },
+      request_payload.fetch("runtime_identity")
+    )
   end
 end

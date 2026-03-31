@@ -9,10 +9,10 @@ module Fenix
             new(...).call
           end
 
-          def initialize(tool_call:, workspace_root:, conversation_id:)
+          def initialize(tool_call:, workspace_root:, conversation_id:, deployment_public_id: nil)
             @tool_call = tool_call.deep_stringify_keys
-            @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:)
-            @memory_repository = Fenix::Memory::Store.new(workspace_root:, conversation_id:)
+            @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
+            @memory_repository = Fenix::Memory::Store.new(workspace_root:, conversation_id:, deployment_public_id:)
           end
 
           def call

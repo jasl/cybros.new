@@ -40,6 +40,17 @@ class RuntimeFlowTest < ActiveSupport::TestCase
     assert_equal "gpt-4.1-mini", prepared.fetch("likely_model")
   end
 
+  test "execution payload parsing exposes deployment runtime identity" do
+    mailbox_item = runtime_assignment_payload
+    mailbox_item.fetch("payload")["runtime_identity"] = {
+      "deployment_public_id" => "deployment-public-id",
+    }
+
+    context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
+
+    assert_equal "deployment-public-id", context.dig("runtime_identity", "deployment_public_id")
+  end
+
   test "shared core matrix execution assignment fixture preserves the real model and visible tool contract" do
     mailbox_item = shared_contract_fixture("core_matrix_fenix_execution_assignment_v1")
 

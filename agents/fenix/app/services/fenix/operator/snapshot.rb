@@ -7,9 +7,9 @@ module Fenix
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:, agent_task_run_id:)
-        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:)
-        @memory_store = Fenix::Memory::Store.new(workspace_root:, conversation_id:)
+      def initialize(workspace_root:, conversation_id:, agent_task_run_id:, deployment_public_id: nil)
+        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
+        @memory_store = Fenix::Memory::Store.new(workspace_root:, conversation_id:, deployment_public_id:)
         @agent_task_run_id = agent_task_run_id
       end
 

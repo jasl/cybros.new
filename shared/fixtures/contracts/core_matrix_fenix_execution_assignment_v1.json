@@ -97,6 +97,9 @@
         "owner_scope": "installation"
       },
       "model_metadata": {}
+    },
+    "runtime_identity": {
+      "deployment_public_id": "agent-deployment-public-id"
     }
   }
 }

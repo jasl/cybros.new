@@ -232,6 +232,8 @@ Purpose:
 Request payload should include:
 
 - turn, conversation, workflow, and mailbox identifiers
+- stable runtime identity for the current deployment, including
+  `runtime_identity.deployment_public_id`
 - current transcript and context imports
 - budget and compaction hints
 - visible environment and profile metadata
@@ -251,6 +253,8 @@ Semantics:
 - polling must still be sufficient when websocket delivery is absent
 - `Fenix` executes the preparation locally and reports the result back
 - `Core Matrix` waits on durable report completion, not an HTTP response
+- `Fenix` may use `runtime_identity.deployment_public_id` to isolate its
+  runtime-owned local state under `.fenix/deployments/<deployment_public_id>/`
 
 ### 2. `execute_program_tool`
 
@@ -264,6 +268,8 @@ Request payload should include:
 - `tool_name`
 - structured arguments
 - conversation, turn, workflow, and runtime identifiers
+- stable runtime identity for the current deployment, including
+  `runtime_identity.deployment_public_id`
 - any execution metadata needed for reporting
 
 Reply payload should include:

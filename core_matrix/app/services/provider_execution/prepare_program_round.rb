@@ -33,6 +33,9 @@ module ProviderExecution
         "provider_execution" => @workflow_run.provider_execution,
         "model_context" => @workflow_run.model_context,
         "agent_context" => @workflow_run.execution_snapshot.agent_context,
+        "runtime_identity" => {
+          "deployment_public_id" => @workflow_run.turn.agent_deployment.public_id,
+        },
       }
     end
 

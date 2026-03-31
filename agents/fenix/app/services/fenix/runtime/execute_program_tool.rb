@@ -52,8 +52,13 @@ module Fenix
           workspace_root = Fenix::Workspace::Layout.default_root
           conversation_id = @payload.fetch("conversation_id")
           agent_context = @payload.fetch("agent_context", {}).deep_stringify_keys
+          runtime_identity = @payload.fetch("runtime_identity", {}).deep_stringify_keys
 
-          Fenix::Workspace::Bootstrap.call(workspace_root:, conversation_id:)
+          Fenix::Workspace::Bootstrap.call(
+            workspace_root:,
+            conversation_id:,
+            deployment_public_id: runtime_identity["deployment_public_id"]
+          )
 
           {
             "agent_task_run_id" => @payload["agent_task_run_id"],
@@ -65,15 +70,18 @@ module Fenix
             "agent_context" => agent_context,
             "provider_execution" => @payload.fetch("provider_execution", {}).deep_stringify_keys,
             "model_context" => @payload.fetch("model_context", {}).deep_stringify_keys,
+            "runtime_identity" => runtime_identity,
             "workspace_context" => {
               "workspace_root" => workspace_root,
               "env_overlay" => Fenix::Workspace::EnvOverlay.call(
                 workspace_root:,
-                conversation_id:
+                conversation_id:,
+                deployment_public_id: runtime_identity["deployment_public_id"]
               ),
               "prompts" => Fenix::Prompts::Assembler.call(
                 workspace_root:,
                 conversation_id:,
+                deployment_public_id: runtime_identity["deployment_public_id"],
                 profile: agent_context.fetch("profile", "main"),
                 is_subagent: agent_context.fetch("is_subagent", false)
               ),

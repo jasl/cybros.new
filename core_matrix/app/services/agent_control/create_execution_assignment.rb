@@ -80,6 +80,9 @@ module AgentControl
         "provider_execution" => execution_snapshot.provider_execution,
         "model_context" => execution_snapshot.model_context,
         "agent_context" => execution_snapshot.agent_context,
+        "runtime_identity" => {
+          "deployment_public_id" => @agent_task_run.turn.agent_deployment.public_id,
+        },
       }
     end
 

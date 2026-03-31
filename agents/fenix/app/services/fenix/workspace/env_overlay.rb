@@ -5,8 +5,8 @@ module Fenix
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:)
-        @layout = Layout.new(workspace_root:, conversation_id:)
+      def initialize(workspace_root:, conversation_id:, deployment_public_id: nil)
+        @layout = Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
       end
 
       def call
@@ -22,9 +22,15 @@ module Fenix
       attr_reader :layout
 
       def env_paths
-        [
+        paths = [
           layout.workspace_root.join(".env"),
           layout.workspace_root.join(".env.agent"),
+        ]
+        if layout.deployment_public_id.present?
+          paths << layout.deployment_root.join(".env")
+          paths << layout.deployment_root.join(".env.agent")
+        end
+        paths + [
           layout.conversation_root.join(".env"),
           layout.conversation_root.join(".env.agent"),
         ]

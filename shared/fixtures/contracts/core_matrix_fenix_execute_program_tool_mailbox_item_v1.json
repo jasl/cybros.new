@@ -43,6 +43,9 @@
       "tokenizer_hint": "o200k_base",
       "provider_metadata": {},
       "model_metadata": {}
+    },
+    "runtime_identity": {
+      "deployment_public_id": "agent-deployment-public-id"
     }
   }
 }

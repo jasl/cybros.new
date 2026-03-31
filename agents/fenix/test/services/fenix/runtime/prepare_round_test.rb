@@ -5,12 +5,14 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     Dir.mktmpdir("fenix-prepare-round-workspace-") do |tmpdir|
       workspace_root = Pathname(tmpdir)
       with_workspace_root(workspace_root) do
+        deployment_public_id = high_budget_prepare_round_payload.dig("runtime_identity", "deployment_public_id")
         Fenix::Workspace::Bootstrap.call(
           workspace_root: workspace_root,
-          conversation_id: "conversation-public-id"
+          conversation_id: "conversation-public-id",
+          deployment_public_id: deployment_public_id
         )
         workspace_root.join("SOUL.md").write("workspace soul\n")
-        workspace_root.join(".fenix/conversations/conversation-public-id/context/summary.md").write("conversation summary\n")
+        workspace_root.join(".fenix/deployments/#{deployment_public_id}/conversations/conversation-public-id/context/summary.md").write("conversation summary\n")
 
         result = Fenix::Runtime::PrepareRound.call(
           payload: high_budget_prepare_round_payload
@@ -24,6 +26,26 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
         assert_includes first_message.fetch("content"), "conversation summary"
         assert_equal "system", second_message.fetch("role")
         assert_equal "You are Fenix.", second_message.fetch("content")
+      end
+    end
+  end
+
+  test "bootstraps runtime state under the deployment namespace when runtime identity is present" do
+    Dir.mktmpdir("fenix-prepare-round-workspace-") do |tmpdir|
+      workspace_root = Pathname(tmpdir)
+      with_workspace_root(workspace_root) do
+        payload = high_budget_prepare_round_payload.merge(
+          "runtime_identity" => {
+            "deployment_public_id" => "deployment-public-id",
+          }
+        )
+
+        Fenix::Runtime::PrepareRound.call(payload:)
+
+        meta_path = workspace_root.join(".fenix/deployments/deployment-public-id/conversations/conversation-public-id/meta.json")
+        assert meta_path.exist?
+        metadata = JSON.parse(meta_path.read)
+        assert_equal "deployment-public-id", metadata.fetch("deployment_public_id")
       end
     end
   end

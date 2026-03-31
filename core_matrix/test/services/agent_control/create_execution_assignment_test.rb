@@ -19,6 +19,10 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
     assert_equal agent_task_run.task_payload.deep_stringify_keys, mailbox_item.payload.fetch("task_payload")
     assert_equal "poll-only", mailbox_item.payload.fetch("delivery_kind")
+    assert_equal(
+      { "deployment_public_id" => context.fetch(:deployment).public_id },
+      mailbox_item.payload.fetch("runtime_identity")
+    )
   end
 
   test "serializes the subagent execution assignment envelope that fenix consumes" do
@@ -234,6 +238,9 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       "parent_subagent_session_id" => "parent-subagent-session-public-id",
       "owner_conversation_id" => "owner-conversation-public-id"
     )
+    payload["runtime_identity"] = {
+      "deployment_public_id" => "agent-deployment-public-id",
+    }
 
     serialized.merge(
       "item_id" => "mailbox-item-public-id",
