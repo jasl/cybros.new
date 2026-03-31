@@ -41,9 +41,9 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
         "transcript" => [
           {
             "role" => "user",
-            "content" => "Use $portable-notes while you work on this task."
+            "content" => "Use $portable-notes while you work on this task.",
           },
-        ]
+        ],
       )
 
       result = Fenix::Runtime::PrepareRound.call(payload:)

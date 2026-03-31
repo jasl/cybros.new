@@ -140,7 +140,7 @@ module ProviderExecution
         model: @request_context.api_model,
         messages: @messages,
         max_tokens: @request_context.hard_limits["max_output_tokens"],
-        **@request_context.execution_settings.symbolize_keys
+        **@request_context.execution_settings.symbolize_keys,
       }
       request[:tools] = @tools if @tools.present?
       request[:tool_choice] = @tool_choice if @tool_choice.present?
@@ -159,7 +159,7 @@ module ProviderExecution
         model: @request_context.api_model,
         input: @messages,
         max_output_tokens: @request_context.hard_limits["max_output_tokens"],
-        **@request_context.execution_settings.symbolize_keys
+        **@request_context.execution_settings.symbolize_keys,
       }
       request[:tools] = @tools if @tools.present?
       request[:tool_choice] = @tool_choice if @tool_choice.present?

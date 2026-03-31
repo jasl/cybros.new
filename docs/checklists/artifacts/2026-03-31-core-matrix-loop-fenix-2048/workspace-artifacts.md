@@ -25,4 +25,5 @@
 
 - During the agent run, the app was started on `0.0.0.0:4173` inside the mounted workspace, matching the task requirement.
 - During host-side verification, the app was started on `127.0.0.1:4174` to validate the generated source tree independently of the in-agent process.
+- Host-side `npm install` had to be rerun locally because the mounted `node_modules` initially contained Linux optional native bindings from the Docker runtime.
 - The app is self-contained and has no backend dependency.

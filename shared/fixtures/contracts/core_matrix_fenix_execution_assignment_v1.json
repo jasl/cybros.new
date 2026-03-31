@@ -72,6 +72,9 @@
     },
     "provider_execution": {
       "wire_api": "responses",
+      "loop_settings": {
+        "max_rounds": 64
+      },
       "execution_settings": {
         "reasoning_effort": "high",
         "temperature": 0.2

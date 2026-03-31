@@ -314,4 +314,34 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   ensure
     control_client.define_singleton_method(:create_process_run!, original_create_process_run) if control_client && original_create_process_run
   end
+
+  test "delivers an agent program terminal report only once" do
+    mailbox_item = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item_v1").deep_dup
+    mailbox_item["item_id"] = "mailbox-item-#{SecureRandom.uuid}"
+    mailbox_item["protocol_message_id"] = "protocol-message-#{SecureRandom.uuid}"
+    mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
+    mailbox_item["payload"]["tool_call_id"] = "tool-call-#{SecureRandom.uuid}"
+
+    runtime_execution = RuntimeExecution.create!(
+      mailbox_item_id: mailbox_item.fetch("item_id"),
+      protocol_message_id: mailbox_item.fetch("protocol_message_id"),
+      logical_work_id: mailbox_item.fetch("logical_work_id"),
+      attempt_no: mailbox_item.fetch("attempt_no"),
+      runtime_plane: mailbox_item.fetch("runtime_plane"),
+      status: "queued",
+      mailbox_item_payload: mailbox_item,
+      reports: [],
+      trace: []
+    )
+
+    RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: true)
+
+    runtime_execution.reload
+    assert_equal "completed", runtime_execution.status
+
+    reported_payloads = Fenix::Runtime::ControlPlane.client.reported_payloads
+    assert_equal 1, reported_payloads.size
+    assert_equal "agent_program_completed", reported_payloads.first.fetch("method_id")
+    assert_equal mailbox_item.fetch("item_id"), reported_payloads.first.fetch("mailbox_item_id")
+  end
 end

@@ -39,7 +39,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ProgramMailboxExchange.new(
       agent_deployment: context.fetch(:deployment),
-      sleeper: ->(_duration) {}
+      sleeper: ->(_duration) { },
     ).prepare_round(payload: { "workflow_node_id" => context.fetch(:workflow_node).public_id })
 
     assert_equal({ "messages" => [], "program_tools" => [] }, result)
@@ -87,7 +87,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ProgramMailboxExchange.new(
       agent_deployment: context.fetch(:deployment),
-      sleeper: ->(_duration) {}
+      sleeper: ->(_duration) { },
     ).execute_program_tool(
       payload: {
         "workflow_node_id" => context.fetch(:workflow_node).public_id,
@@ -101,6 +101,66 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
   end
 
+  test "gives long-running execute_program_tool requests enough time to finish before the mailbox lease expires" do
+    context = build_agent_control_context!
+    original_creator = AgentControl::CreateAgentProgramRequest.method(:call)
+    captured_kwargs = nil
+    requested_at = Time.zone.parse("2026-03-31 10:00:00 UTC")
+
+    travel_to(requested_at) do
+      AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call) do |**kwargs|
+        captured_kwargs = kwargs
+        mailbox_item = original_creator.call(**kwargs)
+        now = Time.current
+        mailbox_item.update!(
+          status: "leased",
+          leased_to_agent_deployment: kwargs.fetch(:agent_deployment),
+          leased_at: now,
+          lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
+        )
+        AgentControlReportReceipt.create!(
+          installation: kwargs.fetch(:agent_deployment).installation,
+          agent_deployment: kwargs.fetch(:agent_deployment),
+          mailbox_item: mailbox_item,
+          protocol_message_id: "report-#{SecureRandom.uuid}",
+          method_id: "agent_program_completed",
+          logical_work_id: mailbox_item.logical_work_id,
+          attempt_no: mailbox_item.attempt_no,
+          result_code: "accepted",
+          payload: {
+            "method_id" => "agent_program_completed",
+            "mailbox_item_id" => mailbox_item.public_id,
+            "logical_work_id" => mailbox_item.logical_work_id,
+            "attempt_no" => mailbox_item.attempt_no,
+            "response_payload" => {
+              "status" => "completed",
+              "result" => {},
+            },
+          }
+        )
+        mailbox_item
+      end
+
+      ProviderExecution::ProgramMailboxExchange.new(
+        agent_deployment: context.fetch(:deployment),
+        sleeper: ->(_duration) { },
+      ).execute_program_tool(
+        payload: {
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "tool_call_id" => "tool-call-1",
+          "arguments" => {
+            "timeout_seconds" => 120,
+          },
+        }
+      )
+    end
+
+    assert_operator captured_kwargs.fetch(:dispatch_deadline_at), :>, requested_at + 120.seconds
+    assert_operator captured_kwargs.fetch(:lease_timeout_seconds), :>, 120
+  ensure
+    AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
+  end
+
   test "times out when no terminal report arrives" do
     context = build_agent_control_context!
 
@@ -109,10 +169,87 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
         agent_deployment: context.fetch(:deployment),
         timeout: 0.001,
         poll_interval: 0.0,
-        sleeper: ->(_duration) {}
+        sleeper: ->(_duration) { },
       ).prepare_round(payload: { "workflow_node_id" => context.fetch(:workflow_node).public_id })
     end
 
     assert_equal "mailbox_timeout", error.code
+  end
+
+  test "sees terminal reports that arrive after the first poll even when query cache is enabled" do
+    context = build_agent_control_context!
+    original_creator = AgentControl::CreateAgentProgramRequest.method(:call)
+    original_find_by = AgentControlReportReceipt.method(:find_by)
+    original_uncached = AgentControlReportReceipt.method(:uncached)
+    mailbox_item = nil
+    uncached_depth = 0
+
+    AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call) do |**kwargs|
+      mailbox_item = original_creator.call(**kwargs)
+    end
+
+    AgentControlReportReceipt.singleton_class.define_method(:uncached) do |&block|
+      uncached_depth += 1
+      block.call
+    ensure
+      uncached_depth -= 1
+    end
+
+    AgentControlReportReceipt.singleton_class.define_method(:find_by) do |**kwargs|
+      if uncached_depth.zero?
+        nil
+      else
+        original_find_by.call(**kwargs)
+      end
+    end
+
+    sleep_calls = 0
+    sleeper = lambda do |_duration|
+      sleep_calls += 1
+      next unless sleep_calls == 1
+
+      now = Time.current
+      mailbox_item.update!(
+        status: "leased",
+        leased_to_agent_deployment: context.fetch(:deployment),
+        leased_at: now,
+        lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
+      )
+      AgentControlReportReceipt.create!(
+        installation: context.fetch(:deployment).installation,
+        agent_deployment: context.fetch(:deployment),
+        mailbox_item: mailbox_item,
+        protocol_message_id: "report-#{SecureRandom.uuid}",
+        method_id: "agent_program_completed",
+        logical_work_id: mailbox_item.logical_work_id,
+        attempt_no: mailbox_item.attempt_no,
+        result_code: "accepted",
+        payload: {
+          "method_id" => "agent_program_completed",
+          "mailbox_item_id" => mailbox_item.public_id,
+          "logical_work_id" => mailbox_item.logical_work_id,
+          "attempt_no" => mailbox_item.attempt_no,
+          "response_payload" => {
+            "messages" => [],
+            "program_tools" => [],
+          },
+        }
+      )
+    end
+
+    result = nil
+    result = ProviderExecution::ProgramMailboxExchange.new(
+      agent_deployment: context.fetch(:deployment),
+      timeout: 0.02,
+      poll_interval: 0.0,
+      sleeper: sleeper,
+    ).prepare_round(payload: { "workflow_node_id" => context.fetch(:workflow_node).public_id })
+
+    assert_equal({ "messages" => [], "program_tools" => [] }, result)
+    assert_operator sleep_calls, :>=, 1
+  ensure
+    AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
+    AgentControlReportReceipt.singleton_class.define_method(:find_by, original_find_by) if original_find_by
+    AgentControlReportReceipt.singleton_class.define_method(:uncached, original_uncached) if original_uncached
   end
 end

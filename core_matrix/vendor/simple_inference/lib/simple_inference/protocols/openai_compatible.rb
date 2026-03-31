@@ -77,6 +77,7 @@ module SimpleInference
           finish_reason = nil
           last_usage = nil
           collected_logprobs = []
+          streamed_tool_calls = []
 
           response =
             chat_completions_stream(**request) do |event|
@@ -98,12 +99,30 @@ module SimpleInference
 
               usage = OpenAI.chat_completion_usage(event)
               last_usage = usage if usage
+
+              merge_stream_tool_calls!(streamed_tool_calls, event)
             end
+
+          response_usage = last_usage || OpenAI.chat_completion_usage(response)
+          response_finish_reason = finish_reason || OpenAI.chat_completion_finish_reason(response)
+          synthesized_body = synthesize_stream_chat_completion_body(
+            content: full,
+            finish_reason: response_finish_reason,
+            usage: response_usage,
+            logprobs: collected_logprobs,
+            tool_calls: streamed_tool_calls
+          )
+          response = Response.new(
+            status: response.status,
+            headers: response.headers,
+            body: response.body || synthesized_body,
+            raw_body: response.raw_body
+          )
 
           OpenAI::ChatResult.new(
             content: full,
-            usage: last_usage || OpenAI.chat_completion_usage(response),
-            finish_reason: finish_reason || OpenAI.chat_completion_finish_reason(response),
+            usage: response_usage,
+            finish_reason: response_finish_reason,
             logprobs: collected_logprobs.empty? ? OpenAI.chat_completion_logprobs(response) : collected_logprobs,
             response: response
           )
@@ -449,6 +468,57 @@ module SimpleInference
             },
           ],
         }
+      end
+
+      def merge_stream_tool_calls!(streamed_tool_calls, event)
+        tool_calls = event.is_a?(Hash) ? event.dig("choices", 0, "delta", "tool_calls") : nil
+        return unless tool_calls.is_a?(Array)
+
+        tool_calls.each_with_index do |entry, fallback_index|
+          next unless entry.is_a?(Hash)
+
+          index = entry.fetch("index", fallback_index).to_i
+          current = streamed_tool_calls[index] ||= {
+            "type" => "function",
+            "function" => { "arguments" => "" },
+          }
+
+          current["id"] = entry["id"] if entry["id"]
+          current["type"] = entry["type"] if entry["type"]
+
+          function = entry["function"]
+          next unless function.is_a?(Hash)
+
+          current["function"]["name"] = function["name"] if function["name"]
+          if function.key?("arguments")
+            current["function"]["arguments"] = current["function"].fetch("arguments", "") + function["arguments"].to_s
+          end
+        end
+      end
+
+      def synthesize_stream_chat_completion_body(content:, finish_reason:, usage:, logprobs:, tool_calls:)
+        message = {
+          "role" => "assistant",
+          "content" => content.to_s,
+        }
+        compact_tool_calls = Array(tool_calls).compact
+        message["tool_calls"] = compact_tool_calls if compact_tool_calls.any?
+
+        choice = { "message" => message }
+        choice["finish_reason"] = finish_reason if finish_reason
+        choice["logprobs"] = { "content" => logprobs } if logprobs.is_a?(Array) && !logprobs.empty?
+
+        body = { "choices" => [choice] }
+        body["usage"] = stringify_usage(usage) if usage
+        body
+      end
+
+      def stringify_usage(usage)
+        return usage unless usage.is_a?(Hash)
+
+        usage.each_with_object({}) do |(key, value), out|
+          out[key.to_s] = value
+        end
       end
 
       def with_query(path, params)

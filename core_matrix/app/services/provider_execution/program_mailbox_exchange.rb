@@ -2,7 +2,10 @@ require "securerandom"
 
 module ProviderExecution
   class ProgramMailboxExchange
-    DEFAULT_TIMEOUT = 30.seconds
+    DEFAULT_PREPARE_ROUND_TIMEOUT = 30.seconds
+    DEFAULT_EXECUTE_PROGRAM_TOOL_TIMEOUT = 5.minutes
+    DEFAULT_TOOL_TIMEOUT_BUFFER = 30.seconds
+    DEFAULT_LEASE_GRACE = 10.seconds
     DEFAULT_POLL_INTERVAL = 0.05
 
     class ExchangeError < StandardError
@@ -36,15 +39,32 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(agent_deployment:, timeout: DEFAULT_TIMEOUT, poll_interval: DEFAULT_POLL_INTERVAL, sleeper: nil)
+    def initialize(
+      agent_deployment:,
+      timeout: nil,
+      prepare_round_timeout: DEFAULT_PREPARE_ROUND_TIMEOUT,
+      execute_program_tool_timeout: DEFAULT_EXECUTE_PROGRAM_TOOL_TIMEOUT,
+      tool_timeout_buffer: DEFAULT_TOOL_TIMEOUT_BUFFER,
+      lease_grace: DEFAULT_LEASE_GRACE,
+      poll_interval: DEFAULT_POLL_INTERVAL,
+      sleeper: nil
+    )
       @agent_deployment = agent_deployment
-      @timeout = timeout
+      @prepare_round_timeout = timeout || prepare_round_timeout
+      @execute_program_tool_timeout = timeout || execute_program_tool_timeout
+      @tool_timeout_buffer = tool_timeout_buffer
+      @lease_grace = lease_grace
       @poll_interval = poll_interval
       @sleeper = sleeper || ->(duration) { sleep(duration) }
     end
 
     def prepare_round(payload:)
-      response = perform_request!(request_kind: "prepare_round", payload:, logical_work_id: "prepare-round:#{payload.fetch("workflow_node_id")}")
+      response = perform_request!(
+        request_kind: "prepare_round",
+        payload:,
+        logical_work_id: "prepare-round:#{payload.fetch("workflow_node_id")}",
+        timeout: @prepare_round_timeout
+      )
       validate_prepare_round_response!(response)
       response
     end
@@ -54,6 +74,7 @@ module ProviderExecution
         request_kind: "execute_program_tool",
         payload:,
         logical_work_id: "program-tool:#{payload.fetch("workflow_node_id")}:#{payload.fetch("tool_call_id")}",
+        timeout: execute_program_tool_timeout_for(payload),
         allow_failure_response: true
       )
     end
@@ -62,17 +83,20 @@ module ProviderExecution
 
     TERMINAL_METHODS = %w[agent_program_completed agent_program_failed].freeze
 
-    def perform_request!(request_kind:, payload:, logical_work_id:, allow_failure_response: false)
+    def perform_request!(request_kind:, payload:, logical_work_id:, timeout:, allow_failure_response: false)
+      timeout = timeout.to_f.seconds
+      request_started_at = Time.current
       mailbox_item = AgentControl::CreateAgentProgramRequest.call(
         agent_deployment: @agent_deployment,
         request_kind: request_kind,
         payload: payload,
         logical_work_id: logical_work_id,
         attempt_no: 1,
-        dispatch_deadline_at: Time.current + @timeout,
-        lease_timeout_seconds: [@timeout.to_f.ceil, 1].max
+        dispatch_deadline_at: request_started_at + timeout,
+        execution_hard_deadline_at: request_started_at + timeout,
+        lease_timeout_seconds: [timeout.to_f.ceil + @lease_grace.to_i, 1].max
       )
-      receipt = wait_for_terminal_receipt!(mailbox_item)
+      receipt = wait_for_terminal_receipt!(mailbox_item, timeout:)
       report_payload = receipt.payload.deep_stringify_keys
 
       return report_payload.fetch("response_payload") if report_payload.fetch("method_id") == "agent_program_completed"
@@ -84,11 +108,13 @@ module ProviderExecution
       )
     end
 
-    def wait_for_terminal_receipt!(mailbox_item)
-      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @timeout.to_f
+    def wait_for_terminal_receipt!(mailbox_item, timeout:)
+      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout.to_f
 
       loop do
-        receipt = AgentControlReportReceipt.find_by(mailbox_item: mailbox_item, method_id: TERMINAL_METHODS)
+        receipt = AgentControlReportReceipt.uncached do
+          AgentControlReportReceipt.find_by(mailbox_item: mailbox_item, method_id: TERMINAL_METHODS)
+        end
         return receipt if receipt.present?
 
         if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
@@ -102,6 +128,13 @@ module ProviderExecution
 
         @sleeper.call(@poll_interval)
       end
+    end
+
+    def execute_program_tool_timeout_for(payload)
+      requested_timeout_seconds = payload.dig("arguments", "timeout_seconds").to_f
+      return @execute_program_tool_timeout if requested_timeout_seconds <= 0
+
+      [@execute_program_tool_timeout.to_f, requested_timeout_seconds + @tool_timeout_buffer.to_f].max.seconds
     end
 
     def validate_prepare_round_response!(response)

@@ -10,10 +10,10 @@
 
 ## Acceptance Run Identity
 
-- Conversation public_id: `019d4128-1484-760a-8c8c-6d0e436e575e`
-- Turn public_id: `019d4128-14cb-7d93-ba34-32cc61dc8794`
-- Workflow run public_id: `019d4128-1505-746e-b133-d875960c5e20`
-- Deployment public_id: `019d411d-1ee3-7133-b5d9-551cbbd854ee`
+- Conversation public_id: `019d4354-7e5a-71f0-a981-4b037cb2659b`
+- Turn public_id: `019d4354-7ee8-793a-8e04-b28410ffe2de`
+- Workflow run public_id: `019d4354-7f45-728b-8f13-9a6388bbc0f8`
+- Deployment public_id: `019d4353-98b2-75b2-86f2-fc7c04cce96b`
 - Provider handle: `openrouter`
 - Model ref: `openai-gpt-5.4-live-acceptance`
 - API model: `openai/gpt-5.4`

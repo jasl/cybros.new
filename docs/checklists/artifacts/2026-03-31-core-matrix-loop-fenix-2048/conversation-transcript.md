@@ -23,17 +23,18 @@ Requirements:
 ## Selected Agent Output
 
 ```text
-Project path: `/workspace/game-2048`
+Path: `/workspace/game-2048`
 
 Verified:
-- built a self-contained React + Vite + TypeScript 2048 game there
-- automated game-logic tests pass (`npm test`)
-- production build succeeds (`npm run build`)
-- dev app runs on `0.0.0.0:4173`
-- browser page loads and shows a playable board with score, restart, and controls for arrow keys/WASD
+- built a self-contained React + Vite + TypeScript 2048 app
+- implemented move, merge, score, spawn, game-over, restart, and arrow/WASD controls
+- added automated game-logic tests and ran them: `npm test` passed
+- ran production build: `npm run build` passed
+- started preview on `0.0.0.0:4173`
+- checked in browser that the page loads and shows a playable 2048 board with controls and restart button
 ```
 
 ## Source
 
 - Transcript source: `run-summary.json`
-- Selected output message public_id: `019d412b-63e0-719f-be1a-7325967b3934`
+- Selected output message public_id: `019d4359-ef18-79d1-89c1-2f9e5761f52b`

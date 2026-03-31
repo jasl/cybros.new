@@ -21,7 +21,7 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
               "idempotency_policy" => "best_effort",
             },
           ],
-          "likely_model" => "gpt-5.4"
+          "likely_model" => "gpt-5.4",
         },
       ]
     )

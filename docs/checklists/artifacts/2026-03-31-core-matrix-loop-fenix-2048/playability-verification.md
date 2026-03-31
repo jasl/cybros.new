@@ -10,27 +10,25 @@
 
 - Initial page load succeeded with title `game-2048`.
 - The initial board contained exactly 2 non-zero tiles.
-- The controls text showed `Arrows / WASD`.
-- A valid move spawned a new tile.
-- A merge increased the score.
-- Autoplay reached a real game-over state.
-- Restart cleared the overlay and reset the board to 2 spawned tiles.
+- The controls text showed `Controls: Arrow keys or W A S D`.
+- A valid move produced a real merge and increased score.
+- A non-merge follow-up move spawned a new tile.
+- Autoplay reached a real game-over state with status text `Game over`.
+- Restart reset the score to `0` and returned the board to 2 spawned tiles.
 
 ## Recorded Results
 
 - `spawnVerified: true`
 - `mergeVerified: true`
 - `gameOverReached: true`
-- `autoplaySteps: 248`
-- Pre-restart score: `3092`
+- `autoplaySteps: 243`
+- Pre-restart score: `2804`
 - Best tile reached during the recorded game-over state: `256`
 
 ## Deterministic Checks Captured
 
-- `ArrowUp` moved the board from 2 to 3 non-zero tiles while keeping score at `0`.
-- `ArrowRight` moved the board from 3 to 4 non-zero tiles while keeping score at `0`.
-- `ArrowDown` moved the board from 4 to 5 non-zero tiles while keeping score at `0`.
-- `ArrowLeft` produced a merge and increased score from `0` to `4`.
+- `ArrowUp` moved the board from 2 to 2 non-zero tiles while score changed from 0 to 4.
+- `ArrowDown` moved the board from 2 to 3 non-zero tiles while score stayed at 4.
 
 ## Conclusion
 

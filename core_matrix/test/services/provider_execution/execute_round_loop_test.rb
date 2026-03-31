@@ -114,6 +114,91 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal({ "value" => 4 }, invocation.response_payload)
   end
 
+  test "repeats provider rounds after a streamed chat tool call" do
+    catalog = build_mock_chat_catalog
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      attr_reader :requests
+
+      def initialize(streams:)
+        @streams = streams
+        @requests = []
+      end
+
+      def call_stream(env)
+        @requests << env
+        stream = @streams.shift || raise("no queued streaming response available")
+
+        yield stream
+
+        {
+          status: 200,
+          headers: { "content-type" => "text/event-stream" },
+          body: nil,
+        }
+      end
+    end.new(
+      streams: [
+        [
+          %(data: {"id":"chatcmpl-stream-round-1","choices":[{"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call-calculator-1","type":"function","function":{"name":"calculator","arguments":""}}]}}]}\n\n),
+          %(data: {"id":"chatcmpl-stream-round-1","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"expression\\":\\"2 + 2\\"}"}}]}}]}\n\n),
+          %(data: {"id":"chatcmpl-stream-round-1","choices":[{"delta":{"content":""},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":12,"completion_tokens":4,"total_tokens":16}}\n\n),
+          "data: [DONE]\n\n",
+        ].join,
+        [
+          %(data: {"id":"chatcmpl-stream-round-2","choices":[{"delta":{"role":"assistant","content":"The answer is 4."}}]}\n\n),
+          %(data: {"id":"chatcmpl-stream-round-2","choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":18,"completion_tokens":6,"total_tokens":24}}\n\n),
+          "data: [DONE]\n\n",
+        ].join,
+      ]
+    )
+    workflow_run = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {}, catalog: catalog)
+    end
+
+    transcript = turn_step_messages_for(workflow_run)
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => transcript,
+          "program_tools" => [calculator_tool_entry],
+        },
+        {
+          "messages" => transcript,
+          "program_tools" => [],
+        },
+      ],
+      program_tool_results: {
+        "call-calculator-1" => {
+          "status" => "completed",
+          "result" => { "value" => 4 },
+          "summary" => "4",
+        },
+      }
+    )
+
+    result = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      result = ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
+        transcript: transcript,
+        adapter: adapter,
+        effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+        program_exchange: program_exchange
+      )
+    end
+
+    assert_equal "The answer is 4.", result.normalized_response.fetch("output_text")
+    assert_equal 2, adapter.requests.length
+    assert_equal 2, program_exchange.prepare_round_requests.length
+    assert_equal(
+      { "value" => 4 },
+      program_exchange.prepare_round_requests.second.fetch("prior_tool_results").first.fetch("result")
+    )
+  end
+
   test "raises a dedicated round limit error when the configured loop budget is exhausted" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(

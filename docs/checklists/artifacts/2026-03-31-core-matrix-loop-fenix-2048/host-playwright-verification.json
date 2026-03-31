@@ -12,25 +12,25 @@
         0,
         0,
         0,
-        0
-      ],
-      [
-        2,
-        0,
-        0,
-        0
+        2
       ],
       [
         0,
         0,
-        4,
+        0,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
         0
       ]
     ],
     "score": 0,
-    "bestTile": 4,
-    "controls": "Arrows / WASD",
-    "overlayText": "",
+    "bestTile": 2,
+    "controls": "Controls: Arrow keys or W A S D",
+    "statusText": "Use arrow keys or WASD to play",
     "nonZeroTiles": 2,
     "restartVisible": true
   },
@@ -38,51 +38,18 @@
     {
       "key": "ArrowUp",
       "beforeTiles": 2,
-      "afterTiles": 3,
+      "afterTiles": 2,
       "beforeScore": 0,
-      "afterScore": 0,
-      "board": [
-        [
-          2,
-          0,
-          4,
-          0
-        ],
-        [
-          0,
-          0,
-          2,
-          0
-        ],
-        [
-          0,
-          0,
-          0,
-          0
-        ],
-        [
-          0,
-          0,
-          0,
-          0
-        ]
-      ]
-    },
-    {
-      "key": "ArrowRight",
-      "beforeTiles": 3,
-      "afterTiles": 4,
-      "beforeScore": 0,
-      "afterScore": 0,
+      "afterScore": 4,
       "board": [
         [
           0,
           0,
-          2,
+          0,
           4
         ],
         [
-          2,
+          0,
           0,
           0,
           2
@@ -103,42 +70,9 @@
     },
     {
       "key": "ArrowDown",
-      "beforeTiles": 4,
-      "afterTiles": 5,
-      "beforeScore": 0,
-      "afterScore": 0,
-      "board": [
-        [
-          0,
-          0,
-          0,
-          0
-        ],
-        [
-          0,
-          0,
-          0,
-          0
-        ],
-        [
-          0,
-          2,
-          0,
-          4
-        ],
-        [
-          2,
-          0,
-          2,
-          2
-        ]
-      ]
-    },
-    {
-      "key": "ArrowLeft",
-      "beforeTiles": 5,
-      "afterTiles": 5,
-      "beforeScore": 0,
+      "beforeTiles": 2,
+      "afterTiles": 3,
+      "beforeScore": 4,
       "afterScore": 4,
       "board": [
         [
@@ -154,23 +88,23 @@
           0
         ],
         [
-          2,
-          4,
           0,
-          2
+          0,
+          0,
+          4
         ],
         [
-          4,
+          0,
           2,
           0,
-          0
+          2
         ]
       ]
     }
   ],
   "spawnVerified": true,
   "mergeVerified": true,
-  "autoplaySteps": 248,
+  "autoplaySteps": 243,
   "gameOverReached": true,
   "preRestartState": {
     "title": "game-2048",
@@ -178,32 +112,32 @@
       [
         2,
         32,
-        4,
-        2
-      ],
-      [
-        8,
-        2,
-        8,
+        64,
         256
       ],
       [
-        32,
-        64,
-        128,
-        4
+        4,
+        8,
+        16,
+        64
       ],
       [
-        2,
-        8,
+        16,
         4,
-        2
+        8,
+        32
+      ],
+      [
+        4,
+        2,
+        4,
+        16
       ]
     ],
-    "score": 3092,
+    "score": 2804,
     "bestTile": 256,
-    "controls": "Arrows / WASD",
-    "overlayText": "Game overNo moves remain. Try again.",
+    "controls": "Controls: Arrow keys or W A S D",
+    "statusText": "Game over",
     "nonZeroTiles": 16,
     "restartVisible": true
   },
@@ -212,33 +146,33 @@
     "board": [
       [
         0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        0
-      ],
-      [
         2,
         0,
+        0
+      ],
+      [
         0,
-        2
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        4
+      ],
+      [
+        0,
+        0,
+        0,
+        0
       ]
     ],
     "score": 0,
-    "bestTile": 2,
-    "controls": "Arrows / WASD",
-    "overlayText": "",
+    "bestTile": 4,
+    "controls": "Controls: Arrow keys or W A S D",
+    "statusText": "Use arrow keys or WASD to play",
     "nonZeroTiles": 2,
     "restartVisible": true
   }
