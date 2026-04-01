@@ -44,8 +44,25 @@ The capstone task is fixed:
 - through a real conversation and turn sequence, have `Fenix` build a
   browser-based React `2048` game
 
+For multi-turn provider-backed capstone runs, prefer a full-window selector
+such as `candidate:openrouter/openai-gpt-5.4`. The
+`openai-gpt-5.4-live-acceptance` profile remains useful for short smoke
+validation, but it is intentionally too small for a realistic coding-agent
+capstone once prompt sections, tool surface, and turn history accumulate.
+
 The final application must be runnable from the host machine using the mounted
 workspace contents in `tmp/fenix`.
+
+The current runtime contract baseline for this acceptance is
+`agent-program/2026-04-01`. Manual validation, proof capture, and any helper
+scripts used during the run must read the sectioned envelope shape:
+
+- `task`
+- `conversation_projection`
+- `capability_projection`
+- `provider_context`
+- `runtime_context`
+- `task_payload`
 
 ## Hard Requirements
 
@@ -56,6 +73,16 @@ workspace contents in `tmp/fenix`.
 - the Docker container must mount the workspace to
   `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix`
 - the development server must be reachable from the host machine
+- after external registration returns the runtime machine credential, start the
+  persistent runtime worker inside the Docker container with the same
+  `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_MACHINE_CREDENTIAL`
+- the runtime worker must include both the mailbox control loop and the local
+  Solid Queue workers, for example via `bin/runtime-worker` or an equivalent
+  pair of `bin/jobs start` plus `bin/rails runtime:control_loop_forever`
+- only one runtime-worker / Solid Queue worker set may run for a given
+  Dockerized `Fenix` runtime at a time; registry-backed browser, command, and
+  process handles are runtime-local in-memory state and do not survive
+  duplicate worker pools
 
 ### Agent Behavior
 
@@ -63,6 +90,8 @@ workspace contents in `tmp/fenix`.
 - `Core Matrix` must execute the repeated provider-backed loop
 - `Fenix` must provide prompt preparation and program-owned tool execution
   through the published runtime endpoints
+- the run must use the sectioned runtime contract above; no legacy flat
+  `agent_context`, `context_messages`, or `program_tools` payloads may be used
 - the work must use the real tool surface rather than offline file injection
 - the work must be eligible to use installed skills and subagents
 - the run must leave proof that subagent work actually happened when the agent
@@ -110,6 +139,8 @@ Every capstone run must produce a proof package containing at least:
     and how a human can collaborate with it more effectively
 - `runtime-and-deployment.md`
   - how `Core Matrix` and Dockerized `Fenix` were started
+  - must explicitly record how the runtime worker and queue worker were started
+    after registration
 - `workspace-artifacts.md`
   - final source-tree location, start command, and run URL
 - `playability-verification.md`
@@ -137,6 +168,17 @@ Minimum manual verification:
 - verify score changes when merges occur
 - verify game-over behavior
 - verify restart or new-game behavior
+
+Verification notes:
+
+- use browser session tools or a host-side browser for local playability
+  checks; `web_fetch` is not an acceptable substitute for loopback or other
+  private development URLs because those destinations are intentionally
+  blocked by the web tool runtime
+- if the mounted workspace contains container-built `node_modules` or other
+  platform-specific dependency artifacts, the operator may remove and
+  reinstall those dependencies on the host before host-side verification; the
+  proof package must record that step
 
 Recommended stronger verification:
 
@@ -172,6 +214,8 @@ The capstone run passes only if all of the following are true:
 - `Fenix` completes the workload through the real conversation and turn path
 - per-turn DAG and conversation-state records are complete
 - the final application is present under `tmp/fenix`
+- runtime-generated memory, prompts, and conversation-local artifacts may live
+  under the deployment namespace inside `tmp/fenix/.fenix/deployments/...`
 - the game is actually playable by a human
 - the proof package is complete, including chat transcript and collaboration
   notes

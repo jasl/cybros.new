@@ -9,6 +9,7 @@
   "conversation_id": "conversation-public-id",
   "turn_id": "turn-public-id",
   "response_payload": {
+    "status": "ok",
     "messages": [
       {
         "role": "system"
@@ -20,7 +21,7 @@
         "role": "user"
       }
     ],
-    "program_tools": [
+    "tool_surface": [
       {
         "tool_name": "compact_context"
       },
@@ -34,7 +35,7 @@
         "tool_name": "calculator"
       }
     ],
-    "likely_model": "gpt-4.1-mini",
+    "summary_artifacts": [],
     "trace": [
       {
         "hook": "prepare_turn"

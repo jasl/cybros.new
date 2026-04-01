@@ -38,7 +38,7 @@ module Workflows
     private
 
     def default_messages(workflow_node)
-      workflow_node.workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+      workflow_node.workflow_run.execution_snapshot.conversation_projection.fetch("messages", []).map { |entry| entry.slice("role", "content") }
     end
 
     def complete_coordination_node!(workflow_node)

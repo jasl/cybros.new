@@ -191,47 +191,80 @@ module ActiveSupport
     end
 
     def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context, conversation_id: nil)
+      conversation_public_id = conversation_id || "conversation-#{SecureRandom.uuid}"
+      turn_public_id = "turn-#{SecureRandom.uuid}"
+      workflow_run_public_id = "workflow-#{SecureRandom.uuid}"
+      workflow_node_public_id = "node-#{SecureRandom.uuid}"
+      agent_task_run_public_id = "task-#{SecureRandom.uuid}"
+      logical_work_id = "logical-work-#{SecureRandom.uuid}"
+
       {
         "item_id" => "mailbox-item-#{SecureRandom.uuid}",
         "protocol_message_id" => "kernel-assignment-#{SecureRandom.uuid}",
-        "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
+        "logical_work_id" => logical_work_id,
         "attempt_no" => 1,
         "runtime_plane" => runtime_plane,
         "payload" => {
-          "agent_task_run_id" => "task-#{SecureRandom.uuid}",
-          "workflow_run_id" => "workflow-#{SecureRandom.uuid}",
-          "workflow_node_id" => "node-#{SecureRandom.uuid}",
-          "conversation_id" => conversation_id || "conversation-#{SecureRandom.uuid}",
-          "turn_id" => "turn-#{SecureRandom.uuid}",
-          "kind" => "turn_step",
+          "protocol_version" => "agent-program/2026-04-01",
+          "request_kind" => "execution_assignment",
+          "task" => {
+            "agent_task_run_id" => agent_task_run_public_id,
+            "workflow_run_id" => workflow_run_public_id,
+            "workflow_node_id" => workflow_node_public_id,
+            "conversation_id" => conversation_public_id,
+            "turn_id" => turn_public_id,
+            "kind" => "turn_step",
+          },
+          "conversation_projection" => {
+            "messages" => context_messages,
+            "context_imports" => [],
+            "prior_tool_results" => [],
+            "projection_fingerprint" => "sha256:test-#{SecureRandom.uuid}",
+          },
+          "capability_projection" => {
+            "tool_surface" => Array(agent_context.fetch("allowed_tool_names", [])).map { |tool_name| { "tool_name" => tool_name } },
+            "profile_key" => agent_context.fetch("profile", "main"),
+            "is_subagent" => agent_context.fetch("is_subagent", false),
+            "subagent_session_id" => agent_context["subagent_session_id"],
+            "parent_subagent_session_id" => agent_context["parent_subagent_session_id"],
+            "subagent_depth" => agent_context["subagent_depth"],
+            "owner_conversation_id" => agent_context["owner_conversation_id"],
+            "subagent_policy" => {},
+          }.compact,
+          "provider_context" => {
+            "budget_hints" => {
+              "hard_limits" => {
+                "context_window_tokens" => 1_000_000,
+                "max_output_tokens" => 128_000,
+              },
+              "advisory_hints" => {
+                "recommended_compaction_threshold" => 120,
+              },
+            }.deep_merge(budget_hints),
+            "provider_execution" => {
+              "wire_api" => "responses",
+              "execution_settings" => {
+                "temperature" => 0.2,
+              },
+            }.merge(provider_execution),
+            "model_context" => {
+              "provider_handle" => "openai",
+              "model_ref" => "gpt-4.1-mini",
+              "api_model" => "gpt-4.1-mini",
+              "wire_api" => "responses",
+              "transport" => "http",
+              "tokenizer_hint" => "o200k_base",
+              "provider_metadata" => {},
+              "model_metadata" => {},
+            }.merge(model_context),
+          },
+          "runtime_context" => {
+            "runtime_plane" => runtime_plane,
+            "logical_work_id" => logical_work_id,
+            "attempt_no" => 1,
+            "deployment_public_id" => "deployment-public-id",
+          },
           "task_payload" => { "mode" => mode, "expression" => "2 + 2" }.merge(task_payload),
-          "context_messages" => context_messages,
-          "budget_hints" => {
-            "hard_limits" => {
-              "context_window_tokens" => 1_000_000,
-              "max_output_tokens" => 128_000,
-            },
-            "advisory_hints" => {
-              "recommended_compaction_threshold" => 120,
-            },
-          }.deep_merge(budget_hints),
-          "agent_context" => agent_context,
-          "provider_execution" => {
-            "wire_api" => "responses",
-            "execution_settings" => {
-              "temperature" => 0.2,
-            },
-          }.merge(provider_execution),
-          "model_context" => {
-            "provider_handle" => "openai",
-            "model_ref" => "gpt-4.1-mini",
-            "api_model" => "gpt-4.1-mini",
-            "wire_api" => "responses",
-            "transport" => "http",
-            "tokenizer_hint" => "o200k_base",
-            "provider_metadata" => {},
-            "model_metadata" => {},
-          }.merge(model_context),
         },
       }
     end

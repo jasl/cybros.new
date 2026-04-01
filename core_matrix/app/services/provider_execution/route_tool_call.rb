@@ -30,7 +30,7 @@ module ProviderExecution
           tool_invocation: invocation,
           result: invocation.succeeded? ? invocation.response_payload : { "error" => invocation.error_payload }
         )
-      when "agent", "kernel"
+      when "agent", "kernel", "execution_environment"
         provision = ToolInvocations::Provision.call(
           tool_binding: binding,
           request_payload: {
@@ -45,7 +45,7 @@ module ProviderExecution
         return existing_result(binding:, invocation:) unless provision.created
 
         response = @program_exchange.execute_program_tool(payload: execute_program_tool_payload(invocation:))
-        if response.fetch("status") == "completed"
+        if response.fetch("status") == "ok"
           ToolInvocations::Complete.call(
             tool_invocation: invocation,
             response_payload: response.fetch("result"),
@@ -60,14 +60,14 @@ module ProviderExecution
         else
           ToolInvocations::Fail.call(
             tool_invocation: invocation,
-            error_payload: response.fetch("error"),
+            error_payload: response.fetch("failure"),
             metadata: tool_execution_metadata(response)
           )
           Result.new(
             tool_call: @tool_call,
             tool_binding: binding,
             tool_invocation: invocation.reload,
-            result: { "error" => response.fetch("error") }
+            result: { "error" => response.fetch("failure") }
           )
         end
       when "core_matrix"
@@ -128,22 +128,44 @@ module ProviderExecution
     end
 
     def execute_program_tool_payload(invocation:)
+      capability_projection = @workflow_node.workflow_run.execution_snapshot.capability_projection
+      tool_surface = capability_projection.fetch("tool_surface", []).select do |entry|
+        entry.fetch("tool_name") == @tool_call.fetch("tool_name")
+      end
+
       {
-        "conversation_id" => @workflow_node.conversation.public_id,
-        "turn_id" => @workflow_node.turn.public_id,
-        "workflow_node_id" => @workflow_node.public_id,
-        "agent_task_run_id" => invocation.agent_task_run&.public_id,
-        "tool_call_id" => @tool_call.fetch("call_id"),
-        "tool_name" => @tool_call.fetch("tool_name"),
-        "arguments" => @tool_call.fetch("arguments", {}),
-        "agent_context" => @workflow_node.workflow_run.execution_snapshot.agent_context,
-        "provider_execution" => @workflow_node.workflow_run.provider_execution,
-        "model_context" => @workflow_node.workflow_run.model_context,
-        "runtime_identity" => {
+        "protocol_version" => "agent-program/2026-04-01",
+        "request_kind" => "execute_program_tool",
+        "task" => {
+          "workflow_node_id" => @workflow_node.public_id,
+          "conversation_id" => @workflow_node.conversation.public_id,
+          "turn_id" => @workflow_node.turn.public_id,
+          "kind" => "turn_step",
+        },
+        "capability_projection" => capability_projection.merge(
+          "tool_surface" => tool_surface
+        ),
+        "provider_context" => {
+          "provider_execution" => @workflow_node.workflow_run.provider_execution,
+          "model_context" => @workflow_node.workflow_run.model_context,
+        },
+        "runtime_context" => {
+          "runtime_plane" => "agent",
+          "logical_work_id" => "program-tool:#{@workflow_node.public_id}:#{@tool_call.fetch("call_id")}",
+          "attempt_no" => 1,
           "deployment_public_id" => @workflow_node.turn.agent_deployment.public_id,
         },
-        "tool_invocation" => {
-          "tool_invocation_id" => invocation.public_id,
+        "program_tool_call" => {
+          "call_id" => @tool_call.fetch("call_id"),
+          "tool_name" => @tool_call.fetch("tool_name"),
+          "arguments" => @tool_call.fetch("arguments", {}),
+        },
+        "runtime_resource_refs" => {
+          "tool_invocation" => {
+            "tool_invocation_id" => invocation.public_id,
+          },
+          "command_run" => nil,
+          "process_run" => nil,
         },
       }.compact
     end
@@ -151,7 +173,7 @@ module ProviderExecution
     def tool_execution_metadata(response)
       {
         "fenix" => {
-          "summary" => response["summary"],
+          "summary_artifacts" => response["summary_artifacts"],
           "output_chunks" => response["output_chunks"],
         }.compact,
       }

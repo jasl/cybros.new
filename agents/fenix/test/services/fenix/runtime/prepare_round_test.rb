@@ -5,7 +5,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     Dir.mktmpdir("fenix-prepare-round-workspace-") do |tmpdir|
       workspace_root = Pathname(tmpdir)
       with_workspace_root(workspace_root) do
-        deployment_public_id = high_budget_prepare_round_payload.dig("runtime_identity", "deployment_public_id")
+        deployment_public_id = high_budget_prepare_round_payload.dig("runtime_context", "deployment_public_id")
         Fenix::Workspace::Bootstrap.call(
           workspace_root: workspace_root,
           conversation_id: "conversation-public-id",
@@ -30,14 +30,14 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     end
   end
 
-  test "bootstraps runtime state under the deployment namespace when runtime identity is present" do
+  test "bootstraps runtime state under the deployment namespace when runtime context is present" do
     Dir.mktmpdir("fenix-prepare-round-workspace-") do |tmpdir|
       workspace_root = Pathname(tmpdir)
       with_workspace_root(workspace_root) do
         payload = high_budget_prepare_round_payload.merge(
-          "runtime_identity" => {
+          "runtime_context" => high_budget_prepare_round_payload.fetch("runtime_context").merge(
             "deployment_public_id" => "deployment-public-id",
-          }
+          )
         )
 
         Fenix::Runtime::PrepareRound.call(payload:)
@@ -59,13 +59,18 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
         body: "Always record findings in a scratchpad before editing.\n"
       )
 
-      payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item_v1").fetch("payload").merge(
-        "transcript" => [
-          {
-            "role" => "user",
-            "content" => "Use $portable-notes while you work on this task.",
-          },
-        ],
+      payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload").merge(
+        "conversation_projection" => {
+          "messages" => [
+            {
+              "role" => "user",
+              "content" => "Use $portable-notes while you work on this task.",
+            },
+          ],
+          "context_imports" => [],
+          "prior_tool_results" => [],
+          "projection_fingerprint" => "sha256:test",
+        },
       )
 
       result = Fenix::Runtime::PrepareRound.call(payload:)
@@ -77,7 +82,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     end
   end
 
-  test "returns prepared messages and profile-visible program tools" do
+  test "returns prepared messages and profile-visible tool surface" do
     result = Fenix::Runtime::PrepareRound.call(payload: high_budget_prepare_round_payload)
 
     first_message = result.fetch("messages").first
@@ -85,21 +90,24 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     assert_equal "system", first_message.fetch("role")
     assert_includes first_message.fetch("content"), "You are Fenix, the default agent runtime for Core Matrix."
     assert_equal default_context_messages, result.fetch("messages").drop(1)
-    assert_equal "gpt-4.1-mini", result.fetch("likely_model")
+    assert_equal "ok", result.fetch("status")
     assert_equal %w[compact_context estimate_messages estimate_tokens calculator],
-      result.fetch("program_tools").map { |entry| entry.fetch("tool_name") }
+      result.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
+    assert_equal [], result.fetch("summary_artifacts")
     assert_equal %w[prepare_turn compact_context], result.fetch("trace").map { |entry| entry.fetch("hook") }
   end
 
   test "does not fold prior tool results into the prepared transcript messages" do
     payload = high_budget_prepare_round_payload.merge(
-      "prior_tool_results" => [
-        {
-          "tool_call_id" => "tool-call-1",
-          "tool_name" => "calculator",
-          "result" => { "value" => 4 },
-        },
-      ]
+      "conversation_projection" => high_budget_prepare_round_payload.fetch("conversation_projection").merge(
+        "prior_tool_results" => [
+          {
+            "call_id" => "tool-call-1",
+            "tool_name" => "calculator",
+            "result" => { "value" => 4 },
+          },
+        ]
+      )
     )
 
     result = Fenix::Runtime::PrepareRound.call(payload:)
@@ -118,16 +126,16 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
   end
 
   def high_budget_prepare_round_payload
-    shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item_v1").fetch("payload").merge(
-      "budget_hints" => {
-        "hard_limits" => {
-          "context_window_tokens" => 1_000_000,
-          "max_output_tokens" => 128_000,
-        },
-        "advisory_hints" => {
-          "recommended_compaction_threshold" => 900_000,
-        },
-      }
-    )
+    payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload")
+    payload["provider_context"]["budget_hints"] = {
+      "hard_limits" => {
+        "context_window_tokens" => 1_000_000,
+        "max_output_tokens" => 128_000,
+      },
+      "advisory_hints" => {
+        "recommended_compaction_threshold" => 900_000,
+      },
+    }
+    payload
   end
 end

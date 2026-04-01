@@ -1,4 +1,6 @@
 class RuntimeCapabilityContract
+  DEFAULT_SUBAGENT_PROFILE_ALIAS = "default"
+
   RESERVED_SUBAGENT_TOOL_NAMES = %w[
     subagent_spawn
     subagent_send

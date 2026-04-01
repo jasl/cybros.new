@@ -68,7 +68,7 @@ module Fenix
           cancellation_probe: @cancellation_probe
         )
 
-        return result if result.fetch("status") == "completed"
+        return result if result.fetch("status") == "ok"
 
         raise ToolExecutionFailed.new(result.fetch("error"))
       end
@@ -88,6 +88,8 @@ module Fenix
       end
 
       def base_report(method_id)
+        task = request_payload.fetch("task").deep_stringify_keys
+
         {
           "method_id" => method_id,
           "protocol_message_id" => "fenix-#{method_id}-#{SecureRandom.uuid}",
@@ -96,16 +98,16 @@ module Fenix
           "attempt_no" => @mailbox_item.fetch("attempt_no"),
           "runtime_plane" => @mailbox_item.fetch("runtime_plane"),
           "request_kind" => request_kind,
-          "workflow_node_id" => request_payload["workflow_node_id"],
-          "conversation_id" => request_payload["conversation_id"],
-          "turn_id" => request_payload["turn_id"],
+          "workflow_node_id" => task["workflow_node_id"],
+          "conversation_id" => task["conversation_id"],
+          "turn_id" => task["turn_id"],
         }.compact
       end
 
       def completed_response?(response_payload)
         return true unless request_kind == "execute_program_tool"
 
-        response_payload.fetch("status") == "completed"
+        response_payload.fetch("status") == "ok"
       end
 
       def build_error_payload(error)

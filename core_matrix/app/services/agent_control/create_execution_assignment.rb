@@ -3,12 +3,14 @@ require "securerandom"
 module AgentControl
   class CreateExecutionAssignment
     ENVELOPE_KEYS = %w[
+      protocol_version
+      request_kind
+      task
+      conversation_projection
+      capability_projection
+      provider_context
+      runtime_context
       task_payload
-      context_messages
-      budget_hints
-      provider_execution
-      model_context
-      agent_context
     ].freeze
 
     def self.call(...)
@@ -68,21 +70,14 @@ module AgentControl
 
     def base_payload
       {
-        "agent_task_run_id" => @agent_task_run.public_id,
-        "workflow_run_id" => @agent_task_run.workflow_run.public_id,
-        "workflow_node_id" => @agent_task_run.workflow_node.public_id,
-        "conversation_id" => @agent_task_run.conversation.public_id,
-        "turn_id" => @agent_task_run.turn.public_id,
-        "kind" => @agent_task_run.kind,
+        "protocol_version" => "agent-program/2026-04-01",
+        "request_kind" => "execution_assignment",
+        "task" => task,
+        "conversation_projection" => conversation_projection,
+        "capability_projection" => capability_projection,
+        "provider_context" => provider_context,
+        "runtime_context" => runtime_context,
         "task_payload" => normalized_task_payload,
-        "context_messages" => execution_snapshot.context_messages,
-        "budget_hints" => execution_snapshot.budget_hints,
-        "provider_execution" => execution_snapshot.provider_execution,
-        "model_context" => execution_snapshot.model_context,
-        "agent_context" => execution_snapshot.agent_context,
-        "runtime_identity" => {
-          "deployment_public_id" => @agent_task_run.turn.agent_deployment.public_id,
-        },
       }
     end
 
@@ -95,6 +90,39 @@ module AgentControl
       return explicit_task_payload.deep_stringify_keys if explicit_task_payload.is_a?(Hash)
 
       @agent_task_run.task_payload.deep_stringify_keys
+    end
+
+    def task
+      {
+        "agent_task_run_id" => @agent_task_run.public_id,
+        "workflow_run_id" => @agent_task_run.workflow_run.public_id,
+        "workflow_node_id" => @agent_task_run.workflow_node.public_id,
+        "conversation_id" => @agent_task_run.conversation.public_id,
+        "turn_id" => @agent_task_run.turn.public_id,
+        "kind" => @agent_task_run.kind,
+      }
+    end
+
+    def conversation_projection
+      execution_snapshot.conversation_projection.merge(
+        "prior_tool_results" => Array(@payload["prior_tool_results"]).map { |entry| entry.deep_stringify_keys }
+      )
+    end
+
+    def capability_projection
+      execution_snapshot.capability_projection
+    end
+
+    def provider_context
+      execution_snapshot.provider_context
+    end
+
+    def runtime_context
+      execution_snapshot.runtime_context.merge(
+        "logical_work_id" => @agent_task_run.logical_work_id,
+        "attempt_no" => @agent_task_run.attempt_no,
+        "deployment_public_id" => @agent_task_run.turn.agent_deployment.public_id
+      )
     end
   end
 end

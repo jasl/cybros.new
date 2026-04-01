@@ -73,7 +73,7 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
           mode: "deterministic_tool",
           task_payload: { "tool_name" => "process_list" },
           agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
-        ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
       )
       listed_invocation = listed.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
       assert listed_invocation.dig("response_payload", "entries").any? { |entry| entry.fetch("process_run_id") == process_run_id }
@@ -86,7 +86,7 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
             "process_run_id" => process_run_id,
           },
           agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
-        ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
       )
       output_invocation = output.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
       assert_equal "process output\n", output_invocation.dig("response_payload", "stdout_tail")
@@ -99,7 +99,7 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
             "process_run_id" => process_run_id,
           },
           agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
-        ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
       )
       proxy_invocation = proxy_info.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
       assert_equal "/dev/#{process_run_id}", proxy_invocation.dig("response_payload", "proxy_path")
@@ -128,7 +128,7 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[process_list process_read_output]
       )
     )
-    mailbox_item.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    mailbox_item.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     Fenix::Processes::Manager.register(
       process_run_id: owned_process_run_id,
@@ -164,8 +164,8 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[process_list process_read_output]
         ),
-        conversation_id: mailbox_item.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: mailbox_item.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
 
     assert_equal "failed", foreign_read.status
@@ -176,7 +176,11 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
     [owned_stdin, owned_stdout, owned_stderr, foreign_stdin, foreign_stdout, foreign_stderr].each do |io|
       io&.close unless io.nil? || io.closed?
     end
-    Process.kill("KILL", owned_wait_thread.pid) if owned_wait_thread&.alive?
-    Process.kill("KILL", foreign_wait_thread.pid) if foreign_wait_thread&.alive?
+    begin
+      Process.kill("KILL", owned_wait_thread.pid) if owned_wait_thread&.alive?
+      Process.kill("KILL", foreign_wait_thread.pid) if foreign_wait_thread&.alive?
+    rescue Errno::ESRCH
+      nil
+    end
   end
 end

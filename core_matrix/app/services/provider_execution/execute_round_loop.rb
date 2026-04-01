@@ -76,7 +76,7 @@ module ProviderExecution
       )
       program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
         workflow_node: @workflow_node,
-        tool_catalog: prepared_round.fetch("program_tools")
+        tool_catalog: round_tool_catalog_for(prepared_round)
       ).pluck(:id)
       round_bindings = ToolBinding.where(
         id: (core_matrix_binding_ids + program_binding_ids).uniq
@@ -177,6 +177,15 @@ module ProviderExecution
             },
           }
         end
+      end
+    end
+
+    def round_tool_catalog_for(prepared_round)
+      visible_tool_surface = @workflow_run.execution_snapshot.capability_projection.fetch("tool_surface", [])
+      selected_tool_names = Array(prepared_round.fetch("tool_surface")).map { |entry| entry.fetch("tool_name") }
+
+      visible_tool_surface.select do |entry|
+        selected_tool_names.include?(entry.fetch("tool_name"))
       end
     end
 

@@ -9,23 +9,17 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
           "messages" => [
             { "role" => "assistant", "content" => "Round prepared" },
           ],
-          "program_tools" => [
+          "tool_surface" => [
             {
               "tool_name" => "workspace_write_file",
-              "tool_kind" => "effect_intent",
-              "implementation_source" => "agent",
-              "implementation_ref" => "fenix/runtime/workspace_write_file",
-              "input_schema" => { "type" => "object", "properties" => {} },
-              "result_schema" => { "type" => "object", "properties" => {} },
-              "streaming_support" => false,
-              "idempotency_policy" => "best_effort",
             },
           ],
-          "likely_model" => "gpt-5.4",
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ]
     )
-    transcript = context.fetch(:workflow_run).context_messages.map { |entry| entry.slice("role", "content") }
+    transcript = context.fetch(:workflow_run).conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
 
     response = ProviderExecution::PrepareProgramRound.call(
       workflow_node: context.fetch(:workflow_node),
@@ -37,18 +31,19 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
     request_payload = program_exchange.prepare_round_requests.last
 
     assert_equal "Round prepared", response.fetch("messages").last.fetch("content")
-    assert_equal "workspace_write_file", response.fetch("program_tools").first.fetch("tool_name")
-    assert_equal context.fetch(:conversation).public_id, request_payload.fetch("conversation_id")
-    assert_equal context.fetch(:workflow_node).public_id, request_payload.fetch("workflow_node_id")
-    assert_equal transcript, request_payload.fetch("transcript")
-    assert_equal context.fetch(:workflow_run).context_imports, request_payload.fetch("context_imports")
-    assert_equal context.fetch(:workflow_run).budget_hints, request_payload.fetch("budget_hints")
-    assert_equal context.fetch(:workflow_run).provider_execution, request_payload.fetch("provider_execution")
-    assert_equal context.fetch(:workflow_run).model_context, request_payload.fetch("model_context")
-    assert_equal context.fetch(:workflow_run).execution_snapshot.agent_context, request_payload.fetch("agent_context")
+    assert_equal "workspace_write_file", response.fetch("tool_surface").first.fetch("tool_name")
+    assert_equal context.fetch(:conversation).public_id, request_payload.fetch("task").fetch("conversation_id")
+    assert_equal context.fetch(:workflow_node).public_id, request_payload.fetch("task").fetch("workflow_node_id")
+    assert_equal transcript, request_payload.fetch("conversation_projection").fetch("messages")
+    assert_equal context.fetch(:workflow_run).context_imports, request_payload.fetch("conversation_projection").fetch("context_imports")
+    assert_equal [], request_payload.fetch("conversation_projection").fetch("prior_tool_results")
+    assert_equal context.fetch(:workflow_run).provider_context, request_payload.fetch("provider_context")
+    assert_equal "main", request_payload.fetch("capability_projection").fetch("profile_key")
+    assert_includes request_payload.fetch("capability_projection").fetch("tool_surface").map { |entry| entry.fetch("tool_name") }, "exec_command"
     assert_equal(
       { "deployment_public_id" => context.fetch(:deployment).public_id },
-      request_payload.fetch("runtime_identity")
+      request_payload.fetch("runtime_context").slice("deployment_public_id")
     )
+    assert_equal "prepare-round:#{context.fetch(:workflow_node).public_id}", request_payload.fetch("runtime_context").fetch("logical_work_id")
   end
 end

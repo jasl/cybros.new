@@ -64,7 +64,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       resolved_config_snapshot: {
         "temperature" => 0.4,
       },
-      catalog: catalog
+      catalog: catalog,
+      tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
     )
     program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
@@ -186,7 +187,9 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
-          "program_tools" => [round_budget_calculator_tool_entry],
+          "tool_surface" => [round_budget_calculator_tool_entry],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ]
     )
@@ -299,20 +302,25 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           "max_rounds" => 1,
         },
       },
-      catalog: catalog
+      catalog: catalog,
+      tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
     program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
-          "program_tools" => [round_budget_calculator_tool_entry],
+          "tool_surface" => [round_budget_calculator_tool_entry],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ],
       program_tool_results: {
         "call-calculator-1" => {
-          "status" => "completed",
+          "status" => "ok",
           "result" => { "value" => 4 },
+          "output_chunks" => [],
+          "summary_artifacts" => [],
         },
       }
     )

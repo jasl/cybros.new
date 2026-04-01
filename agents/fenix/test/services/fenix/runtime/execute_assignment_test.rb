@@ -141,7 +141,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
       )
     )
-    exec_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    exec_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     started = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: exec_payload, control_client: control_client)
 
@@ -170,7 +170,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
       )
     )
-    write_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    write_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     finished = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: write_payload, control_client: control_client)
 
@@ -194,7 +194,11 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_equal 6, completed_invocation.dig("response_payload", "stdout_bytes")
     refute completed_invocation.fetch("response_payload").key?("stdout")
     refute completed_invocation.fetch("response_payload").key?("stderr")
-    assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
+    released_snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id: command_run_id)
+    assert_equal "stopped", released_snapshot.fetch("lifecycle_state")
+    assert_equal true, released_snapshot.fetch("session_closed")
+    assert_equal 0, released_snapshot.fetch("exit_status")
+    assert_equal "hello\n", released_snapshot.fetch("stdout_tail")
     assert_process_terminated(attached_pid)
   end
 
@@ -214,7 +218,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
       )
     )
-    exec_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    exec_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     started = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: exec_payload, control_client: control_client)
     command_run_id = started.reports.last
@@ -251,7 +255,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
         )
       )
-      write_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+      write_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
       result = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: write_payload, control_client: control_client)
       assert_equal "completed", result.status
@@ -479,7 +483,7 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
 
   test "shared core matrix execution assignment fixture completes successfully through the runtime path" do
     result = Fenix::Runtime::ExecuteAssignment.call(
-      mailbox_item: shared_contract_fixture("core_matrix_fenix_execution_assignment_v1")
+      mailbox_item: shared_contract_fixture("core_matrix_fenix_execution_assignment")
     )
 
     assert_equal "completed", result.status

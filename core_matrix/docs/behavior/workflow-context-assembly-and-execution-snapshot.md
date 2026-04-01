@@ -33,13 +33,12 @@ freezes a per-turn execution snapshot that preserves:
   owns the runtime field readers and `to_h`.
 - The persisted execution snapshot currently freezes these top-level fields:
   - `identity`
-  - `model_context`
-  - `provider_execution`
-  - `budget_hints`
-  - `agent_context`
+  - `task`
+  - `conversation_projection`
+  - `capability_projection`
+  - `provider_context`
+  - `runtime_context`
   - `turn_origin`
-  - `context_messages`
-  - `context_imports`
   - `attachment_manifest`
   - `runtime_attachment_manifest`
   - `model_input_attachments`
@@ -64,7 +63,19 @@ freezes a per-turn execution snapshot that preserves:
 - automation-origin turns therefore assemble successfully even when they do not
   have a selected transcript-bearing input message
 
-## Model Context And Budget Hints
+## Task, Provider Context, And Budget Hints
+
+- `task` freezes the runtime work identity that was previously split across
+  mailbox payload extras:
+  - `conversation_id`
+  - `turn_id`
+  - selected-message ids when present
+  - origin/source reference metadata needed by downstream runtime code
+- `provider_context` freezes provider-qualified model metadata and loop
+  settings needed by later runtime pairing and local provider execution:
+  - `budget_hints`
+  - `provider_execution`
+  - `model_context`
 
 - `model_context` freezes provider-qualified model metadata needed by later
   runtime pairing and local provider execution:
@@ -94,56 +105,64 @@ freezes a per-turn execution snapshot that preserves:
 - `recommended_compaction_threshold` is derived from
   `context_window_tokens * context_soft_limit_ratio` and remains advisory only
 - `ProviderExecution::BuildRequestContext` now reads provider/model/budget
-  fields from `TurnExecutionSnapshot` instead of reopening aggregate helpers or
-  re-deriving request settings from a mixed snapshot blob
+  fields from `TurnExecutionSnapshot#provider_context` instead of reopening
+  aggregate helpers or re-deriving request settings from a mixed snapshot blob
 - `ProviderExecution::BuildRequestContext` returns a validated
   `ProviderRequestContext`, so request dispatch and persistence stages no
   longer decode provider context out of raw nested hashes
 - `Workflows::ExecuteRun` is the enqueue boundary for one runnable
   `turn_step` node, not the provider execution body itself
 - `Workflows::ExecuteNode` and `ProviderExecution::ExecuteTurnStep` read frozen
-  context messages from the execution snapshot when the caller does not
-  override messages
+  conversation messages from `execution_snapshot.conversation_projection` when
+  the caller does not override messages
 - provider-backed turn execution now keeps a stable public entrypoint
   (`ProviderExecution::ExecuteTurnStep`) but splits dispatch, freshness
   locking, and terminal persistence into narrower collaborators
 
-## Agent Context
+## Capability Projection
 
-- `agent_context` freezes the runtime-owned execution metadata that agent
-  programs consume directly:
-  - `profile`
+- `capability_projection` freezes the runtime-owned execution metadata that
+  agent programs consume directly:
+  - `tool_surface`
+  - `profile_key`
   - `is_subagent`
   - `subagent_session_id`
   - `parent_subagent_session_id`
   - `subagent_depth`
-  - `allowed_tool_names`
-- `profile` is resolved from the runtime-declared `profile_catalog` before the
-  turn executes
-- `allowed_tool_names` is the conversation-visible tool set for that turn and
+  - `owner_conversation_id`
+  - `subagent_policy`
+- `profile_key` is resolved from the runtime-declared `profile_catalog` before
+  the turn executes
+- `tool_surface` is the conversation-visible tool catalog for that turn and
   must be treated as an execution-time constraint, not as advisory trace data
 - `Workflows::BuildExecutionSnapshot` refreshes that conversation runtime
   contract through `Conversations::RefreshRuntimeContract`; services read the
   runtime contract through that boundary rather than through a convenience
   reader on `Conversation`
-- mailbox execution assignment creation copies `agent_context` from the frozen
-  execution snapshot rather than recomputing it later from mutable aggregates
+- mailbox execution assignment creation copies `capability_projection` from
+  the frozen execution snapshot rather than recomputing it later from mutable
+  aggregates
 
-## Context Messages And Imports
+## Conversation Projection And Imports
 
 - `Conversations::TranscriptProjection`,
   `Conversations::ContextProjection`, and
   `Conversations::HistoricalAnchorProjection` are the dedicated read-side
   projection collaborators for transcript and context assembly
-- `context_messages` are derived from `Conversations::ContextProjection`, not
-  from a global conversation DAG traversal or from aggregate-model helper
-  methods
+- `conversation_projection.messages` are derived from
+  `Conversations::ContextProjection`, not from a global conversation DAG
+  traversal or from aggregate-model helper methods
 - messages from the current conversation are bounded to the current turn path;
   later same-conversation turns are not pulled into the snapshot
 - selected output messages from earlier turns remain part of the assembled
   context when they are present in the current transcript path
-- `context_imports` are derived only from the current conversation's persisted
-  `ConversationImport` rows
+- `conversation_projection.context_imports` are derived only from the current
+  conversation's persisted `ConversationImport` rows
+- `conversation_projection.prior_tool_results` starts empty at snapshot time
+  and is later filled by provider-round preparation when earlier tool nodes are
+  part of the current round continuation
+- `conversation_projection.projection_fingerprint` is a deterministic digest of
+  the visible message and import projection used for downstream traceability
 - where imports reference externally meaningful resources such as conversations
   or messages, the snapshot emits those references as public ids
 - import rows that do not have their own `public_id` do not leak raw internal

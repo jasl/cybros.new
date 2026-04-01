@@ -120,14 +120,14 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       agent_task_run: agent_task_run,
       payload: {
         "task_payload" => agent_task_run.task_payload,
-        "agent_context" => { "profile" => "tampered" },
+        "capability_projection" => { "profile_key" => "tampered" },
       },
       dispatch_deadline_at: 5.minutes.from_now,
       execution_hard_deadline_at: 10.minutes.from_now
     )
 
-    assert_equal turn.execution_snapshot.agent_context, mailbox_item.payload.fetch("agent_context")
-    assert_equal "main", mailbox_item.payload.dig("agent_context", "profile")
+    assert_equal turn.execution_snapshot.capability_projection, mailbox_item.payload.fetch("capability_projection")
+    assert_equal "main", mailbox_item.payload.dig("capability_projection", "profile_key")
   end
 
   test "creates queued subagent step work and assignment when initial task parameters are provided" do
@@ -189,12 +189,10 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal "subagent_step", agent_task_run.kind
     assert_equal owner_turn, agent_task_run.origin_turn
     assert_equal({ "delivery_kind" => "subagent_spawn" }, agent_task_run.task_payload)
-    assert_equal turn.execution_snapshot.context_messages, mailbox_item.payload.fetch("context_messages")
-    assert_equal turn.execution_snapshot.budget_hints, mailbox_item.payload.fetch("budget_hints")
-    assert_equal turn.execution_snapshot.provider_execution, mailbox_item.payload.fetch("provider_execution")
-    assert_equal turn.execution_snapshot.model_context, mailbox_item.payload.fetch("model_context")
-    assert_equal "researcher", mailbox_item.payload.dig("agent_context", "profile")
-    assert_equal "subagent_step", mailbox_item.payload.fetch("kind")
+    assert_equal turn.execution_snapshot.conversation_projection.fetch("messages"), mailbox_item.payload.fetch("conversation_projection").fetch("messages")
+    assert_equal turn.execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
+    assert_equal "researcher", mailbox_item.payload.dig("capability_projection", "profile_key")
+    assert_equal "subagent_step", mailbox_item.payload.fetch("task").fetch("kind")
   end
 
   private

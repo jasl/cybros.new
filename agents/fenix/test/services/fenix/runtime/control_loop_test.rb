@@ -35,7 +35,7 @@ class Fenix::Runtime::ControlLoopTest < ActiveSupport::TestCase
 
     result = nil
 
-    mailbox_pump = ->(**_kwargs) { flunk "did not expect poll fallback" }
+    mailbox_pump = ->(**_kwargs) { [] }
     result = Fenix::Runtime::ControlLoop.call(
       session_factory: -> { -> { realtime_result } },
       mailbox_pump: mailbox_pump,
@@ -46,5 +46,32 @@ class Fenix::Runtime::ControlLoopTest < ActiveSupport::TestCase
     assert_equal "realtime", result.transport
     assert_equal realtime_result, result.realtime_result
     assert_equal realtime_mailbox_results, result.mailbox_results
+  end
+
+  test "polls after realtime work so a missed broadcast can still be recovered in the same loop" do
+    realtime_mailbox_results = ["realtime-result"]
+    realtime_result = Fenix::Runtime::RealtimeSession::Result.new(
+      status: "timed_out",
+      processed_count: 1,
+      subscription_confirmed: true,
+      mailbox_results: realtime_mailbox_results
+    )
+    poll_results = ["poll-result"]
+    received_kwargs = []
+
+    result = Fenix::Runtime::ControlLoop.call(
+      session_factory: -> { -> { realtime_result } },
+      mailbox_pump: lambda do |**kwargs|
+        received_kwargs << kwargs
+        poll_results
+      end,
+      control_client: :fake_control_client,
+      inline: true
+    )
+
+    assert_equal [{ limit: Fenix::Runtime::MailboxPump::DEFAULT_LIMIT, control_client: :fake_control_client, inline: true }], received_kwargs
+    assert_equal "realtime+poll", result.transport
+    assert_equal realtime_result, result.realtime_result
+    assert_equal realtime_mailbox_results + poll_results, result.mailbox_results
   end
 end

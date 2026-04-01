@@ -53,6 +53,58 @@ class WorkspaceFlowTest < ActiveSupport::TestCase
     assert_equal contents.bytesize, read_invocation.dig("response_payload", "bytes_read")
   end
 
+  test "workspace tools accept absolute paths that stay under the mounted root" do
+    workspace_root = Pathname.new(Fenix::Workspace::Layout.default_root)
+    relative_path = "notes/#{SecureRandom.hex(4)}.md"
+    absolute_path = workspace_root.join(relative_path).to_s
+    contents = "absolute workspace path\n"
+
+    write_result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "workspace_write",
+          "path" => absolute_path,
+          "content" => contents,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["workspace_write"]
+        )
+      )
+    )
+
+    write_invocation = write_result.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", write_result.status
+    assert_equal relative_path, write_invocation.dig("response_payload", "path")
+    assert_equal contents, workspace_root.join(relative_path).read
+
+    read_result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "workspace_read",
+          "path" => absolute_path,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["workspace_read"]
+        )
+      )
+    )
+
+    read_invocation = read_result.reports.last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+
+    assert_equal "completed", read_result.status
+    assert_equal contents, read_invocation.dig("response_payload", "file_content")
+    assert_equal relative_path, read_invocation.dig("response_payload", "path")
+  end
+
   test "workspace tools reject paths outside the mounted root" do
     result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_assignment_payload(

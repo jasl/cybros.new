@@ -98,10 +98,9 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: retried_task)
     execution_snapshot = context[:turn].reload.execution_snapshot
 
-    assert_equal execution_snapshot.context_messages, mailbox_item.payload["context_messages"]
-    assert_equal execution_snapshot.budget_hints, mailbox_item.payload["budget_hints"]
-    assert_equal execution_snapshot.provider_execution, mailbox_item.payload["provider_execution"]
-    assert_equal execution_snapshot.model_context, mailbox_item.payload["model_context"]
+    assert_equal execution_snapshot.conversation_projection, mailbox_item.payload["conversation_projection"]
+    assert_equal execution_snapshot.capability_projection, mailbox_item.payload["capability_projection"]
+    assert_equal execution_snapshot.provider_context, mailbox_item.payload["provider_context"]
   end
 
   test "rejects retry when the turn has already been interrupted" do

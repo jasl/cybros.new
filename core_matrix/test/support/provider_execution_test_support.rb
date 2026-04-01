@@ -16,8 +16,13 @@ module ProviderExecutionTestSupport
       @prepare_round_requests << payload
 
       round = @prepared_rounds.shift || {
-        "messages" => payload.fetch("transcript"),
-        "program_tools" => [],
+        "status" => "ok",
+        "messages" => payload.fetch("conversation_projection").fetch("messages"),
+        "tool_surface" => payload.fetch("capability_projection").fetch("tool_surface", []).select do |entry|
+          entry.fetch("implementation_source", nil) != "core_matrix"
+        end,
+        "summary_artifacts" => [],
+        "trace" => [],
       }
       deep_copy(round)
     end
@@ -26,12 +31,19 @@ module ProviderExecutionTestSupport
       payload = payload.deep_stringify_keys
       @execute_program_tool_requests << payload
 
-      responder = @program_tool_results[payload["tool_call_id"]] || @program_tool_results[payload["tool_name"]]
+      responder =
+        @program_tool_results.dig("program_tool_call", payload.dig("program_tool_call", "call_id")) ||
+        @program_tool_results[payload.dig("program_tool_call", "call_id")] ||
+        @program_tool_results[payload.dig("program_tool_call", "tool_name")] ||
+        @program_tool_results[payload["tool_call_id"]] ||
+        @program_tool_results[payload["tool_name"]]
       response = responder.respond_to?(:call) ? responder.call(payload: payload) : responder
 
       deep_copy(response || {
-        "status" => "completed",
+        "status" => "ok",
         "result" => {},
+        "output_chunks" => [],
+        "summary_artifacts" => [],
       })
     end
 
@@ -190,12 +202,16 @@ module ProviderExecutionTestSupport
     build_test_provider_catalog_from(catalog_definition)
   end
 
-  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog)
+  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog, tool_catalog: nil, profile_catalog: nil)
     workflow_run = nil
 
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
-      capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
+      capability_snapshot = create_capability_snapshot!(
+        agent_deployment: context[:agent_deployment],
+        tool_catalog: tool_catalog || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
+        profile_catalog: profile_catalog || {}
+      )
       context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
       ProviderEntitlement.create!(
         installation: context[:installation],
@@ -245,7 +261,20 @@ module ProviderExecutionTestSupport
   end
 
   def turn_step_messages_for(workflow_run)
-    workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+    workflow_run.execution_snapshot.conversation_projection.fetch("messages", []).map { |entry| entry.slice("role", "content") }
+  end
+
+  def default_agent_observation_tool_entry(tool_name)
+    {
+      "tool_name" => tool_name,
+      "tool_kind" => "agent_observation",
+      "implementation_source" => "agent",
+      "implementation_ref" => "fenix/runtime/#{tool_name}",
+      "input_schema" => { "type" => "object", "properties" => {} },
+      "result_schema" => { "type" => "object", "properties" => {} },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
   end
 
   def build_provider_chat_result(

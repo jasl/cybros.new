@@ -9,13 +9,22 @@ module Fenix
       # horizontally scalable cross-host workloads.
       REGISTRY_BACKED_TOOL_NAMES = %w[
         exec_command
+        command_run_list
+        command_run_read_output
+        command_run_terminate
+        command_run_wait
         write_stdin
+        browser_list
         browser_open
+        browser_session_info
         browser_navigate
         browser_get_content
         browser_screenshot
         browser_close
         process_exec
+        process_list
+        process_proxy_info
+        process_read_output
       ].freeze
       RUNTIME_PREPARE_ROUND_QUEUE = TOPOLOGY.dig("queues", "prepare_round", "name").freeze
       RUNTIME_PURE_TOOLS_QUEUE = TOPOLOGY.dig("queues", "pure_tools", "name").freeze
@@ -73,7 +82,10 @@ module Fenix
           when "prepare_round"
             RUNTIME_PREPARE_ROUND_QUEUE
           when "execute_program_tool"
-            tool_queue_name(mailbox_item.dig("payload", "tool_name"))
+            tool_queue_name(
+              mailbox_item.dig("payload", "program_tool_call", "tool_name") ||
+              mailbox_item.dig("payload", "tool_name")
+            )
           else
             RUNTIME_CONTROL_QUEUE
           end

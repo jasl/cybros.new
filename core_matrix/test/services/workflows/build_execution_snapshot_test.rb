@@ -102,17 +102,25 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal 900_000, snapshot.budget_hints.fetch("advisory_hints").fetch("recommended_compaction_threshold")
     assert_equal "User", snapshot.turn_origin.fetch("source_ref_type")
     assert_equal context[:user].public_id, snapshot.turn_origin.fetch("source_ref_id")
+    assert_equal conversation.public_id, snapshot.task.fetch("conversation_id")
+    assert_equal current_turn.public_id, snapshot.task.fetch("turn_id")
     assert_equal(
       [
         previous_turn.selected_input_message.public_id,
         previous_output.public_id,
         current_turn.selected_input_message.public_id,
       ],
-      snapshot.context_messages.map { |message| message.fetch("message_id") }
+      snapshot.conversation_projection.fetch("messages").map { |message| message.fetch("message_id") }
     )
-    assert_equal ["quoted_context"], snapshot.context_imports.map { |item| item.fetch("kind") }
-    assert_equal conversation.public_id, snapshot.context_imports.first.fetch("source_conversation_id")
-    assert_equal "Earlier summary", snapshot.context_imports.first.fetch("content")
+    assert_equal ["quoted_context"], snapshot.conversation_projection.fetch("context_imports").map { |item| item.fetch("kind") }
+    assert_equal conversation.public_id, snapshot.conversation_projection.fetch("context_imports").first.fetch("source_conversation_id")
+    assert_equal "Earlier summary", snapshot.conversation_projection.fetch("context_imports").first.fetch("content")
+    assert_equal "main", snapshot.capability_projection.fetch("profile_key")
+    assert_equal false, snapshot.capability_projection.fetch("is_subagent")
+    assert_equal(
+      Conversations::RefreshRuntimeContract.call(conversation: conversation).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
+    )
     expected_attachment_ids = [unsupported_audio.public_id, supported_file.public_id].sort
 
     assert_equal expected_attachment_ids, snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
@@ -128,6 +136,34 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal [unsupported_audio.public_id], snapshot.attachment_diagnostics.map { |item| item.fetch("attachment_id") }
     assert_equal "unsupported_modality", snapshot.attachment_diagnostics.first.fetch("reason")
     refute_includes snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }, excluded_attachment.public_id
+  end
+
+  test "projects prior agent outputs as assistant messages for provider-facing transcript state" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    previous_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Earlier input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(previous_turn, content: "Earlier output")
+    current_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: current_turn)
+
+    assert_equal ["user", "assistant", "user"], snapshot.conversation_projection.fetch("messages").map { |message| message.fetch("role") }
   end
 
   test "builds automation turns without requiring a transcript-bearing input message" do
@@ -152,12 +188,13 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: turn)
 
-    assert_equal [], snapshot.context_messages
+    assert_equal [], snapshot.conversation_projection.fetch("messages")
     assert_equal "automation_schedule", snapshot.turn_origin.fetch("origin_kind")
     assert_equal({ "cron" => "0 9 * * *" }, snapshot.turn_origin.fetch("origin_payload"))
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal "codex_subscription", snapshot.model_context.fetch("provider_handle")
     assert_equal "responses", snapshot.provider_execution.fetch("wire_api")
+    assert_equal "automation_schedule", snapshot.task.fetch("origin_kind")
   end
 
   test "omits attachments when the environment disables conversation uploads" do
@@ -464,14 +501,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: turn)
 
-    assert_equal "main", snapshot.agent_context.fetch("profile")
-    assert_equal false, snapshot.agent_context.fetch("is_subagent")
-    assert_nil snapshot.agent_context["subagent_session_id"]
-    assert_nil snapshot.agent_context["parent_subagent_session_id"]
-    assert_nil snapshot.agent_context["subagent_depth"]
+    assert_equal "main", snapshot.capability_projection.fetch("profile_key")
+    assert_equal false, snapshot.capability_projection.fetch("is_subagent")
+    assert_nil snapshot.capability_projection["subagent_session_id"]
+    assert_nil snapshot.capability_projection["parent_subagent_session_id"]
+    assert_nil snapshot.capability_projection["subagent_depth"]
     assert_equal(
       Conversations::RefreshRuntimeContract.call(conversation: conversation).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
-      snapshot.agent_context.fetch("allowed_tool_names")
+      snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
     )
   end
 
@@ -505,14 +542,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: turn)
 
-    assert_equal "researcher", snapshot.agent_context.fetch("profile")
-    assert_equal true, snapshot.agent_context.fetch("is_subagent")
-    assert_equal child_chain.fetch(:subagent_session).public_id, snapshot.agent_context.fetch("subagent_session_id")
-    assert_equal child_chain.fetch(:parent_subagent_session).public_id, snapshot.agent_context.fetch("parent_subagent_session_id")
-    assert_equal 1, snapshot.agent_context.fetch("subagent_depth")
+    assert_equal "researcher", snapshot.capability_projection.fetch("profile_key")
+    assert_equal true, snapshot.capability_projection.fetch("is_subagent")
+    assert_equal child_chain.fetch(:subagent_session).public_id, snapshot.capability_projection.fetch("subagent_session_id")
+    assert_equal child_chain.fetch(:parent_subagent_session).public_id, snapshot.capability_projection.fetch("parent_subagent_session_id")
+    assert_equal 1, snapshot.capability_projection.fetch("subagent_depth")
     assert_equal(
       Conversations::RefreshRuntimeContract.call(conversation: child_chain.fetch(:conversation)).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
-      snapshot.agent_context.fetch("allowed_tool_names")
+      snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
     )
   end
 

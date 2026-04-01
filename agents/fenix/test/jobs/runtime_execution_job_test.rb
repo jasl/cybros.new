@@ -111,7 +111,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
 
     RuntimeExecutionJob.perform_now(runtime_execution.id)
 
-    assert_equal runtime_execution.mailbox_item_payload.dig("payload", "agent_task_run_id"), observed_attempt.agent_task_run_id
+    assert_equal runtime_execution.mailbox_item_payload.dig("payload", "task", "agent_task_run_id"), observed_attempt.agent_task_run_id
     assert_equal runtime_execution.logical_work_id, observed_attempt.logical_work_id
     assert_equal runtime_execution.attempt_no, observed_attempt.attempt_no
     assert_equal runtime_execution.id, observed_attempt.runtime_execution_id
@@ -320,11 +320,11 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "delivers an agent program terminal report only once" do
-    mailbox_item = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item_v1").deep_dup
+    mailbox_item = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item").deep_dup
     mailbox_item["item_id"] = "mailbox-item-#{SecureRandom.uuid}"
     mailbox_item["protocol_message_id"] = "protocol-message-#{SecureRandom.uuid}"
     mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
-    mailbox_item["payload"]["tool_call_id"] = "tool-call-#{SecureRandom.uuid}"
+    mailbox_item["payload"]["program_tool_call"]["call_id"] = "tool-call-#{SecureRandom.uuid}"
 
     runtime_execution = RuntimeExecution.create!(
       mailbox_item_id: mailbox_item.fetch("item_id"),
@@ -347,5 +347,55 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     assert_equal 1, reported_payloads.size
     assert_equal "agent_program_completed", reported_payloads.first.fetch("method_id")
     assert_equal mailbox_item.fetch("item_id"), reported_payloads.first.fetch("mailbox_item_id")
+  end
+
+  test "persists binary terminal payload strings from agent program requests as UTF-8-safe text" do
+    mailbox_item = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item").deep_dup
+    mailbox_item["item_id"] = "mailbox-item-#{SecureRandom.uuid}"
+    mailbox_item["protocol_message_id"] = "protocol-message-#{SecureRandom.uuid}"
+    mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
+    mailbox_item["payload"]["program_tool_call"]["call_id"] = "tool-call-#{SecureRandom.uuid}"
+
+    runtime_execution = RuntimeExecution.create!(
+      mailbox_item_id: mailbox_item.fetch("item_id"),
+      protocol_message_id: mailbox_item.fetch("protocol_message_id"),
+      logical_work_id: mailbox_item.fetch("logical_work_id"),
+      attempt_no: mailbox_item.fetch("attempt_no"),
+      runtime_plane: mailbox_item.fetch("runtime_plane"),
+      status: "queued",
+      mailbox_item_payload: mailbox_item,
+      reports: [],
+      trace: []
+    )
+
+    execute_agent_program_request_singleton = Fenix::Runtime::ExecuteAgentProgramRequest.singleton_class
+    original_execute_agent_program_request = Fenix::Runtime::ExecuteAgentProgramRequest.method(:call)
+    binary_stdout = "\x89PNG\r\n\x1A\n".b
+
+    execute_agent_program_request_singleton.send(:define_method, :call) do |**|
+      Fenix::Runtime::ExecuteAgentProgramRequest::Result.new(
+        status: "completed",
+        reports: [{ "method_id" => "agent_program_completed" }],
+        trace: [],
+        output: {
+          "status" => "ok",
+          "result" => {
+            "stdout" => binary_stdout,
+          },
+        },
+        error: nil
+      )
+    end
+
+    RuntimeExecutionJob.perform_now(runtime_execution.id)
+
+    runtime_execution.reload
+    assert_equal "completed", runtime_execution.status
+    assert runtime_execution.output_payload.fetch("result").fetch("stdout").valid_encoding?
+    assert_equal Encoding::UTF_8, runtime_execution.output_payload.fetch("result").fetch("stdout").encoding
+  ensure
+    if execute_agent_program_request_singleton && original_execute_agent_program_request
+      execute_agent_program_request_singleton.send(:define_method, :call, original_execute_agent_program_request)
+    end
   end
 end

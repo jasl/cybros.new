@@ -58,7 +58,7 @@ module ToolBindings
         if profile_allowed_names.present?
           profile_allowed_names
         else
-          Array(turn_record.execution_snapshot.agent_context.fetch("allowed_tool_names", [])).uniq
+          Array(turn_record.execution_snapshot.capability_projection.fetch("tool_surface", [])).map { |entry| entry.fetch("tool_name") }.uniq
         end
       end
     end
@@ -68,7 +68,7 @@ module ToolBindings
     end
 
     def current_profile_key
-      turn_record.execution_snapshot.agent_context.fetch("profile", "main")
+      turn_record.execution_snapshot.capability_projection.fetch("profile_key", "main")
     end
 
     def definitions_by_name

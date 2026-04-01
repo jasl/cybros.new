@@ -2,24 +2,26 @@ require "test_helper"
 
 class RuntimeProgramContractTest < ActiveSupport::TestCase
   test "prepare_round mailbox work emits the frozen completed report shape" do
-    result = run_runtime_execution(shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item_v1"))
+    result = run_runtime_execution(shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item"))
 
     report = result.fetch("reports").last
 
-    assert_equal shared_contract_fixture("fenix_prepare_round_report_v1"), normalize_prepare_round_report(report)
+    assert_equal shared_contract_fixture("fenix_prepare_round_report"), normalize_prepare_round_report(report)
   end
 
   test "execute_program_tool mailbox work emits the frozen completed report shape" do
-    result = run_runtime_execution(shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item_v1"))
+    result = run_runtime_execution(shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item"))
 
     report = result.fetch("reports").last
 
-    assert_equal shared_contract_fixture("fenix_execute_program_tool_report_v1"), normalize_program_tool_report(report)
+    assert_equal shared_contract_fixture("fenix_execute_program_tool_report"), normalize_program_tool_report(report)
   end
 
   test "execute_program_tool mailbox work rejects tools outside the visible program surface" do
-    payload = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item_v1")
-    payload["payload"]["agent_context"]["allowed_tool_names"] = ["compact_context"]
+    payload = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item")
+    payload["payload"]["capability_projection"]["tool_surface"] = [
+      { "tool_name" => "compact_context" },
+    ]
 
     result = run_runtime_execution(payload)
 
@@ -50,9 +52,10 @@ class RuntimeProgramContractTest < ActiveSupport::TestCase
     normalized = report.deep_dup
     normalized.delete("protocol_message_id")
     normalized["response_payload"] = {
+      "status" => normalized.fetch("response_payload").fetch("status"),
       "messages" => normalized.fetch("response_payload").fetch("messages").map { |entry| entry.slice("role") },
-      "program_tools" => normalized.fetch("response_payload").fetch("program_tools").map { |entry| entry.slice("tool_name") },
-      "likely_model" => normalized.fetch("response_payload").fetch("likely_model"),
+      "tool_surface" => normalized.fetch("response_payload").fetch("tool_surface").map { |entry| entry.slice("tool_name") },
+      "summary_artifacts" => normalized.fetch("response_payload").fetch("summary_artifacts"),
       "trace" => normalized.fetch("response_payload").fetch("trace").map { |entry| entry.slice("hook") },
     }
     normalized
@@ -61,6 +64,13 @@ class RuntimeProgramContractTest < ActiveSupport::TestCase
   def normalize_program_tool_report(report)
     normalized = report.deep_dup
     normalized.delete("protocol_message_id")
+    normalized["response_payload"] = {
+      "status" => normalized.fetch("response_payload").fetch("status"),
+      "program_tool_call" => normalized.fetch("response_payload").fetch("program_tool_call"),
+      "result" => normalized.fetch("response_payload").fetch("result"),
+      "output_chunks" => normalized.fetch("response_payload").fetch("output_chunks"),
+      "summary_artifacts" => normalized.fetch("response_payload").fetch("summary_artifacts"),
+    }
     normalized
   end
 end

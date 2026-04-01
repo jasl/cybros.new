@@ -42,7 +42,8 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
             "max_rounds" => 1,
           },
         },
-        catalog: catalog
+        catalog: catalog,
+        tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
       )
     end
 
@@ -51,14 +52,17 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "program_tools" => [calculator_tool_entry],
+          "tool_surface" => [calculator_tool_entry],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ],
       program_tool_results: {
         "call-calculator-1" => {
-          "status" => "completed",
+          "status" => "ok",
           "result" => { "value" => 4 },
-          "summary" => "4",
+          "output_chunks" => [],
+          "summary_artifacts" => [],
         },
       }
     )
@@ -117,16 +121,22 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     workflow_run = nil
 
     with_stubbed_provider_catalog(catalog) do
-      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {}, catalog: catalog)
+      workflow_run = create_mock_turn_step_workflow_run!(
+        resolved_config_snapshot: {},
+        catalog: catalog,
+        tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+      )
     end
 
     original_snapshot = workflow_run.execution_snapshot.to_h
     legacy_snapshot = TurnExecutionSnapshot.new(
       original_snapshot.merge(
-        "provider_execution" => original_snapshot.fetch("provider_execution").except("loop_policy").merge(
-          "loop_settings" => {
-            "max_rounds" => 1,
-          }
+        "provider_context" => original_snapshot.fetch("provider_context").merge(
+          "provider_execution" => original_snapshot.fetch("provider_context").fetch("provider_execution").except("loop_policy").merge(
+            "loop_settings" => {
+              "max_rounds" => 1,
+            }
+          )
         )
       )
     )
@@ -138,7 +148,9 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "program_tools" => [calculator_tool_entry],
+          "tool_surface" => [calculator_tool_entry],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ]
     )
@@ -205,7 +217,9 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           prepared_rounds: [
             {
               "messages" => transcript,
-              "program_tools" => [],
+              "tool_surface" => [],
+              "summary_artifacts" => [],
+              "trace" => [],
             },
           ]
         )
@@ -255,7 +269,11 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     workflow_run = nil
 
     with_stubbed_provider_catalog(catalog) do
-      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {}, catalog: catalog)
+      workflow_run = create_mock_turn_step_workflow_run!(
+        resolved_config_snapshot: {},
+        catalog: catalog,
+        tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+      )
     end
 
     transcript = turn_step_messages_for(workflow_run)
@@ -263,7 +281,9 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "program_tools" => [calculator_tool_entry],
+          "tool_surface" => [calculator_tool_entry],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ]
     )
@@ -378,7 +398,9 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "program_tools" => [],
+          "tool_surface" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ]
     )
@@ -395,7 +417,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       assert result.final?
     end
 
-    assert_equal({ "value" => 4 }, program_exchange.prepare_round_requests.first.fetch("prior_tool_results").first.fetch("result"))
+    assert_equal({ "value" => 4 }, program_exchange.prepare_round_requests.first.fetch("conversation_projection").fetch("prior_tool_results").first.fetch("result"))
   end
 
   private

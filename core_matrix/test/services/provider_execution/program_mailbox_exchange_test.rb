@@ -29,8 +29,11 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
           "logical_work_id" => mailbox_item.logical_work_id,
           "attempt_no" => mailbox_item.attempt_no,
           "response_payload" => {
+            "status" => "ok",
             "messages" => [],
-            "program_tools" => [],
+            "tool_surface" => [],
+            "summary_artifacts" => [],
+            "trace" => [],
           },
         }
       )
@@ -40,9 +43,18 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     result = ProviderExecution::ProgramMailboxExchange.new(
       agent_deployment: context.fetch(:deployment),
       sleeper: ->(_duration) { },
-    ).prepare_round(payload: { "workflow_node_id" => context.fetch(:workflow_node).public_id })
+    ).prepare_round(
+      payload: {
+        "task" => {
+          "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "turn_id" => context.fetch(:workflow_node).turn.public_id,
+          "kind" => "turn_step",
+        },
+      }
+    )
 
-    assert_equal({ "messages" => [], "program_tools" => [] }, result)
+    assert_equal({ "status" => "ok", "messages" => [], "tool_surface" => [], "summary_artifacts" => [], "trace" => [] }, result)
   ensure
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
   end
@@ -90,13 +102,22 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       sleeper: ->(_duration) { },
     ).execute_program_tool(
       payload: {
-        "workflow_node_id" => context.fetch(:workflow_node).public_id,
-        "tool_call_id" => "tool-call-1",
+        "task" => {
+          "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "turn_id" => context.fetch(:workflow_node).turn.public_id,
+          "kind" => "turn_step",
+        },
+        "program_tool_call" => {
+          "call_id" => "tool-call-1",
+          "tool_name" => "calculator",
+          "arguments" => {},
+        },
       }
     )
 
     assert_equal "failed", result.fetch("status")
-    assert_equal "tool_not_allowed", result.dig("error", "code")
+    assert_equal "tool_not_allowed", result.dig("failure", "code")
   ensure
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
   end
@@ -133,8 +154,10 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
             "logical_work_id" => mailbox_item.logical_work_id,
             "attempt_no" => mailbox_item.attempt_no,
             "response_payload" => {
-              "status" => "completed",
+              "status" => "ok",
               "result" => {},
+              "output_chunks" => [],
+              "summary_artifacts" => [],
             },
           }
         )
@@ -146,10 +169,18 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
         sleeper: ->(_duration) { },
       ).execute_program_tool(
         payload: {
-          "workflow_node_id" => context.fetch(:workflow_node).public_id,
-          "tool_call_id" => "tool-call-1",
-          "arguments" => {
-            "timeout_seconds" => 120,
+          "task" => {
+            "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+            "workflow_node_id" => context.fetch(:workflow_node).public_id,
+            "turn_id" => context.fetch(:workflow_node).turn.public_id,
+            "kind" => "turn_step",
+          },
+          "program_tool_call" => {
+            "call_id" => "tool-call-1",
+            "tool_name" => "calculator",
+            "arguments" => {
+              "timeout_seconds" => 120,
+            },
           },
         }
       )
@@ -170,7 +201,16 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
-      ).prepare_round(payload: { "workflow_node_id" => context.fetch(:workflow_node).public_id })
+      ).prepare_round(
+        payload: {
+          "task" => {
+            "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+            "workflow_node_id" => context.fetch(:workflow_node).public_id,
+            "turn_id" => context.fetch(:workflow_node).turn.public_id,
+            "kind" => "turn_step",
+          },
+        }
+      )
     end
 
     assert_equal "mailbox_timeout", error.code
@@ -224,17 +264,20 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
         logical_work_id: mailbox_item.logical_work_id,
         attempt_no: mailbox_item.attempt_no,
         result_code: "accepted",
-        payload: {
-          "method_id" => "agent_program_completed",
-          "mailbox_item_id" => mailbox_item.public_id,
-          "logical_work_id" => mailbox_item.logical_work_id,
-          "attempt_no" => mailbox_item.attempt_no,
-          "response_payload" => {
-            "messages" => [],
-            "program_tools" => [],
-          },
-        }
-      )
+          payload: {
+            "method_id" => "agent_program_completed",
+            "mailbox_item_id" => mailbox_item.public_id,
+            "logical_work_id" => mailbox_item.logical_work_id,
+            "attempt_no" => mailbox_item.attempt_no,
+            "response_payload" => {
+              "status" => "ok",
+              "messages" => [],
+              "tool_surface" => [],
+              "summary_artifacts" => [],
+              "trace" => [],
+            },
+          }
+        )
     end
 
     result = nil
@@ -243,9 +286,18 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       timeout: 0.02,
       poll_interval: 0.0,
       sleeper: sleeper,
-    ).prepare_round(payload: { "workflow_node_id" => context.fetch(:workflow_node).public_id })
+    ).prepare_round(
+      payload: {
+        "task" => {
+          "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "turn_id" => context.fetch(:workflow_node).turn.public_id,
+          "kind" => "turn_step",
+        },
+      }
+    )
 
-    assert_equal({ "messages" => [], "program_tools" => [] }, result)
+    assert_equal({ "status" => "ok", "messages" => [], "tool_surface" => [], "summary_artifacts" => [], "trace" => [] }, result)
     assert_operator sleep_calls, :>=, 1
   ensure
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator

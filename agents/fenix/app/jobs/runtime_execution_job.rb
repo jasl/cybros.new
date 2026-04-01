@@ -14,7 +14,7 @@ class RuntimeExecutionJob < ApplicationJob
     end
 
     attempt = Fenix::Runtime::ExecutionAttempt.new(
-      agent_task_run_id: runtime_execution.mailbox_item_payload.dig("payload", "agent_task_run_id"),
+      agent_task_run_id: runtime_execution.mailbox_item_payload.dig("payload", "task", "agent_task_run_id"),
       logical_work_id: runtime_execution.logical_work_id,
       attempt_no: runtime_execution.attempt_no,
       runtime_execution_id: runtime_execution.id
@@ -69,16 +69,16 @@ class RuntimeExecutionJob < ApplicationJob
       runtime_execution.update!(
         status: result.status,
         reports: result.reports.map { |report| sanitize_report_for_persistence(report) },
-        trace: result.trace,
-        output_payload: result.output,
-        error_payload: result.error,
+        trace: sanitize_json_value(result.trace),
+        output_payload: sanitize_json_value(result.output),
+        error_payload: sanitize_json_value(result.error),
         finished_at: Time.current
       )
     end
   end
 
   def sanitize_report_for_persistence(report)
-    report = report.deep_dup
+    report = sanitize_json_value(report.deep_dup)
     tool_output = report.dig("progress_payload", "tool_invocation_output")
     return report if tool_output.blank? || !tool_output.key?("output_chunks")
 
@@ -92,5 +92,19 @@ class RuntimeExecutionJob < ApplicationJob
     tool_output["output_streams"] = stream_bytes.keys.sort
     tool_output["stream_byte_count"] = stream_bytes
     report
+  end
+
+  def sanitize_json_value(value)
+    case value
+    when Hash
+      value.transform_values { |entry| sanitize_json_value(entry) }
+    when Array
+      value.map { |entry| sanitize_json_value(entry) }
+    when String
+      sanitized = value.dup.force_encoding(Encoding::UTF_8)
+      sanitized.valid_encoding? ? sanitized : sanitized.scrub
+    else
+      value
+    end
   end
 end

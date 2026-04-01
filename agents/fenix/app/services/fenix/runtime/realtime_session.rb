@@ -49,6 +49,7 @@ module Fenix
 
       def call
         @started_at = monotonic_now
+        @last_mailbox_item_at = nil
         @socket = @websocket_factory.call(cable_url, websocket_headers) do |socket|
           install_handlers(socket)
         end
@@ -162,6 +163,7 @@ module Fenix
           return if payload["message"].blank?
 
           mailbox_result = @on_mailbox_item.call(payload.fetch("message"))
+          @last_mailbox_item_at = monotonic_now
           @mailbox_results << mailbox_result unless mailbox_result.nil?
           @processed_count += 1
           @closed = true if @stop_after_first_mailbox_item
@@ -185,9 +187,9 @@ module Fenix
 
       def mailbox_item_timeout_reached?
         return false if @mailbox_item_timeout_seconds.blank?
-        return false if @processed_count.positive?
 
-        monotonic_now >= @started_at + @mailbox_item_timeout_seconds
+        idle_since = @last_mailbox_item_at || @started_at
+        monotonic_now >= idle_since + @mailbox_item_timeout_seconds
       end
 
       def build_result(status:, error_message: nil)

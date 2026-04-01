@@ -58,17 +58,23 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
       prepared_rounds: [
         {
           "messages" => transcript,
-          "program_tools" => [calculator_tool_entry],
+          "tool_surface" => [calculator_tool_entry],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
         {
           "messages" => transcript,
-          "program_tools" => [],
+          "tool_surface" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
         },
       ],
       program_tool_results: {
         "call-calculator-1" => {
-          "status" => "completed",
+          "status" => "ok",
           "result" => { "value" => 4 },
+          "output_chunks" => [],
+          "summary_artifacts" => [],
         },
       }
     )
@@ -115,7 +121,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
       ],
       proof.observed_dag_shape
     )
-    assert_equal({ "value" => 4 }, program_exchange.prepare_round_requests.second.fetch("prior_tool_results").first.fetch("result"))
+    assert_equal({ "value" => 4 }, program_exchange.prepare_round_requests.second.fetch("conversation_projection").fetch("prior_tool_results").first.fetch("result"))
     assert_equal 1, program_exchange.execute_program_tool_requests.length
   end
 

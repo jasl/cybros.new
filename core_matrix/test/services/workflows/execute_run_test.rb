@@ -140,7 +140,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     with_stubbed_provider_catalog(catalog) do
       result = Workflows::ExecuteNode.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
-        messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
+        messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
         adapter: adapter,
         program_exchange: program_exchange
       )
@@ -204,7 +204,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       error = assert_raises(ProviderExecution::ProviderRequestGovernor::AdmissionRefused) do
         Workflows::ExecuteNode.call(
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
-          messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
+          messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
           adapter: adapter,
           program_exchange: program_exchange
         )
@@ -253,7 +253,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
         Workflows::ExecuteNode.call(
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
-          messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
+          messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
           adapter: adapter,
           program_exchange: program_exchange
         )
@@ -289,7 +289,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
         Workflows::ExecuteNode.call(
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
-          messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
+          messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
           adapter: adapter,
           program_exchange: program_exchange
         )
@@ -310,7 +310,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
 
     assert_equal(
-      workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") },
+      workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
       Workflows::ExecuteNode.new(workflow_node: workflow_node).send(:default_messages, workflow_node)
     )
   end

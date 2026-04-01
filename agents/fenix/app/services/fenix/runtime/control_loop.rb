@@ -29,27 +29,61 @@ module Fenix
 
       def call
         realtime_result = build_realtime_session.call
+        poll_results = recover_pending_mailbox_work(realtime_result:)
 
         if realtime_result.processed_count.positive?
           Result.new(
-            transport: "realtime",
+            transport: poll_results.present? ? "realtime+poll" : "realtime",
             realtime_result: realtime_result,
-            mailbox_results: realtime_result.mailbox_results
+            mailbox_results: merge_mailbox_results(realtime_result.mailbox_results, poll_results)
           )
         else
           Result.new(
             transport: "poll",
             realtime_result: realtime_result,
-            mailbox_results: @mailbox_pump.call(
-              limit: @limit,
-              control_client: @control_client,
-              inline: @inline
-            )
+            mailbox_results: poll_results
           )
         end
       end
 
       private
+
+      def recover_pending_mailbox_work(realtime_result:)
+        @mailbox_pump.call(
+          limit: @limit,
+          control_client: @control_client,
+          inline: @inline
+        )
+      rescue StandardError
+        raise if realtime_result.processed_count.zero?
+
+        []
+      end
+
+      def merge_mailbox_results(realtime_results, poll_results)
+        seen_keys = {}
+
+        (Array(realtime_results) + Array(poll_results)).each_with_object([]) do |result, merged|
+          key = mailbox_result_key(result)
+          next if key.present? && seen_keys[key]
+
+          seen_keys[key] = true if key.present?
+          merged << result
+        end
+      end
+
+      def mailbox_result_key(result)
+        mailbox_item_id =
+          if result.respond_to?(:mailbox_item_id)
+            result.mailbox_item_id
+          elsif result.is_a?(Hash)
+            result["item_id"] || result[:item_id]
+          end
+
+        return if mailbox_item_id.blank?
+
+        "mailbox-item:#{mailbox_item_id}"
+      end
 
       def build_realtime_session
         return @session_factory.call if @session_factory.present?

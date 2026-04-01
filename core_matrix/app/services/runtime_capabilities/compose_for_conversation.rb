@@ -2,6 +2,7 @@ module RuntimeCapabilities
   class ComposeForConversation
     ToolNotVisibleError = Class.new(StandardError)
     SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
+    DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
 
     def self.call(...)
       new(...).call
@@ -42,7 +43,7 @@ module RuntimeCapabilities
     def visible_tool_catalog
       @visible_tool_catalog ||= apply_profile_mask(
         apply_subagent_policy(contract.effective_tool_catalog)
-      ).map(&:deep_dup)
+      ).then { |catalog| contextualize_tool_catalog(catalog) }.map(&:deep_dup)
     end
 
     def apply_subagent_policy(tool_catalog)
@@ -71,6 +72,35 @@ module RuntimeCapabilities
 
     def current_profile_key
       @conversation.subagent_session&.profile_key || contract.default_config_snapshot.dig("interactive", "profile") || "main"
+    end
+
+    def contextualize_tool_catalog(tool_catalog)
+      tool_catalog.map do |entry|
+        next entry unless entry.fetch("tool_name") == "subagent_spawn"
+
+        contextualize_subagent_spawn_entry(entry)
+      end
+    end
+
+    def contextualize_subagent_spawn_entry(entry)
+      schema = entry.fetch("input_schema", {}).deep_dup
+      properties = schema.fetch("properties", {}).deep_dup
+      profile_key_schema = properties.fetch("profile_key", {}).deep_dup
+      explicit_profile_keys = contract.profile_catalog.keys
+
+      properties["profile_key"] = profile_key_schema.merge(
+        "type" => "string",
+        "enum" => [DEFAULT_SUBAGENT_PROFILE_ALIAS, *explicit_profile_keys].uniq,
+        "description" => [
+          profile_key_schema["description"],
+          "Use #{DEFAULT_SUBAGENT_PROFILE_ALIAS.inspect} or omit this field to let the runtime choose the default subagent profile.",
+          "Available explicit profiles: #{explicit_profile_keys.join(", ")}.",
+        ].compact.join(" ").strip
+      )
+
+      entry.deep_dup.merge(
+        "input_schema" => schema.merge("properties" => properties)
+      )
     end
 
     def hide_subagent_spawn?

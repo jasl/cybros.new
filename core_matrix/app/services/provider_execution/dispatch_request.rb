@@ -2,6 +2,12 @@ require "securerandom"
 
 module ProviderExecution
   class DispatchRequest
+    MAX_TRANSIENT_REQUEST_ATTEMPTS = 2
+    RETRYABLE_PROVIDER_ERRORS = [
+      SimpleInference::TimeoutError,
+      SimpleInference::ConnectionError,
+    ].freeze
+
     class RequestFailed < StandardError
       attr_reader :error, :duration_ms, :provider_request_id
 
@@ -48,12 +54,7 @@ module ProviderExecution
         effective_catalog: @effective_catalog,
         workflow_node: @workflow_node
       ) do
-        case @request_context.wire_api
-        when "responses"
-          dispatch_responses_request
-        else
-          dispatch_chat_request
-        end
+        dispatch_with_transient_retry
       end
 
       Result.new(
@@ -77,7 +78,7 @@ module ProviderExecution
 
     def build_client
       provider_definition = @effective_catalog.provider(@request_context.provider_handle)
-      adapter = @adapter || SimpleInference::HTTPAdapters::HTTPX.new
+      adapter = @adapter || ProviderExecution::BuildHttpAdapter.call(provider_definition: provider_definition)
 
       case @request_context.wire_api
       when "responses"
@@ -125,12 +126,22 @@ module ProviderExecution
           "arguments",
           "id"
         )
+        normalized["role"] = normalize_provider_role(normalized["role"])
         tool_call_id = candidate["tool_call_id"] || candidate[:tool_call_id]
 
         normalized["tool_call_id"] = tool_call_id if tool_call_id.present?
         normalized["call_id"] = candidate["call_id"] || candidate[:call_id] || tool_call_id if tool_call_id.present? || candidate["call_id"].present? || candidate[:call_id].present?
         normalized["name"] = candidate["name"] || candidate[:name] if (candidate["name"] || candidate[:name]).present?
         normalized.compact
+      end
+    end
+
+    def normalize_provider_role(role)
+      case role
+      when "agent"
+        "assistant"
+      else
+        role
       end
     end
 
@@ -156,7 +167,7 @@ module ProviderExecution
 
       if stream_chat_request?
         build_client.chat(**request, stream: true, include_usage: true) do |delta|
-          @on_delta.call(delta)
+          handle_delta(delta)
         end
       else
         build_client.chat(**request)
@@ -175,10 +186,31 @@ module ProviderExecution
 
       if @on_delta.present?
         build_client.responses(**request, stream: true, include_usage: true) do |delta|
-          @on_delta.call(delta)
+          handle_delta(delta)
         end
       else
         build_client.responses(**request)
+      end
+    end
+
+    def dispatch_with_transient_retry
+      attempt = 0
+
+      begin
+        attempt += 1
+        @received_delta = false
+
+        case @request_context.wire_api
+        when "responses"
+          dispatch_responses_request
+        else
+          dispatch_chat_request
+        end
+      rescue *RETRYABLE_PROVIDER_ERRORS => error
+        raise if @received_delta
+        raise if attempt >= MAX_TRANSIENT_REQUEST_ATTEMPTS
+
+        retry
       end
     end
 
@@ -217,6 +249,11 @@ module ProviderExecution
 
     def stream_chat_request?
       @on_delta.present?
+    end
+
+    def handle_delta(delta)
+      @received_delta = true
+      @on_delta.call(delta)
     end
 
     def normalize_schema(schema)

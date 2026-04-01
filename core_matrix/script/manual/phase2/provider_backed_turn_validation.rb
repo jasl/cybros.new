@@ -4,7 +4,7 @@ require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 fingerprint = "phase2-provider-backed-runtime"
-selector = ENV.fetch("PHASE2_PROVIDER_SELECTOR", "candidate:openrouter/openai-gpt-5.4-live-acceptance")
+selector = ENV.fetch("PHASE2_PROVIDER_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
 content = ENV.fetch(
   "PHASE2_PROVIDER_PROMPT",
   "Reply with ACCEPTED-PHASE2 exactly. Do not add any other words or punctuation."

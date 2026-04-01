@@ -3,7 +3,7 @@ require "socket"
 module Fenix
   module Runtime
     class PairingManifest
-      PROTOCOL_VERSION = "2026-03-31".freeze
+      PROTOCOL_VERSION = "agent-program/2026-04-01".freeze
       SDK_VERSION = "fenix-0.1.0".freeze
       PROTOCOL_METHOD_IDS = %w[
         agent_health
@@ -279,6 +279,7 @@ module Fenix
           "researcher" => {
             "label" => "Researcher",
             "description" => "Delegated research profile",
+            "default_subagent_profile" => true,
             "allowed_tool_names" => tool_names + (SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
           },
         }

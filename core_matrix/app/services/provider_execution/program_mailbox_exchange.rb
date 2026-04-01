@@ -62,7 +62,7 @@ module ProviderExecution
       response = perform_request!(
         request_kind: "prepare_round",
         payload:,
-        logical_work_id: "prepare-round:#{payload.fetch("workflow_node_id")}",
+        logical_work_id: "prepare-round:#{payload.fetch("task").fetch("workflow_node_id")}",
         timeout: @prepare_round_timeout
       )
       validate_prepare_round_response!(response)
@@ -73,7 +73,7 @@ module ProviderExecution
       perform_request!(
         request_kind: "execute_program_tool",
         payload:,
-        logical_work_id: "program-tool:#{payload.fetch("workflow_node_id")}:#{payload.fetch("tool_call_id")}",
+        logical_work_id: "program-tool:#{payload.fetch("task").fetch("workflow_node_id")}:#{payload.fetch("program_tool_call").fetch("call_id")}",
         timeout: execute_program_tool_timeout_for(payload),
         allow_failure_response: true
       )
@@ -100,7 +100,7 @@ module ProviderExecution
       report_payload = receipt.payload.deep_stringify_keys
 
       return report_payload.fetch("response_payload") if report_payload.fetch("method_id") == "agent_program_completed"
-      return { "status" => "failed", "error" => report_payload.fetch("error_payload") } if allow_failure_response
+      return { "status" => "failed", "failure" => report_payload.fetch("error_payload") } if allow_failure_response
 
       raise RequestFailed.new(
         error_payload: report_payload.fetch("error_payload"),
@@ -131,7 +131,7 @@ module ProviderExecution
     end
 
     def execute_program_tool_timeout_for(payload)
-      requested_timeout_seconds = payload.dig("arguments", "timeout_seconds").to_f
+      requested_timeout_seconds = payload.dig("program_tool_call", "arguments", "timeout_seconds").to_f
       return @execute_program_tool_timeout if requested_timeout_seconds <= 0
 
       [@execute_program_tool_timeout.to_f, requested_timeout_seconds + @tool_timeout_buffer.to_f].max.seconds
@@ -139,7 +139,7 @@ module ProviderExecution
 
     def validate_prepare_round_response!(response)
       raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include messages") unless response["messages"].is_a?(Array)
-      raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include program_tools") unless response["program_tools"].is_a?(Array)
+      raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include tool_surface") unless response["tool_surface"].is_a?(Array)
     end
   end
 end

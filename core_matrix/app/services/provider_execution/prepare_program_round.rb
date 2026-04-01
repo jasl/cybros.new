@@ -22,18 +22,25 @@ module ProviderExecution
 
     def request_payload
       {
-        "conversation_id" => @workflow_run.conversation.public_id,
-        "turn_id" => @workflow_run.turn.public_id,
-        "workflow_run_id" => @workflow_run.public_id,
-        "workflow_node_id" => @workflow_node.public_id,
-        "transcript" => @transcript,
-        "context_imports" => @workflow_run.context_imports,
-        "prior_tool_results" => @prior_tool_results,
-        "budget_hints" => @workflow_run.budget_hints,
-        "provider_execution" => @workflow_run.provider_execution,
-        "model_context" => @workflow_run.model_context,
-        "agent_context" => @workflow_run.execution_snapshot.agent_context,
-        "runtime_identity" => {
+        "protocol_version" => "agent-program/2026-04-01",
+        "request_kind" => "prepare_round",
+        "task" => {
+          "workflow_run_id" => @workflow_run.public_id,
+          "workflow_node_id" => @workflow_node.public_id,
+          "conversation_id" => @workflow_run.conversation.public_id,
+          "turn_id" => @workflow_run.turn.public_id,
+          "kind" => "turn_step",
+        },
+        "conversation_projection" => @workflow_run.execution_snapshot.conversation_projection.merge(
+          "messages" => @transcript,
+          "prior_tool_results" => @prior_tool_results
+        ),
+        "capability_projection" => @workflow_run.execution_snapshot.capability_projection,
+        "provider_context" => @workflow_run.execution_snapshot.provider_context,
+        "runtime_context" => {
+          "runtime_plane" => "agent",
+          "logical_work_id" => "prepare-round:#{@workflow_node.public_id}",
+          "attempt_no" => 1,
           "deployment_public_id" => @workflow_run.turn.agent_deployment.public_id,
         },
       }
@@ -41,7 +48,7 @@ module ProviderExecution
 
     def validate_response!(response)
       raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include messages") unless response["messages"].is_a?(Array)
-      raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include program_tools") unless response["program_tools"].is_a?(Array)
+      raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include tool_surface") unless response["tool_surface"].is_a?(Array)
     end
   end
 end

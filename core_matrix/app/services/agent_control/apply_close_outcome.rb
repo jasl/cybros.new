@@ -18,6 +18,8 @@ module AgentControl
     def call
       raise ArgumentError, "unsupported close state #{@close_state}" unless CLOSE_STATES.include?(@close_state)
 
+      @resource.reload
+
       @resource.update!(
         close_state: @close_state,
         close_acknowledged_at: @resource.close_acknowledged_at || @occurred_at,
@@ -37,6 +39,7 @@ module AgentControl
 
       release_resource_lease!
       reconcile_turn_interrupt!
+      reconcile_turn_pause!
       reconcile_close_operation!
     end
 
@@ -44,7 +47,7 @@ module AgentControl
       case @resource
       when AgentTaskRun
         @resource.update!(
-          lifecycle_state: @mailbox_item.payload["request_kind"] == "turn_interrupt" ? "interrupted" : "canceled",
+          lifecycle_state: interrupting_close_request? ? "interrupted" : "canceled",
           finished_at: @resource.finished_at || @occurred_at,
           terminal_payload: @resource.terminal_payload.merge(
             "close_outcome_kind" => @resource.close_outcome_kind
@@ -125,6 +128,16 @@ module AgentControl
       Conversations::RequestTurnInterrupt.call(turn: turn, occurred_at: @occurred_at)
     end
 
+    def reconcile_turn_pause!
+      return if close_failed?
+
+      turn = ClosableResourceRouting.turn_for(@resource)
+      return if turn.blank?
+      return unless @mailbox_item.payload["request_kind"] == "turn_pause" || turn.workflow_run&.pause_requested? || turn.workflow_run&.paused_turn?
+
+      Conversations::RequestTurnPause.call(turn: turn, occurred_at: @occurred_at)
+    end
+
     def reconcile_close_operation!
       conversations_for_close_reconciliation.each do |conversation|
         Conversations::ReconcileCloseOperation.call(
@@ -139,9 +152,13 @@ module AgentControl
     end
 
     def terminal_observed_status
-      return "interrupted" if @mailbox_item.payload["request_kind"] == "turn_interrupt"
+      return "interrupted" if interrupting_close_request?
 
       "completed"
+    end
+
+    def interrupting_close_request?
+      @mailbox_item.payload["request_kind"].in?(%w[turn_interrupt turn_pause])
     end
 
     def reconcile_agent_task_execution_graph!
@@ -200,11 +217,34 @@ module AgentControl
       workflow_node = @resource.workflow_node
       return if workflow_node.blank?
 
-      terminal_state = @resource.failed? ? "failed" : "canceled"
-      started_at = workflow_node.started_at || @resource.started_at || @occurred_at
-
       workflow_node.with_lock do
         workflow_node.reload
+
+        if paused_turn_close?
+          workflow_node.update!(
+            lifecycle_state: "queued",
+            started_at: nil,
+            finished_at: nil
+          )
+
+          WorkflowNodeEvent.create!(
+            installation: workflow_node.installation,
+            workflow_run: workflow_node.workflow_run,
+            workflow_node: workflow_node,
+            ordinal: workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
+            event_kind: "status",
+            payload: {
+              "state" => "queued",
+              "close_state" => @resource.close_state,
+              "close_outcome_kind" => @resource.close_outcome_kind,
+              "request_kind" => @mailbox_item.payload["request_kind"],
+            }
+          )
+          return
+        end
+
+        terminal_state = @resource.failed? ? "failed" : "canceled"
+        started_at = workflow_node.started_at || @resource.started_at || @occurred_at
 
         workflow_node.update!(
           lifecycle_state: terminal_state,
@@ -230,6 +270,7 @@ module AgentControl
     def reconcile_agent_task_workflow_run!
       workflow_run = @resource.workflow_run
       return if workflow_run.blank? || !workflow_run.active?
+      return if paused_turn_close?
 
       lifecycle_state = @resource.failed? ? "failed" : "canceled"
       updates = { lifecycle_state: lifecycle_state }.merge(Workflows::WaitState.ready_attributes)
@@ -245,6 +286,7 @@ module AgentControl
     def reconcile_agent_task_turn!
       turn = @resource.turn
       return if turn.blank? || !turn.active?
+      return if paused_turn_close?
 
       lifecycle_state = @resource.failed? ? "failed" : "canceled"
       updates = { lifecycle_state: lifecycle_state }
@@ -255,6 +297,10 @@ module AgentControl
       end
 
       turn.update!(updates)
+    end
+
+    def paused_turn_close?
+      !close_failed? && @mailbox_item.payload["request_kind"] == "turn_pause"
     end
 
     def broadcast_process_run_terminal!(event_kind)

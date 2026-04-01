@@ -136,9 +136,12 @@ module Fenix
           def resolve_workspace_path!(raw_path)
             candidate = Pathname.new(raw_path.to_s)
             raise ValidationError, "workspace path must be present" if raw_path.to_s.blank?
-            raise ValidationError, "workspace path must be relative" if candidate.absolute?
-
-            resolved = @workspace_root.join(candidate).cleanpath
+            resolved =
+              if candidate.absolute?
+                candidate.cleanpath
+              else
+                @workspace_root.join(candidate).cleanpath
+              end
             workspace_root_prefix = "#{@workspace_root}#{File::SEPARATOR}"
             reserved_root = @workspace_root.join(".fenix").cleanpath
             reserved_root_prefix = "#{reserved_root}#{File::SEPARATOR}"

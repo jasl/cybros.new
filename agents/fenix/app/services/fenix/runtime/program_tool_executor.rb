@@ -164,7 +164,9 @@ module Fenix
       private
 
       def current_execution_owner_id
-        @context["agent_task_run_id"].presence || @context.fetch("workflow_node_id")
+        @context["agent_task_run_id"].presence ||
+          @context["turn_id"].presence ||
+          @context.fetch("workflow_node_id")
       end
 
       def normalize_tool_invocation(tool_invocation, tool_call)
@@ -210,15 +212,7 @@ module Fenix
       end
 
       def registry_backed_tool?(tool_name)
-        process_tool?(tool_name) || %w[
-          exec_command
-          write_stdin
-          browser_open
-          browser_navigate
-          browser_get_content
-          browser_screenshot
-          browser_close
-        ].include?(tool_name)
+        Fenix::Runtime::ExecutionTopology.registry_backed_tool_name?(tool_name)
       end
 
       def assert_execution_topology_supported!(tool_name:)

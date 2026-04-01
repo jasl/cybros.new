@@ -142,7 +142,7 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
     assert_operator sleeps.sum, :>=, 0.45
   end
 
-  test "keeps the realtime session open across items instead of forcing one-shot delivery" do
+  test "cycles the realtime session on idle so poll fallback can recover missed work" do
     received_kwargs = []
 
     control_loop = lambda do |**kwargs|
@@ -168,7 +168,7 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
     worker.call
 
     assert_equal false, received_kwargs.first.fetch(:stop_after_first_mailbox_item)
-    assert_nil received_kwargs.first.fetch(:mailbox_item_timeout_seconds)
+    assert_equal 5, received_kwargs.first.fetch(:mailbox_item_timeout_seconds)
   end
 
   test "survives a transient control loop exception and retries instead of exiting" do

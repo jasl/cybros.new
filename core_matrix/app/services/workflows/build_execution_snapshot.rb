@@ -1,3 +1,5 @@
+require "digest"
+
 module Workflows
   class BuildExecutionSnapshot
     def self.call(...)
@@ -17,13 +19,12 @@ module Workflows
 
       TurnExecutionSnapshot.new(
         "identity" => execution_identity,
-        "model_context" => model_context,
-        "provider_execution" => provider_execution,
-        "budget_hints" => budget_hints,
-        "agent_context" => agent_context,
+        "task" => task,
+        "conversation_projection" => conversation_projection,
+        "capability_projection" => capability_projection,
+        "provider_context" => provider_context,
+        "runtime_context" => runtime_context,
         "turn_origin" => turn_origin,
-        "context_messages" => context_messages,
-        "context_imports" => context_imports,
         "attachment_manifest" => attachment_manifest,
         "runtime_attachment_manifest" => build_runtime_attachment_manifest(attachment_manifest),
         "model_input_attachments" => build_model_input_attachments(attachment_manifest),
@@ -42,6 +43,67 @@ module Workflows
         "selected_input_message_id" => @turn.selected_input_message&.public_id,
         "execution_environment_id" => @turn.conversation.execution_environment.public_id,
         "agent_deployment_id" => @turn.agent_deployment.public_id,
+      }
+    end
+
+    def task
+      {
+        "conversation_id" => @turn.conversation.public_id,
+        "turn_id" => @turn.public_id,
+        "selected_input_message_id" => @turn.selected_input_message&.public_id,
+        "selected_output_message_id" => @turn.selected_output_message&.public_id,
+        "origin_kind" => @turn.origin_kind,
+        "origin_payload" => @turn.origin_payload,
+        "source_ref_type" => @turn.source_ref_type,
+        "source_ref_id" => @turn.source_ref_id,
+      }.compact
+    end
+
+    def conversation_projection
+      {
+        "messages" => messages_projection,
+        "context_imports" => context_imports,
+        "prior_tool_results" => [],
+        "projection_fingerprint" => projection_fingerprint,
+      }
+    end
+
+    def capability_projection
+      {
+        "tool_surface" => visible_tool_surface,
+        "profile_key" => current_profile_key,
+        "is_subagent" => subagent_session.present?,
+        "subagent_session_id" => subagent_session&.public_id,
+        "parent_subagent_session_id" => subagent_session&.parent_subagent_session&.public_id,
+        "subagent_depth" => subagent_session&.depth,
+        "owner_conversation_id" => subagent_session&.owner_conversation&.public_id,
+        "subagent_policy" => deep_stringify(runtime_contract.fetch("subagents", {})),
+      }
+    end
+
+    def provider_context
+      {
+        "budget_hints" => budget_hints,
+        "provider_execution" => provider_execution,
+        "model_context" => model_context,
+      }
+    end
+
+    def runtime_context
+      {
+        "runtime_plane" => "agent",
+        "logical_work_id" => nil,
+        "attempt_no" => nil,
+        "deployment_public_id" => @turn.agent_deployment.public_id,
+      }
+    end
+
+    def turn_origin
+      {
+        "origin_kind" => @turn.origin_kind,
+        "origin_payload" => @turn.origin_payload,
+        "source_ref_type" => @turn.source_ref_type,
+        "source_ref_id" => @turn.source_ref_id,
       }
     end
 
@@ -80,28 +142,7 @@ module Workflows
       }
     end
 
-    def agent_context
-      {
-        "profile" => current_profile_key,
-        "is_subagent" => subagent_session.present?,
-        "subagent_session_id" => subagent_session&.public_id,
-        "parent_subagent_session_id" => subagent_session&.parent_subagent_session&.public_id,
-        "subagent_depth" => subagent_session&.depth,
-        "allowed_tool_names" => runtime_contract.fetch("tool_catalog", []).map { |entry| entry.fetch("tool_name") },
-        "owner_conversation_id" => subagent_session&.owner_conversation&.public_id,
-      }.compact
-    end
-
-    def turn_origin
-      {
-        "origin_kind" => @turn.origin_kind,
-        "origin_payload" => @turn.origin_payload,
-        "source_ref_type" => @turn.source_ref_type,
-        "source_ref_id" => @turn.source_ref_id,
-      }
-    end
-
-    def context_messages
+    def messages_projection
       visible_context_messages.filter_map do |message|
         next unless message.is_a?(Message)
 
@@ -109,10 +150,32 @@ module Workflows
           "message_id" => message.public_id,
           "conversation_id" => message.conversation.public_id,
           "turn_id" => message.turn.public_id,
-          "role" => message.role,
+          "role" => provider_role_for(message),
           "slot" => message.slot,
           "content" => message.content,
         }
+      end
+    end
+
+    def visible_tool_surface
+      runtime_contract.fetch("tool_catalog", []).map { |entry| deep_stringify(entry) }
+    end
+
+    def projection_fingerprint
+      payload = {
+        "messages" => messages_projection,
+        "context_imports" => context_imports,
+      }
+
+      "sha256:#{Digest::SHA256.hexdigest(JSON.generate(payload))}"
+    end
+
+    def provider_role_for(message)
+      case message.role
+      when "agent"
+        "assistant"
+      else
+        message.role
       end
     end
 

@@ -20,11 +20,13 @@ module Fenix
         )
 
         {
+          "status" => "ok",
           "messages" => compacted.fetch("messages"),
-          "program_tools" => Fenix::Runtime::PairingManifest.visible_program_tool_catalog(
+          "tool_surface" => Fenix::Runtime::PairingManifest.visible_program_tool_catalog(
             allowed_tool_names: Array(round_context.dig("agent_context", "allowed_tool_names"))
           ),
           "likely_model" => prepared.fetch("likely_model"),
+          "summary_artifacts" => [],
           "trace" => [prepared.fetch("trace"), compacted.fetch("trace")],
         }
       end
@@ -34,9 +36,14 @@ module Fenix
       def round_context
         @round_context ||= begin
           workspace_root = Fenix::Workspace::Layout.default_root
-          conversation_id = @payload.fetch("conversation_id")
-          agent_context = @payload.fetch("agent_context", {}).deep_stringify_keys
-          runtime_identity = @payload.fetch("runtime_identity", {}).deep_stringify_keys
+          task = @payload.fetch("task").deep_stringify_keys
+          conversation_projection = @payload.fetch("conversation_projection").deep_stringify_keys
+          capability_projection = @payload.fetch("capability_projection").deep_stringify_keys
+          provider_context = @payload.fetch("provider_context").deep_stringify_keys
+          runtime_context = @payload.fetch("runtime_context").deep_stringify_keys
+          conversation_id = task.fetch("conversation_id")
+          agent_context = normalized_agent_context(capability_projection:)
+          runtime_identity = { "deployment_public_id" => runtime_context.fetch("deployment_public_id") }
 
           Fenix::Workspace::Bootstrap.call(
             workspace_root:,
@@ -46,16 +53,17 @@ module Fenix
 
           {
             "conversation_id" => conversation_id,
-            "turn_id" => @payload.fetch("turn_id"),
-            "workflow_run_id" => @payload.fetch("workflow_run_id"),
-            "workflow_node_id" => @payload.fetch("workflow_node_id"),
+            "turn_id" => task["turn_id"],
+            "workflow_run_id" => task["workflow_run_id"],
+            "workflow_node_id" => task["workflow_node_id"],
             "context_messages" => transcript_messages,
-            "context_imports" => Array(@payload.fetch("context_imports", [])).map(&:deep_stringify_keys),
-            "prior_tool_results" => Array(@payload.fetch("prior_tool_results", [])).map(&:deep_stringify_keys),
-            "budget_hints" => @payload.fetch("budget_hints", {}).deep_stringify_keys,
+            "context_imports" => Array(conversation_projection.fetch("context_imports", [])).map(&:deep_stringify_keys),
+            "prior_tool_results" => Array(conversation_projection.fetch("prior_tool_results", [])).map(&:deep_stringify_keys),
+            "budget_hints" => provider_context.fetch("budget_hints", {}).deep_stringify_keys,
             "agent_context" => agent_context,
-            "provider_execution" => @payload.fetch("provider_execution", {}).deep_stringify_keys,
-            "model_context" => @payload.fetch("model_context", {}).deep_stringify_keys,
+            "capability_projection" => capability_projection,
+            "provider_execution" => provider_context.fetch("provider_execution", {}).deep_stringify_keys,
+            "model_context" => provider_context.fetch("model_context", {}).deep_stringify_keys,
             "runtime_identity" => runtime_identity,
             "workspace_context" => {
               "workspace_root" => workspace_root,
@@ -77,13 +85,27 @@ module Fenix
       end
 
       def transcript_messages
-        Array(@payload.fetch("transcript", [])).map do |entry|
+        source_messages = @payload.fetch("conversation_projection").deep_stringify_keys.fetch("messages")
+
+        Array(source_messages).map do |entry|
           candidate = entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : {}
           {
             "role" => candidate.fetch("role"),
             "content" => candidate.fetch("content"),
           }
         end
+      end
+
+      def normalized_agent_context(capability_projection:)
+        {
+          "profile" => capability_projection["profile_key"] || "main",
+          "is_subagent" => capability_projection["is_subagent"] == true,
+          "subagent_session_id" => capability_projection["subagent_session_id"],
+          "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+          "subagent_depth" => capability_projection["subagent_depth"],
+          "allowed_tool_names" => Array(capability_projection["tool_surface"]).filter_map { |entry| entry["tool_name"] },
+          "owner_conversation_id" => capability_projection["owner_conversation_id"],
+        }.compact
       end
     end
   end

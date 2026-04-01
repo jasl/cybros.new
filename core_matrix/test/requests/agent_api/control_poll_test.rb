@@ -20,13 +20,17 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
 
     response_body = JSON.parse(response.body)
     item = response_body.fetch("mailbox_items").fetch(0)
+    payload = item.fetch("payload")
 
     assert_equal scenario.fetch(:mailbox_item).public_id, item.fetch("item_id")
     assert_equal "execution_assignment", item.fetch("item_type")
     assert_equal "agent", item.fetch("runtime_plane")
     assert_equal context[:agent_installation].public_id, item.fetch("target_ref")
-    assert_equal context[:workflow_run].public_id, item.dig("payload", "workflow_run_id")
-    refute item.fetch("payload").key?("runtime_plane")
+    assert_equal "agent-program/2026-04-01", payload.fetch("protocol_version")
+    assert_equal "execution_assignment", payload.fetch("request_kind")
+    assert_equal context[:workflow_run].public_id, payload.dig("task", "workflow_run_id")
+    assert_equal context[:turn].public_id, payload.dig("task", "turn_id")
+    refute payload.key?("runtime_plane")
     assert_equal 1, item.fetch("delivery_no")
     refute_includes response.body, %("#{context[:workflow_run].id}")
   end

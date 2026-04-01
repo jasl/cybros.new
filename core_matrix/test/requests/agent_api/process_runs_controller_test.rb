@@ -135,11 +135,13 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     )
     context[:deployment].update!(active_capability_snapshot: capability_snapshot)
     execution_snapshot = context[:turn].execution_snapshot.to_h
-    agent_context = execution_snapshot.fetch("agent_context", {})
+    capability_projection = execution_snapshot.fetch("capability_projection", {})
     context[:turn].update!(
       execution_snapshot_payload: execution_snapshot.merge(
-        "agent_context" => agent_context.merge(
-          "allowed_tool_names" => ["process_exec"]
+        "capability_projection" => capability_projection.merge(
+          "tool_surface" => [
+            { "tool_name" => "process_exec" },
+          ]
         )
       ),
       resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(

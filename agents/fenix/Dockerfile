@@ -23,7 +23,8 @@ COPY scripts/bootstrap-runtime-deps.sh /tmp/bootstrap-runtime-deps.sh
 # Install runtime toolchains and OS packages on the canonical Ubuntu 24.04 base.
 RUN /tmp/bootstrap-runtime-deps.sh && \
     rm /tmp/bootstrap-runtime-deps.sh && \
-    ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so
+    ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
+    npm install -g --no-audit --no-fund create-vite@latest vite@latest
 
 # Set production environment variables and enable jemalloc for reduced memory usage and latency.
 ENV RAILS_ENV="production" \

@@ -109,6 +109,19 @@ Long-lived environment resources also require a persistent mailbox worker.
 - `bin/rails runtime:control_loop_forever`
   - persistent websocket-first worker that retains local `ProcessRun` handles
     across mailbox iterations so later close requests can settle gracefully
+- `bin/jobs start`
+  - starts the local Solid Queue workers that execute `RuntimeExecutionJob`
+    across the runtime topology queues
+- `bin/runtime-worker`
+  - convenience wrapper that starts `bin/jobs start` in the background and then
+    runs `bin/rails runtime:control_loop_forever`
+
+When `Fenix` is registered as an external runtime, the control loop and the job
+worker must run with the same `CORE_MATRIX_BASE_URL` and
+`CORE_MATRIX_MACHINE_CREDENTIAL`. The queue worker is not optional in the
+default `solid_queue` topology because `MailboxWorker` enqueues runtime
+execution onto `runtime_prepare_round`, `runtime_pure_tools`,
+`runtime_process_tools`, and `runtime_control`.
 
 Detached long-lived services therefore follow this contract:
 
@@ -330,8 +343,8 @@ The retained manual-acceptance layout uses two local `Fenix` processes:
   - bundled mailbox execution
   - external pairing
   - deployment rotation
-  - spawns `runtime:control_loop_forever` for long-lived `ProcessRun`
-    validation when the operator script needs one persistent mailbox worker
+  - pairs with `bin/runtime-worker` for external mailbox execution and
+    long-lived `ProcessRun` validation
 - `AGENT_FENIX_PORT=3102 ... bin/dev`
   - dedicated skills-validation runtime
   - `FENIX_LIVE_SKILLS_ROOT=/tmp/fenix-live-skills`

@@ -463,10 +463,10 @@ module ManualAcceptanceSupport
     }
   end
 
-  def execute_provider_workflow!(workflow_run:, timeout_seconds: 180)
+  def execute_provider_workflow!(workflow_run:, timeout_seconds: 3600)
     dispatched_node = Workflows::ExecuteRun.call(
       workflow_run: workflow_run,
-      messages: workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+      messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
     )
     execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
     wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds:)
@@ -629,7 +629,7 @@ module ManualAcceptanceSupport
 
     Workflows::ExecuteNode.call(
       workflow_node: current_node,
-      messages: current_node.workflow_run.execution_snapshot.context_messages.map { |entry| entry.slice("role", "content") }
+      messages: current_node.workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
     )
   end
 end

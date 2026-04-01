@@ -19,28 +19,40 @@ class TurnExecutionSnapshot
     read_hash("turn_origin")
   end
 
-  def model_context
-    read_hash("model_context")
+  def task
+    read_hash("task")
   end
 
-  def provider_execution
-    read_hash("provider_execution")
+  def conversation_projection
+    read_hash("conversation_projection")
   end
 
-  def budget_hints
-    read_hash("budget_hints")
+  def capability_projection
+    read_hash("capability_projection")
   end
 
-  def agent_context
-    read_hash("agent_context")
+  def provider_context
+    read_hash("provider_context")
   end
 
-  def context_messages
-    read_array("context_messages")
+  def runtime_context
+    read_hash("runtime_context")
   end
 
   def context_imports
-    read_array("context_imports")
+    conversation_projection.fetch("context_imports", [])
+  end
+
+  def model_context
+    provider_context.fetch("model_context", {})
+  end
+
+  def provider_execution
+    provider_context.fetch("provider_execution", {})
+  end
+
+  def budget_hints
+    provider_context.fetch("budget_hints", {})
   end
 
   def attachment_manifest

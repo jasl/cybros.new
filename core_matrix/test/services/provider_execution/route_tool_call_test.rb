@@ -10,7 +10,14 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
   end
 
   test "routes agent-owned round tools back through the program mailbox exchange with workflow-node durable proof" do
-    context = build_governed_tool_context!
+    context = build_governed_tool_context!(
+      agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry],
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator],
+        }
+      )
+    )
     workflow_node = context.fetch(:workflow_node)
     round_bindings = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: workflow_node,
@@ -19,9 +26,10 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
       program_tool_results: {
         "call-calculator-1" => {
-          "status" => "completed",
+          "status" => "ok",
           "result" => { "value" => 4 },
-          "summary" => "4",
+          "output_chunks" => [],
+          "summary_artifacts" => [{ "kind" => "tool_batch", "label" => "Calculator", "text" => "4", "metadata" => {} }],
         },
       }
     )
@@ -46,12 +54,89 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_nil invocation.agent_task_run
     assert_equal({ "expression" => "2 + 2" }, invocation.request_payload.fetch("arguments"))
     assert_equal({ "value" => 4 }, invocation.response_payload)
-    assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("tool_call_id")
-    assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("workflow_node_id")
+    assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("call_id")
+    assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("task").fetch("workflow_node_id")
     assert_equal(
       { "deployment_public_id" => context.fetch(:deployment).public_id },
-      program_exchange.execute_program_tool_requests.first.fetch("runtime_identity")
+      program_exchange.execute_program_tool_requests.first.fetch("runtime_context").slice("deployment_public_id")
     )
+  end
+
+  test "routes execution-environment round tools back through the program mailbox exchange" do
+    environment_tool = {
+      "tool_name" => "memory_search",
+      "tool_kind" => "environment_runtime",
+      "implementation_source" => "execution_environment",
+      "implementation_ref" => "env/memory_search",
+      "input_schema" => {
+        "type" => "object",
+        "properties" => {
+          "query" => { "type" => "string" },
+          "limit" => { "type" => "integer" },
+        },
+      },
+      "result_schema" => {
+        "type" => "object",
+        "properties" => {
+          "entries" => { "type" => "array" },
+        },
+      },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
+    context = build_governed_tool_context!(
+      environment_tool_catalog: [environment_tool],
+      profile_catalog: {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => %w[memory_search compact_context subagent_spawn],
+        },
+      }
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ProviderExecution::MaterializeRoundTools.call(
+      workflow_node: workflow_node,
+      tool_catalog: [environment_tool]
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "call-memory-search-1" => {
+          "status" => "ok",
+          "result" => {
+            "entries" => [
+              { "id" => "memory-1", "content" => "Using superpowers enables skill routing." },
+            ],
+          },
+          "output_chunks" => [],
+          "summary_artifacts" => [],
+        },
+      }
+    )
+
+    result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-memory-search-1",
+        "tool_name" => "memory_search",
+        "arguments" => { "query" => "using-superpowers skill", "limit" => 5 },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    invocation = result.tool_invocation.reload
+
+    assert_equal(
+      { "entries" => [{ "id" => "memory-1", "content" => "Using superpowers enables skill routing." }] },
+      result.result
+    )
+    assert_equal "succeeded", invocation.status
+    assert_equal workflow_node, invocation.workflow_node
+    assert_equal "memory_search", invocation.tool_definition.tool_name
+    assert_equal "call-memory-search-1", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("call_id")
+    assert_equal "memory_search", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("tool_name")
   end
 
   test "routes round-visible MCP tools through the generic MCP executor" do

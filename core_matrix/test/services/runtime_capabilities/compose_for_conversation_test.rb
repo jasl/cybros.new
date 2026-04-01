@@ -179,6 +179,20 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     assert_includes error.message, "subagent_spawn"
   end
 
+  test "subagent spawn schema advertises runtime profile choices and default alias" do
+    registration = register_profile_aware_runtime!
+    conversation = create_root_conversation_for!(registration)
+
+    entry = RuntimeCapabilities::ComposeForConversation.call(
+      conversation: conversation
+    ).fetch("tool_catalog").find { |tool| tool.fetch("tool_name") == "subagent_spawn" }
+
+    profile_key_schema = entry.fetch("input_schema").fetch("properties").fetch("profile_key")
+
+    assert_equal %w[default main researcher], profile_key_schema.fetch("enum")
+    assert_includes profile_key_schema.fetch("description"), "omit this field"
+  end
+
   test "conversation overrides reject interactive profile mutations" do
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)

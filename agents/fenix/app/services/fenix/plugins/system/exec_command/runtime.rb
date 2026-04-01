@@ -54,13 +54,18 @@ module Fenix
             command_run_id = @tool_call.dig("arguments", "command_run_id")
             command_run = lookup_owned_command_run!(command_run_id)
 
-            output_chunks = read_available_output(command_run:, timeout_seconds: 0.05, command_run_id:)
+            output_chunks =
+              if command_run.session_closed
+                []
+              else
+                read_available_output(command_run:, timeout_seconds: 0.05, command_run_id:)
+              end
             emit_tool_output!(command_run_id:, output_chunks:) if output_chunks.any?
 
             snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id:)
             raise ArgumentError, "unknown command run #{command_run_id}" if snapshot.blank?
 
-            snapshot.merge("session_closed" => false)
+            snapshot
           end
 
           def execute_command_run_terminate
@@ -79,6 +84,16 @@ module Fenix
             command_run_id = @tool_call.dig("arguments", "command_run_id")
             timeout_seconds = @tool_call.dig("arguments", "timeout_seconds") || 30
             command_run = lookup_owned_command_run!(command_run_id)
+
+            if command_run.session_closed
+              snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id:)
+              raise ArgumentError, "unknown command run #{command_run_id}" if snapshot.blank?
+
+              return snapshot.merge(
+                "session_closed" => true,
+                "output_streamed" => snapshot.fetch("stdout_bytes").positive? || snapshot.fetch("stderr_bytes").positive?
+              )
+            end
 
             output_chunks = drain_attached_output(
               command_run:,
@@ -105,7 +120,7 @@ module Fenix
               "stderr_tail" => "",
             }
           ensure
-            Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present?
+            Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present? && !command_run&.session_closed
           end
 
           def execute_exec_command
@@ -161,7 +176,7 @@ module Fenix
             response_payload["exit_status"] = command_run.wait_thread.value.exitstatus if wait_for_exit
             response_payload
           ensure
-            Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if wait_for_exit && command_run_id.present?
+            Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if wait_for_exit && command_run_id.present? && !command_run&.session_closed
           end
 
           def execute_one_shot_command(command_line:, timeout_seconds:, timeout_label:)
@@ -170,67 +185,56 @@ module Fenix
             stderr = +""
             exit_status = nil
             process_pid = nil
+            preserve_snapshot = false
             command_run_id = @command_run.fetch("command_run_id")
+            stdin, command_stdout, command_stderr, wait_thr = Open3.popen3(
+              "/bin/sh",
+              "-lc",
+              command_line.to_s,
+              chdir: @workspace_root,
+              pgroup: true
+            )
 
-            Open3.popen3("/bin/sh", "-lc", command_line.to_s, chdir: @workspace_root) do |stdin, command_stdout, command_stderr, wait_thr|
-              Fenix::Runtime::CommandRunRegistry.register(
-                command_run_id:,
-                agent_task_run_id: @current_agent_task_run_id,
-                stdin:,
-                stdout: command_stdout,
-                stderr: command_stderr,
-                wait_thread: wait_thr
-              )
-              process_pid = wait_thr.pid
-              activate_registered_command_run!(command_run_id)
-              stdin.close
+            Fenix::Runtime::CommandRunRegistry.register(
+              command_run_id:,
+              agent_task_run_id: @current_agent_task_run_id,
+              stdin:,
+              stdout: command_stdout,
+              stderr: command_stderr,
+              wait_thread: wait_thr
+            )
+            process_pid = wait_thr.pid
+            activate_registered_command_run!(command_run_id)
+            stdin.close
 
-              deadline_at = monotonic_now + timeout_seconds.to_i
-              readers = {
-                command_stdout => { stream: "stdout", buffer: stdout },
-                command_stderr => { stream: "stderr", buffer: stderr },
-              }
+            deadline_at = monotonic_now + timeout_seconds.to_i
+            readers = {
+              command_stdout => { stream: "stdout", buffer: stdout },
+              command_stderr => { stream: "stderr", buffer: stderr },
+            }
 
-              until readers.empty?
-                check_canceled!
+            loop do
+              check_canceled!
+              if wait_thr.alive?
                 remaining = deadline_at - monotonic_now
                 raise Timeout::Error, "#{timeout_label} timed out after #{timeout_seconds} seconds" if remaining <= 0
 
-                ready =
-                  begin
-                    IO.select(readers.keys, nil, nil, [remaining, 0.1].min)
-                  rescue IOError, Errno::EBADF
-                    readers.delete_if { |io, _| io.closed? rescue true }
-                    nil
-                  end
-                next if ready.blank?
+                capture_ready_output!(
+                  readers:,
+                  command_run_id:,
+                  timeout_seconds: [remaining, 0.1].min
+                )
 
-                ready.first.each do |io|
-                  begin
-                    chunk = io.read_nonblock(4096)
-                    next if chunk.blank?
-
-                    stream_details = readers.fetch(io)
-                    stream_details.fetch(:buffer) << chunk
-                    Fenix::Runtime::CommandRunRegistry.append_output(
-                      command_run_id:,
-                      stream: stream_details.fetch(:stream),
-                      text: chunk
-                    )
-                    emit_tool_output!(
-                      command_run_id:,
-                      output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }]
-                    )
-                  rescue IO::WaitReadable
-                    nil
-                  rescue EOFError, IOError, Errno::EIO
-                    readers.delete(io)
-                  end
-                end
+                next
               end
 
-              exit_status = wait_thr.value.exitstatus
+              capture_ready_output!(readers:, command_run_id:, timeout_seconds: 0)
+              break if readers.empty?
+              sleep(0.01)
             end
+
+            exit_status = wait_thr.value.exitstatus
+            preserve_snapshot = true
 
             {
               "command_run_id" => command_run_id,
@@ -245,7 +249,16 @@ module Fenix
             terminate_subprocess!(pid: process_pid)
             raise
           ensure
-            Fenix::Runtime::CommandRunRegistry.release(command_run_id:) if command_run_id.present?
+            stdin&.close unless stdin.nil? || stdin.closed?
+            command_stdout&.close unless command_stdout.nil? || command_stdout.closed?
+            command_stderr&.close unless command_stderr.nil? || command_stderr.closed?
+            if command_run_id.present?
+              if preserve_snapshot
+                Fenix::Runtime::CommandRunRegistry.release(command_run_id:)
+              else
+                Fenix::Runtime::CommandRunRegistry.discard(command_run_id:)
+              end
+            end
           end
 
           def start_command_run_session
@@ -255,7 +268,8 @@ module Fenix
               "/bin/sh",
               "-lc",
               @tool_call.dig("arguments", "command_line").to_s,
-              chdir: @workspace_root
+              chdir: @workspace_root,
+              pgroup: true
             )
             Fenix::Runtime::CommandRunRegistry.register(
               command_run_id:,
@@ -277,6 +291,7 @@ module Fenix
 
           def drain_attached_output(command_run:, wait_for_exit:, timeout_seconds:)
             chunks = []
+            timeout_seconds = 30 if wait_for_exit && timeout_seconds.to_i <= 0
             deadline_at = monotonic_now + timeout_seconds.to_i
 
             loop do
@@ -355,11 +370,59 @@ module Fenix
           def terminate_subprocess!(pid:)
             return if pid.blank?
 
-            ::Process.kill("TERM", pid)
+            signal_process_tree!("TERM", pid)
             sleep(0.1)
-            ::Process.kill("KILL", pid)
+            signal_process_tree!("KILL", pid)
           rescue Errno::ESRCH
             nil
+          end
+
+          def capture_ready_output!(readers:, command_run_id:, timeout_seconds:)
+            return if readers.empty?
+
+            ready =
+              begin
+                IO.select(readers.keys, nil, nil, timeout_seconds)
+              rescue IOError, Errno::EBADF
+                readers.delete_if { |io, _| io.closed? rescue true }
+                nil
+              end
+            return if ready.blank?
+
+            ready.first.each do |io|
+              begin
+                chunk = io.read_nonblock(4096)
+                next if chunk.blank?
+
+                stream_details = readers.fetch(io)
+                stream_details.fetch(:buffer) << chunk
+                Fenix::Runtime::CommandRunRegistry.append_output(
+                  command_run_id:,
+                  stream: stream_details.fetch(:stream),
+                  text: chunk
+                )
+                emit_tool_output!(
+                  command_run_id:,
+                  output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }]
+                )
+              rescue IO::WaitReadable
+                nil
+              rescue EOFError, IOError, Errno::EIO
+                readers.delete(io)
+              end
+            end
+          end
+
+          def signal_process_tree!(signal, pid)
+            process_pid = pid.to_i
+            [(-process_pid), process_pid].each do |target|
+              ::Process.kill(signal, target)
+              return
+            rescue Errno::ESRCH
+              next
+            end
+
+            raise Errno::ESRCH, process_pid.to_s
           end
 
           def monotonic_now

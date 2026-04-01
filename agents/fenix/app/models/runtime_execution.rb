@@ -28,6 +28,10 @@ class RuntimeExecution < ApplicationRecord
     completed? || failed? || canceled?
   end
 
+  def dispatchable?
+    queued? && started_at.blank? && finished_at.blank? && enqueued_at.blank?
+  end
+
   def cancel!(request_kind: nil, reason_kind: nil, occurred_at: Time.current)
     return self if terminal?
 
@@ -52,7 +56,7 @@ class RuntimeExecution < ApplicationRecord
   end
 
   def assign_agent_task_run_id
-    self.agent_task_run_id ||= mailbox_item_payload.dig("payload", "agent_task_run_id")
+    self.agent_task_run_id ||= mailbox_item_payload.dig("payload", "task", "agent_task_run_id")
   end
 
   def mailbox_item_payload_must_be_hash

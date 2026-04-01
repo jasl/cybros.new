@@ -50,21 +50,209 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
       "runtime_plane" => "agent",
-      "payload" => {
-        "request_kind" => "prepare_round",
-        "workflow_run_id" => "workflow-#{SecureRandom.uuid}",
-        "workflow_node_id" => "workflow-node-#{SecureRandom.uuid}",
-        "conversation_id" => "conversation-#{SecureRandom.uuid}",
-        "turn_id" => "turn-#{SecureRandom.uuid}",
-        "agent_task_run_id" => "task-#{SecureRandom.uuid}",
-        "transcript" => default_context_messages,
-        "budget_hints" => {},
-        "agent_context" => default_agent_context,
-      },
+      "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
     assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_prepare_round") do
       Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+    end
+  end
+
+  test "retries transient runtime execution creation failures before enqueueing" do
+    mailbox_item = {
+      "item_type" => "agent_program_request",
+      "item_id" => "mailbox-item-#{SecureRandom.uuid}",
+      "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
+      "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
+      "attempt_no" => 1,
+      "runtime_plane" => "agent",
+      "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
+    }
+
+    original_create = RuntimeExecution.method(:create!)
+    create_calls = 0
+
+    singleton = RuntimeExecution.singleton_class
+    singleton.send(:define_method, :create!) do |**attrs|
+      create_calls += 1
+
+      if create_calls == 1
+        raise ActiveRecord::StatementInvalid.new("SQLite3::LockedException: database table is locked")
+      end
+
+      original_create.call(**attrs)
+    end
+
+    begin
+      runtime_execution = nil
+
+      assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_prepare_round") do
+        runtime_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+      end
+
+      assert_equal 2, create_calls
+      assert_instance_of RuntimeExecution, runtime_execution
+      assert_equal mailbox_item.fetch("item_id"), runtime_execution.mailbox_item_id
+      assert runtime_execution.reload.enqueued_at.present?
+    ensure
+      singleton.send(:define_method, :create!, original_create)
+    end
+  end
+
+  test "retries transient runtime execution dispatch failures before marking the execution enqueued" do
+    mailbox_item = {
+      "item_type" => "agent_program_request",
+      "item_id" => "mailbox-item-#{SecureRandom.uuid}",
+      "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
+      "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
+      "attempt_no" => 1,
+      "runtime_plane" => "agent",
+      "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
+    }
+
+    original_set = RuntimeExecutionJob.method(:set)
+    set_calls = 0
+
+    singleton = RuntimeExecutionJob.singleton_class
+    singleton.send(:define_method, :set) do |**kwargs|
+      set_calls += 1
+
+      if set_calls == 1
+        Class.new do
+          def perform_later(*)
+            raise ActiveRecord::StatementInvalid.new("SQLite3::LockedException: database table is locked")
+          end
+        end.new
+      else
+        original_set.call(**kwargs)
+      end
+    end
+
+    begin
+      runtime_execution = nil
+
+      assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_prepare_round") do
+        runtime_execution = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+      end
+
+      assert_equal 2, set_calls
+      assert runtime_execution.reload.enqueued_at.present?
+    ensure
+      singleton.send(:define_method, :set, original_set)
+    end
+  end
+
+  test "re-dispatches queued runtime executions that were created before enqueue succeeded" do
+    mailbox_item = {
+      "item_type" => "agent_program_request",
+      "item_id" => "mailbox-item-#{SecureRandom.uuid}",
+      "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
+      "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
+      "attempt_no" => 1,
+      "runtime_plane" => "agent",
+      "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
+    }
+
+    runtime_execution = RuntimeExecution.create!(
+      agent_task_run_id: mailbox_item.dig("payload", "task", "agent_task_run_id"),
+      mailbox_item_id: mailbox_item.fetch("item_id"),
+      protocol_message_id: mailbox_item.fetch("protocol_message_id"),
+      logical_work_id: mailbox_item.fetch("logical_work_id"),
+      attempt_no: mailbox_item.fetch("attempt_no"),
+      runtime_plane: mailbox_item.fetch("runtime_plane"),
+      mailbox_item_payload: mailbox_item
+    )
+
+    assert_nil runtime_execution.enqueued_at
+
+    assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_prepare_round") do
+      duplicate = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+      assert_equal runtime_execution.id, duplicate.id
+    end
+
+    assert runtime_execution.reload.enqueued_at.present?
+  end
+
+  test "registry-backed execute_program_tool requests route to the runtime_process_tools queue" do
+    mailbox_item = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item").deep_dup
+    mailbox_item["item_id"] = "mailbox-item-#{SecureRandom.uuid}"
+    mailbox_item["protocol_message_id"] = "protocol-message-#{SecureRandom.uuid}"
+    mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
+    mailbox_item["payload"]["program_tool_call"] = {
+      "call_id" => "tool-call-#{SecureRandom.uuid}",
+      "tool_name" => "exec_command",
+      "arguments" => {
+        "command_line" => "printf 'hello\\n'",
+        "timeout_seconds" => 5,
+        "pty" => false,
+      },
+    }
+    mailbox_item["payload"]["capability_projection"]["tool_surface"] = [
+      { "tool_name" => "exec_command" },
+    ]
+
+    assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_process_tools") do
+      Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+    end
+  end
+
+  test "registry-backed follow-up execution assignments route to the runtime_process_tools queue" do
+    {
+      "command_run_list" => {},
+      "command_run_read_output" => { "command_run_id" => "command-run-#{SecureRandom.uuid}" },
+      "command_run_wait" => { "command_run_id" => "command-run-#{SecureRandom.uuid}" },
+      "command_run_terminate" => { "command_run_id" => "command-run-#{SecureRandom.uuid}" },
+      "browser_list" => {},
+      "browser_session_info" => { "browser_session_id" => "browser-session-#{SecureRandom.uuid}" },
+      "process_list" => {},
+      "process_read_output" => { "process_run_id" => "process-run-#{SecureRandom.uuid}" },
+      "process_proxy_info" => { "process_run_id" => "process-run-#{SecureRandom.uuid}" },
+    }.each do |tool_name, arguments|
+      mailbox_item = runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => tool_name,
+          "arguments" => arguments,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + [tool_name]
+        )
+      ).merge("item_type" => "execution_assignment")
+
+      assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_process_tools") do
+        Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+      end
+    end
+  end
+
+  test "registry-backed follow-up execute_program_tool requests route to the runtime_process_tools queue" do
+    {
+      "command_run_list" => {},
+      "command_run_read_output" => { "command_run_id" => "command-run-#{SecureRandom.uuid}" },
+      "command_run_wait" => { "command_run_id" => "command-run-#{SecureRandom.uuid}" },
+      "command_run_terminate" => { "command_run_id" => "command-run-#{SecureRandom.uuid}" },
+      "browser_list" => {},
+      "browser_session_info" => { "browser_session_id" => "browser-session-#{SecureRandom.uuid}" },
+      "process_list" => {},
+      "process_read_output" => { "process_run_id" => "process-run-#{SecureRandom.uuid}" },
+      "process_proxy_info" => { "process_run_id" => "process-run-#{SecureRandom.uuid}" },
+    }.each do |tool_name, arguments|
+      mailbox_item = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item").deep_dup
+      mailbox_item["item_id"] = "mailbox-item-#{SecureRandom.uuid}"
+      mailbox_item["protocol_message_id"] = "protocol-message-#{SecureRandom.uuid}"
+      mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
+      mailbox_item["payload"]["program_tool_call"] = {
+        "call_id" => "tool-call-#{SecureRandom.uuid}",
+        "tool_name" => tool_name,
+        "arguments" => arguments,
+      }
+      mailbox_item["payload"]["capability_projection"]["tool_surface"] = [
+        { "tool_name" => tool_name },
+      ]
+
+      assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_process_tools") do
+        Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
+      end
     end
   end
 
@@ -73,7 +261,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
       "item_type" => "execution_assignment"
     )
-    mailbox_item.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    mailbox_item.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     runtime_execution = nil
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
@@ -173,7 +361,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["exec_command"]
       )
     )
-    payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     execution_thread = Thread.new do
       Fenix::Runtime::ExecuteAssignment.call(mailbox_item: payload, control_client: control_client)

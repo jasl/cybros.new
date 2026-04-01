@@ -96,9 +96,12 @@ module Fenix
           timeout_seconds: @timeout_seconds,
           mailbox_pump: @mailbox_pump,
           stop_after_first_mailbox_item: false,
-          mailbox_item_timeout_seconds: nil
+          mailbox_item_timeout_seconds: @timeout_seconds
         )
       rescue StandardError => error
+        Rails.logger.error("[fenix.runtime.control_worker] #{error.class}: #{error.message}")
+        Rails.logger.error(error.backtrace.join("\n")) if error.backtrace.present?
+
         Fenix::Runtime::ControlLoop::Result.new(
           transport: "error",
           realtime_result: Fenix::Runtime::RealtimeSession::Result.new(

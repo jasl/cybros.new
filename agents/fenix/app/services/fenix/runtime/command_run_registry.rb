@@ -10,6 +10,8 @@ module Fenix
         :stdout,
         :stderr,
         :wait_thread,
+        :session_closed,
+        :exit_status,
         :stdout_bytes,
         :stderr_bytes,
         :stdout_tail,
@@ -29,6 +31,8 @@ module Fenix
               stdout: stdout,
               stderr: stderr,
               wait_thread: wait_thread,
+              session_closed: false,
+              exit_status: nil,
               stdout_bytes: 0,
               stderr_bytes: 0,
               stdout_tail: +"",
@@ -81,7 +85,23 @@ module Fenix
         end
 
         def release(command_run_id:)
-          terminate(command_run_id:)
+          entry = lookup(command_run_id:)
+          return if entry.nil?
+
+          return snapshot_for(entry) if entry.wait_thread&.alive? && !entry.session_closed
+
+          close_entry(entry)
+          snapshot_for(entry)
+        end
+
+        def discard(command_run_id:)
+          entry = synchronize do
+            entries.delete(command_run_id)
+          end
+          return if entry.nil?
+
+          close_entry(entry, signal_process: true)
+          snapshot_for(entry)
         end
 
         def terminate(command_run_id:)
@@ -90,11 +110,10 @@ module Fenix
           end
           return if entry.nil?
 
-          terminate_entry(entry)
+          close_entry(entry, signal_process: true)
           snapshot_for(entry).merge(
             "terminated" => true,
-            "session_closed" => true,
-            "exit_status" => exit_status_for(entry)
+            "session_closed" => true
           )
         end
 
@@ -104,7 +123,7 @@ module Fenix
           end
 
           command_runs.each do |entry|
-            terminate_entry(entry)
+            close_entry(entry, signal_process: true)
           end
 
           synchronize do
@@ -118,7 +137,7 @@ module Fenix
           end
 
           command_runs.each do |entry|
-            terminate_entry(entry)
+            close_entry(entry, signal_process: true)
           end
         end
 
@@ -140,12 +159,14 @@ module Fenix
           {
             "command_run_id" => entry.command_run_id,
             "agent_task_run_id" => entry.agent_task_run_id,
-            "lifecycle_state" => entry.wait_thread&.alive? ? "running" : "stopped",
+            "lifecycle_state" => entry.session_closed || !entry.wait_thread&.alive? ? "stopped" : "running",
+            "session_closed" => entry.session_closed,
+            "exit_status" => entry.exit_status,
             "stdout_bytes" => entry.stdout_bytes,
             "stderr_bytes" => entry.stderr_bytes,
             "stdout_tail" => entry.stdout_tail.dup,
             "stderr_tail" => entry.stderr_tail.dup,
-          }
+          }.compact
         end
 
         def trim_tail(existing, text)
@@ -156,18 +177,28 @@ module Fenix
           bytes.last(OUTPUT_TAIL_LIMIT_BYTES).pack("C*").force_encoding(combined.encoding)
         end
 
-        def terminate_entry(entry)
-          entry.stdin.close unless entry.stdin.closed?
-          pid = entry.wait_thread.pid
-          Process.kill("TERM", pid)
-          sleep(0.1)
-          Process.kill("KILL", pid)
-        rescue IOError, Errno::ESRCH
+        def close_entry(entry, signal_process: false)
+          synchronize do
+            return if entry.session_closed
+
+            entry.stdin.close unless entry.stdin.closed?
+            if signal_process && entry.wait_thread&.alive?
+              pid = entry.wait_thread.pid
+              signal_process_tree!("TERM", pid)
+              sleep(0.1)
+              signal_process_tree!("KILL", pid) if entry.wait_thread&.alive?
+            end
+          end
+        rescue IOError, Errno::EPERM, Errno::ESRCH
           nil
         ensure
           entry.stdout.close unless entry.stdout.closed?
           entry.stderr.close unless entry.stderr.closed?
           join_wait_thread(entry.wait_thread)
+          synchronize do
+            entry.exit_status ||= exit_status_for(entry)
+            entry.session_closed = true
+          end
         end
 
         def join_wait_thread(wait_thread)
@@ -179,9 +210,24 @@ module Fenix
         end
 
         def exit_status_for(entry)
-          entry.wait_thread&.value&.exitstatus
+          wait_thread = entry.wait_thread
+          return nil if wait_thread.nil? || wait_thread.alive?
+
+          wait_thread.value&.exitstatus
         rescue StandardError
           nil
+        end
+
+        def signal_process_tree!(signal, pid)
+          process_pid = pid.to_i
+          [(-process_pid), process_pid].each do |target|
+            Process.kill(signal, target)
+            return
+          rescue Errno::ESRCH
+            next
+          end
+
+          raise Errno::ESRCH, process_pid.to_s
         end
       end
     end

@@ -117,6 +117,9 @@ execution-snapshot persistence on the turn row.
   active turn and moves the turn's selected-input pointer
 - steering is limited to pre-output state in this task; if an output pointer is
   already selected, the in-place steering path is rejected
+- steer requests may include the expected active-turn `public_id`; when
+  present, the kernel rejects the request unless it still matches the locked
+  active turn
 - user-turn entry, automation-turn entry, queued follow-up, and override
   updates all re-check the live conversation mutation contract after acquiring
   the conversation row lock
@@ -132,6 +135,10 @@ execution-snapshot persistence on the turn row.
   live conversation setting
 - later conversation policy edits therefore affect newly created turns, but do
   not retroactively rewrite the active turn's during-generation behavior
+- paused turns still accept steering because the turn remains active and
+  resumable; that steering becomes the input carried into the next same-turn
+  resume attempt and therefore bypasses the live during-generation queue or
+  restart policy that applies only to still-running work
 
 ## Invariants
 

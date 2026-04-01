@@ -40,11 +40,9 @@ class RuntimeFlowTest < ActiveSupport::TestCase
     assert_equal "gpt-4.1-mini", prepared.fetch("likely_model")
   end
 
-  test "execution payload parsing exposes deployment runtime identity" do
+  test "execution payload parsing exposes deployment runtime context" do
     mailbox_item = runtime_assignment_payload
-    mailbox_item.fetch("payload")["runtime_identity"] = {
-      "deployment_public_id" => "deployment-public-id",
-    }
+    mailbox_item.fetch("payload").fetch("runtime_context")["deployment_public_id"] = "deployment-public-id"
 
     context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
 
@@ -52,7 +50,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
   end
 
   test "shared core matrix execution assignment fixture preserves the real model and visible tool contract" do
-    mailbox_item = shared_contract_fixture("core_matrix_fenix_execution_assignment_v1")
+    mailbox_item = shared_contract_fixture("core_matrix_fenix_execution_assignment")
 
     context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
     prepared = Fenix::Hooks::PrepareTurn.call(context: context)
@@ -149,7 +147,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin command_run_wait command_run_read_output command_run_terminate command_run_list]
       )
     )
-    exec_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    exec_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     started = run_runtime_execution(exec_payload)
     command_run_id = started.fetch("reports").last
@@ -169,8 +167,8 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[write_stdin command_run_read_output command_run_wait command_run_list]
         ),
-        conversation_id: exec_payload.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: exec_payload.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
 
     listed = run_runtime_execution(
@@ -182,8 +180,8 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["command_run_list"]
         ),
-        conversation_id: exec_payload.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: exec_payload.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
     listed_invocation = listed.fetch("reports").last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
     assert listed_invocation.dig("response_payload", "entries").any? { |entry| entry.fetch("command_run_id") == command_run_id }
@@ -198,8 +196,8 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["command_run_read_output"]
         ),
-        conversation_id: exec_payload.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: exec_payload.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
     output_invocation = output.fetch("reports").last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
     assert_equal "hello\n", output_invocation.dig("response_payload", "stdout_tail")
@@ -215,8 +213,8 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["write_stdin"]
         ),
-        conversation_id: exec_payload.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: exec_payload.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
 
     waited = run_runtime_execution(
@@ -230,14 +228,79 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["command_run_wait"]
         ),
-        conversation_id: exec_payload.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: exec_payload.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
     waited_invocation = waited.fetch("reports").last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
 
     assert_equal "completed", waited.fetch("status")
     assert_equal true, waited_invocation.dig("response_payload", "session_closed")
     assert_equal 0, waited_invocation.dig("response_payload", "exit_status")
+  end
+
+  test "mailbox worker preserves completed one-shot command runs for follow-up read and wait helpers" do
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    conversation_id = "conversation-#{SecureRandom.uuid}"
+
+    started = run_runtime_execution(
+      runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "exec_command",
+          "command_line" => "printf 'hello\\n'",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command command_run_read_output command_run_wait]
+        ),
+        conversation_id: conversation_id
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
+    )
+
+    command_run_id = started.fetch("reports").last
+      .fetch("terminal_payload")
+      .fetch("tool_invocations")
+      .fetch(0)
+      .dig("response_payload", "command_run_id")
+
+    output = run_runtime_execution(
+      runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "command_run_read_output",
+          "command_run_id" => command_run_id,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["command_run_read_output"]
+        ),
+        conversation_id: conversation_id
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
+    )
+    output_invocation = output.fetch("reports").last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
+
+    waited = run_runtime_execution(
+      runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "command_run_wait",
+          "command_run_id" => command_run_id,
+          "timeout_seconds" => 1,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["command_run_wait"]
+        ),
+        conversation_id: conversation_id
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
+    )
+    waited_invocation = waited.fetch("reports").last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
+
+    assert_equal "completed", output.fetch("status")
+    assert_equal "hello\n", output_invocation.dig("response_payload", "stdout_tail")
+    assert_equal true, output_invocation.dig("response_payload", "session_closed")
+
+    assert_equal "completed", waited.fetch("status")
+    assert_equal true, waited_invocation.dig("response_payload", "session_closed")
+    assert_equal 0, waited_invocation.dig("response_payload", "exit_status")
+    assert_equal "hello\n", waited_invocation.dig("response_payload", "stdout_tail")
   end
 
   test "mailbox worker can terminate attached command runs explicitly" do
@@ -253,7 +316,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command command_run_terminate]
       )
     )
-    exec_payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id
+    exec_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
 
     started = run_runtime_execution(exec_payload)
     command_run_id = started.fetch("reports").last
@@ -272,8 +335,8 @@ class RuntimeFlowTest < ActiveSupport::TestCase
         agent_context: default_agent_context.merge(
           "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["command_run_terminate"]
         ),
-        conversation_id: exec_payload.dig("payload", "conversation_id")
-      ).tap { |payload| payload.fetch("payload")["agent_task_run_id"] = agent_task_run_id }
+        conversation_id: exec_payload.dig("payload", "task", "conversation_id")
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
     )
     terminated_invocation = terminated.fetch("reports").last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
 

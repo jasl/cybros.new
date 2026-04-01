@@ -194,13 +194,17 @@ class WorkflowRunTest < ActiveSupport::TestCase
           "turn_id" => "turn-public-id",
           "agent_deployment_id" => context[:agent_deployment].public_id,
         },
-        "context_messages" => [{ "role" => "user", "content" => "Input" }],
+        "conversation_projection" => {
+          "messages" => [{ "role" => "user", "content" => "Input" }],
+          "context_imports" => [],
+          "prior_tool_results" => [],
+        },
       },
       resolved_model_selection_snapshot: {}
     )
     workflow_run = create_workflow_run!(turn: turn)
 
     assert_equal "turn-public-id", workflow_run.execution_identity.fetch("turn_id")
-    assert_equal [{ "role" => "user", "content" => "Input" }], workflow_run.execution_snapshot.context_messages
+    assert_equal [{ "role" => "user", "content" => "Input" }], workflow_run.execution_snapshot.conversation_projection.fetch("messages")
   end
 end

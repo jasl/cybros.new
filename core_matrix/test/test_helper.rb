@@ -433,12 +433,13 @@ module ActiveSupport
       )
     end
 
-    def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: nil, tool_catalog: nil, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
+    def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: nil, tool_catalog: nil, profile_catalog: {}, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
       CapabilitySnapshot.create!({
         agent_deployment: agent_deployment,
         version: version,
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
         tool_catalog: tool_catalog || default_tool_catalog("exec_command"),
+        profile_catalog: profile_catalog,
         config_schema_snapshot: config_schema_snapshot,
         conversation_override_schema_snapshot: conversation_override_schema_snapshot,
         default_config_snapshot: default_config_snapshot,
@@ -1255,7 +1256,7 @@ module ActiveSupport
       return if turn.pinned_capability_snapshot.present?
       return if turn.agent_deployment.active_capability_snapshot.present?
 
-      allowed_tool_names = Array(turn.execution_snapshot.agent_context["allowed_tool_names"]).presence || %w[exec_command]
+      allowed_tool_names = Array(turn.execution_snapshot.capability_projection["tool_surface"]).map { |entry| entry["tool_name"] }.presence || %w[exec_command]
       capability_snapshot = create_capability_snapshot!(
         agent_deployment: turn.agent_deployment,
         tool_catalog: default_tool_catalog(*allowed_tool_names)

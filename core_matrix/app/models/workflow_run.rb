@@ -59,6 +59,11 @@ class WorkflowRun < ApplicationRecord
     to: :turn,
     allow_nil: true
   delegate :identity,
+    :task,
+    :conversation_projection,
+    :capability_projection,
+    :provider_context,
+    :runtime_context,
     :model_context,
     :provider_execution,
     :budget_hints,
@@ -66,7 +71,6 @@ class WorkflowRun < ApplicationRecord
     :runtime_attachment_manifest,
     :model_input_attachments,
     :attachment_diagnostics,
-    :context_messages,
     :context_imports,
     to: :execution_snapshot,
     allow_nil: true
@@ -109,6 +113,18 @@ class WorkflowRun < ApplicationRecord
     waiting? &&
       wait_reason_kind == "manual_recovery_required" &&
       wait_reason_payload["recovery_state"] == "paused_agent_unavailable"
+  end
+
+  def pause_requested?
+    waiting? &&
+      wait_reason_kind == "manual_recovery_required" &&
+      wait_reason_payload["recovery_state"] == Workflows::TurnPauseState::RECOVERY_STATE_PENDING
+  end
+
+  def paused_turn?
+    waiting? &&
+      wait_reason_kind == "manual_recovery_required" &&
+      wait_reason_payload["recovery_state"] == Workflows::TurnPauseState::RECOVERY_STATE_PAUSED
   end
 
   def paused_wait_snapshot

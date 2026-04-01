@@ -147,4 +147,174 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:base], "must not steer current input after turn interruption"
   end
+
+  test "rejects steering when the expected turn public id does not match the active turn" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    ),
+      content: "Original input",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::SteerCurrentInput.call(
+        turn: turn,
+        content: "Should not steer",
+        expected_turn_id: "turn_other"
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must match the active turn public id"
+  end
+
+  test "allows steering a paused turn because the turn remains active and resumable" do
+    context = build_agent_control_context!
+    root_node = context[:workflow_run].workflow_nodes.find_by!(node_key: "root")
+    root_node.update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago
+    )
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      logical_work_id: "pause-steer-#{next_test_sequence}",
+      task_payload: { "step" => "mainline" }
+    )
+    Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    occurred_at = Time.zone.parse("2026-04-01 10:20:00 UTC")
+    Conversations::RequestTurnPause.call(turn: context[:turn], occurred_at: occurred_at)
+    close_request = AgentControlMailboxItem.find_by!(
+      item_type: "resource_close_request",
+      agent_task_run: agent_task_run
+    )
+    AgentControl::ApplyCloseOutcome.call(
+      resource: agent_task_run,
+      mailbox_item: close_request,
+      close_state: "closed",
+      close_outcome_kind: "graceful",
+      close_outcome_payload: { "source" => "test" },
+      occurred_at: occurred_at + 5.seconds
+    )
+
+    steered = Turns::SteerCurrentInput.call(
+      turn: context[:turn].reload,
+      content: "Paused steering input"
+    )
+
+    assert_equal context[:turn].id, steered.id
+    assert steered.active?
+    assert_equal "Paused steering input", steered.selected_input_message.content
+  end
+
+  test "allows steering a paused turn when the expected turn public id matches" do
+    context = build_agent_control_context!
+    root_node = context[:workflow_run].workflow_nodes.find_by!(node_key: "root")
+    root_node.update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago
+    )
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      logical_work_id: "pause-steer-#{next_test_sequence}",
+      task_payload: { "step" => "mainline" }
+    )
+    Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    occurred_at = Time.zone.parse("2026-04-01 10:20:00 UTC")
+    Conversations::RequestTurnPause.call(turn: context[:turn], occurred_at: occurred_at)
+    close_request = AgentControlMailboxItem.find_by!(
+      item_type: "resource_close_request",
+      agent_task_run: agent_task_run
+    )
+    AgentControl::ApplyCloseOutcome.call(
+      resource: agent_task_run,
+      mailbox_item: close_request,
+      close_state: "closed",
+      close_outcome_kind: "graceful",
+      close_outcome_payload: { "source" => "test" },
+      occurred_at: occurred_at + 5.seconds
+    )
+
+    steered = Turns::SteerCurrentInput.call(
+      turn: context[:turn].reload,
+      content: "Paused steering input",
+      expected_turn_id: context[:turn].public_id
+    )
+
+    assert_equal "Paused steering input", steered.selected_input_message.content
+  end
+
+  test "steers a paused turn in place even after a transcript side-effect boundary" do
+    context = build_agent_control_context!
+    root_node = context[:workflow_run].workflow_nodes.find_by!(node_key: "root")
+    root_node.update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago
+    )
+    create_workflow_node!(
+      workflow_run: context[:workflow_run],
+      node_key: "tool_side_effect",
+      metadata: { "transcript_side_effect_committed" => true }
+    )
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      logical_work_id: "pause-steer-boundary-#{next_test_sequence}",
+      task_payload: { "step" => "mainline" }
+    )
+    Leases::Acquire.call(
+      leased_resource: agent_task_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+
+    occurred_at = Time.zone.parse("2026-04-01 10:20:00 UTC")
+    Conversations::RequestTurnPause.call(turn: context[:turn], occurred_at: occurred_at)
+    close_request = AgentControlMailboxItem.find_by!(
+      item_type: "resource_close_request",
+      agent_task_run: agent_task_run
+    )
+    AgentControl::ApplyCloseOutcome.call(
+      resource: agent_task_run,
+      mailbox_item: close_request,
+      close_state: "closed",
+      close_outcome_kind: "graceful",
+      close_outcome_payload: { "source" => "test" },
+      occurred_at: occurred_at + 5.seconds
+    )
+
+    steered = Turns::SteerCurrentInput.call(
+      turn: context[:turn].reload,
+      content: "Paused steering after boundary",
+      policy_mode: "queue",
+      expected_turn_id: context[:turn].public_id
+    )
+
+    assert_equal context[:turn].id, steered.id
+    assert steered.active?
+    refute steered.queued?
+    assert_equal "Paused steering after boundary", steered.selected_input_message.content
+  end
 end

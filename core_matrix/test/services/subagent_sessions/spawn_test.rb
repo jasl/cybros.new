@@ -164,6 +164,41 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal "researcher", default_session.profile_key
   end
 
+  test "explicit default alias resolves the runtime default subagent profile" do
+    profile_catalog = default_profile_catalog.deep_merge(
+      "researcher" => {
+        "default_subagent_profile" => true,
+        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
+      }
+    )
+    context = prepare_profile_aware_execution_context!(profile_catalog: profile_catalog)
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_environment: context[:execution_environment],
+      agent_deployment: context[:agent_deployment]
+    )
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      agent_deployment: context[:agent_deployment],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    result = SubagentSessions::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Default alias profile",
+      scope: "conversation",
+      profile_key: "default"
+    )
+
+    session = SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+
+    assert_equal "researcher", session.profile_key
+    assert_equal "researcher", result.fetch("profile_key")
+  end
+
   test "nested spawn records parent session depth and list only returns sessions owned by the current conversation" do
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(

@@ -62,8 +62,10 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new(
         program_tool_results: {
           "call-calculator-1" => {
-            "status" => "completed",
+            "status" => "ok",
             "result" => { "value" => 4 },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
           },
         }
       )

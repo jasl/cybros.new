@@ -1,6 +1,7 @@
 module SubagentSessions
   class Spawn
     include Conversations::CreationSupport
+    DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
 
     def self.call(...)
       new(...).call
@@ -109,10 +110,14 @@ module SubagentSessions
 
     def resolved_profile_key(conversation:)
       @resolved_profile_key ||= begin
-        requested = @profile_key.presence
+        requested = normalized_profile_key_request
         if requested.present?
-          raise_invalid!(conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_catalog(conversation:).key?(requested)
-          requested
+          if requested == DEFAULT_SUBAGENT_PROFILE_ALIAS
+            default_subagent_profile_key(conversation:)
+          else
+            raise_invalid!(conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_catalog(conversation:).key?(requested)
+            requested
+          end
         else
           default_subagent_profile_key(conversation:)
         end
@@ -172,6 +177,10 @@ module SubagentSessions
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def normalized_profile_key_request
+      @profile_key.to_s.strip.presence
     end
   end
 end

@@ -15,24 +15,25 @@ module Fenix
       def call
         result = executor.call(
           tool_call: tool_call,
-          tool_invocation: @payload["tool_invocation"],
-          command_run: @payload["command_run"],
-          process_run: @payload["process_run"]
+          tool_invocation: runtime_resource_refs["tool_invocation"] || @payload["tool_invocation"],
+          command_run: runtime_resource_refs["command_run"] || @payload["command_run"],
+          process_run: runtime_resource_refs["process_run"] || @payload["process_run"]
         )
 
         {
-          "status" => "completed",
-          "tool_call" => result.tool_call,
+          "status" => "ok",
+          "program_tool_call" => result.tool_call,
           "result" => result.tool_result,
           "output_chunks" => result.output_chunks,
-          "summary" => summarize_result(result.tool_result),
+          "summary_artifacts" => [],
         }
       rescue StandardError => error
         {
           "status" => "failed",
-          "tool_call" => tool_call,
+          "program_tool_call" => tool_call,
           "error" => Fenix::Runtime::ProgramToolExecutor.error_payload_for(error),
           "output_chunks" => executor_output_chunks,
+          "summary_artifacts" => [],
         }
       end
 
@@ -50,9 +51,13 @@ module Fenix
       def execution_context
         @execution_context ||= begin
           workspace_root = Fenix::Workspace::Layout.default_root
-          conversation_id = @payload.fetch("conversation_id")
-          agent_context = @payload.fetch("agent_context", {}).deep_stringify_keys
-          runtime_identity = @payload.fetch("runtime_identity", {}).deep_stringify_keys
+          task = @payload.fetch("task").deep_stringify_keys
+          capability_projection = @payload.fetch("capability_projection").deep_stringify_keys
+          provider_context = @payload.fetch("provider_context").deep_stringify_keys
+          runtime_context = @payload.fetch("runtime_context").deep_stringify_keys
+          conversation_id = task.fetch("conversation_id")
+          agent_context = normalized_agent_context(capability_projection:)
+          runtime_identity = { "deployment_public_id" => runtime_context.fetch("deployment_public_id") }
 
           Fenix::Workspace::Bootstrap.call(
             workspace_root:,
@@ -61,15 +66,16 @@ module Fenix
           )
 
           {
-            "agent_task_run_id" => @payload["agent_task_run_id"],
-            "workflow_node_id" => @payload.fetch("workflow_node_id"),
+            "agent_task_run_id" => task["agent_task_run_id"],
+            "workflow_node_id" => task.fetch("workflow_node_id"),
             "conversation_id" => conversation_id,
-            "turn_id" => @payload.fetch("turn_id"),
-            "logical_work_id" => @payload["logical_work_id"] || "workflow-node:#{@payload.fetch("workflow_node_id")}",
-            "attempt_no" => @payload.fetch("attempt_no", 1).to_i,
+            "turn_id" => task["turn_id"],
+            "logical_work_id" => runtime_context.fetch("logical_work_id"),
+            "attempt_no" => runtime_context.fetch("attempt_no", 1).to_i,
             "agent_context" => agent_context,
-            "provider_execution" => @payload.fetch("provider_execution", {}).deep_stringify_keys,
-            "model_context" => @payload.fetch("model_context", {}).deep_stringify_keys,
+            "capability_projection" => capability_projection,
+            "provider_execution" => provider_context.fetch("provider_execution", {}).deep_stringify_keys,
+            "model_context" => provider_context.fetch("model_context", {}).deep_stringify_keys,
             "runtime_identity" => runtime_identity,
             "workspace_context" => {
               "workspace_root" => workspace_root,
@@ -91,24 +97,27 @@ module Fenix
       end
 
       def tool_call
-        @tool_call ||= {
-          "call_id" => @payload.fetch("tool_call_id"),
-          "tool_name" => @payload.fetch("tool_name"),
-          "arguments" => @payload.fetch("arguments", {}).deep_stringify_keys,
-        }
+        @tool_call ||= @payload.fetch("program_tool_call").deep_stringify_keys
+      end
+
+      def runtime_resource_refs
+        @runtime_resource_refs ||= @payload.fetch("runtime_resource_refs", {}).deep_stringify_keys
       end
 
       def executor_output_chunks
         executor.instance_variable_get(:@collector).output_chunks.map(&:deep_stringify_keys)
       end
 
-      def summarize_result(result)
-        case result
-        when String, Numeric, TrueClass, FalseClass
-          result.to_s
-        else
-          result.to_json
-        end
+      def normalized_agent_context(capability_projection:)
+        {
+          "profile" => capability_projection["profile_key"] || "main",
+          "is_subagent" => capability_projection["is_subagent"] == true,
+          "subagent_session_id" => capability_projection["subagent_session_id"],
+          "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+          "subagent_depth" => capability_projection["subagent_depth"],
+          "allowed_tool_names" => Array(capability_projection["tool_surface"]).filter_map { |entry| entry["tool_name"] },
+          "owner_conversation_id" => capability_projection["owner_conversation_id"],
+        }.compact
       end
     end
   end

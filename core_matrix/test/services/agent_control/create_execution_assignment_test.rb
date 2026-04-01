@@ -20,8 +20,12 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     assert_equal agent_task_run.task_payload.deep_stringify_keys, mailbox_item.payload.fetch("task_payload")
     assert_equal "poll-only", mailbox_item.payload.fetch("delivery_kind")
     assert_equal(
-      { "deployment_public_id" => context.fetch(:deployment).public_id },
-      mailbox_item.payload.fetch("runtime_identity")
+      context.fetch(:turn).execution_snapshot.runtime_context.merge(
+        "logical_work_id" => agent_task_run.logical_work_id,
+        "attempt_no" => agent_task_run.attempt_no,
+        "deployment_public_id" => context.fetch(:deployment).public_id
+      ),
+      mailbox_item.payload.fetch("runtime_context")
     )
   end
 
@@ -157,10 +161,6 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         agent_task_run: agent_task_run,
         payload: {
           "task_payload" => agent_task_run.task_payload,
-          "context_messages" => turn.execution_snapshot.context_messages,
-          "budget_hints" => turn.execution_snapshot.budget_hints,
-          "provider_execution" => turn.execution_snapshot.provider_execution,
-          "model_context" => turn.execution_snapshot.model_context,
         },
         dispatch_deadline_at: Time.zone.parse("2026-03-28 10:05:00 UTC"),
         execution_hard_deadline_at: Time.zone.parse("2026-03-28 10:10:00 UTC"),
@@ -177,7 +177,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
   def execution_assignment_contract_fixture
     ::JSON.parse(
-      File.read(Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_fenix_execution_assignment_v1.json"))
+      File.read(Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_fenix_execution_assignment.json"))
     )
   end
 
@@ -213,39 +213,47 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
   def normalize_for_contract(serialized)
     payload = serialized.fetch("payload").deep_dup
-    payload["agent_task_run_id"] = "agent-task-run-public-id"
-    payload["workflow_run_id"] = "workflow-run-public-id"
-    payload["workflow_node_id"] = "workflow-node-public-id"
-    payload["conversation_id"] = "subagent-conversation-public-id"
-    payload["turn_id"] = "subagent-turn-public-id"
-    payload["context_messages"] = payload.fetch("context_messages").map.with_index do |message, index|
-      if index.zero?
-        message.merge(
-          "message_id" => "owner-input-message-public-id",
-          "conversation_id" => "owner-conversation-public-id",
-          "turn_id" => "owner-turn-public-id"
-        )
-      else
-        message.merge(
-          "message_id" => "subagent-input-message-public-id",
-          "conversation_id" => "subagent-conversation-public-id",
-          "turn_id" => "subagent-turn-public-id"
-        )
+    payload["task"] = payload.fetch("task").merge(
+      "agent_task_run_id" => "agent-task-run-public-id",
+      "workflow_run_id" => "workflow-run-public-id",
+      "workflow_node_id" => "workflow-node-public-id",
+      "conversation_id" => "subagent-conversation-public-id",
+      "turn_id" => "subagent-turn-public-id"
+    )
+    payload["conversation_projection"] = payload.fetch("conversation_projection").merge(
+      "projection_fingerprint" => "sha256:execution-assignment-projection",
+      "messages" => payload.fetch("conversation_projection").fetch("messages").map.with_index do |message, index|
+        if index.zero?
+          message.merge(
+            "message_id" => "owner-input-message-public-id",
+            "conversation_id" => "owner-conversation-public-id",
+            "turn_id" => "owner-turn-public-id"
+          )
+        else
+          message.merge(
+            "message_id" => "subagent-input-message-public-id",
+            "conversation_id" => "subagent-conversation-public-id",
+            "turn_id" => "subagent-turn-public-id"
+          )
+        end
       end
-    end
-    payload["agent_context"] = payload.fetch("agent_context").merge(
+    )
+    payload["capability_projection"] = payload.fetch("capability_projection").merge(
+      "tool_surface" => payload.fetch("capability_projection").fetch("tool_surface").map { |entry| { "tool_name" => entry.fetch("tool_name") } },
       "subagent_session_id" => "subagent-session-public-id",
       "parent_subagent_session_id" => "parent-subagent-session-public-id",
       "owner_conversation_id" => "owner-conversation-public-id"
     )
-    payload["runtime_identity"] = {
-      "deployment_public_id" => "agent-deployment-public-id",
-    }
+    payload["runtime_context"] = payload.fetch("runtime_context").merge(
+      "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
+      "deployment_public_id" => "agent-deployment-public-id"
+    )
 
     serialized.merge(
       "item_id" => "mailbox-item-public-id",
       "target_ref" => "agent-installation-public-id",
       "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
+      "protocol_message_id" => "kernel-assignment-message-id",
       "payload" => payload
     )
   end

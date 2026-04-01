@@ -3,6 +3,9 @@ module Fenix
     class MailboxWorker
       class UnsupportedMailboxItemError < StandardError; end
 
+      SQLITE_LOCK_RETRY_ATTEMPTS = 5
+      SQLITE_LOCK_RETRY_DELAY_SECONDS = 0.05
+
       def self.call(...)
         new(...).call
       end
@@ -19,21 +22,26 @@ module Fenix
         return handle_process_run_close! if process_run_close_request?
         raise UnsupportedMailboxItemError, "unsupported mailbox item #{@mailbox_item.fetch("item_type", "execution_assignment")}" unless executable_mailbox_item?
 
-        runtime_execution = RuntimeExecution.find_by(
-          mailbox_item_id: @mailbox_item.fetch("item_id"),
-          attempt_no: @mailbox_item.fetch("attempt_no")
-        )
-        runtime_execution ||= create_runtime_execution!
+        runtime_execution = find_or_create_runtime_execution!
 
-        enqueue_or_run!(runtime_execution) if runtime_execution.previously_new_record?
+        dispatch_runtime_execution!(runtime_execution)
         @inline ? runtime_execution.reload : runtime_execution
       end
 
       private
 
+      def find_or_create_runtime_execution!
+        with_transient_sqlite_retry do
+          RuntimeExecution.find_by(
+            mailbox_item_id: @mailbox_item.fetch("item_id"),
+            attempt_no: @mailbox_item.fetch("attempt_no")
+          ) || create_runtime_execution!
+        end
+      end
+
       def create_runtime_execution!
         RuntimeExecution.create!(
-          agent_task_run_id: @mailbox_item.dig("payload", "agent_task_run_id"),
+          agent_task_run_id: @mailbox_item.dig("payload", "task", "agent_task_run_id"),
           mailbox_item_id: @mailbox_item.fetch("item_id"),
           protocol_message_id: @mailbox_item.fetch("protocol_message_id"),
           logical_work_id: @mailbox_item.fetch("logical_work_id"),
@@ -46,6 +54,48 @@ module Fenix
           mailbox_item_id: @mailbox_item.fetch("item_id"),
           attempt_no: @mailbox_item.fetch("attempt_no")
         )
+      end
+
+      def dispatch_runtime_execution!(runtime_execution)
+        return runtime_execution unless dispatch_runtime_execution?(runtime_execution)
+
+        with_transient_sqlite_retry do
+          runtime_execution.with_lock do
+            runtime_execution.reload
+            return runtime_execution unless dispatch_runtime_execution?(runtime_execution)
+
+            enqueue_or_run!(runtime_execution)
+            runtime_execution.update!(enqueued_at: Time.current) unless @inline
+          end
+        end
+
+        runtime_execution
+      end
+
+      def dispatch_runtime_execution?(runtime_execution)
+        return runtime_execution.queued? && runtime_execution.started_at.blank? && runtime_execution.finished_at.blank? if @inline
+
+        runtime_execution.dispatchable?
+      end
+
+      def with_transient_sqlite_retry
+        attempts = 0
+
+        begin
+          attempts += 1
+          yield
+        rescue ActiveRecord::StatementInvalid => error
+          raise unless retryable_sqlite_lock_error?(error) && attempts < SQLITE_LOCK_RETRY_ATTEMPTS
+
+          sleep(SQLITE_LOCK_RETRY_DELAY_SECONDS * attempts)
+          retry
+        end
+      end
+
+      def retryable_sqlite_lock_error?(error)
+        details = [error.message, error.cause&.message, error.cause&.class&.name].compact.join(" ")
+
+        details.match?(/database(?: table)? is locked|lockedexception|busyexception|sqlite_busy|sqlite_locked|database is busy/i)
       end
 
       def execution_assignment?

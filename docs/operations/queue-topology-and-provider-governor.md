@@ -103,6 +103,18 @@ Routing:
 - registry-backed tools such as `exec_command`, `write_stdin`, process, and browser session tools go to `runtime_process_tools`
 - unmatched control work goes to `runtime_control`
 
+Operationally, the persistent mailbox control loop is not sufficient by itself
+when `Fenix` runs with `solid_queue`. External runtime instances must also run
+the local queue workers under the same `CORE_MATRIX_BASE_URL` and
+`CORE_MATRIX_MACHINE_CREDENTIAL`, either as `bin/jobs start` plus
+`bin/rails runtime:control_loop_forever` or via `bin/runtime-worker`.
+
+Run exactly one such worker set per Dockerized `Fenix` runtime. Registry-backed
+browser sessions, command handles, and process handles are in-memory local
+state; starting a second `bin/runtime-worker` or a second `bin/jobs start`
+against the same runtime splits that state across multiple worker pools and can
+surface `unknown ... session/run` validation failures on follow-up tool calls.
+
 ### Database Pools
 
 `agents/fenix/config/database.yml` now uses explicit pools:
