@@ -159,9 +159,17 @@ Every capstone run must produce a proof package containing at least:
   - must record whether the imported transcript matches the source transcript
   - must record whether the debug bundle was sufficient to assess provider,
     model, token usage, round count, tool mix, and durable runtime resources
+- `agent-evaluation.md`
+  - structured acceptance review for result quality, runtime health,
+    convergence, and cost efficiency
+  - must cite the concrete proof inputs used for each conclusion
+  - must make it explicit when a run functionally passes but still shows weak
+    convergence or poor efficiency
 
 Optional but recommended artifacts:
 
+- `agent-evaluation.json`
+  - machine-readable form of the structured acceptance review
 - browser screenshots
 - screen recording clips
 - exported workflow proof graphs
@@ -222,6 +230,68 @@ Subagent evidence may include:
 The run does not fail merely because a specific turn stayed single-agent, but
 the overall capstone run should demonstrate that the system can surface real
 subagent work under a task complex enough to justify it.
+
+## Acceptance Review Rubric
+
+In addition to pass or fail, every capstone proof package must include a
+structured review of the completed run. This review exists to prevent
+acceptance from collapsing into a binary "it worked" judgment when the debug
+bundle already contains enough evidence to assess how the agent worked.
+
+The acceptance review must score and explain all of the following dimensions:
+
+- `result_quality`
+  - whether the produced application actually satisfies the benchmark outcome
+  - must consider game correctness, host-side test and build results, browser
+    playability, and export/import transcript roundtrip integrity
+- `runtime_health`
+  - whether the system completed without relying on unstable runtime behavior
+  - must consider provider success rate, retry or resume churn, tool and
+    runtime resource failure rate, and whether durable command or process
+    evidence remained inspectable through the debug bundle
+- `convergence`
+  - whether the agent reduced uncertainty quickly instead of repeatedly
+    re-reading context and re-running the same validations
+  - must consider provider round count, repeated command patterns, repeated
+    test/build/preview churn, and whether subagent work reduced or merely
+    expanded the search path
+- `cost_efficiency`
+  - whether the cost of the run was proportional to the task difficulty and
+    final result quality
+  - must consider input and output token totals, tool-call count, command and
+    process churn, and whether repeated verification produced materially new
+    information
+
+For this fixed `2048` benchmark, the review must be grounded in the exported
+proof, especially:
+
+- `run-summary.json`
+- `diagnostics.json`
+- `tool_invocations.json`
+- `command_runs.json`
+- `process_runs.json`
+- host-side validation outputs such as `npm test`, `npm run build`, and
+  browser playability notes
+
+The review should use a small explicit scale such as:
+
+- `strong`
+- `acceptable`
+- `weak`
+
+or, when a hard gate fails:
+
+- `fail`
+
+The exact labels may vary, but the review must clearly distinguish:
+
+- functional success from agent quality
+- runtime correctness from agent convergence
+- acceptable cost from poor efficiency
+
+A run may therefore pass the benchmark while still receiving a weak
+`convergence` or poor `cost_efficiency` assessment. That is not a checklist
+contradiction; it is the point of the structured review.
 
 ## Pass Criteria
 
