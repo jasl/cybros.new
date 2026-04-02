@@ -39,6 +39,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal 42, captured_timeout
   end
 
+  test "reset_backend_state! includes conversation diagnostics snapshots" do
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, TurnDiagnosticsSnapshot
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationDiagnosticsSnapshot
+  end
+
   private
 
   def with_redefined_singleton_method(target, method_name, replacement)

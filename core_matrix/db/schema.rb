@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_01_090000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -326,6 +326,46 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_01_090000) do
     t.index ["descendant_conversation_id"], name: "index_conversation_closures_on_descendant_conversation_id"
     t.index ["installation_id", "ancestor_conversation_id", "descendant_conversation_id"], name: "idx_conversation_closures_installation_ancestor_descendant", unique: true
     t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
+  end
+
+  create_table "conversation_diagnostics_snapshots", force: :cascade do |t|
+    t.integer "active_turn_count", default: 0, null: false
+    t.decimal "attributed_user_estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
+    t.integer "attributed_user_input_tokens_total", default: 0, null: false
+    t.integer "attributed_user_output_tokens_total", default: 0, null: false
+    t.integer "attributed_user_usage_event_count", default: 0, null: false
+    t.integer "canceled_turn_count", default: 0, null: false
+    t.integer "command_failure_count", default: 0, null: false
+    t.integer "command_run_count", default: 0, null: false
+    t.integer "completed_turn_count", default: 0, null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.decimal "estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
+    t.integer "failed_turn_count", default: 0, null: false
+    t.integer "input_tokens_total", default: 0, null: false
+    t.integer "input_variant_count", default: 0, null: false
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.bigint "most_expensive_turn_id"
+    t.bigint "most_rounds_turn_id"
+    t.integer "output_tokens_total", default: 0, null: false
+    t.integer "output_variant_count", default: 0, null: false
+    t.integer "process_failure_count", default: 0, null: false
+    t.integer "process_run_count", default: 0, null: false
+    t.integer "provider_round_count", default: 0, null: false
+    t.integer "resume_attempt_count", default: 0, null: false
+    t.integer "retry_attempt_count", default: 0, null: false
+    t.integer "subagent_session_count", default: 0, null: false
+    t.integer "tool_call_count", default: 0, null: false
+    t.integer "tool_failure_count", default: 0, null: false
+    t.integer "turn_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.integer "usage_event_count", default: 0, null: false
+    t.index ["conversation_id"], name: "index_conversation_diagnostics_snapshots_on_conversation_id", unique: true
+    t.index ["installation_id"], name: "index_conversation_diagnostics_snapshots_on_installation_id"
+    t.index ["most_expensive_turn_id"], name: "idx_on_most_expensive_turn_id_9cbc3f90b7"
+    t.index ["most_rounds_turn_id"], name: "idx_on_most_rounds_turn_id_0ab63b2e39"
   end
 
   create_table "conversation_events", force: :cascade do |t|
@@ -966,6 +1006,39 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_01_090000) do
     t.index ["workflow_node_id"], name: "index_tool_invocations_on_workflow_node_id"
   end
 
+  create_table "turn_diagnostics_snapshots", force: :cascade do |t|
+    t.decimal "attributed_user_estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
+    t.integer "attributed_user_input_tokens_total", default: 0, null: false
+    t.integer "attributed_user_output_tokens_total", default: 0, null: false
+    t.integer "attributed_user_usage_event_count", default: 0, null: false
+    t.integer "command_failure_count", default: 0, null: false
+    t.integer "command_run_count", default: 0, null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.decimal "estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
+    t.integer "input_tokens_total", default: 0, null: false
+    t.integer "input_variant_count", default: 0, null: false
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "output_tokens_total", default: 0, null: false
+    t.integer "output_variant_count", default: 0, null: false
+    t.integer "process_failure_count", default: 0, null: false
+    t.integer "process_run_count", default: 0, null: false
+    t.integer "provider_round_count", default: 0, null: false
+    t.integer "resume_attempt_count", default: 0, null: false
+    t.integer "retry_attempt_count", default: 0, null: false
+    t.integer "subagent_session_count", default: 0, null: false
+    t.integer "tool_call_count", default: 0, null: false
+    t.integer "tool_failure_count", default: 0, null: false
+    t.bigint "turn_id", null: false
+    t.datetime "updated_at", null: false
+    t.integer "usage_event_count", default: 0, null: false
+    t.index ["conversation_id"], name: "index_turn_diagnostics_snapshots_on_conversation_id"
+    t.index ["installation_id"], name: "index_turn_diagnostics_snapshots_on_installation_id"
+    t.index ["turn_id"], name: "index_turn_diagnostics_snapshots_on_turn_id", unique: true
+  end
+
   create_table "turns", force: :cascade do |t|
     t.bigint "agent_deployment_id", null: false
     t.string "cancellation_reason_kind"
@@ -1025,9 +1098,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_01_090000) do
     t.bigint "workspace_id"
     t.index ["agent_deployment_id"], name: "index_usage_events_on_agent_deployment_id"
     t.index ["agent_installation_id"], name: "index_usage_events_on_agent_installation_id"
+    t.index ["conversation_id"], name: "index_usage_events_on_conversation_id"
     t.index ["installation_id", "occurred_at"], name: "index_usage_events_on_installation_id_and_occurred_at"
     t.index ["installation_id"], name: "index_usage_events_on_installation_id"
     t.index ["provider_handle", "model_ref"], name: "index_usage_events_on_provider_handle_and_model_ref"
+    t.index ["turn_id"], name: "index_usage_events_on_turn_id"
     t.index ["user_id"], name: "index_usage_events_on_user_id"
     t.index ["workspace_id"], name: "index_usage_events_on_workspace_id"
   end
@@ -1299,6 +1374,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_01_090000) do
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversation_diagnostics_snapshots", "conversations"
+  add_foreign_key "conversation_diagnostics_snapshots", "installations"
+  add_foreign_key "conversation_diagnostics_snapshots", "turns", column: "most_expensive_turn_id"
+  add_foreign_key "conversation_diagnostics_snapshots", "turns", column: "most_rounds_turn_id"
   add_foreign_key "conversation_events", "conversations"
   add_foreign_key "conversation_events", "installations"
   add_foreign_key "conversation_events", "turns"
@@ -1395,6 +1474,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_01_090000) do
   add_foreign_key "tool_invocations", "tool_definitions"
   add_foreign_key "tool_invocations", "tool_implementations"
   add_foreign_key "tool_invocations", "workflow_nodes"
+  add_foreign_key "turn_diagnostics_snapshots", "conversations"
+  add_foreign_key "turn_diagnostics_snapshots", "installations"
+  add_foreign_key "turn_diagnostics_snapshots", "turns"
   add_foreign_key "turns", "agent_deployments"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "installations"

@@ -1,0 +1,34 @@
+{
+  "conversation_id": "019d4a58-2c9c-798f-80da-566bf1bd8bfa",
+  "turn_id": "019d4a58-2d30-7474-bb42-4946a1bdc4a3",
+  "all_usage": {
+    "events": 38,
+    "input_tokens_total": 665000,
+    "output_tokens_total": 8945,
+    "by_user_input_tokens": {
+      "2": 665000
+    },
+    "by_user_output_tokens": {
+      "2": 8945
+    }
+  },
+  "attributed_user_usage": {
+    "user_id": 2,
+    "events": 38,
+    "input_tokens_total": 665000,
+    "output_tokens_total": 8945
+  },
+  "snapshot_totals": {
+    "usage_event_count": 38,
+    "input_tokens_total": 665000,
+    "output_tokens_total": 8945,
+    "attributed_user_usage_event_count": 38,
+    "attributed_user_input_tokens_total": 665000,
+    "attributed_user_output_tokens_total": 8945
+  },
+  "verification": {
+    "conversation_totals_match_usage_events": true,
+    "attributed_user_totals_match_user_scoped_usage_events": true,
+    "note": "Estimated cost is not verifiable for this run because all 38 usage events have nil estimated_cost."
+  }
+}

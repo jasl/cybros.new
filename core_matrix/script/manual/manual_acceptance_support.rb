@@ -17,6 +17,8 @@ module ManualAcceptanceSupport
   CONTROL_BASE_URL = ENV.fetch("CORE_MATRIX_BASE_URL", "http://127.0.0.1:3000")
 
   RESET_MODELS = [
+    ConversationDiagnosticsSnapshot,
+    TurnDiagnosticsSnapshot,
     PublicationAccessEvent,
     Publication,
     ExecutionLease,

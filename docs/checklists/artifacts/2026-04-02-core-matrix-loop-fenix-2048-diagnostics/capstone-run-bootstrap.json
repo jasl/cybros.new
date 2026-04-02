@@ -1,0 +1,8 @@
+{
+  "conversation_id": "019d4a50-22b2-7f14-858a-fa25ad62964b",
+  "turn_id": "019d4a50-2334-7605-908b-67aa6e965799",
+  "workflow_run_id": "019d4a50-238c-720d-8167-a1f6f9af8fe3",
+  "deployment_id": "019d4a4e-84ad-7f4b-a8fc-27f9947a636a",
+  "execution_environment_id": "019d4a4e-8495-7f4b-8517-b3fa6867e8d0",
+  "selector": "candidate:openrouter/openai-gpt-5.4"
+}

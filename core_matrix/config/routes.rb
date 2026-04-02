@@ -19,6 +19,12 @@ Rails.application.routes.draw do
     resource :health, only: :show, controller: :health
     resource :capabilities, only: [:show, :create], controller: :capabilities
     resources :conversation_transcripts, only: :index
+    resources :conversation_diagnostics, only: [] do
+      collection do
+        get "show"
+        get "turns"
+      end
+    end
     resources :conversation_variables, only: [] do
       collection do
         get "get"

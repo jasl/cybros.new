@@ -80,6 +80,9 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4"
     )
+    diagnostics_snapshot = ConversationDiagnostics::RecomputeConversationSnapshot.call(
+      conversation: workflow_run.conversation
+    )
 
     assert_equal "openrouter", workflow_run.execution_snapshot.model_context.fetch("provider_handle")
     assert_equal "openai/gpt-5.4", workflow_run.execution_snapshot.model_context.fetch("api_model")
@@ -93,6 +96,11 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
     assert workflow_run.turn.reload.completed?
     assert_equal "openrouter", usage_event.provider_handle
     assert_equal "openai-gpt-5.4", usage_event.model_ref
+    assert_equal workflow_run.workspace.user, usage_event.user
+    assert_equal 18, diagnostics_snapshot.input_tokens_total
+    assert_equal 7, diagnostics_snapshot.output_tokens_total
+    assert_equal 18, diagnostics_snapshot.attributed_user_input_tokens_total
+    assert_equal 7, diagnostics_snapshot.attributed_user_output_tokens_total
     assert_equal 3, rollups.count
   end
 

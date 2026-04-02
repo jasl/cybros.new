@@ -1,0 +1,230 @@
+module ConversationDiagnostics
+  class RecomputeTurnSnapshot
+    RETRY_DELIVERY_KINDS = %w[step_retry paused_retry].freeze
+    COMMAND_CLASSIFICATIONS = {
+      "test" => [
+        /\bnpm test\b/,
+        /\bvitest(?:\s|$)/,
+        /\brspec(?:\s|$)/,
+        /\bpytest(?:\s|$)/,
+        %r{\bbin/rails test\b},
+      ],
+      "build" => [
+        /\bnpm run build\b/,
+        /\bvite build\b/,
+        /\btsc -b\b/,
+        %r{\bbin/rails assets:precompile\b},
+      ],
+      "preview" => [
+        /\bnpm run preview\b/,
+        /\bvite preview\b/,
+      ],
+    }.freeze
+    FAILURE_TOOL_STATES = %w[failed canceled].freeze
+    FAILURE_COMMAND_STATES = %w[failed interrupted canceled].freeze
+    FAILURE_PROCESS_STATES = %w[failed lost].freeze
+
+    def self.call(...)
+      new(...).call
+    end
+
+    def initialize(turn:)
+      @turn = turn
+    end
+
+    def call
+      turn = Turn.includes(:conversation, :workflow_run).find(@turn.id)
+      conversation = turn.conversation
+      usage_scope = UsageEvent.where(turn_id: turn.id)
+      attributed_usage_scope = usage_scope.where(user_id: conversation.workspace.user_id)
+      workflow_nodes = WorkflowNode.where(turn_id: turn.id)
+      tool_invocations = tool_invocation_scope(turn)
+      command_runs = command_run_scope(turn)
+      process_runs = ProcessRun.where(turn_id: turn.id)
+      subagent_sessions = SubagentSession.where(origin_turn_id: turn.id)
+      agent_task_runs = AgentTaskRun.where(turn_id: turn.id)
+
+      snapshot = TurnDiagnosticsSnapshot.find_or_initialize_by(turn: turn)
+      snapshot.installation = turn.installation
+      snapshot.conversation = conversation
+      snapshot.lifecycle_state = turn.lifecycle_state
+
+      usage_metrics = aggregate_usage(usage_scope)
+      attributed_usage_metrics = aggregate_usage(attributed_usage_scope)
+
+      snapshot.usage_event_count = usage_metrics.fetch("event_count")
+      snapshot.input_tokens_total = usage_metrics.fetch("input_tokens_total")
+      snapshot.output_tokens_total = usage_metrics.fetch("output_tokens_total")
+      snapshot.estimated_cost_total = usage_metrics.fetch("estimated_cost_total")
+      snapshot.attributed_user_usage_event_count = attributed_usage_metrics.fetch("event_count")
+      snapshot.attributed_user_input_tokens_total = attributed_usage_metrics.fetch("input_tokens_total")
+      snapshot.attributed_user_output_tokens_total = attributed_usage_metrics.fetch("output_tokens_total")
+      snapshot.attributed_user_estimated_cost_total = attributed_usage_metrics.fetch("estimated_cost_total")
+      snapshot.provider_round_count = usage_scope.where(operation_kind: "text_generation").count
+      snapshot.tool_call_count = tool_invocations.count
+      snapshot.tool_failure_count = tool_invocations.where(status: FAILURE_TOOL_STATES).count
+      snapshot.command_run_count = command_runs.count
+      snapshot.command_failure_count = command_runs.where(lifecycle_state: FAILURE_COMMAND_STATES).count
+      snapshot.process_run_count = process_runs.count
+      snapshot.process_failure_count = process_runs.where(lifecycle_state: FAILURE_PROCESS_STATES).count
+      snapshot.subagent_session_count = subagent_sessions.count
+      snapshot.input_variant_count = turn.messages.where(slot: "input").count
+      snapshot.output_variant_count = turn.messages.where(slot: "output").count
+      snapshot.resume_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' = 'turn_resume'").count
+      snapshot.retry_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' IN (?)", RETRY_DELIVERY_KINDS).count
+      snapshot.metadata = {
+        "provider_usage_breakdown" => provider_usage_breakdown(usage_scope),
+        "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(attributed_usage_scope),
+        "workflow_node_type_counts" => stringify_hash(workflow_nodes.group(:node_type).count),
+        "tool_breakdown" => tool_breakdown(tool_invocations),
+        "command_classification_counts" => command_classification_counts(command_runs),
+        "subagent_status_counts" => stringify_hash(subagent_sessions.group(:observed_status).count),
+        "latency_summary" => usage_metrics.fetch("latency_summary"),
+        "cost_summary" => usage_metrics.fetch("cost_summary"),
+        "attributed_user_cost_summary" => attributed_usage_metrics.fetch("cost_summary"),
+        "pause_state" => turn.workflow_run&.wait_reason_payload&.[]("recovery_state"),
+        "evidence_refs" => {
+          "turn_id" => turn.public_id,
+          "workflow_run_id" => turn.workflow_run&.public_id,
+          "selected_input_message_id" => turn.selected_input_message&.public_id,
+          "selected_output_message_id" => turn.selected_output_message&.public_id,
+        }.compact,
+      }
+      snapshot.save!
+      snapshot
+    end
+
+    private
+
+    def tool_invocation_scope(turn)
+      node_ids = WorkflowNode.where(turn_id: turn.id).select(:id)
+      task_ids = AgentTaskRun.where(turn_id: turn.id).select(:id)
+
+      ToolInvocation.where(workflow_node_id: node_ids)
+        .or(ToolInvocation.where(agent_task_run_id: task_ids))
+    end
+
+    def command_run_scope(turn)
+      node_ids = WorkflowNode.where(turn_id: turn.id).select(:id)
+      task_ids = AgentTaskRun.where(turn_id: turn.id).select(:id)
+
+      CommandRun.where(workflow_node_id: node_ids)
+        .or(CommandRun.where(agent_task_run_id: task_ids))
+    end
+
+    def aggregate_usage(scope)
+      event_count = scope.count
+      input_tokens_total = scope.sum(:input_tokens)
+      output_tokens_total = scope.sum(:output_tokens)
+      estimated_cost_total = scope.sum(:estimated_cost)
+      latencies = scope.where.not(latency_ms: nil)
+      estimated_cost_event_count = scope.where.not(estimated_cost: nil).count
+      estimated_cost_missing_event_count = event_count - estimated_cost_event_count
+
+      {
+        "event_count" => event_count,
+        "input_tokens_total" => input_tokens_total.to_i,
+        "output_tokens_total" => output_tokens_total.to_i,
+        "estimated_cost_total" => estimated_cost_total.to_d,
+        "latency_summary" => {
+          "avg_latency_ms" => event_count.zero? ? 0 : latencies.average(:latency_ms).to_f.round,
+          "max_latency_ms" => latencies.maximum(:latency_ms).to_i,
+        },
+        "cost_summary" => {
+          "estimated_cost_event_count" => estimated_cost_event_count,
+          "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
+          "cost_data_available" => estimated_cost_event_count.positive?,
+          "cost_data_complete" => event_count.positive? && estimated_cost_missing_event_count.zero?,
+        },
+      }
+    end
+
+    def provider_usage_breakdown(scope)
+      scope
+        .group(:provider_handle, :model_ref, :operation_kind)
+        .order(:provider_handle, :model_ref, :operation_kind)
+        .pluck(
+          :provider_handle,
+          :model_ref,
+          :operation_kind,
+          Arel.sql("COUNT(*)"),
+          Arel.sql("SUM(CASE WHEN success THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN success THEN 0 ELSE 1 END)"),
+          Arel.sql("SUM(COALESCE(input_tokens, 0))"),
+          Arel.sql("SUM(COALESCE(output_tokens, 0))"),
+          Arel.sql("SUM(COALESCE(estimated_cost, 0))"),
+          Arel.sql("SUM(COALESCE(latency_ms, 0))"),
+          Arel.sql("SUM(CASE WHEN latency_ms IS NULL THEN 0 ELSE 1 END)"),
+          Arel.sql("MAX(COALESCE(latency_ms, 0))"),
+          Arel.sql("SUM(CASE WHEN estimated_cost IS NULL THEN 0 ELSE 1 END)"),
+        )
+        .map do |provider_handle, model_ref, operation_kind, event_count, success_count, failure_count, input_tokens_total, output_tokens_total, estimated_cost_total, total_latency_ms, latency_event_count, max_latency_ms, estimated_cost_event_count|
+          estimated_cost_missing_event_count = event_count.to_i - estimated_cost_event_count.to_i
+
+          {
+            "provider_handle" => provider_handle,
+            "model_ref" => model_ref,
+            "operation_kind" => operation_kind,
+            "event_count" => event_count.to_i,
+            "success_count" => success_count.to_i,
+            "failure_count" => failure_count.to_i,
+            "input_tokens_total" => input_tokens_total.to_i,
+            "output_tokens_total" => output_tokens_total.to_i,
+            "estimated_cost_total" => estimated_cost_total.to_d.to_s("F"),
+            "estimated_cost_event_count" => estimated_cost_event_count.to_i,
+            "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
+            "cost_data_available" => estimated_cost_event_count.to_i.positive?,
+            "cost_data_complete" => event_count.to_i.positive? && estimated_cost_missing_event_count.zero?,
+            "latency_event_count" => latency_event_count.to_i,
+            "total_latency_ms" => total_latency_ms.to_i,
+            "avg_latency_ms" => latency_event_count.to_i.zero? ? 0 : (total_latency_ms.to_f / latency_event_count.to_i).round,
+            "max_latency_ms" => max_latency_ms.to_i,
+          }
+        end
+    end
+
+    def tool_breakdown(scope)
+      scope
+        .joins(:tool_definition)
+        .group("tool_definitions.tool_name")
+        .order("tool_definitions.tool_name")
+        .pluck(
+          Arel.sql("tool_definitions.tool_name"),
+          Arel.sql("COUNT(*)"),
+          Arel.sql("SUM(CASE WHEN tool_invocations.status IN ('failed', 'canceled') THEN 1 ELSE 0 END)")
+        )
+        .each_with_object({}) do |(tool_name, count, failures), hash|
+          hash[tool_name] = {
+            "count" => count.to_i,
+            "failures" => failures.to_i,
+          }
+        end
+    end
+
+    def command_classification_counts(scope)
+      counts = Hash.new { |hash, key| hash[key] = { "count" => 0, "failures" => 0 } }
+
+      scope.find_each do |command_run|
+        classification = classify_command(command_run.command_line)
+        next if classification.blank?
+
+        counts[classification]["count"] += 1
+        counts[classification]["failures"] += 1 if command_run.lifecycle_state.in?(FAILURE_COMMAND_STATES)
+      end
+
+      counts.sort.to_h
+    end
+
+    def classify_command(command_line)
+      COMMAND_CLASSIFICATIONS.each do |classification, patterns|
+        return classification if patterns.any? { |pattern| pattern.match?(command_line.to_s) }
+      end
+
+      nil
+    end
+
+    def stringify_hash(hash)
+      hash.to_h.transform_keys(&:to_s)
+    end
+  end
+end
