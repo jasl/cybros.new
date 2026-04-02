@@ -1,0 +1,29 @@
+{
+  "original_count": 2,
+  "imported_count": 2,
+  "same_content": true,
+  "original": [
+    {
+      "role": "user",
+      "slot": "input",
+      "content": "Use `$using-superpowers`.\n\nNo browser visuals are needed.\nThe design is approved.\nProceed autonomously now without asking more questions unless you are genuinely blocked.\n\nBuild a complete browser-playable React 2048 game in `/workspace/game-2048`.\n\nRequirements:\n- use modern React + Vite + TypeScript\n- implement real 2048 rules: movement, merging, random tile spawning, score tracking, win/game-over behavior, and restart\n- support both arrow keys and WASD\n- add automated tests for the game logic\n- run the tests and production build successfully\n- start the app on `0.0.0.0:4173`\n- verify it in a browser session\n- use subagents when genuinely helpful\n- end with a concise completion note\n"
+    },
+    {
+      "role": "agent",
+      "slot": "output",
+      "content": "Done.\n\nBuilt a complete React + Vite + TypeScript 2048 game in `/workspace/game-2048` with:\n- real 2048 movement/merge/spawn/score/win/game-over/restart logic\n- arrow key + WASD controls\n- automated logic tests in `src/game.test.ts`\n\nVerified:\n- `npm test` ✅\n- `npm run build` ✅\n- app running on `0.0.0.0:4173` via Vite preview ✅\n- browser session confirmed the game loads and is playable ✅\n\nKey files:\n- `src/game.ts`\n- `src/game.test.ts`\n- `src/App.tsx`\n- `src/App.css`\n\nLive app:\n- `http://127.0.0.1:4173/`"
+    }
+  ],
+  "imported": [
+    {
+      "role": "user",
+      "slot": "input",
+      "content": "Use `$using-superpowers`.\n\nNo browser visuals are needed.\nThe design is approved.\nProceed autonomously now without asking more questions unless you are genuinely blocked.\n\nBuild a complete browser-playable React 2048 game in `/workspace/game-2048`.\n\nRequirements:\n- use modern React + Vite + TypeScript\n- implement real 2048 rules: movement, merging, random tile spawning, score tracking, win/game-over behavior, and restart\n- support both arrow keys and WASD\n- add automated tests for the game logic\n- run the tests and production build successfully\n- start the app on `0.0.0.0:4173`\n- verify it in a browser session\n- use subagents when genuinely helpful\n- end with a concise completion note\n"
+    },
+    {
+      "role": "agent",
+      "slot": "output",
+      "content": "Done.\n\nBuilt a complete React + Vite + TypeScript 2048 game in `/workspace/game-2048` with:\n- real 2048 movement/merge/spawn/score/win/game-over/restart logic\n- arrow key + WASD controls\n- automated logic tests in `src/game.test.ts`\n\nVerified:\n- `npm test` ✅\n- `npm run build` ✅\n- app running on `0.0.0.0:4173` via Vite preview ✅\n- browser session confirmed the game loads and is playable ✅\n\nKey files:\n- `src/game.ts`\n- `src/game.test.ts`\n- `src/App.tsx`\n- `src/App.css`\n\nLive app:\n- `http://127.0.0.1:4173/`"
+    }
+  ]
+}

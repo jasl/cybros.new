@@ -1,0 +1,283 @@
+{
+  "conversation": {
+    "conversation_id": "019d4ea9-7297-7426-aa1a-a371b8e512cb",
+    "lifecycle_state": "active",
+    "turn_count": 1,
+    "active_turn_count": 0,
+    "completed_turn_count": 1,
+    "failed_turn_count": 0,
+    "canceled_turn_count": 0,
+    "usage_event_count": 13,
+    "input_tokens_total": 59092,
+    "output_tokens_total": 924,
+    "estimated_cost_total": "0.0",
+    "provider_round_count": 13,
+    "tool_call_count": 18,
+    "tool_failure_count": 1,
+    "command_run_count": 3,
+    "command_failure_count": 0,
+    "process_run_count": 1,
+    "process_failure_count": 0,
+    "subagent_session_count": 0,
+    "resume_attempt_count": 0,
+    "retry_attempt_count": 0,
+    "most_expensive_turn_id": "019d4ea9-731f-7108-a7c4-768dda223b19",
+    "most_rounds_turn_id": "019d4ea9-731f-7108-a7c4-768dda223b19",
+    "metadata": {
+      "cost_summary": {
+        "cost_data_complete": false,
+        "cost_data_available": false,
+        "estimated_cost_event_count": 0,
+        "estimated_cost_missing_event_count": 13
+      },
+      "outlier_refs": {
+        "most_rounds_turn_id": "019d4ea9-731f-7108-a7c4-768dda223b19",
+        "most_expensive_turn_id": "019d4ea9-731f-7108-a7c4-768dda223b19"
+      },
+      "tool_breakdown": {
+        "write_stdin": {
+          "count": 3,
+          "failures": 0
+        },
+        "browser_open": {
+          "count": 1,
+          "failures": 0
+        },
+        "exec_command": {
+          "count": 3,
+          "failures": 0
+        },
+        "process_exec": {
+          "count": 1,
+          "failures": 0
+        },
+        "process_list": {
+          "count": 1,
+          "failures": 0
+        },
+        "workspace_read": {
+          "count": 5,
+          "failures": 0
+        },
+        "workspace_tree": {
+          "count": 1,
+          "failures": 1
+        },
+        "command_run_list": {
+          "count": 1,
+          "failures": 0
+        },
+        "browser_get_content": {
+          "count": 1,
+          "failures": 0
+        },
+        "process_read_output": {
+          "count": 1,
+          "failures": 0
+        }
+      },
+      "subagent_status_counts": {},
+      "provider_usage_breakdown": [
+        {
+          "model_ref": "openai-gpt-5.4",
+          "event_count": 13,
+          "failure_count": 0,
+          "success_count": 13,
+          "avg_latency_ms": 3445,
+          "max_latency_ms": 5541,
+          "operation_kind": "text_generation",
+          "provider_handle": "openrouter",
+          "total_latency_ms": 44790,
+          "cost_data_complete": false,
+          "input_tokens_total": 59092,
+          "cost_data_available": false,
+          "latency_event_count": 13,
+          "output_tokens_total": 924,
+          "estimated_cost_total": "0.0",
+          "estimated_cost_event_count": 0,
+          "estimated_cost_missing_event_count": 13
+        }
+      ],
+      "workflow_node_type_counts": {
+        "tool_call": 18,
+        "turn_step": 13,
+        "barrier_join": 18
+      },
+      "attributed_user_cost_summary": {
+        "cost_data_complete": false,
+        "cost_data_available": false,
+        "estimated_cost_event_count": 0,
+        "estimated_cost_missing_event_count": 13
+      },
+      "command_classification_counts": {
+        "test": {
+          "count": 1,
+          "failures": 0
+        }
+      },
+      "attributed_user_provider_usage_breakdown": [
+        {
+          "model_ref": "openai-gpt-5.4",
+          "event_count": 13,
+          "failure_count": 0,
+          "success_count": 13,
+          "avg_latency_ms": 3445,
+          "max_latency_ms": 5541,
+          "operation_kind": "text_generation",
+          "provider_handle": "openrouter",
+          "total_latency_ms": 44790,
+          "cost_data_complete": false,
+          "input_tokens_total": 59092,
+          "cost_data_available": false,
+          "latency_event_count": 13,
+          "output_tokens_total": 924,
+          "estimated_cost_total": "0.0",
+          "estimated_cost_event_count": 0,
+          "estimated_cost_missing_event_count": 13
+        }
+      ]
+    }
+  },
+  "turns": [
+    {
+      "conversation_id": "019d4ea9-7297-7426-aa1a-a371b8e512cb",
+      "turn_id": "019d4ea9-731f-7108-a7c4-768dda223b19",
+      "lifecycle_state": "completed",
+      "usage_event_count": 13,
+      "input_tokens_total": 59092,
+      "output_tokens_total": 924,
+      "estimated_cost_total": "0.0",
+      "provider_round_count": 13,
+      "tool_call_count": 18,
+      "tool_failure_count": 1,
+      "command_run_count": 3,
+      "command_failure_count": 0,
+      "process_run_count": 1,
+      "process_failure_count": 0,
+      "subagent_session_count": 0,
+      "resume_attempt_count": 0,
+      "retry_attempt_count": 0,
+      "metadata": {
+        "pause_state": null,
+        "cost_summary": {
+          "cost_data_complete": false,
+          "cost_data_available": false,
+          "estimated_cost_event_count": 0,
+          "estimated_cost_missing_event_count": 13
+        },
+        "evidence_refs": {
+          "turn_id": "019d4ea9-731f-7108-a7c4-768dda223b19",
+          "workflow_run_id": "019d4ea9-7369-7642-8daa-570a6a7b992c",
+          "selected_input_message_id": "019d4ea9-7327-726a-a77d-eb6452817205",
+          "selected_output_message_id": "019d4eaa-a9b2-720c-9021-b1a170077f65"
+        },
+        "tool_breakdown": {
+          "write_stdin": {
+            "count": 3,
+            "failures": 0
+          },
+          "browser_open": {
+            "count": 1,
+            "failures": 0
+          },
+          "exec_command": {
+            "count": 3,
+            "failures": 0
+          },
+          "process_exec": {
+            "count": 1,
+            "failures": 0
+          },
+          "process_list": {
+            "count": 1,
+            "failures": 0
+          },
+          "workspace_read": {
+            "count": 5,
+            "failures": 0
+          },
+          "workspace_tree": {
+            "count": 1,
+            "failures": 1
+          },
+          "command_run_list": {
+            "count": 1,
+            "failures": 0
+          },
+          "browser_get_content": {
+            "count": 1,
+            "failures": 0
+          },
+          "process_read_output": {
+            "count": 1,
+            "failures": 0
+          }
+        },
+        "latency_summary": {
+          "avg_latency_ms": 3445,
+          "max_latency_ms": 5541
+        },
+        "subagent_status_counts": {},
+        "provider_usage_breakdown": [
+          {
+            "model_ref": "openai-gpt-5.4",
+            "event_count": 13,
+            "failure_count": 0,
+            "success_count": 13,
+            "avg_latency_ms": 3445,
+            "max_latency_ms": 5541,
+            "operation_kind": "text_generation",
+            "provider_handle": "openrouter",
+            "total_latency_ms": 44790,
+            "cost_data_complete": false,
+            "input_tokens_total": 59092,
+            "cost_data_available": false,
+            "latency_event_count": 13,
+            "output_tokens_total": 924,
+            "estimated_cost_total": "0.0",
+            "estimated_cost_event_count": 0,
+            "estimated_cost_missing_event_count": 13
+          }
+        ],
+        "workflow_node_type_counts": {
+          "tool_call": 18,
+          "turn_step": 13,
+          "barrier_join": 18
+        },
+        "attributed_user_cost_summary": {
+          "cost_data_complete": false,
+          "cost_data_available": false,
+          "estimated_cost_event_count": 0,
+          "estimated_cost_missing_event_count": 13
+        },
+        "command_classification_counts": {
+          "test": {
+            "count": 1,
+            "failures": 0
+          }
+        },
+        "attributed_user_provider_usage_breakdown": [
+          {
+            "model_ref": "openai-gpt-5.4",
+            "event_count": 13,
+            "failure_count": 0,
+            "success_count": 13,
+            "avg_latency_ms": 3445,
+            "max_latency_ms": 5541,
+            "operation_kind": "text_generation",
+            "provider_handle": "openrouter",
+            "total_latency_ms": 44790,
+            "cost_data_complete": false,
+            "input_tokens_total": 59092,
+            "cost_data_available": false,
+            "latency_event_count": 13,
+            "output_tokens_total": 924,
+            "estimated_cost_total": "0.0",
+            "estimated_cost_event_count": 0,
+            "estimated_cost_missing_event_count": 13
+          }
+        ]
+      }
+    }
+  ]
+}

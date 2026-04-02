@@ -1,0 +1,19 @@
+[
+  {
+    "subagent_session_id": "019d4ef0-2b5c-7c3c-bf11-a954007c4035",
+    "owner_conversation_id": "019d4eee-f89c-75c2-88b9-346a950a346b",
+    "conversation_id": "019d4ef0-2b42-7bd2-87bf-47b6c661c16e",
+    "origin_turn_id": "019d4eee-f900-74eb-b083-1bae5e31bf8a",
+    "scope": "turn",
+    "profile_key": "researcher",
+    "depth": 0,
+    "close_state": "closed",
+    "observed_status": "completed",
+    "close_outcome_kind": "graceful",
+    "close_outcome_payload": {
+      "source": "fenix_runtime"
+    },
+    "created_at": "2026-04-02T16:04:15.836142Z",
+    "updated_at": "2026-04-02T16:04:44.423728Z"
+  }
+]

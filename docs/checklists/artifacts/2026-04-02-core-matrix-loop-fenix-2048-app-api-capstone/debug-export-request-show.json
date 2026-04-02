@@ -1,0 +1,27 @@
+{
+  "method_id": "conversation_debug_export_request_show",
+  "conversation_id": "019d4eee-f89c-75c2-88b9-346a950a346b",
+  "debug_export_request": {
+    "request_id": "019d4ef7-3949-7d40-a77f-901064f2beaa",
+    "workspace_id": "019d4eee-f890-7056-968b-3380782c1588",
+    "conversation_id": "019d4eee-f89c-75c2-88b9-346a950a346b",
+    "user_id": "019d4eee-f1bd-7553-a2b8-c380684603d5",
+    "lifecycle_state": "succeeded",
+    "created_at": "2026-04-02T16:11:58.149513Z",
+    "queued_at": "2026-04-02T16:11:58.149211Z",
+    "started_at": "2026-04-02T16:11:58.202709Z",
+    "finished_at": "2026-04-02T16:11:59.060695Z",
+    "expires_at": "2026-04-03T16:11:58.148436Z",
+    "bundle_available": true,
+    "result_payload": {
+      "bundle_kind": "conversation_debug_export",
+      "message_count": 2,
+      "bundle_version": "2026-04-02",
+      "attachment_count": 0,
+      "usage_event_count": 59,
+      "workflow_run_count": 1,
+      "tool_invocation_count": 59
+    },
+    "failure_payload": {}
+  }
+}

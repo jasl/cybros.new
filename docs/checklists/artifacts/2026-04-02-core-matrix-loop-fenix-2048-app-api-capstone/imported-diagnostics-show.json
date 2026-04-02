@@ -1,0 +1,63 @@
+{
+  "method_id": "conversation_diagnostics_show",
+  "conversation_id": "019d4ef7-3e2c-71d1-abf3-f4c96c44e908",
+  "snapshot": {
+    "conversation_id": "019d4ef7-3e2c-71d1-abf3-f4c96c44e908",
+    "lifecycle_state": "active",
+    "turn_count": 1,
+    "active_turn_count": 0,
+    "completed_turn_count": 1,
+    "failed_turn_count": 0,
+    "canceled_turn_count": 0,
+    "usage_event_count": 0,
+    "input_tokens_total": 0,
+    "output_tokens_total": 0,
+    "total_tokens_total": 0,
+    "estimated_cost_total": "0.0",
+    "attributed_user_id": "019d4eee-f1bd-7553-a2b8-c380684603d5",
+    "attributed_user_usage_event_count": 0,
+    "attributed_user_input_tokens_total": 0,
+    "attributed_user_output_tokens_total": 0,
+    "attributed_user_total_tokens_total": 0,
+    "attributed_user_estimated_cost_total": "0.0",
+    "provider_round_count": 0,
+    "tool_call_count": 0,
+    "tool_failure_count": 0,
+    "command_run_count": 0,
+    "command_failure_count": 0,
+    "process_run_count": 0,
+    "process_failure_count": 0,
+    "subagent_session_count": 0,
+    "input_variant_count": 1,
+    "output_variant_count": 1,
+    "steer_count": 0,
+    "resume_attempt_count": 0,
+    "retry_attempt_count": 0,
+    "most_expensive_turn_id": "019d4ef7-3e3f-716a-90d6-79293086c892",
+    "most_rounds_turn_id": "019d4ef7-3e3f-716a-90d6-79293086c892",
+    "metadata": {
+      "provider_usage_breakdown": [],
+      "attributed_user_provider_usage_breakdown": [],
+      "workflow_node_type_counts": {},
+      "tool_breakdown": {},
+      "command_classification_counts": {},
+      "subagent_status_counts": {},
+      "cost_summary": {
+        "estimated_cost_event_count": 0,
+        "estimated_cost_missing_event_count": 0,
+        "cost_data_available": false,
+        "cost_data_complete": false
+      },
+      "attributed_user_cost_summary": {
+        "estimated_cost_event_count": 0,
+        "estimated_cost_missing_event_count": 0,
+        "cost_data_available": false,
+        "cost_data_complete": false
+      },
+      "outlier_refs": {
+        "most_expensive_turn_id": "019d4ef7-3e3f-716a-90d6-79293086c892",
+        "most_rounds_turn_id": "019d4ef7-3e3f-716a-90d6-79293086c892"
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-module AgentAPI
+module AppAPI
   class ConversationDiagnosticsController < BaseController
     def show
       conversation = find_conversation!(params.fetch(:conversation_id))

@@ -1,7 +1,7 @@
 require "test_helper"
 
-class AgentApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
-  test "shows conversation diagnostics and turn diagnostics through the machine api" do
+class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
+  test "shows conversation diagnostics and turn diagnostics through the app api" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
@@ -25,11 +25,11 @@ class AgentApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       occurred_at: Time.utc(2026, 4, 2, 9, 0, 0)
     )
 
-    get "/agent_api/conversation_diagnostics/show",
+    get "/app_api/conversation_diagnostics/show",
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:machine_credential])
 
     assert_response :success
 
@@ -51,11 +51,11 @@ class AgentApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:conversation].id}")
     refute_includes response.body, %("#{context[:turn].id}")
 
-    get "/agent_api/conversation_diagnostics/turns",
+    get "/app_api/conversation_diagnostics/turns",
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:machine_credential])
 
     assert_response :success
 
@@ -79,19 +79,19 @@ class AgentApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    get "/agent_api/conversation_diagnostics/show",
+    get "/app_api/conversation_diagnostics/show",
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:machine_credential])
 
     assert_response :not_found
 
-    get "/agent_api/conversation_diagnostics/turns",
+    get "/app_api/conversation_diagnostics/turns",
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:machine_credential])
 
     assert_response :not_found
   end

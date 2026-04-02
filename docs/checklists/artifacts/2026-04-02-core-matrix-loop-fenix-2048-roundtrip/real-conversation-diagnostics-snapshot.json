@@ -1,0 +1,124 @@
+{
+  "conversation_id": "019d4e6e-7ab3-7dd2-9d06-4b11cc59e729",
+  "turn_count": 1,
+  "usage_event_count": 39,
+  "input_tokens_total": 832909,
+  "output_tokens_total": 11782,
+  "provider_round_count": 39,
+  "tool_call_count": 39,
+  "tool_failure_count": 0,
+  "subagent_session_count": 0,
+  "metadata": {
+    "cost_summary": {
+      "cost_data_complete": false,
+      "cost_data_available": false,
+      "estimated_cost_event_count": 0,
+      "estimated_cost_missing_event_count": 39
+    },
+    "outlier_refs": {
+      "most_rounds_turn_id": "019d4e6e-7b42-77ec-98fe-f84ce5b03ac2",
+      "most_expensive_turn_id": "019d4e6e-7b42-77ec-98fe-f84ce5b03ac2"
+    },
+    "tool_breakdown": {
+      "memory_list": {
+        "count": 1,
+        "failures": 0
+      },
+      "browser_open": {
+        "count": 1,
+        "failures": 0
+      },
+      "exec_command": {
+        "count": 6,
+        "failures": 0
+      },
+      "process_exec": {
+        "count": 1,
+        "failures": 0
+      },
+      "memory_search": {
+        "count": 1,
+        "failures": 0
+      },
+      "workspace_find": {
+        "count": 1,
+        "failures": 0
+      },
+      "workspace_read": {
+        "count": 7,
+        "failures": 0
+      },
+      "workspace_tree": {
+        "count": 3,
+        "failures": 0
+      },
+      "workspace_write": {
+        "count": 11,
+        "failures": 0
+      },
+      "command_run_wait": {
+        "count": 6,
+        "failures": 0
+      },
+      "browser_get_content": {
+        "count": 1,
+        "failures": 0
+      }
+    },
+    "subagent_status_counts": {},
+    "provider_usage_breakdown": [
+      {
+        "model_ref": "openai-gpt-5.4",
+        "event_count": 39,
+        "failure_count": 0,
+        "success_count": 39,
+        "avg_latency_ms": 6013,
+        "max_latency_ms": 21650,
+        "operation_kind": "text_generation",
+        "provider_handle": "openrouter",
+        "total_latency_ms": 234524,
+        "cost_data_complete": false,
+        "input_tokens_total": 832909,
+        "cost_data_available": false,
+        "latency_event_count": 39,
+        "output_tokens_total": 11782,
+        "estimated_cost_total": "0.0",
+        "estimated_cost_event_count": 0,
+        "estimated_cost_missing_event_count": 39
+      }
+    ],
+    "workflow_node_type_counts": {
+      "tool_call": 39,
+      "turn_step": 39,
+      "barrier_join": 39
+    },
+    "attributed_user_cost_summary": {
+      "cost_data_complete": false,
+      "cost_data_available": false,
+      "estimated_cost_event_count": 0,
+      "estimated_cost_missing_event_count": 39
+    },
+    "command_classification_counts": {},
+    "attributed_user_provider_usage_breakdown": [
+      {
+        "model_ref": "openai-gpt-5.4",
+        "event_count": 39,
+        "failure_count": 0,
+        "success_count": 39,
+        "avg_latency_ms": 6013,
+        "max_latency_ms": 21650,
+        "operation_kind": "text_generation",
+        "provider_handle": "openrouter",
+        "total_latency_ms": 234524,
+        "cost_data_complete": false,
+        "input_tokens_total": 832909,
+        "cost_data_available": false,
+        "latency_event_count": 39,
+        "output_tokens_total": 11782,
+        "estimated_cost_total": "0.0",
+        "estimated_cost_event_count": 0,
+        "estimated_cost_missing_event_count": 39
+      }
+    ]
+  }
+}

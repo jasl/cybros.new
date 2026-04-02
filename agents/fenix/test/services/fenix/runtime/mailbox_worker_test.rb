@@ -435,6 +435,42 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal mailbox_item, received_mailbox_item
   end
 
+  test "subagent session close requests report a close lifecycle" do
+    control_client = build_runtime_control_client
+    mailbox_item = {
+      "item_type" => "resource_close_request",
+      "item_id" => "close-item-#{SecureRandom.uuid}",
+      "payload" => {
+        "resource_type" => "SubagentSession",
+        "resource_id" => "subagent-session-#{SecureRandom.uuid}",
+        "request_kind" => "subagent_close",
+        "reason_kind" => "subagent_close_requested",
+        "strictness" => "graceful",
+      },
+    }
+
+    result = nil
+
+    assert_enqueued_jobs 0 do
+      result = Fenix::Runtime::MailboxWorker.call(
+        mailbox_item: mailbox_item,
+        deliver_reports: true,
+        control_client: control_client
+      )
+    end
+
+    assert_equal :handled, result
+
+    method_ids = control_client.reported_payloads.map { |payload| payload.fetch("method_id") }
+
+    assert_equal %w[resource_close_acknowledged resource_closed], method_ids
+    terminal = control_client.reported_payloads.last
+    assert_equal "SubagentSession", terminal.fetch("resource_type")
+    assert_equal mailbox_item.dig("payload", "resource_id"), terminal.fetch("resource_id")
+    assert_equal "graceful", terminal.fetch("close_outcome_kind")
+    assert_equal({ "source" => "fenix_runtime" }, terminal.fetch("close_outcome_payload"))
+  end
+
   private
 
   def assert_eventually(timeout_seconds: 2, &block)

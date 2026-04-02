@@ -1,0 +1,12 @@
+{
+  "ignored_warnings": [
+    {
+      "fingerprint": "f0457565a4e94d43e73ed797a3d5e68ced6e6f12c5a8a31d551d22320c8c16c4",
+      "note": "Manual acceptance helper launches fixed docker runtime commands against a local test container."
+    },
+    {
+      "fingerprint": "f51d07ef7f06a4cde6c0f9b59eb16497b4fb1ff5ff7dc2529a416254ec735bd4",
+      "note": "Manual acceptance helper copies a fixed allowlist of repo paths into a local test container."
+    }
+  ]
+}

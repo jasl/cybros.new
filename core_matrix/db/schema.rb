@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_02_160200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -298,6 +298,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
     t.index ["workflow_node_id"], name: "index_command_runs_on_workflow_node_id"
   end
 
+  create_table "conversation_bundle_import_requests", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "failure_payload", default: {}, null: false
+    t.datetime "finished_at"
+    t.bigint "imported_conversation_id"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "queued", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "queued_at"
+    t.jsonb "request_payload", default: {}, null: false
+    t.jsonb "result_payload", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["imported_conversation_id"], name: "idx_on_imported_conversation_id_8a4b454761"
+    t.index ["installation_id"], name: "index_conversation_bundle_import_requests_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_bundle_import_requests_on_public_id", unique: true
+    t.index ["user_id"], name: "index_conversation_bundle_import_requests_on_user_id"
+    t.index ["workspace_id"], name: "index_conversation_bundle_import_requests_on_workspace_id"
+  end
+
   create_table "conversation_close_operations", force: :cascade do |t|
     t.datetime "completed_at"
     t.bigint "conversation_id", null: false
@@ -326,6 +348,29 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
     t.index ["descendant_conversation_id"], name: "index_conversation_closures_on_descendant_conversation_id"
     t.index ["installation_id", "ancestor_conversation_id", "descendant_conversation_id"], name: "idx_conversation_closures_installation_ancestor_descendant", unique: true
     t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
+  end
+
+  create_table "conversation_debug_export_requests", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.jsonb "failure_payload", default: {}, null: false
+    t.datetime "finished_at"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "queued", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "queued_at"
+    t.jsonb "request_payload", default: {}, null: false
+    t.jsonb "result_payload", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["conversation_id"], name: "index_conversation_debug_export_requests_on_conversation_id"
+    t.index ["installation_id"], name: "index_conversation_debug_export_requests_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_debug_export_requests_on_public_id", unique: true
+    t.index ["user_id"], name: "index_conversation_debug_export_requests_on_user_id"
+    t.index ["workspace_id"], name: "index_conversation_debug_export_requests_on_workspace_id"
   end
 
   create_table "conversation_diagnostics_snapshots", force: :cascade do |t|
@@ -387,6 +432,29 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
     t.index ["installation_id"], name: "index_conversation_events_on_installation_id"
     t.index ["source_type", "source_id"], name: "idx_conversation_events_source"
     t.index ["turn_id"], name: "index_conversation_events_on_turn_id"
+  end
+
+  create_table "conversation_export_requests", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.jsonb "failure_payload", default: {}, null: false
+    t.datetime "finished_at"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "queued", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "queued_at"
+    t.jsonb "request_payload", default: {}, null: false
+    t.jsonb "result_payload", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["conversation_id"], name: "index_conversation_export_requests_on_conversation_id"
+    t.index ["installation_id"], name: "index_conversation_export_requests_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_export_requests_on_public_id", unique: true
+    t.index ["user_id"], name: "index_conversation_export_requests_on_user_id"
+    t.index ["workspace_id"], name: "index_conversation_export_requests_on_workspace_id"
   end
 
   create_table "conversation_imports", force: :cascade do |t|
@@ -1369,11 +1437,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
   add_foreign_key "command_runs", "installations"
   add_foreign_key "command_runs", "tool_invocations"
   add_foreign_key "command_runs", "workflow_nodes"
+  add_foreign_key "conversation_bundle_import_requests", "conversations", column: "imported_conversation_id"
+  add_foreign_key "conversation_bundle_import_requests", "installations"
+  add_foreign_key "conversation_bundle_import_requests", "users"
+  add_foreign_key "conversation_bundle_import_requests", "workspaces"
   add_foreign_key "conversation_close_operations", "conversations"
   add_foreign_key "conversation_close_operations", "installations"
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversation_debug_export_requests", "conversations"
+  add_foreign_key "conversation_debug_export_requests", "installations"
+  add_foreign_key "conversation_debug_export_requests", "users"
+  add_foreign_key "conversation_debug_export_requests", "workspaces"
   add_foreign_key "conversation_diagnostics_snapshots", "conversations"
   add_foreign_key "conversation_diagnostics_snapshots", "installations"
   add_foreign_key "conversation_diagnostics_snapshots", "turns", column: "most_expensive_turn_id"
@@ -1381,6 +1457,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_103000) do
   add_foreign_key "conversation_events", "conversations"
   add_foreign_key "conversation_events", "installations"
   add_foreign_key "conversation_events", "turns"
+  add_foreign_key "conversation_export_requests", "conversations"
+  add_foreign_key "conversation_export_requests", "installations"
+  add_foreign_key "conversation_export_requests", "users"
+  add_foreign_key "conversation_export_requests", "workspaces"
   add_foreign_key "conversation_imports", "conversation_summary_segments", column: "summary_segment_id"
   add_foreign_key "conversation_imports", "conversations"
   add_foreign_key "conversation_imports", "conversations", column: "source_conversation_id"

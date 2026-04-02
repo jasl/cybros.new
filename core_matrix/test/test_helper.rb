@@ -573,12 +573,20 @@ module ActiveSupport
       }
     end
 
-    def agent_api_headers(machine_credential)
+    def deployment_api_headers(machine_credential)
       {
         "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(machine_credential),
         "Content-Type" => "application/json",
         "Accept" => "application/json",
       }
+    end
+
+    def agent_api_headers(machine_credential)
+      deployment_api_headers(machine_credential)
+    end
+
+    def app_api_headers(machine_credential)
+      deployment_api_headers(machine_credential)
     end
 
     def register_agent_runtime!(

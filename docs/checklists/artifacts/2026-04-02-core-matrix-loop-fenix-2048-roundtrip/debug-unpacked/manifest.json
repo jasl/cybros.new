@@ -1,0 +1,51 @@
+{
+  "bundle_kind": "conversation_debug_export",
+  "bundle_version": "2026-04-02",
+  "exported_at": "2026-04-02T13:49:32.134612Z",
+  "conversation_public_id": "019d4e6e-7ab3-7dd2-9d06-4b11cc59e729",
+  "attachment_count": 0,
+  "files": [],
+  "section_files": [
+    "conversation.json",
+    "diagnostics.json",
+    "workflow_runs.json",
+    "workflow_nodes.json",
+    "workflow_node_events.json",
+    "agent_task_runs.json",
+    "tool_invocations.json",
+    "command_runs.json",
+    "process_runs.json",
+    "subagent_sessions.json",
+    "usage_events.json"
+  ],
+  "section_checksums": {
+    "conversation.json_sha256": "b802fd4195d6837b38ea96f6bb7437748ca06acf97581e89efc00e92c4b566ff",
+    "diagnostics.json_sha256": "fa683904f830b858d68144cc9a114a5849268ecf6d841f96055129293cfe807b",
+    "workflow_runs.json_sha256": "f37f685e13e2408d96c5985d8d2220db65156a5c2fd2bb9bff06b10f15dc4493",
+    "workflow_nodes.json_sha256": "ecb654102daf030d841a6e1e4ba9a6644c84e8758ba65db103a93aff17b1838d",
+    "workflow_node_events.json_sha256": "7ceecf374841faf006da7ef4ee501989662f87d7092ef3d209283f2280769d03",
+    "agent_task_runs.json_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "tool_invocations.json_sha256": "98290af966fa0b8a81aafafefca16e45ec940bb939fa7d2470db6ee7477a0340",
+    "command_runs.json_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "process_runs.json_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "subagent_sessions.json_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "usage_events.json_sha256": "af33bd56849781cb4721f17f665d0e59fe36859f8534125b7d7dc8d27e108e57"
+  },
+  "counts": {
+    "message_count": 2,
+    "workflow_run_count": 1,
+    "workflow_node_count": 117,
+    "workflow_node_event_count": 233,
+    "agent_task_run_count": 0,
+    "tool_invocation_count": 39,
+    "command_run_count": 0,
+    "process_run_count": 0,
+    "subagent_session_count": 0,
+    "usage_event_count": 39
+  },
+  "generator": {
+    "name": "core_matrix",
+    "component": "conversation_debug_exports",
+    "version": "2026-04-02"
+  }
+}

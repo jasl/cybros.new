@@ -96,11 +96,28 @@ module ManualAcceptanceSupport
     }
   end
 
-  def http_get_json(url, headers: {})
+  def control_url(path)
+    "#{CONTROL_BASE_URL}#{path}"
+  end
+
+  def http_get_response(url, headers: {})
     uri = URI(url)
     request = Net::HTTP::Get.new(uri)
     headers.each { |key, value| request[key] = value }
-    execute_http(uri, request)
+
+    response = Net::HTTP.start(uri.host, uri.port) do |http|
+      http.request(request)
+    end
+
+    [response, response.body.to_s]
+  end
+
+  def http_get_json(url, headers: {})
+    response, body = http_get_response(url, headers:)
+    parsed = body.empty? ? {} : JSON.parse(body)
+    raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
+
+    parsed
   end
 
   def http_post_json(url, payload, headers: {})
@@ -110,6 +127,47 @@ module ManualAcceptanceSupport
     headers.each { |key, value| request[key] = value }
     request.body = JSON.generate(payload)
     execute_http(uri, request)
+  end
+
+  def http_post_multipart_json(url, params:, file_param:, file_path:, content_type: "application/zip", headers: {})
+    uri = URI(url)
+    request = Net::HTTP::Post.new(uri)
+    headers.each { |key, value| request[key] = value }
+
+    response = nil
+    body = nil
+
+    File.open(file_path, "rb") do |io|
+      request.set_form(
+        params.map { |key, value| [key.to_s, value] } + [[file_param.to_s, io, { filename: File.basename(file_path), content_type: content_type }]],
+        "multipart/form-data"
+      )
+
+      response = Net::HTTP.start(uri.host, uri.port) do |http|
+        http.request(request)
+      end
+      body = response.body.to_s
+    end
+
+    parsed = body.empty? ? {} : JSON.parse(body)
+    raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
+
+    parsed
+  end
+
+  def http_download!(url, headers:, destination_path:)
+    response, body = http_get_response(url, headers:)
+    raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
+
+    FileUtils.mkdir_p(File.dirname(destination_path))
+    File.binwrite(destination_path, body)
+
+    {
+      "path" => destination_path.to_s,
+      "content_type" => response["Content-Type"],
+      "content_disposition" => response["Content-Disposition"],
+      "byte_size" => body.bytesize,
+    }
   end
 
   def execute_http(uri, request)
@@ -125,6 +183,161 @@ module ManualAcceptanceSupport
 
   def live_manifest(base_url:)
     http_get_json("#{base_url}/runtime/manifest")
+  end
+
+  def app_api_get_json(path, machine_credential:, params: {})
+    query = params.present? ? "?#{URI.encode_www_form(params.transform_keys(&:to_s))}" : ""
+    http_get_json(control_url(path) + query, headers: token_headers(machine_credential))
+  end
+
+  def app_api_post_json(path, payload, machine_credential:)
+    http_post_json(control_url(path), payload, headers: token_headers(machine_credential))
+  end
+
+  def app_api_post_multipart_json(path, params:, file_param:, file_path:, machine_credential:, content_type: "application/zip")
+    http_post_multipart_json(
+      control_url(path),
+      params: params,
+      file_param: file_param,
+      file_path: file_path,
+      content_type: content_type,
+      headers: token_headers(machine_credential)
+    )
+  end
+
+  def app_api_download!(path, destination_path:, machine_credential:)
+    http_download!(
+      control_url(path),
+      headers: token_headers(machine_credential),
+      destination_path: destination_path
+    )
+  end
+
+  def wait_for_app_api_request_terminal!(path:, request_key:, machine_credential:, terminal_states:, timeout_seconds: 30, poll_interval_seconds: 0.2)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+    terminal_states = Array(terminal_states)
+
+    loop do
+      payload = app_api_get_json(path, machine_credential:)
+      request = payload.fetch(request_key)
+      return payload if terminal_states.include?(request.fetch("lifecycle_state"))
+
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "timed out waiting for app api request #{path} to reach #{terminal_states.join(", ")}"
+      end
+
+      sleep(poll_interval_seconds)
+    end
+  end
+
+  def app_api_conversation_transcript!(conversation_id:, machine_credential:, cursor: nil, limit: nil)
+    app_api_get_json(
+      "/app_api/conversation_transcripts",
+      machine_credential:,
+      params: {
+        conversation_id: conversation_id,
+        cursor: cursor,
+        limit: limit,
+      }.compact
+    )
+  end
+
+  def app_api_conversation_diagnostics_show!(conversation_id:, machine_credential:)
+    app_api_get_json(
+      "/app_api/conversation_diagnostics/show",
+      machine_credential:,
+      params: { conversation_id: conversation_id }
+    )
+  end
+
+  def app_api_conversation_diagnostics_turns!(conversation_id:, machine_credential:)
+    app_api_get_json(
+      "/app_api/conversation_diagnostics/turns",
+      machine_credential:,
+      params: { conversation_id: conversation_id }
+    )
+  end
+
+  def app_api_export_conversation!(conversation_id:, machine_credential:, destination_path:, timeout_seconds: 60)
+    created = app_api_post_json(
+      "/app_api/conversation_export_requests",
+      { conversation_id: conversation_id },
+      machine_credential:
+    )
+    request_id = created.dig("export_request", "request_id")
+    shown = wait_for_app_api_request_terminal!(
+      path: "/app_api/conversation_export_requests/#{request_id}",
+      request_key: "export_request",
+      machine_credential: machine_credential,
+      terminal_states: %w[succeeded failed expired],
+      timeout_seconds: timeout_seconds
+    )
+    raise "conversation export failed: #{JSON.pretty_generate(shown)}" unless shown.dig("export_request", "lifecycle_state") == "succeeded"
+
+    download = app_api_download!(
+      "/app_api/conversation_export_requests/#{request_id}/download",
+      destination_path: destination_path,
+      machine_credential: machine_credential
+    )
+
+    {
+      "create" => created,
+      "show" => shown,
+      "download" => download,
+    }
+  end
+
+  def app_api_debug_export_conversation!(conversation_id:, machine_credential:, destination_path:, timeout_seconds: 60)
+    created = app_api_post_json(
+      "/app_api/conversation_debug_export_requests",
+      { conversation_id: conversation_id },
+      machine_credential:
+    )
+    request_id = created.dig("debug_export_request", "request_id")
+    shown = wait_for_app_api_request_terminal!(
+      path: "/app_api/conversation_debug_export_requests/#{request_id}",
+      request_key: "debug_export_request",
+      machine_credential: machine_credential,
+      terminal_states: %w[succeeded failed expired],
+      timeout_seconds: timeout_seconds
+    )
+    raise "conversation debug export failed: #{JSON.pretty_generate(shown)}" unless shown.dig("debug_export_request", "lifecycle_state") == "succeeded"
+
+    download = app_api_download!(
+      "/app_api/conversation_debug_export_requests/#{request_id}/download",
+      destination_path: destination_path,
+      machine_credential: machine_credential
+    )
+
+    {
+      "create" => created,
+      "show" => shown,
+      "download" => download,
+    }
+  end
+
+  def app_api_import_conversation_bundle!(workspace_id:, zip_path:, machine_credential:, timeout_seconds: 60)
+    created = app_api_post_multipart_json(
+      "/app_api/conversation_bundle_import_requests",
+      params: { workspace_id: workspace_id },
+      file_param: :upload_file,
+      file_path: zip_path,
+      machine_credential: machine_credential
+    )
+    request_id = created.dig("import_request", "request_id")
+    shown = wait_for_app_api_request_terminal!(
+      path: "/app_api/conversation_bundle_import_requests/#{request_id}",
+      request_key: "import_request",
+      machine_credential: machine_credential,
+      terminal_states: %w[succeeded failed],
+      timeout_seconds: timeout_seconds
+    )
+    raise "conversation import failed: #{JSON.pretty_generate(shown)}" unless shown.dig("import_request", "lifecycle_state") == "succeeded"
+
+    {
+      "create" => created,
+      "show" => shown,
+    }
   end
 
   def run_fenix_mailbox_pump_once!(machine_credential:, limit: 10, inline: true)
@@ -207,6 +420,131 @@ module ManualAcceptanceSupport
   ensure
     reader&.close unless reader.nil? || reader.closed?
     stop_fenix_control_worker!(pid) if pid.present?
+  end
+
+  def restart_docker_fenix_runtime_worker!(
+    machine_credential:,
+    container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone"),
+    core_matrix_base_url: ENV.fetch("DOCKER_CORE_MATRIX_BASE_URL", "http://host.docker.internal:3000")
+  )
+    sync_fenix_runtime_source_to_docker_container!(container_name:)
+
+    Bundler.with_unbundled_env do
+      stop_command = <<~SH.squish
+        ps -eo pid=,args= |
+        awk '/bin\\/runtime-worker|runtime:control_loop_forever|bin\\/jobs start|solid-queue-/ && $1 != PROCINFO["pid"] { print $1 }' |
+        xargs -r kill -TERM || true
+      SH
+      _stdout, _stderr, _status = Open3.capture3(
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-lc",
+        stop_command
+      )
+      sleep 1
+      _stdout, _stderr, _status = Open3.capture3(
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-lc",
+        stop_command.sub("kill -TERM", "kill -KILL")
+      )
+
+      common_env = [
+        "-e", "CORE_MATRIX_BASE_URL=#{core_matrix_base_url}",
+        "-e", "CORE_MATRIX_MACHINE_CREDENTIAL=#{machine_credential}",
+      ]
+      detached_commands = [
+        "cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1",
+        "cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1",
+      ]
+
+      detached_commands.each do |command|
+        # brakeman:ignore[Command Injection]
+        # Manual acceptance helper executes fixed in-container commands with a locally supplied docker target.
+        _stdout, stderr, status = Open3.capture3(
+          "docker",
+          "exec",
+          "-d",
+          *common_env,
+          container_name,
+          "sh",
+          "-lc",
+          command
+        )
+        raise "failed to start docker runtime worker: #{stderr}" unless status.success?
+      end
+    end
+
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 10
+    loop do
+      ps_output, stderr, status = Bundler.with_unbundled_env do
+        Open3.capture3(
+          "docker",
+          "exec",
+          container_name,
+          "sh",
+          "-lc",
+          "ps -eo args="
+        )
+      end
+      raise "failed to inspect docker runtime worker processes: #{stderr}" unless status.success?
+
+      args = ps_output.lines.map(&:strip)
+      control_loop_running = args.any? { |line| line.include?("runtime:control_loop_forever") }
+      jobs_running = args.any? { |line| line.include?("bin/jobs start") }
+      return if control_loop_running && jobs_running
+
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "timed out waiting for docker runtime worker to start"
+      end
+
+      sleep 0.2
+    end
+  end
+
+  def sync_fenix_runtime_source_to_docker_container!(
+    container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone"),
+    project_root: fenix_project_root
+  )
+    sync_targets = %w[
+      app
+      bin
+      config
+      db
+      lib
+      prompts
+      script
+      scripts
+      skills
+      Gemfile
+      Gemfile.lock
+      Rakefile
+      config.ru
+    ]
+
+    Bundler.with_unbundled_env do
+      sync_targets.each do |relative_path|
+        source = project_root.join(relative_path)
+        next unless source.exist?
+
+        destination = "/rails/#{relative_path}"
+        source_arg = source.directory? ? "#{source}/." : source.to_s
+
+        # brakeman:ignore[Command Injection]
+        # Manual acceptance helper copies a fixed allowlist of repo paths into a local test container.
+        _stdout, stderr, status = Open3.capture3(
+          "docker",
+          "cp",
+          source_arg,
+          "#{container_name}:#{destination}"
+        )
+        raise "failed to sync #{relative_path} into #{container_name}: #{stderr}" unless status.success?
+      end
+    end
   end
 
   def fenix_project_root
@@ -474,14 +812,22 @@ module ManualAcceptanceSupport
     wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds:)
   end
 
-  def execute_provider_turn_on_conversation!(conversation:, deployment:, content:)
+  def execute_provider_turn_on_conversation!(
+    conversation:,
+    deployment:,
+    content:,
+    selector_source: "conversation",
+    selector:
+  )
     run = start_turn_workflow_on_conversation!(
       conversation: conversation,
       deployment: deployment,
       content: content,
       root_node_key: "turn_step",
       root_node_type: "turn_step",
-      decision_source: "system"
+      decision_source: "system",
+      selector_source: selector_source,
+      selector: selector
     )
     execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
     run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }

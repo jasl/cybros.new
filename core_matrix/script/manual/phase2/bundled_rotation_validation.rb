@@ -19,7 +19,8 @@ conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: 
 baseline = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   conversation: conversation_context.fetch(:conversation),
   deployment: v1.deployment,
-  content: "Bundled rotation baseline turn"
+  content: "Bundled rotation baseline turn",
+  selector: "candidate:dev/mock-model"
 )
 
 v2 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
@@ -39,7 +40,8 @@ upgrade_switch = Conversations::SwitchAgentDeployment.call(
 upgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   conversation: conversation_context.fetch(:conversation).reload,
   deployment: v2.deployment,
-  content: "Bundled rotation upgrade turn"
+  content: "Bundled rotation upgrade turn",
+  selector: "candidate:dev/mock-model"
 )
 
 v0 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
@@ -59,7 +61,8 @@ downgrade_switch = Conversations::SwitchAgentDeployment.call(
 downgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
   conversation: conversation_context.fetch(:conversation).reload,
   deployment: v0.deployment,
-  content: "Bundled rotation downgrade turn"
+  content: "Bundled rotation downgrade turn",
+  selector: "candidate:dev/mock-model"
 )
 
 expected_dag_shape = ["turn_step"]

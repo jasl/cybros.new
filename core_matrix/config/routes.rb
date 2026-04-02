@@ -19,12 +19,6 @@ Rails.application.routes.draw do
     resource :health, only: :show, controller: :health
     resource :capabilities, only: [:show, :create], controller: :capabilities
     resources :conversation_transcripts, only: :index
-    resources :conversation_diagnostics, only: [] do
-      collection do
-        get "show"
-        get "turns"
-      end
-    end
     resources :conversation_variables, only: [] do
       collection do
         get "get"
@@ -52,6 +46,27 @@ Rails.application.routes.draw do
     resources :process_runs, only: :create
     post "control/poll", to: "control#poll"
     post "control/report", to: "control#report"
+  end
+
+  namespace :app_api do
+    resources :conversation_transcripts, only: :index
+    resources :conversation_diagnostics, only: [] do
+      collection do
+        get "show"
+        get "turns"
+      end
+    end
+    resources :conversation_export_requests, only: [:create, :show] do
+      member do
+        get "download"
+      end
+    end
+    resources :conversation_debug_export_requests, only: [:create, :show] do
+      member do
+        get "download"
+      end
+    end
+    resources :conversation_bundle_import_requests, only: [:create, :show]
   end
 
   if Rails.env.development? || Rails.env.test?

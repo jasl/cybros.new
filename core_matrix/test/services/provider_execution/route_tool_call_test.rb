@@ -139,6 +139,390 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "memory_search", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("tool_name")
   end
 
+  test "provisions durable command runs for exec_command program tools" do
+    context = build_governed_tool_context!
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "call-exec-command-1" => lambda { |payload:|
+          {
+            "status" => "ok",
+            "result" => {
+              "command_run_id" => payload.dig("runtime_resource_refs", "command_run", "command_run_id"),
+              "session_closed" => false,
+              "attached" => true,
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          }
+        },
+      }
+    )
+
+    result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-exec-command-1",
+        "tool_name" => "exec_command",
+        "arguments" => {
+          "command_line" => "printf 'hello\\n'",
+          "timeout_seconds" => 30,
+          "pty" => true,
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    invocation = result.tool_invocation.reload
+    request_payload = program_exchange.execute_program_tool_requests.first
+    command_run_id = request_payload.dig("runtime_resource_refs", "command_run", "command_run_id")
+    command_run = CommandRun.find_by_public_id!(command_run_id)
+
+    assert_equal command_run_id, result.result.fetch("command_run_id")
+    assert_equal invocation, command_run.tool_invocation
+    assert_equal workflow_node, command_run.workflow_node
+    assert command_run.running?
+  end
+
+  test "terminalizes one-shot exec_command program tools as completed command runs" do
+    context = build_governed_tool_context!
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "call-exec-command-oneshot-1" => lambda { |payload:|
+          {
+            "status" => "ok",
+            "result" => {
+              "command_run_id" => payload.dig("runtime_resource_refs", "command_run", "command_run_id"),
+              "exit_status" => 0,
+              "stdout_bytes" => 6,
+              "stderr_bytes" => 0,
+              "output_streamed" => true,
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          }
+        },
+      }
+    )
+
+    result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-exec-command-oneshot-1",
+        "tool_name" => "exec_command",
+        "arguments" => {
+          "command_line" => "printf 'hello\\n'",
+          "timeout_seconds" => 30,
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    request_payload = program_exchange.execute_program_tool_requests.first
+    command_run_id = request_payload.dig("runtime_resource_refs", "command_run", "command_run_id")
+    command_run = CommandRun.find_by_public_id!(command_run_id)
+
+    assert_equal command_run_id, result.result.fetch("command_run_id")
+    assert_equal "completed", command_run.lifecycle_state
+    assert_equal 0, command_run.exit_status
+    assert_equal 6, command_run.metadata.fetch("stdout_bytes")
+  end
+
+  test "terminalizes durable command runs when command_run_wait finishes an attached session" do
+    command_run_wait_tool = {
+      "tool_name" => "command_run_wait",
+      "tool_kind" => "agent_observation",
+      "implementation_source" => "agent",
+      "implementation_ref" => "agent/command_run_wait",
+      "input_schema" => { "type" => "object", "properties" => {} },
+      "result_schema" => { "type" => "object", "properties" => {} },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
+    context = build_governed_tool_context!(
+      agent_tool_catalog: governed_agent_tool_catalog + [command_run_wait_tool],
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command command_run_wait compact_context subagent_spawn],
+        }
+      )
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "call-exec-command-attached-1" => lambda { |payload:|
+          {
+            "status" => "ok",
+            "result" => {
+              "command_run_id" => payload.dig("runtime_resource_refs", "command_run", "command_run_id"),
+              "session_closed" => false,
+              "attached" => true,
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          }
+        },
+        "call-command-run-wait-1" => {
+          "status" => "ok",
+          "result" => {
+            "command_run_id" => nil,
+            "session_closed" => true,
+            "exit_status" => 0,
+            "stdout_bytes" => 12,
+            "stderr_bytes" => 0,
+            "output_streamed" => true,
+          },
+          "output_chunks" => [],
+          "summary_artifacts" => [],
+        },
+      }
+    )
+
+    exec_result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-exec-command-attached-1",
+        "tool_name" => "exec_command",
+        "arguments" => {
+          "command_line" => "printf 'hello\\n'",
+          "timeout_seconds" => 30,
+          "pty" => true,
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    command_run_id = exec_result.result.fetch("command_run_id")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "call-command-run-wait-1" => {
+          "status" => "ok",
+          "result" => {
+            "command_run_id" => command_run_id,
+            "session_closed" => true,
+            "exit_status" => 0,
+            "stdout_bytes" => 12,
+            "stderr_bytes" => 0,
+            "output_streamed" => true,
+          },
+          "output_chunks" => [],
+          "summary_artifacts" => [],
+        },
+      }
+    )
+
+    ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-command-run-wait-1",
+        "tool_name" => "command_run_wait",
+        "arguments" => {
+          "command_run_id" => command_run_id,
+          "timeout_seconds" => 30,
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    command_run = CommandRun.find_by_public_id!(command_run_id)
+    assert_equal "completed", command_run.lifecycle_state
+    assert_equal 0, command_run.exit_status
+    assert_equal 12, command_run.metadata.fetch("stdout_bytes")
+  end
+
+  test "provisions durable process runs for process_exec program tools" do
+    process_exec_tool = {
+      "tool_name" => "process_exec",
+      "tool_kind" => "agent_observation",
+      "implementation_source" => "agent",
+      "implementation_ref" => "agent/process_exec",
+      "input_schema" => { "type" => "object", "properties" => {} },
+      "result_schema" => { "type" => "object", "properties" => {} },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
+    context = build_governed_tool_context!(
+      agent_tool_catalog: governed_agent_tool_catalog + [process_exec_tool],
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn process_exec],
+        }
+      )
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "call-process-exec-1" => lambda { |payload:|
+          {
+            "status" => "ok",
+            "result" => {
+              "process_run_id" => payload.dig("runtime_resource_refs", "process_run", "process_run_id"),
+              "lifecycle_state" => "running",
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          }
+        },
+      }
+    )
+
+    result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-process-exec-1",
+        "tool_name" => "process_exec",
+        "arguments" => {
+          "kind" => "background_service",
+          "command_line" => "npm run preview -- --host 0.0.0.0 --port 4173",
+          "proxy_port" => 4173,
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    request_payload = program_exchange.execute_program_tool_requests.first
+    process_run_id = request_payload.dig("runtime_resource_refs", "process_run", "process_run_id")
+    process_run = ProcessRun.find_by_public_id!(process_run_id)
+
+    assert_equal process_run_id, result.result.fetch("process_run_id")
+    assert_equal workflow_node, process_run.workflow_node
+    assert_equal context.fetch(:conversation), process_run.conversation
+    assert process_run.running?
+    assert_equal workflow_node.turn.public_id, request_payload.dig("runtime_resource_refs", "process_run", "agent_task_run_id")
+  end
+
+  test "normalizes provider-facing process_exec kind aliases before provisioning process runs" do
+    process_exec_tool = {
+      "tool_name" => "process_exec",
+      "tool_kind" => "agent_observation",
+      "implementation_source" => "agent",
+      "implementation_ref" => "agent/process_exec",
+      "input_schema" => { "type" => "object", "properties" => {} },
+      "result_schema" => { "type" => "object", "properties" => {} },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
+    context = build_governed_tool_context!(
+      agent_tool_catalog: governed_agent_tool_catalog + [process_exec_tool],
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn process_exec],
+        }
+      )
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      program_tool_results: {
+        "process_exec" => lambda { |payload:|
+          {
+            "status" => "ok",
+            "result" => {
+              "process_run_id" => payload.dig("runtime_resource_refs", "process_run", "process_run_id"),
+              "lifecycle_state" => "running",
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          }
+        },
+      }
+    )
+
+    %w[background command web web_server].each do |kind_alias|
+      result = ProviderExecution::RouteToolCall.call(
+        workflow_node: workflow_node,
+        tool_call: {
+          "call_id" => "call-process-exec-#{kind_alias}-alias-1",
+          "tool_name" => "process_exec",
+          "arguments" => {
+            "kind" => kind_alias,
+            "command_line" => "npm run preview -- --host 0.0.0.0 --port 4173",
+            "proxy_port" => 4173,
+          },
+          "provider_format" => "chat_completions",
+        },
+        round_bindings: round_bindings,
+        program_exchange: program_exchange
+      )
+
+      process_run = ProcessRun.find_by_public_id!(result.result.fetch("process_run_id"))
+      assert_equal "background_service", process_run.kind
+      assert process_run.running?
+    end
+  end
+
+  test "fails the tool invocation when durable process run provisioning raises" do
+    process_exec_tool = {
+      "tool_name" => "process_exec",
+      "tool_kind" => "agent_observation",
+      "implementation_source" => "agent",
+      "implementation_ref" => "agent/process_exec",
+      "input_schema" => { "type" => "object", "properties" => {} },
+      "result_schema" => { "type" => "object", "properties" => {} },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
+    context = build_governed_tool_context!(
+      agent_tool_catalog: governed_agent_tool_catalog + [process_exec_tool],
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn process_exec],
+        }
+      )
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      ProviderExecution::RouteToolCall.call(
+        workflow_node: workflow_node,
+        tool_call: {
+          "call_id" => "call-process-exec-invalid-kind-1",
+          "tool_name" => "process_exec",
+          "arguments" => {
+            "kind" => "not-a-real-kind",
+            "command_line" => "npm run preview -- --host 0.0.0.0 --port 4173",
+          },
+          "provider_format" => "chat_completions",
+        },
+        round_bindings: round_bindings,
+        program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new
+      )
+    end
+
+    invocation = ToolInvocation.find_by!(idempotency_key: "call-process-exec-invalid-kind-1")
+    assert_equal "failed", invocation.reload.status
+    assert_equal "tool_execution_failed", invocation.error_payload.fetch("code")
+    assert_match(/Kind is not included in the list/, error.message)
+  end
+
   test "routes round-visible MCP tools through the generic MCP executor" do
     context = build_governed_mcp_context!(base_url: @mcp_server.base_url)
     workflow_node = context.fetch(:workflow_node)

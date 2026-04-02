@@ -1,0 +1,62 @@
+[
+  {
+    "command_run_id": "019d4ea9-a9a1-7ef4-8eef-3f4af9c1a1b9",
+    "workflow_node_id": "019d4ea9-a890-7c28-8ecc-fbad9f291549",
+    "tool_invocation_id": "019d4ea9-a996-78e3-872f-dacd1667ae8f",
+    "lifecycle_state": "completed",
+    "command_line": "pwd && ls -la && find . -maxdepth 2 -type d | sed 's#^./##' | sort | head -200",
+    "timeout_seconds": 20,
+    "metadata": {
+      "attempt_no": 1,
+      "stderr_bytes": 0,
+      "stdout_bytes": 436,
+      "logical_work_id": "program-tool:019d4ea9-a890-7c28-8ecc-fbad9f291549:call_u6OS8KCvsvTSB8TYMne5Xa4y",
+      "output_streamed": true,
+      "provider_format": "chat_completions"
+    },
+    "started_at": "2026-04-02T14:47:15.104636Z",
+    "ended_at": "2026-04-02T14:47:19.488155Z",
+    "created_at": "2026-04-02T14:47:15.105590Z",
+    "updated_at": "2026-04-02T14:47:19.497840Z"
+  },
+  {
+    "command_run_id": "019d4ea9-cd89-71b9-aae7-68c73efc752f",
+    "workflow_node_id": "019d4ea9-ccd0-7c72-9a4f-17737a272005",
+    "tool_invocation_id": "019d4ea9-cd82-7f76-ae01-5198c622db92",
+    "lifecycle_state": "completed",
+    "command_line": "cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix/tmp/workspace/game-2048 && find . -maxdepth 3 \\( -path './node_modules' -o -path './dist' \\) -prune -o -type f | sort | sed 's#^./##' | head -300",
+    "timeout_seconds": 20,
+    "metadata": {
+      "attempt_no": 1,
+      "stderr_bytes": 0,
+      "stdout_bytes": 341,
+      "logical_work_id": "program-tool:019d4ea9-ccd0-7c72-9a4f-17737a272005:call_pZUBQkX0PdGB6PsGsU0UbJzg",
+      "output_streamed": true,
+      "provider_format": "chat_completions"
+    },
+    "started_at": "2026-04-02T14:47:24.295970Z",
+    "ended_at": "2026-04-02T14:47:32.301711Z",
+    "created_at": "2026-04-02T14:47:24.296686Z",
+    "updated_at": "2026-04-02T14:47:32.305388Z"
+  },
+  {
+    "command_run_id": "019d4eaa-1a68-71e0-a56c-d4f9365608d5",
+    "workflow_node_id": "019d4eaa-19f8-774b-842c-159689f26707",
+    "tool_invocation_id": "019d4eaa-1a63-72ec-a2d3-092e3e87964c",
+    "lifecycle_state": "completed",
+    "command_line": "cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix/tmp/workspace/game-2048 && npm test && npm run build",
+    "timeout_seconds": 120,
+    "metadata": {
+      "attempt_no": 1,
+      "stderr_bytes": 0,
+      "stdout_bytes": 688,
+      "logical_work_id": "program-tool:019d4eaa-19f8-774b-842c-159689f26707:call_mhDYD8XRv5NwAysMgMYo4uEj",
+      "output_streamed": true,
+      "provider_format": "chat_completions"
+    },
+    "started_at": "2026-04-02T14:47:43.975190Z",
+    "ended_at": "2026-04-02T14:47:49.774079Z",
+    "created_at": "2026-04-02T14:47:43.975715Z",
+    "updated_at": "2026-04-02T14:47:49.779450Z"
+  }
+]

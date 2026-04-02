@@ -64,6 +64,15 @@ scripts used during the run must read the sectioned envelope shape:
 - `runtime_context`
 - `task_payload`
 
+After the provider-backed turn completes, the capstone close-out must use the
+product-facing `app_api` surfaces for conversation review and bundle
+portability:
+
+- `ConversationDiagnostics` through `/app_api/conversation_diagnostics/*`
+- `ConversationExport` through `/app_api/conversation_export_requests`
+- `ConversationDebugExport` through `/app_api/conversation_debug_export_requests`
+- `ConversationImport` through `/app_api/conversation_bundle_import_requests`
+
 ## Hard Requirements
 
 ### Runtime Shape
@@ -145,6 +154,11 @@ Every capstone run must produce a proof package containing at least:
   - final source-tree location, start command, and run URL
 - `playability-verification.md`
   - actual play verification notes
+- `export-roundtrip.md`
+  - user export, debug export, and import roundtrip outcome
+  - must record whether the imported transcript matches the source transcript
+  - must record whether the debug bundle was sufficient to assess provider,
+    model, token usage, round count, tool mix, and durable runtime resources
 
 Optional but recommended artifacts:
 
@@ -179,6 +193,10 @@ Verification notes:
   platform-specific dependency artifacts, the operator may remove and
   reinstall those dependencies on the host before host-side verification; the
   proof package must record that step
+- platform-specific dependency rebuilds on the host are an operational
+  verification concern, not by themselves an agent-quality failure; do not
+  fail the capstone solely because Docker-built `node_modules` cannot run on
+  macOS if a normal host reinstall restores the generated application
 
 Recommended stronger verification:
 
@@ -219,6 +237,12 @@ The capstone run passes only if all of the following are true:
 - the game is actually playable by a human
 - the proof package is complete, including chat transcript and collaboration
   notes
+- the user export, debug export, and import roundtrip succeeds through the
+  `app_api` surfaces
+- the imported conversation preserves the source transcript at the user-visible
+  role/slot/content level
+- the debug export is sufficient to assess provider/model choice, token usage,
+  round count, tool mix, and durable command/process resource evidence
 
 If any one of these fails, the capstone acceptance remains open.
 

@@ -20,6 +20,7 @@ module Fenix
       def call
         return handle_agent_task_close! if agent_task_close_request?
         return handle_process_run_close! if process_run_close_request?
+        return handle_subagent_session_close! if subagent_session_close_request?
         raise UnsupportedMailboxItemError, "unsupported mailbox item #{@mailbox_item.fetch("item_type", "execution_assignment")}" unless executable_mailbox_item?
 
         runtime_execution = find_or_create_runtime_execution!
@@ -120,6 +121,11 @@ module Fenix
           @mailbox_item.dig("payload", "resource_type") == "ProcessRun"
       end
 
+      def subagent_session_close_request?
+        @mailbox_item.fetch("item_type", nil) == "resource_close_request" &&
+          @mailbox_item.dig("payload", "resource_type") == "SubagentSession"
+      end
+
       def handle_agent_task_close!
         agent_task_run_id = @mailbox_item.dig("payload", "resource_id")
 
@@ -138,6 +144,12 @@ module Fenix
           deliver_reports: @deliver_reports,
           control_client: @control_client
         )
+      end
+
+      def handle_subagent_session_close!
+        report_close_lifecycle! if @deliver_reports
+
+        :handled
       end
 
       def report_close_lifecycle!

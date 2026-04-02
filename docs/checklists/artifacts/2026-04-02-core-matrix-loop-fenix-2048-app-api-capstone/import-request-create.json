@@ -1,0 +1,17 @@
+{
+  "method_id": "conversation_bundle_import_request_create",
+  "workspace_id": "019d4eee-f890-7056-968b-3380782c1588",
+  "import_request": {
+    "request_id": "019d4ef7-3db4-7159-b001-3a5697ebb67e",
+    "workspace_id": "019d4eee-f890-7056-968b-3380782c1588",
+    "user_id": "019d4eee-f1bd-7553-a2b8-c380684603d5",
+    "lifecycle_state": "queued",
+    "created_at": "2026-04-02T16:11:59.283066Z",
+    "queued_at": "2026-04-02T16:11:59.281530Z",
+    "upload_received": true,
+    "upload_filename": "conversation-export.zip",
+    "upload_content_type": "application/zip",
+    "result_payload": {},
+    "failure_payload": {}
+  }
+}
