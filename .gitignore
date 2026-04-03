@@ -27,6 +27,10 @@ Thumbs.db
 /coverage/
 /test-results/
 /playwright-report/
+/acceptance/artifacts/
+/acceptance/logs/
+/docs/checklists/artifacts/
+/docs/reports/phase-2/
 
 # MCP temp files
 .playwright-mcp/

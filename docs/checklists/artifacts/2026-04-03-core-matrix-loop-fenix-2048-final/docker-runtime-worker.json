@@ -1,7 +1,0 @@
-{
-  "container_name": "fenix-capstone",
-  "worker_commands": [
-    "bin/runtime-worker"
-  ],
-  "standalone_solid_queue": false
-}

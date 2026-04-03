@@ -1,8 +1,0 @@
-{
-  "scenario_date": "2026-04-01",
-  "deployment_id": "019d4a4e-84ad-7f4b-a8fc-27f9947a636a",
-  "execution_environment_id": "019d4a4e-8495-7f4b-8517-b3fa6867e8d0",
-  "machine_credential": "bundled-runtime:capstone-fenix-2048-diagnostics-v1",
-  "selector": "candidate:openrouter/openai-gpt-5.4",
-  "runtime_base_url": "http://127.0.0.1:3101"
-}

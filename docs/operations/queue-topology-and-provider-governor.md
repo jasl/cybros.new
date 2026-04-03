@@ -82,16 +82,16 @@ effective `ExecutionRuntime` and owns registry-backed runtime state.
 This assumption is now explicit in code and docs. Scale it up on one machine;
 do not treat it as a stateless horizontal worker pool.
 
-`agents/fenix/config/runtime_topology.yml` is the source of truth for:
+`agents/fenix/config/queue.yml` and `agents/fenix/config/database.yml` are the
+source of truth for:
 
-- queue names
-- worker defaults
+- queue names and worker defaults
 - database pool defaults
 
 ### Queues
 
-- `runtime_prepare_round`: `SQ_THREADS_PREPARE=2`, `SQ_PROCESSES_PREPARE=1`
-- `runtime_pure_tools`: `SQ_THREADS_PURE_TOOLS=6`, `SQ_PROCESSES_PURE_TOOLS=1`
+- `runtime_prepare_round`: `SQ_THREADS_PREPARE=3`, `SQ_PROCESSES_PREPARE=1`
+- `runtime_pure_tools`: `SQ_THREADS_PURE_TOOLS=8`, `SQ_PROCESSES_PURE_TOOLS=1`
 - `runtime_process_tools`: `SQ_THREADS_PROCESS_TOOLS=2`, `SQ_PROCESSES_PROCESS_TOOLS=1`
 - `runtime_control`: `SQ_THREADS_RUNTIME_CONTROL=2`, `SQ_PROCESSES_RUNTIME_CONTROL=1`
 - `maintenance`: `SQ_THREADS_MAINTENANCE=1`, `SQ_PROCESSES_MAINTENANCE=1`
@@ -104,25 +104,33 @@ Routing:
 - unmatched control work goes to `runtime_control`
 
 Operationally, the persistent mailbox control loop is not sufficient by itself
-when `Fenix` runs with `solid_queue`. External runtime instances must also run
-the local queue workers under the same `CORE_MATRIX_BASE_URL` and
+when `Fenix` runs with `solid_queue`. External runtime instances must also have
+queue processing active under the same `CORE_MATRIX_BASE_URL` and
 `CORE_MATRIX_MACHINE_CREDENTIAL`, plus
 `CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL` when execution-plane resources are
-enabled, either as `bin/jobs start` plus `bin/rails runtime:control_loop_forever`
-or via `bin/runtime-worker`.
+enabled.
+
+By default, Puma embeds the Solid Queue supervisor, so the extra long-lived
+process is only `bin/rails runtime:control_loop_forever` or the convenience
+wrapper `bin/runtime-worker`.
+
+When `STANDALONE_SOLID_QUEUE=true`, queue processing moves out of Puma and you
+must run either `bin/jobs start` plus `bin/rails runtime:control_loop_forever`,
+or use `bin/runtime-worker`.
 
 Run exactly one such worker set per Dockerized `Fenix` runtime. Registry-backed
 browser sessions, command handles, and process handles are in-memory local
-state; starting a second `bin/runtime-worker` or a second `bin/jobs start`
-against the same runtime splits that state across multiple worker pools and can
-surface `unknown ... session/run` validation failures on follow-up tool calls.
+state; starting a second `bin/runtime-worker`, or a second standalone
+`bin/jobs start` against the same runtime, splits that state across multiple
+worker pools and can surface `unknown ... session/run` validation failures on
+follow-up tool calls.
 
 ### Database Pools
 
 `agents/fenix/config/database.yml` now uses explicit pools:
 
-- `FENIX_PRIMARY_DB_POOL=5`
-- `FENIX_QUEUE_DB_POOL=8`
+- `FENIX_PRIMARY_DB_POOL=8`
+- `FENIX_QUEUE_DB_POOL=16`
 
 Raise them independently. Do not rely on derived pool math anymore.
 

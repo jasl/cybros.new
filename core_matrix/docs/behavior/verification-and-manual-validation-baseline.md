@@ -44,8 +44,8 @@ and the retained acceptance operator path.
   - drift-triggered manual retry
 - The current agent-loop acceptance baseline now additionally relies on the
   reusable harness in `script/manual/manual_acceptance_support.rb` plus
-  concrete operator scripts under `script/manual/acceptance/*`, run with
-  `bundle exec ruby`, to cover:
+  concrete operator scripts under `../../acceptance/scenarios/*`, run through
+  `bin/rails runner ../../acceptance/scenarios/...`, to cover:
   - bundled `Fenix` fast terminal
   - real provider-backed bundled turn using `.env`-materialized
     `OPENROUTER_API_KEY`
@@ -62,8 +62,9 @@ and the retained acceptance operator path.
   - workflow proof export
 - The checklist at
   `../checklists/2026-03-24-core-matrix-kernel-manual-validation.md` is the
-  authoritative operator script, and the committed proof-artifact ledger lives
-  under `../../docs/reports/`.
+  historical backend operator baseline, while the current product acceptance
+  harness lives under `../../acceptance/`. Generated run logs and artifacts now
+  live under `../../acceptance/logs/` and `../../acceptance/artifacts/`.
 
 ## Validation Notes
 
@@ -78,5 +79,5 @@ and the retained acceptance operator path.
 - The `2026-03-30` acceptance run exercised real bundled/external
   `Fenix`, real provider-backed OpenRouter execution, wait/resume and
   subagent orchestration, governed tool/MCP paths, deployment rotation,
-  skill activation, and proof export, with proof packages stored under
-  `../../docs/reports/`.
+  skill activation, and proof export. Current runs keep their generated
+  evidence under `../../acceptance/artifacts/` instead of committing it.

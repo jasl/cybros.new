@@ -16,6 +16,7 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     proxy_script = Rails.root.join("bin/fenix-dev-proxy").read
     runtime_worker = Rails.root.join("bin/runtime-worker").read
     entrypoint = Rails.root.join("bin/docker-entrypoint").read
+    bootstrap_script = Rails.root.join("scripts/bootstrap-runtime-deps.sh").read
 
     assert compose_path.exist?, "expected docker-compose.fenix.yml to exist"
 
@@ -43,6 +44,12 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_match(/fenix dev proxy routes/, proxy_script)
     assert_match(/STANDALONE_SOLID_QUEUE/, runtime_worker)
     assert_match(/runtime:control_loop_forever/, runtime_worker)
+    assert_match(/FENIX_NODE_VERSION:-22\./, bootstrap_script)
+    assert_match(%r{https://nodejs\.org/dist/}, bootstrap_script)
+    assert_match(%r{https://registry\.npmjs\.org/npm/-/npm-}, bootstrap_script)
+    assert_match(/npm-cli\.js/, bootstrap_script)
+    assert_match(/npm install --global pnpm/, bootstrap_script)
+    refute_match(/deb\.nodesource\.com/, bootstrap_script)
 
     assert_match(/docker run --env-file/i, env_sample)
     assert_match(/bin\/rails credentials:edit/, env_sample)

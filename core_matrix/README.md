@@ -23,16 +23,12 @@ including the post-Milestone-C breadth and acceptance batch:
 - durable tool governance and invocation audit
 - one governed Streamable HTTP MCP path
 - bundled and external `Fenix` runtime plus skill validation flows
-- workflow proof export and committed acceptance evidence
+- workflow proof export and acceptance harness coverage
 
 The baseline operator checklist for the manual acceptance pass is:
 
 - `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
-
-The committed proof-artifact ledger for that pass is documented in:
-
-- `../docs/reports/README.md`
 
 Current authoritative project documents:
 
@@ -78,19 +74,18 @@ claims real loop behavior, validation must include:
 - Phase 1 backend manual validation was rerun on `2026-03-25` against
   `bin/dev` and the checklist at
   `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`.
-- Acceptance evidence was captured on `2026-03-30`; see
-  `../docs/reports/README.md` for the committed proof ledger covering bundled
-  and external `Fenix`, real provider-backed turns, wait/resume,
-  `process_run`, governed tool/MCP, deployment rotation, skills, and proof
-  export.
+- Acceptance runs now use the top-level harness in `../acceptance/`. Generated
+  logs and artifacts are written under `../acceptance/logs/` and
+  `../acceptance/artifacts/` and are intentionally not committed.
 - The checklist now standardizes on a reusable
   `core_matrix_reset_backend_state` helper built on
   `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
 - The reusable manual-validation harness now lives in
   `script/manual/manual_acceptance_support.rb`.
-- Acceptance operator scenario scripts live under `script/manual/acceptance/*`,
-  reset and seed the development database in-process, and are intended to be
-  run with `bundle exec ruby`.
+- Acceptance operator scenario scripts now live under
+  `../acceptance/scenarios/*`, with shell orchestration under
+  `../acceptance/bin/*`, and are intended to be run through
+  `bin/rails runner ../acceptance/scenarios/...`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
   stable `runtime_fingerprint`; the manual checklist currently exports that
   through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
@@ -108,8 +103,8 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
-bundle exec ruby script/manual/acceptance/bundled_fast_terminal_validation.rb
-bundle exec ruby script/manual/acceptance/provider_backed_turn_validation.rb
+bin/rails runner ../acceptance/scenarios/bundled_fast_terminal_validation.rb
+bin/rails runner ../acceptance/scenarios/provider_backed_turn_validation.rb
 bundle exec ruby script/manual/workflow_proof_export.rb export ...
 ```
 

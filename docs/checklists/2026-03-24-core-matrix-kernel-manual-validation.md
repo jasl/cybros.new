@@ -7,6 +7,11 @@ Use
 `/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
 for the current provider-backed product acceptance path.
 
+The command paths and committed artifact locations recorded below are kept as
+historical evidence of that March run. Current acceptance automation now lives
+under `/Users/jasl/Workspaces/Ruby/cybros/acceptance/`, and generated runtime
+artifacts are no longer committed under `docs/`.
+
 Current backend baseline was rerun on `2026-03-25`.
 
 - `bin/dev`-backed live-server validation rechecked registration, heartbeat,

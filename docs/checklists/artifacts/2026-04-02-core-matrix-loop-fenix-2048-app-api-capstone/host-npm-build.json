@@ -1,8 +1,0 @@
-{
-  "command": "npm run build",
-  "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
-  "success": true,
-  "exit_status": 0,
-  "stdout": "\n> game-2048@0.0.0 build\n> tsc -b && vite build\n\nvite v8.0.3 building client environment for production...\n\u001b[2K\rtransforming...✓ 20 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.45 kB │ gzip:  0.29 kB\ndist/assets/index-D6dvf0vu.css    2.91 kB │ gzip:  1.08 kB\ndist/assets/index-BwCN_uwT.js   194.19 kB │ gzip: 61.40 kB\n\n✓ built in 282ms\n",
-  "stderr": ""
-}

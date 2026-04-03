@@ -1,8 +1,0 @@
-{
-  "command": "npm test",
-  "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
-  "success": true,
-  "exit_status": 0,
-  "stdout": "\n> game-2048@0.0.0 test\n> vitest run\n\n\n RUN  v4.1.2 /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048\n\n\n Test Files  1 passed (1)\n      Tests  9 passed (9)\n   Start at  06:19:55\n   Duration  422ms (transform 18ms, setup 32ms, import 12ms, tests 3ms, environment 271ms)\n\n",
-  "stderr": ""
-}

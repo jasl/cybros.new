@@ -148,8 +148,8 @@ every round starts from fresh processes and a fresh runtime surface:
   starting containers; do not patch repo files into an already-running
   container
 - the default external harness entrypoints are:
-  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/fresh_start_stack.sh`
-  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/run_with_fresh_start.sh`
+  - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/fresh_start_stack.sh`
+  - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/run_with_fresh_start.sh`
 - when a target acceptance script expects a non-default runtime port, pass the
   matching `FENIX_RUNTIME_BASE_URL` into the wrapper so the fresh-start step
   boots the correct runtime endpoint before running the script

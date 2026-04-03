@@ -81,8 +81,8 @@ portability:
 - `Fenix` must run in Docker, not in-process on the host
 - before each capstone run, perform a fresh start of the host services and the
   Dockerized runtime stack; the default external harness entrypoints are:
-  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/fresh_start_stack.sh`
-  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/run_with_fresh_start.sh`
+  - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/fresh_start_stack.sh`
+  - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/run_with_fresh_start.sh`
 - in Docker mode, rebuild the runtime image from the current
   `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix` source tree before
   starting the containers; do not live-sync repo files into a running runtime
@@ -95,10 +95,11 @@ portability:
 - the development server must be reachable from the host machine
 - after external registration returns the runtime machine credential, start the
   persistent runtime worker inside the Docker container with the same
-  `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_MACHINE_CREDENTIAL`
-- the runtime worker must include both the mailbox control loop and the local
-  Solid Queue workers, for example via `bin/runtime-worker` or an equivalent
-  pair of `bin/jobs start` plus `bin/rails runtime:control_loop_forever`
+  `CORE_MATRIX_BASE_URL`, `CORE_MATRIX_MACHINE_CREDENTIAL`, and execution
+  credential
+- the runtime worker must include both the mailbox control loop and active
+  queue processing, for example via `bin/runtime-worker` with Puma's embedded
+  Solid Queue supervisor or another equivalent runtime-specific arrangement
 - only one runtime-worker / Solid Queue worker set may run for a given
   Dockerized `Fenix` runtime at a time; registry-backed browser, command, and
   process handles are runtime-local in-memory state and do not survive
@@ -174,10 +175,14 @@ Every capstone run must produce a proof package containing at least:
     model, token usage, round count, tool mix, and durable runtime resources
 - `agent-evaluation.md`
   - structured acceptance review for result quality, runtime health,
-    convergence, and cost efficiency
+  convergence, and cost efficiency
   - must cite the concrete proof inputs used for each conclusion
   - must make it explicit when a run functionally passes but still shows weak
-    convergence or poor efficiency
+  convergence or poor efficiency
+
+Store the generated package under
+`/Users/jasl/Workspaces/Ruby/cybros/acceptance/artifacts/<run-stamp>/`. These
+artifacts are runtime output, not committed repository content.
 
 Optional but recommended artifacts:
 
