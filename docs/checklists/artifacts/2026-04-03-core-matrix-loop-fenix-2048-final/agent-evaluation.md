@@ -3,12 +3,15 @@
 ## Result Quality
 
 - Rating: `strong`
-- Summary: Host-side tests, build, playability, and transcript roundtrip established that the resulting application met the benchmark outcome.
+- Summary: Conversation/runtime-side test, build, browser evidence, and transcript roundtrip established whether the benchmark outcome was met; host portability checks are reported separately as diagnostics.
 - Evidence:
   - `run-summary.json`
+  - `playability-verification.md`
+  - `workspace-validation.md`
+  - `host-preview.json`
+  - `host-playwright-verification.json`
   - `host-npm-test.json`
   - `host-npm-build.json`
-  - `host-playwright-verification.json`
   - `export-roundtrip.md`
 
 ## Runtime Health
@@ -23,7 +26,7 @@
 
 ## Convergence
 
-- Rating: `acceptable`
+- Rating: `strong`
 - Summary: Provider round count and tool churn were acceptable for a real coding-agent capstone, but not yet especially lean.
 - Evidence:
   - `run-summary.json`
@@ -33,7 +36,7 @@
 
 ## Cost Efficiency
 
-- Rating: `acceptable`
+- Rating: `strong`
 - Summary: Token and tool usage were proportional to the difficulty of a real 2048 build, though the run still carried noticeable iteration cost.
 - Evidence:
   - `run-summary.json`

@@ -154,6 +154,11 @@ module ActiveSupport
       ActiveJob::Base.queue_adapter = :test
       clear_enqueued_jobs
       clear_performed_jobs
+      @original_workspace_root = ENV["FENIX_WORKSPACE_ROOT"]
+      @test_workspace_root = Rails.root.join("tmp", "workspace", "test-#{Process.pid}")
+      FileUtils.rm_rf(@test_workspace_root)
+      FileUtils.mkdir_p(@test_workspace_root)
+      ENV["FENIX_WORKSPACE_ROOT"] = @test_workspace_root.to_s
       @original_proxy_routes_file = ENV["FENIX_DEV_PROXY_ROUTES_FILE"]
       ENV["FENIX_DEV_PROXY_ROUTES_FILE"] = Rails.root.join("tmp", "dev-proxy", "test-#{Process.pid}.caddy").to_s
       Fenix::Processes::ProxyRegistry.reset_default! if defined?(Fenix::Processes::ProxyRegistry)
@@ -173,6 +178,12 @@ module ActiveSupport
         Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
       else
         Fenix::Runtime::ControlPlane.client = @original_control_plane_client
+      end
+      FileUtils.rm_rf(@test_workspace_root) if @test_workspace_root.present?
+      if @original_workspace_root.present?
+        ENV["FENIX_WORKSPACE_ROOT"] = @original_workspace_root
+      else
+        ENV.delete("FENIX_WORKSPACE_ROOT")
       end
       ENV["FENIX_DEV_PROXY_ROUTES_FILE"] = @original_proxy_routes_file
       Fenix::Processes::ProxyRegistry.reset_default! if defined?(Fenix::Processes::ProxyRegistry)

@@ -1,16 +1,16 @@
 [
   {
-    "subagent_session_id": "019d5326-0d11-7961-b4fb-62d8ba6a3268",
-    "owner_conversation_id": "019d5325-81de-7c97-9ab9-39d6658d534b",
-    "conversation_id": "019d5326-0d01-72be-b6b9-4dfdf2ea8414",
-    "origin_turn_id": "019d5325-81f9-75ee-a7b9-6f46e4272d93",
+    "subagent_session_id": "019d5432-9b28-7383-9473-6a2866b03d2f",
+    "owner_conversation_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
+    "conversation_id": "019d5432-9b1b-7352-bd6c-118bcc393950",
+    "origin_turn_id": "019d5432-6411-7e14-b933-aece232823ce",
     "scope": "turn",
     "profile_key": "researcher",
     "depth": 0,
     "close_state": "open",
     "observed_status": "completed",
     "close_outcome_payload": {},
-    "created_at": "2026-04-03T11:41:35.889283Z",
-    "updated_at": "2026-04-03T11:41:36.866903Z"
+    "created_at": "2026-04-03T16:34:55.911730Z",
+    "updated_at": "2026-04-03T16:34:56.980826Z"
   }
 ]

@@ -4,11 +4,11 @@
 
 - Scenario date: `2026-04-03`
 - Operator: `Codex`
-- Conversation `public_id`: `019d5325-81de-7c97-9ab9-39d6658d534b`
-- Turn `public_id`: `019d5325-81f9-75ee-a7b9-6f46e4272d93`
-- Workflow-run `public_id`: `019d5325-8223-7c0d-9300-d68c2204792c`
-- Agent program version `public_id`: `019d5325-4418-77ba-adea-4ba2d33527d6`
-- Execution runtime `public_id`: `019d5325-4401-7531-9266-4a9d174dc75a`
+- Conversation `public_id`: `019d5432-63f5-7a52-8b04-23ec6c022a81`
+- Turn `public_id`: `019d5432-6411-7e14-b933-aece232823ce`
+- Workflow-run `public_id`: `019d5432-6428-765f-9f1d-774aa6c050e0`
+- Agent program version `public_id`: `019d5432-02f3-74c8-9dd8-ceec99a15712`
+- Execution runtime `public_id`: `019d5432-02df-7696-83c8-40f75f1ce774`
 - Runtime mode: `Core Matrix host runtime + Dockerized Fenix`
 - Provider handle: `openrouter`
 - Model ref: `openai-gpt-5.4`
@@ -16,26 +16,29 @@
 - Selector: `candidate:openrouter/openai-gpt-5.4`
 - Expected DAG shape: provider-backed `turn_step` with repeated `tool_call` and `barrier_join` expansion until completion
 - Observed DAG shape:
-  - `turn_step`: `46`
-  - `tool_call`: `46`
-  - `barrier_join`: `46`
-  - Total workflow nodes: `138`
-  - Highest observed provider round: `46`
+  - `turn_step`: `36`
+  - `tool_call`: `36`
+  - `barrier_join`: `36`
+  - Total workflow nodes: `108`
+  - Highest observed provider round: `36`
 - Expected conversation state: one user request followed by one completed agent response
 - Observed conversation state:
   - Conversation lifecycle: `active`
   - Turn lifecycle: `completed`
   - Message roles: `user`, `agent`
-  - Output message `public_id`: `019d532b-dec8-7a2e-b297-cb4292e08e80`
+  - Output message `public_id`: `019d543a-7477-79b0-bfa0-d31be9cc1eb4`
 - Subagent work expected: `yes`
 - Subagent work observed: `yes`
-  - Observed subagent session `public_id`: `019d5326-0d11-7961-b4fb-62d8ba6a3268`
+  - Observed subagent session `public_id`: `019d5432-9b28-7383-9473-6a2866b03d2f`
   - Observed subagent profile: `unknown`
 - Proof artifacts:
   - `acceptance-registration.json`
   - `capstone-run-bootstrap.json`
   - `skills-validation.json`
+  - `workspace-validation.md`
+  - `host-preview.json`
   - `host-playwright-verification.json`
   - `host-playability.png`
+  - `playability-verification.md`
   - `export-roundtrip.md`
 - Outcome: `pass`

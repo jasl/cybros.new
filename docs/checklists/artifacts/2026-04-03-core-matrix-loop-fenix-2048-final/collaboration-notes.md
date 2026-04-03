@@ -10,7 +10,7 @@
 ## Where Operator Intervention Was Still Needed
 
 - For realistic coding-agent capstone runs, the smaller live-acceptance selector was not sufficient. The full-window selector `candidate:openrouter/openai-gpt-5.4` was the correct operational choice.
-- Removed container-built node_modules before host validation.
+- Removed container-built node_modules before source-portability diagnostics.
 
 ## Collaboration Guidance
 

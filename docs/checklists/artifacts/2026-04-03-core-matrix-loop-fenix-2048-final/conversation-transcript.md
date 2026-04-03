@@ -2,7 +2,7 @@
 
 ## Message 1
 
-- Message `public_id`: `019d5325-81fb-7782-9467-d0969c200c34`
+- Message `public_id`: `019d5432-6413-767d-a184-d4690958a804`
 - Role: `user`
 
 ```text
@@ -39,24 +39,25 @@ Acceptance harness requirements:
 
 ## Message 2
 
-- Message `public_id`: `019d532b-dec8-7a2e-b297-cb4292e08e80`
+- Message `public_id`: `019d543a-7477-79b0-bfa0-d31be9cc1eb4`
 - Role: `agent`
 
 ```text
-Done — `/workspace/game-2048` now contains a complete React + Vite + TypeScript 2048 game with:
+Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, added automated Vitest logic tests, and verified both `npm test` and `npm run build` pass.
 
-- real 2048 movement/merge/spawn/score/win/game-over/restart behavior
-- Arrow key + WASD controls
-- accessible 4x4 board with:
-  - `data-testid="board"`
-  - `role="grid"`
-  - accessible name containing `2048 board`
+Also:
+- started the app on `0.0.0.0:4173`
+- verified it in a browser session
+- included required accessibility/test hooks:
+  - `data-testid="board"` with `role="grid"` and accessible name `2048 board`
   - 16 `role="gridcell"` cells
-- `data-testid="score"`, `data-testid="status"`, and `data-testid="restart"`
-- automated Vitest coverage for core game logic
-- passing `npm test`
-- passing `npm run build`
-- browser verification completed at `http://127.0.0.1:4173/`
+  - `data-testid="score"`
+  - `data-testid="status"`
+  - `data-testid="restart"`
 
-I also fixed the Vite/Vitest/TypeScript config so tests don’t break production builds.
+Run locally:
+- `cd /workspace/game-2048`
+- `npm test`
+- `npm run build`
+- `npm run preview -- --host 0.0.0.0 --port 4173`
 ```

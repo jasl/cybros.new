@@ -119,6 +119,102 @@ def wait_for_tcp_port!(host:, port:, timeout_seconds:)
   end
 end
 
+def build_host_preview_failure_message(error:, preview_pid:, preview_log:, preview_port:)
+  process_details =
+    if preview_pid.present?
+      waited_pid = Process.waitpid(preview_pid, Process::WNOHANG)
+      status = $?
+
+      if waited_pid.present?
+        if status&.exited?
+          "preview process exited with status #{status.exitstatus}"
+        elsif status&.signaled?
+          "preview process terminated by signal #{status.termsig}"
+        else
+          "preview process exited unexpectedly"
+        end
+      else
+        "preview process stayed alive but port #{preview_port} never became reachable"
+      end
+    else
+      "preview process did not start"
+    end
+
+  log_excerpt =
+    if File.exist?(preview_log)
+      File.read(preview_log).to_s.strip.presence
+    end
+
+  [
+    error.message,
+    process_details,
+    ("preview log:\n#{log_excerpt}" if log_excerpt.present?),
+  ].compact.join("\n")
+end
+
+def run_host_preview_and_verification!(dist_dir:, artifact_dir:, generated_app_dir:, preview_port:, attempts: 2)
+  preview_log = artifact_dir.join("host-preview.log")
+  last_error = nil
+
+  attempts.times do |index|
+    preview_pid = nil
+    preview_out = nil
+
+    begin
+      preview_out = File.open(preview_log, index.zero? ? "w" : "a")
+      preview_out.sync = true
+
+      preview_pid = Process.spawn(
+        "python3", "-m", "http.server", preview_port.to_s, "--bind", "127.0.0.1",
+        chdir: dist_dir.to_s,
+        out: preview_out,
+        err: preview_out
+      )
+      wait_for_tcp_port!(host: "127.0.0.1", port: preview_port, timeout_seconds: 20)
+
+      response, body = ManualAcceptanceSupport.http_get_response("http://127.0.0.1:#{preview_port}")
+      raise "host preview failed: HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
+
+      playwright_validation = run_host_playwright_verification!(
+        artifact_dir: artifact_dir,
+        base_url: "http://127.0.0.1:#{preview_port}/",
+        generated_app_dir: generated_app_dir
+      )
+
+      preview_http = {
+        "status" => response.code.to_i,
+        "contains_2048" => body.include?("2048") ||
+          playwright_validation.dig("result", "initial", "nonEmpty").to_i.positive? ||
+          playwright_validation.dig("result", "initial", "status").to_s.present?,
+        "byte_size" => body.bytesize,
+        "attempt_no" => index + 1,
+      }
+
+      return {
+        "preview_http" => preview_http,
+        "playwright_validation" => playwright_validation,
+      }
+    rescue => error
+      last_error = build_host_preview_failure_message(
+        error: error,
+        preview_pid: preview_pid,
+        preview_log: preview_log,
+        preview_port: preview_port
+      )
+    ensure
+      if preview_pid.present?
+        Process.kill("TERM", preview_pid) rescue nil
+        Process.wait(preview_pid) rescue nil
+      end
+      preview_out&.close
+    end
+
+    sleep 0.5 if index + 1 < attempts
+  end
+
+  raise last_error || "host preview verification failed"
+end
+
 def download_text!(url)
   uri = URI(url)
   response = Net::HTTP.get_response(uri)
@@ -634,13 +730,13 @@ def build_conversation_runtime_validation(tool_invocations:)
     combined_output = [stdout_tail, stderr_tail].join("\n")
     current_url = response_payload["current_url"].to_s
 
-    if tool_name == "command_run_wait" && status == "succeeded"
+    if (tool_name == "command_run_wait" || tool_name == "write_stdin") && status == "succeeded"
       build_success ||= response_payload["exit_status"].to_i.zero? &&
         combined_output.include?("built in") &&
         combined_output.include?("dist/")
       test_success ||= response_payload["exit_status"].to_i.zero? &&
         combined_output.match?(/Test Files .*passed|Tests .*passed/m)
-    elsif tool_name == "command_run_read_output" && status == "succeeded"
+    elsif (tool_name == "command_run_read_output" || tool_name == "process_read_output") && status == "succeeded"
       dev_server_ready ||= stdout_tail.include?("vite --host 0.0.0.0 --port 4173") &&
         stdout_tail.include?("ready in")
     elsif (tool_name == "browser_open" || tool_name == "browser_navigate") && status == "succeeded"
@@ -766,7 +862,8 @@ def build_agent_evaluation(summary:, diagnostics_turn:)
         summary.dig("conversation_validation", "runtime_test_passed") &&
         summary.dig("conversation_validation", "runtime_build_passed") &&
         summary.dig("conversation_validation", "runtime_browser_loaded") &&
-        summary.dig("workspace_validation", "preview_reachable")
+        summary.dig("workspace_validation", "preview_reachable") &&
+        summary.dig("workspace_validation", "playwright_verification_passed")
       "strong"
     else
       "fail"
@@ -1158,34 +1255,42 @@ def run_host_playwright_verification!(artifact_dir:, base_url:, generated_app_di
   write_text(artifact_spec_path, script)
   write_text(runner_spec_path, script)
 
-  dependency_install = capture_command!(
-    "npm", "install", "--no-save", "@playwright/test@#{PLAYWRIGHT_VERSION}",
-    chdir: generated_app_dir,
-    failure_label: "install Playwright host test dependency"
-  )
-  browser_install = capture_command!(
-    "npx", "playwright", "install", "chromium",
-    chdir: generated_app_dir,
-    failure_label: "install Playwright chromium"
-  )
-  test_result = capture_command!(
-    "npx", "playwright", "test", runner_spec_path.basename.to_s, "--workers=1", "--reporter=line",
-    chdir: generated_app_dir,
-    env: { "CAPSTONE_PREVIEW_URL" => base_url },
-    failure_label: "run Playwright host verification"
-  )
+  dependency_install = nil
+  browser_install = nil
+  test_result = nil
 
-  {
-    "install" => {
-      "dependency_install" => dependency_install,
-      "browser_install" => browser_install,
-    },
-    "test" => test_result,
-    "result" => JSON.parse(File.read(output_json_path)),
-    "output_json_path" => output_json_path.to_s,
-    "screenshot_path" => screenshot_path.to_s,
-    "spec_path" => artifact_spec_path.to_s,
-  }
+  begin
+    dependency_install = capture_command!(
+      "npm", "install", "--no-save", "@playwright/test@#{PLAYWRIGHT_VERSION}",
+      chdir: generated_app_dir,
+      failure_label: "install Playwright host test dependency"
+    )
+    browser_install = capture_command!(
+      "npx", "playwright", "install", "chromium",
+      chdir: generated_app_dir,
+      failure_label: "install Playwright chromium"
+    )
+    test_result = capture_command!(
+      "npx", "playwright", "test", runner_spec_path.basename.to_s, "--workers=1", "--reporter=line",
+      chdir: generated_app_dir,
+      env: { "CAPSTONE_PREVIEW_URL" => base_url },
+      failure_label: "run Playwright host verification"
+    )
+
+    {
+      "install" => {
+        "dependency_install" => dependency_install,
+        "browser_install" => browser_install,
+      },
+      "test" => test_result,
+      "result" => JSON.parse(File.read(output_json_path)),
+      "output_json_path" => output_json_path.to_s,
+      "screenshot_path" => screenshot_path.to_s,
+      "spec_path" => artifact_spec_path.to_s,
+    }
+  ensure
+    FileUtils.rm_f(runner_spec_path)
+  end
 end
 
 FileUtils.rm_rf(artifact_dir)
@@ -1386,42 +1491,17 @@ if generated_app_dir.exist?
   dist_dir = generated_app_dir.join("dist")
   dist_artifact_present = dist_dir.join("index.html").exist?
   if dist_artifact_present
-    preview_log = artifact_dir.join("host-preview.log")
-    preview_pid = nil
-    preview_out = nil
-
     begin
-      preview_out = File.open(preview_log, "w")
-      preview_pid = Process.spawn(
-        "python3", "-m", "http.server", preview_port.to_s, "--bind", "127.0.0.1",
-        chdir: dist_dir.to_s,
-        out: preview_out,
-        err: preview_out
-      )
-      wait_for_tcp_port!(host: "127.0.0.1", port: preview_port, timeout_seconds: 20)
-
-      response, body = ManualAcceptanceSupport.http_get_response("http://127.0.0.1:#{preview_port}")
-      raise "host preview failed: HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
-
-      preview_http = {
-        "status" => response.code.to_i,
-        "contains_2048" => body.include?("2048"),
-        "byte_size" => body.bytesize,
-      }
-
-      playwright_validation = run_host_playwright_verification!(
+      verification = run_host_preview_and_verification!(
+        dist_dir: dist_dir,
         artifact_dir: artifact_dir,
-        base_url: "http://127.0.0.1:#{preview_port}/",
-        generated_app_dir: generated_app_dir
+        generated_app_dir: generated_app_dir,
+        preview_port: preview_port
       )
+      preview_http = verification.fetch("preview_http")
+      playwright_validation = verification.fetch("playwright_validation")
     rescue => error
       host_playability_skip_reason = "Host-side browser verification failed against `dist/`: #{error.message}"
-    ensure
-      if preview_pid.present?
-        Process.kill("TERM", preview_pid) rescue nil
-        Process.wait(preview_pid) rescue nil
-      end
-      preview_out&.close
     end
   else
     host_playability_skip_reason = "Host-side browser verification did not run because `dist/index.html` was missing."

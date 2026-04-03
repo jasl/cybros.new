@@ -1,15 +1,15 @@
 {
   "method_id": "conversation_export_request_create",
-  "conversation_id": "019d5325-81de-7c97-9ab9-39d6658d534b",
+  "conversation_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
   "export_request": {
-    "request_id": "019d532b-dfac-7646-85d7-097e41836e4c",
-    "workspace_id": "019d5325-6cac-735b-b633-09b11888bdf7",
-    "conversation_id": "019d5325-81de-7c97-9ab9-39d6658d534b",
-    "user_id": "019d5325-43aa-729f-80d6-04e399364fc1",
+    "request_id": "019d543a-7597-7b99-a2bc-f35fabbe2631",
+    "workspace_id": "019d5432-4fbc-7161-8114-aaecc4ad2f93",
+    "conversation_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
+    "user_id": "019d5432-0290-74c6-9702-f465cca005d4",
     "lifecycle_state": "queued",
-    "created_at": "2026-04-03T11:47:57.483293Z",
-    "queued_at": "2026-04-03T11:47:57.482955Z",
-    "expires_at": "2026-04-04T11:47:57.482290Z",
+    "created_at": "2026-04-03T16:43:30.582635Z",
+    "queued_at": "2026-04-03T16:43:30.582336Z",
+    "expires_at": "2026-04-04T16:43:30.581573Z",
     "bundle_available": false,
     "result_payload": {},
     "failure_payload": {}

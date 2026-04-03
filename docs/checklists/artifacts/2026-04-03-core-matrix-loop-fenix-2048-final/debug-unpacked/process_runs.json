@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "process_run_id": "019d543a-08ad-7f11-82f9-39381a7613fd",
+    "workflow_node_id": "019d543a-07d6-70f8-a41b-c9abd5aaafb4",
+    "workflow_run_id": "019d5432-6428-765f-9f1d-774aa6c050e0",
+    "conversation_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
+    "turn_id": "019d5432-6411-7e14-b933-aece232823ce",
+    "kind": "background_service",
+    "lifecycle_state": "running",
+    "command_line": "cd /workspace/game-2048 && npm run preview -- --host 0.0.0.0 --port 4173",
+    "metadata": {
+      "proxy": {
+        "target_port": 4173
+      },
+      "attempt_no": 1,
+      "logical_work_id": "program-tool:019d543a-07d6-70f8-a41b-c9abd5aaafb4:call_gRTHrmMwCAyJVLTQhlhLbXYP",
+      "provider_format": "chat_completions"
+    },
+    "started_at": "2026-04-03T16:43:02.700727Z",
+    "created_at": "2026-04-03T16:43:02.701253Z",
+    "updated_at": "2026-04-03T16:43:02.864548Z"
+  }
+]

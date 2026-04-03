@@ -54,17 +54,17 @@ curl -fsS http://127.0.0.1:3101/runtime/manifest
 
 Registered the bundled runtime from the published manifest and issued a new machine credential. Public bindings:
 
-- Agent program `public_id`: `019d5325-440e-783e-a56c-8cb024a7bbad`
-- Agent program version `public_id`: `019d5325-4418-77ba-adea-4ba2d33527d6`
-- Execution runtime `public_id`: `019d5325-4401-7531-9266-4a9d174dc75a`
+- Agent program `public_id`: `019d5432-02e9-7fc4-9ed5-593e22297f26`
+- Agent program version `public_id`: `019d5432-02f3-74c8-9dd8-ceec99a15712`
+- Execution runtime `public_id`: `019d5432-02df-7696-83c8-40f75f1ce774`
 - Skill source manifest: `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/skill-source-manifest.json`
 
 Restarted the persistent runtime worker after registration with the same base URL and machine credential:
 
 ```bash
-docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=8636be1882bfb4169342bfb15182c7d45430651a19f83677b364e01a01417073   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
+docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=d71c14e4817305d590e7c0c6654c09f5d7c5dab968b4b917b16a1b750286674a   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
 
-docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=8636be1882bfb4169342bfb15182c7d45430651a19f83677b364e01a01417073   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
+docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=d71c14e4817305d590e7c0c6654c09f5d7c5dab968b4b917b16a1b750286674a   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
 ```
 
 The runtime worker handled both the control loop and local Solid Queue execution during the acceptance run.

@@ -5,8 +5,8 @@
 - Final application path:
   - `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048`
 - Final source tree includes:
-  - `dist/assets/index-BNuLcDp7.css`
-  - `dist/assets/index-DsCM8Eip.js`
+  - `dist/assets/index-CFFLowPK.css`
+  - `dist/assets/index-CjdBlbVR.js`
   - `dist/favicon.svg`
   - `dist/icons.svg`
   - `dist/index.html`
@@ -19,16 +19,25 @@
   - `src/assets/hero.png`
   - `src/assets/react.svg`
   - `src/assets/vite.svg`
-  - `src/components/GameBoard.tsx`
-  - `src/components/ScorePanel.tsx`
-  - `src/game/logic.test.ts`
-  - `src/game/logic.ts`
-  - `src/game/types.ts`
+  - `src/game.test.ts`
+  - `src/game.ts`
   - `src/index.css`
+  - `src/main.tsx`
+  - `tsconfig.app.json`
+  - `tsconfig.json`
 
 ## Host-Side Commands
 
-Because the mounted workspace contained container-built dependencies, host-side verification first normalized those artifacts:
+Primary host usability verification uses the exported `dist/` output:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048/dist
+python3 -m http.server 4174 --bind 127.0.0.1
+```
+
+Source portability diagnostics remain separate and may require reinstalling host-native dependencies:
+
+Because the mounted workspace contained container-built dependencies, source-portability diagnostics first normalized those artifacts:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048
@@ -42,7 +51,6 @@ Host-side verification commands:
 cd /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048
 npm test
 npm run build
-npm run preview -- --host 127.0.0.1 --port 4174
 ```
 
 ## Run URL
@@ -50,4 +58,4 @@ npm run preview -- --host 127.0.0.1 --port 4174
 - Preview URL:
   - `http://127.0.0.1:4174/`
 
-The preview process stayed reachable on the host during browser verification.
+Host preview reachability is recorded separately in `workspace-validation.md` and `host-preview.json` when available.

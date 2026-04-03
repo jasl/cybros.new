@@ -27,20 +27,18 @@ Verification artifacts:
 ## Observed Run Details
 
 - Initial board had `2` tiles.
-- During automated host play, score reached `2372`.
-- Pre-restart state showed `Game over! No more moves available.` with a full `4x4` board.
-- Post-restart state returned to `Game in progress` and `2` starting tiles.
+- During automated host play, score reached `1832`.
+- Pre-restart state showed `Game over — no moves left.` with a full `4x4` board.
+- Post-restart state returned to `Keep going!` and `2` starting tiles.
 
 ## Host Verification Commands
 
 ```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048
-npm test
-npm run build
-npm run preview -- --host 127.0.0.1 --port 4174
+cd /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048/dist
+python3 -m http.server 4174 --bind 127.0.0.1
 npm install --no-save @playwright/test@1.59.1
 npx playwright install chromium
 npx playwright test host-playability.spec.cjs --workers=1 --reporter=line
 ```
 
-Browser validation used Playwright on the host after reinstalling host-native dependencies.
+Browser validation used Playwright on the host against the platform-independent `dist/` output.

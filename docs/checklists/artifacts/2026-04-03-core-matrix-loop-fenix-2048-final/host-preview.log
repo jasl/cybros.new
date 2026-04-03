@@ -1,5 +1,4 @@
-
-> game-2048@0.0.0 preview
-> vite preview --host 0.0.0.0 --port 4173 --host 127.0.0.1 --port 4174
-
-  ➜  Local:   http://127.0.0.1:4174/
+127.0.0.1 - - [04/Apr/2026 00:43:32] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [04/Apr/2026 00:43:37] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [04/Apr/2026 00:43:37] "GET /assets/index-CFFLowPK.css HTTP/1.1" 200 -
+127.0.0.1 - - [04/Apr/2026 00:43:37] "GET /assets/index-CjdBlbVR.js HTTP/1.1" 200 -

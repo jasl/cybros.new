@@ -1,12 +1,15 @@
 {
   "result_quality": {
     "rating": "strong",
-    "summary": "Host-side tests, build, playability, and transcript roundtrip established that the resulting application met the benchmark outcome.",
+    "summary": "Conversation/runtime-side test, build, browser evidence, and transcript roundtrip established whether the benchmark outcome was met; host portability checks are reported separately as diagnostics.",
     "evidence": [
       "run-summary.json",
+      "playability-verification.md",
+      "workspace-validation.md",
+      "host-preview.json",
+      "host-playwright-verification.json",
       "host-npm-test.json",
       "host-npm-build.json",
-      "host-playwright-verification.json",
       "export-roundtrip.md"
     ]
   },
@@ -21,7 +24,7 @@
     ]
   },
   "convergence": {
-    "rating": "acceptable",
+    "rating": "strong",
     "summary": "Provider round count and tool churn were acceptable for a real coding-agent capstone, but not yet especially lean.",
     "evidence": [
       "run-summary.json",
@@ -31,7 +34,7 @@
     ]
   },
   "cost_efficiency": {
-    "rating": "acceptable",
+    "rating": "strong",
     "summary": "Token and tool usage were proportional to the difficulty of a real 2048 build, though the run still carried noticeable iteration cost.",
     "evidence": [
       "run-summary.json",

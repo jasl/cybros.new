@@ -1,8 +1,8 @@
 {
   "bundle_kind": "conversation_debug_export",
   "bundle_version": "2026-04-02",
-  "exported_at": "2026-04-03T11:47:58.439226Z",
-  "conversation_public_id": "019d5325-81de-7c97-9ab9-39d6658d534b",
+  "exported_at": "2026-04-03T16:43:31.396577Z",
+  "conversation_public_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
   "attachment_count": 0,
   "files": [],
   "section_files": [
@@ -19,29 +19,29 @@
     "usage_events.json"
   ],
   "section_checksums": {
-    "conversation.json_sha256": "d732969c6b77da8a4071140436fc6bb3e78f0d56b8747e9b864ac1e16c26f00e",
-    "diagnostics.json_sha256": "3767c506778377ee21a5436f2bfef3615e3f84854d5b76836b6f33bc8c7fc9eb",
-    "workflow_runs.json_sha256": "b10c8c02520b2ab66e345bfde3ab3b9a20c25385c7ba921c89e8714e6f8210ea",
-    "workflow_nodes.json_sha256": "341498498b5432c803dadac154a0344b2c72f3feacdcdc8470ff44af6a5e8fd6",
-    "workflow_node_events.json_sha256": "28a3ba635f567cf19e251b8eac3aa46dcdfe6d2a4b1ae5cc938d4de5bf57f3f4",
+    "conversation.json_sha256": "1722dcf4bc29346be3a5c031e6043d5e3675f367ec76af7eed3d88b178cd1aea",
+    "diagnostics.json_sha256": "54fba2c0c09d1ecd8af2d12b55dd747446fb2726d13cc11c11d554f437343aed",
+    "workflow_runs.json_sha256": "01293fd84667674faa475b23b0c2082aa330b4db9f297e1f2a2f7b46f71c1a2d",
+    "workflow_nodes.json_sha256": "daf5d7d06148580e38e8586f1722bcfc047deba6b0240378f4aaefd009b35621",
+    "workflow_node_events.json_sha256": "5da7b1e438b6b38e91c0dfa790378f73da5bc5324ec6a134f85121c486ef9be6",
     "agent_task_runs.json_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    "tool_invocations.json_sha256": "d1987f49d7e753ab7971336b17e0e49349853ea5eed8b01d37325699b6ef0880",
-    "command_runs.json_sha256": "0f0581cdddf32a8a5e689d409997e682bba2fff9a796daeb4246a0c10877b67b",
-    "process_runs.json_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    "subagent_sessions.json_sha256": "54d4b797ef3bca178d2b3c0fa0d5fad6bbe838a2de10045a70554b902f4efae8",
-    "usage_events.json_sha256": "1fdf8502cd94939bcae934f1b8eef303d44854533c0403050a8d3a4446a69be3"
+    "tool_invocations.json_sha256": "90b551fb2c0cb7969fdaebaa52a099c73b5b6e1a27acbeb2b31aac20e03cdbb4",
+    "command_runs.json_sha256": "e256bff5df776ade912beee9cf9515eac2e36ab8fc41d63c00b9188366648ee8",
+    "process_runs.json_sha256": "6dd01c6eff605ea69cfabad6fb57aca320ea4163db176323345b708c751d3b43",
+    "subagent_sessions.json_sha256": "7e64a61238bf9483ae71adb6a56dd7f42ea669e16c1de4dd12d6bc19a69a1e52",
+    "usage_events.json_sha256": "052b7d9d24679f70eae84074791f61a66ad233e2806d1f8f8c23292c015b9c97"
   },
   "counts": {
     "message_count": 2,
     "workflow_run_count": 1,
-    "workflow_node_count": 138,
-    "workflow_node_event_count": 275,
+    "workflow_node_count": 108,
+    "workflow_node_event_count": 217,
     "agent_task_run_count": 0,
-    "tool_invocation_count": 46,
-    "command_run_count": 13,
-    "process_run_count": 0,
+    "tool_invocation_count": 36,
+    "command_run_count": 9,
+    "process_run_count": 1,
     "subagent_session_count": 1,
-    "usage_event_count": 46
+    "usage_event_count": 36
   },
   "generator": {
     "name": "core_matrix",
