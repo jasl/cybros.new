@@ -25,8 +25,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_30_190000) do
     t.json "output_payload"
     t.string "protocol_message_id", null: false
     t.json "reports", default: [], null: false
-    t.json "request_payload", default: {}, null: false
     t.string "request_kind", null: false
+    t.json "request_payload", default: {}, null: false
     t.string "runtime_plane", null: false
     t.datetime "started_at"
     t.string "status", default: "queued", null: false

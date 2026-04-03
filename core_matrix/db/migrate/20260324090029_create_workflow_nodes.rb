@@ -23,7 +23,7 @@ class CreateWorkflowNodes < ActiveRecord::Migration[8.2]
       name: "index_workflow_nodes_on_run_state_order"
     add_index :workflow_nodes, :public_id, unique: true
     add_check_constraint :workflow_nodes,
-      "(lifecycle_state IN ('pending', 'queued', 'running', 'completed', 'failed', 'canceled'))",
-      name: "chk_workflow_nodes_lifecycle_state"
+                         "(lifecycle_state IN ('pending', 'queued', 'running', 'waiting', 'completed', 'failed', 'canceled'))",
+                         name: "chk_workflow_nodes_lifecycle_state"
   end
 end
