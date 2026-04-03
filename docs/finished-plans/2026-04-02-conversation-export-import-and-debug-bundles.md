@@ -13,7 +13,7 @@
 ## Preconditions
 
 - Approved design:
-  - `docs/plans/2026-04-02-conversation-export-import-and-debug-bundles-design.md`
+  - `docs/finished-plans/2026-04-02-conversation-export-import-and-debug-bundles-design.md`
 - Re-read before implementing:
   - `core_matrix/app/models/conversation.rb`
   - `core_matrix/app/models/message.rb`
@@ -436,7 +436,7 @@ git commit -m "feat: add conversation bundle request APIs"
 - Modify: `core_matrix/test/integration/provider_backed_turn_execution_test.rb`
 - Create: `core_matrix/test/integration/conversation_bundle_round_trip_test.rb`
 - Modify: `docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
-- Modify: `docs/plans/2026-04-02-conversation-diagnostics-and-usage-review.md`
+- Modify: `docs/finished-plans/2026-04-02-conversation-diagnostics-and-usage-review.md`
 
 **Step 1: Write the failing tests**
 
@@ -474,7 +474,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/test/integration/conversation_bundle_round_trip_test.rb docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md docs/plans/2026-04-02-conversation-diagnostics-and-usage-review.md
+git add core_matrix/test/integration/provider_backed_turn_execution_test.rb core_matrix/test/integration/conversation_bundle_round_trip_test.rb docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md docs/finished-plans/2026-04-02-conversation-diagnostics-and-usage-review.md
 git commit -m "test: cover conversation bundle round trip"
 ```
 
@@ -532,7 +532,7 @@ git add -A
 git commit -m "feat: add conversation export and import bundles"
 ```
 
-Plan complete and saved to `docs/plans/2026-04-02-conversation-export-import-and-debug-bundles.md`. Two execution options:
+Plan complete and saved to `docs/finished-plans/2026-04-02-conversation-export-import-and-debug-bundles.md`. Two execution options:
 
 **1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
 

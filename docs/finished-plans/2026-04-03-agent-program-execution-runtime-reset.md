@@ -13,7 +13,7 @@
 ## Preconditions
 
 - Approved design:
-  - `docs/plans/2026-04-03-agent-program-execution-runtime-reset-design.md`
+  - `docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset-design.md`
 - Required skills during execution:
   - `superpowers:test-driven-development`
   - `superpowers:verification-before-completion`
@@ -46,8 +46,8 @@ Before closing the work, verify all of the following with fresh evidence:
 ### Task 1: Write the approved design doc and implementation plan
 
 **Files:**
-- Create: `docs/plans/2026-04-03-agent-program-execution-runtime-reset-design.md`
-- Create: `docs/plans/2026-04-03-agent-program-execution-runtime-reset.md`
+- Create: `docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset-design.md`
+- Create: `docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset.md`
 
 **Step 1: Write the approved design doc**
 
@@ -69,8 +69,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-test -f docs/plans/2026-04-03-agent-program-execution-runtime-reset-design.md
-test -f docs/plans/2026-04-03-agent-program-execution-runtime-reset.md
+test -f docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset-design.md
+test -f docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset.md
 ```
 
 Expected: exit 0

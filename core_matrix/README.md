@@ -40,8 +40,7 @@ Current authoritative project documents:
 - Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 - Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md`
-- Runtime reset design: `../docs/plans/2026-04-03-agent-program-execution-runtime-reset-design.md`
-- Runtime reset plan: `../docs/plans/2026-04-03-agent-program-execution-runtime-reset.md`
+- Multi-round audit/reset framework: `../docs/plans/2026-04-03-multi-round-architecture-audit-and-reset-framework.md`
 - Active plan index: `../docs/plans/README.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`

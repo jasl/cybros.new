@@ -23,8 +23,8 @@ product execution/control protocol:
 
 This follow-up also absorbs the directly relevant command/process portions of:
 
-- [2026-03-30-fenix-runtime-appliance-design.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance-design.md)
-- [2026-03-30-fenix-runtime-appliance.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance.md)
+- [2026-03-30-fenix-runtime-appliance-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance-design.md)
+- [2026-03-30-fenix-runtime-appliance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance.md)
 
 Specifically, it absorbs the protocol- and runtime-facing parts of:
 

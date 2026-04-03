@@ -55,6 +55,6 @@ Re-open this follow-up when one or more of the following becomes true:
 
 ## Related Documents
 
-- [2026-03-30-fenix-runtime-appliance-design.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance-design.md)
-- [2026-03-30-fenix-runtime-appliance.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance.md)
-- [2026-03-31-fenix-operator-surface-design.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-31-fenix-operator-surface-design.md)
+- [2026-03-30-fenix-runtime-appliance-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance-design.md)
+- [2026-03-30-fenix-runtime-appliance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance.md)
+- [2026-03-31-fenix-operator-surface-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-31-fenix-operator-surface-design.md)

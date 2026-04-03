@@ -17,8 +17,8 @@
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-websocket-first-runtime-mailbox-control-design.md`
   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md`
   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md`
-  - `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance-design.md`
-  - `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance.md`
+  - `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance-design.md`
+  - `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance.md`
 - Destructive changes are allowed. Remove obsolete paths instead of preserving compatibility.
 - Do not expose `bigint` ids at external or agent-facing boundaries.
 

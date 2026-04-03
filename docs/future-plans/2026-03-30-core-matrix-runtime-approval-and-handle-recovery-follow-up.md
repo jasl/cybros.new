@@ -98,5 +98,5 @@ Re-open this follow-up when one or more of the following becomes true:
 
 - [2026-03-30-websocket-first-runtime-mailbox-control-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-websocket-first-runtime-mailbox-control-design.md)
 - [2026-03-30-websocket-first-runtime-mailbox-control.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-websocket-first-runtime-mailbox-control.md)
-- [2026-03-30-fenix-runtime-appliance-design.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docs/plans/2026-03-30-fenix-runtime-appliance-design.md)
+- [2026-03-30-fenix-runtime-appliance-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-03-30-fenix-runtime-appliance-design.md)
 - [human-interactions-and-conversation-events.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/human-interactions-and-conversation-events.md)

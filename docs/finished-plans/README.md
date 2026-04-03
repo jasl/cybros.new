@@ -10,6 +10,20 @@ milestone, or review used `references/` or external repositories during
 implementation, summarize the retained findings in the finished record instead
 of leaving only a volatile reference path behind.
 
+Recent archived records from the accepted provider-backed loop and reset batch:
+
+- [2026-03-31-core-matrix-loop-fenix-program-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-program-design.md)
+- [2026-03-31-core-matrix-loop-fenix-program.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-program.md)
+- [2026-03-31-core-matrix-parallel-tool-execution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution-design.md)
+- [2026-03-31-core-matrix-parallel-tool-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution.md)
+- [2026-04-01-agent-program-runtime-contract-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-01-agent-program-runtime-contract-reset.md)
+- [2026-04-02-conversation-diagnostics-and-usage-review.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-02-conversation-diagnostics-and-usage-review.md)
+- [2026-04-02-conversation-export-import-and-debug-bundles-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-02-conversation-export-import-and-debug-bundles-design.md)
+- [2026-04-02-conversation-export-import-and-debug-bundles.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-02-conversation-export-import-and-debug-bundles.md)
+- [2026-04-03-agent-program-execution-runtime-reset-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset-design.md)
+- [2026-04-03-agent-program-execution-runtime-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset.md)
+- [fenix](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/README.md)
+
 Current Phase 2 finished records:
 
 - Milestone archives:

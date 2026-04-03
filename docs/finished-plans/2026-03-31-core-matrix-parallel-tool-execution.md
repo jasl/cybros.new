@@ -257,7 +257,7 @@ git commit -m "fix: preserve provider tool result ordering"
 - Modify: `core_matrix/app/services/provider_execution/route_tool_call.rb`
 - Test: `core_matrix/test/services/runtime_capabilities/compose_effective_tool_catalog_test.rb`
 - Test: `core_matrix/test/services/provider_execution/route_tool_call_test.rb`
-- Doc: `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-parallel-tool-execution-design.md`
+- Doc: `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution-design.md`
 
 **Step 1: Write the failing tests**
 
@@ -285,7 +285,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb core_matrix/app/services/provider_execution/route_tool_call.rb core_matrix/test/services/runtime_capabilities/compose_effective_tool_catalog_test.rb core_matrix/test/services/provider_execution/route_tool_call_test.rb docs/plans/2026-03-31-core-matrix-parallel-tool-execution-design.md
+git add core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb core_matrix/app/services/provider_execution/route_tool_call.rb core_matrix/test/services/runtime_capabilities/compose_effective_tool_catalog_test.rb core_matrix/test/services/provider_execution/route_tool_call_test.rb docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution-design.md
 git commit -m "feat: add initial parallel-safe tool allowlist"
 ```
 

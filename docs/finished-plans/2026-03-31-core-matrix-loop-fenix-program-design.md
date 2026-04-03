@@ -4,9 +4,8 @@
 
 - Date: 2026-03-31
 - Status: implemented, verified, and accepted with the 2048 proof package
-- Supersedes:
-  - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop-design.md`
-  - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-fenix-provider-backed-agent-loop.md`
+- Supersedes earlier local planning drafts that were not retained in the
+  repository.
 
 ## Current Implementation Status
 
