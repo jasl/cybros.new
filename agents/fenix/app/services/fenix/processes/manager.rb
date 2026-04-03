@@ -18,6 +18,7 @@ module Fenix
         :close_request_id,
         :strictness,
         :terminal_reported,
+        :exit_status,
         :stdout_bytes,
         :stderr_bytes,
         :stdout_tail,
@@ -39,6 +40,7 @@ module Fenix
             wait_thread: wait_thread,
             control_client: control_client || Fenix::Runtime::ControlPlane.client,
             terminal_reported: false,
+            exit_status: nil,
             stdout_bytes: 0,
             stderr_bytes: 0,
             stdout_tail: +"",
@@ -113,7 +115,8 @@ module Fenix
         def output_snapshot(process_run_id:)
           synchronize do
             entry = entries[process_run_id]
-            snapshot_for(entry) if entry.present?
+            entry.exit_status ||= exit_status_for(entry) if entry.present? && !entry.wait_thread&.alive?
+            snapshot_for(entry) || released_snapshots[process_run_id]
           end
         end
 
@@ -170,6 +173,7 @@ module Fenix
 
         def reset!
           current_entries = synchronize do
+            released_snapshots.clear
             entries.values.tap { entries.clear }
           end
 
@@ -255,6 +259,7 @@ module Fenix
               next nil if entry.terminal_reported
 
               entry.terminal_reported = true
+              entry.exit_status = exit_status
               {
                 "close_request_id" => entry.close_request_id,
                 "strictness" => entry.strictness.presence || "graceful",
@@ -371,7 +376,12 @@ module Fenix
         end
 
         def cleanup_entry(entry)
+          join_thread(entry.stdout_thread)
+          join_thread(entry.stderr_thread)
+
           synchronize do
+            entry.exit_status ||= exit_status_for(entry)
+            released_snapshots[entry.process_run_id] = snapshot_for(entry)
             current_entry = entries[entry.process_run_id]
             entries.delete(entry.process_run_id) if current_entry.equal?(entry)
           end
@@ -399,15 +409,18 @@ module Fenix
         end
 
         def snapshot_for(entry)
+          return nil if entry.blank?
+
           {
             "process_run_id" => entry.process_run_id,
             "agent_task_run_id" => entry.agent_task_run_id,
             "lifecycle_state" => entry.wait_thread&.alive? ? "running" : "stopped",
+            "exit_status" => entry.exit_status,
             "stdout_bytes" => entry.stdout_bytes,
             "stderr_bytes" => entry.stderr_bytes,
             "stdout_tail" => entry.stdout_tail.dup,
             "stderr_tail" => entry.stderr_tail.dup,
-          }.merge(proxy_info(process_run_id: entry.process_run_id) || {})
+          }.compact.merge(proxy_info(process_run_id: entry.process_run_id) || {})
         end
 
         def trim_tail(existing, text)
@@ -422,12 +435,25 @@ module Fenix
           @entries ||= {}
         end
 
+        def released_snapshots
+          @released_snapshots ||= {}
+        end
+
         def mutex
           @mutex ||= Mutex.new
         end
 
         def synchronize(&block)
           mutex.synchronize(&block)
+        end
+
+        def exit_status_for(entry)
+          wait_thread = entry.wait_thread
+          return nil if wait_thread.nil? || wait_thread.alive?
+
+          wait_thread.value&.exitstatus
+        rescue StandardError
+          nil
         end
       end
     end

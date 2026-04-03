@@ -11,7 +11,7 @@
       "role": "agent",
       "slot": "output",
       "variant_index": 0,
-      "content": "Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, added automated Vitest logic tests, and verified both `npm test` and `npm run build` pass.\n\nAlso:\n- started the app on `0.0.0.0:4173`\n- verified it in a browser session\n- included required accessibility/test hooks:\n  - `data-testid=\"board\"` with `role=\"grid\"` and accessible name `2048 board`\n  - 16 `role=\"gridcell\"` cells\n  - `data-testid=\"score\"`\n  - `data-testid=\"status\"`\n  - `data-testid=\"restart\"`\n\nRun locally:\n- `cd /workspace/game-2048`\n- `npm test`\n- `npm run build`\n- `npm run preview -- --host 0.0.0.0 --port 4173`"
+      "content": "Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, including real movement/merge/spawn rules, score, win/game-over state, restart, and arrow/WASD controls.\n\nVerified:\n- `npm test` ✅\n- `npm run build` ✅\n- app running on `0.0.0.0:4173` ✅\n- browser session opened and confirmed the app renders ✅\n\nAcceptance hooks implemented:\n- `data-testid=\"board\"` with `role=\"grid\"` and accessible name `2048 board`\n- exactly 16 `role=\"gridcell\"` cells\n- `data-testid=\"score\"`\n- `data-testid=\"status\"`\n- `data-testid=\"restart\"`\n\nIf needed, the dev server is active at `http://127.0.0.1:4173/`."
     }
   ],
   "imported_items": [
@@ -25,7 +25,7 @@
       "role": "agent",
       "slot": "output",
       "variant_index": 0,
-      "content": "Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, added automated Vitest logic tests, and verified both `npm test` and `npm run build` pass.\n\nAlso:\n- started the app on `0.0.0.0:4173`\n- verified it in a browser session\n- included required accessibility/test hooks:\n  - `data-testid=\"board\"` with `role=\"grid\"` and accessible name `2048 board`\n  - 16 `role=\"gridcell\"` cells\n  - `data-testid=\"score\"`\n  - `data-testid=\"status\"`\n  - `data-testid=\"restart\"`\n\nRun locally:\n- `cd /workspace/game-2048`\n- `npm test`\n- `npm run build`\n- `npm run preview -- --host 0.0.0.0 --port 4173`"
+      "content": "Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, including real movement/merge/spawn rules, score, win/game-over state, restart, and arrow/WASD controls.\n\nVerified:\n- `npm test` ✅\n- `npm run build` ✅\n- app running on `0.0.0.0:4173` ✅\n- browser session opened and confirmed the app renders ✅\n\nAcceptance hooks implemented:\n- `data-testid=\"board\"` with `role=\"grid\"` and accessible name `2048 board`\n- exactly 16 `role=\"gridcell\"` cells\n- `data-testid=\"score\"`\n- `data-testid=\"status\"`\n- `data-testid=\"restart\"`\n\nIf needed, the dev server is active at `http://127.0.0.1:4173/`."
     }
   ]
 }

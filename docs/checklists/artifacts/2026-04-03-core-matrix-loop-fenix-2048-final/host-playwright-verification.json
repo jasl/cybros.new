@@ -3,6 +3,12 @@
     "board": [
       [
         null,
+        2,
+        null,
+        null
+      ],
+      [
+        null,
         null,
         null,
         null
@@ -14,42 +20,36 @@
         null
       ],
       [
-        null,
         null,
         2,
-        null
-      ],
-      [
         null,
-        null,
-        2,
         null
       ]
     ],
     "score": 0,
-    "status": "Keep going!",
+    "status": "Keep going",
     "nonEmpty": 2
   },
   "directionChecks": {
     "ArrowLeft": {
       "changed": true,
-      "beforeScore": 1756,
-      "afterScore": 1764
+      "beforeScore": 3288,
+      "afterScore": 3292
     },
     "ArrowUp": {
       "changed": true,
-      "beforeScore": 1824,
-      "afterScore": 1832
+      "beforeScore": 3240,
+      "afterScore": 3248
     },
     "ArrowRight": {
       "changed": true,
-      "beforeScore": 1764,
-      "afterScore": 1764
+      "beforeScore": 3248,
+      "afterScore": 3248
     },
     "ArrowDown": {
       "changed": true,
       "beforeScore": 4,
-      "afterScore": 4,
+      "afterScore": 8,
       "attempts": 1
     }
   },
@@ -59,40 +59,40 @@
   "preRestart": {
     "board": [
       [
-        2,
+        256,
         128,
-        64,
+        2,
         32
       ],
       [
+        8,
         64,
+        32,
+        4
+      ],
+      [
+        2,
         32,
         16,
         8
       ],
       [
-        32,
         16,
         8,
-        2
-      ],
-      [
-        2,
         4,
-        2,
-        4
+        2
       ]
     ],
-    "score": 1832,
-    "status": "Game over — no moves left.",
+    "score": 3292,
+    "status": "Game over",
     "nonEmpty": 16
   },
   "postRestart": {
     "board": [
       [
         null,
-        null,
-        null,
+        2,
+        2,
         null
       ],
       [
@@ -105,17 +105,17 @@
         null,
         null,
         null,
-        2
+        null
       ],
       [
         null,
         null,
         null,
-        2
+        null
       ]
     ],
     "score": 0,
-    "status": "Keep going!",
+    "status": "Keep going",
     "nonEmpty": 2
   },
   "restartResetScore": true,

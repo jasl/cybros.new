@@ -1,58 +1,58 @@
 {
   "method_id": "conversation_diagnostics_show",
-  "conversation_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
+  "conversation_id": "019d545a-2845-7494-bdc7-352844cdc8c9",
   "snapshot": {
-    "conversation_id": "019d5432-63f5-7a52-8b04-23ec6c022a81",
+    "conversation_id": "019d545a-2845-7494-bdc7-352844cdc8c9",
     "lifecycle_state": "active",
     "turn_count": 1,
     "active_turn_count": 0,
     "completed_turn_count": 1,
     "failed_turn_count": 0,
     "canceled_turn_count": 0,
-    "usage_event_count": 36,
-    "input_tokens_total": 346925,
-    "output_tokens_total": 7575,
-    "total_tokens_total": 354500,
+    "usage_event_count": 25,
+    "input_tokens_total": 247156,
+    "output_tokens_total": 6485,
+    "total_tokens_total": 253641,
     "estimated_cost_total": "0.0",
-    "attributed_user_id": "019d5432-0290-74c6-9702-f465cca005d4",
-    "attributed_user_usage_event_count": 36,
-    "attributed_user_input_tokens_total": 346925,
-    "attributed_user_output_tokens_total": 7575,
-    "attributed_user_total_tokens_total": 354500,
+    "attributed_user_id": "019d5458-9b41-71d0-9206-922f4d5ffdbe",
+    "attributed_user_usage_event_count": 25,
+    "attributed_user_input_tokens_total": 247156,
+    "attributed_user_output_tokens_total": 6485,
+    "attributed_user_total_tokens_total": 253641,
     "attributed_user_estimated_cost_total": "0.0",
-    "provider_round_count": 36,
-    "tool_call_count": 36,
+    "provider_round_count": 25,
+    "tool_call_count": 25,
     "tool_failure_count": 0,
-    "command_run_count": 9,
+    "command_run_count": 5,
     "command_failure_count": 0,
     "process_run_count": 1,
     "process_failure_count": 0,
-    "subagent_session_count": 1,
+    "subagent_session_count": 0,
     "input_variant_count": 1,
     "output_variant_count": 1,
     "steer_count": 0,
     "resume_attempt_count": 0,
     "retry_attempt_count": 0,
-    "most_expensive_turn_id": "019d5432-6411-7e14-b933-aece232823ce",
-    "most_rounds_turn_id": "019d5432-6411-7e14-b933-aece232823ce",
+    "most_expensive_turn_id": "019d545a-2863-751f-8de4-d50cd45f4fd6",
+    "most_rounds_turn_id": "019d545a-2863-751f-8de4-d50cd45f4fd6",
     "metadata": {
       "provider_usage_breakdown": [
         {
           "provider_handle": "openrouter",
           "model_ref": "openai-gpt-5.4",
           "operation_kind": "text_generation",
-          "event_count": 36,
-          "success_count": 36,
+          "event_count": 25,
+          "success_count": 25,
           "failure_count": 0,
-          "input_tokens_total": 346925,
-          "output_tokens_total": 7575,
+          "input_tokens_total": 247156,
+          "output_tokens_total": 6485,
           "estimated_cost_total": "0.0",
           "estimated_cost_event_count": 0,
-          "estimated_cost_missing_event_count": 36,
-          "latency_event_count": 36,
-          "total_latency_ms": 442920,
-          "max_latency_ms": 66814,
-          "avg_latency_ms": 12303,
+          "estimated_cost_missing_event_count": 25,
+          "latency_event_count": 25,
+          "total_latency_ms": 129389,
+          "max_latency_ms": 19527,
+          "avg_latency_ms": 5176,
           "cost_data_available": false,
           "cost_data_complete": false
         }
@@ -62,26 +62,26 @@
           "provider_handle": "openrouter",
           "model_ref": "openai-gpt-5.4",
           "operation_kind": "text_generation",
-          "event_count": 36,
-          "success_count": 36,
+          "event_count": 25,
+          "success_count": 25,
           "failure_count": 0,
-          "input_tokens_total": 346925,
-          "output_tokens_total": 7575,
+          "input_tokens_total": 247156,
+          "output_tokens_total": 6485,
           "estimated_cost_total": "0.0",
           "estimated_cost_event_count": 0,
-          "estimated_cost_missing_event_count": 36,
-          "latency_event_count": 36,
-          "total_latency_ms": 442920,
-          "max_latency_ms": 66814,
-          "avg_latency_ms": 12303,
+          "estimated_cost_missing_event_count": 25,
+          "latency_event_count": 25,
+          "total_latency_ms": 129389,
+          "max_latency_ms": 19527,
+          "avg_latency_ms": 5176,
           "cost_data_available": false,
           "cost_data_complete": false
         }
       ],
       "workflow_node_type_counts": {
-        "barrier_join": 36,
-        "tool_call": 36,
-        "turn_step": 36
+        "barrier_join": 25,
+        "tool_call": 25,
+        "turn_step": 25
       },
       "tool_breakdown": {
         "browser_get_content": {
@@ -93,27 +93,15 @@
           "failures": 0
         },
         "command_run_wait": {
-          "count": 8,
+          "count": 5,
           "failures": 0
         },
         "exec_command": {
-          "count": 9,
+          "count": 5,
           "failures": 0
         },
         "process_exec": {
           "count": 1,
-          "failures": 0
-        },
-        "subagent_send": {
-          "count": 1,
-          "failures": 0
-        },
-        "subagent_spawn": {
-          "count": 1,
-          "failures": 0
-        },
-        "subagent_wait": {
-          "count": 2,
           "failures": 0
         },
         "workspace_read": {
@@ -126,33 +114,27 @@
         }
       },
       "command_classification_counts": {
-        "build": {
-          "count": 1,
-          "failures": 0
-        },
         "test": {
           "count": 3,
           "failures": 0
         }
       },
-      "subagent_status_counts": {
-        "completed": 1
-      },
+      "subagent_status_counts": {},
       "cost_summary": {
         "estimated_cost_event_count": 0,
-        "estimated_cost_missing_event_count": 36,
+        "estimated_cost_missing_event_count": 25,
         "cost_data_available": false,
         "cost_data_complete": false
       },
       "attributed_user_cost_summary": {
         "estimated_cost_event_count": 0,
-        "estimated_cost_missing_event_count": 36,
+        "estimated_cost_missing_event_count": 25,
         "cost_data_available": false,
         "cost_data_complete": false
       },
       "outlier_refs": {
-        "most_expensive_turn_id": "019d5432-6411-7e14-b933-aece232823ce",
-        "most_rounds_turn_id": "019d5432-6411-7e14-b933-aece232823ce"
+        "most_expensive_turn_id": "019d545a-2863-751f-8de4-d50cd45f4fd6",
+        "most_rounds_turn_id": "019d545a-2863-751f-8de4-d50cd45f4fd6"
       }
     }
   }

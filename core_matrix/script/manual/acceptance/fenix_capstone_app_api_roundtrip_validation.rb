@@ -1308,6 +1308,7 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 )
 
 machine_credential = bundled.fetch(:machine_credential)
+execution_machine_credential = bundled.fetch(:execution_machine_credential)
 agent_program = bundled.fetch(:runtime).agent_program
 agent_program_version = bundled.fetch(:runtime).deployment
 execution_runtime = bundled.fetch(:runtime).execution_runtime
@@ -1322,6 +1323,7 @@ unless skip_worker_restart
 
   ManualAcceptanceSupport.restart_docker_fenix_runtime_worker!(
     machine_credential: machine_credential,
+    execution_machine_credential: execution_machine_credential,
     container_name: docker_container
   )
 end

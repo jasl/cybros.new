@@ -37,10 +37,9 @@ module Fenix
                 "proxy_target_url" => nil,
               }
             when "process_read_output"
-              lookup_owned_process_run!
-
               snapshot = Fenix::Processes::Manager.output_snapshot(process_run_id: @tool_call.dig("arguments", "process_run_id"))
               raise ValidationError, "unknown process run #{@tool_call.dig("arguments", "process_run_id")}" if snapshot.blank?
+              raise ValidationError, "process run #{@tool_call.dig("arguments", "process_run_id")} is not owned by this agent task" unless snapshot["agent_task_run_id"] == @current_agent_task_run_id
 
               snapshot
             else

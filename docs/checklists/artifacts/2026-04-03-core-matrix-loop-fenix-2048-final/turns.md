@@ -4,11 +4,11 @@
 
 - Scenario date: `2026-04-03`
 - Operator: `Codex`
-- Conversation `public_id`: `019d5432-63f5-7a52-8b04-23ec6c022a81`
-- Turn `public_id`: `019d5432-6411-7e14-b933-aece232823ce`
-- Workflow-run `public_id`: `019d5432-6428-765f-9f1d-774aa6c050e0`
-- Agent program version `public_id`: `019d5432-02f3-74c8-9dd8-ceec99a15712`
-- Execution runtime `public_id`: `019d5432-02df-7696-83c8-40f75f1ce774`
+- Conversation `public_id`: `019d545a-2845-7494-bdc7-352844cdc8c9`
+- Turn `public_id`: `019d545a-2863-751f-8de4-d50cd45f4fd6`
+- Workflow-run `public_id`: `019d545a-2879-7bcd-b0ab-f57fd82c838e`
+- Agent program version `public_id`: `019d5458-9bb6-7065-b4c2-f61b8b9b0c4b`
+- Execution runtime `public_id`: `019d5458-9b9f-7279-91c7-9cd26129b47f`
 - Runtime mode: `Core Matrix host runtime + Dockerized Fenix`
 - Provider handle: `openrouter`
 - Model ref: `openai-gpt-5.4`
@@ -16,21 +16,19 @@
 - Selector: `candidate:openrouter/openai-gpt-5.4`
 - Expected DAG shape: provider-backed `turn_step` with repeated `tool_call` and `barrier_join` expansion until completion
 - Observed DAG shape:
-  - `turn_step`: `36`
-  - `tool_call`: `36`
-  - `barrier_join`: `36`
-  - Total workflow nodes: `108`
-  - Highest observed provider round: `36`
+  - `turn_step`: `25`
+  - `tool_call`: `25`
+  - `barrier_join`: `25`
+  - Total workflow nodes: `75`
+  - Highest observed provider round: `25`
 - Expected conversation state: one user request followed by one completed agent response
 - Observed conversation state:
   - Conversation lifecycle: `active`
   - Turn lifecycle: `completed`
   - Message roles: `user`, `agent`
-  - Output message `public_id`: `019d543a-7477-79b0-bfa0-d31be9cc1eb4`
+  - Output message `public_id`: `019d545d-86e4-71b3-bab6-8692a5ebbb84`
 - Subagent work expected: `yes`
-- Subagent work observed: `yes`
-  - Observed subagent session `public_id`: `019d5432-9b28-7383-9473-6a2866b03d2f`
-  - Observed subagent profile: `unknown`
+- Subagent work observed: `no`
 - Proof artifacts:
   - `acceptance-registration.json`
   - `capstone-run-bootstrap.json`

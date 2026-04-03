@@ -129,6 +129,32 @@ class Fenix::Processes::ManagerTest < ActiveSupport::TestCase
     assert_equal 0, terminal.fetch("exit_status")
   end
 
+  test "output_snapshot remains available after a naturally exiting process has been cleaned up" do
+    control_client = FakeControlClient.new(payloads: [])
+    process_run_id = "process-#{SecureRandom.uuid}"
+
+    Fenix::Processes::Manager.spawn!(
+      process_run_id: process_run_id,
+      agent_task_run_id: "task-1",
+      command_line: "printf 'hello from process\\n'",
+      control_client: control_client
+    )
+
+    assert_eventually do
+      control_client.payloads.any? { |payload| payload["method_id"] == "process_exited" }
+    end
+
+    assert_nil Fenix::Processes::Manager.lookup(process_run_id: process_run_id)
+
+    snapshot = Fenix::Processes::Manager.output_snapshot(process_run_id: process_run_id)
+
+    assert_equal process_run_id, snapshot.fetch("process_run_id")
+    assert_equal "task-1", snapshot.fetch("agent_task_run_id")
+    assert_equal "stopped", snapshot.fetch("lifecycle_state")
+    assert_equal "hello from process\n", snapshot.fetch("stdout_tail")
+    assert_equal 0, snapshot.fetch("exit_status")
+  end
+
   test "spawn! cleans up the local process when process_started reporting fails" do
     process_run_id = "process-#{SecureRandom.uuid}"
     wait_thread = nil

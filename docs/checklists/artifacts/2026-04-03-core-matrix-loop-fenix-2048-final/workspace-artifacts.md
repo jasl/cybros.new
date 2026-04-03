@@ -5,8 +5,8 @@
 - Final application path:
   - `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048`
 - Final source tree includes:
-  - `dist/assets/index-CFFLowPK.css`
-  - `dist/assets/index-CjdBlbVR.js`
+  - `dist/assets/index-BrESJGSo.css`
+  - `dist/assets/index-D5QEScib.js`
   - `dist/favicon.svg`
   - `dist/icons.svg`
   - `dist/index.html`
@@ -23,8 +23,8 @@
   - `src/game.ts`
   - `src/index.css`
   - `src/main.tsx`
+  - `src/test/setup.ts`
   - `tsconfig.app.json`
-  - `tsconfig.json`
 
 ## Host-Side Commands
 

@@ -16,4 +16,12 @@ class RuntimeFoundationTest < ActionDispatch::IntegrationTest
     assert foundation.fetch("bootstrap_scripts").any? { |entry| entry.end_with?("bootstrap-runtime-deps.sh") }
     assert_equal File.read(Rails.root.join(".ruby-version")).strip, foundation.dig("versions", "ruby")
   end
+
+  test "linux bootstrap script installs the expected execution utilities" do
+    script = File.read(Rails.root.join("scripts", "bootstrap-runtime-deps.sh"))
+
+    assert_includes script, "python-is-python3"
+    assert_includes script, "lsof"
+    assert_includes script, "iproute2"
+  end
 end

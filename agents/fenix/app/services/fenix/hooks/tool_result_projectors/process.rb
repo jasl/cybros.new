@@ -33,6 +33,7 @@ module Fenix
                 "tool_name" => tool_name,
                 "content" => "Read buffered output for process run #{tool_result.fetch("process_run_id")}.",
                 "process_run_id" => tool_result.fetch("process_run_id"),
+                "exit_status" => tool_result["exit_status"],
                 "stdout_tail" => tool_result.fetch("stdout_tail"),
                 "stderr_tail" => tool_result.fetch("stderr_tail"),
                 "stdout_bytes" => tool_result.fetch("stdout_bytes"),

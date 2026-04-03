@@ -183,4 +183,55 @@ class ProcessToolsFlowTest < ActiveSupport::TestCase
       nil
     end
   end
+
+  test "process_read_output remains available for a naturally exited owned process" do
+    control_client = build_runtime_control_client
+    process_run_id = "process-run-#{SecureRandom.uuid}"
+    agent_task_run_id = "task-#{SecureRandom.uuid}"
+    allowed_tool_names = default_agent_context.fetch("allowed_tool_names") + ["process_read_output"]
+
+    Fenix::Processes::Manager.spawn!(
+      process_run_id: process_run_id,
+      agent_task_run_id: agent_task_run_id,
+      command_line: "printf 'process output\\n'",
+      control_client: control_client
+    )
+
+    assert_eventually do
+      control_client.reported_payloads.any? { |payload| payload["method_id"] == "process_exited" }
+    end
+
+    output = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "process_read_output",
+          "process_run_id" => process_run_id,
+        },
+        agent_context: default_agent_context.merge("allowed_tool_names" => allowed_tool_names)
+      ).tap { |payload| payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id }
+    )
+
+    assert_equal "completed", output.status
+
+    output_invocation = output.reports.last.fetch("terminal_payload").fetch("tool_invocations").fetch(0)
+    assert_equal "stopped", output_invocation.dig("response_payload", "lifecycle_state")
+    assert_equal "process output\n", output_invocation.dig("response_payload", "stdout_tail")
+    assert_equal 0, output_invocation.dig("response_payload", "exit_status")
+  ensure
+    Fenix::Processes::Manager.reset!
+    Fenix::Processes::ProxyRegistry.reset!
+  end
+
+  private
+
+  def assert_eventually(timeout_seconds: 2, &block)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    until yield
+      raise "condition was not met before timeout" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+
+      sleep(0.01)
+    end
+  end
 end

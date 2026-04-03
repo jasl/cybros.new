@@ -47,6 +47,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
   test "reset_docker_fenix_runtime_database! syncs source and performs a destructive runtime db reset" do
     sync_container = nil
+    bootstrap_container = nil
     capture3_args = nil
     success_status = stub_process_status(success: true)
 
@@ -56,25 +57,53 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       ->(container_name:) { sync_container = container_name }
     ) do
       with_redefined_singleton_method(
-        Open3,
-        :capture3,
-        ->(*args) { capture3_args = args; ["ok", "", success_status] }
+        ManualAcceptanceSupport,
+        :ensure_docker_fenix_runtime_dependencies!,
+        ->(container_name:) { bootstrap_container = container_name }
       ) do
-        result = ManualAcceptanceSupport.reset_docker_fenix_runtime_database!(container_name: "fenix-capstone")
+        with_redefined_singleton_method(
+          Open3,
+          :capture3,
+          ->(*args) { capture3_args = args; ["ok", "", success_status] }
+        ) do
+          result = ManualAcceptanceSupport.reset_docker_fenix_runtime_database!(container_name: "fenix-capstone")
 
-        assert_equal "fenix-capstone", sync_container
-        assert_equal [
-          "docker", "exec", "fenix-capstone", "sh", "-lc",
-          "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
-        ], capture3_args
-        assert_equal(
-          "docker exec fenix-capstone sh -lc cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
-          result.fetch("command")
-        )
-        assert_equal "ok", result.fetch("stdout")
-        assert_equal "", result.fetch("stderr")
-        assert_equal true, result.fetch("success")
+          assert_equal "fenix-capstone", sync_container
+          assert_equal "fenix-capstone", bootstrap_container
+          assert_equal [
+            "docker", "exec", "fenix-capstone", "sh", "-lc",
+            "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+          ], capture3_args
+          assert_equal(
+            "docker exec fenix-capstone sh -lc cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+            result.fetch("command")
+          )
+          assert_equal "ok", result.fetch("stdout")
+          assert_equal "", result.fetch("stderr")
+          assert_equal true, result.fetch("success")
+        end
       end
+    end
+  end
+
+  test "ensure_docker_fenix_runtime_dependencies! runs the Linux bootstrap script inside the container" do
+    capture3_args = nil
+    success_status = stub_process_status(success: true)
+
+    with_redefined_singleton_method(
+      Open3,
+      :capture3,
+      ->(*args) { capture3_args = args; ["ok", "", success_status] }
+    ) do
+      result = ManualAcceptanceSupport.ensure_docker_fenix_runtime_dependencies!(container_name: "fenix-capstone")
+
+      assert_equal [
+        "docker", "exec", "fenix-capstone", "sh", "-lc",
+        "cd /rails && bash scripts/bootstrap-runtime-deps.sh",
+      ], capture3_args
+      assert_equal true, result.fetch("success")
+      assert_equal "ok", result.fetch("stdout")
+      assert_equal "", result.fetch("stderr")
     end
   end
 

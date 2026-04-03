@@ -25,6 +25,7 @@ apt-get install --no-install-recommends -y \
   curl \
   git \
   gnupg \
+  iproute2 \
   libasound2t64 \
   libatk-bridge2.0-0t64 \
   libatk1.0-0t64 \
@@ -50,8 +51,10 @@ apt-get install --no-install-recommends -y \
   libxkbcommon0 \
   libxrandr2 \
   libyaml-0-2 \
+  lsof \
   pkg-config \
   python3 \
+  python-is-python3 \
   python3-pip \
   python3-venv \
   sqlite3 \

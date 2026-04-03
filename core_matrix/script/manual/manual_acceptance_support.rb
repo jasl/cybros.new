@@ -429,6 +429,7 @@ module ManualAcceptanceSupport
     container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
   )
     sync_fenix_runtime_source_to_docker_container!(container_name:)
+    ensure_docker_fenix_runtime_dependencies!(container_name:)
 
     stdout = nil
     stderr = nil
@@ -451,6 +452,37 @@ module ManualAcceptanceSupport
 
     {
       "command" => "docker exec #{container_name} sh -lc cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+      "stdout" => stdout,
+      "stderr" => stderr,
+      "success" => true,
+      "exit_status" => status.exitstatus,
+    }
+  end
+
+  def ensure_docker_fenix_runtime_dependencies!(
+    container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
+  )
+    stdout = nil
+    stderr = nil
+    status = nil
+
+    Bundler.with_unbundled_env do
+      stdout, stderr, status = Open3.capture3(
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-lc",
+        "cd /rails && bash scripts/bootstrap-runtime-deps.sh"
+      )
+    end
+
+    unless status.success?
+      raise "failed to bootstrap docker runtime dependencies: #{stderr.presence || stdout.presence || "no output"}"
+    end
+
+    {
+      "command" => "docker exec #{container_name} sh -lc cd /rails && bash scripts/bootstrap-runtime-deps.sh",
       "stdout" => stdout,
       "stderr" => stderr,
       "success" => true,

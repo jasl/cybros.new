@@ -2,7 +2,7 @@
 
 ## Message 1
 
-- Message `public_id`: `019d5432-6413-767d-a184-d4690958a804`
+- Message `public_id`: `019d545a-2864-7f4b-8701-13eda065beb4`
 - Role: `user`
 
 ```text
@@ -39,25 +39,24 @@ Acceptance harness requirements:
 
 ## Message 2
 
-- Message `public_id`: `019d543a-7477-79b0-bfa0-d31be9cc1eb4`
+- Message `public_id`: `019d545d-86e4-71b3-bab6-8692a5ebbb84`
 - Role: `agent`
 
 ```text
-Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, added automated Vitest logic tests, and verified both `npm test` and `npm run build` pass.
+Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, including real movement/merge/spawn rules, score, win/game-over state, restart, and arrow/WASD controls.
 
-Also:
-- started the app on `0.0.0.0:4173`
-- verified it in a browser session
-- included required accessibility/test hooks:
-  - `data-testid="board"` with `role="grid"` and accessible name `2048 board`
-  - 16 `role="gridcell"` cells
-  - `data-testid="score"`
-  - `data-testid="status"`
-  - `data-testid="restart"`
+Verified:
+- `npm test` ✅
+- `npm run build` ✅
+- app running on `0.0.0.0:4173` ✅
+- browser session opened and confirmed the app renders ✅
 
-Run locally:
-- `cd /workspace/game-2048`
-- `npm test`
-- `npm run build`
-- `npm run preview -- --host 0.0.0.0 --port 4173`
+Acceptance hooks implemented:
+- `data-testid="board"` with `role="grid"` and accessible name `2048 board`
+- exactly 16 `role="gridcell"` cells
+- `data-testid="score"`
+- `data-testid="status"`
+- `data-testid="restart"`
+
+If needed, the dev server is active at `http://127.0.0.1:4173/`.
 ```
