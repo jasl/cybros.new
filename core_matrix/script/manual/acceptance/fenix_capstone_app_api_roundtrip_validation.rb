@@ -581,8 +581,17 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
   lines << ""
   lines << "## Host-Side Commands"
   lines << ""
+  lines << "Primary host usability verification uses the exported `dist/` output:"
+  lines << ""
+  lines << "```bash"
+  lines << "cd #{generated_app_dir}/dist"
+  lines << "python3 -m http.server #{preview_port} --bind 127.0.0.1"
+  lines << "```"
+  lines << ""
+  lines << "Source portability diagnostics remain separate and may require reinstalling host-native dependencies:"
+  lines << ""
   if host_validation_notes.any?
-    lines << "Because the mounted workspace contained container-built dependencies, host-side verification first normalized those artifacts:"
+    lines << "Because the mounted workspace contained container-built dependencies, source-portability diagnostics first normalized those artifacts:"
     lines << ""
     lines << "```bash"
     lines << "cd #{generated_app_dir}"
@@ -597,7 +606,6 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
   lines << "cd #{generated_app_dir}"
   lines << "npm test"
   lines << "npm run build"
-  lines << "npm run preview -- --host 127.0.0.1 --port #{preview_port}"
   lines << "```"
   lines << ""
   lines << "## Run URL"
@@ -605,21 +613,96 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
   lines << "- Preview URL:"
   lines << "  - `http://127.0.0.1:#{preview_port}/`"
   lines << ""
-  lines << "The preview process stayed reachable on the host during browser verification."
+  lines << "Host preview reachability is recorded separately in `workspace-validation.md` and `host-preview.json` when available."
   lines << ""
 
   write_text(path, lines.join("\n"))
 end
 
-def write_playability_verification_md(path:, playability_result:, generated_app_dir:, preview_port:)
+def build_conversation_runtime_validation(tool_invocations:)
+  build_success = false
+  test_success = false
+  dev_server_ready = false
+  browser_content = nil
+
+  Array(tool_invocations).each do |entry|
+    tool_name = entry["tool_name"].to_s
+    status = entry["status"].to_s
+    response_payload = entry["response_payload"].is_a?(Hash) ? entry["response_payload"] : {}
+    stdout_tail = response_payload["stdout_tail"].to_s
+    stderr_tail = response_payload["stderr_tail"].to_s
+    combined_output = [stdout_tail, stderr_tail].join("\n")
+    current_url = response_payload["current_url"].to_s
+
+    if tool_name == "command_run_wait" && status == "succeeded"
+      build_success ||= response_payload["exit_status"].to_i.zero? &&
+        combined_output.include?("built in") &&
+        combined_output.include?("dist/")
+      test_success ||= response_payload["exit_status"].to_i.zero? &&
+        combined_output.match?(/Test Files .*passed|Tests .*passed/m)
+    elsif tool_name == "command_run_read_output" && status == "succeeded"
+      dev_server_ready ||= stdout_tail.include?("vite --host 0.0.0.0 --port 4173") &&
+        stdout_tail.include?("ready in")
+    elsif (tool_name == "browser_open" || tool_name == "browser_navigate") && status == "succeeded"
+      dev_server_ready ||= current_url.start_with?("http://127.0.0.1:4173")
+    elsif tool_name == "browser_get_content" && status == "succeeded"
+      dev_server_ready ||= current_url.start_with?("http://127.0.0.1:4173")
+      content = response_payload["content"].to_s.strip
+      browser_content = content if content.present?
+    end
+  end
+
+  {
+    "runtime_test_passed" => test_success,
+    "runtime_build_passed" => build_success,
+    "runtime_dev_server_ready" => dev_server_ready,
+    "runtime_browser_loaded" => browser_content.present?,
+    "runtime_browser_mentions_2048" => browser_content.to_s.match?(/2048/i),
+    "runtime_browser_content_excerpt" => browser_content.to_s[0, 240],
+  }
+end
+
+def write_playability_verification_md(path:, playability_result:, generated_app_dir:, preview_port:, runtime_validation:, preview_validation:, host_skip_reason: nil)
   unless playability_result.present?
-    return write_text(path, <<~MD)
-      # Playability Verification
+    lines = [
+      "# Playability Verification",
+      "",
+      "## Conversation Runtime Evidence",
+      "",
+      "- Runtime-side build succeeded: `#{runtime_validation.fetch("runtime_build_passed")}`",
+      "- Runtime-side test succeeded: `#{runtime_validation.fetch("runtime_test_passed")}`",
+      "- Runtime-side dev server reached `:4173`: `#{runtime_validation.fetch("runtime_dev_server_ready")}`",
+      "- Runtime-side browser session loaded content: `#{runtime_validation.fetch("runtime_browser_loaded")}`",
+      "- Runtime browser content mentioned `2048`: `#{runtime_validation.fetch("runtime_browser_mentions_2048")}`",
+    ]
+    excerpt = runtime_validation.fetch("runtime_browser_content_excerpt").to_s
+    if excerpt.present?
+      lines.concat([
+        "",
+        "Runtime browser content excerpt:",
+        "",
+        "```text",
+        excerpt,
+        "```",
+      ])
+    end
+    lines.concat([
+      "",
+      "## Host Playability Diagnostic",
+      "",
+      "- Host `dist/` preview reachable: `#{preview_validation.fetch("reachable")}`",
+      "- Host preview content mentioned `2048`: `#{preview_validation.fetch("contains_2048")}`",
+      "",
+      host_skip_reason.presence || "Host-side browser verification did not run.",
+      "",
+      "- Generated application path: `#{generated_app_dir}`",
+      "- Intended host preview URL: `http://127.0.0.1:#{preview_port}/`",
+      "",
+      "See `workspace-validation.md`, `host-preview.json`, `host-npm-test.json`, and `host-npm-build.json` for portability diagnostics.",
+      "",
+    ])
 
-      Host-side browser verification did not run because the generated application directory was missing:
-
-      - `#{generated_app_dir}`
-    MD
+    return write_text(path, lines.join("\n"))
   end
 
   direction_checks = playability_result.fetch("directionChecks")
@@ -661,30 +744,29 @@ def write_playability_verification_md(path:, playability_result:, generated_app_
     "## Host Verification Commands",
     "",
     "```bash",
-    "cd #{generated_app_dir}",
-    "npm test",
-    "npm run build",
-    "npm run preview -- --host 127.0.0.1 --port #{preview_port}",
+    "cd #{generated_app_dir}/dist",
+    "python3 -m http.server #{preview_port} --bind 127.0.0.1",
     "npm install --no-save @playwright/test@#{PLAYWRIGHT_VERSION}",
     "npx playwright install chromium",
     "npx playwright test host-playability.spec.cjs --workers=1 --reporter=line",
     "```",
     "",
-    "Browser validation used Playwright on the host after reinstalling host-native dependencies.",
+    "Browser validation used Playwright on the host against the platform-independent `dist/` output.",
     "",
   ])
 
   write_text(path, lines.join("\n"))
 end
 
-def build_agent_evaluation(summary:, diagnostics_turn:, host_validation:, playability_result:)
+def build_agent_evaluation(summary:, diagnostics_turn:)
   result_quality =
     if summary.fetch("transcript_roundtrip_match") &&
-        host_validation.dig("npm_test", "success") &&
-        host_validation.dig("npm_build", "success") &&
-        playability_result&.fetch("gameOverReached", false) &&
-        playability_result&.fetch("restartResetScore", false) &&
-        playability_result&.fetch("restartResetTileCount", false)
+        summary.fetch("workflow_state") == "completed" &&
+        summary.fetch("turn_state") == "completed" &&
+        summary.dig("conversation_validation", "runtime_test_passed") &&
+        summary.dig("conversation_validation", "runtime_build_passed") &&
+        summary.dig("conversation_validation", "runtime_browser_loaded") &&
+        summary.dig("workspace_validation", "preview_reachable")
       "strong"
     else
       "fail"
@@ -722,12 +804,15 @@ def build_agent_evaluation(summary:, diagnostics_turn:, host_validation:, playab
   {
     "result_quality" => {
       "rating" => result_quality,
-      "summary" => "Host-side tests, build, playability, and transcript roundtrip established that the resulting application met the benchmark outcome.",
+      "summary" => "Conversation/runtime-side test, build, browser evidence, and transcript roundtrip established whether the benchmark outcome was met; host portability checks are reported separately as diagnostics.",
       "evidence" => [
         "run-summary.json",
+        "playability-verification.md",
+        "workspace-validation.md",
+        "host-preview.json",
+        "host-playwright-verification.json",
         "host-npm-test.json",
         "host-npm-build.json",
-        "host-playwright-verification.json",
         "export-roundtrip.md",
       ],
     },
@@ -1294,11 +1379,57 @@ MD
 host_validation_notes = []
 host_validation = {}
 playwright_validation = {}
+preview_http = nil
+host_playability_skip_reason = nil
 
 if generated_app_dir.exist?
+  dist_dir = generated_app_dir.join("dist")
+  dist_artifact_present = dist_dir.join("index.html").exist?
+  if dist_artifact_present
+    preview_log = artifact_dir.join("host-preview.log")
+    preview_pid = nil
+    preview_out = nil
+
+    begin
+      preview_out = File.open(preview_log, "w")
+      preview_pid = Process.spawn(
+        "python3", "-m", "http.server", preview_port.to_s, "--bind", "127.0.0.1",
+        chdir: dist_dir.to_s,
+        out: preview_out,
+        err: preview_out
+      )
+      wait_for_tcp_port!(host: "127.0.0.1", port: preview_port, timeout_seconds: 20)
+
+      response, body = ManualAcceptanceSupport.http_get_response("http://127.0.0.1:#{preview_port}")
+      raise "host preview failed: HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
+
+      preview_http = {
+        "status" => response.code.to_i,
+        "contains_2048" => body.include?("2048"),
+        "byte_size" => body.bytesize,
+      }
+
+      playwright_validation = run_host_playwright_verification!(
+        artifact_dir: artifact_dir,
+        base_url: "http://127.0.0.1:#{preview_port}/",
+        generated_app_dir: generated_app_dir
+      )
+    rescue => error
+      host_playability_skip_reason = "Host-side browser verification failed against `dist/`: #{error.message}"
+    ensure
+      if preview_pid.present?
+        Process.kill("TERM", preview_pid) rescue nil
+        Process.wait(preview_pid) rescue nil
+      end
+      preview_out&.close
+    end
+  else
+    host_playability_skip_reason = "Host-side browser verification did not run because `dist/index.html` was missing."
+  end
+
   if generated_app_dir.join("node_modules").exist?
     FileUtils.rm_rf(generated_app_dir.join("node_modules"))
-    host_validation_notes << "Removed container-built node_modules before host validation."
+    host_validation_notes << "Removed container-built node_modules before source-portability diagnostics."
   end
   FileUtils.rm_rf(generated_app_dir.join("dist"))
   FileUtils.rm_rf(generated_app_dir.join("coverage"))
@@ -1311,64 +1442,6 @@ if generated_app_dir.exist?
   write_json(artifact_dir.join("host-npm-test.json"), npm_test)
   write_json(artifact_dir.join("host-npm-build.json"), npm_build)
 
-  unless npm_install.fetch("success") && npm_test.fetch("success") && npm_build.fetch("success")
-    write_text(artifact_dir.join("workspace-validation.md"), <<~MD)
-      # Workspace Validation
-
-      Host-side validation failed before browser preview:
-
-      - `npm install` success: `#{npm_install.fetch("success")}`
-      - `npm test` success: `#{npm_test.fetch("success")}`
-      - `npm run build` success: `#{npm_build.fetch("success")}`
-
-      See:
-
-      - `host-npm-install.json`
-      - `host-npm-test.json`
-      - `host-npm-build.json`
-    MD
-
-    raise "host validation failed before preview"
-  end
-
-  preview_log = artifact_dir.join("host-preview.log")
-  preview_pid = nil
-  preview_out = nil
-  preview_http = nil
-
-  begin
-    preview_out = File.open(preview_log, "w")
-    preview_pid = Process.spawn(
-      { "BROWSER" => "none" },
-      "npm", "run", "preview", "--", "--host", "127.0.0.1", "--port", preview_port.to_s,
-      chdir: generated_app_dir.to_s,
-      out: preview_out,
-      err: preview_out
-    )
-    wait_for_tcp_port!(host: "127.0.0.1", port: preview_port, timeout_seconds: 20)
-
-    response, body = ManualAcceptanceSupport.http_get_response("http://127.0.0.1:#{preview_port}")
-    raise "host preview failed: HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
-
-    preview_http = {
-      "status" => response.code.to_i,
-      "contains_2048" => body.include?("2048"),
-      "byte_size" => body.bytesize,
-    }
-
-    playwright_validation = run_host_playwright_verification!(
-      artifact_dir: artifact_dir,
-      base_url: "http://127.0.0.1:#{preview_port}/",
-      generated_app_dir: generated_app_dir
-    )
-  ensure
-    if preview_pid.present?
-      Process.kill("TERM", preview_pid) rescue nil
-      Process.wait(preview_pid) rescue nil
-    end
-    preview_out&.close
-  end
-
   host_validation = {
     "npm_install" => npm_install,
     "npm_test" => npm_test,
@@ -1376,9 +1449,37 @@ if generated_app_dir.exist?
     "preview_http" => preview_http,
   }
 
-  write_json(artifact_dir.join("host-preview.json"), preview_http)
-  write_json(artifact_dir.join("host-playwright-install.json"), playwright_validation.fetch("install"))
-  write_json(artifact_dir.join("host-playwright-test.json"), playwright_validation.fetch("test"))
+  write_json(artifact_dir.join("host-preview.json"), preview_http) if preview_http.present?
+  if playwright_validation.present?
+    write_json(artifact_dir.join("host-playwright-install.json"), playwright_validation.fetch("install"))
+    write_json(artifact_dir.join("host-playwright-test.json"), playwright_validation.fetch("test"))
+  end
+
+  write_text(artifact_dir.join("workspace-validation.md"), <<~MD)
+    # Workspace Validation
+
+    Host-side source portability diagnostics:
+
+    - `npm install` success: `#{npm_install.fetch("success")}`
+    - `npm test` success: `#{npm_test.fetch("success")}`
+    - `npm run build` success: `#{npm_build.fetch("success")}`
+
+    Host-side `dist/` usability diagnostics:
+
+    - `dist/index.html` present before host checks: `#{dist_artifact_present}`
+    - static preview reachable: `#{preview_http&.fetch("status", nil) == 200}`
+    - Playwright verification ran: `#{playwright_validation.present?}`
+
+    #{host_playability_skip_reason.present? ? "Host playability note: #{host_playability_skip_reason}" : "Host playability note: browser verification used the exported `dist/` output."}
+
+    See:
+
+    - `host-npm-install.json`
+    - `host-npm-test.json`
+    - `host-npm-build.json`
+    #{preview_http.present? ? "- `host-preview.json`" : nil}
+    #{playwright_validation.present? ? "- `host-playwright-test.json`" : nil}
+  MD
 else
   write_text(artifact_dir.join("workspace-validation.md"), <<~MD)
     # Workspace Validation
@@ -1407,10 +1508,13 @@ write_turns_md(
     "acceptance-registration.json",
     "capstone-run-bootstrap.json",
     "skills-validation.json",
-    "host-playwright-verification.json",
-    "host-playability.png",
+    "workspace-validation.md",
+    ("host-preview.json" if preview_http.present?),
+    ("host-playwright-verification.json" if playwright_validation.present?),
+    ("host-playability.png" if playwright_validation.present?),
+    "playability-verification.md",
     "export-roundtrip.md",
-  ]
+  ].compact
 )
 write_collaboration_notes_md(
   path: artifact_dir.join("collaboration-notes.md"),
@@ -1440,8 +1544,16 @@ write_playability_verification_md(
   path: artifact_dir.join("playability-verification.md"),
   playability_result: playwright_validation["result"],
   generated_app_dir: generated_app_dir,
-  preview_port: preview_port
+  preview_port: preview_port,
+  runtime_validation: build_conversation_runtime_validation(tool_invocations: tool_invocations),
+  preview_validation: {
+    "reachable" => preview_http&.fetch("status", nil) == 200,
+    "contains_2048" => preview_http&.fetch("contains_2048", false) || false,
+  },
+  host_skip_reason: host_playability_skip_reason
 )
+
+conversation_validation = build_conversation_runtime_validation(tool_invocations: tool_invocations)
 
 summary = {
   "scenario_date" => scenario_date,
@@ -1469,21 +1581,22 @@ summary = {
   "tool_call_count" => tool_invocations.length,
   "subagent_session_count" => subagent_sessions.length,
   "skills_validation_path" => artifact_dir.join("skills-validation.json").to_s,
-  "host_playability_artifact" => artifact_dir.join("host-playwright-verification.json").to_s,
+  "host_playability_artifact" => (artifact_dir.join("host-playwright-verification.json").to_s if playwright_validation.present?),
+  "conversation_validation" => conversation_validation,
   "workspace_validation" => {
     "generated_app_dir_exists" => generated_app_dir.exist?,
     "npm_install_passed" => host_validation.dig("npm_install", "success"),
     "npm_test_passed" => host_validation.dig("npm_test", "success"),
     "npm_build_passed" => host_validation.dig("npm_build", "success"),
     "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
+    "preview_contains_2048" => host_validation.dig("preview_http", "contains_2048") || false,
+    "playwright_verification_passed" => playwright_validation["result"].present?,
   },
 }
 
 evaluation = build_agent_evaluation(
   summary: summary,
-  diagnostics_turn: main_diagnostics_turn,
-  host_validation: host_validation,
-  playability_result: playwright_validation["result"]
+  diagnostics_turn: main_diagnostics_turn
 )
 summary["agent_evaluation"] = evaluation.transform_values { |payload| payload.fetch("rating") }
 

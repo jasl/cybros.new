@@ -401,7 +401,7 @@ module Fenix
         @control_client.create_process_run!(
           agent_task_run_id: current_agent_task_run_id,
           tool_name: tool_call.fetch("tool_name"),
-          kind: tool_call.dig("arguments", "kind"),
+          kind: normalize_process_kind(tool_call.dig("arguments", "kind")),
           command_line: tool_call.dig("arguments", "command_line"),
           idempotency_key: tool_call.fetch("call_id"),
           metadata: {
@@ -412,6 +412,15 @@ module Fenix
             }.compact.presence,
           }
         )
+      end
+
+      def normalize_process_kind(kind)
+        case kind.to_s
+        when "", "background", "background_service", "command", "process", "web", "web_server", "server", "default"
+          "background_service"
+        else
+          kind
+        end
       end
 
       def tool_invocation_error_payload(error)

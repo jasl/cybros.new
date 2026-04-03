@@ -420,6 +420,28 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     ActiveJob::Base.singleton_class.define_method(:queue_adapter_name, original_queue_adapter_name)
   end
 
+  test "process_exec normalizes the process kind alias before provisioning" do
+    control_client = build_runtime_control_client
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "process_exec",
+          "kind" => "process",
+          "command_line" => "npm run preview -- --host 0.0.0.0 --port 4173",
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["process_exec"]
+        )
+      ),
+      control_client: control_client
+    )
+
+    assert_equal "completed", result.status
+    assert_equal ["background_service"], control_client.process_run_requests.map { |request| request.fetch("kind") }
+  end
+
   test "one-shot exec_command kills the spawned subprocess if command run activation is rejected" do
     control_client = build_runtime_control_client
     spawned_pid = nil

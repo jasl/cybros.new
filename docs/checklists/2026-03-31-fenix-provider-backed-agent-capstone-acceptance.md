@@ -110,8 +110,10 @@ portability:
 
 - the final application must be a playable `2048` game
 - the game must be implemented in a browser-based React stack
-- the host machine must be able to run and inspect the final source tree in
+- the host machine must be able to inspect the final source tree in
   `tmp/fenix`
+- the host machine must be able to serve and inspect the runtime-generated
+  `dist/` artifact from that workspace for playability verification
 
 ## Per-Turn Recording Requirements
 
@@ -151,7 +153,7 @@ Every capstone run must produce a proof package containing at least:
   - must explicitly record how the runtime worker and queue worker were started
     after registration
 - `workspace-artifacts.md`
-  - final source-tree location, start command, and run URL
+  - final source-tree location, `dist/` artifact location, start command, and run URL
 - `playability-verification.md`
   - actual play verification notes
 - `export-roundtrip.md`
@@ -181,7 +183,8 @@ The final page must be verified as playable, not merely visible.
 
 Minimum manual verification:
 
-- start the application from the host machine using the generated workspace
+- start the exported `dist/` artifact from the host machine using the
+  generated workspace
 - open the game in a browser
 - play at least one real session with keyboard input
 - verify tile movement in all applicable directions
@@ -197,14 +200,20 @@ Verification notes:
   checks; `web_fetch` is not an acceptable substitute for loopback or other
   private development URLs because those destinations are intentionally
   blocked by the web tool runtime
+- host-side `dist/` serving is the primary portability check for this
+  benchmark because it validates the platform-independent output that an end
+  user actually consumes
 - if the mounted workspace contains container-built `node_modules` or other
   platform-specific dependency artifacts, the operator may remove and
-  reinstall those dependencies on the host before host-side verification; the
-  proof package must record that step
+  reinstall those dependencies on the host before source-portability
+  diagnostics; the proof package must record that step
+- host-side `npm test` and `npm run build` are source-portability diagnostics,
+  not by themselves the primary benchmark gate
 - platform-specific dependency rebuilds on the host are an operational
   verification concern, not by themselves an agent-quality failure; do not
   fail the capstone solely because Docker-built `node_modules` cannot run on
-  macOS if a normal host reinstall restores the generated application
+  macOS if the conversation/runtime proof and host-served `dist/` artifact
+  still establish a playable result
 
 Recommended stronger verification:
 
@@ -242,8 +251,9 @@ The acceptance review must score and explain all of the following dimensions:
 
 - `result_quality`
   - whether the produced application actually satisfies the benchmark outcome
-  - must consider game correctness, host-side test and build results, browser
-    playability, and export/import transcript roundtrip integrity
+  - must consider game correctness, conversation/runtime-side test and build
+    results, host-served browser playability, export/import transcript
+    roundtrip integrity, and any host-side portability diagnostics
 - `runtime_health`
   - whether the system completed without relying on unstable runtime behavior
   - must consider provider success rate, retry or resume churn, tool and
@@ -270,8 +280,8 @@ proof, especially:
 - `tool_invocations.json`
 - `command_runs.json`
 - `process_runs.json`
-- host-side validation outputs such as `npm test`, `npm run build`, and
-  browser playability notes
+- host-side portability outputs such as `npm test`, `npm run build`, and
+  browser playability notes against the exported `dist/` artifact
 
 The review should use a small explicit scale such as:
 

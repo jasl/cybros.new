@@ -4,28 +4,6 @@ module Fenix
       TOPOLOGY = (ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}).deep_stringify_keys.freeze
       LOCAL_ACTIVE_JOB_ADAPTERS = %w[async inline test].freeze
       SOLID_QUEUE_ADAPTERS = %w[solid_queue].freeze
-      # Fenix is intentionally deployed on a single machine today. Registry-
-      # backed tools may use multiple local threads, but they are not treated as
-      # horizontally scalable cross-host workloads.
-      REGISTRY_BACKED_TOOL_NAMES = %w[
-        exec_command
-        command_run_list
-        command_run_read_output
-        command_run_terminate
-        command_run_wait
-        write_stdin
-        browser_list
-        browser_open
-        browser_session_info
-        browser_navigate
-        browser_get_content
-        browser_screenshot
-        browser_close
-        process_exec
-        process_list
-        process_proxy_info
-        process_read_output
-      ].freeze
       RUNTIME_PREPARE_ROUND_QUEUE = TOPOLOGY.dig("queues", "prepare_round", "name").freeze
       RUNTIME_PURE_TOOLS_QUEUE = TOPOLOGY.dig("queues", "pure_tools", "name").freeze
       RUNTIME_PROCESS_TOOLS_QUEUE = TOPOLOGY.dig("queues", "process_tools", "name").freeze
@@ -35,6 +13,10 @@ module Fenix
       UnsupportedActiveJobAdapterError = Class.new(StandardError)
 
       class << self
+        def registry_backed_tool_names
+          Fenix::Runtime::SystemToolRegistry.registry_backed_tool_names
+        end
+
         def assert_registry_backed_execution_supported!(tool_name:)
           return if local_active_job_adapter? || solid_queue_adapter?
 
@@ -51,7 +33,7 @@ module Fenix
         end
 
         def registry_backed_tool_name?(tool_name)
-          REGISTRY_BACKED_TOOL_NAMES.include?(tool_name.to_s)
+          registry_backed_tool_names.include?(tool_name.to_s)
         end
 
         def registry_backed_queue?(queue_name)
