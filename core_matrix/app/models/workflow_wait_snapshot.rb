@@ -76,11 +76,9 @@ class WorkflowWaitSnapshot
         blocking: true
       ).none?
     when "retryable_failure"
-      AgentTaskRun.where(
-        workflow_run: workflow_run,
-        public_id: blocking_resource_id,
-        lifecycle_state: "failed"
-      ).none?
+      retryable_failure_resolved_for?(workflow_run)
+    when "external_dependency_blocked"
+      blocked_workflow_node_resolved_for?(workflow_run)
     when "subagent_barrier"
       subagent_session_ids = Array(wait_reason_payload["subagent_session_ids"]).map(&:to_s)
       return true if subagent_session_ids.empty?
@@ -122,5 +120,29 @@ class WorkflowWaitSnapshot
     return if value.blank?
 
     Time.zone.parse(value)
+  end
+
+  def retryable_failure_resolved_for?(workflow_run)
+    case blocking_resource_type
+    when "AgentTaskRun"
+      AgentTaskRun.where(
+        workflow_run: workflow_run,
+        public_id: blocking_resource_id,
+        lifecycle_state: "failed"
+      ).none?
+    when "WorkflowNode"
+      blocked_workflow_node_resolved_for?(workflow_run)
+    else
+      false
+    end
+  end
+
+  def blocked_workflow_node_resolved_for?(workflow_run)
+    blocked_node = WorkflowNode.find_by(
+      workflow_run: workflow_run,
+      public_id: blocking_resource_id
+    )
+
+    blocked_node.blank? || !blocked_node.waiting?
   end
 end

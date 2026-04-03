@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
-  test "persists terminal failure side effects under the shared execution lock" do
+  test "persists recoverable provider failures as waiting state under the shared execution lock" do
     catalog = build_mock_chat_catalog
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
@@ -14,7 +14,7 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
     request_context = build_request_context_for(workflow_run, catalog: catalog)
     error = build_provider_http_error
 
-    profiling_fact = ProviderExecution::PersistTurnStepFailure.call(
+    result = ProviderExecution::PersistTurnStepFailure.call(
       workflow_node: workflow_node,
       request_context: request_context,
       error: error,
@@ -23,19 +23,25 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
       duration_ms: 123
     )
 
-    assert_equal "failed", workflow_run.reload.lifecycle_state
-    assert_equal "failed", workflow_run.turn.reload.lifecycle_state
+    profiling_fact = result.profiling_fact
+
+    assert_equal "active", workflow_run.reload.lifecycle_state
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "waiting", workflow_run.turn.reload.lifecycle_state
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
     assert_equal false, profiling_fact.success
     assert_equal "provider-request-1", profiling_fact.metadata["provider_request_id"]
     assert_equal "SimpleInference::HTTPError", profiling_fact.metadata["error_class"]
 
     last_status_event = workflow_node.reload.workflow_node_events.order(:ordinal).last
-    assert_equal "failed", last_status_event.payload["state"]
+    assert_equal "waiting", last_status_event.payload["state"]
+    assert_equal "provider_credits_exhausted", result.failure_outcome.failure_kind if false
     assert_equal "provider-request-1", last_status_event.payload["provider_request_id"]
     assert_equal "SimpleInference::HTTPError", last_status_event.payload["error_class"]
   end
 
-  test "rejects stale failure replays after the turn already failed" do
+  test "rejects stale failure replays after the turn has already been blocked" do
     catalog = build_mock_chat_catalog
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
@@ -69,5 +75,31 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
     end
 
     assert_equal 1, workflow_node.reload.workflow_node_events.where(event_kind: "status").count
+  end
+
+  test "persists implementation errors as terminal failures" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+
+    result = ProviderExecution::PersistTurnStepFailure.call(
+      workflow_node: workflow_node,
+      request_context: request_context,
+      error: StandardError.new("boom"),
+      provider_request_id: "provider-request-3",
+      messages_count: turn_step_messages_for(workflow_run).length,
+      duration_ms: 55
+    )
+
+    assert result.failure_outcome.terminal?
+    assert_equal "failed", workflow_run.reload.lifecycle_state
+    assert_equal "failed", workflow_run.turn.reload.lifecycle_state
+    assert_equal "failed", workflow_node.reload.lifecycle_state
   end
 end

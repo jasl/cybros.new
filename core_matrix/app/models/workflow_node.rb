@@ -16,6 +16,7 @@ class WorkflowNode < ApplicationRecord
       pending: "pending",
       queued: "queued",
       running: "running",
+      waiting: "waiting",
       completed: "completed",
       failed: "failed",
       canceled: "canceled",
@@ -151,7 +152,7 @@ class WorkflowNode < ApplicationRecord
       errors.add(:finished_at, "must be blank before execution finishes") if finished_at.present?
     end
 
-    if running?
+    if running? || waiting?
       errors.add(:started_at, "must exist while execution is running") if started_at.blank?
       errors.add(:finished_at, "must be blank while execution is running") if finished_at.present?
     end

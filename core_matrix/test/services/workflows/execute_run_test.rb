@@ -181,7 +181,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     assert_equal %w[running completed], workflow_node_events.map { |event| event.payload.fetch("state") }
   end
 
-  test "requeues the workflow node when the provider returns a rate limit response" do
+  test "blocks the workflow node when the provider returns a rate limit response" do
     catalog_definition = test_provider_catalog_definition.deep_dup
     catalog = build_test_provider_catalog_from(catalog_definition)
     adapter = Class.new(SimpleInference::HTTPAdapter) do
@@ -201,24 +201,22 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     end
 
     with_stubbed_provider_catalog(catalog) do
-      error = assert_raises(ProviderExecution::ProviderRequestGovernor::AdmissionRefused) do
-        Workflows::ExecuteNode.call(
-          workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
-          messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
-          adapter: adapter,
-          program_exchange: program_exchange
-        )
-      end
-
-      assert_equal "upstream_rate_limit", error.reason
+      Workflows::ExecuteNode.call(
+        workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
+        messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
+        adapter: adapter,
+        program_exchange: program_exchange
+      )
     end
 
     workflow_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "turn_step")
 
     assert workflow_run.reload.active?
-    assert workflow_run.turn.reload.active?
-    assert_equal "queued", workflow_node.lifecycle_state
-    assert_equal %w[running queued], workflow_run.workflow_node_events.order(:ordinal).map { |event| event.payload.fetch("state") }
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "waiting", workflow_run.turn.reload.lifecycle_state
+    assert_equal "waiting", workflow_node.lifecycle_state
+    assert_equal %w[running waiting], workflow_run.workflow_node_events.order(:ordinal).map { |event| event.payload.fetch("state") }
     assert_equal 0, UsageEvent.count
   end
 

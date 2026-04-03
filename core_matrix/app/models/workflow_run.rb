@@ -23,6 +23,7 @@ class WorkflowRun < ApplicationRecord
       manual_recovery_required: "manual_recovery_required",
       policy_gate: "policy_gate",
       retryable_failure: "retryable_failure",
+      external_dependency_blocked: "external_dependency_blocked",
     },
     validate: { allow_nil: true }
   enum :cancellation_reason_kind,

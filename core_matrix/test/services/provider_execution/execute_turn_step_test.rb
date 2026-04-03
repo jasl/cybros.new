@@ -4,6 +4,33 @@ require "action_cable/test_helper"
 class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
   include ActionCable::TestHelper
 
+  class RateLimitedAdapter < SimpleInference::HTTPAdapter
+    def call(_env)
+      {
+        status: 429,
+        headers: {
+          "content-type" => "application/json",
+          "retry-after" => "30",
+          "x-request-id" => "rate-limit-request-1",
+        },
+        body: JSON.generate({ error: { message: "Too many requests" } }),
+      }
+    end
+  end
+
+  class CreditsExhaustedAdapter < SimpleInference::HTTPAdapter
+    def call(_env)
+      {
+        status: 402,
+        headers: {
+          "content-type" => "application/json",
+          "x-request-id" => "credits-request-1",
+        },
+        body: JSON.generate({ error: { message: "This request requires more credits, or fewer max_tokens." } }),
+      }
+    end
+  end
+
   test "uses the persisted execution snapshot contract for provider request context" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
@@ -263,7 +290,61 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal 0, WorkflowNodeEvent.where(workflow_node: workflow_node, event_kind: "status").count
   end
 
-  test "persists a failed turn when the provider round budget is exceeded" do
+  test "enters waiting instead of failing when the provider is rate limited" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
+
+    broadcasts = capture_broadcasts(stream_name) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_node,
+          messages: turn_step_messages_for(workflow_run),
+          adapter: RateLimitedAdapter.new,
+          program_exchange: program_exchange
+        )
+      end
+    end
+
+    assert_equal "active", workflow_run.reload.lifecycle_state
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "waiting", workflow_run.turn.reload.lifecycle_state
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
+    assert_equal ["runtime.workflow_node.started", "runtime.workflow_node.waiting"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal "provider_rate_limited", broadcasts.last.fetch("payload").fetch("failure_kind")
+  end
+
+  test "enters manual waiting instead of failing when provider credits are exhausted" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: CreditsExhaustedAdapter.new,
+        program_exchange: program_exchange
+      )
+    end
+
+    assert_equal "waiting", workflow_run.reload.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal "provider_credits_exhausted", workflow_run.wait_reason_payload["failure_kind"]
+  end
+
+  test "blocks the step for retry instead of failing when the provider round budget is exceeded" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(
       response_bodies: [
@@ -327,31 +408,29 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
-      error = assert_raises(ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded) do
-        with_stubbed_provider_catalog(catalog) do
-          ProviderExecution::ExecuteTurnStep.call(
-            workflow_node: workflow_node,
-            messages: turn_step_messages_for(workflow_run),
-            adapter: adapter,
-            program_exchange: program_exchange
-          )
-        end
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_node,
+          messages: turn_step_messages_for(workflow_run),
+          adapter: adapter,
+          program_exchange: program_exchange
+        )
       end
-
-      assert_equal "provider round loop exceeded 1 rounds", error.message
     end
 
-    assert_equal "failed", workflow_run.reload.lifecycle_state
-    assert_equal "failed", workflow_run.turn.reload.lifecycle_state
-    assert_equal "failed", workflow_node.reload.lifecycle_state
+    assert_equal "active", workflow_run.reload.lifecycle_state
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "retryable_failure", workflow_run.wait_reason_kind
+    assert_equal "waiting", workflow_run.turn.reload.lifecycle_state
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
     assert_equal(
       [
         "runtime.workflow_node.started",
-        "runtime.workflow_node.failed",
+        "runtime.workflow_node.waiting",
       ],
       broadcasts.map { |payload| payload.fetch("event_kind") }
     )
-    assert_equal "provider_round_limit_exceeded", broadcasts.second.fetch("payload").fetch("code")
+    assert_equal "provider_round_limit_exceeded", broadcasts.second.fetch("payload").fetch("failure_kind")
   end
 
   private

@@ -1,5 +1,7 @@
 module ProviderExecution
   class PersistTurnStepFailure
+    Result = Struct.new(:profiling_fact, :failure_outcome, keyword_init: true)
+
     def self.call(...)
       new(...).call
     end
@@ -17,6 +19,8 @@ module ProviderExecution
 
     def call
       profiling_fact = nil
+      failure_outcome = nil
+      classification = ProviderExecution::FailureClassification.call(error: @error)
 
       ApplicationRecord.transaction do
         ProviderExecution::WithFreshExecutionStateLock.call(workflow_node: @workflow_node) do |current_node, current_workflow_run, current_turn|
@@ -42,41 +46,27 @@ module ProviderExecution
             }
           )
 
-          current_turn.update!(lifecycle_state: "failed")
-          current_node.update!(
-            lifecycle_state: "failed",
-            started_at: current_node.started_at || Time.current,
-            finished_at: Time.current
-          )
-          append_status_event!(
+          failure_outcome = Workflows::BlockNodeForFailure.call(
             workflow_node: current_node,
-            workflow_run: current_workflow_run,
-            state: "failed",
-            provider_request_id: @provider_request_id,
-            execution_profile_fact_id: profiling_fact.id,
-            error_class: @error.class.name,
-            error_message: @error.message
+            failure_category: classification.failure_category,
+            failure_kind: classification.failure_kind,
+            retry_strategy: classification.retry_strategy,
+            max_auto_retries: classification.max_auto_retries,
+            next_retry_at: classification.next_retry_at,
+            last_error_summary: classification.last_error_summary,
+            metadata: {
+              "provider_request_id" => @provider_request_id,
+              "provider_handle" => @request_context.provider_handle,
+              "model_ref" => @request_context.model_ref,
+              "wire_api" => @request_context.wire_api,
+              "execution_profile_fact_id" => profiling_fact.id,
+              "error_class" => @error.class.name,
+            }
           )
         end
       end
 
-      Workflows::RefreshRunLifecycle.call(workflow_run: @workflow_run, terminal_state: "failed")
-      profiling_fact
-    end
-
-    private
-
-    def append_status_event!(workflow_node:, workflow_run:, state:, **payload)
-      workflow_node.with_lock do
-        WorkflowNodeEvent.create!(
-          installation: workflow_run.installation,
-          workflow_run: workflow_run,
-          workflow_node: workflow_node,
-          ordinal: workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
-          event_kind: "status",
-          payload: payload.merge("state" => state)
-        )
-      end
+      Result.new(profiling_fact: profiling_fact, failure_outcome: failure_outcome)
     end
   end
 end

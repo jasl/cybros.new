@@ -23,7 +23,7 @@ This document reflects the landed scheduler and close-fence behavior.
   - `AgentProgramVersion.public_id` for `agent_unavailable`
   - barrier artifact keys for `subagent_barrier`
   - blocker `public_id` values for `human_interaction`, `retryable_failure`,
-    and `policy_gate`
+    `external_dependency_blocked`, and `policy_gate`
 - `WorkflowRun` also persists workflow-yield continuation hints through:
   - `resume_policy`
   - `resume_metadata`
@@ -37,6 +37,7 @@ This document reflects the landed scheduler and close-fence behavior.
   - `manual_recovery_required`
   - `policy_gate`
   - `retryable_failure`
+  - `external_dependency_blocked`
 - `waiting` requires a reason kind and `waiting_since_at`
 - `ready` must not retain stale wait fields or blocking-resource references
 
@@ -166,12 +167,37 @@ This document reflects the landed scheduler and close-fence behavior.
 - retryable in-place step failures move the workflow into:
   - `wait_state = "waiting"`
   - `wait_reason_kind = "retryable_failure"`
-  - `blocking_resource_type = "AgentTaskRun"`
-  - `blocking_resource_id = <failed agent task public_id>`
-- the retry gate stores `logical_work_id`, `attempt_no`, `retry_scope`, and
-  the last error summary in `wait_reason_payload`
-- `Workflows::StepRetry` creates a new `AgentTaskRun` inside the same turn and
-  workflow and delivers it through the mailbox as a priority-2 retry attempt
+  - `blocking_resource_type = "AgentTaskRun"` for mailbox-owned agent work, or
+    `blocking_resource_type = "WorkflowNode"` for provider/tool-step contract
+    failures
+- external dependency failures move the workflow into:
+  - `wait_state = "waiting"`
+  - `wait_reason_kind = "external_dependency_blocked"`
+  - `blocking_resource_type = "WorkflowNode"`
+  - `blocking_resource_id = <blocked workflow node public_id>`
+- blocked step waits store:
+  - `failure_category`
+  - `failure_kind`
+  - `retry_scope`
+  - `resume_mode`
+  - `retry_strategy`
+  - `attempt_no`
+  - `max_auto_retries`
+  - `next_retry_at`
+  - `last_error_summary`
+  in `wait_reason_payload`
+- `Workflows::StepRetry` remains the explicit same-step retry boundary:
+  - for `AgentTaskRun` blockers it creates a new `AgentTaskRun` inside the
+    same turn and workflow and delivers it through the mailbox as a priority-2
+    retry attempt
+  - for `WorkflowNode` blockers it resumes the blocked node in place through
+    `Workflows::ResumeBlockedStep`
+- automatic step retries are explicit workflow waits, not hidden queue
+  retries:
+  - `Workflows::BlockNodeForFailure` stores the waiting contract on the run,
+    turn, and workflow node
+  - `Workflows::ResumeBlockedStepJob` is scheduled only for automatic retry
+    cases and later re-enters the same blocked node
 - step retry is rejected once the turn has been fenced by
   `turn_interrupt`
 

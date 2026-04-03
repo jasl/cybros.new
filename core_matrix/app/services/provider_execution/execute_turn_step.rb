@@ -91,17 +91,18 @@ module ProviderExecution
         raise StaleExecutionError, "provider execution result is stale"
       end
 
-      requeue_for_provider_retry!(error)
-      broadcast_workflow_node_event!(
-        "runtime.workflow_node.queued",
-        state: "queued",
-        code: "provider_request_deferred",
-        reason: error.reason,
-        retry_at: error.retry_at.iso8601
+      failure_result = ProviderExecution::PersistTurnStepFailure.call(
+        workflow_node: @workflow_node,
+        request_context: @request_context,
+        error: error,
+        provider_request_id: @provider_request_id,
+        messages_count: @messages.length,
+        duration_ms: 0
       )
-      raise
+      handle_failure_outcome!(failure_result.failure_outcome)
+      @workflow_node.reload
     rescue ProviderExecution::ExecuteRoundLoop::RoundRequestFailed => dispatch_error
-      ProviderExecution::PersistTurnStepFailure.call(
+      failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
         error: dispatch_error.error,
@@ -109,16 +110,12 @@ module ProviderExecution
         messages_count: dispatch_error.messages_count,
         duration_ms: dispatch_error.duration_ms
       )
-      output_stream.fail!(code: "provider_request_failed", message: dispatch_error.error.message) if output_stream.started?
-      broadcast_workflow_node_event!(
-        "runtime.workflow_node.failed",
-        state: "failed",
-        provider_request_id: dispatch_error.provider_request_id,
-        error_message: dispatch_error.error.message
-      )
-      raise dispatch_error.error
+      handle_failure_outcome!(failure_result.failure_outcome)
+      raise dispatch_error.error if failure_result.failure_outcome.terminal?
+
+      @workflow_node.reload
     rescue ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded => error
-      ProviderExecution::PersistTurnStepFailure.call(
+      failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
         error: error,
@@ -126,14 +123,10 @@ module ProviderExecution
         messages_count: error.messages_count,
         duration_ms: 0
       )
-      output_stream.fail!(code: "provider_round_limit_exceeded", message: error.message) if output_stream.started?
-      broadcast_workflow_node_event!(
-        "runtime.workflow_node.failed",
-        state: "failed",
-        code: "provider_round_limit_exceeded",
-        error_message: error.message
-      )
-      raise
+      handle_failure_outcome!(failure_result.failure_outcome)
+      raise if failure_result.failure_outcome.terminal?
+
+      @workflow_node.reload
     rescue StaleExecutionError
       if output_stream.started?
         output_stream.fail!(code: "stale_execution", message: "provider execution result is stale")
@@ -192,31 +185,29 @@ module ProviderExecution
       end
     end
 
-    def requeue_for_provider_retry!(error)
-      @workflow_node.with_lock do
-        @workflow_node.reload
-        return if @workflow_node.terminal?
-
-        @workflow_node.update!(
-          lifecycle_state: "queued",
-          started_at: nil,
-          finished_at: nil
-        )
-
-        WorkflowNodeEvent.create!(
-          installation: @workflow_run.installation,
-          workflow_run: @workflow_run,
-          workflow_node: @workflow_node,
-          ordinal: @workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
-          event_kind: "status",
-          payload: {
-            "state" => "queued",
-            "code" => "provider_request_deferred",
-            "reason" => error.reason,
-            "retry_at" => error.retry_at.iso8601,
-          }
+    def handle_failure_outcome!(failure_outcome)
+      if output_stream.started?
+        output_stream.fail!(
+          code: failure_stream_code_for(failure_outcome),
+          message: failure_outcome.failure_kind.to_s.humanize
         )
       end
+
+      event_kind = failure_outcome.terminal? ? "runtime.workflow_node.failed" : "runtime.workflow_node.waiting"
+      payload = {
+        "state" => failure_outcome.terminal? ? "failed" : "waiting",
+        "failure_category" => failure_outcome.failure_category,
+        "failure_kind" => failure_outcome.failure_kind,
+        "retry_strategy" => failure_outcome.retry_strategy,
+        "retry_at" => failure_outcome.next_retry_at&.iso8601,
+      }.compact
+      broadcast_workflow_node_event!(event_kind, **payload)
+    end
+
+    def failure_stream_code_for(failure_outcome)
+      return "provider_request_failed" if failure_outcome.terminal?
+
+      "provider_request_blocked"
     end
 
     def broadcast_workflow_node_event!(event_kind, **payload)

@@ -306,12 +306,12 @@ module ProviderExecutionTestSupport
     )
   end
 
-  def build_provider_http_error(message: "provider request failed", request_id: "execute-turn-step-request-1")
+  def build_provider_http_error(message: "provider request failed", request_id: "execute-turn-step-request-1", status: 500, headers: nil, body: nil)
     response = SimpleInference::Response.new(
-      status: 500,
-      headers: { "x-request-id" => request_id },
-      body: { "error" => { "message" => message } },
-      raw_body: JSON.generate({ "error" => { "message" => message } })
+      status: status,
+      headers: { "x-request-id" => request_id }.merge(headers || {}),
+      body: body || { "error" => { "message" => message } },
+      raw_body: JSON.generate(body || { "error" => { "message" => message } })
     )
 
     SimpleInference::HTTPError.new(message, response: response)

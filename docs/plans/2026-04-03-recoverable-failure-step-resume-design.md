@@ -171,14 +171,14 @@ Responsibilities:
 
 ### Automatic retry driver
 
-Introduce a scheduler job:
+Introduce a dedicated resume job:
 
-- `Workflows::ResumeDueBlockedNodesJob`
+- `Workflows::ResumeBlockedStepJob`
 
 Responsibilities:
 
-- locate waiting workflow runs with automatic retry and due `next_retry_at`
-- resolve the blocked workflow node
+- wake only the specific blocked workflow run scheduled for automatic retry
+- verify the workflow is still waiting on the same blocked workflow node
 - invoke `ResumeBlockedStep`
 
 ## Existing paths to remove or replace

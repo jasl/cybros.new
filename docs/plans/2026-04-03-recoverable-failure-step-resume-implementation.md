@@ -135,22 +135,22 @@
 
 - Make it the terminal-only path, or replace its callers with the new blocking service
 
-### Task 6: Add due-retry scheduler
+### Task 6: Add blocked-step resume job
 
 **Files:**
-- Create: `core_matrix/app/jobs/workflows/resume_due_blocked_nodes_job.rb`
-- Create: `core_matrix/test/jobs/workflows/resume_due_blocked_nodes_job_test.rb`
+- Create: `core_matrix/app/jobs/workflows/resume_blocked_step_job.rb`
+- Create: `core_matrix/test/jobs/workflows/resume_blocked_step_job_test.rb`
 
-**Step 1: Query due blocked workflow runs**
+**Step 1: Resume the specific blocked workflow run**
 
-- `wait_state = waiting`
-- `blocking_resource_type = "WorkflowNode"`
-- `retry_strategy = automatic`
-- `next_retry_at <= Time.current`
+- load the waiting workflow run by `public_id`
+- return unless it is still blocked on a `WorkflowNode`
+- call `Workflows::ResumeBlockedStep`
 
-**Step 2: Resume**
+**Step 2: Schedule it only from blocked waiting transitions**
 
-- Call `Workflows::ResumeBlockedStep`
+- automatic retry schedules the job with `wait_until: next_retry_at`
+- manual waiting never schedules the job
 
 ### Task 7: Preserve existing manual paths
 
@@ -242,4 +242,3 @@ bundle exec rake
 
 - 2048 checklist
 - blocked failure recovery scenario
-

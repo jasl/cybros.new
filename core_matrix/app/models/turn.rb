@@ -5,6 +5,7 @@ class Turn < ApplicationRecord
     {
       queued: "queued",
       active: "active",
+      waiting: "waiting",
       completed: "completed",
       failed: "failed",
       canceled: "canceled",

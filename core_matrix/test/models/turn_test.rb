@@ -145,6 +145,48 @@ class TurnTest < ActiveSupport::TestCase
     assert_equal :belongs_to, Turn.reflect_on_association(:execution_runtime).macro
   end
 
+  test "treats waiting as a non terminal lifecycle state" do
+    installation = create_installation!
+    agent_program = create_agent_program!(installation: installation)
+    user = create_user!(installation: installation)
+    user_program_binding = create_user_program_binding!(
+      installation: installation,
+      user: user,
+      agent_program: agent_program
+    )
+    workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      user_program_binding: user_program_binding
+    )
+    conversation = Conversation.create!(
+      installation: installation,
+      workspace: workspace,
+      agent_program: agent_program,
+      kind: "root",
+      purpose: "interactive",
+      lifecycle_state: "active"
+    )
+    agent_program_version = create_agent_program_version!(installation: installation, agent_program: agent_program)
+    turn = Turn.new(
+      installation: installation,
+      conversation: conversation,
+      agent_program_version: agent_program_version,
+      sequence: 1,
+      lifecycle_state: "waiting",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      pinned_program_version_fingerprint: agent_program_version.fingerprint,
+      feature_policy_snapshot: conversation.feature_policy_snapshot,
+      resolved_config_snapshot: {},
+      execution_snapshot_payload: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert turn.valid?
+    refute turn.terminal?
+  end
+
   test "requires the frozen program version to belong to the conversation program" do
     installation = create_installation!
     agent_program = create_agent_program!(installation: installation, key: "main-program")

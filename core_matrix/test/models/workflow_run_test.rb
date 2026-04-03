@@ -120,6 +120,41 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert_includes ready_with_stale_payload.errors[:wait_reason_payload], "must be empty when workflow run is ready"
   end
 
+  test "accepts external dependency blocked as a structured wait reason" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Blocked input",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    workflow_run = WorkflowRun.new(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: turn,
+      lifecycle_state: "active",
+      wait_state: "waiting",
+      wait_reason_kind: "external_dependency_blocked",
+      wait_reason_payload: {
+        "failure_kind" => "provider_credits_exhausted",
+        "retry_scope" => "step",
+        "retry_strategy" => "manual",
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "WorkflowNode",
+      blocking_resource_id: "workflow-node-1"
+    )
+
+    assert workflow_run.valid?
+  end
+
   test "requires deletion cancellation fields to be paired" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

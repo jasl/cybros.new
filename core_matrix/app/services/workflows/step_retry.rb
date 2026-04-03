@@ -12,6 +12,8 @@ module Workflows
     def call
       validate_retry_gate!
 
+      return retry_blocked_workflow_node! if @workflow_run.blocking_resource_type == "WorkflowNode"
+
       ApplicationRecord.transaction do
         Workflows::WithMutableWorkflowContext.call(
           workflow_run: @workflow_run,
@@ -81,6 +83,11 @@ module Workflows
       unless workflow_run.wait_reason_payload["retry_scope"] == "step"
         raise_invalid!(workflow_run, :wait_reason_payload, "must use step retry scope")
       end
+
+      if workflow_run.blocking_resource_type.present? &&
+          !workflow_run.blocking_resource_type.in?(%w[AgentTaskRun WorkflowNode])
+        raise_invalid!(workflow_run, :blocking_resource_type, "must target a retriable workflow resource")
+      end
     end
 
     def with_failed_task_lock(workflow_run)
@@ -96,6 +103,10 @@ module Workflows
         workflow_run: workflow_run,
         public_id: workflow_run.blocking_resource_id
       )
+    end
+
+    def retry_blocked_workflow_node!
+      Workflows::ResumeBlockedStep.call(workflow_run: @workflow_run)
     end
 
     def raise_invalid!(record, attribute, message)

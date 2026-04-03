@@ -127,4 +127,40 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     assert_equal conversation, title_update_node.conversation
     assert_equal turn, title_update_node.turn
   end
+
+  test "allows a waiting node to retain started_at without requiring finished_at" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Input",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    workflow_node = WorkflowNode.new(
+      installation: workflow_run.installation,
+      workflow_run: workflow_run,
+      workspace: conversation.workspace,
+      conversation: conversation,
+      turn: turn,
+      ordinal: 0,
+      node_key: "waiting-node",
+      node_type: "turn_step",
+      lifecycle_state: "waiting",
+      presentation_policy: "internal_only",
+      decision_source: "system",
+      started_at: Time.current,
+      finished_at: nil,
+      metadata: {}
+    )
+
+    assert workflow_node.valid?
+    refute workflow_node.terminal?
+  end
 end

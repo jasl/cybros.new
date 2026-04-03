@@ -43,4 +43,31 @@ class WorkflowWaitSnapshotTest < ActiveSupport::TestCase
 
     assert snapshot.resolved_for?(context[:workflow_run].reload)
   end
+
+  test "recognizes when a blocked workflow node is still unresolved" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(lifecycle_state: "waiting", started_at: 1.minute.ago, finished_at: nil)
+    workflow_run.turn.update!(lifecycle_state: "waiting")
+    workflow_run.update!(
+      wait_state: "waiting",
+      wait_reason_kind: "external_dependency_blocked",
+      wait_reason_payload: {
+        "failure_kind" => "provider_rate_limited",
+        "retry_scope" => "step",
+        "retry_strategy" => "automatic",
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "WorkflowNode",
+      blocking_resource_id: workflow_node.public_id
+    )
+
+    snapshot = WorkflowWaitSnapshot.capture(workflow_run)
+
+    refute snapshot.resolved_for?(workflow_run)
+
+    workflow_node.update!(lifecycle_state: "queued", started_at: nil, finished_at: nil)
+
+    assert snapshot.resolved_for?(workflow_run.reload)
+  end
 end

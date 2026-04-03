@@ -34,8 +34,10 @@ module ProviderExecution
       Workflows::DispatchRunnableNodes.call(workflow_run: current_node.workflow_run)
       result
     rescue StandardError => error
-      fail_node!(current_node || @workflow_node, error)
-      raise
+      failure_result = fail_node!(current_node || @workflow_node, error)
+      raise if failure_result.terminal?
+
+      failure_result.workflow_node
     end
 
     private
@@ -63,33 +65,20 @@ module ProviderExecution
     end
 
     def fail_node!(workflow_node, error)
-      ApplicationRecord.transaction do
-        workflow_node.with_lock do
-          workflow_node.reload
-          return if workflow_node.terminal?
+      classification = ProviderExecution::FailureClassification.call(error: error)
 
-          workflow_node.turn.update!(lifecycle_state: "failed")
-          workflow_node.update!(
-            lifecycle_state: "failed",
-            started_at: workflow_node.started_at || Time.current,
-            finished_at: Time.current
-          )
-          WorkflowNodeEvent.create!(
-            installation: workflow_node.installation,
-            workflow_run: workflow_node.workflow_run,
-            workflow_node: workflow_node,
-            ordinal: workflow_node.workflow_node_events.maximum(:ordinal).to_i + 1,
-            event_kind: "status",
-            payload: {
-              "state" => "failed",
-              "error_class" => error.class.name,
-              "error_message" => error.message,
-            }
-          )
-        end
-      end
-
-      Workflows::RefreshRunLifecycle.call(workflow_run: workflow_node.workflow_run, terminal_state: "failed")
+      Workflows::BlockNodeForFailure.call(
+        workflow_node: workflow_node,
+        failure_category: classification.failure_category,
+        failure_kind: classification.failure_kind,
+        retry_strategy: classification.retry_strategy,
+        max_auto_retries: classification.max_auto_retries,
+        next_retry_at: classification.next_retry_at,
+        last_error_summary: classification.last_error_summary,
+        metadata: {
+          "error_class" => error.class.name,
+        }
+      )
     end
 
     def raise_invalid!(record, attribute, message)

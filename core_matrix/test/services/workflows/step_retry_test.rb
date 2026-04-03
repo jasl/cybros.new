@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Workflows::StepRetryTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "creates a new in-place attempt inside the same turn and workflow" do
     context = build_agent_control_context!
     failed_task = create_agent_task_run!(
@@ -221,6 +223,32 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
         logical_work_id: failed_task.logical_work_id,
         attempt_no: 2
       ).count
+  end
+
+  test "resumes a retryable blocked workflow node in place" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(lifecycle_state: "waiting", started_at: 1.minute.ago, finished_at: nil)
+    workflow_run.turn.update!(lifecycle_state: "waiting")
+    workflow_run.update!(
+      wait_state: "waiting",
+      wait_reason_kind: "retryable_failure",
+      wait_reason_payload: {
+        "failure_kind" => "provider_round_limit_exceeded",
+        "retry_scope" => "step",
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "WorkflowNode",
+      blocking_resource_id: workflow_node.public_id
+    )
+
+    assert_enqueued_with(job: Workflows::ExecuteNodeJob, args: [workflow_node.public_id]) do
+      resumed_node = Workflows::StepRetry.call(workflow_run: workflow_run)
+      assert_equal workflow_node.public_id, resumed_node.public_id
+    end
+
+    assert_equal "queued", workflow_node.reload.lifecycle_state
+    assert_equal "ready", workflow_run.reload.wait_state
   end
 
   private

@@ -1,6 +1,6 @@
 module Workflows
   class RefreshRunLifecycle
-    ACTIVE_NODE_STATES = %w[pending queued running].freeze
+    ACTIVE_NODE_STATES = %w[pending queued running waiting].freeze
 
     def self.call(...)
       new(...).call
