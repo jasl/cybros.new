@@ -4,9 +4,11 @@ This directory contains active execution plans for `core_matrix`.
 
 ## Current Status (`2026-04-03`)
 
-The current active planning document in this directory is:
+The current active planning documents in this directory are:
 
 - [2026-04-03-multi-round-architecture-audit-and-reset-framework.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-multi-round-architecture-audit-and-reset-framework.md)
+- [2026-04-03-round-1-architecture-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-audit-design.md)
+- [2026-04-03-round-1-architecture-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-reset.md)
 
 Earlier execution plans, implementation records, and accepted reset designs
 were archived to
