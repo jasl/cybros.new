@@ -24,7 +24,8 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     assert_equal scenario.fetch(:mailbox_item).public_id, assignment.fetch("item_id")
     assert_equal "execution_assignment", assignment.fetch("item_type")
     assert_equal "program", assignment.fetch("runtime_plane")
-    assert_equal context[:agent_program].public_id, assignment.fetch("target_ref")
+    refute assignment.key?("target_kind")
+    refute assignment.key?("target_ref")
     refute assignment.fetch("payload").key?("runtime_plane")
 
     started = report_execution_started(

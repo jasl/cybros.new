@@ -1,8 +1,0 @@
-{
-  "command": "docker exec fenix-capstone sh -lc cd /rails && bin/rails db:prepare",
-  "cwd": "/Users/jasl/Workspaces/Ruby/cybros/core_matrix",
-  "success": true,
-  "exit_status": 0,
-  "stdout": "",
-  "stderr": ""
-}

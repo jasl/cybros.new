@@ -192,7 +192,6 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         resource_id: process_run.public_id,
         runtime_plane: "environment",
         execution_runtime_id: context[:execution_runtime].public_id,
-        target_ref: context[:execution_runtime].public_id,
         close_outcome_kind: "graceful",
         close_outcome_payload: { "signal" => "SIGINT" },
       },

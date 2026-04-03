@@ -1,8 +1,8 @@
 {
   "ignored_warnings": [
     {
-      "fingerprint": "279a8d48b8b4f3acd7836f2dde5f5cc29922582d10b1581e343a3fdeec42f6c7",
-      "note": "Manual acceptance helper launches fixed docker runtime commands against a local test container."
+      "fingerprint": "51bf5186591a2b0b0fa3e2f0426da583d0ab515dc1ac1f8d680eb528422aeb95",
+      "note": "Manual acceptance helper starts fixed docker runtime worker commands against a local test container without shell interpolation."
     },
     {
       "fingerprint": "f51d07ef7f06a4cde6c0f9b59eb16497b4fb1ff5ff7dc2529a416254ec735bd4",

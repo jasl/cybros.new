@@ -20,7 +20,10 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal mailbox_item.fetch("logical_work_id"), runtime_execution.logical_work_id
     assert_equal mailbox_item.fetch("attempt_no"), runtime_execution.attempt_no
     assert_equal mailbox_item.fetch("runtime_plane"), runtime_execution.runtime_plane
-    assert_equal mailbox_item, runtime_execution.mailbox_item_payload
+    assert_equal "execution_assignment", runtime_execution.item_type
+    assert_equal "execution_assignment", runtime_execution.request_kind
+    assert_equal mailbox_item.fetch("payload"), runtime_execution.request_payload
+    assert_equal mailbox_item, runtime_execution.to_mailbox_item
 
     assert_enqueued_jobs 0 do
       duplicate = Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
@@ -153,15 +156,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
-    runtime_execution = RuntimeExecution.create!(
-      agent_task_run_id: mailbox_item.dig("payload", "task", "agent_task_run_id"),
-      mailbox_item_id: mailbox_item.fetch("item_id"),
-      protocol_message_id: mailbox_item.fetch("protocol_message_id"),
-      logical_work_id: mailbox_item.fetch("logical_work_id"),
-      attempt_no: mailbox_item.fetch("attempt_no"),
-      runtime_plane: mailbox_item.fetch("runtime_plane"),
-      mailbox_item_payload: mailbox_item
-    )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     assert_nil runtime_execution.enqueued_at
 

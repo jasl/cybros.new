@@ -31,8 +31,6 @@ module AgentControl
         target_agent_program_version: @agent_program_version,
         item_type: "agent_program_request",
         runtime_plane: "program",
-        target_kind: "agent_program_version",
-        target_ref: @agent_program_version.public_id,
         logical_work_id: @logical_work_id,
         attempt_no: @attempt_no,
         protocol_message_id: @protocol_message_id,

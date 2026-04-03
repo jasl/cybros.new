@@ -179,6 +179,22 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     assert_includes error.message, "subagent_spawn"
   end
 
+  test "conversation preview does not instantiate a synthetic turn" do
+    registration = register_profile_aware_runtime!
+    conversation = create_root_conversation_for!(registration)
+    original_new = Turn.method(:new)
+
+    Turn.define_singleton_method(:new) do |*args, **kwargs|
+      raise "unexpected synthetic turn preview"
+    end
+
+    contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
+
+    assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
+  ensure
+    Turn.define_singleton_method(:new, original_new) if original_new
+  end
+
   test "subagent spawn schema advertises runtime profile choices and default alias" do
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)

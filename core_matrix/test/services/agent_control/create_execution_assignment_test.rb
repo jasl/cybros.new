@@ -250,7 +250,6 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
     serialized.merge(
       "item_id" => "mailbox-item-public-id",
-      "target_ref" => "agent-program-public-id",
       "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
       "protocol_message_id" => "kernel-assignment-message-id",
       "payload" => payload

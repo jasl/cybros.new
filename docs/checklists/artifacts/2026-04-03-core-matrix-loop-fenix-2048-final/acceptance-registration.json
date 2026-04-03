@@ -1,12 +1,12 @@
 {
-  "agent_program_id": "019d5091-027a-7d0b-a38f-241e3254f8a1",
+  "agent_program_id": "019d52da-cdf9-72fa-9ca3-94b87091d175",
   "agent_program_display_name": "Bundled Fenix",
-  "agent_program_version_id": "019d5091-0284-7915-b4bb-7ba5cfe83a6e",
-  "execution_runtime_id": "019d5091-026c-7800-bfc8-e0bf4b410e88",
+  "agent_program_version_id": "019d52da-ce01-7da4-9b6c-c48e27e8ed76",
+  "execution_runtime_id": "019d52da-cdec-7834-850f-6eb59ea31d2d",
   "execution_runtime_display_name": "Bundled Fenix Runtime",
-  "agent_session_id": "019d5091-0294-76d1-b3b4-d1204bd7d0b2",
-  "execution_session_id": "019d5091-029f-7530-abac-c6647834a165",
+  "agent_session_id": "019d52da-ce11-7491-9ab9-0998779b140b",
+  "execution_session_id": "019d52da-ce1f-78da-bd12-50ef9f2b8d0c",
   "runtime_fingerprint": "capstone-fenix-execution-runtime-v1",
   "program_fingerprint": "capstone-fenix-agent-program-v1",
-  "machine_credential_redacted": "d1842ecd83d9dd79476df058e0d9f477d75deb21a060232edf0406482a470a5e"
+  "machine_credential_redacted": "15109de50cf8bb047347d53d9ff7a6a830112f5a1d985d0e63d993fd48b621c7"
 }

@@ -3,80 +3,16 @@ module Fenix
     class ProjectToolResult
       def self.call(tool_call:, tool_result:)
         tool_name = tool_call.fetch("tool_name")
+        projector = Fenix::Hooks::ToolResultProjectionRegistry.fetch!(tool_name)
 
-        case tool_name
-        when "calculator"
-          {
-            "tool_name" => tool_name,
-            "content" => "The calculator returned #{tool_result}.",
-          }
-        when "browser_close"
-          project_browser_close(tool_name:, tool_result:)
-        when "browser_get_content"
-          project_browser_get_content(tool_name:, tool_result:)
-        when "browser_list"
-          project_browser_list(tool_name:, tool_result:)
-        when "browser_navigate"
-          project_browser_navigate(tool_name:, tool_result:)
-        when "browser_open"
-          project_browser_open(tool_name:, tool_result:)
-        when "browser_session_info"
-          project_browser_session_info(tool_name:, tool_result:)
-        when "browser_screenshot"
-          project_browser_screenshot(tool_name:, tool_result:)
-        when "exec_command"
-          project_exec_command(tool_name:, tool_result:)
-        when "firecrawl_scrape"
-          project_firecrawl_scrape(tool_name:, tool_result:)
-        when "firecrawl_search"
-          project_search_results(tool_name:, tool_result:)
-        when "memory_append_daily"
-          project_memory_store(tool_name:, tool_result:)
-        when "memory_compact_summary"
-          project_memory_compact_summary(tool_name:, tool_result:)
-        when "memory_get"
-          project_memory_get(tool_name:, tool_result:)
-        when "memory_list"
-          project_memory_list(tool_name:, tool_result:)
-        when "memory_search"
-          project_memory_search(tool_name:, tool_result:)
-        when "memory_store"
-          project_memory_store(tool_name:, tool_result:)
-        when "process_exec"
-          project_process_exec(tool_name:, tool_result:)
-        when "process_list"
-          project_process_list(tool_name:, tool_result:)
-        when "process_proxy_info"
-          project_process_proxy_info(tool_name:, tool_result:)
-        when "process_read_output"
-          project_process_read_output(tool_name:, tool_result:)
-        when "web_fetch"
-          project_web_fetch(tool_name:, tool_result:)
-        when "web_search"
-          project_search_results(tool_name:, tool_result:)
-        when "command_run_list"
-          project_command_run_list(tool_name:, tool_result:)
-        when "command_run_read_output"
-          project_command_run_read_output(tool_name:, tool_result:)
-        when "command_run_terminate"
-          project_command_run_terminate(tool_name:, tool_result:)
-        when "command_run_wait"
-          project_command_run_wait(tool_name:, tool_result:)
-        when "workspace_find"
-          project_workspace_find(tool_name:, tool_result:)
-        when "workspace_read"
-          project_workspace_read(tool_name:, tool_result:)
-        when "workspace_stat"
-          project_workspace_stat(tool_name:, tool_result:)
-        when "workspace_tree"
-          project_workspace_tree(tool_name:, tool_result:)
-        when "workspace_write"
-          project_workspace_write(tool_name:, tool_result:)
-        when "write_stdin"
-          project_write_stdin(tool_name:, tool_result:)
-        else
-          raise ArgumentError, "unsupported tool projection #{tool_name}"
-        end
+        public_send(projector, tool_name:, tool_result:)
+      end
+
+      def self.project_calculator(tool_name:, tool_result:)
+        {
+          "tool_name" => tool_name,
+          "content" => "The calculator returned #{tool_result}.",
+        }
       end
 
       def self.project_exec_command(tool_name:, tool_result:)

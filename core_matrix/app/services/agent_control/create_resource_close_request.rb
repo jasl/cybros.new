@@ -59,8 +59,6 @@ module AgentControl
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
         runtime_plane: runtime_plane,
-        target_kind: target_deployment.present? ? "agent_program_version" : "agent_program",
-        target_ref: durable_target_ref(target_agent_program:, target_deployment:),
         logical_work_id: agent_task_run&.logical_work_id || "close:#{@resource.class.name}:#{@resource.public_id}",
         attempt_no: agent_task_run&.attempt_no || 1,
         protocol_message_id: @protocol_message_id,
@@ -118,13 +116,6 @@ module AgentControl
 
     def execution_plane?
       @resource.is_a?(ProcessRun)
-    end
-
-    def durable_target_ref(target_agent_program:, target_deployment:)
-      execution_runtime = ClosableResourceRouting.execution_runtime_for(@resource)
-      return execution_runtime.public_id if execution_plane? && execution_runtime.present?
-
-      target_deployment&.public_id || target_agent_program.public_id
     end
   end
 end

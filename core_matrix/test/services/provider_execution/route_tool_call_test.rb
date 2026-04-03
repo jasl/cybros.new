@@ -453,7 +453,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       }
     )
 
-    %w[background command web web_server].each do |kind_alias|
+    %w[background command web web_server server].each do |kind_alias|
       result = ProviderExecution::RouteToolCall.call(
         workflow_node: workflow_node,
         tool_call: {

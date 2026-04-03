@@ -276,7 +276,7 @@ module ProviderExecution
 
     def normalize_process_kind(kind)
       case kind.to_s
-      when "", "background", "background_service", "command", "web", "web_server"
+      when "", "background", "background_service", "command", "web", "web_server", "server"
         "background_service"
       else
         kind

@@ -12,12 +12,6 @@ class AgentControlMailboxItem < ApplicationRecord
       recovery_notice: "recovery_notice",
     },
     validate: true
-  enum :target_kind,
-    {
-      agent_program: "agent_program",
-      agent_program_version: "agent_program_version",
-    },
-    validate: true
   enum :status,
     {
       queued: "queued",
@@ -53,10 +47,7 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :target_execution_runtime_match
   validate :agent_task_run_match
   validate :lease_holder_match
-  validate :target_ref_consistency
   validate :runtime_plane_contract
-
-  before_validation :normalize_runtime_plane
 
   def program_plane?
     runtime_plane == "program"
@@ -66,6 +57,30 @@ class AgentControlMailboxItem < ApplicationRecord
     runtime_plane == "execution"
   end
 
+  def target_kind
+    if execution_plane?
+      "execution_runtime"
+    elsif target_agent_program_version_id.present?
+      "agent_program_version"
+    else
+      "agent_program"
+    end
+  end
+
+  def target_ref
+    if execution_plane?
+      target_execution_runtime&.public_id
+    elsif target_agent_program_version_id.present?
+      target_agent_program_version&.public_id
+    else
+      target_agent_program&.public_id
+    end
+  end
+
+  def target_agent_program_version?
+    target_agent_program_version_id.present?
+  end
+
   def targets?(deployment)
     return false if deployment.blank?
 
@@ -73,13 +88,10 @@ class AgentControlMailboxItem < ApplicationRecord
       target_execution_runtime_id.present? &&
         target_execution_runtime_id == execution_runtime_id_for(deployment)
     else
-      case target_kind
-      when "agent_program"
-        deployment.agent_program_id == target_agent_program_id
-      when "agent_program_version"
+      if target_agent_program_version_id.present?
         deployment.id == target_agent_program_version_id
       else
-        false
+        deployment.agent_program_id == target_agent_program_id
       end
     end
   end
@@ -158,19 +170,6 @@ class AgentControlMailboxItem < ApplicationRecord
     end
   end
 
-  def target_ref_consistency
-    expected_ref = if execution_plane?
-      target_execution_runtime&.public_id
-    elsif agent_program_version?
-      target_agent_program_version&.public_id
-    else
-      target_agent_program&.public_id
-    end
-    return if target_ref == expected_ref
-
-    errors.add(:target_ref, "must match the durable target reference")
-  end
-
   def runtime_plane_contract
     return unless execution_plane?
 
@@ -186,14 +185,5 @@ class AgentControlMailboxItem < ApplicationRecord
 
   def execution_runtime_id_for(deployment)
     deployment.agent_program.default_execution_runtime_id
-  end
-
-  def normalize_runtime_plane
-    self.runtime_plane =
-      case runtime_plane
-      when "agent" then "program"
-      when "environment" then "execution"
-      else runtime_plane
-      end
   end
 end

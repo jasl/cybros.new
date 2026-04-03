@@ -3,6 +3,6 @@
   "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
   "success": true,
   "exit_status": 0,
-  "stdout": "\n> game-2048@0.0.0 build\n> tsc -b && vite build\n\nvite v8.0.3 building client environment for production...\n\u001b[2K\rtransforming...✓ 21 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.45 kB │ gzip:  0.30 kB\ndist/assets/index-gQvGXOKc.css    2.28 kB │ gzip:  1.04 kB\ndist/assets/index-BmHRXF_C.js   193.86 kB │ gzip: 61.32 kB\n\n✓ built in 297ms\n",
+  "stdout": "\n> game-2048@0.0.0 build\n> tsc -b && vite build\n\nvite v5.4.21 building for production...\ntransforming...\n✓ 32 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.40 kB │ gzip:  0.27 kB\ndist/assets/index-BruX-Qfu.css    1.82 kB │ gzip:  0.84 kB\ndist/assets/index-BRmAR4X6.js   145.87 kB │ gzip: 47.16 kB\n✓ built in 208ms\n",
   "stderr": ""
 }

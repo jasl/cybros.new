@@ -101,7 +101,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     close_request = travel_to(occurred_at) do
       AgentControlMailboxItem.find_by!(
         item_type: "resource_close_request",
-        target_ref: process_run.execution_runtime.public_id
+        target_execution_runtime: process_run.execution_runtime
       )
     end
 

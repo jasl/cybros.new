@@ -206,4 +206,25 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert_equal "turn-public-id", workflow_run.execution_identity.fetch("turn_id")
     assert_equal [{ "role" => "user", "content" => "Input" }], workflow_run.execution_snapshot.conversation_projection.fetch("messages")
   end
+
+  test "derives workspace and feature policy from the turn instead of duplicate columns" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Derived workflow facts",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+
+    refute_includes WorkflowRun.column_names, "workspace_id"
+    refute_includes WorkflowRun.column_names, "feature_policy_snapshot"
+    assert_equal conversation.workspace, workflow_run.workspace
+    assert_equal turn.feature_policy_snapshot, workflow_run.feature_policy_snapshot
+  end
 end

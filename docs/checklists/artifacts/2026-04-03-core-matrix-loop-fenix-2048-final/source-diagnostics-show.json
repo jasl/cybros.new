@@ -1,58 +1,58 @@
 {
   "method_id": "conversation_diagnostics_show",
-  "conversation_id": "019d5091-2d63-7bd5-a557-57d397237d29",
+  "conversation_id": "019d52db-08af-769a-b895-e84c541fc491",
   "snapshot": {
-    "conversation_id": "019d5091-2d63-7bd5-a557-57d397237d29",
+    "conversation_id": "019d52db-08af-769a-b895-e84c541fc491",
     "lifecycle_state": "active",
     "turn_count": 1,
     "active_turn_count": 0,
     "completed_turn_count": 1,
     "failed_turn_count": 0,
     "canceled_turn_count": 0,
-    "usage_event_count": 43,
-    "input_tokens_total": 669229,
-    "output_tokens_total": 12146,
-    "total_tokens_total": 681375,
+    "usage_event_count": 28,
+    "input_tokens_total": 265804,
+    "output_tokens_total": 6458,
+    "total_tokens_total": 272262,
     "estimated_cost_total": "0.0",
-    "attributed_user_id": "019d5091-021f-7b00-bde6-876f93ec8485",
-    "attributed_user_usage_event_count": 43,
-    "attributed_user_input_tokens_total": 669229,
-    "attributed_user_output_tokens_total": 12146,
-    "attributed_user_total_tokens_total": 681375,
+    "attributed_user_id": "019d52da-cd9f-7ca7-ad66-e24331724be7",
+    "attributed_user_usage_event_count": 28,
+    "attributed_user_input_tokens_total": 265804,
+    "attributed_user_output_tokens_total": 6458,
+    "attributed_user_total_tokens_total": 272262,
     "attributed_user_estimated_cost_total": "0.0",
-    "provider_round_count": 43,
-    "tool_call_count": 46,
-    "tool_failure_count": 1,
-    "command_run_count": 8,
-    "command_failure_count": 0,
+    "provider_round_count": 28,
+    "tool_call_count": 28,
+    "tool_failure_count": 4,
+    "command_run_count": 12,
+    "command_failure_count": 2,
     "process_run_count": 0,
     "process_failure_count": 0,
-    "subagent_session_count": 1,
+    "subagent_session_count": 0,
     "input_variant_count": 1,
     "output_variant_count": 1,
     "steer_count": 0,
     "resume_attempt_count": 0,
     "retry_attempt_count": 0,
-    "most_expensive_turn_id": "019d5091-2d8e-7bc2-b11b-ddbca8a7a556",
-    "most_rounds_turn_id": "019d5091-2d8e-7bc2-b11b-ddbca8a7a556",
+    "most_expensive_turn_id": "019d52db-08d6-7c2b-8934-9a9f05542a8a",
+    "most_rounds_turn_id": "019d52db-08d6-7c2b-8934-9a9f05542a8a",
     "metadata": {
       "provider_usage_breakdown": [
         {
           "provider_handle": "openrouter",
           "model_ref": "openai-gpt-5.4",
           "operation_kind": "text_generation",
-          "event_count": 43,
-          "success_count": 43,
+          "event_count": 28,
+          "success_count": 28,
           "failure_count": 0,
-          "input_tokens_total": 669229,
-          "output_tokens_total": 12146,
+          "input_tokens_total": 265804,
+          "output_tokens_total": 6458,
           "estimated_cost_total": "0.0",
           "estimated_cost_event_count": 0,
-          "estimated_cost_missing_event_count": 43,
-          "latency_event_count": 43,
-          "total_latency_ms": 233092,
-          "max_latency_ms": 14984,
-          "avg_latency_ms": 5421,
+          "estimated_cost_missing_event_count": 28,
+          "latency_event_count": 28,
+          "total_latency_ms": 127539,
+          "max_latency_ms": 44185,
+          "avg_latency_ms": 4555,
           "cost_data_available": false,
           "cost_data_complete": false
         }
@@ -62,33 +62,29 @@
           "provider_handle": "openrouter",
           "model_ref": "openai-gpt-5.4",
           "operation_kind": "text_generation",
-          "event_count": 43,
-          "success_count": 43,
+          "event_count": 28,
+          "success_count": 28,
           "failure_count": 0,
-          "input_tokens_total": 669229,
-          "output_tokens_total": 12146,
+          "input_tokens_total": 265804,
+          "output_tokens_total": 6458,
           "estimated_cost_total": "0.0",
           "estimated_cost_event_count": 0,
-          "estimated_cost_missing_event_count": 43,
-          "latency_event_count": 43,
-          "total_latency_ms": 233092,
-          "max_latency_ms": 14984,
-          "avg_latency_ms": 5421,
+          "estimated_cost_missing_event_count": 28,
+          "latency_event_count": 28,
+          "total_latency_ms": 127539,
+          "max_latency_ms": 44185,
+          "avg_latency_ms": 4555,
           "cost_data_available": false,
           "cost_data_complete": false
         }
       ],
       "workflow_node_type_counts": {
-        "barrier_join": 46,
-        "tool_call": 46,
-        "turn_step": 43
+        "barrier_join": 28,
+        "tool_call": 28,
+        "turn_step": 28
       },
       "tool_breakdown": {
         "browser_get_content": {
-          "count": 2,
-          "failures": 0
-        },
-        "browser_navigate": {
           "count": 1,
           "failures": 0
         },
@@ -96,79 +92,61 @@
           "count": 1,
           "failures": 0
         },
-        "command_run_wait": {
-          "count": 6,
+        "command_run_list": {
+          "count": 1,
+          "failures": 0
+        },
+        "command_run_read_output": {
+          "count": 1,
           "failures": 0
         },
         "exec_command": {
-          "count": 8,
-          "failures": 0
-        },
-        "memory_search": {
-          "count": 1,
-          "failures": 0
-        },
-        "subagent_send": {
-          "count": 1,
-          "failures": 0
-        },
-        "subagent_spawn": {
-          "count": 1,
-          "failures": 0
-        },
-        "subagent_wait": {
-          "count": 2,
-          "failures": 0
+          "count": 12,
+          "failures": 1
         },
         "workspace_read": {
-          "count": 4,
-          "failures": 0
-        },
-        "workspace_stat": {
           "count": 1,
           "failures": 1
         },
         "workspace_tree": {
-          "count": 2,
-          "failures": 0
+          "count": 1,
+          "failures": 1
         },
-        "workspace_write": {
-          "count": 16,
-          "failures": 0
+        "write_stdin": {
+          "count": 10,
+          "failures": 1
         }
       },
       "command_classification_counts": {
         "build": {
-          "count": 1,
+          "count": 2,
           "failures": 0
         },
         "preview": {
-          "count": 1,
-          "failures": 0
+          "count": 2,
+          "failures": 1
         },
         "test": {
-          "count": 4,
+          "count": 3,
           "failures": 0
         }
       },
-      "subagent_status_counts": {
-        "completed": 1
-      },
+      "subagent_status_counts": {},
       "cost_summary": {
         "estimated_cost_event_count": 0,
-        "estimated_cost_missing_event_count": 43,
+        "estimated_cost_missing_event_count": 28,
         "cost_data_available": false,
         "cost_data_complete": false
       },
       "attributed_user_cost_summary": {
         "estimated_cost_event_count": 0,
-        "estimated_cost_missing_event_count": 43,
+        "estimated_cost_missing_event_count": 28,
         "cost_data_available": false,
         "cost_data_complete": false
       },
       "outlier_refs": {
-        "most_expensive_turn_id": "019d5091-2d8e-7bc2-b11b-ddbca8a7a556",
-        "most_rounds_turn_id": "019d5091-2d8e-7bc2-b11b-ddbca8a7a556"
+        "most_expensive_turn_id": "019d52db-08d6-7c2b-8934-9a9f05542a8a",
+        "most_rounds_turn_id": "019d52db-08d6-7c2b-8934-9a9f05542a8a"
       }
     }
   }

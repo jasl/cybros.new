@@ -299,6 +299,25 @@ module ActiveSupport
       )
     end
 
+    def runtime_execution_attributes(mailbox_item:, status: "queued", reports: [], trace: [], extra: {})
+      normalized_mailbox_item = mailbox_item.deep_stringify_keys
+
+      {
+        agent_task_run_id: normalized_mailbox_item.dig("payload", "task", "agent_task_run_id"),
+        mailbox_item_id: normalized_mailbox_item.fetch("item_id"),
+        protocol_message_id: normalized_mailbox_item.fetch("protocol_message_id"),
+        logical_work_id: normalized_mailbox_item.fetch("logical_work_id"),
+        attempt_no: normalized_mailbox_item.fetch("attempt_no"),
+        runtime_plane: normalized_mailbox_item.fetch("runtime_plane"),
+        item_type: normalized_mailbox_item.fetch("item_type", "execution_assignment"),
+        request_kind: normalized_mailbox_item.dig("payload", "request_kind").presence || normalized_mailbox_item.fetch("item_type", "execution_assignment"),
+        request_payload: normalized_mailbox_item.fetch("payload"),
+        status: status,
+        reports: reports,
+        trace: trace,
+      }.merge(extra)
+    end
+
     def with_skill_roots
       Dir.mktmpdir("fenix-skills-test-") do |tmpdir|
         base = Pathname(tmpdir)

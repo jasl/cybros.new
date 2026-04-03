@@ -81,7 +81,7 @@ module AgentControl
     end
 
     def resolve_program_delivery_endpoint
-      if @mailbox_item.agent_program_version?
+      if @mailbox_item.target_agent_program_version?
         AgentSession.find_by(agent_program_version: @mailbox_item.target_agent_program_version, lifecycle_state: "active")
       else
         AgentSession.find_by(agent_program: @mailbox_item.target_agent_program, lifecycle_state: "active")

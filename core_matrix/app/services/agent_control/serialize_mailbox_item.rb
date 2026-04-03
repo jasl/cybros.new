@@ -5,8 +5,6 @@ module AgentControl
         "item_id" => mailbox_item.public_id,
         "item_type" => mailbox_item.item_type,
         "runtime_plane" => mailbox_item.runtime_plane,
-        "target_kind" => mailbox_item.target_kind,
-        "target_ref" => mailbox_item.target_ref,
         "logical_work_id" => mailbox_item.logical_work_id,
         "attempt_no" => mailbox_item.attempt_no,
         "delivery_no" => mailbox_item.delivery_no,

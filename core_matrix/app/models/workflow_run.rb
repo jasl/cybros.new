@@ -39,7 +39,6 @@ class WorkflowRun < ApplicationRecord
     validate: { allow_nil: true }
 
   belongs_to :installation
-  belongs_to :workspace
   belongs_to :conversation
   belongs_to :turn
 
@@ -52,6 +51,7 @@ class WorkflowRun < ApplicationRecord
   has_many :execution_leases, dependent: :restrict_with_exception
 
   delegate :execution_snapshot, to: :turn, allow_nil: true
+  delegate :workspace, to: :conversation, allow_nil: true
   delegate :normalized_selector,
     :resolved_provider_handle,
     :resolved_model_ref,
@@ -78,25 +78,26 @@ class WorkflowRun < ApplicationRecord
     execution_snapshot&.identity
   end
 
+  def workspace_id
+    workspace&.id
+  end
+
+  def feature_policy_snapshot
+    turn&.feature_policy_snapshot || {}
+  end
+
   def feature_enabled?(feature_id)
     Array(feature_policy_snapshot["enabled_feature_ids"]).include?(feature_id.to_s)
   end
 
   validate :wait_reason_payload_must_be_hash
-  validate :feature_policy_snapshot_must_be_hash
   validate :resume_metadata_must_be_hash
-  validate :workspace_installation_match
-  validate :workspace_conversation_match
-  validate :workspace_turn_match
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :turn_conversation_match
   validate :one_active_workflow_per_conversation
   validate :wait_state_consistency
   validate :cancellation_request_pairing
-
-  before_validation :default_workspace_from_conversation
-  before_validation :default_feature_policy_snapshot
 
   validates :turn_id, uniqueness: true
 
@@ -131,31 +132,6 @@ class WorkflowRun < ApplicationRecord
   end
 
   private
-
-  def default_workspace_from_conversation
-    self.workspace ||= conversation&.workspace
-  end
-
-  def workspace_installation_match
-    return if workspace.blank?
-    return if workspace.installation_id == installation_id
-
-    errors.add(:workspace, "must belong to the same installation")
-  end
-
-  def workspace_conversation_match
-    return if workspace.blank? || conversation.blank?
-    return if conversation.workspace_id == workspace_id
-
-    errors.add(:workspace, "must match the conversation workspace")
-  end
-
-  def workspace_turn_match
-    return if workspace.blank? || turn.blank?
-    return if turn.conversation&.workspace_id == workspace_id
-
-    errors.add(:workspace, "must match the turn workspace")
-  end
 
   def conversation_installation_match
     return if conversation.blank?
@@ -194,12 +170,6 @@ class WorkflowRun < ApplicationRecord
     errors.add(:wait_reason_payload, "must be a hash") unless wait_reason_payload.is_a?(Hash)
   end
 
-  def feature_policy_snapshot_must_be_hash
-    return if feature_policy_snapshot.is_a?(Hash)
-
-    errors.add(:feature_policy_snapshot, "must be a hash")
-  end
-
   def resume_metadata_must_be_hash
     errors.add(:resume_metadata, "must be a hash") unless resume_metadata.is_a?(Hash)
   end
@@ -229,12 +199,5 @@ class WorkflowRun < ApplicationRecord
     if cancellation_reason_kind.blank? && cancellation_requested_at.present?
       errors.add(:cancellation_reason_kind, "must exist when cancellation has been requested")
     end
-  end
-
-  def default_feature_policy_snapshot
-    return unless turn.present?
-    return unless feature_policy_snapshot.blank?
-
-    self.feature_policy_snapshot = turn.feature_policy_snapshot
   end
 end

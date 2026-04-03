@@ -11,13 +11,5 @@ class AddFeaturePolicyToConversationsAndWork < ActiveRecord::Migration[8.2]
     change_table :turns, bulk: true do |t|
       t.jsonb :feature_policy_snapshot, null: false, default: {}
     end
-
-    change_table :workflow_runs, bulk: true do |t|
-      t.jsonb :feature_policy_snapshot, null: false, default: {}
-    end
-
-    change_table :agent_task_runs, bulk: true do |t|
-      t.jsonb :feature_policy_snapshot, null: false, default: {}
-    end
   end
 end

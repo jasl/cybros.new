@@ -30,21 +30,7 @@ module RuntimeCapabilities
     private
 
     def visible_tool_catalog
-      @visible_tool_catalog ||= begin
-        preview_turn = Turn.new(
-          installation: @conversation.installation,
-          conversation: @conversation,
-          agent_program_version: agent_program_version,
-          execution_runtime: execution_runtime,
-          lifecycle_state: "queued",
-          origin_kind: "manual_user",
-          origin_payload: {},
-          sequence: @conversation.turns.maximum(:sequence).to_i + 1,
-          pinned_program_version_fingerprint: agent_program_version.fingerprint
-        )
-
-        RuntimeCapabilities::ComposeForTurn.call(turn: preview_turn).fetch("tool_catalog")
-      end
+      @visible_tool_catalog ||= visible_tool_catalog_composer.call
     end
 
     def agent_program_version
@@ -55,6 +41,14 @@ module RuntimeCapabilities
       @execution_runtime ||= Turns::SelectExecutionRuntime.call(conversation: @conversation)
     rescue ActiveRecord::RecordInvalid
       nil
+    end
+
+    def visible_tool_catalog_composer
+      @visible_tool_catalog_composer ||= RuntimeCapabilities::ComposeVisibleToolCatalog.new(
+        conversation: @conversation,
+        agent_program_version: agent_program_version,
+        execution_runtime: execution_runtime
+      )
     end
   end
 end

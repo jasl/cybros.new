@@ -494,10 +494,10 @@ def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, a
     - Container: `#{docker_container}`
     - Public runtime base URL: `#{runtime_base_url}`
 
-    Synced local `agents/fenix` code into the running container and refreshed the in-container database:
+    Synced local `agents/fenix` code into the running container and performed a destructive in-container database reset:
 
     ```bash
-    docker exec #{docker_container} sh -lc 'cd /rails && bin/rails db:prepare'
+    docker exec #{docker_container} sh -lc 'cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
     ```
 
     Manifest probe:
@@ -1097,12 +1097,10 @@ agent_session = bundled.fetch(:runtime).agent_session
 execution_session = bundled.fetch(:runtime).execution_session
 
 unless skip_worker_restart
-  docker_db_prepare = capture_command!(
-    "docker", "exec", docker_container, "sh", "-lc", "cd /rails && bin/rails db:prepare",
-    chdir: Rails.root,
-    failure_label: "prepare fenix container database"
+  docker_db_reset = ManualAcceptanceSupport.reset_docker_fenix_runtime_database!(
+    container_name: docker_container
   )
-  write_json(artifact_dir.join("docker-db-prepare.json"), docker_db_prepare)
+  write_json(artifact_dir.join("docker-db-reset.json"), docker_db_reset)
 
   ManualAcceptanceSupport.restart_docker_fenix_runtime_worker!(
     machine_credential: machine_credential,

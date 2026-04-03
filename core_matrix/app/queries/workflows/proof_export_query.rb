@@ -103,7 +103,8 @@ module Workflows
         resume_policy,
         resume_metadata,
         resolved_model_selection_snapshot = WorkflowRun
-        .joins(:conversation, :turn, :workspace)
+        .joins(:turn)
+        .joins(conversation: :workspace)
         .where(id: @workflow_run.id)
         .pick(
           "workflow_runs.public_id",

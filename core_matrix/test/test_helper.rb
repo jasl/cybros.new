@@ -1009,10 +1009,9 @@ module ActiveSupport
       attachment
     end
 
-    def create_workflow_run!(turn:, installation: turn.installation, workspace: turn.conversation.workspace, conversation: turn.conversation, lifecycle_state: "active", **attrs)
+    def create_workflow_run!(turn:, installation: turn.installation, conversation: turn.conversation, lifecycle_state: "active", **attrs)
       WorkflowRun.create!({
         installation: installation,
-        workspace: workspace,
         conversation: conversation,
         turn: turn,
         lifecycle_state: lifecycle_state,
@@ -1067,19 +1066,7 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_control_mailbox_item!(installation:, target_agent_program:, target_agent_program_version: nil, target_execution_runtime: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "program", target_kind: (target_agent_program_version.present? ? "agent_program_version" : "agent_program"), target_ref: nil, logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, protocol_message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
-      runtime_plane = case runtime_plane
-      when "agent" then "program"
-      when "environment" then "execution"
-      else runtime_plane
-      end
-
-      target_ref ||= if runtime_plane == "execution"
-        target_execution_runtime&.public_id
-      else
-        target_agent_program_version&.public_id || target_agent_program.public_id
-      end
-
+    def create_agent_control_mailbox_item!(installation:, target_agent_program:, target_agent_program_version: nil, target_execution_runtime: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "program", logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, protocol_message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
       AgentControlMailboxItem.create!({
         installation: installation,
         target_agent_program: target_agent_program,
@@ -1088,8 +1075,6 @@ module ActiveSupport
         agent_task_run: agent_task_run,
         item_type: item_type,
         runtime_plane: runtime_plane,
-        target_kind: target_kind,
-        target_ref: target_ref,
         logical_work_id: logical_work_id,
         attempt_no: attempt_no,
         delivery_no: delivery_no,

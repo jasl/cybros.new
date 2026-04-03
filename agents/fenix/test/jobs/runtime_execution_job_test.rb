@@ -6,17 +6,19 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "does not re-execute an assignment that is already running" do
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
+      "item_id" => "mailbox-item-1",
+      "protocol_message_id" => "protocol-message-1",
+      "logical_work_id" => "logical-work-1",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
+    )
     runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-1",
-      protocol_message_id: "protocol-message-1",
-      logical_work_id: "logical-work-1",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "running",
-      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
-      reports: [],
-      trace: [],
-      started_at: Time.current
+      runtime_execution_attributes(
+        mailbox_item:,
+        status: "running",
+        extra: { started_at: Time.current }
+      )
     )
 
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
@@ -36,18 +38,22 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     execute_assignment_singleton.send(:define_method, :call, original_execute_assignment) if execute_assignment_singleton && original_execute_assignment
   end
 
+  test "rebuilds the mailbox envelope from compact persisted request data" do
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool")
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
+
+    assert_equal mailbox_item.merge("item_type" => "execution_assignment"), runtime_execution.to_mailbox_item
+  end
+
   test "persists reports incrementally while the execution job is running" do
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-2",
-      protocol_message_id: "protocol-message-2",
-      logical_work_id: "logical-work-2",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "queued",
-      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
-      reports: [],
-      trace: []
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
+      "item_id" => "mailbox-item-2",
+      "protocol_message_id" => "protocol-message-2",
+      "logical_work_id" => "logical-work-2",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
     )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
     original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
@@ -83,17 +89,14 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "passes execution attempt metadata while the execution is running" do
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-3",
-      protocol_message_id: "protocol-message-3",
-      logical_work_id: "logical-work-3",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "queued",
-      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
-      reports: [],
-      trace: []
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
+      "item_id" => "mailbox-item-3",
+      "protocol_message_id" => "protocol-message-3",
+      "logical_work_id" => "logical-work-3",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
     )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
     original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
@@ -111,7 +114,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
 
     RuntimeExecutionJob.perform_now(runtime_execution.id)
 
-    assert_equal runtime_execution.mailbox_item_payload.dig("payload", "task", "agent_task_run_id"), observed_attempt.agent_task_run_id
+    assert_equal runtime_execution.agent_task_run_id, observed_attempt.agent_task_run_id
     assert_equal runtime_execution.logical_work_id, observed_attempt.logical_work_id
     assert_equal runtime_execution.attempt_no, observed_attempt.attempt_no
     assert_equal runtime_execution.id, observed_attempt.runtime_execution_id
@@ -120,17 +123,14 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "keeps a runtime execution canceled when cancellation lands before terminal persistence" do
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-4",
-      protocol_message_id: "protocol-message-4",
-      logical_work_id: "logical-work-4",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "queued",
-      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
-      reports: [],
-      trace: []
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
+      "item_id" => "mailbox-item-4",
+      "protocol_message_id" => "protocol-message-4",
+      "logical_work_id" => "logical-work-4",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
     )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
     original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
@@ -163,17 +163,14 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "persists streamed tool output as summary-only while still delivering live chunks" do
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-4b",
-      protocol_message_id: "protocol-message-4b",
-      logical_work_id: "logical-work-4b",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "queued",
-      mailbox_item_payload: runtime_assignment_payload(mode: "deterministic_tool"),
-      reports: [],
-      trace: []
+    mailbox_item = runtime_assignment_payload(mode: "deterministic_tool").merge(
+      "item_id" => "mailbox-item-4b",
+      "protocol_message_id" => "protocol-message-4b",
+      "logical_work_id" => "logical-work-4b",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
     )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     execute_assignment_singleton = Fenix::Runtime::ExecuteAssignment.singleton_class
     original_execute_assignment = Fenix::Runtime::ExecuteAssignment.method(:call)
@@ -228,26 +225,23 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "does not provision tool side effects after cancellation lands during tool review" do
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-5",
-      protocol_message_id: "protocol-message-5",
-      logical_work_id: "logical-work-5",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "queued",
-      mailbox_item_payload: runtime_assignment_payload(
-        mode: "deterministic_tool",
-        task_payload: {
-          "tool_name" => "exec_command",
-          "command_line" => "printf 'hello\\n'",
-        },
-        agent_context: default_agent_context.merge(
-          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
-        )
-      ),
-      reports: [],
-      trace: []
+    mailbox_item = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "exec_command",
+        "command_line" => "printf 'hello\\n'",
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+      )
+    ).merge(
+      "item_id" => "mailbox-item-5",
+      "protocol_message_id" => "protocol-message-5",
+      "logical_work_id" => "logical-work-5",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
     )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     review_tool_call_singleton = Fenix::Hooks::ReviewToolCall.singleton_class
     original_review_tool_call = Fenix::Hooks::ReviewToolCall.method(:call)
@@ -268,27 +262,24 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
   end
 
   test "reports a synthetic process exit when cancellation lands after process provisioning but before spawn" do
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: "mailbox-item-6",
-      protocol_message_id: "protocol-message-6",
-      logical_work_id: "logical-work-6",
-      attempt_no: 1,
-      runtime_plane: "program",
-      status: "queued",
-      mailbox_item_payload: runtime_assignment_payload(
-        mode: "deterministic_tool",
-        task_payload: {
-          "tool_name" => "process_exec",
-          "command_line" => "sleep 1",
-          "kind" => "background_service",
-        },
-        agent_context: default_agent_context.merge(
-          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["process_exec"]
-        )
-      ),
-      reports: [],
-      trace: []
+    mailbox_item = runtime_assignment_payload(
+      mode: "deterministic_tool",
+      task_payload: {
+        "tool_name" => "process_exec",
+        "command_line" => "sleep 1",
+        "kind" => "background_service",
+      },
+      agent_context: default_agent_context.merge(
+        "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + ["process_exec"]
+      )
+    ).merge(
+      "item_id" => "mailbox-item-6",
+      "protocol_message_id" => "protocol-message-6",
+      "logical_work_id" => "logical-work-6",
+      "attempt_no" => 1,
+      "runtime_plane" => "program",
     )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     control_client = Fenix::Runtime::ControlPlane.client
     original_create_process_run = control_client.method(:create_process_run!)
@@ -326,17 +317,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
     mailbox_item["payload"]["program_tool_call"]["call_id"] = "tool-call-#{SecureRandom.uuid}"
 
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: mailbox_item.fetch("item_id"),
-      protocol_message_id: mailbox_item.fetch("protocol_message_id"),
-      logical_work_id: mailbox_item.fetch("logical_work_id"),
-      attempt_no: mailbox_item.fetch("attempt_no"),
-      runtime_plane: mailbox_item.fetch("runtime_plane"),
-      status: "queued",
-      mailbox_item_payload: mailbox_item,
-      reports: [],
-      trace: []
-    )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: true)
 
@@ -356,17 +337,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
     mailbox_item["logical_work_id"] = "logical-work-#{SecureRandom.uuid}"
     mailbox_item["payload"]["program_tool_call"]["call_id"] = "tool-call-#{SecureRandom.uuid}"
 
-    runtime_execution = RuntimeExecution.create!(
-      mailbox_item_id: mailbox_item.fetch("item_id"),
-      protocol_message_id: mailbox_item.fetch("protocol_message_id"),
-      logical_work_id: mailbox_item.fetch("logical_work_id"),
-      attempt_no: mailbox_item.fetch("attempt_no"),
-      runtime_plane: mailbox_item.fetch("runtime_plane"),
-      status: "queued",
-      mailbox_item_payload: mailbox_item,
-      reports: [],
-      trace: []
-    )
+    runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
     execute_agent_program_request_singleton = Fenix::Runtime::ExecuteAgentProgramRequest.singleton_class
     original_execute_agent_program_request = Fenix::Runtime::ExecuteAgentProgramRequest.method(:call)

@@ -9,8 +9,9 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     assert_equal "program", mailbox_item.attributes["runtime_plane"]
     assert_nil mailbox_item.attributes["target_execution_runtime_id"]
-    assert_equal context[:agent_program].public_id, mailbox_item.target_ref
     assert_equal "program", envelope.fetch("runtime_plane")
+    refute envelope.key?("target_kind")
+    refute envelope.key?("target_ref")
     refute envelope.fetch("payload").key?("runtime_plane")
   end
 
@@ -56,8 +57,6 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       target_agent_program_version: other_deployment,
       item_type: "resource_close_request",
       runtime_plane: "program",
-      target_kind: "agent_program_version",
-      target_ref: other_deployment.public_id,
       logical_work_id: "close-test",
       attempt_no: 1,
       delivery_no: 0,
@@ -165,8 +164,6 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       target_agent_program: context[:agent_program],
       item_type: "resource_close_request",
       runtime_plane: "program",
-      target_kind: "agent_program",
-      target_ref: context[:agent_program].public_id,
       logical_work_id: "close-test-#{next_test_sequence}",
       protocol_message_id: protocol_message_id,
       priority: 0,
@@ -197,8 +194,6 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       installation: context[:installation],
       target_agent_program: context[:agent_program],
       item_type: "execution_assignment",
-      target_kind: "agent_program",
-      target_ref: context[:agent_program].public_id,
       logical_work_id: "assignment-#{next_test_sequence}",
       attempt_no: 1,
       delivery_no: 0,
@@ -215,5 +210,30 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     assert_not mailbox_item.valid?
     assert_includes mailbox_item.errors.attribute_names, :runtime_plane
+  end
+
+  test "rejects legacy runtime plane aliases instead of normalizing them" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControlMailboxItem.new(
+      installation: context[:installation],
+      target_agent_program: context[:agent_program],
+      item_type: "execution_assignment",
+      runtime_plane: "agent",
+      logical_work_id: "assignment-#{next_test_sequence}",
+      attempt_no: 1,
+      delivery_no: 0,
+      protocol_message_id: "kernel-message-#{next_test_sequence}",
+      priority: 1,
+      status: "queued",
+      available_at: Time.current,
+      dispatch_deadline_at: 5.minutes.from_now,
+      lease_timeout_seconds: 30,
+      payload: {
+        "request_kind" => "execution_assignment",
+      }
+    )
+
+    assert_not mailbox_item.valid?
+    assert_includes mailbox_item.errors[:runtime_plane], "is not included in the list"
   end
 end

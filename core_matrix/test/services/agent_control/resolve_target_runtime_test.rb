@@ -26,7 +26,6 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
       target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
       runtime_plane: "execution",
-      target_kind: "agent_program",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",

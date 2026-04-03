@@ -15,11 +15,15 @@ class RuntimeExecution < ApplicationRecord
   validates :logical_work_id, presence: true
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
   validates :runtime_plane, presence: true
-  validate :mailbox_item_payload_must_be_hash
+  validates :item_type, presence: true
+  validates :request_kind, presence: true
+  validate :request_payload_must_be_hash
   validate :reports_must_be_array
   validate :trace_must_be_array
 
   before_validation :assign_execution_id, on: :create
+  before_validation :assign_item_type, on: :create
+  before_validation :assign_request_kind, on: :create
   before_validation :assign_agent_task_run_id, on: :create
 
   scope :active_for_agent_task, ->(agent_task_run_id) { where(agent_task_run_id:, status: %w[queued running]) }
@@ -49,18 +53,38 @@ class RuntimeExecution < ApplicationRecord
     )
   end
 
+  def to_mailbox_item
+    {
+      "item_id" => mailbox_item_id,
+      "item_type" => item_type,
+      "protocol_message_id" => protocol_message_id,
+      "logical_work_id" => logical_work_id,
+      "attempt_no" => attempt_no,
+      "runtime_plane" => runtime_plane,
+      "payload" => request_payload.deep_stringify_keys,
+    }
+  end
+
   private
 
   def assign_execution_id
     self.execution_id ||= "execution-#{SecureRandom.uuid}"
   end
 
-  def assign_agent_task_run_id
-    self.agent_task_run_id ||= mailbox_item_payload.dig("payload", "task", "agent_task_run_id")
+  def assign_item_type
+    self.item_type = item_type.presence || "execution_assignment"
   end
 
-  def mailbox_item_payload_must_be_hash
-    errors.add(:mailbox_item_payload, "must be a hash") unless mailbox_item_payload.is_a?(Hash)
+  def assign_request_kind
+    self.request_kind = request_kind.presence || request_payload.deep_stringify_keys["request_kind"].presence || item_type
+  end
+
+  def assign_agent_task_run_id
+    self.agent_task_run_id ||= request_payload.deep_stringify_keys.dig("task", "agent_task_run_id")
+  end
+
+  def request_payload_must_be_hash
+    errors.add(:request_payload, "must be a hash") unless request_payload.is_a?(Hash)
   end
 
   def reports_must_be_array

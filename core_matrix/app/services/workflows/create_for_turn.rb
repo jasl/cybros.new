@@ -38,7 +38,6 @@ module Workflows
 
         workflow_run = WorkflowRun.create!(
           installation: @turn.installation,
-          workspace: @turn.conversation.workspace,
           conversation: @turn.conversation,
           turn: @turn,
           lifecycle_state: "active"

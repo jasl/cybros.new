@@ -16,9 +16,10 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     serialized = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
     assert_equal mailbox_item.public_id, serialized["item_id"]
-    assert_equal context[:deployment].public_id, serialized["target_ref"]
     assert_equal available_at.iso8601, serialized["available_at"]
     assert_equal({ "step" => "execute" }, serialized["payload"])
+    refute serialized.key?("target_kind")
+    refute serialized.key?("target_ref")
     refute serialized.key?("id")
   end
 end

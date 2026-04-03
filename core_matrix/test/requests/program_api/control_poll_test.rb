@@ -25,7 +25,8 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_equal scenario.fetch(:mailbox_item).public_id, item.fetch("item_id")
     assert_equal "execution_assignment", item.fetch("item_type")
     assert_equal "program", item.fetch("runtime_plane")
-    assert_equal context[:agent_program].public_id, item.fetch("target_ref")
+    refute item.key?("target_kind")
+    refute item.key?("target_ref")
     assert_equal "agent-program/2026-04-01", payload.fetch("protocol_version")
     assert_equal "execution_assignment", payload.fetch("request_kind")
     assert_equal context[:workflow_run].public_id, payload.dig("task", "workflow_run_id")
@@ -44,7 +45,6 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
       target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
       runtime_plane: "execution",
-      target_kind: "agent_program",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -65,7 +65,8 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
 
     assert_equal mailbox_item.public_id, item.fetch("item_id")
     assert_equal "execution", item.fetch("runtime_plane")
-    assert_equal context[:execution_runtime].public_id, item.fetch("target_ref")
+    refute item.key?("target_kind")
+    refute item.key?("target_ref")
     assert_equal context[:execution_session].public_id, mailbox_item.reload.leased_to_execution_session.public_id
   end
 
@@ -95,7 +96,8 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
 
     assert_equal mailbox_item.public_id, item.fetch("item_id")
     assert_equal "execution", item.fetch("runtime_plane")
-    assert_equal context[:execution_runtime].public_id, item.fetch("target_ref")
+    refute item.key?("target_kind")
+    refute item.key?("target_ref")
     assert_equal "ProcessRun", item.dig("payload", "resource_type")
     assert_equal process_run.public_id, item.dig("payload", "resource_id")
     refute item.fetch("payload").key?("runtime_plane")

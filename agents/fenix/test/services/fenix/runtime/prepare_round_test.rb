@@ -97,6 +97,28 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     assert_equal %w[prepare_turn compact_context], result.fetch("trace").map { |entry| entry.fetch("hook") }
   end
 
+  test "builds prepare turn context from the shared payload context" do
+    payload = high_budget_prepare_round_payload
+    captured_context = nil
+    prepare_turn_singleton = Fenix::Hooks::PrepareTurn.singleton_class
+    original_prepare_turn = Fenix::Hooks::PrepareTurn.method(:call)
+
+    prepare_turn_singleton.send(:define_method, :call) do |context:|
+      captured_context = context.deep_stringify_keys
+      {
+        "messages" => context.fetch("context_messages"),
+        "likely_model" => "gpt-4.1-mini",
+        "trace" => { "hook" => "prepare_turn" },
+      }
+    end
+
+    Fenix::Runtime::PrepareRound.call(payload:)
+
+    assert_equal Fenix::Runtime::PayloadContext.call(payload:), captured_context
+  ensure
+    prepare_turn_singleton.send(:define_method, :call, original_prepare_turn) if prepare_turn_singleton && original_prepare_turn
+  end
+
   test "preserves execution-runtime tools from the capability projection" do
     payload = high_budget_prepare_round_payload.deep_dup
     payload["capability_projection"]["tool_surface"] = [

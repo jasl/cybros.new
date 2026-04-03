@@ -425,6 +425,39 @@ module ManualAcceptanceSupport
     stop_fenix_control_worker!(pid) if pid.present?
   end
 
+  def reset_docker_fenix_runtime_database!(
+    container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
+  )
+    sync_fenix_runtime_source_to_docker_container!(container_name:)
+
+    stdout = nil
+    stderr = nil
+    status = nil
+
+    Bundler.with_unbundled_env do
+      stdout, stderr, status = Open3.capture3(
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-lc",
+        "cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed"
+      )
+    end
+
+    unless status.success?
+      raise "failed to reset docker runtime database: #{stderr.presence || stdout.presence || "no output"}"
+    end
+
+    {
+      "command" => "docker exec #{container_name} sh -lc cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+      "stdout" => stdout,
+      "stderr" => stderr,
+      "success" => true,
+      "exit_status" => status.exitstatus,
+    }
+  end
+
   def restart_docker_fenix_runtime_worker!(
     machine_credential:,
     execution_machine_credential: machine_credential,
@@ -461,24 +494,23 @@ module ManualAcceptanceSupport
         "-e", "CORE_MATRIX_BASE_URL=#{core_matrix_base_url}",
         "-e", "CORE_MATRIX_MACHINE_CREDENTIAL=#{machine_credential}",
         "-e", "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL=#{execution_machine_credential}",
+        "-e", "RAILS_ENV=development",
       ]
       detached_commands = [
-        "cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1",
-        "cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1",
+        ["bin/jobs", "start"],
+        ["bin/rails", "runtime:control_loop_forever"],
       ]
 
       detached_commands.each do |command|
-        # brakeman:ignore[Command Injection]
-        # Manual acceptance helper executes fixed in-container commands with a locally supplied docker target.
         _stdout, stderr, status = Open3.capture3(
           "docker",
           "exec",
           "-d",
           *common_env,
+          "-w",
+          "/rails",
           container_name,
-          "sh",
-          "-lc",
-          command
+          *command
         )
         raise "failed to start docker runtime worker: #{stderr}" unless status.success?
       end
@@ -500,7 +532,7 @@ module ManualAcceptanceSupport
 
       args = ps_output.lines.map(&:strip)
       control_loop_running = args.any? { |line| line.include?("runtime:control_loop_forever") }
-      jobs_running = args.any? { |line| line.include?("bin/jobs start") }
+      jobs_running = args.any? { |line| line.include?("bin/jobs start") || line.include?("solid_queue") || line.include?("SolidQueue") }
       return if control_loop_running && jobs_running
 
       if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
@@ -538,6 +570,13 @@ module ManualAcceptanceSupport
 
         destination = "/rails/#{relative_path}"
         source_arg = source.directory? ? "#{source}/." : source.to_s
+        destination_parent = File.dirname(destination)
+
+        _stdout, stderr, status = Open3.capture3("docker", "exec", container_name, "rm", "-rf", destination)
+        raise "failed to clear #{destination} in #{container_name}: #{stderr}" unless status.success?
+
+        _stdout, stderr, status = Open3.capture3("docker", "exec", container_name, "mkdir", "-p", destination_parent)
+        raise "failed to prepare #{destination_parent} in #{container_name}: #{stderr}" unless status.success?
 
         # brakeman:ignore[Command Injection]
         # Manual acceptance helper copies a fixed allowlist of repo paths into a local test container.

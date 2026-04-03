@@ -5,26 +5,20 @@
 - Final application path:
   - `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048`
 - Final source tree includes:
-  - `dist/assets/index-BmHRXF_C.js`
-  - `dist/assets/index-gQvGXOKc.css`
-  - `dist/favicon.svg`
-  - `dist/icons.svg`
+  - `dist/assets/index-BRmAR4X6.js`
+  - `dist/assets/index-BruX-Qfu.css`
   - `dist/index.html`
   - `index.html`
   - `package.json`
-  - `public/favicon.svg`
-  - `public/icons.svg`
-  - `src/App.css`
   - `src/App.tsx`
-  - `src/assets/hero.png`
-  - `src/assets/react.svg`
-  - `src/assets/vite.svg`
-  - `src/components/GameBoard.tsx`
-  - `src/components/ScorePanel.tsx`
-  - `src/game/logic.test.ts`
-  - `src/game/logic.ts`
-  - `src/game/types.ts`
-  - `src/index.css`
+  - `src/game.test.ts`
+  - `src/game.ts`
+  - `src/main.tsx`
+  - `src/styles.css`
+  - `src/test/setup.ts`
+  - `tsconfig.app.json`
+  - `tsconfig.json`
+  - `vite.config.ts`
 
 ## Host-Side Commands
 

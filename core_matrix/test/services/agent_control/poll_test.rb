@@ -48,7 +48,6 @@ class AgentControlPollTest < ActiveSupport::TestCase
       target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
       runtime_plane: "execution",
-      target_kind: "agent_program",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -85,7 +84,6 @@ class AgentControlPollTest < ActiveSupport::TestCase
       target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
       runtime_plane: "execution",
-      target_kind: "agent_program",
       payload: {
         "runtime_plane" => "execution",
         "execution_runtime_id" => other_execution_runtime.public_id,

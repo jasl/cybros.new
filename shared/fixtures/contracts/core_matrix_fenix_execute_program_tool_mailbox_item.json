@@ -2,8 +2,6 @@
   "item_id": "mailbox-item-tool-public-id",
   "item_type": "agent_program_request",
   "runtime_plane": "program",
-  "target_kind": "agent_program_version",
-  "target_ref": "agent-program-version-public-id",
   "logical_work_id": "program-tool:workflow-node-public-id:tool-call-public-id",
   "attempt_no": 1,
   "delivery_no": 0,

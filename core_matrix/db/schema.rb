@@ -71,8 +71,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_160200) do
     t.bigint "target_agent_program_id", null: false
     t.bigint "target_agent_program_version_id"
     t.bigint "target_execution_runtime_id"
-    t.string "target_kind", null: false
-    t.string "target_ref", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_task_run_id"], name: "index_agent_control_mailbox_items_on_agent_task_run_id"
     t.index ["installation_id", "protocol_message_id"], name: "idx_agent_control_mailbox_items_protocol_message", unique: true
@@ -206,7 +204,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_160200) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.integer "expected_duration_seconds"
-    t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.datetime "finished_at"
     t.bigint "holder_agent_session_id"
     t.bigint "installation_id", null: false
@@ -1381,7 +1378,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_160200) do
     t.datetime "cancellation_requested_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
-    t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
@@ -1393,13 +1389,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_160200) do
     t.jsonb "wait_reason_payload", default: {}, null: false
     t.string "wait_state", default: "ready", null: false
     t.datetime "waiting_since_at"
-    t.bigint "workspace_id"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"
     t.index ["public_id"], name: "index_workflow_runs_on_public_id", unique: true
     t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
-    t.index ["workspace_id"], name: "index_workflow_runs_on_workspace_id"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
     t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))", name: "chk_workflow_runs_cancellation_reason_kind"
     t.check_constraint "resume_policy IS NULL OR resume_policy::text = 're_enter_agent'::text", name: "chk_workflow_runs_resume_policy"
@@ -1634,7 +1628,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_02_160200) do
   add_foreign_key "workflow_runs", "conversations"
   add_foreign_key "workflow_runs", "installations"
   add_foreign_key "workflow_runs", "turns"
-  add_foreign_key "workflow_runs", "workspaces"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "user_program_bindings"
   add_foreign_key "workspaces", "users"

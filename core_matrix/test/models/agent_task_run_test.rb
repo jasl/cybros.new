@@ -95,4 +95,12 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     assert_equal subagent_session, agent_task_run.subagent_session
     assert_equal context[:turn], agent_task_run.origin_turn
   end
+
+  test "derives feature policy from the turn instead of storing a duplicate snapshot" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
+
+    refute_includes AgentTaskRun.column_names, "feature_policy_snapshot"
+    assert_equal context[:turn].feature_policy_snapshot, agent_task_run.feature_policy_snapshot
+  end
 end

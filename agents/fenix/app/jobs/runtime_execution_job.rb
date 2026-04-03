@@ -14,14 +14,14 @@ class RuntimeExecutionJob < ApplicationJob
     end
 
     attempt = Fenix::Runtime::ExecutionAttempt.new(
-      agent_task_run_id: runtime_execution.mailbox_item_payload.dig("payload", "task", "agent_task_run_id"),
+      agent_task_run_id: runtime_execution.agent_task_run_id,
       logical_work_id: runtime_execution.logical_work_id,
       attempt_no: runtime_execution.attempt_no,
       runtime_execution_id: runtime_execution.id
     )
 
     result = Fenix::Runtime::ExecuteMailboxItem.call(
-      mailbox_item: runtime_execution.mailbox_item_payload,
+      mailbox_item: runtime_execution.to_mailbox_item,
       attempt: attempt,
       cancellation_probe: -> { RuntimeExecution.where(id: runtime_execution.id, status: "canceled").exists? },
       on_report: ->(report) { append_report!(runtime_execution_id:, report:, deliver_reports:) }

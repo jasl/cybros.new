@@ -48,7 +48,9 @@ module Fenix
           logical_work_id: @mailbox_item.fetch("logical_work_id"),
           attempt_no: @mailbox_item.fetch("attempt_no"),
           runtime_plane: @mailbox_item.fetch("runtime_plane"),
-          mailbox_item_payload: @mailbox_item
+          item_type: @mailbox_item.fetch("item_type", "execution_assignment"),
+          request_kind: @mailbox_item.dig("payload", "request_kind").presence || @mailbox_item.fetch("item_type", "execution_assignment"),
+          request_payload: @mailbox_item.fetch("payload")
         )
       rescue ActiveRecord::RecordNotUnique
         RuntimeExecution.find_by!(
@@ -170,7 +172,7 @@ module Fenix
           RuntimeExecutionJob.perform_now(runtime_execution.id, deliver_reports: @deliver_reports)
         else
           RuntimeExecutionJob
-            .set(queue: Fenix::Runtime::ExecutionTopology.runtime_execution_queue_name(mailbox_item: runtime_execution.mailbox_item_payload))
+            .set(queue: Fenix::Runtime::ExecutionTopology.runtime_execution_queue_name(mailbox_item: runtime_execution.to_mailbox_item))
             .perform_later(runtime_execution.id, deliver_reports: @deliver_reports)
         end
       end

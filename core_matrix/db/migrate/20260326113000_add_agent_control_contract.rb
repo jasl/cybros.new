@@ -91,8 +91,6 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :item_type, null: false
       t.string :runtime_plane, null: false
-      t.string :target_kind, null: false
-      t.string :target_ref, null: false
       t.string :logical_work_id, null: false
       t.integer :attempt_no, null: false, default: 1
       t.integer :delivery_no, null: false, default: 0

@@ -1,7 +1,6 @@
 class ExtendWorkflowSubstrate < ActiveRecord::Migration[8.2]
   def change
     change_table :workflow_runs, bulk: true do |t|
-      t.references :workspace, foreign_key: true
       t.string :resume_policy
       t.jsonb :resume_metadata, null: false, default: {}
     end

@@ -2,8 +2,6 @@
   "item_id": "mailbox-item-public-id",
   "item_type": "execution_assignment",
   "runtime_plane": "program",
-  "target_kind": "agent_program",
-  "target_ref": "agent-program-public-id",
   "logical_work_id": "subagent-step:subagent-session-public-id:subagent-turn-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
