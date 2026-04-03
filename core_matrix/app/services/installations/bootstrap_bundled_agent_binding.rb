@@ -1,6 +1,16 @@
 module Installations
   class BootstrapBundledAgentBinding
-    Result = Struct.new(:agent_installation, :execution_environment, :deployment, :capability_snapshot, :binding, :workspace, keyword_init: true)
+    Result = Struct.new(
+      :agent_program,
+      :execution_runtime,
+      :deployment,
+      :capability_snapshot,
+      :agent_session,
+      :execution_session,
+      :binding,
+      :workspace,
+      keyword_init: true
+    )
 
     def self.call(...)
       new(...).call
@@ -19,16 +29,18 @@ module Installations
       )
       return unless registry.present?
 
-      binding_result = UserAgentBindings::Enable.call(
+      binding_result = UserProgramBindings::Enable.call(
         user: @user,
-        agent_installation: registry.agent_installation
+        agent_program: registry.agent_program
       )
 
       Result.new(
-        agent_installation: registry.agent_installation,
-        execution_environment: registry.execution_environment,
+        agent_program: registry.agent_program,
+        execution_runtime: registry.execution_runtime,
         deployment: registry.deployment,
         capability_snapshot: registry.capability_snapshot,
+        agent_session: registry.agent_session,
+        execution_session: registry.execution_session,
         binding: binding_result.binding,
         workspace: binding_result.workspace
       )

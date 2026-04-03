@@ -6,14 +6,15 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, limit: DEFAULT_LIMIT, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
       @deployment = deployment
+      @agent_session = agent_session
       @limit = [limit.to_i, 1].max
       @occurred_at = occurred_at
     end
 
     def call
-      TouchDeploymentActivity.call(deployment: @deployment, occurred_at: @occurred_at)
+      TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
       progress_close_requests!
 
       deliveries = []

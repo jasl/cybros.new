@@ -12,14 +12,14 @@ class SubagentSessionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -59,21 +59,21 @@ class SubagentSessionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     origin_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate work",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -106,8 +106,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
       conversation: create_conversation_record!(
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -125,8 +125,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
       conversation: create_conversation_record!(
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -149,27 +149,27 @@ class SubagentSessionTest < ActiveSupport::TestCase
     )
     foreign_installation.save!(validate: false)
     foreign_user = create_user!(installation: foreign_installation)
-    foreign_agent_installation = create_agent_installation!(installation: foreign_installation)
-    foreign_execution_environment = create_execution_environment!(installation: foreign_installation)
-    foreign_agent_deployment = create_agent_deployment!(
+    foreign_agent_program = create_agent_program!(installation: foreign_installation)
+    foreign_execution_runtime = create_execution_runtime!(installation: foreign_installation)
+    foreign_agent_program_version = create_agent_program_version!(
       installation: foreign_installation,
-      agent_installation: foreign_agent_installation,
-      execution_environment: foreign_execution_environment
+      agent_program: foreign_agent_program,
+      execution_runtime: foreign_execution_runtime
     )
-    foreign_binding = create_user_agent_binding!(
+    foreign_binding = create_user_program_binding!(
       installation: foreign_installation,
       user: foreign_user,
-      agent_installation: foreign_agent_installation
+      agent_program: foreign_agent_program
     )
     foreign_workspace = create_workspace!(
       installation: foreign_installation,
       user: foreign_user,
-      user_agent_binding: foreign_binding
+      user_program_binding: foreign_binding
     )
     foreign_owner = Conversations::CreateRoot.call(
       workspace: foreign_workspace,
-      execution_environment: foreign_execution_environment,
-      agent_deployment: foreign_agent_deployment
+      execution_runtime: foreign_execution_runtime,
+      agent_program_version: foreign_agent_program_version
     )
 
     child_session.owner_conversation = foreign_owner
@@ -181,14 +181,14 @@ class SubagentSessionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -231,8 +231,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     open_session = build_subagent_session(context:, owner_conversation:)
@@ -314,14 +314,14 @@ class SubagentSessionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -342,8 +342,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
       conversation: create_conversation_record!(
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -363,8 +363,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
       conversation: create_conversation_record!(
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -385,8 +385,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
       conversation: create_conversation_record!(
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -408,8 +408,8 @@ class SubagentSessionTest < ActiveSupport::TestCase
       conversation: create_conversation_record!(
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -444,14 +444,14 @@ class SubagentSessionTest < ActiveSupport::TestCase
   def build_subagent_session(context: create_workspace_context!, owner_conversation: nil, **overrides)
     owner_conversation ||= Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

@@ -5,14 +5,14 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     Dir.mktmpdir("fenix-prepare-round-workspace-") do |tmpdir|
       workspace_root = Pathname(tmpdir)
       with_workspace_root(workspace_root) do
-        deployment_public_id = high_budget_prepare_round_payload.dig("runtime_context", "deployment_public_id")
+        agent_program_version_id = high_budget_prepare_round_payload.dig("runtime_context", "agent_program_version_id")
         Fenix::Workspace::Bootstrap.call(
           workspace_root: workspace_root,
           conversation_id: "conversation-public-id",
-          deployment_public_id: deployment_public_id
+          agent_program_version_id: agent_program_version_id
         )
         workspace_root.join("SOUL.md").write("workspace soul\n")
-        workspace_root.join(".fenix/deployments/#{deployment_public_id}/conversations/conversation-public-id/context/summary.md").write("conversation summary\n")
+        workspace_root.join(".fenix/agent_program_versions/#{agent_program_version_id}/conversations/conversation-public-id/context/summary.md").write("conversation summary\n")
 
         result = Fenix::Runtime::PrepareRound.call(
           payload: high_budget_prepare_round_payload
@@ -30,22 +30,22 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     end
   end
 
-  test "bootstraps runtime state under the deployment namespace when runtime context is present" do
+  test "bootstraps runtime state under the agent program version namespace when runtime context is present" do
     Dir.mktmpdir("fenix-prepare-round-workspace-") do |tmpdir|
       workspace_root = Pathname(tmpdir)
       with_workspace_root(workspace_root) do
         payload = high_budget_prepare_round_payload.merge(
           "runtime_context" => high_budget_prepare_round_payload.fetch("runtime_context").merge(
-            "deployment_public_id" => "deployment-public-id",
+            "agent_program_version_id" => "agent-program-version-public-id",
           )
         )
 
         Fenix::Runtime::PrepareRound.call(payload:)
 
-        meta_path = workspace_root.join(".fenix/deployments/deployment-public-id/conversations/conversation-public-id/meta.json")
+        meta_path = workspace_root.join(".fenix/agent_program_versions/agent-program-version-public-id/conversations/conversation-public-id/meta.json")
         assert meta_path.exist?
         metadata = JSON.parse(meta_path.read)
-        assert_equal "deployment-public-id", metadata.fetch("deployment_public_id")
+        assert_equal "agent-program-version-public-id", metadata.fetch("agent_program_version_id")
       end
     end
   end
@@ -95,6 +95,34 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
       result.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
     assert_equal [], result.fetch("summary_artifacts")
     assert_equal %w[prepare_turn compact_context], result.fetch("trace").map { |entry| entry.fetch("hook") }
+  end
+
+  test "preserves execution-runtime tools from the capability projection" do
+    payload = high_budget_prepare_round_payload.deep_dup
+    payload["capability_projection"]["tool_surface"] = [
+      {
+        "tool_name" => "exec_command",
+        "tool_kind" => "execution_runtime",
+        "input_schema" => { "type" => "object" },
+      },
+      {
+        "tool_name" => "browser_open",
+        "tool_kind" => "execution_runtime",
+        "input_schema" => { "type" => "object" },
+      },
+      {
+        "tool_name" => "subagent_spawn",
+        "tool_kind" => "effect_intent",
+        "input_schema" => { "type" => "object" },
+      },
+    ]
+
+    result = Fenix::Runtime::PrepareRound.call(payload:)
+
+    assert_equal %w[exec_command browser_open subagent_spawn],
+      result.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
+    assert_equal %w[execution_runtime execution_runtime effect_intent],
+      result.fetch("tool_surface").map { |entry| entry.fetch("tool_kind") }
   end
 
   test "does not fold prior tool results into the prepared transcript messages" do

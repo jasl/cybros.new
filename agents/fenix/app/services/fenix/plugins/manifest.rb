@@ -26,12 +26,12 @@ module Fenix
         @source_path = source_path.to_s
       end
 
-      def environment_plane?
-        default_runtime_plane == "environment"
+      def execution_plane?
+        default_runtime_plane == "execution"
       end
 
-      def agent_plane?
-        default_runtime_plane == "agent"
+      def program_plane?
+        default_runtime_plane == "program"
       end
     end
   end

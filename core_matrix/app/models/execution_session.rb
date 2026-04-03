@@ -1,0 +1,63 @@
+class ExecutionSession < ApplicationRecord
+  include HasPublicId
+
+  enum :lifecycle_state, { active: "active", stale: "stale", closed: "closed" }, validate: true
+
+  belongs_to :installation
+  belongs_to :execution_runtime
+
+  validates :session_credential_digest, presence: true, uniqueness: true
+  validates :session_token_digest, presence: true, uniqueness: true
+  validate :endpoint_metadata_must_be_hash
+  validate :execution_runtime_installation_match
+  validate :single_active_session
+
+  def self.issue_session_credential
+    plaintext = SecureRandom.hex(32)
+    [plaintext, digest_session_credential(plaintext)]
+  end
+
+  def self.issue_session_token
+    plaintext = SecureRandom.hex(32)
+    [plaintext, digest_session_token(plaintext)]
+  end
+
+  def self.digest_session_credential(plaintext)
+    ::Digest::SHA256.hexdigest(plaintext.to_s)
+  end
+
+  def self.digest_session_token(plaintext)
+    ::Digest::SHA256.hexdigest(plaintext.to_s)
+  end
+
+  def self.find_by_plaintext_session_credential(plaintext)
+    find_by(session_credential_digest: digest_session_credential(plaintext))
+  end
+
+  def realtime_link_connected?
+    endpoint_metadata["realtime_link_connected"] == true
+  end
+
+  private
+
+  def endpoint_metadata_must_be_hash
+    errors.add(:endpoint_metadata, "must be a Hash") unless endpoint_metadata.is_a?(Hash)
+  end
+
+  def execution_runtime_installation_match
+    return if execution_runtime.blank?
+    return if execution_runtime.installation_id == installation_id
+
+    errors.add(:execution_runtime, "must belong to the same installation")
+  end
+
+  def single_active_session
+    return unless active?
+
+    scope = self.class.where(execution_runtime_id: execution_runtime_id, lifecycle_state: "active")
+    scope = scope.where.not(id: id) if persisted?
+    return unless scope.exists?
+
+    errors.add(:execution_runtime_id, "already has an active session")
+  end
+end

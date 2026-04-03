@@ -5,13 +5,13 @@ class Conversations::HistoricalAnchorProjectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +22,7 @@ class Conversations::HistoricalAnchorProjectionTest < ActiveSupport::TestCase
     branch_turn = Turns::StartUserTurn.call(
       conversation: branch,
       content: "Branch input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -40,13 +40,13 @@ class Conversations::HistoricalAnchorProjectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -57,7 +57,7 @@ class Conversations::HistoricalAnchorProjectionTest < ActiveSupport::TestCase
     branch_turn = Turns::StartUserTurn.call(
       conversation: branch,
       content: "Branch input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

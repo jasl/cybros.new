@@ -35,12 +35,11 @@ module Workflows
         )
         return existing_task(successor_node, workflow_run) if existing_task(successor_node, workflow_run).present?
 
-        Conversations::RefreshRuntimeContract.call(conversation: conversation)
         refresh_execution_snapshot!(turn)
 
         agent_task_run = AgentTaskRun.create!(
           installation: workflow_run.installation,
-          agent_installation: turn.agent_deployment.agent_installation,
+          agent_program: turn.agent_program_version.agent_program,
           workflow_run: workflow_run,
           workflow_node: successor_node,
           conversation: workflow_run.conversation,

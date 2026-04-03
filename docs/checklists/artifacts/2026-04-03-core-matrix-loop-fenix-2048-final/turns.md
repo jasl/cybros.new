@@ -1,0 +1,41 @@
+# Capstone Turns
+
+## Turn 1
+
+- Scenario date: `2026-04-02`
+- Operator: `Codex`
+- Conversation `public_id`: `019d5091-2d63-7bd5-a557-57d397237d29`
+- Turn `public_id`: `019d5091-2d8e-7bc2-b11b-ddbca8a7a556`
+- Workflow-run `public_id`: `019d5091-2dac-7f2f-b080-7806fdba7f1b`
+- Agent program version `public_id`: `019d5091-0284-7915-b4bb-7ba5cfe83a6e`
+- Execution runtime `public_id`: `019d5091-026c-7800-bfc8-e0bf4b410e88`
+- Runtime mode: `Core Matrix host runtime + Dockerized Fenix`
+- Provider handle: `openrouter`
+- Model ref: `openai-gpt-5.4`
+- API model: `openai-gpt-5.4`
+- Selector: `candidate:openrouter/openai-gpt-5.4`
+- Expected DAG shape: provider-backed `turn_step` with repeated `tool_call` and `barrier_join` expansion until completion
+- Observed DAG shape:
+  - `turn_step`: `43`
+  - `tool_call`: `46`
+  - `barrier_join`: `46`
+  - Total workflow nodes: `135`
+  - Highest observed provider round: `43`
+- Expected conversation state: one user request followed by one completed agent response
+- Observed conversation state:
+  - Conversation lifecycle: `active`
+  - Turn lifecycle: `completed`
+  - Message roles: `user`, `agent`
+  - Output message `public_id`: `019d5096-5c8a-7766-b03c-335233247dbf`
+- Subagent work expected: `yes`
+- Subagent work observed: `yes`
+  - Observed subagent session `public_id`: `019d5091-49c6-7a0b-ac14-443fc5660654`
+  - Observed subagent profile: `unknown`
+- Proof artifacts:
+  - `acceptance-registration.json`
+  - `capstone-run-bootstrap.json`
+  - `skills-validation.json`
+  - `host-playwright-verification.json`
+  - `host-playability.png`
+  - `export-roundtrip.md`
+- Outcome: `pass`

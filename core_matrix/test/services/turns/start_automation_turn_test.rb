@@ -4,9 +4,7 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
   test "starts an automation turn without a transcript bearing user message" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
 
     turn = Turns::StartAutomationTurn.call(
@@ -17,7 +15,6 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
       source_ref_id: "schedule-1",
       idempotency_key: "idemp-1",
       external_event_key: "evt-1",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: { "temperature" => 0.1 },
       resolved_model_selection_snapshot: {
         "selector_source" => "conversation",
@@ -32,19 +29,15 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     assert_nil turn.selected_output_message
   end
 
-  test "uses the conversation bound deployment instead of an arbitrary caller supplied deployment" do
+  test "freezes the active agent session version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
-    alternate_deployment = create_agent_deployment!(
+    alternate_deployment = create_agent_program_version!(
       installation: context[:installation],
-      agent_installation: create_agent_installation!(installation: context[:installation]),
-      execution_environment: context[:execution_environment],
-      fingerprint: "alternate-#{next_test_sequence}",
-      bootstrap_state: "pending"
+      agent_program: create_agent_program!(installation: context[:installation]),
+      fingerprint: "alternate-#{next_test_sequence}"
     )
 
     turn = Turns::StartAutomationTurn.call(
@@ -55,21 +48,19 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
       source_ref_id: "schedule-2",
       idempotency_key: "idemp-2",
       external_event_key: "evt-2",
-      agent_deployment: alternate_deployment,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal conversation.agent_deployment, turn.agent_deployment
-    assert_equal conversation.agent_deployment.fingerprint, turn.pinned_deployment_fingerprint
+    assert_equal context[:agent_program_version], turn.agent_program_version
+    assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
+    refute_equal alternate_deployment, turn.agent_program_version
   end
 
   test "rejects pending delete automation conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -82,7 +73,6 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
         source_ref_id: "schedule-1",
         idempotency_key: "idemp-1",
         external_event_key: "evt-1",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -94,9 +84,7 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
   test "rechecks active lifecycle state after acquiring the conversation lock" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     archive_during_lock!(conversation)
 
@@ -109,7 +97,6 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
         source_ref_id: "schedule-1",
         idempotency_key: "idemp-1",
         external_event_key: "evt-1",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )

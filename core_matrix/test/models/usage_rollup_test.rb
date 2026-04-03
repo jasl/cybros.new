@@ -9,8 +9,8 @@ class UsageRollupTest < ActiveSupport::TestCase
       conversation_id: 101,
       turn_id: 202,
       workflow_node_key: "planner-step",
-      agent_installation_id: nil,
-      agent_deployment_id: nil,
+      agent_program_id: nil,
+      agent_program_version_id: nil,
       provider_handle: "openai",
       model_ref: "gpt-5.3-chat-latest",
       operation_kind: "text_generation"
@@ -76,8 +76,8 @@ class UsageRollupTest < ActiveSupport::TestCase
         conversation_id: nil,
         turn_id: nil,
         workflow_node_key: nil,
-        agent_installation_id: nil,
-        agent_deployment_id: nil,
+        agent_program_id: nil,
+        agent_program_version_id: nil,
         provider_handle: "codex_subscription",
         model_ref: "gpt-5.4",
         operation_kind: "text_generation"

@@ -4,16 +4,16 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
   test "same installation registration supports upgrade and downgrade rotation" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
-    agent_installation = create_agent_installation!(installation: installation)
+    agent_program = create_agent_program!(installation: installation)
 
     first = register_runtime!(
       installation: installation,
       actor: actor,
-      agent_installation: agent_installation,
+      agent_program: agent_program,
       sdk_version: "fenix-0.1.0",
       base_url: "https://fenix-v1.example.test"
     )
-    AgentDeployments::RecordHeartbeat.call(
+    AgentProgramVersions::RecordHeartbeat.call(
       deployment: first[:deployment],
       health_status: "healthy",
       health_metadata: { "release" => "fenix-0.1.0" },
@@ -23,11 +23,11 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
     upgrade = register_runtime!(
       installation: installation,
       actor: actor,
-      agent_installation: agent_installation,
+      agent_program: agent_program,
       sdk_version: "fenix-0.2.0",
       base_url: "https://fenix-v2.example.test"
     )
-    AgentDeployments::RecordHeartbeat.call(
+    AgentProgramVersions::RecordHeartbeat.call(
       deployment: upgrade[:deployment],
       health_status: "healthy",
       health_metadata: { "release" => "fenix-0.2.0" },
@@ -36,16 +36,16 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal "superseded", first[:deployment].reload.bootstrap_state
     assert_equal "active", upgrade[:deployment].reload.bootstrap_state
-    assert_equal first[:execution_environment].public_id, upgrade[:execution_environment].public_id
+    assert_equal first[:execution_runtime].public_id, upgrade[:execution_runtime].public_id
 
     downgrade = register_runtime!(
       installation: installation,
       actor: actor,
-      agent_installation: agent_installation,
+      agent_program: agent_program,
       sdk_version: "fenix-0.0.9",
       base_url: "https://fenix-v0.example.test"
     )
-    AgentDeployments::RecordHeartbeat.call(
+    AgentProgramVersions::RecordHeartbeat.call(
       deployment: downgrade[:deployment],
       health_status: "healthy",
       health_metadata: { "release" => "fenix-0.0.9" },
@@ -54,20 +54,20 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal "superseded", upgrade[:deployment].reload.bootstrap_state
     assert_equal "active", downgrade[:deployment].reload.bootstrap_state
-    assert_equal first[:execution_environment].public_id, downgrade[:execution_environment].public_id
+    assert_equal first[:execution_runtime].public_id, downgrade[:execution_runtime].public_id
   end
 
   test "manual retry can move paused work onto a rotated external fenix deployment" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Retry after rotation",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -82,19 +82,19 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
     rotated = register_runtime!(
       installation: context[:installation],
       actor: actor,
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime],
       sdk_version: "fenix-0.2.0",
       base_url: "https://fenix-v2.example.test"
     )
-    AgentDeployments::RecordHeartbeat.call(
+    AgentProgramVersions::RecordHeartbeat.call(
       deployment: rotated[:deployment],
       health_status: "healthy",
       health_metadata: { "release" => "fenix-0.2.0" },
       auto_resume_eligible: true
     )
-    AgentDeployments::MarkUnavailable.call(
-      deployment: context[:agent_deployment],
+    AgentProgramVersions::MarkUnavailable.call(
+      deployment: context[:agent_program_version],
       severity: "prolonged",
       reason: "runtime_offline",
       occurred_at: Time.current
@@ -108,19 +108,19 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert retried.active?
-    assert_equal rotated[:deployment], retried.turn.agent_deployment
+    assert_equal rotated[:deployment], retried.turn.agent_program_version
     assert_equal "fenix-0.2.0", rotated[:deployment].sdk_version
   end
 
   private
 
-  def register_runtime!(installation:, actor:, agent_installation:, sdk_version:, base_url:, execution_environment: nil)
+  def register_runtime!(installation:, actor:, agent_program:, sdk_version:, base_url:, execution_runtime: nil)
     register_agent_runtime!(
       installation: installation,
       actor: actor,
-      agent_installation: agent_installation,
-      execution_environment: execution_environment,
-      environment_fingerprint: execution_environment&.environment_fingerprint || "fenix-host-a",
+      agent_program: agent_program,
+      execution_runtime: execution_runtime,
+      runtime_fingerprint: execution_runtime&.runtime_fingerprint || "fenix-host-a",
       sdk_version: sdk_version,
       fingerprint: "fenix-release-#{sdk_version}",
       endpoint_metadata: {

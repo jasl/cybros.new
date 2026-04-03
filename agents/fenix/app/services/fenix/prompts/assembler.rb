@@ -10,9 +10,9 @@ module Fenix
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:, deployment_public_id: nil, profile: "main", is_subagent: false)
-        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
-        @memory_store = Fenix::Memory::Store.new(workspace_root:, conversation_id:, deployment_public_id:)
+      def initialize(workspace_root:, conversation_id:, agent_program_version_id: nil, profile: "main", is_subagent: false)
+        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:, agent_program_version_id:)
+        @memory_store = Fenix::Memory::Store.new(workspace_root:, conversation_id:, agent_program_version_id:)
         @profile = profile
         @is_subagent = is_subagent
       end

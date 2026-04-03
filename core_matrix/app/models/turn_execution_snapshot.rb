@@ -59,10 +59,6 @@ class TurnExecutionSnapshot
     read_array("attachment_manifest")
   end
 
-  def runtime_attachment_manifest
-    read_array("runtime_attachment_manifest")
-  end
-
   def model_input_attachments
     read_array("model_input_attachments")
   end

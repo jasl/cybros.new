@@ -5,7 +5,7 @@ class ToolInvocationTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     binding = ToolBindings::FreezeForWorkflowNode.call(
@@ -33,11 +33,11 @@ class ToolInvocationTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_program_version: context.fetch(:capability_snapshot),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(

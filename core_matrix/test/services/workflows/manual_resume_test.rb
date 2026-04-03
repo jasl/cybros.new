@@ -5,8 +5,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime],
       selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
@@ -20,21 +20,21 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
 
     assert_equal context[:workflow_run].id, resumed.id
     assert resumed.ready?
-    assert_equal replacement, resumed.turn.reload.agent_deployment
-    assert_equal replacement.fingerprint, resumed.turn.pinned_deployment_fingerprint
+    assert_equal replacement, resumed.turn.reload.agent_program_version
+    assert_equal replacement.fingerprint, resumed.turn.pinned_program_version_fingerprint
     assert_equal "role:planner", resumed.turn.normalized_selector
     assert_equal "openai", resumed.turn.resolved_provider_handle
     assert_equal "gpt-5.4", resumed.turn.resolved_model_ref
-    assert_equal replacement.public_id, resumed.execution_identity["agent_deployment_id"]
+    assert_equal replacement.public_id, resumed.execution_identity["agent_program_version_id"]
 
     conversation = context[:conversation].reload
-    assert_equal replacement, conversation.agent_deployment
+    assert_equal context[:agent_program], conversation.agent_program
     assert_equal "auto", conversation.interactive_selector_mode
     assert_nil conversation.interactive_selector_provider_handle
     assert_nil conversation.interactive_selector_model_ref
     assert_equal(
       default_default_config_snapshot(include_selector_slots: true),
-      replacement.active_capability_snapshot.default_config_snapshot
+      replacement.default_config_snapshot
     )
 
     audit_log = AuditLog.find_by!(action: "workflow.manual_resumed")
@@ -46,11 +46,11 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
 
   test "rejects manual resume when the replacement deployment belongs to a different logical agent" do
     context = build_paused_recovery_context!
-    other_installation = create_agent_installation!(installation: context[:installation])
+    other_installation = create_agent_program!(installation: context[:installation])
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: other_installation,
-      execution_environment: context[:execution_environment]
+      agent_program: other_installation,
+      execution_runtime: context[:execution_runtime]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -61,15 +61,15 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:agent_deployment], "must belong to the same logical agent installation"
+    assert_includes error.record.errors[:agent_program_version], "must belong to the same agent program"
   end
 
   test "rejects manual resume when required capabilities are no longer available" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime],
       protocol_methods: default_protocol_methods("agent_health"),
       tool_catalog: default_tool_catalog("exec_command")
     )
@@ -82,15 +82,15 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:agent_deployment], "must preserve the paused workflow capability contract"
+    assert_includes error.record.errors[:agent_program_version], "must preserve the paused workflow capability contract"
   end
 
   test "rejects manual resume when the frozen selector can no longer be resolved" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     ProviderEntitlement.where(installation: context[:installation]).update_all(active: false)
 
@@ -112,7 +112,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Workflows::ManualResume.call(
         workflow_run: context[:workflow_run],
-        deployment: context[:agent_deployment],
+        deployment: context[:agent_program_version],
         actor: create_user!(installation: context[:installation], role: "admin")
       )
     end
@@ -127,7 +127,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Workflows::ManualResume.call(
         workflow_run: context[:workflow_run],
-        deployment: context[:agent_deployment],
+        deployment: context[:agent_program_version],
         actor: create_user!(installation: context[:installation], role: "admin")
       )
     end
@@ -149,7 +149,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Workflows::ManualResume.call(
         workflow_run: context[:workflow_run],
-        deployment: context[:agent_deployment],
+        deployment: context[:agent_program_version],
         actor: create_user!(installation: context[:installation], role: "admin")
       )
     end
@@ -174,7 +174,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       error = assert_raises(ActiveRecord::RecordInvalid) do
         Workflows::ManualResume.call(
           workflow_run: context[:workflow_run],
-          deployment: context[:agent_deployment],
+          deployment: context[:agent_program_version],
           actor: actor
         )
       end
@@ -189,7 +189,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation]
+      agent_program: context[:agent_program]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -200,15 +200,15 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
+    assert_includes error.record.errors[:agent_program_version], "must preserve the frozen execution runtime"
   end
 
   test "rechecks paused recovery state after acquiring the conversation lock" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     service = Workflows::ManualResume.new(
       workflow_run: context[:workflow_run],
@@ -223,16 +223,16 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:wait_reason_kind], "must require manual recovery before resuming"
     assert context[:workflow_run].reload.ready?
-    assert_equal context[:agent_deployment], context[:conversation].reload.agent_deployment
-    assert_equal context[:agent_deployment], context[:turn].reload.agent_deployment
+    assert_equal context[:agent_program], context[:conversation].reload.agent_program
+    assert_equal context[:agent_program_version], context[:turn].reload.agent_program_version
   end
 
   test "manual resume restores the original human-interaction blocker for paused workflows" do
     context = build_paused_human_interaction_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime],
       selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
@@ -247,15 +247,15 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal "human_interaction", resumed.wait_reason_kind
     assert_equal "HumanInteractionRequest", resumed.blocking_resource_type
     assert_equal context[:request].public_id, resumed.blocking_resource_id
-    assert_equal replacement, resumed.turn.reload.agent_deployment
+    assert_equal replacement, resumed.turn.reload.agent_program_version
   end
 
   test "manual resume restores the original subagent barrier blocker for paused workflows" do
     context = build_paused_subagent_barrier_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime],
       selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
@@ -272,22 +272,22 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal context[:blocking_resource_id], resumed.blocking_resource_id
     assert_equal context[:subagent_sessions].map(&:public_id).sort,
       resumed.wait_reason_payload.fetch("subagent_session_ids").sort
-    assert_equal replacement, resumed.turn.reload.agent_deployment
+    assert_equal replacement, resumed.turn.reload.agent_program_version
   end
 
   test "manual resume uses the same turn rebinding owner as recovery-plan application" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment],
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime],
       selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     original_rebind_call = nil
     rebind_calls = []
 
-    original_rebind_call = AgentDeployments::RebindTurn.method(:call)
-    AgentDeployments::RebindTurn.singleton_class.define_method(:call) do |*args, **kwargs|
+    original_rebind_call = AgentProgramVersions::RebindTurn.method(:call)
+    AgentProgramVersions::RebindTurn.singleton_class.define_method(:call) do |*args, **kwargs|
       rebind_calls << kwargs
       original_rebind_call.call(*args, **kwargs)
     end
@@ -302,10 +302,10 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_equal context[:workflow_run].id, resumed.id
     assert_equal 1, rebind_calls.size
     assert_equal context[:turn].id, rebind_calls.first.fetch(:turn).id
-    assert_equal replacement, rebind_calls.first.fetch(:recovery_target).agent_deployment
+    assert_equal replacement, rebind_calls.first.fetch(:recovery_target).agent_program_version
   ensure
     if original_rebind_call
-      AgentDeployments::RebindTurn.singleton_class.define_method(:call, original_rebind_call)
+      AgentProgramVersions::RebindTurn.singleton_class.define_method(:call, original_rebind_call)
     end
   end
 
@@ -314,23 +314,22 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
   def build_paused_recovery_context!
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     richer_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context[:agent_deployment].update!(active_capability_snapshot: richer_snapshot)
+    adopt_agent_program_version!(context, richer_snapshot, turn: nil)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Paused recovery input",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -341,8 +340,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       decision_source: "system",
       metadata: {}
     )
-    AgentDeployments::MarkUnavailable.call(
-      deployment: context[:agent_deployment],
+    AgentProgramVersions::MarkUnavailable.call(
+      deployment: context[:agent_program_version],
       severity: "prolonged",
       reason: "runtime_offline",
       occurred_at: Time.current
@@ -354,23 +353,22 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
   def build_paused_human_interaction_recovery_context!
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     richer_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context[:agent_deployment].update!(active_capability_snapshot: richer_snapshot)
+    adopt_agent_program_version!(context, richer_snapshot, turn: nil)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Human interaction input",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -402,8 +400,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       blocking: true,
       request_payload: { "instructions" => "Need operator input" }
     )
-    AgentDeployments::MarkUnavailable.call(
-      deployment: context[:agent_deployment],
+    AgentProgramVersions::MarkUnavailable.call(
+      deployment: context[:agent_program_version],
       severity: "prolonged",
       reason: "runtime_offline",
       occurred_at: Time.current
@@ -426,8 +424,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: context[:conversation],
         kind: "fork",
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version],
         addressability: "agent_addressable"
       )
     end
@@ -457,8 +455,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       blocking_resource_type: "SubagentBarrier",
       blocking_resource_id: blocking_resource_id
     )
-    AgentDeployments::MarkUnavailable.call(
-      deployment: context[:agent_deployment],
+    AgentProgramVersions::MarkUnavailable.call(
+      deployment: context[:agent_program_version],
       severity: "prolonged",
       reason: "runtime_offline",
       occurred_at: Time.current
@@ -473,33 +471,44 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
 
   def create_compatible_replacement_deployment!(
     installation:,
-    agent_installation:,
-    execution_environment: create_execution_environment!(installation: installation),
+    agent_program:,
+    execution_runtime: create_execution_runtime!(installation: installation),
     protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
     tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
     selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
   )
-    agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(
-      bootstrap_state: "superseded",
+    AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
       updated_at: Time.current
     )
-    deployment = create_agent_deployment!(
+    deployment = create_agent_program_version!(
       installation: installation,
-      agent_installation: agent_installation,
-      execution_environment: execution_environment,
+      agent_program: agent_program,
       fingerprint: "replacement-#{next_test_sequence}",
-      health_status: "healthy",
-      auto_resume_eligible: true
-    )
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: deployment,
-      version: 1,
       protocol_methods: protocol_methods,
       tool_catalog: tool_catalog,
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: selector_snapshot
     )
-    deployment.update!(active_capability_snapshot: capability_snapshot)
+    agent_program.update!(default_execution_runtime: execution_runtime)
+    create_agent_session!(
+      installation: installation,
+      agent_program: agent_program,
+      agent_program_version: deployment,
+      health_status: "healthy",
+      auto_resume_eligible: true,
+      last_heartbeat_at: Time.current,
+      last_health_check_at: Time.current
+    )
+    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
+      updated_at: Time.current
+    )
+    create_execution_session!(
+      installation: installation,
+      execution_runtime: execution_runtime,
+      last_heartbeat_at: Time.current
+    )
 
     deployment
   end

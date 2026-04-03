@@ -4,14 +4,11 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
   test "creates a queued follow up turn with a new selected input message" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -19,7 +16,6 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     queued = Turns::QueueFollowUp.call(
       conversation: conversation,
       content: "Follow up input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -33,53 +29,45 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_equal "Follow up input", queued.selected_input_message.content
   end
 
-  test "uses the conversation bound deployment instead of an arbitrary caller supplied deployment" do
+  test "freezes the active agent session version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    alternate_deployment = create_agent_deployment!(
+    alternate_deployment = create_agent_program_version!(
       installation: context[:installation],
-      agent_installation: create_agent_installation!(installation: context[:installation]),
-      execution_environment: context[:execution_environment],
-      fingerprint: "alternate-#{next_test_sequence}",
-      bootstrap_state: "pending"
+      agent_program: create_agent_program!(installation: context[:installation]),
+      fingerprint: "alternate-#{next_test_sequence}"
     )
 
     queued = Turns::QueueFollowUp.call(
       conversation: conversation,
       content: "Follow up input",
-      agent_deployment: alternate_deployment,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal conversation.agent_deployment, queued.agent_deployment
-    assert_equal conversation.agent_deployment.fingerprint, queued.pinned_deployment_fingerprint
+    assert_equal context[:agent_program_version], queued.agent_program_version
+    assert_equal context[:agent_program_version].fingerprint, queued.pinned_program_version_fingerprint
+    refute_equal alternate_deployment, queued.agent_program_version
   end
 
   test "rejects queueing when no active work exists" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
 
     assert_raises(ActiveRecord::RecordInvalid) do
       Turns::QueueFollowUp.call(
         conversation: conversation,
         content: "Should not queue",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -89,16 +77,13 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
   test "rejects automation purpose conversations with follow up turn entry messaging" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Turns::QueueFollowUp.call(
         conversation: conversation,
         content: "Should not queue",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -110,17 +95,13 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
   test "rejects queueing follow up on agent addressable conversations before active work checks" do
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: root_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
     )
     SubagentSession.create!(
@@ -136,7 +117,6 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       Turns::QueueFollowUp.call(
         conversation: child_conversation,
         content: "Blocked",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -148,14 +128,11 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
   test "rejects queueing follow up on a pending delete conversation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -165,7 +142,6 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       Turns::QueueFollowUp.call(
         conversation: conversation,
         content: "Should not queue",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -177,14 +153,11 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
   test "rechecks active lifecycle state after acquiring the conversation lock" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -194,7 +167,6 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       Turns::QueueFollowUp.call(
         conversation: conversation,
         content: "Blocked follow up",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )

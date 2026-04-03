@@ -1,32 +1,32 @@
 require "test_helper"
 
 class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
-  test "routes agent-plane work to the explicitly targeted deployment" do
+  test "routes program-plane work to the explicitly targeted agent session" do
     context = build_agent_control_context!
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: context[:agent_installation],
-      target_agent_deployment: context[:deployment]
+      target_agent_program: context[:agent_program],
+      target_agent_program_version: context[:deployment]
     )
 
     result = AgentControl::ResolveTargetRuntime.call(mailbox_item: mailbox_item)
 
-    assert_equal "agent", result.runtime_plane
-    assert_nil result.execution_environment
-    assert_equal context[:deployment], result.delivery_endpoint
+    assert_equal "program", result.runtime_plane
+    assert_nil result.execution_runtime
+    assert_equal context[:agent_session], result.delivery_endpoint
     assert result.matches?(context[:deployment])
   end
 
-  test "routes environment-plane work by execution environment instead of installation hints" do
+  test "routes execution-plane work by execution runtime instead of program hints" do
     context = build_agent_control_context!
-    other_agent_installation = create_agent_installation!(installation: context[:installation])
+    other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: other_agent_installation,
-      target_execution_environment: context[:execution_environment],
+      target_agent_program: other_agent_program,
+      target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
-      runtime_plane: "environment",
-      target_kind: "agent_installation",
+      runtime_plane: "execution",
+      target_kind: "agent_program",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -37,9 +37,9 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
 
     result = AgentControl::ResolveTargetRuntime.call(mailbox_item: mailbox_item)
 
-    assert_equal "environment", result.runtime_plane
-    assert_equal context[:execution_environment], result.execution_environment
-    assert_equal context[:deployment], result.delivery_endpoint
+    assert_equal "execution", result.runtime_plane
+    assert_equal context[:execution_runtime], result.execution_runtime
+    assert_equal context[:execution_session], result.delivery_endpoint
     assert result.matches?(context[:deployment])
   end
 end

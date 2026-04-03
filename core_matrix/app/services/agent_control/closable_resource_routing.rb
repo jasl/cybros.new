@@ -2,10 +2,10 @@ module AgentControl
   module ClosableResourceRouting
     module_function
 
-    def execution_environment_for(resource)
-      return resource.execution_environment if resource.respond_to?(:execution_environment)
+    def execution_runtime_for(resource)
+      return resource.execution_runtime if resource.respond_to?(:execution_runtime)
 
-      conversation_for(resource)&.execution_environment
+      turn_for(resource)&.execution_runtime
     end
 
     def conversation_for(resource)
@@ -25,11 +25,11 @@ module AgentControl
       resource.workflow_run&.turn if resource.respond_to?(:workflow_run)
     end
 
-    def owning_agent_installation_for(resource)
-      return resource.agent_installation if resource.respond_to?(:agent_installation)
+    def owning_agent_program_for(resource)
+      return resource.agent_program if resource.respond_to?(:agent_program)
 
-      turn_for(resource)&.agent_deployment&.agent_installation ||
-        conversation_for(resource)&.agent_deployment&.agent_installation
+      turn_for(resource)&.agent_program_version&.agent_program ||
+        conversation_for(resource)&.agent_program
     end
   end
 end

@@ -7,8 +7,8 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     Conversations::RequestDeletion.call(conversation: conversation)
 
@@ -30,7 +30,7 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -86,8 +86,8 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     stale_conversation = Conversation.find(conversation.id)
 

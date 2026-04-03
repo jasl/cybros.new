@@ -41,7 +41,7 @@ class MailboxScenarioBuilder
 
   def agent_program_request!(context:, request_kind:, payload:, logical_work_id:, attempt_no: 1)
     mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       request_kind: request_kind,
       payload: payload,
       logical_work_id: logical_work_id,

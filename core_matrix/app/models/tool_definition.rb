@@ -10,15 +10,15 @@ class ToolDefinition < ApplicationRecord
     validate: true
 
   belongs_to :installation
-  belongs_to :capability_snapshot
+  belongs_to :agent_program_version
 
   has_many :tool_implementations, dependent: :restrict_with_exception
   has_many :tool_bindings, dependent: :restrict_with_exception
   has_many :tool_invocations, dependent: :restrict_with_exception
 
-  validates :tool_name, presence: true, format: { with: CapabilitySnapshot::METHOD_ID_PATTERN }
+  validates :tool_name, presence: true, format: { with: AgentProgramVersion::METHOD_ID_PATTERN }
   validates :tool_kind, presence: true
-  validate :installation_matches_capability_snapshot
+  validate :installation_matches_program_version
   validate :policy_payload_must_be_hash
 
   def default_implementation
@@ -27,11 +27,11 @@ class ToolDefinition < ApplicationRecord
 
   private
 
-  def installation_matches_capability_snapshot
-    return if capability_snapshot.blank?
-    return if capability_snapshot.agent_deployment.installation_id == installation_id
+  def installation_matches_program_version
+    return if agent_program_version.blank?
+    return if agent_program_version.installation_id == installation_id
 
-    errors.add(:installation, "must match the capability snapshot installation")
+    errors.add(:installation, "must match the program version installation")
   end
 
   def policy_payload_must_be_hash

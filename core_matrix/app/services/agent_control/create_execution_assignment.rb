@@ -31,12 +31,12 @@ module AgentControl
     def call
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @agent_task_run.installation,
-        target_agent_installation: @agent_task_run.agent_installation,
+        target_agent_program: @agent_task_run.agent_program,
         agent_task_run: @agent_task_run,
         item_type: "execution_assignment",
-        runtime_plane: "agent",
-        target_kind: "agent_installation",
-        target_ref: @agent_task_run.agent_installation.public_id,
+        runtime_plane: "program",
+        target_kind: "agent_program",
+        target_ref: @agent_task_run.agent_program.public_id,
         logical_work_id: @agent_task_run.logical_work_id,
         attempt_no: @agent_task_run.attempt_no,
         protocol_message_id: @protocol_message_id,
@@ -121,7 +121,7 @@ module AgentControl
       execution_snapshot.runtime_context.merge(
         "logical_work_id" => @agent_task_run.logical_work_id,
         "attempt_no" => @agent_task_run.attempt_no,
-        "deployment_public_id" => @agent_task_run.turn.agent_deployment.public_id
+        "agent_program_version_id" => @agent_task_run.turn.agent_program_version.public_id
       )
     end
   end

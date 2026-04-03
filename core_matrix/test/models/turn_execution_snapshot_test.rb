@@ -29,6 +29,7 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal({ "provider_execution" => {}, "budget_hints" => {}, "model_context" => { "provider_handle" => "openai" } }, snapshot.provider_context)
     assert_equal({ "turn_id" => "turn-1" }, snapshot.task)
     assert_equal({ "tool_surface" => [{ "tool_name" => "exec_command" }] }, snapshot.capability_projection)
-    assert_equal([], snapshot.runtime_attachment_manifest)
+    assert_equal([], snapshot.model_input_attachments)
+    assert_equal([], snapshot.attachment_diagnostics)
   end
 end

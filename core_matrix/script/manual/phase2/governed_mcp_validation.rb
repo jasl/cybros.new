@@ -13,7 +13,7 @@ begin
   runtime_context = GovernedValidationSupport.bootstrap_runtime!(
     agent_key: "phase2-governed-mcp",
     display_name: "Phase 2 Governed MCP Runtime",
-    environment_fingerprint: "phase2-governed-mcp-environment",
+    runtime_fingerprint: "phase2-governed-mcp-environment",
     fingerprint: "phase2-governed-mcp-runtime",
     tool_catalog: [
       {

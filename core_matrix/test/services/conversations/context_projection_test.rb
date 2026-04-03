@@ -5,13 +5,13 @@ class Conversations::ContextProjectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Keep me in context",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +22,7 @@ class Conversations::ContextProjectionTest < ActiveSupport::TestCase
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Transcript only",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -49,20 +49,20 @@ class Conversations::ContextProjectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     first_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Visible root input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
     hidden_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Hidden in descendant",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

@@ -32,8 +32,14 @@ module AgentControl
 
     def create_mailbox_item!
       requested_at = Time.current
-      target_deployment = delivery_endpoint
-      target_agent_installation = target_deployment&.agent_installation || ClosableResourceRouting.owning_agent_installation_for(@resource)
+      target_session = delivery_endpoint
+      target_deployment = target_session.agent_program_version if target_session.is_a?(AgentSession)
+      target_agent_program =
+        if target_session.is_a?(AgentSession)
+          target_session.agent_program
+        else
+          ClosableResourceRouting.owning_agent_program_for(@resource)
+        end
 
       resource_updates = {
         close_state: "requested",
@@ -47,14 +53,14 @@ module AgentControl
 
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @resource.installation,
-        target_agent_installation: target_agent_installation,
-        target_agent_deployment: target_deployment,
-        target_execution_environment: environment_plane? ? ClosableResourceRouting.execution_environment_for(@resource) : nil,
+        target_agent_program: target_agent_program,
+        target_agent_program_version: target_deployment,
+        target_execution_runtime: execution_plane? ? ClosableResourceRouting.execution_runtime_for(@resource) : nil,
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
         runtime_plane: runtime_plane,
-        target_kind: target_deployment.present? ? "agent_deployment" : "agent_installation",
-        target_ref: durable_target_ref(target_agent_installation:, target_deployment:),
+        target_kind: target_deployment.present? ? "agent_program_version" : "agent_program",
+        target_ref: durable_target_ref(target_agent_program:, target_deployment:),
         logical_work_id: agent_task_run&.logical_work_id || "close:#{@resource.class.name}:#{@resource.public_id}",
         attempt_no: agent_task_run&.attempt_no || 1,
         protocol_message_id: @protocol_message_id,
@@ -87,14 +93,19 @@ module AgentControl
     end
 
     def delivery_endpoint
-      if environment_plane?
-        execution_environment = ClosableResourceRouting.execution_environment_for(@resource)
-        return if execution_environment.blank?
+      if execution_plane?
+        execution_runtime = ClosableResourceRouting.execution_runtime_for(@resource)
+        return if execution_runtime.blank?
 
-        return ExecutionEnvironments::ResolveDeliveryEndpoint.call(execution_environment: execution_environment)
+        return ExecutionSessions::ResolveActiveSession.call(execution_runtime: execution_runtime)
       end
 
-      @resource.execution_lease&.holder_deployment
+      return @resource.holder_agent_session if @resource.respond_to?(:holder_agent_session)
+
+      execution_lease = @resource.try(:execution_lease)
+      return if execution_lease.blank?
+
+      AgentSession.find_by(public_id: execution_lease.holder_key)
     end
 
     def agent_task_run
@@ -102,18 +113,18 @@ module AgentControl
     end
 
     def runtime_plane
-      environment_plane? ? "environment" : "agent"
+      execution_plane? ? "execution" : "program"
     end
 
-    def environment_plane?
+    def execution_plane?
       @resource.is_a?(ProcessRun)
     end
 
-    def durable_target_ref(target_agent_installation:, target_deployment:)
-      execution_environment = ClosableResourceRouting.execution_environment_for(@resource)
-      return execution_environment.public_id if environment_plane? && execution_environment.present?
+    def durable_target_ref(target_agent_program:, target_deployment:)
+      execution_runtime = ClosableResourceRouting.execution_runtime_for(@resource)
+      return execution_runtime.public_id if execution_plane? && execution_runtime.present?
 
-      target_deployment&.public_id || target_agent_installation.public_id
+      target_deployment&.public_id || target_agent_program.public_id
     end
   end
 end

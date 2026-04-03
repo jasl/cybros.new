@@ -168,21 +168,13 @@ module Fenix
           "max_depth" => 3,
         },
       }.freeze
-      ENVIRONMENT_KIND = "local".freeze
+      EXECUTION_RUNTIME_KIND = "local".freeze
       def self.call(...)
         new(...).call
       end
 
       def self.program_tool_catalog
-        new(base_url: "http://runtime.invalid").send(:tool_catalog)
-      end
-
-      def self.visible_program_tool_catalog(allowed_tool_names:)
-        catalog = program_tool_catalog
-        allowed = Array(allowed_tool_names).map(&:to_s).uniq
-        return catalog if allowed.empty?
-
-        catalog.select { |entry| allowed.include?(entry.fetch("tool_name")) }
+        new(base_url: "http://runtime.invalid").send(:program_tool_catalog)
       end
 
       def initialize(base_url:)
@@ -193,22 +185,22 @@ module Fenix
         {
           "agent_key" => "fenix",
           "display_name" => "Fenix",
-          "includes_execution_environment" => true,
-          "environment_kind" => ENVIRONMENT_KIND,
-          "environment_fingerprint" => environment_fingerprint,
-          "environment_connection_metadata" => endpoint_metadata,
-          "environment_capability_payload" => environment_capability_payload,
-          "environment_tool_catalog" => environment_tool_catalog,
+          "includes_execution_runtime" => true,
+          "runtime_kind" => EXECUTION_RUNTIME_KIND,
+          "runtime_fingerprint" => runtime_fingerprint,
+          "runtime_connection_metadata" => endpoint_metadata,
+          "execution_capability_payload" => execution_capability_payload,
+          "execution_tool_catalog" => execution_tool_catalog,
           "operator_groups" => operator_groups,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "endpoint_metadata" => endpoint_metadata,
           "program_contract" => program_contract,
           "protocol_methods" => protocol_methods,
-          "tool_catalog" => tool_catalog,
+          "tool_catalog" => program_tool_catalog,
           "profile_catalog" => profile_catalog,
-          "agent_plane" => agent_plane,
-          "environment_plane" => environment_plane,
+          "program_plane" => program_plane,
+          "execution_plane" => execution_plane,
           "effective_tool_catalog" => effective_tool_catalog,
           "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
@@ -239,11 +231,11 @@ module Fenix
         PROTOCOL_METHOD_IDS.map { |method_id| { "method_id" => method_id } }
       end
 
-      def agent_plane
+      def program_plane
         {
-          "runtime_plane" => "agent",
+          "runtime_plane" => "program",
           "protocol_methods" => protocol_methods,
-          "tool_catalog" => tool_catalog,
+          "tool_catalog" => program_tool_catalog,
           "profile_catalog" => profile_catalog,
           "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
@@ -251,24 +243,24 @@ module Fenix
         }
       end
 
-      def environment_plane
+      def execution_plane
         {
-          "runtime_plane" => "environment",
-          "capability_payload" => environment_capability_payload,
-          "tool_catalog" => environment_tool_catalog,
+          "runtime_plane" => "execution",
+          "capability_payload" => execution_capability_payload,
+          "tool_catalog" => execution_tool_catalog,
         }
       end
 
-      def tool_catalog
-        @tool_catalog ||= CODE_OWNED_TOOL_CATALOG + plugin_catalog.tool_catalog
+      def program_tool_catalog
+        @program_tool_catalog ||= CODE_OWNED_TOOL_CATALOG + plugin_catalog.program_tool_catalog
       end
 
-      def environment_tool_catalog
-        @environment_tool_catalog ||= plugin_catalog.environment_tool_catalog
+      def execution_tool_catalog
+        @execution_tool_catalog ||= plugin_catalog.execution_tool_catalog
       end
 
       def profile_catalog
-        tool_names = tool_catalog.map { |entry| entry.fetch("tool_name") }
+        tool_names = effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
 
         {
           "main" => {
@@ -285,9 +277,11 @@ module Fenix
         }
       end
 
-      def environment_capability_payload
+      def execution_capability_payload
         {
-          "conversation_attachment_upload" => false,
+          "attachment_access" => {
+            "request_attachment" => true,
+          },
           "runtime_foundation" => runtime_foundation,
           "fixed_port_dev_proxy" => {
             "external_port_env" => "FENIX_DEV_PROXY_PORT",
@@ -322,7 +316,7 @@ module Fenix
         ordinary_entries = {}
         ordinary_order = []
 
-        [environment_tool_catalog, tool_catalog].each do |catalog|
+        [execution_tool_catalog, program_tool_catalog].each do |catalog|
           catalog.each do |entry|
             tool_name = entry.fetch("tool_name")
             next if ordinary_entries.key?(tool_name)
@@ -335,7 +329,7 @@ module Fenix
         ordinary_order.map { |tool_name| ordinary_entries.fetch(tool_name) }
       end
 
-      def environment_fingerprint
+      def runtime_fingerprint
         "fenix:#{Socket.gethostname}"
       end
 

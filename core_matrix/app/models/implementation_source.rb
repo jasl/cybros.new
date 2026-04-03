@@ -4,7 +4,7 @@ class ImplementationSource < ApplicationRecord
   enum :source_kind,
     {
       core_matrix: "core_matrix",
-      execution_environment: "execution_environment",
+      execution_runtime: "execution_runtime",
       agent: "agent",
       kernel: "kernel",
       mcp: "mcp",

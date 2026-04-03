@@ -26,7 +26,6 @@ module Workflows
         "runtime_context" => runtime_context,
         "turn_origin" => turn_origin,
         "attachment_manifest" => attachment_manifest,
-        "runtime_attachment_manifest" => build_runtime_attachment_manifest(attachment_manifest),
         "model_input_attachments" => build_model_input_attachments(attachment_manifest),
         "attachment_diagnostics" => build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
       )
@@ -41,8 +40,8 @@ module Workflows
         "conversation_id" => @turn.conversation.public_id,
         "turn_id" => @turn.public_id,
         "selected_input_message_id" => @turn.selected_input_message&.public_id,
-        "execution_environment_id" => @turn.conversation.execution_environment.public_id,
-        "agent_deployment_id" => @turn.agent_deployment.public_id,
+        "execution_runtime_id" => @turn.execution_runtime&.public_id,
+        "agent_program_version_id" => @turn.agent_program_version.public_id,
       }
     end
 
@@ -77,7 +76,7 @@ module Workflows
         "parent_subagent_session_id" => subagent_session&.parent_subagent_session&.public_id,
         "subagent_depth" => subagent_session&.depth,
         "owner_conversation_id" => subagent_session&.owner_conversation&.public_id,
-        "subagent_policy" => deep_stringify(runtime_contract.fetch("subagents", {})),
+        "subagent_policy" => deep_stringify(capability_contract.default_config_snapshot.fetch("subagents", {})),
       }
     end
 
@@ -91,10 +90,11 @@ module Workflows
 
     def runtime_context
       {
-        "runtime_plane" => "agent",
+        "runtime_plane" => "program",
         "logical_work_id" => nil,
         "attempt_no" => nil,
-        "deployment_public_id" => @turn.agent_deployment.public_id,
+        "agent_program_version_id" => @turn.agent_program_version.public_id,
+        "execution_runtime_id" => @turn.execution_runtime&.public_id,
       }
     end
 
@@ -158,7 +158,7 @@ module Workflows
     end
 
     def visible_tool_surface
-      runtime_contract.fetch("tool_catalog", []).map { |entry| deep_stringify(entry) }
+      capability_surface.fetch("tool_catalog", []).map { |entry| deep_stringify(entry) }
     end
 
     def projection_fingerprint
@@ -206,28 +206,12 @@ module Workflows
           "content_type" => attachment.file.blob.content_type,
           "byte_size" => attachment.file.blob.byte_size,
           "modality" => modality_for(attachment.file.blob.content_type),
-          "runtime_ref" => runtime_ref_for(attachment),
         }.compact
       end
     end
 
     def build_attachment_manifest(raw_attachment_manifest)
-      return [] unless conversation_attachment_upload_enabled?
-
       raw_attachment_manifest
-    end
-
-    def build_runtime_attachment_manifest(attachment_manifest)
-      attachment_manifest.map do |entry|
-        entry.slice(
-          "attachment_id",
-          "source_message_id",
-          "filename",
-          "content_type",
-          "byte_size",
-          "runtime_ref"
-        )
-      end
     end
 
     def build_model_input_attachments(attachment_manifest)
@@ -246,16 +230,6 @@ module Workflows
     end
 
     def build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
-      unless conversation_attachment_upload_enabled?
-        return raw_attachment_manifest.map do |entry|
-          {
-            "attachment_id" => entry.fetch("attachment_id"),
-            "reason" => "conversation_attachment_upload_disabled",
-            "content_type" => entry.fetch("content_type"),
-          }
-        end
-      end
-
       attachment_manifest.filter_map do |entry|
         next if modality_supported?(entry.fetch("modality"))
 
@@ -279,13 +253,6 @@ module Workflows
       return conversation_import.source_message.content if conversation_import.source_message.present?
 
       nil
-    end
-
-    def runtime_ref_for(attachment)
-      {
-        "kind" => "message_attachment",
-        "attachment_id" => attachment.public_id,
-      }
     end
 
     def modality_for(content_type)
@@ -348,12 +315,12 @@ module Workflows
       raise ActiveRecord::RecordInvalid, @turn
     end
 
-    def runtime_contract
-      @runtime_contract ||= Conversations::RefreshRuntimeContract.call(conversation: @turn.conversation)
+    def capability_surface
+      @capability_surface ||= RuntimeCapabilities::ComposeForTurn.call(turn: @turn)
     end
 
-    def conversation_attachment_upload_enabled?
-      runtime_contract.fetch("conversation_attachment_upload", false) == true
+    def capability_contract
+      @capability_contract ||= RuntimeCapabilities::ComposeForTurn.new(turn: @turn).contract
     end
 
     def subagent_session
@@ -361,9 +328,7 @@ module Workflows
     end
 
     def current_profile_key
-      subagent_session&.profile_key ||
-        @turn.agent_deployment.active_capability_snapshot&.default_config_snapshot&.dig("interactive", "profile") ||
-        "main"
+      RuntimeCapabilities::ComposeForTurn.new(turn: @turn).current_profile_key
     end
   end
 end

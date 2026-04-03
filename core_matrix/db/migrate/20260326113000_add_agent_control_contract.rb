@@ -1,15 +1,61 @@
 class AddAgentControlContract < ActiveRecord::Migration[8.2]
   def change
+    create_table :agent_sessions do |t|
+      t.references :installation, null: false, foreign_key: true
+      t.references :agent_program, null: false, foreign_key: true
+      t.references :agent_program_version, null: false, foreign_key: true
+      t.uuid :public_id, default: -> { "uuidv7()" }, null: false
+      t.string :session_credential_digest, null: false
+      t.string :session_token_digest, null: false
+      t.jsonb :endpoint_metadata, null: false, default: {}
+      t.string :lifecycle_state, null: false, default: "active"
+      t.string :health_status, null: false, default: "pending"
+      t.jsonb :health_metadata, null: false, default: {}
+      t.boolean :auto_resume_eligible, null: false, default: false
+      t.string :unavailability_reason
+      t.string :control_activity_state, null: false, default: "idle"
+      t.datetime :last_heartbeat_at
+      t.datetime :last_health_check_at
+      t.datetime :last_control_activity_at
+      t.timestamps
+    end
+    add_index :agent_sessions, :public_id, unique: true
+    add_index :agent_sessions, :session_credential_digest, unique: true
+    add_index :agent_sessions, :session_token_digest, unique: true
+    add_index :agent_sessions, :agent_program_id,
+      unique: true,
+      where: "lifecycle_state = 'active'",
+      name: "idx_agent_sessions_agent_program_active"
+
+    create_table :execution_sessions do |t|
+      t.references :installation, null: false, foreign_key: true
+      t.references :execution_runtime, null: false, foreign_key: true
+      t.uuid :public_id, default: -> { "uuidv7()" }, null: false
+      t.string :session_credential_digest, null: false
+      t.string :session_token_digest, null: false
+      t.jsonb :endpoint_metadata, null: false, default: {}
+      t.string :lifecycle_state, null: false, default: "active"
+      t.datetime :last_heartbeat_at
+      t.timestamps
+    end
+    add_index :execution_sessions, :public_id, unique: true
+    add_index :execution_sessions, :session_credential_digest, unique: true
+    add_index :execution_sessions, :session_token_digest, unique: true
+    add_index :execution_sessions, :execution_runtime_id,
+      unique: true,
+      where: "lifecycle_state = 'active'",
+      name: "idx_execution_sessions_runtime_active"
+
     create_table :agent_task_runs do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :agent_installation, null: false, foreign_key: true
+      t.references :agent_program, null: false, foreign_key: true
       t.references :workflow_run, null: false, foreign_key: true
       t.references :workflow_node, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true
       t.references :subagent_session, foreign_key: true
       t.references :origin_turn, foreign_key: { to_table: :turns }
-      t.references :holder_agent_deployment, foreign_key: { to_table: :agent_deployments }
+      t.references :holder_agent_session, foreign_key: { to_table: :agent_sessions }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :kind, null: false
       t.string :lifecycle_state, null: false, default: "queued"
@@ -36,11 +82,12 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
 
     create_table :agent_control_mailbox_items do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :target_agent_installation, null: false, foreign_key: { to_table: :agent_installations }
-      t.references :target_agent_deployment, foreign_key: { to_table: :agent_deployments }
-      t.references :target_execution_environment, foreign_key: { to_table: :execution_environments }
+      t.references :target_agent_program, null: false, foreign_key: { to_table: :agent_programs }
+      t.references :target_agent_program_version, foreign_key: { to_table: :agent_program_versions }
+      t.references :target_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.references :agent_task_run, foreign_key: true
-      t.references :leased_to_agent_deployment, foreign_key: { to_table: :agent_deployments }
+      t.references :leased_to_agent_session, foreign_key: { to_table: :agent_sessions }
+      t.references :leased_to_execution_session, foreign_key: { to_table: :execution_sessions }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :item_type, null: false
       t.string :runtime_plane, null: false
@@ -67,13 +114,14 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     end
     add_index :agent_control_mailbox_items, :public_id, unique: true
     add_index :agent_control_mailbox_items, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_mailbox_items_protocol_message"
-    add_index :agent_control_mailbox_items, [:target_agent_installation_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_installation_delivery"
-    add_index :agent_control_mailbox_items, [:target_agent_deployment_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_deployment_delivery"
-    add_index :agent_control_mailbox_items, [:target_execution_environment_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_environment_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_program_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_program_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_program_version_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_program_version_delivery"
+    add_index :agent_control_mailbox_items, [:target_execution_runtime_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_execution_delivery"
 
     create_table :agent_control_report_receipts do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :agent_deployment, null: false, foreign_key: true
+      t.references :agent_session, foreign_key: true
+      t.references :execution_session, foreign_key: { to_table: :execution_sessions }
       t.references :agent_task_run, foreign_key: true
       t.references :mailbox_item, foreign_key: { to_table: :agent_control_mailbox_items }
       t.string :protocol_message_id, null: false
@@ -85,12 +133,6 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.timestamps
     end
     add_index :agent_control_report_receipts, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_report_receipts_protocol_message"
-
-    change_table :agent_deployments, bulk: true do |t|
-      t.string :realtime_link_state, null: false, default: "disconnected"
-      t.string :control_activity_state, null: false, default: "offline"
-      t.datetime :last_control_activity_at
-    end
 
     change_table :process_runs, bulk: true do |t|
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }

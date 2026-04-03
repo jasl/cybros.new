@@ -107,7 +107,7 @@ This is the correct inclusion boundary for user export bundles.
 
 The current transcript projection is already user-oriented:
 
-- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/agent_api/conversation_transcripts_controller.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/conversation_transcripts_controller.rb`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/projections/conversation_transcripts/page_projection.rb`
 
 The export system should reuse these transcript semantics rather than inventing

@@ -1,16 +1,25 @@
 module AgentControl
   class ResolveTargetRuntime
-    ENVIRONMENT_PLANE = "environment".freeze
-    AGENT_PLANE = "agent".freeze
+    EXECUTION_PLANE = "execution".freeze
+    PROGRAM_PLANE = "program".freeze
 
     Result = Struct.new(
       :runtime_plane,
-      :execution_environment,
+      :execution_runtime,
       :delivery_endpoint,
       keyword_init: true
     ) do
       def matches?(deployment)
-        deployment.present? && delivery_endpoint.present? && deployment.id == delivery_endpoint.id
+        return false if deployment.blank? || delivery_endpoint.blank?
+
+        case delivery_endpoint
+        when AgentSession
+          delivery_endpoint.agent_program_version_id == deployment.id
+        when ExecutionSession
+          delivery_endpoint.execution_runtime_id == deployment.agent_program.default_execution_runtime_id
+        else
+          false
+        end
       end
     end
 
@@ -21,21 +30,21 @@ module AgentControl
     def self.candidate_scope_for(deployment:, relation: AgentControlMailboxItem.all)
       relation.where(
         <<~SQL.squish,
-          target_agent_deployment_id = :deployment_id
+          target_agent_program_version_id = :deployment_id
           OR (
-            runtime_plane = :agent_plane
-            AND target_agent_installation_id = :agent_installation_id
+            runtime_plane = :program_plane
+            AND target_agent_program_id = :agent_program_id
           )
           OR (
-            runtime_plane = :environment_plane
-            AND target_execution_environment_id = :execution_environment_id
+            runtime_plane = :execution_plane
+            AND target_execution_runtime_id = :execution_runtime_id
           )
         SQL
         deployment_id: deployment.id,
-        agent_plane: AGENT_PLANE,
-        environment_plane: ENVIRONMENT_PLANE,
-        agent_installation_id: deployment.agent_installation_id,
-        execution_environment_id: deployment.execution_environment_id
+        program_plane: PROGRAM_PLANE,
+        execution_plane: EXECUTION_PLANE,
+        agent_program_id: deployment.agent_program_id,
+        execution_runtime_id: deployment.agent_program.default_execution_runtime_id
       )
     end
 
@@ -44,49 +53,39 @@ module AgentControl
     end
 
     def call
-      if @mailbox_item.environment_plane?
-        resolve_environment_runtime
+      if @mailbox_item.execution_plane?
+        resolve_execution_runtime
       else
-        resolve_agent_runtime
+        resolve_program_runtime
       end
     end
 
     private
 
-    def resolve_environment_runtime
-      execution_environment = @mailbox_item.target_execution_environment
+    def resolve_execution_runtime
+      execution_runtime = @mailbox_item.target_execution_runtime
 
       Result.new(
-        runtime_plane: ENVIRONMENT_PLANE,
-        execution_environment: execution_environment,
-        delivery_endpoint: execution_environment.present? ? ExecutionEnvironments::ResolveDeliveryEndpoint.call(execution_environment: execution_environment) : nil
+        runtime_plane: EXECUTION_PLANE,
+        execution_runtime: execution_runtime,
+        delivery_endpoint: execution_runtime.present? ? ExecutionSessions::ResolveActiveSession.call(execution_runtime: execution_runtime) : nil
       )
     end
 
-    def resolve_agent_runtime
+    def resolve_program_runtime
       Result.new(
-        runtime_plane: AGENT_PLANE,
-        execution_environment: nil,
-        delivery_endpoint: resolve_agent_delivery_endpoint
+        runtime_plane: PROGRAM_PLANE,
+        execution_runtime: nil,
+        delivery_endpoint: resolve_program_delivery_endpoint
       )
     end
 
-    def resolve_agent_delivery_endpoint
-      return @mailbox_item.target_agent_deployment if @mailbox_item.agent_deployment?
-
-      active_deployments.first || pending_deployments.first
-    end
-
-    def active_deployments
-      AgentDeployment
-        .where(agent_installation_id: @mailbox_item.target_agent_installation_id, bootstrap_state: "active")
-        .order(last_control_activity_at: :desc, last_heartbeat_at: :desc, created_at: :desc)
-    end
-
-    def pending_deployments
-      AgentDeployment
-        .where(agent_installation_id: @mailbox_item.target_agent_installation_id, bootstrap_state: "pending")
-        .order(last_heartbeat_at: :desc, created_at: :desc)
+    def resolve_program_delivery_endpoint
+      if @mailbox_item.agent_program_version?
+        AgentSession.find_by(agent_program_version: @mailbox_item.target_agent_program_version, lifecycle_state: "active")
+      else
+        AgentSession.find_by(agent_program: @mailbox_item.target_agent_program, lifecycle_state: "active")
+      end
     end
   end
 end

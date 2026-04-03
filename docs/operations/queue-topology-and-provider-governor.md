@@ -77,7 +77,7 @@ extra throughput tier from Ruby fiber scheduler rollout.
 ## Fenix
 
 `fenix` is intentionally single-host today because it also acts as the
-effective `ExecutionEnvironment` and owns registry-backed runtime state.
+effective `ExecutionRuntime` and owns registry-backed runtime state.
 
 This assumption is now explicit in code and docs. Scale it up on one machine;
 do not treat it as a stateless horizontal worker pool.
@@ -106,8 +106,10 @@ Routing:
 Operationally, the persistent mailbox control loop is not sufficient by itself
 when `Fenix` runs with `solid_queue`. External runtime instances must also run
 the local queue workers under the same `CORE_MATRIX_BASE_URL` and
-`CORE_MATRIX_MACHINE_CREDENTIAL`, either as `bin/jobs start` plus
-`bin/rails runtime:control_loop_forever` or via `bin/runtime-worker`.
+`CORE_MATRIX_MACHINE_CREDENTIAL`, plus
+`CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL` when execution-plane resources are
+enabled, either as `bin/jobs start` plus `bin/rails runtime:control_loop_forever`
+or via `bin/runtime-worker`.
 
 Run exactly one such worker set per Dockerized `Fenix` runtime. Registry-backed
 browser sessions, command handles, and process handles are in-memory local

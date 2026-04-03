@@ -29,9 +29,9 @@ class FakeAgentRuntimeHarness
 
   def poll!(limit: 10)
     @test_case.post(
-      "/agent_api/control/poll",
+      "/program_api/control/poll",
       params: { limit: limit },
-      headers: @test_case.send(:agent_api_headers, @machine_credential),
+      headers: @test_case.send(:program_api_headers, @machine_credential),
       as: :json
     )
 
@@ -40,9 +40,9 @@ class FakeAgentRuntimeHarness
 
   def report!(method_id:, **params)
     @test_case.post(
-      "/agent_api/control/report",
+      "/program_api/control/report",
       params: params.merge(method_id: method_id),
-      headers: @test_case.send(:agent_api_headers, @machine_credential),
+      headers: @test_case.send(:program_api_headers, @machine_credential),
       as: :json
     )
 

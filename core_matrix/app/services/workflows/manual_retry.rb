@@ -28,15 +28,10 @@ module Workflows
 
           workflow_run.update!(lifecycle_state: "canceled")
           turn.update!(lifecycle_state: "canceled")
-          Conversations::SwitchAgentDeployment.call(
-            conversation: conversation,
-            agent_deployment: recovery_target.agent_deployment
-          )
 
           retried_turn = Turns::StartUserTurn.call(
             conversation: conversation,
             content: turn.selected_input_message.content,
-            agent_deployment: conversation.agent_deployment,
             resolved_config_snapshot: {},
             resolved_model_selection_snapshot: {}
           )
@@ -58,7 +53,7 @@ module Workflows
             metadata: {
               "paused_workflow_run_id" => workflow_run.id,
               "paused_turn_id" => turn.id,
-              "deployment_id" => @deployment.id,
+              "agent_program_version_id" => @deployment.id,
               "temporary_selector_override" => @selector,
             }.compact
           )
@@ -79,10 +74,10 @@ module Workflows
     def validate_retry_target!(workflow_run, turn)
       raise_invalid!(turn, :selected_input_message, "must exist to retry paused work") if turn.selected_input_message.blank?
 
-      AgentDeployments::ResolveRecoveryTarget.call(
+      AgentProgramVersions::ResolveRecoveryTarget.call(
         conversation: workflow_run.conversation,
         turn: turn,
-        agent_deployment: @deployment,
+        agent_program_version: @deployment,
         record: turn,
         selector_source: "manual_recovery",
         selector: @selector.presence || turn.recovery_selector,

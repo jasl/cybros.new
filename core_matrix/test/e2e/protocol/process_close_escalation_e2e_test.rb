@@ -1,27 +1,27 @@
 require "test_helper"
 
 class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
-  test "environment-plane close reports from a deployment on the wrong execution environment are stale" do
+  test "execution-plane close reports from a program version on the wrong execution runtime are stale" do
     context = build_agent_control_context!
     correct_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
       machine_credential: context[:machine_credential]
     )
-    other_agent_installation = create_agent_installation!(installation: context[:installation])
-    other_execution_environment = create_execution_environment!(installation: context[:installation])
+    other_agent_program = create_agent_program!(installation: context[:installation])
+    other_execution_runtime = create_execution_runtime!(installation: context[:installation])
     wrong_registration = register_agent_runtime!(
       installation: context[:installation],
       actor: context[:actor],
-      agent_installation: other_agent_installation,
-      execution_environment: other_execution_environment,
+      agent_program: other_agent_program,
+      execution_runtime: other_execution_runtime,
       reuse_enrollment: true
     )
     wrong_deployment = wrong_registration.fetch(:deployment)
-    wrong_deployment.update!(
-      bootstrap_state: "active",
+    wrong_registration.fetch(:agent_session).update!(
       health_status: "healthy",
-      last_heartbeat_at: Time.current
+      last_heartbeat_at: Time.current,
+      last_health_check_at: Time.current
     )
     wrong_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
@@ -30,7 +30,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -101,7 +101,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     close_request = travel_to(occurred_at) do
       AgentControlMailboxItem.find_by!(
         item_type: "resource_close_request",
-        target_ref: process_run.execution_environment.public_id
+        target_ref: process_run.execution_runtime.public_id
       )
     end
 
@@ -156,7 +156,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )

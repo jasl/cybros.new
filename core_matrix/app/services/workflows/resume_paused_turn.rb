@@ -27,7 +27,6 @@ module Workflows
           workflow_run.update!(Workflows::TurnPauseState.resume_attributes(workflow_run: workflow_run))
           return workflow_run if workflow_run.reload.waiting?
 
-          Conversations::RefreshRuntimeContract.call(conversation: conversation)
           turn.update!(execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn.reload).to_h)
 
           create_next_attempt!(workflow_run:, turn:, paused_task:)
@@ -66,7 +65,7 @@ module Workflows
 
         retried_task = AgentTaskRun.create!(
           installation: paused_task.installation,
-          agent_installation: paused_task.agent_installation,
+          agent_program: paused_task.agent_program,
           workflow_run: paused_task.workflow_run,
           workflow_node: paused_task.workflow_node,
           conversation: paused_task.conversation,

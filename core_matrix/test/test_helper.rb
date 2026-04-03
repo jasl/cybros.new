@@ -370,22 +370,24 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_installation!(installation: create_installation!, visibility: "global", owner_user: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", **attrs)
-      AgentInstallation.create!({
+    def create_agent_program!(installation: create_installation!, visibility: "global", owner_user: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_execution_runtime: nil, **attrs)
+      AgentProgram.create!({
         installation: installation,
         visibility: visibility,
         owner_user: owner_user,
         key: key,
         display_name: display_name,
         lifecycle_state: lifecycle_state,
-      }.merge(attrs))
+        default_execution_runtime: default_execution_runtime,
+      }.merge(attrs.symbolize_keys.slice(*AgentProgram.attribute_names.map(&:to_sym))))
     end
 
-    def create_execution_environment!(installation: create_installation!, kind: "local", environment_fingerprint: "env-#{next_test_sequence}", connection_metadata: {}, capability_payload: {}, tool_catalog: [], lifecycle_state: "active", **attrs)
-      ExecutionEnvironment.create!({
+    def create_execution_runtime!(installation: create_installation!, kind: "local", display_name: "Execution Runtime #{next_test_sequence}", runtime_fingerprint: "runtime-#{next_test_sequence}", connection_metadata: {}, capability_payload: {}, tool_catalog: [], lifecycle_state: "active", **attrs)
+      ExecutionRuntime.create!({
         installation: installation,
         kind: kind,
-        environment_fingerprint: environment_fingerprint,
+        display_name: display_name,
+        runtime_fingerprint: runtime_fingerprint,
         connection_metadata: connection_metadata,
         capability_payload: capability_payload,
         tool_catalog: tool_catalog,
@@ -393,30 +395,52 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_enrollment!(installation: create_installation!, agent_installation: create_agent_installation!(installation: installation), expires_at: 1.hour.from_now, consumed_at: nil, **attrs)
+    def create_agent_enrollment!(installation: create_installation!, agent_program: create_agent_program!(installation: installation), expires_at: 1.hour.from_now, consumed_at: nil, **attrs)
       AgentEnrollment.create!({
         installation: installation,
-        agent_installation: agent_installation,
+        agent_program: agent_program,
         token_digest: ::Digest::SHA256.hexdigest("enrollment-#{next_test_sequence}"),
         expires_at: expires_at,
         consumed_at: consumed_at,
       }.merge(attrs))
     end
 
-    def create_agent_deployment!(installation: create_installation!, agent_installation: create_agent_installation!(installation: installation), execution_environment: create_execution_environment!(installation: installation), fingerprint: "fp-#{next_test_sequence}", endpoint_metadata: {}, protocol_version: "2026-03-24", sdk_version: "fenix-0.1.0", machine_credential_digest: ::Digest::SHA256.hexdigest("machine-#{next_test_sequence}"), health_status: "healthy", health_metadata: {}, bootstrap_state: "active", last_heartbeat_at: Time.current, **attrs)
-      AgentDeployment.create!({
+    def create_agent_program_version!(installation: create_installation!, agent_program: create_agent_program!(installation: installation), fingerprint: "fp-#{next_test_sequence}", protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", protocol_methods: [], tool_catalog: [], profile_catalog: {}, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, execution_runtime: nil, **attrs)
+      AgentProgramVersion.create!({
         installation: installation,
-        agent_installation: agent_installation,
-        execution_environment: execution_environment,
+        agent_program: agent_program,
         fingerprint: fingerprint,
-        endpoint_metadata: endpoint_metadata,
         protocol_version: protocol_version,
         sdk_version: sdk_version,
-        machine_credential_digest: machine_credential_digest,
-        health_status: health_status,
-        health_metadata: health_metadata,
-        bootstrap_state: bootstrap_state,
-        last_heartbeat_at: last_heartbeat_at,
+        protocol_methods: protocol_methods,
+        tool_catalog: tool_catalog,
+        profile_catalog: profile_catalog,
+        config_schema_snapshot: config_schema_snapshot,
+        conversation_override_schema_snapshot: conversation_override_schema_snapshot,
+        default_config_snapshot: default_config_snapshot,
+      }.merge(attrs.symbolize_keys.slice(*AgentProgramVersion.attribute_names.map(&:to_sym))))
+    end
+
+    def create_agent_session!(installation: create_installation!, agent_program: create_agent_program!(installation: installation), agent_program_version: create_agent_program_version!(installation: installation, agent_program: agent_program), session_credential_digest: ::Digest::SHA256.hexdigest("session-credential-#{next_test_sequence}"), session_token_digest: ::Digest::SHA256.hexdigest("session-token-#{next_test_sequence}"), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
+      AgentSession.create!({
+        installation: installation,
+        agent_program: agent_program,
+        agent_program_version: agent_program_version,
+        session_credential_digest: session_credential_digest,
+        session_token_digest: session_token_digest,
+        endpoint_metadata: endpoint_metadata,
+        lifecycle_state: lifecycle_state,
+      }.merge(attrs))
+    end
+
+    def create_execution_session!(installation: create_installation!, execution_runtime: create_execution_runtime!(installation: installation), session_credential_digest: ::Digest::SHA256.hexdigest("execution-session-credential-#{next_test_sequence}"), session_token_digest: ::Digest::SHA256.hexdigest("execution-session-token-#{next_test_sequence}"), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
+      ExecutionSession.create!({
+        installation: installation,
+        execution_runtime: execution_runtime,
+        session_credential_digest: session_credential_digest,
+        session_token_digest: session_token_digest,
+        endpoint_metadata: endpoint_metadata,
+        lifecycle_state: lifecycle_state,
       }.merge(attrs))
     end
 
@@ -433,10 +457,11 @@ module ActiveSupport
       )
     end
 
-    def create_capability_snapshot!(agent_deployment: create_agent_deployment!, version: 1, protocol_methods: nil, tool_catalog: nil, profile_catalog: {}, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
-      CapabilitySnapshot.create!({
-        agent_deployment: agent_deployment,
-        version: version,
+    def create_capability_snapshot!(agent_program_version: create_agent_program_version!, version: 1, protocol_methods: nil, tool_catalog: nil, profile_catalog: {}, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
+      create_agent_program_version!(**{
+        installation: agent_program_version.installation,
+        agent_program: agent_program_version.agent_program,
+        fingerprint: "#{agent_program_version.fingerprint}-compat-v#{version}-#{next_test_sequence}",
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
         tool_catalog: tool_catalog || default_tool_catalog("exec_command"),
         profile_catalog: profile_catalog,
@@ -581,7 +606,11 @@ module ActiveSupport
       }
     end
 
-    def agent_api_headers(machine_credential)
+    def program_api_headers(machine_credential)
+      deployment_api_headers(machine_credential)
+    end
+
+    def execution_api_headers(machine_credential)
       deployment_api_headers(machine_credential)
     end
 
@@ -592,13 +621,13 @@ module ActiveSupport
     def register_agent_runtime!(
       installation: create_installation!,
       actor: create_user!(installation: installation, role: "admin"),
-      agent_installation: create_agent_installation!(installation: installation),
-      execution_environment: nil,
-      environment_fingerprint: execution_environment&.environment_fingerprint || "runtime-env-#{next_test_sequence}",
-      environment_kind: execution_environment&.kind || "local",
-      environment_connection_metadata: nil,
-      environment_capability_payload: execution_environment&.capability_payload || {},
-      environment_tool_catalog: execution_environment&.tool_catalog || [],
+      agent_program: create_agent_program!(installation: installation),
+      execution_runtime: nil,
+      runtime_fingerprint: execution_runtime&.runtime_fingerprint || "runtime-env-#{next_test_sequence}",
+      runtime_kind: execution_runtime&.kind || "local",
+      runtime_connection_metadata: nil,
+      execution_capability_payload: execution_runtime&.capability_payload || {},
+      execution_tool_catalog: execution_runtime&.tool_catalog || [],
       protocol_methods: default_protocol_methods,
       tool_catalog: default_tool_catalog,
       endpoint_metadata: default_fenix_endpoint_metadata,
@@ -609,40 +638,76 @@ module ActiveSupport
       reuse_enrollment: false,
       **attrs
     )
-      enrollment = AgentEnrollments::Issue.call(
-        agent_installation: agent_installation,
-        actor: actor,
-        expires_at: 2.hours.from_now
+      execution_runtime ||= ExecutionRuntimes::Reconcile.call(
+        installation: installation,
+        runtime_fingerprint: runtime_fingerprint,
+        kind: runtime_kind,
+        connection_metadata: runtime_connection_metadata || default_runtime_connection_metadata(base_url: endpoint_metadata.fetch("base_url"))
       )
+      ExecutionRuntimes::RecordCapabilities.call(
+        execution_runtime: execution_runtime,
+        capability_payload: execution_capability_payload,
+        tool_catalog: execution_tool_catalog
+      )
+      agent_program.update!(default_execution_runtime: execution_runtime) if agent_program.default_execution_runtime != execution_runtime
 
-      result = AgentDeployments::Register.call(**{
-        enrollment_token: enrollment.plaintext_token,
-        environment_fingerprint: environment_fingerprint,
-        environment_kind: environment_kind,
-        environment_connection_metadata: environment_connection_metadata || default_runtime_connection_metadata(base_url: endpoint_metadata.fetch("base_url")),
-        environment_capability_payload: environment_capability_payload,
-        environment_tool_catalog: environment_tool_catalog,
-        fingerprint: "runtime-#{next_test_sequence}",
-        endpoint_metadata: endpoint_metadata,
-        protocol_version: "2026-03-24",
-        sdk_version: "fenix-0.1.0",
+      fingerprint = attrs.delete(:fingerprint) || "runtime-#{next_test_sequence}"
+      deployment = create_agent_program_version!(
+        installation: installation,
+        agent_program: agent_program,
+        fingerprint: fingerprint,
+        protocol_version: attrs.delete(:protocol_version) || "2026-03-24",
+        sdk_version: attrs.delete(:sdk_version) || "fenix-0.1.0",
         protocol_methods: protocol_methods,
         tool_catalog: tool_catalog,
         profile_catalog: profile_catalog,
         config_schema_snapshot: config_schema_snapshot,
         conversation_override_schema_snapshot: conversation_override_schema_snapshot,
         default_config_snapshot: default_config_snapshot,
-      }.merge(attrs))
+        **attrs
+      )
+
+      session_credential = "session-credential-#{next_test_sequence}"
+      AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
+        lifecycle_state: "stale",
+        updated_at: Time.current
+      )
+      agent_session = create_agent_session!(
+        installation: installation,
+        agent_program: agent_program,
+        agent_program_version: deployment,
+        session_credential_digest: ::Digest::SHA256.hexdigest(session_credential),
+        endpoint_metadata: endpoint_metadata
+      )
+      ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+        lifecycle_state: "stale",
+        updated_at: Time.current
+      )
+      execution_machine_credential = "execution-session-credential-#{next_test_sequence}"
+      execution_session = create_execution_session!(
+        installation: installation,
+        execution_runtime: execution_runtime,
+        session_credential_digest: ::Digest::SHA256.hexdigest(execution_machine_credential)
+      )
+      enrollment = AgentEnrollments::Issue.call(
+        agent_program: agent_program,
+        actor: actor,
+        expires_at: 2.hours.from_now
+      )
+      enrollment.consume!
 
       {
         installation: installation,
         actor: actor,
-        agent_installation: agent_installation,
-        execution_environment: result.execution_environment,
+        agent_program: agent_program,
+        execution_runtime: execution_runtime,
         enrollment: enrollment,
-        deployment: result.deployment,
-        capability_snapshot: result.capability_snapshot,
-        machine_credential: result.machine_credential,
+        deployment: deployment,
+        capability_snapshot: deployment,
+        machine_credential: session_credential,
+        execution_machine_credential: execution_machine_credential,
+        agent_session: agent_session,
+        execution_session: execution_session,
       }
     end
 
@@ -653,25 +718,25 @@ module ActiveSupport
       register_agent_runtime!(
         installation: context[:installation],
         actor: actor,
-        agent_installation: context[:agent_installation],
-        execution_environment: context[:execution_environment]
+        agent_program: context[:agent_program],
+        execution_runtime: context[:execution_runtime]
       )
     end
 
-    def create_user_agent_binding!(installation: create_installation!, user: create_user!(installation: installation), agent_installation: create_agent_installation!(installation: installation), preferences: {}, **attrs)
-      UserAgentBinding.create!({
+    def create_user_program_binding!(installation: create_installation!, user: create_user!(installation: installation), agent_program: create_agent_program!(installation: installation), preferences: {}, **attrs)
+      UserProgramBinding.create!({
         installation: installation,
         user: user,
-        agent_installation: agent_installation,
+        agent_program: agent_program,
         preferences: preferences,
       }.merge(attrs))
     end
 
-    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), user_agent_binding: create_user_agent_binding!(installation: installation, user: user), name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
+    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), user_program_binding: create_user_program_binding!(installation: installation, user: user), name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
       Workspace.create!({
         installation: installation,
         user: user,
-        user_agent_binding: user_agent_binding,
+        user_program_binding: user_program_binding,
         name: name,
         privacy: privacy,
         is_default: is_default,
@@ -681,32 +746,46 @@ module ActiveSupport
     def create_workspace_context!
       installation = create_installation!
       user = create_user!(installation: installation)
-      agent_installation = create_agent_installation!(installation: installation)
-      execution_environment = create_execution_environment!(installation: installation)
-      agent_deployment = create_agent_deployment!(
+      execution_runtime = create_execution_runtime!(installation: installation)
+      agent_program = create_agent_program!(
         installation: installation,
-        agent_installation: agent_installation,
-        execution_environment: execution_environment,
-        endpoint_metadata: default_fenix_endpoint_metadata
+        default_execution_runtime: execution_runtime
       )
-      user_agent_binding = create_user_agent_binding!(
+      agent_program_version = create_agent_program_version!(
+        installation: installation,
+        agent_program: agent_program,
+        tool_catalog: default_tool_catalog
+      )
+      agent_session = create_agent_session!(
+        installation: installation,
+        agent_program: agent_program,
+        agent_program_version: agent_program_version
+      )
+      execution_session = create_execution_session!(
+        installation: installation,
+        execution_runtime: execution_runtime
+      )
+      user_program_binding = create_user_program_binding!(
         installation: installation,
         user: user,
-        agent_installation: agent_installation
+        agent_program: agent_program
       )
       workspace = create_workspace!(
         installation: installation,
         user: user,
-        user_agent_binding: user_agent_binding
+        user_program_binding: user_program_binding
       )
 
       {
         installation: installation,
         user: user,
-        agent_installation: agent_installation,
-        execution_environment: execution_environment,
-        agent_deployment: agent_deployment,
-        user_agent_binding: user_agent_binding,
+        agent_program: agent_program,
+        execution_runtime: execution_runtime,
+        agent_program_version: agent_program_version,
+        capability_snapshot: agent_program_version,
+        agent_session: agent_session,
+        execution_session: execution_session,
+        user_program_binding: user_program_binding,
         workspace: workspace,
       }
     end
@@ -720,9 +799,6 @@ module ActiveSupport
       codex_entitlement_metadata: {},
       openai_entitlement_metadata: {}
     )
-      capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
-      context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
-
       ProviderEntitlement.create!(
         installation: context[:installation],
         provider_handle: "codex_subscription",
@@ -766,7 +842,70 @@ module ActiveSupport
         )
       end
 
-      context.merge(capability_snapshot: capability_snapshot)
+      context
+    end
+
+    def activate_program_version!(
+      context,
+      protocol_methods: context[:agent_program_version].protocol_methods,
+      tool_catalog: context[:agent_program_version].tool_catalog,
+      profile_catalog: context[:agent_program_version].profile_catalog,
+      config_schema_snapshot: context[:agent_program_version].config_schema_snapshot,
+      conversation_override_schema_snapshot: context[:agent_program_version].conversation_override_schema_snapshot,
+      default_config_snapshot: context[:agent_program_version].default_config_snapshot
+    )
+      agent_program_version = create_agent_program_version!(
+        installation: context[:installation],
+        agent_program: context[:agent_program],
+        protocol_methods: protocol_methods,
+        tool_catalog: tool_catalog,
+        profile_catalog: profile_catalog,
+        config_schema_snapshot: config_schema_snapshot,
+        conversation_override_schema_snapshot: conversation_override_schema_snapshot,
+        default_config_snapshot: default_config_snapshot
+      )
+
+      context[:agent_session]&.update!(lifecycle_state: "stale")
+      session_credential = "session-credential-#{next_test_sequence}"
+      context[:agent_session] = create_agent_session!(
+        installation: context[:installation],
+        agent_program: context[:agent_program],
+        agent_program_version: agent_program_version,
+        session_credential_digest: ::Digest::SHA256.hexdigest(session_credential)
+      )
+      context[:agent_program_version] = agent_program_version
+      context[:deployment] = agent_program_version
+      context[:machine_credential] = session_credential
+      context
+    end
+
+    def adopt_agent_program_version!(context, agent_program_version, turn: context[:turn])
+      context[:agent_session]&.update!(lifecycle_state: "stale") if context[:agent_session].present?
+      session_credential = "session-credential-#{next_test_sequence}"
+      context[:agent_session] = create_agent_session!(
+        installation: context[:installation],
+        agent_program: context[:agent_program],
+        agent_program_version: agent_program_version,
+        session_credential_digest: ::Digest::SHA256.hexdigest(session_credential)
+      )
+      context[:agent_program_version] = agent_program_version
+      context[:deployment] = agent_program_version if context.key?(:deployment)
+      context[:capability_snapshot] = agent_program_version
+      context[:machine_credential] = session_credential if context.key?(:machine_credential)
+
+      return context if turn.blank?
+
+      turn.update!(
+        agent_program_version: agent_program_version,
+        pinned_program_version_fingerprint: agent_program_version.fingerprint
+      )
+
+      if turn.resolved_provider_handle.present? && turn.resolved_model_ref.present?
+        turn.update!(execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn.reload).to_h)
+      end
+
+      context[:turn] = turn.reload if context.key?(:turn)
+      context
     end
 
     def build_execution_snapshot_for!(turn:, selector_source: "conversation", selector: nil)
@@ -789,12 +928,12 @@ module ActiveSupport
         display_name: "Bundled Fenix",
         visibility: "global",
         lifecycle_state: "active",
-        environment_kind: "local",
-        environment_fingerprint: "bundled-fenix-environment",
+        runtime_kind: "local",
+        runtime_fingerprint: "bundled-fenix-environment",
         connection_metadata: default_runtime_connection_metadata(base_url: "http://127.0.0.1:4100"),
         endpoint_metadata: default_fenix_endpoint_metadata(base_url: "http://127.0.0.1:4100"),
-        environment_capability_payload: {},
-        environment_tool_catalog: [],
+        execution_capability_payload: {},
+        execution_tool_catalog: [],
         fingerprint: "bundled-fenix-runtime",
         protocol_version: "2026-03-24",
         sdk_version: "fenix-0.1.0",
@@ -894,11 +1033,11 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_process_run!(workflow_node:, installation: workflow_node.installation, execution_environment: create_execution_environment!(installation: installation), conversation: workflow_node.conversation, turn: workflow_node.turn, kind: "background_service", lifecycle_state: "running", command_line: "echo test", metadata: {}, timeout_seconds: nil, **attrs)
+    def create_process_run!(workflow_node:, installation: workflow_node.installation, execution_runtime: create_execution_runtime!(installation: installation), conversation: workflow_node.conversation, turn: workflow_node.turn, kind: "background_service", lifecycle_state: "running", command_line: "echo test", metadata: {}, timeout_seconds: nil, **attrs)
       ProcessRun.create!({
         installation: installation,
         workflow_node: workflow_node,
-        execution_environment: execution_environment,
+        execution_runtime: execution_runtime,
         conversation: conversation,
         turn: turn,
         kind: kind,
@@ -909,12 +1048,10 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_installation: turn.agent_deployment.agent_installation, kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
-      ensure_active_capability_snapshot_for_turn!(turn)
-
+    def create_agent_task_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, conversation: workflow_node.conversation, turn: workflow_node.turn, agent_program: turn.agent_program_version.agent_program, kind: "turn_step", lifecycle_state: "queued", logical_work_id: "logical-work-#{next_test_sequence}", attempt_no: 1, task_payload: {}, progress_payload: {}, terminal_payload: {}, close_outcome_payload: {}, **attrs)
       AgentTaskRun.create!({
         installation: installation,
-        agent_installation: agent_installation,
+        agent_program: agent_program,
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: conversation,
@@ -930,18 +1067,24 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_control_mailbox_item!(installation:, target_agent_installation:, target_agent_deployment: nil, target_execution_environment: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "agent", target_kind: (target_agent_deployment.present? ? "agent_deployment" : "agent_installation"), target_ref: nil, logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, protocol_message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
-      target_ref ||= if runtime_plane == "environment"
-        target_execution_environment&.public_id
+    def create_agent_control_mailbox_item!(installation:, target_agent_program:, target_agent_program_version: nil, target_execution_runtime: nil, agent_task_run: nil, item_type: "execution_assignment", runtime_plane: "program", target_kind: (target_agent_program_version.present? ? "agent_program_version" : "agent_program"), target_ref: nil, logical_work_id: agent_task_run&.logical_work_id || "logical-work-#{next_test_sequence}", attempt_no: agent_task_run&.attempt_no || 1, delivery_no: 0, protocol_message_id: "kernel-message-#{next_test_sequence}", causation_id: nil, priority: (item_type == "resource_close_request" ? 0 : 1), status: "queued", available_at: Time.current, dispatch_deadline_at: 5.minutes.from_now, lease_timeout_seconds: 30, execution_hard_deadline_at: nil, payload: {}, **attrs)
+      runtime_plane = case runtime_plane
+      when "agent" then "program"
+      when "environment" then "execution"
+      else runtime_plane
+      end
+
+      target_ref ||= if runtime_plane == "execution"
+        target_execution_runtime&.public_id
       else
-        target_agent_deployment&.public_id || target_agent_installation.public_id
+        target_agent_program_version&.public_id || target_agent_program.public_id
       end
 
       AgentControlMailboxItem.create!({
         installation: installation,
-        target_agent_installation: target_agent_installation,
-        target_agent_deployment: target_agent_deployment,
-        target_execution_environment: target_execution_environment,
+        target_agent_program: target_agent_program,
+        target_agent_program_version: target_agent_program_version,
+        target_execution_runtime: target_execution_runtime,
         agent_task_run: agent_task_run,
         item_type: item_type,
         runtime_plane: runtime_plane,
@@ -977,13 +1120,13 @@ module ActiveSupport
       context = prepare_workflow_execution_setup!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment]
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Human interaction input",
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1022,13 +1165,13 @@ module ActiveSupport
       context = create_workspace_context!
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment]
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Canonical variable input",
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1041,23 +1184,16 @@ module ActiveSupport
       }.merge(context)
     end
 
-    def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, execution_environment: nil, agent_deployment: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
-      agent_installation = workspace.user_agent_binding&.agent_installation
-      active_deployment = agent_installation&.agent_deployments&.order(created_at: :desc)&.first
-
-      agent_deployment ||= parent_conversation&.agent_deployment || active_deployment
-      execution_environment ||= parent_conversation&.execution_environment || agent_deployment&.execution_environment || create_execution_environment!(installation: installation)
-      agent_deployment ||= create_agent_deployment!(
-        installation: installation,
-        agent_installation: agent_installation || create_agent_installation!(installation: installation),
-        execution_environment: execution_environment
-      )
+    def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, execution_runtime: nil, agent_program: nil, agent_program_version: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
+      agent_program ||= parent_conversation&.agent_program
+      agent_program ||= agent_program_version&.agent_program
+      agent_program ||= workspace.user_program_binding&.agent_program
+      agent_program ||= create_agent_program!(installation: installation, default_execution_runtime: execution_runtime)
 
       Conversation.create!({
         installation: installation,
         workspace: workspace,
-        execution_environment: execution_environment,
-        agent_deployment: agent_deployment,
+        agent_program: agent_program,
         parent_conversation: parent_conversation,
         kind: kind,
         purpose: purpose,
@@ -1067,7 +1203,7 @@ module ActiveSupport
         override_payload: override_payload,
         override_reconciliation_report: override_reconciliation_report,
         deletion_state: deletion_state,
-      }.merge(attrs))
+      }.merge(attrs.symbolize_keys.slice(*Conversation.attribute_names.map(&:to_sym))))
     end
 
     def create_lineage_store!(workspace:, root_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
@@ -1128,13 +1264,13 @@ module ActiveSupport
       context = prepare_workflow_execution_setup!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment]
+        execution_runtime: context[:execution_runtime],
+        agent_program_version: context[:agent_program_version]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Subagent coordination input",
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1173,18 +1309,19 @@ module ActiveSupport
       installation = create_installation!
       actor = create_user!(installation: installation, role: "admin")
       runtime_user = create_user!(installation: installation)
-      agent_installation = create_agent_installation!(installation: installation)
-      execution_environment = create_execution_environment!(installation: installation)
+      agent_program = create_agent_program!(installation: installation)
+      execution_runtime = create_execution_runtime!(installation: installation)
       registration = register_agent_runtime!(
         installation: installation,
         actor: actor,
-        agent_installation: agent_installation,
-        execution_environment: execution_environment
+        agent_program: agent_program,
+        execution_runtime: execution_runtime
       )
-      registration.fetch(:deployment).update!(
-        bootstrap_state: "active",
+      registration.fetch(:agent_session).update!(
         health_status: "healthy",
-        last_heartbeat_at: Time.current
+        auto_resume_eligible: true,
+        last_heartbeat_at: Time.current,
+        last_health_check_at: Time.current
       )
       ProviderEntitlement.create!(
         installation: installation,
@@ -1196,25 +1333,24 @@ module ActiveSupport
         active: true,
         metadata: {}
       )
-      user_agent_binding = create_user_agent_binding!(
+      user_program_binding = create_user_program_binding!(
         installation: installation,
         user: runtime_user,
-        agent_installation: agent_installation
+        agent_program: agent_program
       )
       workspace = create_workspace!(
         installation: installation,
         user: runtime_user,
-        user_agent_binding: user_agent_binding
+        user_program_binding: user_program_binding
       )
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,
-        execution_environment: execution_environment,
-        agent_deployment: registration[:deployment]
+        agent_program: agent_program
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Agent control input",
-        agent_deployment: registration[:deployment],
+        execution_runtime: execution_runtime,
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1247,31 +1383,22 @@ module ActiveSupport
         installation: installation,
         actor: actor,
         user: runtime_user,
-        agent_installation: agent_installation,
-        execution_environment: execution_environment,
+        agent_program: agent_program,
+        execution_runtime: execution_runtime,
         registration: registration,
         deployment: registration[:deployment],
+        agent_program_version: registration[:deployment],
+        capability_snapshot: registration[:deployment],
+        agent_session: registration[:agent_session],
+        execution_session: registration[:execution_session],
         machine_credential: registration[:machine_credential],
+        execution_machine_credential: registration[:execution_machine_credential],
         workspace: workspace,
         conversation: conversation,
         turn: turn,
         workflow_run: workflow_run.reload,
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: workflow_node_key),
       }
-    end
-
-    def ensure_active_capability_snapshot_for_turn!(turn)
-      return if turn.pinned_capability_snapshot.present?
-      return if turn.agent_deployment.active_capability_snapshot.present?
-
-      allowed_tool_names = Array(turn.execution_snapshot.capability_projection["tool_surface"]).map { |entry| entry["tool_name"] }.presence || %w[exec_command]
-      capability_snapshot = create_capability_snapshot!(
-        agent_deployment: turn.agent_deployment,
-        tool_catalog: default_tool_catalog(*allowed_tool_names)
-      )
-
-      turn.agent_deployment.update!(active_capability_snapshot: capability_snapshot)
-      capability_snapshot
     end
 
     def build_rotated_runtime_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {})
@@ -1284,24 +1411,26 @@ module ActiveSupport
       replacement = register_agent_runtime!(
         installation: context.fetch(:installation),
         actor: context.fetch(:actor),
-        agent_installation: context.fetch(:agent_installation),
-        execution_environment: context.fetch(:execution_environment),
-        environment_fingerprint: context.fetch(:execution_environment).environment_fingerprint,
+        agent_program: context.fetch(:agent_program),
+        execution_runtime: context.fetch(:execution_runtime),
+        runtime_fingerprint: context.fetch(:execution_runtime).runtime_fingerprint,
         reuse_enrollment: true
       )
 
-      previous_deployment.update!(bootstrap_state: "superseded")
-      replacement.fetch(:deployment).update!(
-        bootstrap_state: "active",
+      replacement.fetch(:agent_session).update!(
         health_status: "healthy",
-        last_heartbeat_at: Time.current
+        auto_resume_eligible: true,
+        last_heartbeat_at: Time.current,
+        last_health_check_at: Time.current
       )
 
       context.merge(
         previous_deployment: previous_deployment,
         replacement_registration: replacement,
         replacement_deployment: replacement.fetch(:deployment),
-        replacement_machine_credential: replacement.fetch(:machine_credential)
+        execution_session: replacement.fetch(:execution_session),
+        replacement_machine_credential: replacement.fetch(:machine_credential),
+        replacement_execution_machine_credential: replacement.fetch(:execution_machine_credential)
       )
     end
 

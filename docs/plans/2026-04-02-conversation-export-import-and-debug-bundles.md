@@ -6,7 +6,7 @@
 
 **Architecture:** Use three independent request models in `core_matrix`: `ConversationExportRequest`, `ConversationDebugExportRequest`, and `ConversationBundleImportRequest`. User export/import operates on a versioned `zip` bundle that contains only conversation-visible history and message-bound files. Debug export remains a separate internal bundle family. All request types are async, attached-file based, and time-limited via explicit expiry handling.
 
-**Tech Stack:** Ruby on Rails, Active Record, Active Job, Active Storage, JSON/ZIP bundle generation, request controllers under `AgentAPI`, and existing conversation transcript/message attachment models.
+**Tech Stack:** Ruby on Rails, Active Record, Active Job, Active Storage, JSON/ZIP bundle generation, request controllers under `AppAPI`, and existing conversation transcript/message attachment models.
 
 ---
 
@@ -20,7 +20,7 @@
   - `core_matrix/app/models/message_attachment.rb`
   - `core_matrix/app/models/conversation_import.rb`
   - `core_matrix/app/models/workflow_artifact.rb`
-  - `core_matrix/app/controllers/agent_api/conversation_transcripts_controller.rb`
+  - `core_matrix/app/controllers/app_api/conversation_transcripts_controller.rb`
   - `core_matrix/app/projections/conversation_transcripts/page_projection.rb`
   - `core_matrix/app/services/conversations/context_projection.rb`
   - `core_matrix/app/services/attachments/materialize_refs.rb`
@@ -380,12 +380,12 @@ git commit -m "feat: add async execution and expiry for conversation bundles"
 
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
-- Create: `core_matrix/app/controllers/agent_api/conversation_export_requests_controller.rb`
-- Create: `core_matrix/app/controllers/agent_api/conversation_bundle_import_requests_controller.rb`
-- Create: `core_matrix/app/controllers/agent_api/conversation_debug_export_requests_controller.rb`
-- Test: `core_matrix/test/requests/agent_api/conversation_export_requests_test.rb`
-- Test: `core_matrix/test/requests/agent_api/conversation_bundle_import_requests_test.rb`
-- Test: `core_matrix/test/requests/agent_api/conversation_debug_export_requests_test.rb`
+- Create: `core_matrix/app/controllers/app_api/conversation_export_requests_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/conversation_bundle_import_requests_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/conversation_debug_export_requests_controller.rb`
+- Test: `core_matrix/test/requests/app_api/conversation_export_requests_test.rb`
+- Test: `core_matrix/test/requests/app_api/conversation_bundle_import_requests_test.rb`
+- Test: `core_matrix/test/requests/app_api/conversation_debug_export_requests_test.rb`
 
 **Step 1: Write the failing tests**
 
@@ -401,7 +401,7 @@ Add request tests that cover:
 
 ```bash
 cd core_matrix
-bin/rails test test/requests/agent_api/conversation_export_requests_test.rb test/requests/agent_api/conversation_bundle_import_requests_test.rb test/requests/agent_api/conversation_debug_export_requests_test.rb
+bin/rails test test/requests/app_api/conversation_export_requests_test.rb test/requests/app_api/conversation_bundle_import_requests_test.rb test/requests/app_api/conversation_debug_export_requests_test.rb
 ```
 
 Expected: FAIL because the routes and controllers do not exist yet.
@@ -418,7 +418,7 @@ Expected: FAIL because the routes and controllers do not exist yet.
 
 ```bash
 cd core_matrix
-bin/rails test test/requests/agent_api/conversation_export_requests_test.rb test/requests/agent_api/conversation_bundle_import_requests_test.rb test/requests/agent_api/conversation_debug_export_requests_test.rb
+bin/rails test test/requests/app_api/conversation_export_requests_test.rb test/requests/app_api/conversation_bundle_import_requests_test.rb test/requests/app_api/conversation_debug_export_requests_test.rb
 ```
 
 Expected: PASS
@@ -426,7 +426,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/config/routes.rb core_matrix/app/controllers/agent_api/conversation_export_requests_controller.rb core_matrix/app/controllers/agent_api/conversation_bundle_import_requests_controller.rb core_matrix/app/controllers/agent_api/conversation_debug_export_requests_controller.rb core_matrix/test/requests/agent_api/conversation_export_requests_test.rb core_matrix/test/requests/agent_api/conversation_bundle_import_requests_test.rb core_matrix/test/requests/agent_api/conversation_debug_export_requests_test.rb
+git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/conversation_export_requests_controller.rb core_matrix/app/controllers/app_api/conversation_bundle_import_requests_controller.rb core_matrix/app/controllers/app_api/conversation_debug_export_requests_controller.rb core_matrix/test/requests/app_api/conversation_export_requests_test.rb core_matrix/test/requests/app_api/conversation_bundle_import_requests_test.rb core_matrix/test/requests/app_api/conversation_debug_export_requests_test.rb
 git commit -m "feat: add conversation bundle request APIs"
 ```
 
@@ -492,7 +492,7 @@ bin/rails test test/services/conversation_exports
 bin/rails test test/services/conversation_bundle_imports
 bin/rails test test/services/conversation_debug_exports
 bin/rails test test/jobs/conversation_exports test/jobs/conversation_bundle_imports test/jobs/conversation_debug_exports
-bin/rails test test/requests/agent_api/conversation_export_requests_test.rb test/requests/agent_api/conversation_bundle_import_requests_test.rb test/requests/agent_api/conversation_debug_export_requests_test.rb
+bin/rails test test/requests/app_api/conversation_export_requests_test.rb test/requests/app_api/conversation_bundle_import_requests_test.rb test/requests/app_api/conversation_debug_export_requests_test.rb
 bin/rails test test/integration/conversation_bundle_round_trip_test.rb
 ```
 

@@ -6,16 +6,16 @@ module Workspaces
       new(...).call
     end
 
-    def initialize(user_agent_binding:, name: DEFAULT_NAME)
-      @user_agent_binding = user_agent_binding
+    def initialize(user_program_binding:, name: DEFAULT_NAME)
+      @user_program_binding = user_program_binding
       @name = name
     end
 
     def call
       existing_workspace || Workspace.create!(
-        installation: @user_agent_binding.installation,
-        user: @user_agent_binding.user,
-        user_agent_binding: @user_agent_binding,
+        installation: @user_program_binding.installation,
+        user: @user_program_binding.user,
+        user_program_binding: @user_program_binding,
         name: @name,
         privacy: "private",
         is_default: true
@@ -23,7 +23,7 @@ module Workspaces
     end
 
     def existing_workspace
-      Workspace.find_by(user_agent_binding: @user_agent_binding, is_default: true)
+      Workspace.find_by(user_program_binding: @user_program_binding, is_default: true)
     end
   end
 end

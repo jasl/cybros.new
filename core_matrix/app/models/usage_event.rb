@@ -14,8 +14,8 @@ class UsageEvent < ApplicationRecord
   belongs_to :installation
   belongs_to :user, optional: true
   belongs_to :workspace, optional: true
-  belongs_to :agent_installation, optional: true
-  belongs_to :agent_deployment, optional: true
+  belongs_to :agent_program, optional: true
+  belongs_to :agent_program_version, optional: true
 
   validates :provider_handle, presence: true
   validates :model_ref, presence: true
@@ -28,8 +28,8 @@ class UsageEvent < ApplicationRecord
     allow_nil: true
   validate :user_installation_match
   validate :workspace_installation_match
-  validate :agent_installation_installation_match
-  validate :agent_deployment_installation_match
+  validate :agent_program_installation_match
+  validate :agent_program_version_installation_match
 
   def total_tokens
     return nil if input_tokens.nil? && output_tokens.nil?
@@ -53,17 +53,17 @@ class UsageEvent < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
-  def agent_installation_installation_match
-    return if agent_installation.blank?
-    return if agent_installation.installation_id == installation_id
+  def agent_program_installation_match
+    return if agent_program.blank?
+    return if agent_program.installation_id == installation_id
 
-    errors.add(:agent_installation, "must belong to the same installation")
+    errors.add(:agent_program, "must belong to the same installation")
   end
 
-  def agent_deployment_installation_match
-    return if agent_deployment.blank?
-    return if agent_deployment.installation_id == installation_id
+  def agent_program_version_installation_match
+    return if agent_program_version.blank?
+    return if agent_program_version.installation_id == installation_id
 
-    errors.add(:agent_deployment, "must belong to the same installation")
+    errors.add(:agent_program_version, "must belong to the same installation")
   end
 end

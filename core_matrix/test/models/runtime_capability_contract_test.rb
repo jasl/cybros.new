@@ -1,15 +1,15 @@
 require "test_helper"
 
 class RuntimeCapabilityContractTest < ActiveSupport::TestCase
-  test "renders environment, agent, effective, and conversation-facing projections from one contract" do
+  test "renders execution, program, and effective projections from one contract" do
     registration = register_agent_runtime!(
       profile_catalog: default_profile_catalog,
-      environment_capability_payload: { conversation_attachment_upload: false },
-      environment_tool_catalog: [
+      execution_capability_payload: { shell_access: true },
+      execution_tool_catalog: [
         {
           tool_name: "exec_command",
-          tool_kind: "environment_runtime",
-          implementation_source: "execution_environment",
+          tool_kind: "execution_runtime",
+          implementation_source: "execution_runtime",
           implementation_ref: "env/exec_command",
           input_schema: { type: "object", properties: {} },
           result_schema: { type: "object", properties: {} },
@@ -44,26 +44,29 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
       ]
     )
     contract = RuntimeCapabilityContract.build(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     )
 
-    assert_equal "environment", contract.environment_plane.fetch("runtime_plane")
-    assert_equal "agent", contract.agent_plane.fetch("runtime_plane")
-    assert_equal default_profile_catalog, contract.agent_plane.fetch("profile_catalog")
+    assert_equal "execution", contract.execution_plane.fetch("runtime_plane")
+    assert_equal "program", contract.program_plane.fetch("runtime_plane")
+    assert_equal default_profile_catalog, contract.program_plane.fetch("profile_catalog")
     assert_equal default_profile_catalog, contract.contract_payload.fetch("profile_catalog")
     assert_equal "main", contract.default_config_snapshot.dig("interactive", "profile")
     assert_equal 3, contract.default_config_snapshot.dig("subagents", "max_depth")
     assert_nil contract.conversation_override_schema_snapshot.dig("properties", "interactive")
     assert_equal "boolean", contract.conversation_override_schema_snapshot.dig("properties", "subagents", "properties", "enabled", "type")
-    assert_equal ["exec_command"], contract.environment_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], contract.execution_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["exec_command", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
-    assert contract.environment_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
-    assert contract.agent_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.execution_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.program_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
     assert contract.effective_tool_catalog.all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
-    assert_equal false, contract.conversation_payload(
-      execution_environment_id: registration[:execution_environment].public_id,
-      agent_deployment_id: registration[:deployment].public_id
-    ).fetch("conversation_attachment_upload")
+    response = contract.capability_response(
+      method_id: "capabilities_handshake",
+      execution_runtime_id: registration[:execution_runtime].public_id,
+      runtime_fingerprint: registration[:execution_runtime].runtime_fingerprint
+    )
+    assert_equal registration[:execution_runtime].public_id, response.fetch("execution_runtime_id")
+    assert_equal registration[:execution_runtime].runtime_fingerprint, response.fetch("runtime_fingerprint")
   end
 end

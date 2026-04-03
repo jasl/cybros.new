@@ -1,9 +1,10 @@
 require "json"
 
-def runtime_client(machine_credential: ENV["CORE_MATRIX_MACHINE_CREDENTIAL"])
+def runtime_client(machine_credential: ENV["CORE_MATRIX_MACHINE_CREDENTIAL"], execution_machine_credential: ENV["CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL"])
   Fenix::Runtime::ControlClient.new(
     base_url: ENV.fetch("CORE_MATRIX_BASE_URL"),
-    machine_credential: machine_credential
+    machine_credential: machine_credential,
+    execution_machine_credential: execution_machine_credential.presence || machine_credential
   )
 end
 
@@ -127,15 +128,15 @@ namespace :runtime do
   desc "Register this Fenix runtime with Core Matrix, then handshake, heartbeat, and refresh capabilities"
   task pair_with_core_matrix: :environment do
     manifest = pairing_manifest_payload
-    runtime_fingerprint = ENV.fetch("FENIX_RUNTIME_FINGERPRINT", manifest.fetch("environment_fingerprint"))
+    runtime_fingerprint = ENV.fetch("FENIX_RUNTIME_FINGERPRINT", manifest.fetch("runtime_fingerprint"))
 
     registration = runtime_client(machine_credential: nil).register!(
       enrollment_token: ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      environment_fingerprint: manifest.fetch("environment_fingerprint"),
-      environment_kind: manifest.fetch("environment_kind"),
-      environment_connection_metadata: manifest.fetch("environment_connection_metadata"),
-      environment_capability_payload: manifest.fetch("environment_capability_payload"),
-      environment_tool_catalog: manifest.fetch("environment_tool_catalog"),
+      runtime_fingerprint: manifest.fetch("runtime_fingerprint"),
+      runtime_kind: manifest.fetch("runtime_kind"),
+      runtime_connection_metadata: manifest.fetch("runtime_connection_metadata"),
+      execution_capability_payload: manifest.fetch("execution_capability_payload"),
+      execution_tool_catalog: manifest.fetch("execution_tool_catalog"),
       fingerprint: runtime_fingerprint,
       endpoint_metadata: manifest.fetch("endpoint_metadata"),
       protocol_version: manifest.fetch("protocol_version"),
@@ -148,7 +149,10 @@ namespace :runtime do
       default_config_snapshot: manifest.fetch("default_config_snapshot")
     )
 
-    client = runtime_client(machine_credential: registration.fetch("machine_credential"))
+    client = runtime_client(
+      machine_credential: registration.fetch("machine_credential"),
+      execution_machine_credential: registration.fetch("execution_machine_credential", registration.fetch("machine_credential"))
+    )
 
     puts JSON.pretty_generate(
       {
@@ -157,8 +161,8 @@ namespace :runtime do
           fingerprint: runtime_fingerprint,
           protocol_version: manifest.fetch("protocol_version"),
           sdk_version: manifest.fetch("sdk_version"),
-          environment_capability_payload: manifest.fetch("environment_capability_payload"),
-          environment_tool_catalog: manifest.fetch("environment_tool_catalog"),
+          execution_capability_payload: manifest.fetch("execution_capability_payload"),
+          execution_tool_catalog: manifest.fetch("execution_tool_catalog"),
           protocol_methods: manifest.fetch("protocol_methods"),
           tool_catalog: manifest.fetch("tool_catalog"),
           profile_catalog: manifest.fetch("profile_catalog"),
@@ -177,8 +181,8 @@ namespace :runtime do
     )
   end
 
-  desc "Exercise non-control agent_api resource endpoints through the Fenix runtime client"
-  task agent_api_smoke: :environment do
+  desc "Exercise non-control program_api resource endpoints through the Fenix runtime client"
+  task program_api_smoke: :environment do
     client = runtime_client
     workspace_id = ENV.fetch("CORE_MATRIX_WORKSPACE_ID")
     conversation_id = ENV.fetch("CORE_MATRIX_CONVERSATION_ID")

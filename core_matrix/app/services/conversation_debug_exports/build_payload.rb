@@ -106,8 +106,8 @@ module ConversationDebugExports
       @workspace_public_id_map ||= Workspace.where(id: usage_events.map(&:workspace_id).compact.uniq).pluck(:id, :public_id).to_h
     end
 
-    def agent_deployment_public_id_map
-      @agent_deployment_public_id_map ||= AgentDeployment.where(id: usage_events.map(&:agent_deployment_id).compact.uniq).pluck(:id, :public_id).to_h
+    def agent_program_version_public_id_map
+      @agent_program_version_public_id_map ||= AgentProgramVersion.where(id: usage_events.map(&:agent_program_version_id).compact.uniq).pluck(:id, :public_id).to_h
     end
 
     def serialize_conversation_snapshot(snapshot)
@@ -233,7 +233,7 @@ module ConversationDebugExports
         "turn_id" => task_run.turn.public_id,
         "subagent_session_id" => task_run.subagent_session&.public_id,
         "origin_turn_id" => task_run.origin_turn&.public_id,
-        "holder_agent_deployment_id" => task_run.holder_agent_deployment&.public_id,
+        "holder_agent_program_version_id" => task_run.holder_agent_program_version&.public_id,
         "kind" => task_run.kind,
         "lifecycle_state" => task_run.lifecycle_state,
         "logical_work_id" => task_run.logical_work_id,
@@ -332,7 +332,7 @@ module ConversationDebugExports
         "turn_id" => turn_public_id_map[event.turn_id],
         "user_id" => user_public_id_map[event.user_id],
         "workspace_id" => workspace_public_id_map[event.workspace_id],
-        "agent_deployment_id" => agent_deployment_public_id_map[event.agent_deployment_id],
+        "agent_program_version_id" => agent_program_version_public_id_map[event.agent_program_version_id],
         "provider_handle" => event.provider_handle,
         "model_ref" => event.model_ref,
         "operation_kind" => event.operation_kind,

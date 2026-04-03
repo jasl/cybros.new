@@ -6,11 +6,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     ),
       content: "Workflow input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -24,13 +24,13 @@ class WorkflowRunTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -44,7 +44,7 @@ class WorkflowRunTest < ActiveSupport::TestCase
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -66,13 +66,13 @@ class WorkflowRunTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Wait-state input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -108,7 +108,7 @@ class WorkflowRunTest < ActiveSupport::TestCase
       turn: Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Ready-state input",
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       ),
@@ -124,13 +124,13 @@ class WorkflowRunTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Deletion input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -151,13 +151,13 @@ class WorkflowRunTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {
         "normalized_selector" => "role:main",
@@ -176,23 +176,22 @@ class WorkflowRunTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     turn = Turn.create!(
       installation: context[:installation],
       conversation: conversation,
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       sequence: 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",
       origin_payload: {},
-      pinned_deployment_fingerprint: context[:agent_deployment].fingerprint,
+      pinned_program_version_fingerprint: context[:agent_program_version].fingerprint,
       resolved_config_snapshot: {},
       execution_snapshot_payload: {
         "identity" => {
           "turn_id" => "turn-public-id",
-          "agent_deployment_id" => context[:agent_deployment].public_id,
+          "agent_program_version_id" => context[:agent_program_version].public_id,
         },
         "conversation_projection" => {
           "messages" => [{ "role" => "user", "content" => "Input" }],

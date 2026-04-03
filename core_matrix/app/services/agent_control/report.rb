@@ -8,9 +8,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
+    def initialize(deployment:, agent_session: nil, execution_session: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
       raw_payload = payload.presence || kwargs
       @deployment = deployment
+      @agent_session = agent_session
+      @execution_session = execution_session
       @payload = raw_payload.deep_stringify_keys
       @method_id = method_id || @payload.fetch("method_id")
       @protocol_message_id = protocol_message_id || @payload.fetch("protocol_message_id")
@@ -18,7 +20,7 @@ module AgentControl
     end
 
     def call
-      TouchDeploymentActivity.call(deployment: @deployment, occurred_at: @occurred_at)
+      TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
 
       existing_receipt = find_existing_receipt
       return duplicate_result_for(existing_receipt) if existing_receipt.present?
@@ -61,7 +63,8 @@ module AgentControl
     def create_receipt!
       AgentControlReportReceipt.create!(
         installation: @deployment.installation,
-        agent_deployment: @deployment,
+        agent_session: resolved_agent_session,
+        execution_session: @execution_session,
         protocol_message_id: @protocol_message_id,
         method_id: @method_id,
         logical_work_id: @payload["logical_work_id"],
@@ -84,10 +87,16 @@ module AgentControl
     def report_handler
       @report_handler ||= ReportDispatch.call(
         deployment: @deployment,
+        agent_session: resolved_agent_session,
+        execution_session: @execution_session,
         method_id: @method_id,
         payload: @payload,
         occurred_at: @occurred_at
       )
+    end
+
+    def resolved_agent_session
+      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
     end
   end
 end

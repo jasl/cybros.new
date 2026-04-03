@@ -68,7 +68,6 @@ class WorkflowRun < ApplicationRecord
     :provider_execution,
     :budget_hints,
     :attachment_manifest,
-    :runtime_attachment_manifest,
     :model_input_attachments,
     :attachment_diagnostics,
     :context_imports,

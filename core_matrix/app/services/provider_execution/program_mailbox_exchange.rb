@@ -40,7 +40,7 @@ module ProviderExecution
     end
 
     def initialize(
-      agent_deployment:,
+      agent_program_version:,
       timeout: nil,
       prepare_round_timeout: DEFAULT_PREPARE_ROUND_TIMEOUT,
       execute_program_tool_timeout: DEFAULT_EXECUTE_PROGRAM_TOOL_TIMEOUT,
@@ -49,7 +49,7 @@ module ProviderExecution
       poll_interval: DEFAULT_POLL_INTERVAL,
       sleeper: nil
     )
-      @agent_deployment = agent_deployment
+      @agent_program_version = agent_program_version
       @prepare_round_timeout = timeout || prepare_round_timeout
       @execute_program_tool_timeout = timeout || execute_program_tool_timeout
       @tool_timeout_buffer = tool_timeout_buffer
@@ -87,7 +87,7 @@ module ProviderExecution
       timeout = timeout.to_f.seconds
       request_started_at = Time.current
       mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-        agent_deployment: @agent_deployment,
+        agent_program_version: @agent_program_version,
         request_kind: request_kind,
         payload: payload,
         logical_work_id: logical_work_id,

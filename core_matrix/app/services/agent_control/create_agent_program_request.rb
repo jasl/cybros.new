@@ -8,8 +8,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_deployment:, request_kind:, payload:, logical_work_id:, attempt_no: 1, dispatch_deadline_at:, execution_hard_deadline_at: nil, protocol_message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
-      @agent_deployment = agent_deployment
+    def initialize(agent_program_version:, request_kind:, payload:, logical_work_id:, attempt_no: 1, dispatch_deadline_at:, execution_hard_deadline_at: nil, protocol_message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
+      @agent_program_version = agent_program_version
       @request_kind = request_kind.to_s
       @payload = payload.deep_stringify_keys
       @logical_work_id = logical_work_id
@@ -26,13 +26,13 @@ module AgentControl
       raise ArgumentError, "unsupported request kind #{@request_kind}" unless REQUEST_KINDS.include?(@request_kind)
 
       mailbox_item = AgentControlMailboxItem.create!(
-        installation: @agent_deployment.installation,
-        target_agent_installation: @agent_deployment.agent_installation,
-        target_agent_deployment: @agent_deployment,
+        installation: @agent_program_version.installation,
+        target_agent_program: @agent_program_version.agent_program,
+        target_agent_program_version: @agent_program_version,
         item_type: "agent_program_request",
-        runtime_plane: "agent",
-        target_kind: "agent_deployment",
-        target_ref: @agent_deployment.public_id,
+        runtime_plane: "program",
+        target_kind: "agent_program_version",
+        target_ref: @agent_program_version.public_id,
         logical_work_id: @logical_work_id,
         attempt_no: @attempt_no,
         protocol_message_id: @protocol_message_id,

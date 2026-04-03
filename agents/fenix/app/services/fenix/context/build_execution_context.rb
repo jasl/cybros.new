@@ -16,19 +16,19 @@ module Fenix
         capability_projection = payload.fetch("capability_projection").deep_stringify_keys
         provider_context = payload.fetch("provider_context").deep_stringify_keys
         runtime_context = payload.fetch("runtime_context").deep_stringify_keys
-        runtime_identity = { "deployment_public_id" => runtime_context.fetch("deployment_public_id") }
+        runtime_identity = { "agent_program_version_id" => runtime_context.fetch("agent_program_version_id") }
         workspace_root = Fenix::Workspace::Layout.default_root
         Fenix::Workspace::Bootstrap.call(
           workspace_root:,
           conversation_id: task.fetch("conversation_id"),
-          deployment_public_id: runtime_identity["deployment_public_id"]
+          agent_program_version_id: runtime_identity["agent_program_version_id"]
         )
         agent_context = normalized_agent_context(capability_projection:)
         Fenix::Operator::Snapshot.call(
           workspace_root:,
           conversation_id: task.fetch("conversation_id"),
           agent_task_run_id: task["agent_task_run_id"],
-          deployment_public_id: runtime_identity["deployment_public_id"]
+          agent_program_version_id: runtime_identity["agent_program_version_id"]
         )
 
         {
@@ -36,7 +36,7 @@ module Fenix
           "protocol_message_id" => @mailbox_item.fetch("protocol_message_id"),
           "logical_work_id" => runtime_context["logical_work_id"].presence || @mailbox_item.fetch("logical_work_id"),
           "attempt_no" => runtime_context["attempt_no"].presence&.to_i || @mailbox_item.fetch("attempt_no").to_i,
-          "runtime_plane" => runtime_context["runtime_plane"].presence || @mailbox_item.fetch("runtime_plane", "agent"),
+          "runtime_plane" => runtime_context["runtime_plane"].presence || @mailbox_item.fetch("runtime_plane", "program"),
           "agent_task_run_id" => task["agent_task_run_id"],
           "workflow_run_id" => task["workflow_run_id"],
           "workflow_node_id" => task["workflow_node_id"],
@@ -56,12 +56,12 @@ module Fenix
             "env_overlay" => Fenix::Workspace::EnvOverlay.call(
               workspace_root:,
               conversation_id: task.fetch("conversation_id"),
-              deployment_public_id: runtime_identity["deployment_public_id"]
+              agent_program_version_id: runtime_identity["agent_program_version_id"]
             ),
             "prompts" => Fenix::Prompts::Assembler.call(
               workspace_root:,
               conversation_id: task.fetch("conversation_id"),
-              deployment_public_id: runtime_identity["deployment_public_id"],
+              agent_program_version_id: runtime_identity["agent_program_version_id"],
               profile: agent_context.fetch("profile", "main"),
               is_subagent: agent_context.fetch("is_subagent", false)
             ),

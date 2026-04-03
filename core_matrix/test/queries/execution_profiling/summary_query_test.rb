@@ -4,16 +4,16 @@ class ExecutionProfiling::SummaryQueryTest < ActiveSupport::TestCase
   test "aggregates execution facts by kind and key within a time window" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    agent_installation = create_agent_installation!(installation: installation)
-    binding = create_user_agent_binding!(
+    agent_program = create_agent_program!(installation: installation)
+    binding = create_user_program_binding!(
       installation: installation,
       user: user,
-      agent_installation: agent_installation
+      agent_program: agent_program
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      user_program_binding: binding
     )
 
     ExecutionProfiling::RecordFact.call(

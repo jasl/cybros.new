@@ -22,9 +22,7 @@ module Fenix
         {
           "status" => "ok",
           "messages" => compacted.fetch("messages"),
-          "tool_surface" => Fenix::Runtime::PairingManifest.visible_program_tool_catalog(
-            allowed_tool_names: Array(round_context.dig("agent_context", "allowed_tool_names"))
-          ),
+          "tool_surface" => visible_tool_surface,
           "likely_model" => prepared.fetch("likely_model"),
           "summary_artifacts" => [],
           "trace" => [prepared.fetch("trace"), compacted.fetch("trace")],
@@ -43,12 +41,12 @@ module Fenix
           runtime_context = @payload.fetch("runtime_context").deep_stringify_keys
           conversation_id = task.fetch("conversation_id")
           agent_context = normalized_agent_context(capability_projection:)
-          runtime_identity = { "deployment_public_id" => runtime_context.fetch("deployment_public_id") }
+          runtime_identity = { "agent_program_version_id" => runtime_context.fetch("agent_program_version_id") }
 
           Fenix::Workspace::Bootstrap.call(
             workspace_root:,
             conversation_id:,
-            deployment_public_id: runtime_identity["deployment_public_id"]
+            agent_program_version_id: runtime_identity["agent_program_version_id"]
           )
 
           {
@@ -70,12 +68,12 @@ module Fenix
               "env_overlay" => Fenix::Workspace::EnvOverlay.call(
                 workspace_root:,
                 conversation_id:,
-                deployment_public_id: runtime_identity["deployment_public_id"]
+                agent_program_version_id: runtime_identity["agent_program_version_id"]
               ),
               "prompts" => Fenix::Prompts::Assembler.call(
                 workspace_root:,
                 conversation_id:,
-                deployment_public_id: runtime_identity["deployment_public_id"],
+                agent_program_version_id: runtime_identity["agent_program_version_id"],
                 profile: agent_context.fetch("profile", "main"),
                 is_subagent: agent_context.fetch("is_subagent", false)
               ),
@@ -106,6 +104,12 @@ module Fenix
           "allowed_tool_names" => Array(capability_projection["tool_surface"]).filter_map { |entry| entry["tool_name"] },
           "owner_conversation_id" => capability_projection["owner_conversation_id"],
         }.compact
+      end
+
+      def visible_tool_surface
+        Array(round_context.dig("capability_projection", "tool_surface")).map do |entry|
+          entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : {}
+        end
       end
     end
   end

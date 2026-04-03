@@ -1,7 +1,7 @@
 plugin_id: system.browser
 version: 1
 display_name: Browser
-default_runtime_plane: environment
+default_runtime_plane: execution
 tool_catalog:
   - tool_name: browser_open
     tool_kind: kernel_primitive

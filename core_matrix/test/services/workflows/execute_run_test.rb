@@ -319,8 +319,8 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
   def create_mock_turn_step_workflow_run!(resolved_config_snapshot:)
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
-    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
+    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
     ProviderEntitlement.create!(
       installation: context[:installation],
       provider_handle: "dev",
@@ -334,13 +334,12 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Execute run input",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: resolved_config_snapshot,
       resolved_model_selection_snapshot: {}
     )

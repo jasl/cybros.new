@@ -30,7 +30,7 @@ class AgentControl::ValidateExecutionReportFreshnessTest < ActiveSupport::TestCa
     agent_task_run = scenario.fetch(:agent_task_run)
     agent_task_run.update!(
       lifecycle_state: "running",
-      holder_agent_deployment: context[:deployment],
+      holder_agent_session: context[:agent_session],
       close_state: "requested",
       close_reason_kind: "operator_stop",
       close_requested_at: Time.current,

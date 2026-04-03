@@ -20,7 +20,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - `blocking_resource_type`
   - `blocking_resource_id`
 - `blocking_resource_id` stores durable external-style identifiers only:
-  - `AgentDeployment.public_id` for `agent_unavailable`
+  - `AgentProgramVersion.public_id` for `agent_unavailable`
   - barrier artifact keys for `subagent_barrier`
   - blocker `public_id` values for `human_interaction`, `retryable_failure`,
     and `policy_gate`
@@ -134,27 +134,27 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 
 ## Recovery Behavior
 
-- `AgentDeployments::MarkUnavailable` moves active workflows into a waiting
+- `AgentProgramVersions::MarkUnavailable` moves active workflows into a waiting
   state when the pinned deployment becomes unavailable
 - `agent_unavailable` stores:
-  - `blocking_resource_type = "AgentDeployment"`
+  - `blocking_resource_type = "AgentProgramVersion"`
   - `blocking_resource_id = <deployment public_id>`
 - if a workflow was already waiting on another blocker, outage pause snapshots
   that original blocker and restores it after recovery instead of erasing it
 - `WorkflowWaitSnapshot` is the explicit parser and restore contract for those
   nested pause payloads
-- `AgentDeployments::AutoResumeWorkflows` only resumes waiting
+- `AgentProgramVersions::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
 - compatible rotated replacements may auto resume only when they preserve the
-  conversation-bound execution environment and capability contract
-- `AgentDeployments::ResolveRecoveryTarget` is the one paused-work
+  paused turn's frozen execution-runtime choice and capability contract
+- `AgentProgramVersions::ResolveRecoveryTarget` is the one paused-work
   target-resolution contract used by:
-  - `AgentDeployments::BuildRecoveryPlan`
+  - `AgentProgramVersions::BuildRecoveryPlan`
   - `Workflows::ManualResume`
   - `Workflows::ManualRetry`
-- `AgentDeployments::RebindTurn` is the one paused-turn rebinding mutation
+- `AgentProgramVersions::RebindTurn` is the one paused-turn rebinding mutation
   owner used by both auto-resume recovery-plan application and manual resume
-- `Conversations::ValidateAgentDeploymentTarget` stays generic to live
+- `Conversations::ValidateAgentProgramVersionTarget` stays generic to live
   conversation deployment switching and only enforces the installation and
   execution-environment boundary
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
@@ -243,7 +243,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   mailbox routing contract:
   - `runtime_plane`
   - `target_ref`
-  - optional `target_execution_environment_id`
+  - optional `target_execution_runtime_id`
   rather than payload-based runtime inference
 - `Conversations::ReconcileCloseOperation` is the single writer for archive
   close lifecycle state, `summary_payload`, and archive-side
@@ -269,8 +269,8 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - the active turn is fenced through `turn_interrupt`
 - detached background processes are closed through mailbox
   `resource_close_request(request_kind = "deletion_force_quiesce")`
-- environment-plane close terminal reports are accepted only from deployments
-  attached to the owning execution environment, and they re-enter close
+- execution-plane close terminal reports are accepted only from the active
+  execution session for the owning `ExecutionRuntime`, and they re-enter close
   reconciliation through the dedicated close-report handler family
 - delete also records a durable
   `ConversationCloseOperation(intent_kind = "delete")`

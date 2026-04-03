@@ -42,14 +42,14 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     end
   end
 
-  test "prepare_round agent program requests route to the runtime_prepare_round queue" do
+  test "prepare_round program requests route to the runtime_prepare_round queue" do
     mailbox_item = {
       "item_type" => "agent_program_request",
       "item_id" => "mailbox-item-#{SecureRandom.uuid}",
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "agent",
+      "runtime_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
@@ -65,7 +65,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "agent",
+      "runtime_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
@@ -106,7 +106,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "agent",
+      "runtime_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
@@ -149,7 +149,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "agent",
+      "runtime_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 

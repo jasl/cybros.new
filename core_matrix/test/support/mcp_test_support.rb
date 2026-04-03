@@ -32,7 +32,7 @@ module McpTestSupport
   def build_governed_mcp_context!(base_url:, tool_name: "remote_echo", mcp_tool_name: "echo")
     context = build_agent_control_context!
     capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       version: 2,
       tool_catalog: governed_mcp_tool_catalog(base_url: base_url, tool_name: tool_name, mcp_tool_name: mcp_tool_name),
       profile_catalog: governed_mcp_profile_catalog(tool_name: tool_name),
@@ -40,19 +40,10 @@ module McpTestSupport
       conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context.fetch(:deployment).update!(active_capability_snapshot: capability_snapshot)
-    context.fetch(:turn).update!(
-      resolved_model_selection_snapshot: context.fetch(:turn).resolved_model_selection_snapshot.merge(
-        "capability_snapshot_id" => capability_snapshot.id
-      )
-    )
-
-    Conversations::RefreshRuntimeContract.call(conversation: context.fetch(:conversation))
-    execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
-    context.fetch(:turn).update!(execution_snapshot_payload: execution_snapshot.to_h)
+    adopt_agent_program_version!(context, capability_snapshot)
 
     context.merge(
-      capability_snapshot: capability_snapshot,
+      capability_snapshot: context.fetch(:agent_program_version),
       turn: context.fetch(:turn).reload,
       workflow_node: context.fetch(:workflow_node).reload
     )

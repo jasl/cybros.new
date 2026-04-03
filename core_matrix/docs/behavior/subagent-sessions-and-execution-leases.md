@@ -72,8 +72,9 @@ The landed model separates concerns cleanly:
   resources
 - child workflow creation now inherits the origin turn's frozen selector and
   selector source when it re-enters `Workflows::CreateForTurn`, so delegated
-  work stays aligned with the parent's execution environment and capability
-  contract instead of silently falling back to a different selector lane
+  work stays aligned with the parent's origin-turn `ExecutionRuntime` when one
+  was selected, plus the same frozen capability contract, instead of silently
+  falling back to a different selector lane
 - `SubagentSessions::SendMessage` appends agent-facing messages into an
   agent-addressable child conversation
 - `SubagentSessions::Wait` waits on durable session state

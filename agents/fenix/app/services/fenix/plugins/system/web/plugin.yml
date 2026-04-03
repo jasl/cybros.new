@@ -1,7 +1,7 @@
 plugin_id: system.web
 version: 1
 display_name: Web
-default_runtime_plane: environment
+default_runtime_plane: execution
 tool_catalog:
   - tool_name: web_fetch
     tool_kind: kernel_primitive

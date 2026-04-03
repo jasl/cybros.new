@@ -61,7 +61,7 @@ module ProviderExecution
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
       @adapter = adapter
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
-      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_deployment: workflow_node.turn.agent_deployment)
+      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_program_version: workflow_node.turn.agent_program_version)
       @max_rounds = max_rounds || configured_max_rounds
     end
 
@@ -185,7 +185,7 @@ module ProviderExecution
       selected_tool_names = Array(prepared_round.fetch("tool_surface")).map { |entry| entry.fetch("tool_name") }
 
       visible_tool_surface.select do |entry|
-        selected_tool_names.include?(entry.fetch("tool_name"))
+        selected_tool_names.include?(entry.fetch("tool_name")) && round_bindable_tool_entry?(entry)
       end
     end
 
@@ -279,6 +279,17 @@ module ProviderExecution
       ).joins(tool_implementation: :implementation_source).where(
         implementation_sources: { source_kind: "core_matrix" }
       ).distinct.pluck(:id)
+    end
+
+    def round_bindable_tool_entry?(entry)
+      tool_name = entry.fetch("tool_name")
+      implementation_source = entry.fetch("implementation_source", nil)
+
+      return false if implementation_source == "core_matrix"
+      return false if tool_name.start_with?(AgentProgramVersion::RESERVED_CORE_MATRIX_PREFIX)
+      return false if RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES.include?(tool_name)
+
+      true
     end
   end
 end

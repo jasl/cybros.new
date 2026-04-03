@@ -11,16 +11,16 @@ existing binding and workspace services.
 
 ### `Installations::RegisterBundledAgentRuntime`
 
-- Reconciles the packaged runtime into `AgentInstallation`,
-  `ExecutionEnvironment`, `AgentDeployment`, and `CapabilitySnapshot`.
-- Treats `ExecutionEnvironment` as the stable owner aggregate and rotates
-  `AgentDeployment` on top of that environment when the bundled runtime
-  release changes.
-- Reuses existing logical and deployment rows instead of duplicating them on
+- Reconciles the packaged runtime into `AgentProgram`,
+  `ExecutionRuntime`, `AgentProgramVersion`, `AgentSession`, and
+  `ExecutionSession`.
+- Treats `ExecutionRuntime` as the stable execution host and rotates
+  `AgentProgramVersion` when the bundled runtime release fingerprint changes.
+- Reuses existing logical and program-version rows instead of duplicating them on
   repeated calls.
-- Capability-snapshot version allocation is serialized at the deployment
-  boundary so concurrent bundled-runtime reconciliation reuses or appends one
-  versioned snapshot without duplicate-key races.
+- Concurrent bundled-runtime reconciliation serializes around the logical
+  program and execution runtime so repeated passes reuse the same version and
+  session rows without duplicate-key races.
 - Does not create user bindings or workspaces.
 - Returns `nil` when bundled bootstrap is not enabled in configuration.
 
@@ -28,7 +28,7 @@ existing binding and workspace services.
 
 - Runs only when bundled bootstrap is explicitly enabled.
 - Calls bundled runtime reconciliation before any user binding is created.
-- Composes `UserAgentBindings::Enable` so default workspace creation continues
+- Composes `UserProgramBindings::Enable` so default workspace creation continues
   to flow through the existing workspace service.
 
 ### `Installations::BootstrapFirstAdmin`
@@ -50,6 +50,6 @@ existing binding and workspace services.
 - Disabled bundled bootstrap leaves registry, binding, and workspace rows
   untouched.
 - Repeated bundled runtime reconciliation must not duplicate logical agent or
-  deployment rows.
+  program-version rows.
 - Bundled bootstrap remains scoped to the single packaged runtime and does not
   act as a generic connector layer.

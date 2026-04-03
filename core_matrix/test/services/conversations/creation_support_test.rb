@@ -13,8 +13,7 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     parent.lineage_store_reference.delete
     parent.association(:lineage_store_reference).reset
@@ -32,27 +31,19 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     parent_context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: parent_context[:workspace],
-      execution_environment: parent_context[:execution_environment],
-      agent_deployment: parent_context[:agent_deployment]
+      agent_program: parent_context[:agent_program]
     )
-    alternate_environment = create_execution_environment!(installation: parent_context[:installation])
-    alternate_agent_installation = create_agent_installation!(installation: parent_context[:installation])
-    alternate_agent_deployment = create_agent_deployment!(
-      installation: parent_context[:installation],
-      agent_installation: alternate_agent_installation,
-      execution_environment: alternate_environment
-    )
+    alternate_agent_program = create_agent_program!(installation: parent_context[:installation])
     alternate_workspace = create_workspace!(
       installation: parent_context[:installation],
       user: parent_context[:user],
-      user_agent_binding: parent_context[:user_agent_binding],
+      user_program_binding: parent_context[:user_program_binding],
       name: "Alternate Workspace #{next_test_sequence}"
     )
     harness = CreationSupportHarness.new
     child = harness.build_child_conversation(parent: parent, kind: "fork")
     child.workspace = alternate_workspace
-    child.execution_environment = alternate_environment
-    child.agent_deployment = alternate_agent_deployment
+    child.agent_program = alternate_agent_program
     child.purpose = "automation"
     child.lifecycle_state = "archived"
 
@@ -61,8 +52,7 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     assert_same child, refreshed
     assert_equal parent.installation, refreshed.installation
     assert_equal parent.workspace, refreshed.workspace
-    assert_equal parent.execution_environment, refreshed.execution_environment
-    assert_equal parent.agent_deployment, refreshed.agent_deployment
+    assert_equal parent.agent_program, refreshed.agent_program
     assert_equal parent, refreshed.parent_conversation
     assert_equal parent.purpose, refreshed.purpose
     assert refreshed.active?

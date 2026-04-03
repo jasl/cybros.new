@@ -1,7 +1,7 @@
 class AgentControlMailboxItem < ApplicationRecord
   include HasPublicId
 
-  RUNTIME_PLANES = %w[agent environment].freeze
+  RUNTIME_PLANES = %w[program execution].freeze
 
   enum :item_type,
     {
@@ -14,8 +14,8 @@ class AgentControlMailboxItem < ApplicationRecord
     validate: true
   enum :target_kind,
     {
-      agent_installation: "agent_installation",
-      agent_deployment: "agent_deployment",
+      agent_program: "agent_program",
+      agent_program_version: "agent_program_version",
     },
     validate: true
   enum :status,
@@ -31,11 +31,12 @@ class AgentControlMailboxItem < ApplicationRecord
     validate: true
 
   belongs_to :installation
-  belongs_to :target_agent_installation, class_name: "AgentInstallation"
-  belongs_to :target_agent_deployment, class_name: "AgentDeployment", optional: true
-  belongs_to :target_execution_environment, class_name: "ExecutionEnvironment", optional: true
+  belongs_to :target_agent_program, class_name: "AgentProgram"
+  belongs_to :target_agent_program_version, class_name: "AgentProgramVersion", optional: true
+  belongs_to :target_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :agent_task_run, optional: true
-  belongs_to :leased_to_agent_deployment, class_name: "AgentDeployment", optional: true
+  belongs_to :leased_to_agent_session, class_name: "AgentSession", optional: true
+  belongs_to :leased_to_execution_session, class_name: "ExecutionSession", optional: true
 
   has_many :agent_control_report_receipts, foreign_key: :mailbox_item_id, dependent: :restrict_with_exception
 
@@ -48,43 +49,58 @@ class AgentControlMailboxItem < ApplicationRecord
   validates :lease_timeout_seconds, numericality: { only_integer: true, greater_than: 0 }
   validate :payload_must_be_hash
   validate :target_installation_match
-  validate :target_deployment_match
-  validate :target_execution_environment_match
+  validate :target_program_version_match
+  validate :target_execution_runtime_match
   validate :agent_task_run_match
   validate :lease_holder_match
   validate :target_ref_consistency
   validate :runtime_plane_contract
 
+  before_validation :normalize_runtime_plane
+
+  def program_plane?
+    runtime_plane == "program"
+  end
+
+  def execution_plane?
+    runtime_plane == "execution"
+  end
+
   def targets?(deployment)
     return false if deployment.blank?
 
-    if environment_plane?
-      return false unless deployment.installation_id == installation_id
-      return false if target_execution_environment_id.blank?
-
-      deployment.execution_environment_id == target_execution_environment_id
+    if execution_plane?
+      target_execution_runtime_id.present? &&
+        target_execution_runtime_id == execution_runtime_id_for(deployment)
     else
       case target_kind
-      when "agent_installation"
-        deployment.agent_installation_id == target_agent_installation_id
-      when "agent_deployment"
-        deployment.id == target_agent_deployment_id
+      when "agent_program"
+        deployment.agent_program_id == target_agent_program_id
+      when "agent_program_version"
+        deployment.id == target_agent_program_version_id
       else
         false
       end
     end
   end
 
-  def agent_plane?
-    runtime_plane == "agent"
-  end
-
-  def environment_plane?
-    runtime_plane == "environment"
-  end
-
   def leased_to?(deployment)
-    deployment.present? && leased_to_agent_deployment_id == deployment.id
+    return false if deployment.blank?
+
+    case deployment
+    when AgentSession
+      leased_to_agent_session_id == deployment.id
+    when AgentProgramVersion
+      leased_to_agent_session&.agent_program_version_id == deployment.id
+    when ExecutionSession
+      leased_to_execution_session_id == deployment.id
+    else
+      false
+    end
+  end
+
+  def leased_to_agent_program_version
+    leased_to_agent_session&.agent_program_version
   end
 
   def lease_stale?(at: Time.current)
@@ -98,59 +114,57 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def target_installation_match
-    return if target_agent_installation.blank? || target_agent_installation.installation_id == installation_id
+    return if target_agent_program.blank? || target_agent_program.installation_id == installation_id
 
-    errors.add(:target_agent_installation, "must belong to the same installation")
+    errors.add(:target_agent_program, "must belong to the same installation")
   end
 
-  def target_deployment_match
-    return if target_agent_deployment.blank?
+  def target_program_version_match
+    return if target_agent_program_version.blank?
 
-    if target_agent_deployment.installation_id != installation_id
-      errors.add(:target_agent_deployment, "must belong to the same installation")
-    end
-
-    if target_agent_deployment.agent_installation_id != target_agent_installation_id
-      errors.add(:target_agent_deployment, "must belong to the targeted agent installation")
-    end
+    errors.add(:target_agent_program_version, "must belong to the same installation") if target_agent_program_version.installation_id != installation_id
+    errors.add(:target_agent_program_version, "must belong to the targeted agent program") if target_agent_program_version.agent_program_id != target_agent_program_id
   end
 
-  def target_execution_environment_match
-    return if target_execution_environment.blank?
-    return if target_execution_environment.installation_id == installation_id
+  def target_execution_runtime_match
+    return if target_execution_runtime.blank?
+    return if target_execution_runtime.installation_id == installation_id
 
-    errors.add(:target_execution_environment, "must belong to the same installation")
+    errors.add(:target_execution_runtime, "must belong to the same installation")
   end
 
   def agent_task_run_match
     return if agent_task_run.blank?
 
-    if agent_task_run.installation_id != installation_id
-      errors.add(:agent_task_run, "must belong to the same installation")
-    end
-
-    if agent_task_run.agent_installation_id != target_agent_installation_id
-      errors.add(:agent_task_run, "must belong to the targeted agent installation")
-    end
+    errors.add(:agent_task_run, "must belong to the same installation") if agent_task_run.installation_id != installation_id
+    errors.add(:agent_task_run, "must belong to the targeted agent program") if agent_task_run.agent_program_id != target_agent_program_id
   end
 
   def lease_holder_match
-    return if leased_to_agent_deployment.blank?
+    return if leased_to_agent_session.blank? && leased_to_execution_session.blank?
 
-    if leased_to_agent_deployment.installation_id != installation_id
-      errors.add(:leased_to_agent_deployment, "must belong to the same installation")
+    if leased_to_agent_session.present?
+      errors.add(:leased_to_agent_session, "must belong to the same installation") if leased_to_agent_session.installation_id != installation_id
+      errors.add(:leased_to_agent_session, "must satisfy the mailbox target") unless targets?(leased_to_agent_session.agent_program_version)
     end
 
-    errors.add(:leased_to_agent_deployment, "must satisfy the mailbox target") unless targets?(leased_to_agent_deployment)
+    if leased_to_execution_session.present?
+      errors.add(:leased_to_execution_session, "must belong to the same installation") if leased_to_execution_session.installation_id != installation_id
+      if execution_plane?
+        errors.add(:leased_to_execution_session, "must belong to the targeted execution runtime") if leased_to_execution_session.execution_runtime_id != target_execution_runtime_id
+      else
+        errors.add(:leased_to_execution_session, "is only valid for execution-plane work")
+      end
+    end
   end
 
   def target_ref_consistency
-    expected_ref = if environment_plane?
-      target_execution_environment&.public_id
-    elsif agent_deployment?
-      target_agent_deployment&.public_id
+    expected_ref = if execution_plane?
+      target_execution_runtime&.public_id
+    elsif agent_program_version?
+      target_agent_program_version&.public_id
     else
-      target_agent_installation&.public_id
+      target_agent_program&.public_id
     end
     return if target_ref == expected_ref
 
@@ -158,15 +172,28 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def runtime_plane_contract
-    return unless environment_plane?
+    return unless execution_plane?
 
-    if target_execution_environment.blank?
-      errors.add(:target_execution_environment, "must be present for environment-plane work")
+    if target_execution_runtime.blank?
+      errors.add(:target_execution_runtime, "must be present for execution-plane work")
       return
     end
 
-    return if target_execution_environment.installation_id == installation_id
+    return if target_execution_runtime.installation_id == installation_id
 
-    errors.add(:target_execution_environment, "must reference an execution environment in the same installation")
+    errors.add(:target_execution_runtime, "must reference an execution runtime in the same installation")
+  end
+
+  def execution_runtime_id_for(deployment)
+    deployment.agent_program.default_execution_runtime_id
+  end
+
+  def normalize_runtime_plane
+    self.runtime_plane =
+      case runtime_plane
+      when "agent" then "program"
+      when "environment" then "execution"
+      else runtime_plane
+      end
   end
 end

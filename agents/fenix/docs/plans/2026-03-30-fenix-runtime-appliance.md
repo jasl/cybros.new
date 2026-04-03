@@ -4,7 +4,7 @@
 
 **Goal:** Turn `agents/fenix` from the current post-Phase-2 validated runtime into a distributable Ubuntu 24.04 runtime appliance with pluggable environment tools, `.fenix` workspace state, Firecrawl-backed web capabilities, browser automation, and `ProcessRun`-aligned long-lived service support.
 
-**Architecture:** Keep the shipped product as one default Fenix runtime service while separating agent-plane logic from environment-plane logic inside the implementation. Replace the current hardcoded tool catalog with a registry-backed composition model, keep Core Matrix reserved tools outside the plugin collision domain, and split attached command execution from long-lived process execution.
+**Architecture:** Keep the shipped product as one default Fenix runtime service while separating program-plane logic from execution-plane logic inside the implementation. Replace the current hardcoded tool catalog with a registry-backed composition model, keep Core Matrix reserved tools outside the plugin collision domain, and split attached command execution from long-lived process execution.
 
 **Tech Stack:** Ruby on Rails, Ubuntu 24.04, Ruby 4.0.x, Node.js LTS, npm, pnpm, Python, uv, Chromium, Playwright, Caddy, Firecrawl, Core Matrix runtime capability contract, Rails integration tests.
 
@@ -62,7 +62,7 @@ test "runtime foundation metadata exposes supported local toolchains" do
   get "/runtime/manifest"
 
   body = JSON.parse(response.body)
-  foundation = body.fetch("environment_capability_payload").fetch("runtime_foundation")
+  foundation = body.fetch("execution_capability_payload").fetch("runtime_foundation")
 
   assert_equal "ubuntu-24.04", foundation.fetch("base_image")
   assert_includes foundation.fetch("toolchains"), "ruby"
@@ -117,8 +117,8 @@ test "registry composes agent and environment catalogs from plugin manifests" do
   registry = Fenix::Plugins::Registry.default
   catalog = registry.catalog
 
-  assert catalog.environment_tool_names.include?("exec_command")
-  assert catalog.environment_tool_names.include?("write_stdin")
+  assert catalog.execution_tool_names.include?("exec_command")
+  assert catalog.execution_tool_names.include?("write_stdin")
 end
 ```
 

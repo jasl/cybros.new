@@ -1,0 +1,26 @@
+{
+  "method_id": "conversation_bundle_import_request_show",
+  "workspace_id": "019d5091-1911-7fe6-ab19-518711d7ecff",
+  "import_request": {
+    "request_id": "019d5096-6167-7647-b520-48d7a40861be",
+    "workspace_id": "019d5091-1911-7fe6-ab19-518711d7ecff",
+    "user_id": "019d5091-021f-7b00-bde6-876f93ec8485",
+    "imported_conversation_id": "019d5096-61bb-7f11-973f-9ad8c03d61ec",
+    "lifecycle_state": "succeeded",
+    "created_at": "2026-04-02T23:45:25.862381Z",
+    "queued_at": "2026-04-02T23:45:25.857606Z",
+    "started_at": "2026-04-02T23:45:25.927116Z",
+    "finished_at": "2026-04-02T23:45:25.972565Z",
+    "upload_received": true,
+    "upload_filename": "conversation-export.zip",
+    "upload_content_type": "application/zip",
+    "result_payload": {
+      "bundle_kind": "conversation_export",
+      "message_count": 2,
+      "bundle_version": "2026-04-02",
+      "attachment_count": 0,
+      "imported_conversation_id": "019d5096-61bb-7f11-973f-9ad8c03d61ec"
+    },
+    "failure_payload": {}
+  }
+}

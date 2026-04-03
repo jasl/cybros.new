@@ -6,7 +6,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     receipt = AgentControlReportReceipt.create!(
       installation: context[:installation],
-      agent_deployment: context[:deployment],
+      agent_session: context[:agent_session],
       agent_task_run: scenario.fetch(:agent_task_run),
       mailbox_item: scenario.fetch(:mailbox_item),
       protocol_message_id: "receipt-#{next_test_sequence}",

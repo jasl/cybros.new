@@ -5,8 +5,8 @@ class Conversations::ValidateRetainedStateTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     stale_conversation = Conversation.find(conversation.id)
     deleted_at = Time.zone.parse("2026-03-29 15:00:00 UTC")
@@ -30,8 +30,8 @@ class Conversations::ValidateRetainedStateTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     assert_equal conversation, Conversations::ValidateRetainedState.call(

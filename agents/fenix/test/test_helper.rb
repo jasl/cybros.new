@@ -190,7 +190,7 @@ module ActiveSupport
       )
     end
 
-    def runtime_assignment_payload(runtime_plane: "agent", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context, conversation_id: nil)
+    def runtime_assignment_payload(runtime_plane: "program", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context, conversation_id: nil)
       conversation_public_id = conversation_id || "conversation-#{SecureRandom.uuid}"
       turn_public_id = "turn-#{SecureRandom.uuid}"
       workflow_run_public_id = "workflow-#{SecureRandom.uuid}"
@@ -262,7 +262,7 @@ module ActiveSupport
             "runtime_plane" => runtime_plane,
             "logical_work_id" => logical_work_id,
             "attempt_no" => 1,
-            "deployment_public_id" => "deployment-public-id",
+            "agent_program_version_id" => "agent-program-version-public-id",
           },
           "task_payload" => { "mode" => mode, "expression" => "2 + 2" }.merge(task_payload),
         },

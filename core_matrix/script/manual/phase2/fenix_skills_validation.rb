@@ -10,7 +10,7 @@ backup_root = ENV.fetch("FENIX_BACKUP_SKILLS_ROOT", "/tmp/phase2-fenix-backups")
 
 ManualAcceptanceSupport.reset_backend_state!
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-external = ManualAcceptanceSupport.create_external_agent_installation!(
+external = ManualAcceptanceSupport.create_external_agent_program!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: "fenix-skills",
@@ -19,9 +19,10 @@ external = ManualAcceptanceSupport.create_external_agent_installation!(
 registration = ManualAcceptanceSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  environment_fingerprint: "phase2-fenix-skills-environment",
+  runtime_fingerprint: "phase2-fenix-skills-environment",
   fingerprint: "phase2-fenix-skills-v1"
 )
+agent_program_version = registration.fetch(:agent_program_version)
 
 FileUtils.rm_rf(Dir.glob(File.join(live_root, "*")))
 FileUtils.rm_rf(Dir.glob(File.join(staging_root, "*")))
@@ -46,14 +47,14 @@ File.write(
 File.write(source_root.join("references", "checklist.md"), "# Checklist\n")
 
 catalog_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: registration.fetch(:deployment),
+  agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "List available skills.",
   mode: "skills_catalog_list"
 )
 load_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: registration.fetch(:deployment),
+  agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Load deploy-agent.",
@@ -61,7 +62,7 @@ load_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   extra_payload: { "skill_name" => "deploy-agent" }
 )
 read_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: registration.fetch(:deployment),
+  agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Read deploy-agent script.",
@@ -72,7 +73,7 @@ read_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   }
 )
 install_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: registration.fetch(:deployment),
+  agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Install portable-notes skill.",
@@ -80,7 +81,7 @@ install_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   extra_payload: { "source_path" => source_root.to_s }
 )
 load_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: registration.fetch(:deployment),
+  agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Load portable-notes on the next top-level turn.",
@@ -88,7 +89,7 @@ load_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   extra_payload: { "skill_name" => "portable-notes" }
 )
 read_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: registration.fetch(:deployment),
+  agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Read portable-notes checklist.",
@@ -151,8 +152,8 @@ ManualAcceptanceSupport.write_json(
     "scenario" => "fenix_skills_validation",
     "passed" => scenario_runs_passed.call(scenario_12_runs) && scenario_runs_passed.call(scenario_13_runs),
     "proof_artifact_path" => nil,
-    "deployment_id" => registration.fetch(:deployment).public_id,
-    "execution_environment_id" => registration.fetch(:deployment).execution_environment.public_id,
+    "agent_program_version_id" => agent_program_version.public_id,
+    "execution_runtime_id" => agent_program_version.agent_program.default_execution_runtime.public_id,
     "heartbeat_bootstrap_state" => registration.fetch(:heartbeat).fetch("bootstrap_state"),
     "scenario_12" => {
       "passed" => scenario_runs_passed.call(scenario_12_runs),

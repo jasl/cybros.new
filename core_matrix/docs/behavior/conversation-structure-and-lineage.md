@@ -6,7 +6,7 @@ Core Matrix conversations now carry these independent concerns:
 
 - lineage shape
 - addressability
-- runtime binding
+- program binding and turn execution snapshots
 - conversation feature policy
 - user-visible lifecycle state
 - deletion state and lineage-store ownership
@@ -34,9 +34,10 @@ and safe deletion support.
   - `retained`
   - `pending_delete`
   - `deleted`
-- runtime binding:
-  - one fixed `ExecutionEnvironment`
-  - one active `AgentDeployment` that may change within that environment
+- program binding and turn execution snapshots:
+  - one fixed `AgentProgram`
+  - each turn freezes one `AgentProgramVersion`
+  - each turn may optionally freeze one `ExecutionRuntime`
 - feature policy:
   - `enabled_feature_ids`
   - `during_generation_input_policy`
@@ -46,9 +47,10 @@ conversation can be agent-addressable yet active, owner-addressable yet
 archived, or active yet pending deletion while safe-deletion cleanup is still
 running.
 
-Runtime binding is a separate independent concern. A conversation stays bound
-to one execution environment for its whole lifetime, while the active
-deployment may rotate or be switched within that bound environment.
+Program binding is a separate independent concern. A conversation stays bound
+to one logical `AgentProgram` for its whole lifetime. Concrete execution
+identity is frozen per turn: each turn captures the active
+`AgentProgramVersion` and may also capture an optional `ExecutionRuntime`.
 
 Feature policy is conversation-owned durable execution state. It is not a UI
 hint and it is not recomputed from controller parameters when live work is
@@ -90,7 +92,7 @@ already in flight.
 - `agent_addressable` conversations accept delegated agent turn entry and are
   used for subagent child conversations
 - child conversations stay in the same workspace as their parent
-- child conversations inherit the parent's execution environment binding
+- child conversations inherit the parent's `AgentProgram`
 - automation conversations remain root-only
 - branch, checkpoint, and optional fork anchors are validated against the
   parent conversation's durable transcript history
@@ -204,8 +206,9 @@ already in flight.
 - active mainline work is fenced through `turn_interrupt`
 - detached background processes are closed through mailbox close requests with
   `request_kind = "archive_force_quiesce"`
-- those process-close requests target the bound execution environment as the
-  durable owner and resolve the live delivery endpoint separately
+- those process-close requests target the process run's frozen
+  `ExecutionRuntime` as the durable owner and resolve the live execution
+  session separately
 - `Conversations::ReconcileCloseOperation` is the single writer for archive
   close progression; local turn fencing and mailbox terminal close reports both
   re-enter it

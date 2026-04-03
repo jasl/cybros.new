@@ -1,6 +1,7 @@
 class AgentControlReportReceipt < ApplicationRecord
   belongs_to :installation
-  belongs_to :agent_deployment
+  belongs_to :agent_session, optional: true
+  belongs_to :execution_session, optional: true
   belongs_to :agent_task_run, optional: true
   belongs_to :mailbox_item, class_name: "AgentControlMailboxItem", optional: true
 

@@ -24,7 +24,7 @@ class MemoryFlowTest < ActiveSupport::TestCase
       .fetch(0)
 
     assert_equal "completed", store_result.status
-    assert_match(%r{\A\.fenix/deployments/deployment-public-id/memory/daily/}, store_invocation.dig("response_payload", "memory_path"))
+    assert_match(%r{\A\.fenix/agent_program_versions/agent-program-version-public-id/memory/daily/}, store_invocation.dig("response_payload", "memory_path"))
     assert_equal "daily", store_invocation.dig("response_payload", "scope")
 
     search_result = Fenix::Runtime::ExecuteAssignment.call(
@@ -63,9 +63,9 @@ class MemoryFlowTest < ActiveSupport::TestCase
       )
     )
     conversation_id = payload.fetch("payload").fetch("task").fetch("conversation_id")
-    deployment_public_id = payload.fetch("payload").fetch("runtime_context").fetch("deployment_public_id")
+    agent_program_version_id = payload.fetch("payload").fetch("runtime_context").fetch("agent_program_version_id")
     workspace_root = Fenix::Workspace::Layout.default_root
-    layout = Fenix::Workspace::Bootstrap.call(workspace_root:, conversation_id:, deployment_public_id:)
+    layout = Fenix::Workspace::Bootstrap.call(workspace_root:, conversation_id:, agent_program_version_id:)
     layout.conversation_summary_file.write("Conversation summary\n")
 
     result = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: payload)
@@ -102,7 +102,7 @@ class MemoryFlowTest < ActiveSupport::TestCase
       .fetch(0)
 
     assert_equal "completed", append_result.status
-    assert_match(%r{\A\.fenix/deployments/deployment-public-id/memory/daily/}, append_invocation.dig("response_payload", "memory_path"))
+    assert_match(%r{\A\.fenix/agent_program_versions/agent-program-version-public-id/memory/daily/}, append_invocation.dig("response_payload", "memory_path"))
 
     list_result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_assignment_payload(
@@ -146,7 +146,7 @@ class MemoryFlowTest < ActiveSupport::TestCase
       .fetch(0)
 
     assert_equal "completed", compact_result.status
-    assert_match(%r{\.fenix/deployments/deployment-public-id/conversations/.+/context/summary\.md\z}, compact_invocation.dig("response_payload", "memory_path"))
+    assert_match(%r{\.fenix/agent_program_versions/agent-program-version-public-id/conversations/.+/context/summary\.md\z}, compact_invocation.dig("response_payload", "memory_path"))
 
     get_result = Fenix::Runtime::ExecuteAssignment.call(
       mailbox_item: runtime_assignment_payload(

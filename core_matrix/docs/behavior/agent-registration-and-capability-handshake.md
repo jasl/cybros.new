@@ -10,8 +10,8 @@ capability refresh, and capability handshake with config reconciliation.
 
 This document records the current landed registration and handshake substrate.
 
-This document is the source of truth for registration,
-machine-credential issuance, and capability handshake behavior. Mailbox-driven
+This document is the source of truth for program-session registration,
+session-credential issuance, and capability handshake behavior. Mailbox-driven
 control, split presence versus health, and optional realtime delivery build on
 top of this substrate.
 
@@ -21,35 +21,37 @@ Related design note:
 
 ## Controller Boundary
 
-- `AgentAPI::RegistrationsController` is the only unauthenticated machine-facing
+- `ProgramAPI::RegistrationsController` is the only unauthenticated machine-facing
   endpoint in this task.
-- `AgentAPI::HeartbeatsController`, `AgentAPI::HealthController`, and
-  `AgentAPI::CapabilitiesController` are thin wrappers around application
-  services and deployment lookups.
+- `ProgramAPI::HeartbeatsController`, `ProgramAPI::HealthController`, and
+  `ProgramAPI::CapabilitiesController` are thin wrappers around application
+  services and agent-session lookups.
 - These controllers stay machine-facing only; they do not introduce browser UI,
   schedule-trigger ingress, or webhook-trigger ingress.
 
 ## Identifier Boundary
 
-- registration now reconciles the bound `ExecutionEnvironment` from the stable
-  request-side `environment_fingerprint`
-- registration responses still expose `execution_environment_id`, and that
-  field now carries `ExecutionEnvironment.public_id`
-- registration, health, and heartbeat payloads keep the existing field names
-  such as `deployment_id`, but those fields now carry public UUIDv7-backed
-  `public_id` values
-- internal deployment, installation, and environment relations still use
+- registration now reconciles the bound `ExecutionRuntime` from the stable
+  request-side `runtime_fingerprint`
+- registration responses still expose `execution_runtime_id`, and that
+  field now carries `ExecutionRuntime.public_id`
+- registration, health, and heartbeat payloads expose public ids such as
+  `agent_program_id`, `agent_program_version_id`, `agent_session_id`, and
+  `execution_session_id`
+- internal program-version, installation, and execution-runtime relations still use
   `bigint` after the HTTP boundary reconciliation
 
 ## Authentication Model
 
 - registration uses a one-time `AgentEnrollment` token and exchanges it for a
-  durable machine credential
-- all follow-up agent API calls authenticate with HTTP token auth using the
-  deployment machine credential
-- machine credentials are still matched by digest lookup on `AgentDeployment`;
-  plaintext credentials are only returned at registration time
-- invalid machine credentials return `401 unauthorized`
+  durable session credential
+- all follow-up program API calls authenticate with HTTP token auth using the
+  `AgentSession` credential
+- execution-plane calls authenticate separately with the `ExecutionSession`
+  credential when an `ExecutionRuntime` is present
+- session credentials are matched by digest lookup on `AgentSession` or
+  `ExecutionSession`; plaintext credentials are only returned at registration time
+- invalid session credentials return `401 unauthorized`
 
 ## Public Contract Shape
 
@@ -74,15 +76,15 @@ Related design note:
   implementation reference, input schema, result schema, streaming support, and
   idempotency policy
 - capability refresh and handshake now also publish:
-  - `agent_plane`
-  - `environment_plane`
+  - `program_plane`
+  - `execution_plane`
   - `effective_tool_catalog`
   - `governed_effective_tool_catalog`
 - those sections now come from one shared `RuntimeCapabilityContract`
   projection instead of controller-local hash assembly
 - `effective_tool_catalog` resolves ordinary tool-name conflicts in this order:
-  - `ExecutionEnvironment`
-  - `AgentDeployment`
+  - `ExecutionRuntime`
+  - `AgentProgramVersion`
   - `Core Matrix`
 - reserved `core_matrix__*` system tools remain outside ordinary collision
   resolution
@@ -95,26 +97,25 @@ Related design note:
 
 ### Endpoint Responses
 
-- registration returns deployment identity, bootstrap state, machine
-  credential, and the initial capability snapshot
-- registration returns `deployment_id` and `agent_installation_id` as public
-  ids
-- heartbeat returns `method_id: "agent_health"` plus deployment health and the
-  latest heartbeat timestamp
-- heartbeat returns `deployment_id` as a public id
-- health returns the same public `agent_health` method family plus deployment
-  fingerprint, protocol version, SDK version, and active capability version
-- health returns `deployment_id` as a public id
+- registration returns program identity, program-version identity, session
+  credentials, and the initial capability snapshot
+- registration returns `agent_program_id`, `agent_program_version_id`,
+  `agent_session_id`, and optional `execution_session_id` as public ids
+- heartbeat returns `method_id: "agent_health"` plus agent-session health and
+  the latest heartbeat timestamp
+- health returns the same public `agent_health` method family plus program
+  version fingerprint, protocol version, and SDK version
+- health returns `agent_program_version_id` as a public id
 - capabilities refresh returns `method_id: "capabilities_refresh"` and the
-  active capability snapshot payload
+  current program-version capability payload
 - capabilities handshake returns `method_id: "capabilities_handshake"` and the
-  reconciled capability snapshot payload
-- both capability endpoints also return execution-environment identity and the
-  current environment capability payload and tool catalog
+  current program-version capability payload
+- both capability endpoints also return execution-runtime identity and the
+  current execution capability payload and tool catalog
 
-## Capability Snapshot Rules
+## Program Version Rules
 
-- `CapabilitySnapshot` remains immutable after creation
+- `AgentProgramVersion` remains immutable after creation
 - protocol method entries must be hashes with `snake_case` `method_id` values
 - tool catalog entries must be hashes with `snake_case` `tool_name` values and
   a supported `tool_kind`
@@ -122,73 +123,62 @@ Related design note:
   rejected unless the implementation source is explicitly `core_matrix`
 - `RuntimeCapabilityContract` is the shared formatter for:
   - machine-facing capability refresh and handshake payloads
-  - `agent_plane`
-  - `environment_plane`
+  - `program_plane`
+  - `execution_plane`
   - `effective_tool_catalog`
   - conversation-facing runtime capability payloads
 - capability handshake now also projects the durable governance rows for the
-  active snapshot:
+  current program version:
   - `ImplementationSource`
   - `ToolDefinition`
   - `ToolImplementation`
-- projection is idempotent per capability snapshot and profile policy:
+- projection is idempotent per program version and profile policy:
   - if profiles declare `allowed_tool_names`, the governed projection is
     limited to the union of those declared logical tools
   - otherwise projection falls back to the full effective tool catalog
 - paused-work recovery now also relies on that same capability-contract shape:
-  `AgentDeployments::ResolveRecoveryTarget` compares the replacement
-  deployment's active snapshot against the paused turn's pinned snapshot before
-  it allows paused work to continue
+  `AgentProgramVersions::ResolveRecoveryTarget` compares the replacement
+  program version against the paused turn's frozen capability surface before it
+  allows paused work to continue
 - controllers and recovery paths build the shared contract through
   `RuntimeCapabilityContract` instead of carrying separate controller-local
   payload formatters
 
 ## Config Reconciliation
 
-- `AgentDeployments::Handshake` requires the caller fingerprint to match the
-  authenticated deployment fingerprint
-- handshake reuses an identical capability snapshot when one already exists on
-  the deployment; otherwise it appends a new versioned snapshot
-- identical snapshot reuse compares the normalized runtime capability contract
-  rather than a narrow tool-name subset
-- that comparison surface includes `agent_plane`, `environment_plane`,
-  `effective_tool_catalog`, `profile_catalog`, and the config, override, and
-  default schema snapshots that shape runtime-visible behavior
-- capability-snapshot version allocation is serialized at the deployment
-  boundary so concurrent handshakes either reuse the same snapshot or append
-  exactly one new version
-- handshake updates the deployment protocol version, SDK version, and active
-  capability snapshot pointer in one transaction
-- handshake normalizes both environment-plane and agent-plane payloads through
-  the shared runtime capability contract before persistence or response
-  rendering
-- `AgentDeployments::ReconcileConfig` keeps selector-bearing defaults from the
-  previous active snapshot when the new config schema still exposes those keys
-- the retained selector-bearing keys in this task are `interactive`,
-  `model_slots`, and `model_roles`
+- `AgentProgramVersions::Handshake` requires the caller fingerprint to match the
+- authenticated program-version fingerprint
+- handshake reuses the authenticated `AgentProgramVersion`; it does not append
+  versioned capability rows under that same fingerprint
+- handshake normalizes both execution-plane and program-plane payloads through
+  the shared runtime capability contract before response rendering and tool
+  governance projection
+- concurrent handshakes serialize only the governed tool projection, so
+  repeated handshakes reuse the same durable tool-definition rows without
+  duplicate-key races
 - paused-work recovery re-resolves the frozen selector through
-  `AgentDeployments::ResolveRecoveryTarget`, so retained selector-bearing
+  `AgentProgramVersions::ResolveRecoveryTarget`, so frozen selector-bearing
   defaults continue to shape whether a replacement deployment can resume or
   retry paused work safely
-- reconciliation is best-effort and returns a `reconciliation_report` with
-  status plus retained keys rather than failing activation on schema drift
+- handshake returns an empty `reconciliation_report` when the authenticated
+  program version already matches the current contract
 
 ## Failure Modes
 
 - invalid, consumed, or expired enrollment tokens are rejected during
   registration
-- blank `environment_fingerprint` values are rejected during registration
-- execution-environment reconciliation remains scoped to the enrollment
-  installation instead of trusting caller-provided environment ids
+- blank `runtime_fingerprint` values are rejected during registration
+- execution-runtime reconciliation remains scoped to the enrollment
+  installation instead of trusting caller-provided runtime ids
 - fingerprint mismatches are rejected during capability handshake
-- machine-facing endpoints reject unknown deployment credentials before mutating
-  deployment health or capability state
+- machine-facing endpoints reject unknown session credentials before mutating
+  session health or capability state
 
 ## Retained Implementation Notes
 
-- Rails autoloading expects the `app/controllers/agent_api` namespace to be
-  `AgentAPI`, not `AgentApi`, so the controller module uses the acronym form to
+- Rails autoloading expects the `app/controllers/program_api` namespace to be
+  `ProgramAPI`, not `ProgramApi`, so the controller module uses the acronym form to
   satisfy Zeitwerk
 - `ActionController::API` does not include HTTP token auth helpers by default,
-  so `AgentAPI::BaseController` includes
+  so `ProgramAPI::BaseController` includes
   `ActionController::HttpAuthentication::Token::ControllerMethods` explicitly

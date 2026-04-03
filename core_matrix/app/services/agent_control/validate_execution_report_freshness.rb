@@ -11,8 +11,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, method_id:, payload:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, method_id:, payload:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
       @deployment = deployment
+      @agent_session = agent_session
       @method_id = method_id
       @payload = payload
       @mailbox_item = mailbox_item
@@ -48,9 +49,13 @@ module AgentControl
       stale! unless @agent_task_run.logical_work_id == @payload["logical_work_id"]
       stale! unless @agent_task_run.attempt_no == @payload["attempt_no"].to_i
       stale! unless @agent_task_run.running?
-      stale! unless @agent_task_run.holder_agent_deployment_id == @deployment.id
+      stale! unless @agent_task_run.holder_agent_session_id == resolved_agent_session&.id
       stale! unless @agent_task_run.execution_lease&.active?
       stale! if @agent_task_run.close_requested_at.present?
+    end
+
+    def resolved_agent_session
+      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
     end
 
     def stale!

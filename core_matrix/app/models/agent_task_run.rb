@@ -21,14 +21,14 @@ class AgentTaskRun < ApplicationRecord
     validate: true
 
   belongs_to :installation
-  belongs_to :agent_installation
+  belongs_to :agent_program
   belongs_to :workflow_run
   belongs_to :workflow_node
   belongs_to :conversation
   belongs_to :turn
   belongs_to :subagent_session, optional: true
   belongs_to :origin_turn, class_name: "Turn", optional: true
-  belongs_to :holder_agent_deployment, class_name: "AgentDeployment", optional: true
+  belongs_to :holder_agent_session, class_name: "AgentSession", optional: true
 
   has_many :agent_control_mailbox_items, dependent: :restrict_with_exception
   has_many :agent_control_report_receipts, dependent: :restrict_with_exception
@@ -44,19 +44,23 @@ class AgentTaskRun < ApplicationRecord
   validate :progress_payload_must_be_hash
   validate :terminal_payload_must_be_hash
   validate :workflow_run_installation_match
-  validate :agent_installation_installation_match
+  validate :agent_program_installation_match
   validate :workflow_node_installation_match
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :subagent_session_installation_match
   validate :origin_turn_installation_match
   validate :workflow_projection_match
-  validate :agent_installation_turn_match
+  validate :agent_program_turn_match
   validate :holder_deployment_matches_task
   validate :lifecycle_timestamps
 
   before_validation :default_feature_policy_snapshot
   after_create :freeze_tool_bindings!
+
+  def holder_agent_program_version
+    holder_agent_session&.agent_program_version
+  end
 
   private
 
@@ -84,10 +88,10 @@ class AgentTaskRun < ApplicationRecord
     errors.add(:workflow_run, "must belong to the same installation")
   end
 
-  def agent_installation_installation_match
-    return if agent_installation.blank? || agent_installation.installation_id == installation_id
+  def agent_program_installation_match
+    return if agent_program.blank? || agent_program.installation_id == installation_id
 
-    errors.add(:agent_installation, "must belong to the same installation")
+    errors.add(:agent_program, "must belong to the same installation")
   end
 
   def workflow_node_installation_match
@@ -128,22 +132,22 @@ class AgentTaskRun < ApplicationRecord
     errors.add(:turn, "must match the workflow run turn") if turn.present? && workflow_run.turn_id != turn_id
   end
 
-  def agent_installation_turn_match
-    return if turn.blank? || agent_installation.blank?
-    return if turn.agent_deployment&.agent_installation_id == agent_installation_id
+  def agent_program_turn_match
+    return if turn.blank? || agent_program.blank?
+    return if turn.agent_program_version&.agent_program_id == agent_program_id
 
-    errors.add(:agent_installation, "must match the turn deployment agent installation")
+    errors.add(:agent_program, "must match the turn agent program")
   end
 
   def holder_deployment_matches_task
-    return if holder_agent_deployment.blank?
+    return if holder_agent_session.blank?
 
-    if holder_agent_deployment.installation_id != installation_id
-      errors.add(:holder_agent_deployment, "must belong to the same installation")
+    if holder_agent_session.installation_id != installation_id
+      errors.add(:holder_agent_session, "must belong to the same installation")
     end
 
-    if holder_agent_deployment.agent_installation_id != agent_installation_id
-      errors.add(:holder_agent_deployment, "must belong to the task agent installation")
+    if holder_agent_session.agent_program_id != agent_program_id
+      errors.add(:holder_agent_session, "must belong to the task agent program")
     end
   end
 

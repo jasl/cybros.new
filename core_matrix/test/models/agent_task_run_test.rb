@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentTaskRunTest < ActiveSupport::TestCase
-  test "requires workflow ownership to stay aligned with the accepted deployment" do
+  test "requires workflow ownership to stay aligned with the accepted agent session" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
 
@@ -13,18 +13,21 @@ class AgentTaskRunTest < ActiveSupport::TestCase
       global_settings: {}
     )
     foreign_installation.save!(validate: false)
-    foreign_agent_installation = create_agent_installation!(installation: foreign_installation)
-    foreign_environment = create_execution_environment!(installation: foreign_installation)
-    foreign_deployment = create_agent_deployment!(
+    foreign_agent_program = create_agent_program!(installation: foreign_installation)
+    foreign_deployment = create_agent_program_version!(
       installation: foreign_installation,
-      agent_installation: foreign_agent_installation,
-      execution_environment: foreign_environment
+      agent_program: foreign_agent_program
+    )
+    foreign_agent_session = create_agent_session!(
+      installation: foreign_installation,
+      agent_program: foreign_agent_program,
+      agent_program_version: foreign_deployment
     )
 
-    agent_task_run.holder_agent_deployment = foreign_deployment
+    agent_task_run.holder_agent_session = foreign_agent_session
 
     assert_not agent_task_run.valid?
-    assert_includes agent_task_run.errors[:holder_agent_deployment], "must belong to the same installation"
+    assert_includes agent_task_run.errors[:holder_agent_session], "must belong to the same installation"
   end
 
   test "enforces close lifecycle pairings" do
@@ -67,8 +70,8 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

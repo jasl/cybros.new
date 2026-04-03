@@ -137,7 +137,7 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
             "item_type" => "resource_close_request",
             "item_id" => "close-mailbox-1",
             "protocol_message_id" => "close-request-1",
-            "runtime_plane" => "agent",
+            "runtime_plane" => "program",
             "payload" => {
               "resource_type" => "AgentTaskRun",
               "resource_id" => agent_task_run_id,

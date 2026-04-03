@@ -4,17 +4,15 @@ module Conversations
       new(...).call
     end
 
-    def initialize(workspace:, execution_environment:, agent_deployment:)
+    def initialize(workspace:, agent_program: nil, **_ignored)
       @workspace = workspace
-      @execution_environment = execution_environment
-      @agent_deployment = agent_deployment
+      @agent_program = agent_program
     end
 
     def call
       Conversations::CreateRoot.call(
         workspace: @workspace,
-        execution_environment: @execution_environment,
-        agent_deployment: @agent_deployment,
+        agent_program: @agent_program,
         purpose: "automation"
       )
     end

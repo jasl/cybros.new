@@ -10,7 +10,7 @@ module ProviderExecution
       @workflow_node = workflow_node
       @tool_call = tool_call.deep_stringify_keys
       @round_bindings = Array(round_bindings)
-      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_deployment: workflow_node.turn.agent_deployment)
+      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_program_version: workflow_node.turn.agent_program_version)
     end
 
     def call
@@ -30,7 +30,7 @@ module ProviderExecution
           tool_invocation: invocation,
           result: invocation.succeeded? ? invocation.response_payload : { "error" => invocation.error_payload }
         )
-      when "agent", "kernel", "execution_environment"
+      when "agent", "kernel", "execution_runtime"
         provision = ToolInvocations::Provision.call(
           tool_binding: binding,
           request_payload: {
@@ -182,10 +182,10 @@ module ProviderExecution
           "model_context" => @workflow_node.workflow_run.model_context,
         },
         "runtime_context" => {
-          "runtime_plane" => "agent",
+          "runtime_plane" => "program",
           "logical_work_id" => "program-tool:#{@workflow_node.public_id}:#{@tool_call.fetch("call_id")}",
           "attempt_no" => 1,
-          "deployment_public_id" => @workflow_node.turn.agent_deployment.public_id,
+          "agent_program_version_id" => @workflow_node.turn.agent_program_version.public_id,
         },
         "program_tool_call" => {
           "call_id" => @tool_call.fetch("call_id"),
@@ -234,7 +234,7 @@ module ProviderExecution
       when "process_exec"
         Processes::Provision.call(
           workflow_node: @workflow_node,
-          execution_environment: @workflow_node.conversation.execution_environment,
+          execution_runtime: @workflow_node.turn.execution_runtime,
           kind: normalize_process_kind(@tool_call.dig("arguments", "kind")),
           command_line: @tool_call.dig("arguments", "command_line"),
           timeout_seconds: @tool_call.dig("arguments", "timeout_seconds"),

@@ -5,7 +5,7 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -25,7 +25,7 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     first_attempt = create_agent_task_run!(workflow_node: context.fetch(:workflow_node), logical_work_id: "tool-task", attempt_no: 1)

@@ -1,9 +1,9 @@
 {
   "item_id": "mailbox-item-public-id",
   "item_type": "agent_program_request",
-  "runtime_plane": "agent",
-  "target_kind": "agent_installation",
-  "target_ref": "agent-installation-public-id",
+  "runtime_plane": "program",
+  "target_kind": "agent_program_version",
+  "target_ref": "agent-program-version-public-id",
   "logical_work_id": "prepare-round:workflow-node-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
@@ -75,10 +75,10 @@
       }
     },
     "runtime_context": {
-      "runtime_plane": "agent",
+      "runtime_plane": "program",
       "logical_work_id": "prepare-round:workflow-node-public-id",
       "attempt_no": 1,
-      "deployment_public_id": "agent-deployment-public-id"
+      "agent_program_version_id": "agent-program-version-public-id"
     }
   }
 }

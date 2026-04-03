@@ -6,8 +6,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, method_id:, payload:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, execution_session: nil, method_id:, payload:, occurred_at: Time.current)
       @deployment = deployment
+      @agent_session = agent_session
+      @execution_session = execution_session
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -23,6 +25,7 @@ module AgentControl
     def call
       ValidateExecutionReportFreshness.call(
         deployment: @deployment,
+        agent_session: resolved_agent_session,
         method_id: @method_id,
         payload: @payload,
         mailbox_item: mailbox_item,
@@ -48,7 +51,7 @@ module AgentControl
       agent_task_run.update!(
         lifecycle_state: "running",
         started_at: @occurred_at,
-        holder_agent_deployment: @deployment,
+        holder_agent_session: resolved_agent_session,
         expected_duration_seconds: @payload["expected_duration_seconds"]
       )
       agent_task_run.workflow_node.update!(
@@ -269,6 +272,10 @@ module AgentControl
           )
         )
       end
+    end
+
+    def resolved_agent_session
+      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
     end
 
     def find_tool_invocation_for_output!(output_payload)

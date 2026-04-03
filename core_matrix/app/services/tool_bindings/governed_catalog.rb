@@ -4,16 +4,16 @@ module ToolBindings
       new(...).call
     end
 
-    def initialize(capability_snapshot:, execution_environment:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
-      @capability_snapshot = capability_snapshot
-      @execution_environment = execution_environment
+    def initialize(agent_program_version: nil, capability_snapshot: nil, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
+      @agent_program_version = agent_program_version || capability_snapshot
+      @execution_runtime = execution_runtime
       @core_matrix_tool_catalog = core_matrix_tool_catalog
     end
 
     def call
       ToolBindings::ProjectCapabilitySnapshot.call(
-        capability_snapshot: @capability_snapshot,
-        execution_environment: @execution_environment,
+        agent_program_version: @agent_program_version,
+        execution_runtime: @execution_runtime,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       )
 
@@ -32,12 +32,12 @@ module ToolBindings
     def projected_entries
       @projected_entries ||= begin
         entries = RuntimeCapabilityContract.build(
-          execution_environment: @execution_environment,
-          capability_snapshot: @capability_snapshot,
+          execution_runtime: @execution_runtime,
+          agent_program_version: @agent_program_version,
           core_matrix_tool_catalog: @core_matrix_tool_catalog
         ).effective_tool_catalog
 
-        allowed_names = @capability_snapshot.profile_catalog.values.flat_map { |profile| Array(profile["allowed_tool_names"]) }.uniq
+        allowed_names = @agent_program_version.profile_catalog.values.flat_map { |profile| Array(profile["allowed_tool_names"]) }.uniq
         if allowed_names.blank?
           entries
         else
@@ -48,7 +48,7 @@ module ToolBindings
 
     def definitions_by_name
       @definitions_by_name ||= ToolDefinition.where(
-        capability_snapshot: @capability_snapshot,
+        agent_program_version: @agent_program_version,
         tool_name: projected_entries.map { |entry| entry.fetch("tool_name") }
       ).includes(:tool_implementations).index_by(&:tool_name)
     end

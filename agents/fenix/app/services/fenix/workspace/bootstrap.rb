@@ -5,8 +5,8 @@ module Fenix
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:, deployment_public_id: nil)
-        @layout = Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
+      def initialize(workspace_root:, conversation_id:, agent_program_version_id: nil)
+        @layout = Layout.new(workspace_root:, conversation_id:, agent_program_version_id:)
       end
 
       def call
@@ -45,7 +45,7 @@ module Fenix
 
         payload = {
           "conversation_public_id" => layout.conversation_id,
-          "deployment_public_id" => layout.deployment_public_id,
+          "agent_program_version_id" => layout.agent_program_version_id,
           "workspace_root" => layout.workspace_root.to_s,
         }
         layout.conversation_meta_file.write(JSON.pretty_generate(payload) + "\n")

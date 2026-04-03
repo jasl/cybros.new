@@ -4,15 +4,12 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
   test "starts an active manual user turn with a selected input message" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Hello world",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {
         "selector_source" => "conversation",
@@ -25,7 +22,9 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal 1, turn.sequence
     assert_equal "User", turn.source_ref_type
     assert_equal context[:user].public_id, turn.source_ref_id
-    assert_equal context[:agent_deployment].fingerprint, turn.pinned_deployment_fingerprint
+    assert_equal context[:agent_program_version], turn.agent_program_version
+    assert_equal context[:execution_runtime], turn.execution_runtime
+    assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
     assert_equal "role:main", turn.resolved_model_selection_snapshot.fetch("normalized_selector")
     assert_instance_of UserMessage, turn.selected_input_message
@@ -35,46 +34,39 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_nil turn.selected_output_message
   end
 
-  test "uses the conversation bound deployment instead of an arbitrary caller supplied deployment" do
+  test "freezes the active agent session version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
-    alternate_deployment = create_agent_deployment!(
+    alternate_deployment = create_agent_program_version!(
       installation: context[:installation],
-      agent_installation: create_agent_installation!(installation: context[:installation]),
-      execution_environment: context[:execution_environment],
-      fingerprint: "alternate-#{next_test_sequence}",
-      bootstrap_state: "pending"
+      agent_program: create_agent_program!(installation: context[:installation]),
+      fingerprint: "alternate-#{next_test_sequence}"
     )
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Hello bound runtime",
-      agent_deployment: alternate_deployment,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal conversation.agent_deployment, turn.agent_deployment
-    assert_equal conversation.agent_deployment.fingerprint, turn.pinned_deployment_fingerprint
+    assert_equal context[:agent_program_version], turn.agent_program_version
+    assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
+    refute_equal alternate_deployment, turn.agent_program_version
   end
 
   test "rejects automation purpose conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
 
     assert_raises(ActiveRecord::RecordInvalid) do
       Turns::StartUserTurn.call(
         conversation: conversation,
         content: "This should fail",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -84,17 +76,13 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
   test "rejects agent addressable conversations" do
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: root_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
     )
     SubagentSession.create!(
@@ -110,7 +98,6 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       Turns::StartUserTurn.call(
         conversation: child_conversation,
         content: "Blocked",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -122,9 +109,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
   test "rejects pending delete conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -132,7 +117,6 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Blocked",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -144,9 +128,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
   test "rejects close in progress conversations before creating a user turn" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     ConversationCloseOperation.create!(
       installation: conversation.installation,
@@ -161,7 +143,6 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Blocked by close",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -174,9 +155,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
   test "rechecks active lifecycle state after acquiring the conversation lock" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     archive_during_lock!(conversation)
 
@@ -184,7 +163,6 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Blocked by archival",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )

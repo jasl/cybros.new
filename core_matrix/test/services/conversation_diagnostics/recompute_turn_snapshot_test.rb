@@ -28,7 +28,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
 
     create_process_run!(
       workflow_node: workflow_node,
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       conversation: context[:conversation],
       turn: turn,
       lifecycle_state: "lost",
@@ -39,8 +39,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:deployment],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -237,12 +237,11 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
   private
 
   def create_tool_execution!(context:, workflow_node:, tool_status:, command_line:, command_state:)
-    capability_snapshot = context[:deployment].active_capability_snapshot || create_capability_snapshot!(agent_deployment: context[:deployment])
-    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
+    capability_snapshot = context[:deployment]
 
     tool_definition = ToolDefinition.find_or_create_by!(
       installation: context[:installation],
-      capability_snapshot: capability_snapshot,
+      agent_program_version: capability_snapshot,
       tool_name: "exec_command"
     ) do |definition|
       definition.tool_kind = "function"
@@ -314,8 +313,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       conversation_id: context[:conversation].id,
       turn_id: context[:turn].id,
       workflow_node_key: workflow_node.node_key,
-      agent_installation: context[:agent_installation],
-      agent_deployment: context[:deployment],
+      agent_program: context[:agent_program],
+      agent_program_version: context[:deployment],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",

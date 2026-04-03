@@ -11,13 +11,6 @@ module Workflows
     end
 
     def call
-      capability_snapshot_id = @turn.agent_deployment.active_capability_snapshot_id
-      raise_unavailable!("requires an active capability snapshot") if capability_snapshot_id.blank?
-
-      unless @turn.agent_deployment.eligible_for_scheduling?
-        raise_unavailable!("agent deployment is not eligible for future scheduling")
-      end
-
       result = effective_catalog.resolve_selector(selector: raw_selector)
 
       unless result.usable?
@@ -36,7 +29,7 @@ module Workflows
         "resolved_model_ref" => result.model_ref,
         "resolution_reason" => result.resolution_reason,
         "fallback_count" => result.fallback_count,
-        "capability_snapshot_id" => capability_snapshot_id,
+        "agent_program_version_id" => @turn.agent_program_version.public_id,
         "entitlement_key" => result.entitlement&.entitlement_key,
       }.compact
     end

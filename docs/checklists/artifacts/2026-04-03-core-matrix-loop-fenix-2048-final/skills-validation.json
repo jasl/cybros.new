@@ -1,0 +1,234 @@
+{
+  "passed": false,
+  "expected_dag_shape": [
+    "agent_turn_step"
+  ],
+  "expected_conversation_state": {
+    "conversation_state": "active",
+    "workflow_lifecycle_state": "completed",
+    "workflow_wait_state": "ready",
+    "turn_lifecycle_state": "active",
+    "agent_task_run_state": "completed"
+  },
+  "skill_sources": {
+    "superpowers_repo": {
+      "source_url": "https://github.com/obra/superpowers",
+      "revision": "b7a8f76985f1e93e75dd2f2a3b424dc731bd9d37",
+      "clone_root": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/superpowers",
+      "installed_skill_root": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/using-superpowers",
+      "installed_skill_name": "using-superpowers"
+    },
+    "find_skills": {
+      "source_url": "https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md",
+      "raw_url": "https://raw.githubusercontent.com/vercel-labs/skills/main/skills/find-skills/SKILL.md",
+      "installed_skill_root": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/find-skills",
+      "installed_skill_name": "find-skills"
+    },
+    "clone_command": "git clone --depth 1 https://github.com/obra/superpowers.git /Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/superpowers"
+  },
+  "using_superpowers": {
+    "install": {
+      "conversation_id": "019d5091-1932-714b-a6e0-75c6024a2a28",
+      "turn_id": "019d5091-198e-77c2-8a74-272393742d2a",
+      "workflow_run_id": "019d5091-19bd-7c43-b21e-2637b803b8d4",
+      "agent_task_run_id": "019d5091-19d0-7078-aa49-188b3775ffcc",
+      "dag_shape": [
+        "agent_turn_step"
+      ],
+      "conversation_state": {
+        "conversation_state": "active",
+        "workflow_lifecycle_state": "failed",
+        "workflow_wait_state": "ready",
+        "turn_lifecycle_state": "active",
+        "agent_task_run_state": "failed",
+        "selected_output_message_id": null,
+        "selected_output_content": null
+      },
+      "runtime_execution_status": "failed",
+      "runtime_output": null,
+      "report_results": [
+        "accepted",
+        "accepted"
+      ]
+    },
+    "load": {
+      "conversation_id": "019d5091-1df7-79dd-a62a-a74364e62130",
+      "turn_id": "019d5091-1e1a-7813-a1e9-f16e4bfdcd45",
+      "workflow_run_id": "019d5091-1e33-7cd5-a901-bb4438c88256",
+      "agent_task_run_id": "019d5091-1e38-7bef-9819-3188abce34e9",
+      "dag_shape": [
+        "agent_turn_step"
+      ],
+      "conversation_state": {
+        "conversation_state": "active",
+        "workflow_lifecycle_state": "completed",
+        "workflow_wait_state": "ready",
+        "turn_lifecycle_state": "active",
+        "agent_task_run_state": "completed",
+        "selected_output_message_id": null,
+        "selected_output_content": null
+      },
+      "runtime_execution_status": "completed",
+      "runtime_output": {
+        "name": "using-superpowers",
+        "files": [
+          "skills/brainstorming/SKILL.md",
+          "skills/brainstorming/scripts/frame-template.html",
+          "skills/brainstorming/scripts/helper.js",
+          "skills/brainstorming/scripts/server.cjs",
+          "skills/brainstorming/scripts/start-server.sh",
+          "skills/brainstorming/scripts/stop-server.sh",
+          "skills/brainstorming/spec-document-reviewer-prompt.md",
+          "skills/brainstorming/visual-companion.md",
+          "skills/dispatching-parallel-agents/SKILL.md",
+          "skills/executing-plans/SKILL.md",
+          "skills/finishing-a-development-branch/SKILL.md",
+          "skills/receiving-code-review/SKILL.md",
+          "skills/requesting-code-review/SKILL.md",
+          "skills/requesting-code-review/code-reviewer.md",
+          "skills/subagent-driven-development/SKILL.md",
+          "skills/subagent-driven-development/code-quality-reviewer-prompt.md",
+          "skills/subagent-driven-development/implementer-prompt.md",
+          "skills/subagent-driven-development/spec-reviewer-prompt.md",
+          "skills/systematic-debugging/CREATION-LOG.md",
+          "skills/systematic-debugging/SKILL.md",
+          "skills/systematic-debugging/condition-based-waiting-example.ts",
+          "skills/systematic-debugging/condition-based-waiting.md",
+          "skills/systematic-debugging/defense-in-depth.md",
+          "skills/systematic-debugging/find-polluter.sh",
+          "skills/systematic-debugging/root-cause-tracing.md",
+          "skills/systematic-debugging/test-academic.md",
+          "skills/systematic-debugging/test-pressure-1.md",
+          "skills/systematic-debugging/test-pressure-2.md",
+          "skills/systematic-debugging/test-pressure-3.md",
+          "skills/test-driven-development/SKILL.md",
+          "skills/test-driven-development/testing-anti-patterns.md",
+          "skills/using-git-worktrees/SKILL.md",
+          "skills/using-superpowers/SKILL.md",
+          "skills/using-superpowers/references/codex-tools.md",
+          "skills/using-superpowers/references/copilot-tools.md",
+          "skills/using-superpowers/references/gemini-tools.md",
+          "skills/verification-before-completion/SKILL.md",
+          "skills/writing-plans/SKILL.md",
+          "skills/writing-plans/plan-document-reviewer-prompt.md",
+          "skills/writing-skills/SKILL.md",
+          "skills/writing-skills/anthropic-best-practices.md",
+          "skills/writing-skills/examples/CLAUDE_MD_TESTING.md",
+          "skills/writing-skills/graphviz-conventions.dot",
+          "skills/writing-skills/persuasion-principles.md",
+          "skills/writing-skills/render-graphs.js",
+          "skills/writing-skills/testing-skills-with-subagents.md"
+        ],
+        "active": true,
+        "skill_md": "---\nname: using-superpowers\ndescription: Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions\n---\n\n<EXTREMELY-IMPORTANT>\nIf you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.\n\nIF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.\n\nThis is not negotiable. This is not optional. You cannot rationalize your way out of this.\n</EXTREMELY-IMPORTANT>\n\n## How to Access Skills\n\n**In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you—follow it directly. Never use the Read tool on skill files.\n\n**In other environments:** Check your platform's documentation for how skills are loaded.\n\n# Using Skills\n\n## The Rule\n\n**Invoke relevant or requested skills BEFORE any response or action.** Even a 1% chance a skill might apply means that you should invoke the skill to check. If an invoked skill turns out to be wrong for the situation, you don't need to use it.\n\n```dot\ndigraph skill_flow {\n    \"User message received\" [shape=doublecircle];\n    \"About to EnterPlanMode?\" [shape=doublecircle];\n    \"Already brainstormed?\" [shape=diamond];\n    \"Invoke brainstorming skill\" [shape=box];\n    \"Might any skill apply?\" [shape=diamond];\n    \"Invoke Skill tool\" [shape=box];\n    \"Announce: 'Using [skill] to [purpose]'\" [shape=box];\n    \"Has checklist?\" [shape=diamond];\n    \"Create TodoWrite todo per item\" [shape=box];\n    \"Follow skill exactly\" [shape=box];\n    \"Respond (including clarifications)\" [shape=doublecircle];\n\n    \"About to EnterPlanMode?\" -> \"Already brainstormed?\";\n    \"Already brainstormed?\" -> \"Invoke brainstorming skill\" [label=\"no\"];\n    \"Already brainstormed?\" -> \"Might any skill apply?\" [label=\"yes\"];\n    \"Invoke brainstorming skill\" -> \"Might any skill apply?\";\n\n    \"User message received\" -> \"Might any skill apply?\";\n    \"Might any skill apply?\" -> \"Invoke Skill tool\" [label=\"yes, even 1%\"];\n    \"Might any skill apply?\" -> \"Respond (including clarifications)\" [label=\"definitely not\"];\n    \"Invoke Skill tool\" -> \"Announce: 'Using [skill] to [purpose]'\";\n    \"Announce: 'Using [skill] to [purpose]'\" -> \"Has checklist?\";\n    \"Has checklist?\" -> \"Create TodoWrite todo per item\" [label=\"yes\"];\n    \"Has checklist?\" -> \"Follow skill exactly\" [label=\"no\"];\n    \"Create TodoWrite todo per item\" -> \"Follow skill exactly\";\n}\n```\n\n## Red Flags\n\nThese thoughts mean STOP—you're rationalizing:\n\n| Thought | Reality |\n|---------|---------|\n| \"This is just a simple question\" | Questions are tasks. Check for skills. |\n| \"I need more context first\" | Skill check comes BEFORE clarifying questions. |\n| \"Let me explore the codebase first\" | Skills tell you HOW to explore. Check first. |\n| \"I can check git/files quickly\" | Files lack conversation context. Check for skills. |\n| \"Let me gather information first\" | Skills tell you HOW to gather information. |\n| \"This doesn't need a formal skill\" | If a skill exists, use it. |\n| \"I remember this skill\" | Skills evolve. Read current version. |\n| \"This doesn't count as a task\" | Action = task. Check for skills. |\n| \"The skill is overkill\" | Simple things become complex. Use it. |\n| \"I'll just do this one thing first\" | Check BEFORE doing anything. |\n| \"This feels productive\" | Undisciplined action wastes time. Skills prevent this. |\n| \"I know what that means\" | Knowing the concept ≠ using the skill. Invoke it. |\n\n## Skill Priority\n\nWhen multiple skills could apply, use this order:\n\n1. **Process skills first** (brainstorming, debugging) - these determine HOW to approach the task\n2. **Implementation skills second** (frontend-design, mcp-builder) - these guide execution\n\n\"Let's build X\" → brainstorming first, then implementation skills.\n\"Fix this bug\" → debugging first, then domain-specific skills.\n\n## Skill Types\n\n**Rigid** (TDD, debugging): Follow exactly. Don't adapt away discipline.\n\n**Flexible** (patterns): Adapt principles to context.\n\nThe skill itself tells you which.\n\n## User Instructions\n\nInstructions say WHAT, not HOW. \"Add X\" or \"Fix Y\" doesn't mean skip workflows.\n",
+        "root_path": "/rails/tmp/skills-live/using-superpowers",
+        "provenance": {
+          "source_path": "/workspace/skill-sources/using-superpowers",
+          "installed_at": "2026-04-01T18:30:28Z"
+        },
+        "description": "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions",
+        "source_kind": "live"
+      },
+      "report_results": [
+        "accepted",
+        "accepted"
+      ]
+    },
+    "read": {
+      "conversation_id": "019d5091-2273-7aee-abbf-21f2f4b62b3e",
+      "turn_id": "019d5091-229a-7874-8d5a-d6ea734649cd",
+      "workflow_run_id": "019d5091-22b6-7c10-b264-85c31b28bd5d",
+      "agent_task_run_id": "019d5091-22bc-7e74-a08e-bcbdaeedec86",
+      "dag_shape": [
+        "agent_turn_step"
+      ],
+      "conversation_state": {
+        "conversation_state": "active",
+        "workflow_lifecycle_state": "completed",
+        "workflow_wait_state": "ready",
+        "turn_lifecycle_state": "active",
+        "agent_task_run_state": "completed",
+        "selected_output_message_id": null,
+        "selected_output_content": null
+      },
+      "runtime_execution_status": "completed",
+      "runtime_output": {
+        "name": "using-superpowers",
+        "content": "---\nname: brainstorming\ndescription: \"You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.\"\n---\n\n# Brainstorming Ideas Into Designs\n\nHelp turn ideas into fully formed designs and specs through natural collaborative dialogue.\n\nStart by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.\n\n<HARD-GATE>\nDo NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.\n</HARD-GATE>\n\n## Anti-Pattern: \"This Is Too Simple To Need A Design\"\n\nEvery project goes through this process. A todo list, a single-function utility, a config change — all of them. \"Simple\" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.\n\n## Checklist\n\nYou MUST create a task for each of these items and complete them in order:\n\n1. **Explore project context** — check files, docs, recent commits\n2. **Offer visual companion** (if topic will involve visual questions) — this is its own message, not combined with a clarifying question. See the Visual Companion section below.\n3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria\n4. **Propose 2-3 approaches** — with trade-offs and your recommendation\n5. **Present design** — in sections scaled to their complexity, get user approval after each section\n6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit\n7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)\n8. **User reviews written spec** — ask user to review the spec file before proceeding\n9. **Transition to implementation** — invoke writing-plans skill to create implementation plan\n\n## Process Flow\n\n```dot\ndigraph brainstorming {\n    \"Explore project context\" [shape=box];\n    \"Visual questions ahead?\" [shape=diamond];\n    \"Offer Visual Companion\\n(own message, no other content)\" [shape=box];\n    \"Ask clarifying questions\" [shape=box];\n    \"Propose 2-3 approaches\" [shape=box];\n    \"Present design sections\" [shape=box];\n    \"User approves design?\" [shape=diamond];\n    \"Write design doc\" [shape=box];\n    \"Spec self-review\\n(fix inline)\" [shape=box];\n    \"User reviews spec?\" [shape=diamond];\n    \"Invoke writing-plans skill\" [shape=doublecircle];\n\n    \"Explore project context\" -> \"Visual questions ahead?\";\n    \"Visual questions ahead?\" -> \"Offer Visual Companion\\n(own message, no other content)\" [label=\"yes\"];\n    \"Visual questions ahead?\" -> \"Ask clarifying questions\" [label=\"no\"];\n    \"Offer Visual Companion\\n(own message, no other content)\" -> \"Ask clarifying questions\";\n    \"Ask clarifying questions\" -> \"Propose 2-3 approaches\";\n    \"Propose 2-3 approaches\" -> \"Present design sections\";\n    \"Present design sections\" -> \"User approves design?\";\n    \"User approves design?\" -> \"Present design sections\" [label=\"no, revise\"];\n    \"User approves design?\" -> \"Write design doc\" [label=\"yes\"];\n    \"Write design doc\" -> \"Spec self-review\\n(fix inline)\";\n    \"Spec self-review\\n(fix inline)\" -> \"User reviews spec?\";\n    \"User reviews spec?\" -> \"Write design doc\" [label=\"changes requested\"];\n    \"User reviews spec?\" -> \"Invoke writing-plans skill\" [label=\"approved\"];\n}\n```\n\n**The terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.\n\n## The Process\n\n**Understanding the idea:**\n\n- Check out the current project state first (files, docs, recent commits)\n- Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., \"build a platform with chat, file storage, billing, and analytics\"), flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.\n- If the project is too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own spec → plan → implementation cycle.\n- For appropriately-scoped projects, ask questions one at a time to refine the idea\n- Prefer multiple choice questions when possible, but open-ended is fine too\n- Only one question per message - if a topic needs more exploration, break it into multiple questions\n- Focus on understanding: purpose, constraints, success criteria\n\n**Exploring approaches:**\n\n- Propose 2-3 different approaches with trade-offs\n- Present options conversationally with your recommendation and reasoning\n- Lead with your recommended option and explain why\n\n**Presenting the design:**\n\n- Once you believe you understand what you're building, present the design\n- Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced\n- Ask after each section whether it looks right so far\n- Cover: architecture, components, data flow, error handling, testing\n- Be ready to go back and clarify if something doesn't make sense\n\n**Design for isolation and clarity:**\n\n- Break the system into smaller units that each have one clear purpose, communicate through well-defined interfaces, and can be understood and tested independently\n- For each unit, you should be able to answer: what does it do, how do you use it, and what does it depend on?\n- Can someone understand what a unit does without reading its internals? Can you change the internals without breaking consumers? If not, the boundaries need work.\n- Smaller, well-bounded units are also easier for you to work with - you reason better about code you can hold in context at once, and your edits are more reliable when files are focused. When a file grows large, that's often a signal that it's doing too much.\n\n**Working in existing codebases:**\n\n- Explore the current structure before proposing changes. Follow existing patterns.\n- Where existing code has problems that affect the work (e.g., a file that's grown too large, unclear boundaries, tangled responsibilities), include targeted improvements as part of the design - the way a good developer improves code they're working in.\n- Don't propose unrelated refactoring. Stay focused on what serves the current goal.\n\n## After the Design\n\n**Documentation:**\n\n- Write the validated design (spec) to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`\n  - (User preferences for spec location override this default)\n- Use elements-of-style:writing-clearly-and-concisely skill if available\n- Commit the design document to git\n\n**Spec Self-Review:**\nAfter writing the spec document, look at it with fresh eyes:\n\n1. **Placeholder scan:** Any \"TBD\", \"TODO\", incomplete sections, or vague requirements? Fix them.\n2. **Internal consistency:** Do any sections contradict each other? Does the architecture match the feature descriptions?\n3. **Scope check:** Is this focused enough for a single implementation plan, or does it need decomposition?\n4. **Ambiguity check:** Could any requirement be interpreted two different ways? If so, pick one and make it explicit.\n\nFix any issues inline. No need to re-review — just fix and move on.\n\n**User Review Gate:**\nAfter the spec review loop passes, ask the user to review the written spec before proceeding:\n\n> \"Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan.\"\n\nWait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.\n\n**Implementation:**\n\n- Invoke the writing-plans skill to create a detailed implementation plan\n- Do NOT invoke any other skill. writing-plans is the next step.\n\n## Key Principles\n\n- **One question at a time** - Don't overwhelm with multiple questions\n- **Multiple choice preferred** - Easier to answer than open-ended when possible\n- **YAGNI ruthlessly** - Remove unnecessary features from all designs\n- **Explore alternatives** - Always propose 2-3 approaches before settling\n- **Incremental validation** - Present design, get approval before moving on\n- **Be flexible** - Go back and clarify when something doesn't make sense\n\n## Visual Companion\n\nA browser-based companion for showing mockups, diagrams, and visual options during brainstorming. Available as a tool — not a mode. Accepting the companion means it's available for questions that benefit from visual treatment; it does NOT mean every question goes through the browser.\n\n**Offering the companion:** When you anticipate that upcoming questions will involve visual content (mockups, layouts, diagrams), offer it once for consent:\n> \"Some of what we're working on might be easier to explain if I can show it to you in a web browser. I can put together mockups, diagrams, comparisons, and other visuals as we go. This feature is still new and can be token-intensive. Want to try it? (Requires opening a local URL)\"\n\n**This offer MUST be its own message.** Do not combine it with clarifying questions, context summaries, or any other content. The message should contain ONLY the offer above and nothing else. Wait for the user's response before continuing. If they decline, proceed with text-only brainstorming.\n\n**Per-question decision:** Even after the user accepts, decide FOR EACH QUESTION whether to use the browser or the terminal. The test: **would the user understand this better by seeing it than reading it?**\n\n- **Use the browser** for content that IS visual — mockups, wireframes, layout comparisons, architecture diagrams, side-by-side visual designs\n- **Use the terminal** for content that is text — requirements questions, conceptual choices, tradeoff lists, A/B/C/D text options, scope decisions\n\nA question about a UI topic is not automatically a visual question. \"What does personality mean in this context?\" is a conceptual question — use the terminal. \"Which wizard layout works better?\" is a visual question — use the browser.\n\nIf they agree to the companion, read the detailed guide before proceeding:\n`skills/brainstorming/visual-companion.md`\n",
+        "relative_path": "skills/brainstorming/SKILL.md"
+      },
+      "report_results": [
+        "accepted",
+        "accepted"
+      ]
+    },
+    "install_activation_state": null,
+    "loaded_name": "using-superpowers",
+    "read_relative_path": "skills/brainstorming/SKILL.md",
+    "read_content_excerpt": "---\nname: brainstorming\ndescription: \"You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.\"\n---\n\n"
+  },
+  "find_skills": {
+    "install": {
+      "conversation_id": "019d5091-268a-7029-a767-4c53037af8a9",
+      "turn_id": "019d5091-26b1-7060-b853-fbd9bd4c03b1",
+      "workflow_run_id": "019d5091-26cf-7851-9e41-a4bd5f250331",
+      "agent_task_run_id": "019d5091-26d5-75e7-b66e-9dca398b087b",
+      "dag_shape": [
+        "agent_turn_step"
+      ],
+      "conversation_state": {
+        "conversation_state": "active",
+        "workflow_lifecycle_state": "failed",
+        "workflow_wait_state": "ready",
+        "turn_lifecycle_state": "active",
+        "agent_task_run_state": "failed",
+        "selected_output_message_id": null,
+        "selected_output_content": null
+      },
+      "runtime_execution_status": "failed",
+      "runtime_output": null,
+      "report_results": [
+        "accepted",
+        "accepted"
+      ]
+    },
+    "load": {
+      "conversation_id": "019d5091-299f-731a-9eb9-f24216ef3f2f",
+      "turn_id": "019d5091-29b3-7909-86aa-fdeca02ddb0e",
+      "workflow_run_id": "019d5091-29c3-7518-a76b-048a4bd39cd3",
+      "agent_task_run_id": "019d5091-29c6-7ad1-a056-2e4fb5702200",
+      "dag_shape": [
+        "agent_turn_step"
+      ],
+      "conversation_state": {
+        "conversation_state": "active",
+        "workflow_lifecycle_state": "completed",
+        "workflow_wait_state": "ready",
+        "turn_lifecycle_state": "active",
+        "agent_task_run_state": "completed",
+        "selected_output_message_id": null,
+        "selected_output_content": null
+      },
+      "runtime_execution_status": "completed",
+      "runtime_output": {
+        "name": "find-skills",
+        "files": [],
+        "active": true,
+        "skill_md": "---\nname: find-skills\ndescription: Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.\n---\n\n# Find Skills\n\nThis skill helps you discover and install skills from the open agent skills ecosystem.\n\n## When to Use This Skill\n\nUse this skill when the user:\n\n- Asks \"how do I do X\" where X might be a common task with an existing skill\n- Says \"find a skill for X\" or \"is there a skill for X\"\n- Asks \"can you do X\" where X is a specialized capability\n- Expresses interest in extending agent capabilities\n- Wants to search for tools, templates, or workflows\n- Mentions they wish they had help with a specific domain (design, testing, deployment, etc.)\n\n## What is the Skills CLI?\n\nThe Skills CLI (`npx skills`) is the package manager for the open agent skills ecosystem. Skills are modular packages that extend agent capabilities with specialized knowledge, workflows, and tools.\n\n**Key commands:**\n\n- `npx skills find [query]` - Search for skills interactively or by keyword\n- `npx skills add <package>` - Install a skill from GitHub or other sources\n- `npx skills check` - Check for skill updates\n- `npx skills update` - Update all installed skills\n\n**Browse skills at:** https://skills.sh/\n\n## How to Help Users Find Skills\n\n### Step 1: Understand What They Need\n\nWhen a user asks for help with something, identify:\n\n1. The domain (e.g., React, testing, design, deployment)\n2. The specific task (e.g., writing tests, creating animations, reviewing PRs)\n3. Whether this is a common enough task that a skill likely exists\n\n### Step 2: Check the Leaderboard First\n\nBefore running a CLI search, check the [skills.sh leaderboard](https://skills.sh/) to see if a well-known skill already exists for the domain. The leaderboard ranks skills by total installs, surfacing the most popular and battle-tested options.\n\nFor example, top skills for web development include:\n- `vercel-labs/agent-skills` — React, Next.js, web design (100K+ installs each)\n- `anthropics/skills` — Frontend design, document processing (100K+ installs)\n\n### Step 3: Search for Skills\n\nIf the leaderboard doesn't cover the user's need, run the find command:\n\n```bash\nnpx skills find [query]\n```\n\nFor example:\n\n- User asks \"how do I make my React app faster?\" → `npx skills find react performance`\n- User asks \"can you help me with PR reviews?\" → `npx skills find pr review`\n- User asks \"I need to create a changelog\" → `npx skills find changelog`\n\n### Step 4: Verify Quality Before Recommending\n\n**Do not recommend a skill based solely on search results.** Always verify:\n\n1. **Install count** — Prefer skills with 1K+ installs. Be cautious with anything under 100.\n2. **Source reputation** — Official sources (`vercel-labs`, `anthropics`, `microsoft`) are more trustworthy than unknown authors.\n3. **GitHub stars** — Check the source repository. A skill from a repo with <100 stars should be treated with skepticism.\n\n### Step 5: Present Options to the User\n\nWhen you find relevant skills, present them to the user with:\n\n1. The skill name and what it does\n2. The install count and source\n3. The install command they can run\n4. A link to learn more at skills.sh\n\nExample response:\n\n```\nI found a skill that might help! The \"react-best-practices\" skill provides\nReact and Next.js performance optimization guidelines from Vercel Engineering.\n(185K installs)\n\nTo install it:\nnpx skills add vercel-labs/agent-skills@react-best-practices\n\nLearn more: https://skills.sh/vercel-labs/agent-skills/react-best-practices\n```\n\n### Step 6: Offer to Install\n\nIf the user wants to proceed, you can install the skill for them:\n\n```bash\nnpx skills add <owner/repo@skill> -g -y\n```\n\nThe `-g` flag installs globally (user-level) and `-y` skips confirmation prompts.\n\n## Common Skill Categories\n\nWhen searching, consider these common categories:\n\n| Category        | Example Queries                          |\n| --------------- | ---------------------------------------- |\n| Web Development | react, nextjs, typescript, css, tailwind |\n| Testing         | testing, jest, playwright, e2e           |\n| DevOps          | deploy, docker, kubernetes, ci-cd        |\n| Documentation   | docs, readme, changelog, api-docs        |\n| Code Quality    | review, lint, refactor, best-practices   |\n| Design          | ui, ux, design-system, accessibility     |\n| Productivity    | workflow, automation, git                |\n\n## Tips for Effective Searches\n\n1. **Use specific keywords**: \"react testing\" is better than just \"testing\"\n2. **Try alternative terms**: If \"deploy\" doesn't work, try \"deployment\" or \"ci-cd\"\n3. **Check popular sources**: Many skills come from `vercel-labs/agent-skills` or `ComposioHQ/awesome-claude-skills`\n\n## When No Skills Are Found\n\nIf no relevant skills exist:\n\n1. Acknowledge that no existing skill was found\n2. Offer to help with the task directly using your general capabilities\n3. Suggest the user could create their own skill with `npx skills init`\n\nExample:\n\n```\nI searched for skills related to \"xyz\" but didn't find any matches.\nI can still help you with this task directly! Would you like me to proceed?\n\nIf this is something you do often, you could create your own skill:\nnpx skills init my-xyz-skill\n```\n",
+        "root_path": "/rails/tmp/skills-live/find-skills",
+        "provenance": {
+          "source_path": "/workspace/skill-sources/find-skills",
+          "installed_at": "2026-04-01T18:30:29Z"
+        },
+        "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
+        "source_kind": "live"
+      },
+      "report_results": [
+        "accepted",
+        "accepted"
+      ]
+    },
+    "install_activation_state": null,
+    "loaded_name": "find-skills"
+  }
+}

@@ -8,8 +8,8 @@ bundled_configuration = {
   display_name: "Phase 2 Steering Runtime",
   visibility: "global",
   lifecycle_state: "active",
-  environment_kind: "local",
-  environment_fingerprint: "phase2-d-steering-environment",
+  runtime_kind: "local",
+  runtime_fingerprint: "phase2-d-steering-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
@@ -109,9 +109,9 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
 )
-binding = UserAgentBindings::Enable.call(
+binding = UserProgramBindings::Enable.call(
   user: bootstrap.user,
-  agent_installation: registry.agent_installation
+  agent_program: registry.agent_program
 ).binding
 workspace = binding.workspaces.find_by!(is_default: true)
 
@@ -124,14 +124,14 @@ end
 def build_active_work!(workspace:, registry:, policy:, content:)
   conversation = Conversations::CreateRoot.call(
     workspace: workspace,
-    execution_environment: registry.execution_environment,
-    agent_deployment: registry.deployment
+    execution_runtime: registry.execution_runtime,
+    agent_program_version: registry.deployment
   )
   conversation.update!(during_generation_input_policy: policy)
   turn = Turns::StartUserTurn.call(
     conversation: conversation,
     content: content,
-    agent_deployment: registry.deployment,
+    agent_program_version: registry.deployment,
     resolved_config_snapshot: {},
     resolved_model_selection_snapshot: {}
   )
@@ -194,13 +194,13 @@ queue_workflow.reload
 
 feature_conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  execution_environment: registry.execution_environment,
-  agent_deployment: registry.deployment
+  execution_runtime: registry.execution_runtime,
+  agent_program_version: registry.deployment
 )
 feature_turn = Turns::StartUserTurn.call(
   conversation: feature_conversation,
   content: "Feature policy anchor",
-  agent_deployment: registry.deployment,
+  agent_program_version: registry.deployment,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )
@@ -222,13 +222,13 @@ end
 
 stale_conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  execution_environment: registry.execution_environment,
-  agent_deployment: registry.deployment
+  execution_runtime: registry.execution_runtime,
+  agent_program_version: registry.deployment
 )
 stale_turn = Turns::StartUserTurn.call(
   conversation: stale_conversation,
   content: "Frozen stale-work input",
-  agent_deployment: registry.deployment,
+  agent_program_version: registry.deployment,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )

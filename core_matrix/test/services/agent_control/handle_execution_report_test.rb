@@ -11,7 +11,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     travel_to(started_at) do
       agent_task_run.update!(
         lifecycle_state: "running",
-        holder_agent_deployment: context[:deployment],
+        holder_agent_session: context[:agent_session],
         started_at: started_at
       )
       Leases::Acquire.call(
@@ -21,7 +21,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
       )
       mailbox_item.update!(
         status: "acked",
-        leased_to_agent_deployment: context[:deployment],
+        leased_to_agent_session: context[:agent_session],
         leased_at: started_at,
         lease_expires_at: started_at + mailbox_item.lease_timeout_seconds.seconds,
         acked_at: started_at

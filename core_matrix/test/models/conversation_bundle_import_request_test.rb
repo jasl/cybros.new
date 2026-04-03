@@ -32,18 +32,18 @@ class ConversationBundleImportRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     imported_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     other_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_agent_binding: context[:user_agent_binding]
+      user_program_binding: context[:user_program_binding]
     )
     foreign_conversation = Conversations::CreateRoot.call(
       workspace: other_workspace,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     unsupported_state = ConversationBundleImportRequest.new(

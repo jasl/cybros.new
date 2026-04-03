@@ -208,11 +208,11 @@ module ProviderExecutionTestSupport
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
       capability_snapshot = create_capability_snapshot!(
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         tool_catalog: tool_catalog || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
         profile_catalog: profile_catalog || {}
       )
-      context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+      adopt_agent_program_version!(context, capability_snapshot, turn: nil)
       ProviderEntitlement.create!(
         installation: context[:installation],
         provider_handle: "dev",
@@ -226,13 +226,12 @@ module ProviderExecutionTestSupport
 
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment]
+        agent_program: context[:agent_program]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Execute turn step input",
-        agent_deployment: context[:agent_deployment],
+        execution_runtime: context[:execution_runtime],
         resolved_config_snapshot: resolved_config_snapshot,
         resolved_model_selection_snapshot: {}
       )

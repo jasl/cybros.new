@@ -78,7 +78,7 @@ module Conversations
     end
 
     def override_schema
-      @override_schema ||= @conversation.agent_deployment.active_capability_snapshot&.conversation_override_schema_snapshot || {}
+      @override_schema ||= Turns::FreezeProgramVersion.call(conversation: @conversation).conversation_override_schema_snapshot
     end
 
     def validate_selector!(conversation)

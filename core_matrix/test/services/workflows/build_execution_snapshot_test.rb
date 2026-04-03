@@ -1,17 +1,12 @@
 require "test_helper"
 
 class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
-  test "builds an execution snapshot from visible transcript messages imports and capability-gated attachment projections" do
+  test "builds an execution snapshot from visible transcript messages imports and canonical attachments" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     previous_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Earlier input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -26,7 +21,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     excluded_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Excluded input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -55,7 +49,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     current_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -72,8 +65,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")
     assert_equal current_turn.public_id, snapshot.identity.fetch("turn_id")
-    assert_equal context[:execution_environment].public_id, snapshot.identity.fetch("execution_environment_id")
-    assert_equal context[:agent_deployment].public_id, snapshot.identity.fetch("agent_deployment_id")
+    assert_equal context[:execution_runtime].public_id, snapshot.identity.fetch("execution_runtime_id")
+    assert_equal context[:agent_program_version].public_id, snapshot.identity.fetch("agent_program_version_id")
     assert_equal "codex_subscription", snapshot.model_context.fetch("provider_handle")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("api_model")
@@ -118,20 +111,13 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "main", snapshot.capability_projection.fetch("profile_key")
     assert_equal false, snapshot.capability_projection.fetch("is_subagent")
     assert_equal(
-      Conversations::RefreshRuntimeContract.call(conversation: conversation).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      RuntimeCapabilities::ComposeForTurn.call(turn: current_turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
       snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
     )
+
     expected_attachment_ids = [unsupported_audio.public_id, supported_file.public_id].sort
 
     assert_equal expected_attachment_ids, snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
-    assert_equal expected_attachment_ids, snapshot.runtime_attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
-    assert_equal(
-      {
-        "kind" => "message_attachment",
-        "attachment_id" => supported_file.public_id,
-      },
-      snapshot.runtime_attachment_manifest.find { |item| item.fetch("attachment_id") == supported_file.public_id }.fetch("runtime_ref")
-    )
     assert_equal [supported_file.public_id], snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert_equal [unsupported_audio.public_id], snapshot.attachment_diagnostics.map { |item| item.fetch("attachment_id") }
     assert_equal "unsupported_modality", snapshot.attachment_diagnostics.first.fetch("reason")
@@ -140,15 +126,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "projects prior agent outputs as assistant messages for provider-facing transcript state" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     previous_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Earlier input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -156,7 +137,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     current_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -168,11 +148,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "builds automation turns without requiring a transcript-bearing input message" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateAutomationRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateAutomationRoot.call(workspace: context[:workspace])
     turn = Turns::StartAutomationTurn.call(
       conversation: conversation,
       origin_kind: "automation_schedule",
@@ -181,7 +157,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       source_ref_id: "schedule-1",
       idempotency_key: "idemp-1",
       external_event_key: "evt-1",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: { "temperature" => 0.1 },
       resolved_model_selection_snapshot: {}
     )
@@ -197,20 +172,13 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "automation_schedule", snapshot.task.fetch("origin_kind")
   end
 
-  test "omits attachments when the environment disables conversation uploads" do
+  test "keeps canonical attachments even when execution runtime does not advertise request_attachment access" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    context[:execution_environment].update!(
-      capability_payload: { "conversation_attachment_upload" => false }
-    )
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    context[:execution_runtime].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Attachment-disabled input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -223,24 +191,17 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: turn)
 
-    assert_equal [], snapshot.attachment_manifest
-    assert_equal [], snapshot.runtime_attachment_manifest
-    assert_equal [], snapshot.model_input_attachments
-    assert_equal [attachment.public_id], snapshot.attachment_diagnostics.map { |item| item.fetch("attachment_id") }
-    assert_equal "conversation_attachment_upload_disabled", snapshot.attachment_diagnostics.first.fetch("reason")
+    assert_equal [attachment.public_id], snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }
+    assert_equal [attachment.public_id], snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
+    assert_equal [], snapshot.attachment_diagnostics
   end
 
   test "skips superseded summary imports while retaining direct source message imports" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     anchor_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Anchor input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -275,7 +236,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     current_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -315,9 +275,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     workflow_run = nil
 
     with_stubbed_provider_catalog(catalog) do
-      context = create_workspace_context!
-      capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
-      context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+      context = prepare_workflow_execution_setup!(create_workspace_context!)
       ProviderEntitlement.create!(
         installation: context[:installation],
         provider_handle: "dev",
@@ -328,15 +286,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         active: true,
         metadata: {}
       )
-      conversation = Conversations::CreateRoot.call(
-        workspace: context[:workspace],
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment]
-      )
+      conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Current input",
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {
           "temperature" => 0.4,
           "presence_penalty" => 0.6,
@@ -390,15 +343,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "rejects invalid runtime request overrides while building the execution snapshot" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: { "reasoning_effort" => "" },
       resolved_model_selection_snapshot: {}
     )
@@ -411,15 +359,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "filters wrapper-shaped resolved config payloads through runtime override semantics" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {
         "config" => {
           "temperature" => 0.2,
@@ -461,15 +404,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "rejects invalid provider round budget overrides" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {
         "loop_policy" => {
           "max_rounds" => 0,
@@ -486,15 +424,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "freezes root agent context with the main profile and visible tool names" do
     context = prepare_profile_aware_execution_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Current input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -507,7 +440,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_nil snapshot.capability_projection["parent_subagent_session_id"]
     assert_nil snapshot.capability_projection["subagent_depth"]
     assert_equal(
-      Conversations::RefreshRuntimeContract.call(conversation: conversation).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      RuntimeCapabilities::ComposeForTurn.call(turn: turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
       snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
     )
   end
@@ -519,11 +452,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       )
     )
-    root_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    root_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     child_chain = create_subagent_conversation_chain!(
       context: context,
       parent_conversation: root_conversation,
@@ -535,7 +464,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       content: "Delegated input",
       sender_kind: "owner_agent",
       sender_conversation: child_chain.fetch(:subagent_session).owner_conversation,
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -548,7 +476,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal child_chain.fetch(:parent_subagent_session).public_id, snapshot.capability_projection.fetch("parent_subagent_session_id")
     assert_equal 1, snapshot.capability_projection.fetch("subagent_depth")
     assert_equal(
-      Conversations::RefreshRuntimeContract.call(conversation: child_chain.fetch(:conversation)).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      RuntimeCapabilities::ComposeForTurn.call(turn: turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
       snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
     )
   end
@@ -557,17 +485,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:agent_deployment],
-      version: 2,
+    activate_program_version!(
+      context,
       tool_catalog: default_tool_catalog("exec_command", "compact_context"),
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
-
     context
   end
 
@@ -581,8 +506,6 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
         kind: "fork",
-        execution_environment: context[:execution_environment],
-        agent_deployment: context[:agent_deployment],
         addressability: "agent_addressable"
       )
       session = SubagentSession.create!(

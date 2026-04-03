@@ -5,8 +5,8 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     ConversationCloseOperation.create!(
       installation: conversation.installation,
@@ -34,8 +34,8 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     yielded = Conversations::WithRetainedLifecycleLock.call(
@@ -56,8 +56,8 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -78,8 +78,8 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     conversation.update!(lifecycle_state: "archived")
 

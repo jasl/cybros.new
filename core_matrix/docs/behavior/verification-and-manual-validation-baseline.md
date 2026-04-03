@@ -16,8 +16,8 @@ and the retained Phase 2 acceptance operator path.
   `delete_all` chains became stale once more foreign-key roots were added.
 - `script/manual/dummy_agent_runtime.rb register` is part of the supported
   registry validation path and must send the enrollment token plus a stable
-  `environment_fingerprint`. The manual checklist currently drives that through
-  `CORE_MATRIX_ENVIRONMENT_FINGERPRINT`.
+  `runtime_fingerprint`. The manual checklist currently drives that through
+  `CORE_MATRIX_RUNTIME_FINGERPRINT`.
 - Publication validation in phase 1 is intentionally service-level.
   `Publications::PublishLive`, `Publications::RecordAccess`,
   `Publications::LiveProjection`, and `Publications::Revoke` are the

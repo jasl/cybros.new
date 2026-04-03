@@ -60,9 +60,9 @@ into descendant conversation support surfaces.
   hidden or context-excluded messages do not leak attachments into branch or
   checkpoint support projections.
 - transcript visibility decides which attachments are even eligible for a
-  conversation, but later runtime exposure is still gated by the conversation's
-  effective runtime contract from its bound execution environment plus active
-  agent deployment.
+  conversation, but later runtime exposure is still gated by the turn's frozen
+  capability surface from its `AgentProgramVersion` plus any optional
+  `ExecutionRuntime`.
 
 ## Attachment Ancestry Behavior
 

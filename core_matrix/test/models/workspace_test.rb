@@ -4,11 +4,11 @@ class WorkspaceTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    binding = create_user_program_binding!(installation: installation, user: user)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      user_program_binding: binding
     )
 
     assert workspace.public_id.present?
@@ -18,11 +18,11 @@ class WorkspaceTest < ActiveSupport::TestCase
   test "stays private and user-owned" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    binding = create_user_program_binding!(installation: installation, user: user)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      user_program_binding: binding,
       privacy: "private"
     )
 
@@ -31,7 +31,7 @@ class WorkspaceTest < ActiveSupport::TestCase
     invalid = Workspace.new(
       installation: installation,
       user: create_user!(installation: installation, identity: create_identity!, display_name: "Other User"),
-      user_agent_binding: binding,
+      user_program_binding: binding,
       name: "Foreign Workspace",
       privacy: "private",
       is_default: false
@@ -44,12 +44,12 @@ class WorkspaceTest < ActiveSupport::TestCase
   test "allows only one default workspace per binding" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    binding = create_user_program_binding!(installation: installation, user: user)
 
     create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      user_program_binding: binding,
       name: "Default",
       is_default: true
     )
@@ -57,13 +57,13 @@ class WorkspaceTest < ActiveSupport::TestCase
     duplicate = Workspace.new(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      user_program_binding: binding,
       name: "Another Default",
       privacy: "private",
       is_default: true
     )
 
     assert_not duplicate.valid?
-    assert_includes duplicate.errors[:user_agent_binding_id], "already has a default workspace"
+    assert_includes duplicate.errors[:user_program_binding_id], "already has a default workspace"
   end
 end

@@ -5,15 +5,15 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     session = create_owned_subagent_session!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -33,15 +33,15 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     session = create_owned_subagent_session!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: conversation,
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     session.update!(
       close_state: "requested",
@@ -85,7 +85,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -108,14 +108,14 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
 
   private
 
-  def create_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_environment:, agent_deployment:)
+  def create_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_program_version:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: execution_environment,
-      agent_deployment: agent_deployment,
+      execution_runtime: execution_runtime,
+      agent_program_version: agent_program_version,
       addressability: "agent_addressable"
     )
     SubagentSession.create!(

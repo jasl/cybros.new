@@ -89,7 +89,7 @@ claims real loop behavior, validation must include:
   reset and seed the development database in-process, and are intended to be
   run with `bundle exec ruby`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
-  stable `environment_fingerprint`; the manual checklist currently exports that
+  stable `runtime_fingerprint`; the manual checklist currently exports that
   through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
   `CORE_MATRIX_ENROLLMENT_TOKEN`.
 - Publication verification remains service-level in phase 1 because public

@@ -25,9 +25,9 @@ agent-facing boundaries:
 - `Invitation`
 - `Session`
 - `Workspace`
-- `AgentInstallation`
-- `ExecutionEnvironment`
-- `AgentDeployment`
+- `AgentProgram`
+- `ExecutionRuntime`
+- `AgentProgramVersion`
 - `AgentControlMailboxItem`
 - `Conversation`
 - `Turn`

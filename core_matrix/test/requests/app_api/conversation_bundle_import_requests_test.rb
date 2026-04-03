@@ -48,7 +48,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
       workspace: context[:workspace],
       user: context[:user],
       lifecycle_state: "queued",
-      request_payload: { "target_agent_deployment_id" => context[:agent_deployment].public_id }
+      request_payload: { "target_agent_program_version_id" => context[:agent_program_version].public_id }
     )
     request.upload_file.attach(
       io: StringIO.new(File.binread(bundle.fetch("io").path)),
@@ -80,8 +80,8 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     imported_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     request = ConversationBundleImportRequest.new(
       installation: context[:installation],

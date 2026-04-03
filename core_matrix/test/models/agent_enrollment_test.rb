@@ -10,11 +10,11 @@ class AgentEnrollmentTest < ActiveSupport::TestCase
 
   test "tracks token lifecycle" do
     installation = create_installation!
-    agent_installation = create_agent_installation!(installation: installation)
+    agent_program = create_agent_program!(installation: installation)
 
     enrollment = AgentEnrollment.issue!(
       installation: installation,
-      agent_installation: agent_installation,
+      agent_program: agent_program,
       expires_at: 1.hour.from_now
     )
 

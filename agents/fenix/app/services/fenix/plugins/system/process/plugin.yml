@@ -1,7 +1,7 @@
 plugin_id: system.process
 version: 1
 display_name: Process
-default_runtime_plane: environment
+default_runtime_plane: execution
 tool_catalog:
   - tool_name: process_exec
     tool_kind: kernel_primitive

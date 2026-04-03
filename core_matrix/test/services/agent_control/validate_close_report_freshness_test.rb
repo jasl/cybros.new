@@ -6,7 +6,7 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-29 20:30:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment]
+      execution_runtime: context[:execution_runtime]
     )
     mailbox_item = travel_to(occurred_at) do
       AgentControl::CreateResourceCloseRequest.call(
@@ -37,7 +37,7 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-29 20:45:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment]
+      execution_runtime: context[:execution_runtime]
     )
     mailbox_item = travel_to(occurred_at) do
       AgentControl::CreateResourceCloseRequest.call(

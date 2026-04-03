@@ -6,9 +6,9 @@ module ToolBindings
       new(...).call
     end
 
-    def initialize(capability_snapshot:, execution_environment:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
-      @capability_snapshot = capability_snapshot
-      @execution_environment = execution_environment
+    def initialize(agent_program_version: nil, capability_snapshot: nil, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
+      @agent_program_version = agent_program_version || capability_snapshot
+      @execution_runtime = execution_runtime
       @core_matrix_tool_catalog = Array(core_matrix_tool_catalog)
     end
 
@@ -20,7 +20,7 @@ module ToolBindings
         end
       end
 
-      @capability_snapshot.tool_definitions.includes(:tool_implementations)
+      @agent_program_version.tool_definitions.includes(:tool_implementations)
     end
 
     private
@@ -39,39 +39,51 @@ module ToolBindings
 
     def effective_tool_catalog
       @effective_tool_catalog ||= RuntimeCapabilityContract.build(
-        execution_environment: @execution_environment,
-        capability_snapshot: @capability_snapshot,
+        execution_runtime: @execution_runtime,
+        agent_program_version: @agent_program_version,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       ).effective_tool_catalog
     end
 
     def profile_allowed_tool_names
-      @profile_allowed_tool_names ||= @capability_snapshot.profile_catalog.values.flat_map do |profile|
+      @profile_allowed_tool_names ||= @agent_program_version.profile_catalog.values.flat_map do |profile|
         Array(profile["allowed_tool_names"])
       end.uniq
     end
 
     def candidates_for(tool_name)
-      [@core_matrix_tool_catalog, @execution_environment.tool_catalog, @capability_snapshot.tool_catalog]
+      [@core_matrix_tool_catalog, @execution_runtime&.tool_catalog, @agent_program_version.tool_catalog]
         .flat_map { |catalog| Array(catalog) }
         .select { |entry| entry.fetch("tool_name") == tool_name }
     end
 
     def upsert_definition!(effective_entry)
-      definition = ToolDefinition.find_or_initialize_by(
-        capability_snapshot: @capability_snapshot,
+      definition = ToolDefinition.create_or_find_by!(
+        agent_program_version: @agent_program_version,
         tool_name: effective_entry.fetch("tool_name")
+      ) do |record|
+        record.installation = installation
+        record.tool_kind = effective_entry.fetch("tool_kind")
+        record.governance_mode = governance_mode_for(effective_entry)
+        record.policy_payload = definition_policy_payload_for(effective_entry)
+      end
+
+      definition.assign_attributes(
+        installation: installation,
+        tool_kind: effective_entry.fetch("tool_kind"),
+        governance_mode: governance_mode_for(effective_entry),
+        policy_payload: definition_policy_payload_for(effective_entry)
       )
-      definition.installation = installation
-      definition.tool_kind = effective_entry.fetch("tool_kind")
-      definition.governance_mode = governance_mode_for(effective_entry)
-      definition.policy_payload = {
+      definition.save! if definition.changed?
+      definition
+    end
+
+    def definition_policy_payload_for(effective_entry)
+      {
         "default_implementation_ref" => effective_entry.fetch("implementation_ref"),
         "default_implementation_source" => effective_entry.fetch("implementation_source"),
         "execution_policy" => execution_policy_for(effective_entry),
       }
-      definition.save! if definition.new_record? || definition.changed?
-      definition
     end
 
     def synchronize_implementations!(definition, candidates, effective_entry)
@@ -81,22 +93,33 @@ module ToolBindings
 
       candidates.each do |candidate|
         implementation_source = find_or_create_source!(candidate)
-        implementation = definition.tool_implementations.find_or_initialize_by(
+        implementation = definition.tool_implementations.create_or_find_by!(
           implementation_ref: candidate.fetch("implementation_ref")
+        ) do |record|
+          record.installation = installation
+          record.implementation_source = implementation_source
+          record.input_schema = candidate.fetch("input_schema", {})
+          record.result_schema = candidate.fetch("result_schema", {})
+          record.streaming_support = candidate.fetch("streaming_support", false)
+          record.idempotency_policy = candidate.fetch("idempotency_policy")
+          record.default_for_snapshot = false
+          record.metadata = implementation_metadata_for(candidate)
+        end
+        implementation.assign_attributes(
+          installation: installation,
+          implementation_source: implementation_source,
+          input_schema: candidate.fetch("input_schema", {}),
+          result_schema: candidate.fetch("result_schema", {}),
+          streaming_support: candidate.fetch("streaming_support", false),
+          idempotency_policy: candidate.fetch("idempotency_policy"),
+          default_for_snapshot: false,
+          metadata: implementation_metadata_for(candidate)
         )
-        implementation.installation = installation
-        implementation.implementation_source = implementation_source
-        implementation.input_schema = candidate.fetch("input_schema", {})
-        implementation.result_schema = candidate.fetch("result_schema", {})
-        implementation.streaming_support = candidate.fetch("streaming_support", false)
-        implementation.idempotency_policy = candidate.fetch("idempotency_policy")
-        implementation.default_for_snapshot = false
-        implementation.metadata = implementation_metadata_for(candidate)
-        implementation.save! if implementation.new_record? || implementation.changed?
+        implementation.save! if implementation.changed?
       end
 
-      default_implementation = definition.tool_implementations.find_by!(implementation_ref: target_ref)
-      default_implementation.update!(default_for_snapshot: true) unless default_implementation.default_for_snapshot?
+      definition.tool_implementations.where.not(implementation_ref: target_ref).where(default_for_snapshot: true).update_all(default_for_snapshot: false)
+      definition.tool_implementations.where(implementation_ref: target_ref).update_all(default_for_snapshot: true)
     end
 
     def find_or_create_source!(candidate)
@@ -115,10 +138,10 @@ module ToolBindings
       source_kind = candidate.fetch("implementation_source")
 
       source_ref = case source_kind
-      when "execution_environment"
-        @execution_environment.public_id
+      when "execution_runtime"
+        @execution_runtime.public_id
       when "agent", "kernel"
-        "capability_snapshot:#{@capability_snapshot.id}"
+        "agent_program_version:#{@agent_program_version.public_id}"
       when "core_matrix"
         "built_in"
       else
@@ -133,13 +156,13 @@ module ToolBindings
       source = effective_entry.fetch("implementation_source")
 
       return "reserved" if reserved_tool_name?(tool_name)
-      return "whitelist_only" if source == "execution_environment"
+      return "whitelist_only" if source == "execution_runtime"
 
       "replaceable"
     end
 
     def reserved_tool_name?(tool_name)
-      tool_name.start_with?(CapabilitySnapshot::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
+      tool_name.start_with?(AgentProgramVersion::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
     end
 
     def implementation_metadata_for(candidate)
@@ -157,7 +180,7 @@ module ToolBindings
     end
 
     def installation
-      @installation ||= @capability_snapshot.agent_deployment.installation
+      @installation ||= @agent_program_version.installation
     end
 
     def execution_policy_for(entry)

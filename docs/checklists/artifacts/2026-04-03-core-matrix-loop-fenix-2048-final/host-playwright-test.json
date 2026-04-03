@@ -1,0 +1,8 @@
+{
+  "command": "npx playwright test host-playability.spec.cjs --workers=1 --reporter=line",
+  "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
+  "success": true,
+  "exit_status": 0,
+  "stdout": "\nRunning 1 test using 1 worker\n\n\n\n\n\n\u001b[1A\u001b[2K[1/1] host-playability.spec.cjs:192:1 › host-side 2048 playability\n\u001b[1A\u001b[2K  1 passed (38.6s)\n",
+  "stderr": "\u001b[1A\u001b[2K(node:77414) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n\u001b[1A\u001b[2K(node:77414) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+}

@@ -24,7 +24,6 @@ module Workflows
 
     def call
       ApplicationRecord.transaction do
-        Conversations::RefreshRuntimeContract.call(conversation: @turn.conversation)
         resolved_model_selection_snapshot = Workflows::ResolveModelSelector.call(
           turn: @turn,
           selector_source: @selector_source,
@@ -70,7 +69,7 @@ module Workflows
 
       agent_task_run = AgentTaskRun.create!(
         installation: @turn.installation,
-        agent_installation: @turn.agent_deployment.agent_installation,
+        agent_program: @turn.agent_program_version.agent_program,
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: @turn.conversation,

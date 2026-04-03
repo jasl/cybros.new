@@ -24,17 +24,17 @@ class Fenix::Workspace::BootstrapTest < ActiveSupport::TestCase
       Fenix::Workspace::Bootstrap.call(
         workspace_root: root,
         conversation_id: "conversation_123",
-        deployment_public_id: "deployment_123"
+        agent_program_version_id: "agent_program_version_123"
       )
 
-      meta_path = root.join(".fenix/deployments/deployment_123/conversations/conversation_123/meta.json")
+      meta_path = root.join(".fenix/agent_program_versions/agent_program_version_123/conversations/conversation_123/meta.json")
 
       assert meta_path.exist?
 
       metadata = JSON.parse(meta_path.read)
 
       assert_equal "conversation_123", metadata.fetch("conversation_public_id")
-      assert_equal "deployment_123", metadata.fetch("deployment_public_id")
+      assert_equal "agent_program_version_123", metadata.fetch("agent_program_version_id")
     end
   end
 end

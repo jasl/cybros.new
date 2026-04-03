@@ -15,8 +15,9 @@ freezes a per-turn execution snapshot that preserves:
 - visible transcript context rows for the current turn path
 - active local imports and summary artifacts
 - a canonical attachment manifest
-- runtime attachment refs and capability-gated model input attachments derived
-  from that manifest
+- provider-facing model input attachments derived from that manifest
+- attachment diagnostics for provider projection only; execution-runtime
+  attachment access remains on-demand
 
 ## Execution Snapshot Shape
 
@@ -40,7 +41,6 @@ freezes a per-turn execution snapshot that preserves:
   - `runtime_context`
   - `turn_origin`
   - `attachment_manifest`
-  - `runtime_attachment_manifest`
   - `model_input_attachments`
   - `attachment_diagnostics`
 
@@ -51,14 +51,14 @@ freezes a per-turn execution snapshot that preserves:
   - `workspace_id`
   - `conversation_id`
   - `turn_id`
-  - `execution_environment_id`
-  - `agent_deployment_id`
+  - `execution_runtime_id`
+  - `agent_program_version_id`
 - these identity fields are public ids for the referenced resources, not raw
   internal `bigint` primary keys
 - `turn_origin` preserves the current turn's origin kind, origin payload, and
   source reference metadata
 - when `turn_origin.source_ref_type` points at an in-scope resource such as
-  `User` or `AgentDeployment`, `turn_origin.source_ref_id` is that resource's
+  `User` or `AgentProgramVersion`, `turn_origin.source_ref_id` is that resource's
   public id rather than its internal row id
 - automation-origin turns therefore assemble successfully even when they do not
   have a selected transcript-bearing input message
@@ -135,10 +135,8 @@ freezes a per-turn execution snapshot that preserves:
   the turn executes
 - `tool_surface` is the conversation-visible tool catalog for that turn and
   must be treated as an execution-time constraint, not as advisory trace data
-- `Workflows::BuildExecutionSnapshot` refreshes that conversation runtime
-  contract through `Conversations::RefreshRuntimeContract`; services read the
-  runtime contract through that boundary rather than through a convenience
-  reader on `Conversation`
+- `Workflows::BuildExecutionSnapshot` composes that turn capability surface
+  through `RuntimeCapabilities::ComposeForTurn`
 - mailbox execution assignment creation copies `capability_projection` from
   the frozen execution snapshot rather than recomputing it later from mutable
   aggregates
@@ -185,11 +183,8 @@ freezes a per-turn execution snapshot that preserves:
   - `content_type`
   - `byte_size`
   - `modality`
-  - `runtime_ref`
 - attachment and message references inside these payloads are public ids for
   the corresponding resources
-- `runtime_attachment_manifest` is a runtime-facing projection derived from the
-  frozen manifest
 - `model_input_attachments` is the model-facing projection derived from the
   same frozen manifest
 - attachment-manifest correctness is defined by membership and frozen metadata;
@@ -206,23 +201,20 @@ freezes a per-turn execution snapshot that preserves:
   `resolved_model_ref` to read the provider catalog once at assembly time, then
   freezes the resulting projections onto the turn
 - supported modalities become `model_input_attachments`
-- unsupported modalities still remain in `attachment_manifest` and
-  `runtime_attachment_manifest` so runtime tooling can access them
+- unsupported modalities still remain in `attachment_manifest` so execution
+  tooling can access them later through an authenticated request
 - unsupported prompt projection is recorded explicitly in
   `attachment_diagnostics` with `reason=unsupported_modality`
-- if the bound conversation runtime contract disables attachment upload
-  entirely, the builder emits empty attachment projections and records
-  `attachment_diagnostics` with
-  `reason=conversation_attachment_upload_disabled`
-- attachment-upload gating is therefore an explicit service call boundary, not a
-  model reader on `Conversation`
+- execution-runtime attachment delivery is not precomputed into the snapshot
+- execution tooling must request concrete attachment handles through
+  `POST /execution_api/attachments/request`
 
 ## Aggregate And Read-Side Boundaries
 
 - `Turn` keeps aggregate invariants and row ownership only:
   - lifecycle
   - origin metadata and selected-message pointers
-  - deployment/environment consistency
+  - frozen agent-program-version / execution-runtime identity
   - resolved config snapshot row
   - resolved model-selection snapshot row
   - execution snapshot payload row
@@ -232,9 +224,8 @@ freezes a per-turn execution snapshot that preserves:
 - transcript, context, and historical-anchor projection logic lives in the
   projection services under `app/services/conversations/`, not on
   `Conversation` itself
-- `Conversation` also does not own runtime-contract assembly; services that need
-  conversation runtime capabilities must call
-  `Conversations::RefreshRuntimeContract`
+- `Conversation` does not own runtime-contract assembly; services that need
+  runtime capabilities must compose them from the frozen turn
 
 ## Failure Modes
 

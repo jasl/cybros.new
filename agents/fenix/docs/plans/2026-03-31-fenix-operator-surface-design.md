@@ -138,7 +138,7 @@ Expected behavior:
 
 ### ProcessRun
 
-Detached services remain environment-plane resources aligned with
+Detached services remain execution-plane resources aligned with
 Core Matrix `ProcessRun`.
 
 Recommended shape:
@@ -200,7 +200,7 @@ Recommended additions:
   - `supports_streaming_output`
 
 This should be additive. The existing `tool_catalog` and
-`environment_tool_catalog` stay stable so Core Matrix integration does not need
+`execution_tool_catalog` stay stable so Core Matrix integration does not need
 to be redesigned.
 
 ## Prompt And Context Strategy

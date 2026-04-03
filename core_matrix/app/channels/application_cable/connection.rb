@@ -1,23 +1,21 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_deployment, :current_execution_environment, :current_publication
+    identified_by :current_deployment, :current_execution_runtime, :current_publication
 
     def connect
-      self.current_deployment = find_verified_deployment
-      self.current_execution_environment = current_deployment&.execution_environment
+      agent_session = find_verified_agent_session
+      self.current_deployment = agent_session&.agent_program_version
+      self.current_execution_runtime = agent_session&.agent_program&.default_execution_runtime
       self.current_publication = find_verified_publication
       reject_unauthorized_connection if current_deployment.blank? && current_publication.blank?
     end
 
     private
 
-    def find_verified_deployment
+    def find_verified_agent_session
       return if machine_credential.blank?
 
-      deployment = AgentDeployment.find_by_machine_credential(machine_credential)
-      return deployment if deployment.present?
-
-      nil
+      AgentSession.find_by_plaintext_session_credential(machine_credential)
     end
 
     def machine_credential

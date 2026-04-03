@@ -3,12 +3,11 @@ require "test_helper"
 class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
   test "create for turn freezes the resolved model snapshot after role-local fallback" do
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
-    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
+    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     ProviderEntitlement.create!(
       installation: context[:installation],
@@ -49,7 +48,7 @@ class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

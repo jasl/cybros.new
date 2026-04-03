@@ -29,18 +29,21 @@ module SubagentSessions
           rejection_message: "must be agent_addressable for subagent delivery"
         )
         validate_sender_kind!(conversation:)
+        agent_program_version = Turns::FreezeProgramVersion.call(conversation: conversation)
+        execution_runtime = Turns::SelectExecutionRuntime.call(conversation: conversation)
 
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_deployment: conversation.agent_deployment,
+          agent_program_version: agent_program_version,
+          execution_runtime: execution_runtime,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "completed",
           origin_kind: "system_internal",
           origin_payload: sender_payload,
           source_ref_type: sender_source_ref_type,
           source_ref_id: sender_source_ref_id,
-          pinned_deployment_fingerprint: conversation.agent_deployment.fingerprint,
+          pinned_program_version_fingerprint: agent_program_version.fingerprint,
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {}
         )

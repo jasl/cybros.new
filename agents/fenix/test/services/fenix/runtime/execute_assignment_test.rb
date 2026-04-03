@@ -444,9 +444,9 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_operator compact_context_entry.fetch("after_message_count"), :<, compact_context_entry.fetch("before_message_count")
   end
 
-  test "agent assignment execution rejects non-agent runtime planes" do
+  test "program assignment execution rejects non-program runtime planes" do
     result = Fenix::Runtime::ExecuteAssignment.call(
-      mailbox_item: runtime_assignment_payload(runtime_plane: "environment")
+      mailbox_item: runtime_assignment_payload(runtime_plane: "execution")
     )
 
     assert_equal "failed", result.status

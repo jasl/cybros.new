@@ -53,7 +53,6 @@ module SubagentSessions
             content: @content,
             sender_kind: "owner_agent",
             sender_conversation: conversation,
-            agent_deployment: child_conversation.agent_deployment,
             resolved_config_snapshot: {},
             resolved_model_selection_snapshot: {}
           )
@@ -144,8 +143,8 @@ module SubagentSessions
 
     def runtime_contract(conversation:)
       @runtime_contract ||= RuntimeCapabilityContract.build(
-        execution_environment: conversation.execution_environment,
-        capability_snapshot: conversation.agent_deployment.active_capability_snapshot,
+        execution_runtime: Turns::SelectExecutionRuntime.call(conversation: conversation),
+        agent_program_version: Turns::FreezeProgramVersion.call(conversation: conversation),
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )
     end

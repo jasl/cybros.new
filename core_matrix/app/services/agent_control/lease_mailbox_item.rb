@@ -24,7 +24,8 @@ module AgentControl
 
         @mailbox_item.update!(
           status: "leased",
-          leased_to_agent_deployment: @deployment,
+          leased_to_agent_session: leased_agent_session,
+          leased_to_execution_session: leased_execution_session,
           leased_at: @occurred_at,
           lease_expires_at: @occurred_at + @mailbox_item.lease_timeout_seconds.seconds,
           delivery_no: @mailbox_item.delivery_no + 1
@@ -43,6 +44,32 @@ module AgentControl
       return unless @mailbox_item.dispatch_deadline_at < @occurred_at
 
       @mailbox_item.update!(status: "expired", failed_at: @occurred_at)
+    end
+
+    def leased_agent_session
+      return @leased_agent_session if defined?(@leased_agent_session)
+
+      @leased_agent_session =
+        case @deployment
+        when AgentProgramVersion
+          AgentSession.find_by(agent_program_version: @deployment, lifecycle_state: "active")
+        else
+          nil
+        end
+    end
+
+    def leased_execution_session
+      return @leased_execution_session if defined?(@leased_execution_session)
+
+      @leased_execution_session =
+        case @deployment
+        when ExecutionSession
+          @deployment
+        when AgentProgramVersion
+          ExecutionSession.find_by(execution_runtime: @mailbox_item.target_execution_runtime, lifecycle_state: "active") if @mailbox_item.execution_plane?
+        else
+          nil
+        end
     end
   end
 end

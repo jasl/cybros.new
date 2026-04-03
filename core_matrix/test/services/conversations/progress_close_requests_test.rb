@@ -5,7 +5,7 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -31,7 +31,7 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )

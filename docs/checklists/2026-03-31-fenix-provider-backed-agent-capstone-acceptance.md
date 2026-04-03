@@ -38,8 +38,8 @@ The capstone task is fixed:
 - run `Fenix` in Docker
 - mount `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix` as the runtime
   workspace
-- install these skills into `Fenix`:
-  - `https://github.com/obra/superpowers`
+- install these GitHub-sourced skills into `Fenix`:
+  - stage the concrete `using-superpowers` skill package from `https://github.com/obra/superpowers`
   - `https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md`
 - through a real conversation and turn sequence, have `Fenix` build a
   browser-based React `2048` game
@@ -121,7 +121,7 @@ For every turn in the capstone run, record:
 - conversation `public_id`
 - turn `public_id`
 - workflow-run `public_id`
-- deployment identifier and runtime mode
+- agent program version identifier, execution runtime identifier, and runtime mode
 - provider handle, model ref, and API model when applicable
 - expected DAG shape
 - observed DAG shape
@@ -146,7 +146,7 @@ Every capstone run must produce a proof package containing at least:
 - `collaboration-notes.md`
   - short notes explaining what worked well, where the agent needed steering,
     and how a human can collaborate with it more effectively
-- `runtime-and-deployment.md`
+- `runtime-and-bindings.md`
   - how `Core Matrix` and Dockerized `Fenix` were started
   - must explicitly record how the runtime worker and queue worker were started
     after registration
@@ -303,7 +303,8 @@ The capstone run passes only if all of the following are true:
 - per-turn DAG and conversation-state records are complete
 - the final application is present under `tmp/fenix`
 - runtime-generated memory, prompts, and conversation-local artifacts may live
-  under the deployment namespace inside `tmp/fenix/.fenix/deployments/...`
+  under the agent-program-version namespace inside
+  `tmp/fenix/.fenix/agent_program_versions/...`
 - the game is actually playable by a human
 - the proof package is complete, including chat transcript and collaboration
   notes

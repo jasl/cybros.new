@@ -1,16 +1,16 @@
 require "test_helper"
 
 class AgentControlPublishPendingTest < ActiveSupport::TestCase
-  test "publishes environment-plane work for a deployment using durable execution environment routing" do
+  test "publishes execution-plane work for a deployment using durable execution runtime routing" do
     context = build_rotated_runtime_context!
-    other_agent_installation = create_agent_installation!(installation: context[:installation])
+    other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: other_agent_installation,
-      target_execution_environment: context[:execution_environment],
+      target_agent_program: other_agent_program,
+      target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
-      runtime_plane: "environment",
-      target_kind: "agent_installation",
+      runtime_plane: "execution",
+      target_kind: "agent_program",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -27,20 +27,20 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
 
     assert_equal [[AgentControl::StreamName.for_deployment(context[:replacement_deployment]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
-    assert_equal context[:replacement_deployment], mailbox_item.reload.leased_to_agent_deployment
+    assert_equal context[:replacement_registration].fetch(:agent_session), mailbox_item.reload.leased_to_agent_session
   end
 
   test "publishes a queued mailbox item to the deployment selected by ResolveTargetRuntime" do
     context = build_agent_control_context!
-    context[:deployment].update!(realtime_link_state: "connected")
-    other_agent_installation = create_agent_installation!(installation: context[:installation])
+    context[:execution_session].update!(endpoint_metadata: { "realtime_link_connected" => true })
+    other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: other_agent_installation,
-      target_execution_environment: context[:execution_environment],
+      target_agent_program: other_agent_program,
+      target_execution_runtime: context[:execution_runtime],
       item_type: "resource_close_request",
-      runtime_plane: "environment",
-      target_kind: "agent_installation",
+      runtime_plane: "execution",
+      target_kind: "agent_program",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -55,9 +55,9 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
       AgentControl::PublishPending.call(mailbox_item: mailbox_item)
     end
 
-    assert_equal [[AgentControl::StreamName.for_deployment(context[:deployment]), mailbox_item.public_id]],
+    assert_equal [[AgentControl::StreamName.for_deployment(context[:execution_session]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
-    assert_equal context[:deployment], mailbox_item.reload.leased_to_agent_deployment
+    assert_equal context[:execution_session], mailbox_item.reload.leased_to_execution_session
   end
 
   private

@@ -5,8 +5,8 @@ class SubagentSessions::SendMessageTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,
@@ -14,8 +14,8 @@ class SubagentSessions::SendMessageTest < ActiveSupport::TestCase
     )
     outsider_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     invalid_sender = assert_raises(ActiveRecord::RecordInvalid) do
@@ -51,8 +51,8 @@ class SubagentSessions::SendMessageTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,
@@ -95,8 +95,8 @@ class SubagentSessions::SendMessageTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )
     SubagentSession.create!(

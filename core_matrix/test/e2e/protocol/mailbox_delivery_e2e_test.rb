@@ -23,8 +23,8 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     assert_equal scenario.fetch(:mailbox_item).public_id, assignment.fetch("item_id")
     assert_equal "execution_assignment", assignment.fetch("item_type")
-    assert_equal "agent", assignment.fetch("runtime_plane")
-    assert_equal context[:agent_installation].public_id, assignment.fetch("target_ref")
+    assert_equal "program", assignment.fetch("runtime_plane")
+    assert_equal context[:agent_program].public_id, assignment.fetch("target_ref")
     refute assignment.fetch("payload").key?("runtime_plane")
 
     started = report_execution_started(
@@ -61,7 +61,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "completed", scenario.fetch(:mailbox_item).reload.status
     assert_equal "completed", scenario.fetch(:agent_task_run).reload.lifecycle_state
     assert_equal "poll completed", scenario.fetch(:agent_task_run).terminal_payload.fetch("output")
-    assert_equal "active", context[:deployment].reload.control_activity_state
+    assert_equal "active_control", context[:deployment].reload.control_activity_state
   end
 
   test "websocket delivery and poll fallback expose the same mailbox envelope" do
@@ -147,7 +147,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     assert_equal 1, poll_response.fetch("mailbox_items").size
     assert_equal "disconnected", context[:deployment].reload.realtime_link_state
-    assert_equal "active", context[:deployment].reload.control_activity_state
+    assert_equal "active_control", context[:deployment].reload.control_activity_state
   end
 
   test "report responses piggyback pending close control work onto the active runtime session" do
@@ -172,7 +172,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment]
+      execution_runtime: context[:execution_runtime]
     )
     Leases::Acquire.call(
       leased_resource: process_run,

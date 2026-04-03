@@ -33,7 +33,7 @@ module WorkflowWaitTransitionTestSupport
 
   def promote_subagent_runtime_context!(context, profile_catalog: default_profile_catalog)
     capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       version: 2,
       tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
       profile_catalog: profile_catalog,
@@ -42,7 +42,7 @@ module WorkflowWaitTransitionTestSupport
       default_config_snapshot: profile_aware_default_config_snapshot
     )
 
-    context.fetch(:deployment).update!(active_capability_snapshot: capability_snapshot)
+    adopt_agent_program_version!(context, capability_snapshot)
   end
 
   def human_task_wait_transition_payload(batch_id:, successor_node_key:, instructions:, node_key: "human_gate")

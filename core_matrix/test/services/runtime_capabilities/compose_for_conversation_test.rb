@@ -3,37 +3,37 @@ require "test_helper"
 class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
   SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
 
-  test "conversation attachments stay disabled when the environment does not allow uploads" do
+  test "preview contracts omit the removed attachment-access helper from the top-level payload" do
     registration = register_profile_aware_runtime!(
-      environment_capability_payload: { "conversation_attachment_upload" => false }
+      execution_capability_payload: { "attachment_access" => { "request_attachment" => true } }
     )
     conversation = create_root_conversation_for!(registration)
 
     contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
 
-    assert_equal false, contract.fetch("conversation_attachment_upload")
+    refute contract.key?("attachment_access")
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
   end
 
-  test "conversation attachments stay enabled when the environment allows uploads" do
+  test "preview contracts still include the selected execution runtime when available" do
     registration = register_profile_aware_runtime!(
-      environment_capability_payload: { "conversation_attachment_upload" => true }
+      execution_capability_payload: { "attachment_access" => { "request_attachment" => true } }
     )
     conversation = create_root_conversation_for!(registration)
 
     contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
 
-    assert_equal true, contract.fetch("conversation_attachment_upload")
+    assert_equal registration[:execution_runtime].public_id, contract.fetch("execution_runtime_id")
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
   end
 
   test "conversation tool catalog prefers environment tools over agent tools with the same name" do
     registration = register_profile_aware_runtime!(
-      environment_tool_catalog: [
+      execution_tool_catalog: [
         {
           "tool_name" => "exec_command",
-          "tool_kind" => "environment_runtime",
-          "implementation_source" => "execution_environment",
+          "tool_kind" => "execution_runtime",
+          "implementation_source" => "execution_runtime",
           "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -59,7 +59,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
     shell_entry = contract.fetch("tool_catalog").find { |entry| entry.fetch("tool_name") == "exec_command" }
 
-    assert_equal "environment_runtime", shell_entry.fetch("tool_kind")
+    assert_equal "execution_runtime", shell_entry.fetch("tool_kind")
   end
 
   test "subagents.enabled false hides the whole subagent tool family" do
@@ -211,10 +211,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
 
   private
 
-  def register_profile_aware_runtime!(environment_capability_payload: {}, environment_tool_catalog: [], tool_catalog: default_tool_catalog("exec_command"), profile_catalog: default_profile_catalog, default_config_snapshot: profile_aware_default_config_snapshot)
+  def register_profile_aware_runtime!(execution_capability_payload: {}, execution_tool_catalog: [], tool_catalog: default_tool_catalog("exec_command"), profile_catalog: default_profile_catalog, default_config_snapshot: profile_aware_default_config_snapshot)
     register_agent_runtime!(
-      environment_capability_payload: environment_capability_payload,
-      environment_tool_catalog: environment_tool_catalog,
+      execution_capability_payload: execution_capability_payload,
+      execution_tool_catalog: execution_tool_catalog,
       tool_catalog: tool_catalog,
       profile_catalog: profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
@@ -227,17 +227,17 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     workspace = create_workspace!(
       installation: registration[:installation],
       user: registration[:actor],
-      user_agent_binding: create_user_agent_binding!(
+      user_program_binding: create_user_program_binding!(
         installation: registration[:installation],
         user: registration[:actor],
-        agent_installation: registration[:agent_installation]
+        agent_program: registration[:agent_program]
       )
     )
 
     Conversations::CreateRoot.call(
       workspace: workspace,
-      execution_environment: registration[:execution_environment],
-      agent_deployment: registration[:deployment]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     )
   end
 
@@ -251,8 +251,8 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
         kind: "fork",
-        execution_environment: registration[:execution_environment],
-        agent_deployment: registration[:deployment],
+        execution_runtime: registration[:execution_runtime],
+        agent_program_version: registration[:deployment],
         addressability: "agent_addressable"
       )
       session = SubagentSession.create!(

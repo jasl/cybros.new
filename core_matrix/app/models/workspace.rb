@@ -5,7 +5,7 @@ class Workspace < ApplicationRecord
 
   belongs_to :installation
   belongs_to :user
-  belongs_to :user_agent_binding
+  belongs_to :user_program_binding
 
   has_many :canonical_variables, dependent: :restrict_with_exception
 
@@ -28,15 +28,15 @@ class Workspace < ApplicationRecord
   end
 
   def binding_installation_match
-    return if user_agent_binding.blank?
-    return if user_agent_binding.installation_id == installation_id
+    return if user_program_binding.blank?
+    return if user_program_binding.installation_id == installation_id
 
-    errors.add(:user_agent_binding, "must belong to the same installation")
+    errors.add(:user_program_binding, "must belong to the same installation")
   end
 
   def binding_user_match
-    return if user_agent_binding.blank? || user.blank?
-    return if user_agent_binding.user_id == user_id
+    return if user_program_binding.blank? || user.blank?
+    return if user_program_binding.user_id == user_id
 
     errors.add(:user, "must match the binding owner")
   end
@@ -44,10 +44,10 @@ class Workspace < ApplicationRecord
   def single_default_workspace
     return unless is_default?
 
-    conflicting_scope = self.class.where(user_agent_binding_id: user_agent_binding_id, is_default: true)
+    conflicting_scope = self.class.where(user_program_binding_id: user_program_binding_id, is_default: true)
     conflicting_scope = conflicting_scope.where.not(id: id) if persisted?
     return unless conflicting_scope.exists?
 
-    errors.add(:user_agent_binding_id, "already has a default workspace")
+    errors.add(:user_program_binding_id, "already has a default workspace")
   end
 end

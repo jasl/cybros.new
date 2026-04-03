@@ -13,7 +13,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -71,7 +71,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -153,7 +153,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -169,7 +169,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child keeps running",
-      agent_deployment: context[:deployment],
+      agent_program_version: context[:deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -226,8 +226,8 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )
 

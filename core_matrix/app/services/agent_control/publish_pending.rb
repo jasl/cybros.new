@@ -4,9 +4,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item: nil, deployment: nil, occurred_at: Time.current)
+    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
       @deployment = deployment
+      @agent_session = agent_session
       @occurred_at = occurred_at
     end
 
@@ -31,16 +32,24 @@ module AgentControl
     private
 
     def publish_for_deployment!
-      Poll.call(deployment: @deployment, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
+      Poll.call(deployment: @deployment, agent_session: @agent_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
         broadcast(mailbox_item:, deployment: @deployment)
       end
     end
 
     def connected_target_for(mailbox_item)
-      deployment = routing_resolution_for(mailbox_item).delivery_endpoint
-      return unless deployment&.realtime_link_connected?
+      resolution = routing_resolution_for(mailbox_item)
+      delivery_endpoint = resolution.delivery_endpoint
+      return if delivery_endpoint.blank? || !delivery_endpoint.realtime_link_connected?
 
-      deployment
+      case delivery_endpoint
+      when AgentSession
+        delivery_endpoint.agent_program_version
+      when ExecutionSession
+        delivery_endpoint
+      else
+        nil
+      end
     end
 
     def routing_resolution_for(mailbox_item)

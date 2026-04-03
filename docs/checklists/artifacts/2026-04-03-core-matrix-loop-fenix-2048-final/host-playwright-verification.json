@@ -1,0 +1,124 @@
+{
+  "initial": {
+    "board": [
+      [
+        2,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        2,
+        null,
+        null
+      ]
+    ],
+    "score": 0,
+    "status": "Keep going",
+    "nonEmpty": 2
+  },
+  "directionChecks": {
+    "ArrowLeft": {
+      "changed": true,
+      "beforeScore": 2368,
+      "afterScore": 2380
+    },
+    "ArrowUp": {
+      "changed": true,
+      "beforeScore": 2360,
+      "afterScore": 2364
+    },
+    "ArrowRight": {
+      "changed": true,
+      "beforeScore": 2380,
+      "afterScore": 2380
+    },
+    "ArrowDown": {
+      "changed": true,
+      "beforeScore": 12,
+      "afterScore": 12,
+      "attempts": 1
+    }
+  },
+  "mergeObserved": true,
+  "spawnObserved": true,
+  "gameOverReached": true,
+  "preRestart": {
+    "board": [
+      [
+        256,
+        8,
+        2,
+        16
+      ],
+      [
+        64,
+        2,
+        16,
+        8
+      ],
+      [
+        16,
+        32,
+        8,
+        4
+      ],
+      [
+        2,
+        8,
+        4,
+        2
+      ]
+    ],
+    "score": 2380,
+    "status": "Game over",
+    "nonEmpty": 16
+  },
+  "postRestart": {
+    "board": [
+      [
+        null,
+        2,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        4
+      ],
+      [
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null
+      ]
+    ],
+    "score": 0,
+    "status": "Keep going",
+    "nonEmpty": 2
+  },
+  "restartResetScore": true,
+  "restartResetTileCount": true,
+  "screenshotPath": "/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/artifacts/2026-04-03-core-matrix-loop-fenix-2048-final/host-playability.png"
+}

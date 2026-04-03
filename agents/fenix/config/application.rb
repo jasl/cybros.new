@@ -38,7 +38,7 @@ module Fenix
 
     # Runtime jobs are isolated onto SolidQueue worker pools. Fenix is
     # currently a single-machine deployment because it also acts as the
-    # effective ExecutionEnvironment and owns registry-backed runtime state.
+    # effective ExecutionRuntime and owns registry-backed runtime state.
     # Those tools are routed into a dedicated queue so operators can keep that
     # pool narrow on the same host.
     config.active_job.queue_adapter = :solid_queue

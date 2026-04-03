@@ -22,8 +22,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     assert_equal(
       context.fetch(:turn).execution_snapshot.runtime_context.merge(
         "logical_work_id" => agent_task_run.logical_work_id,
-        "attempt_no" => agent_task_run.attempt_no,
-        "deployment_public_id" => context.fetch(:deployment).public_id
+        "attempt_no" => agent_task_run.attempt_no
       ),
       mailbox_item.payload.fetch("runtime_context")
     )
@@ -32,54 +31,55 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
   test "serializes the subagent execution assignment envelope that fenix consumes" do
     installation = Installation.first || create_installation!(name: "Execution Assignment Contract #{SecureRandom.uuid}")
     user = create_user!(installation: installation)
-    agent_installation = create_agent_installation!(installation: installation)
-    execution_environment = create_execution_environment!(installation: installation)
-    agent_deployment = create_agent_deployment!(
+    agent_program = create_agent_program!(installation: installation)
+    execution_runtime = create_execution_runtime!(installation: installation)
+    agent_program_version = create_agent_program_version!(
       installation: installation,
-      agent_installation: agent_installation,
-      execution_environment: execution_environment
+      agent_program: agent_program,
+      execution_runtime: execution_runtime
     )
-    user_agent_binding = create_user_agent_binding!(
+    user_program_binding = create_user_program_binding!(
       installation: installation,
       user: user,
-      agent_installation: agent_installation
+      agent_program: agent_program
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: user_agent_binding
+      user_program_binding: user_program_binding
     )
     context = prepare_workflow_execution_setup!(
       {
         installation: installation,
         user: user,
-        agent_installation: agent_installation,
-        execution_environment: execution_environment,
-        agent_deployment: agent_deployment,
-        user_agent_binding: user_agent_binding,
+        agent_program: agent_program,
+        execution_runtime: execution_runtime,
+        agent_program_version: agent_program_version,
+        user_program_binding: user_program_binding,
         workspace: workspace,
       }
     )
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:agent_deployment],
-      version: 2,
+    activate_program_version!(
+      context,
       tool_catalog: fenix_tool_catalog,
       profile_catalog: fenix_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+    context[:execution_session] = create_execution_session!(
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime]
+    )
 
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate work",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -88,8 +88,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      agent_program: context[:agent_program],
       addressability: "agent_addressable"
     )
     parent_session = SubagentSession.create!(
@@ -106,8 +105,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: child_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      agent_program: context[:agent_program],
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -125,7 +123,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       content: "Please calculate 2 + 2.",
       sender_kind: "owner_agent",
       sender_conversation: owner_conversation,
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -141,7 +139,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       workflow_node = workflow_run.workflow_nodes.first
       agent_task_run = AgentTaskRun.create!(
         installation: context[:installation],
-        agent_installation: context[:agent_installation],
+        agent_program: context[:agent_program],
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: subagent_conversation,
@@ -246,12 +244,13 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     )
     payload["runtime_context"] = payload.fetch("runtime_context").merge(
       "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
-      "deployment_public_id" => "agent-deployment-public-id"
+      "agent_program_version_id" => "agent-program-version-public-id",
+      "execution_runtime_id" => "execution-runtime-public-id"
     )
 
     serialized.merge(
       "item_id" => "mailbox-item-public-id",
-      "target_ref" => "agent-installation-public-id",
+      "target_ref" => "agent-program-public-id",
       "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
       "protocol_message_id" => "kernel-assignment-message-id",
       "payload" => payload

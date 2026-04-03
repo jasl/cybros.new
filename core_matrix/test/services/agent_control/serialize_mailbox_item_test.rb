@@ -6,8 +6,8 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     available_at = Time.zone.parse("2026-03-29 19:30:00 UTC")
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: context[:agent_installation],
-      target_agent_deployment: context[:deployment],
+      target_agent_program: context[:agent_program],
+      target_agent_program_version: context[:deployment],
       available_at: available_at,
       execution_hard_deadline_at: available_at + 5.minutes,
       payload: { "step" => "execute" }

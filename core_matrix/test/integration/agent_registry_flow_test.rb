@@ -4,23 +4,23 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
   test "issues enrollment registers a deployment and records heartbeat state" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
-    agent_installation = create_agent_installation!(installation: installation, visibility: "global")
+    agent_program = create_agent_program!(installation: installation, visibility: "global")
     enrollment = AgentEnrollments::Issue.call(
-      agent_installation: agent_installation,
+      agent_program: agent_program,
       actor: actor,
       expires_at: 2.hours.from_now
     )
 
-    registration = AgentDeployments::Register.call(
+    registration = AgentProgramVersions::Register.call(
       enrollment_token: enrollment.plaintext_token,
-      environment_fingerprint: "fenix-host-a",
-      environment_kind: "local",
-      environment_connection_metadata: {
+      runtime_fingerprint: "fenix-host-a",
+      runtime_kind: "local",
+      runtime_connection_metadata: {
         "transport" => "http",
         "base_url" => "http://127.0.0.1:4100",
       },
-      environment_capability_payload: {},
-      environment_tool_catalog: [],
+      execution_capability_payload: {},
+      execution_tool_catalog: [],
       fingerprint: "fenix-release-0.1.0",
       endpoint_metadata: {
         "transport" => "http",
@@ -59,10 +59,10 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal "pending", registration.deployment.bootstrap_state
-    assert_equal "fenix-host-a", registration.execution_environment.environment_fingerprint
+    assert_equal "fenix-host-a", registration.execution_runtime.runtime_fingerprint
 
     travel_to Time.zone.parse("2026-03-24 12:00:00 UTC") do
-      AgentDeployments::RecordHeartbeat.call(
+      AgentProgramVersions::RecordHeartbeat.call(
         deployment: registration.deployment,
         health_status: "healthy",
         health_metadata: { "latency_ms" => 45 },
@@ -76,6 +76,6 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
     assert registration.deployment.healthy?
     assert_equal({ "latency_ms" => 45 }, registration.deployment.health_metadata)
     assert_equal 1, AuditLog.where(action: "agent_enrollment.issued").count
-    assert_equal 1, AuditLog.where(action: "agent_deployment.registered").count
+    assert_equal 1, AuditLog.where(action: "agent_session.registered").count
   end
 end

@@ -28,7 +28,8 @@ class Turn < ApplicationRecord
 
   belongs_to :installation
   belongs_to :conversation
-  belongs_to :agent_deployment
+  belongs_to :agent_program_version
+  belongs_to :execution_runtime, optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
 
@@ -38,15 +39,16 @@ class Turn < ApplicationRecord
   has_one :workflow_run, dependent: :restrict_with_exception
 
   validates :sequence, uniqueness: { scope: :conversation_id }
-  validates :pinned_deployment_fingerprint, presence: true
+  validates :pinned_program_version_fingerprint, presence: true
   validate :origin_payload_must_be_hash
   validate :feature_policy_snapshot_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
   validate :execution_snapshot_payload_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
-  validate :agent_deployment_installation_match
-  validate :agent_deployment_execution_environment_match
+  validate :agent_program_version_installation_match
+  validate :execution_runtime_installation_match
+  validate :agent_program_version_conversation_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
   validate :selected_output_lineage_rules
@@ -74,24 +76,16 @@ class Turn < ApplicationRecord
     resolved_model_selection_snapshot["resolved_role_name"]
   end
 
-  def pinned_capability_snapshot_id
-    resolved_model_selection_snapshot["capability_snapshot_id"]
-  end
-
-  def pinned_capability_snapshot
-    CapabilitySnapshot.find_by(id: pinned_capability_snapshot_id)
-  end
-
-  def pinned_capability_snapshot_version
-    pinned_capability_snapshot&.version
-  end
-
   def recovery_selector
     normalized_selector.presence || "role:main"
   end
 
   def execution_snapshot
     TurnExecutionSnapshot.new(execution_snapshot_payload || {})
+  end
+
+  def pinned_capability_snapshot_version
+    1
   end
 
   def feature_enabled?(feature_id)
@@ -144,18 +138,25 @@ class Turn < ApplicationRecord
     errors.add(:conversation, "must belong to the same installation")
   end
 
-  def agent_deployment_installation_match
-    return if agent_deployment.blank?
-    return if agent_deployment.installation_id == installation_id
+  def agent_program_version_installation_match
+    return if agent_program_version.blank?
+    return if agent_program_version.installation_id == installation_id
 
-    errors.add(:agent_deployment, "must belong to the same installation")
+    errors.add(:agent_program_version, "must belong to the same installation")
   end
 
-  def agent_deployment_execution_environment_match
-    return if conversation.blank? || agent_deployment.blank?
-    return if agent_deployment.execution_environment_id == conversation.execution_environment_id
+  def execution_runtime_installation_match
+    return if execution_runtime.blank?
+    return if execution_runtime.installation_id == installation_id
 
-    errors.add(:agent_deployment, "must belong to the bound execution environment")
+    errors.add(:execution_runtime, "must belong to the same installation")
+  end
+
+  def agent_program_version_conversation_match
+    return if conversation.blank? || agent_program_version.blank?
+    return if agent_program_version.agent_program_id == conversation.agent_program_id
+
+    errors.add(:agent_program_version, "must belong to the conversation agent program")
   end
 
   def selected_input_message_rules

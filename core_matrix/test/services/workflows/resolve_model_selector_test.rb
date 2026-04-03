@@ -6,7 +6,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +22,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     assert_equal "codex_subscription", snapshot["resolved_provider_handle"]
     assert_equal "gpt-5.4", snapshot["resolved_model_ref"]
     assert_equal 0, snapshot["fallback_count"]
-    assert_equal context[:capability_snapshot].id, snapshot["capability_snapshot_id"]
+    assert_equal context[:agent_program_version].public_id, snapshot["agent_program_version_id"]
     assert_equal "shared_window", snapshot["entitlement_key"]
   end
 
@@ -33,7 +33,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -61,7 +61,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -90,7 +90,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -123,7 +123,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -144,7 +144,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -171,7 +171,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -198,7 +198,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -224,7 +224,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -236,51 +236,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
         selector: "role:planner"
       )
     end
-  end
-
-  test "requires an active capability snapshot to freeze resolution" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
-    ProviderEntitlement.create!(
-      installation: context[:installation],
-      provider_handle: "codex_subscription",
-      entitlement_key: "shared_window",
-      window_kind: "rolling_five_hours",
-      window_seconds: 5.hours.to_i,
-      quota_limit: 200_000,
-      active: true,
-      metadata: {}
-    )
-    ProviderEntitlement.create!(
-      installation: context[:installation],
-      provider_handle: "openai",
-      entitlement_key: "shared_window",
-      window_kind: "rolling_five_hours",
-      window_seconds: 5.hours.to_i,
-      quota_limit: 200_000,
-      active: true,
-      metadata: {}
-    )
-    turn = Turns::StartUserTurn.call(
-      conversation: conversation,
-      content: "Selector input",
-      agent_deployment: context[:agent_deployment],
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
-
-    error = assert_raises(ActiveRecord::RecordInvalid) do
-      Workflows::ResolveModelSelector.call(
-        turn: turn,
-        selector_source: "conversation"
-      )
-    end
-
-    assert_includes error.record.errors[:resolved_model_selection_snapshot], "requires an active capability snapshot"
   end
 
   private
@@ -297,13 +252,12 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     openrouter_credential_present: true
   )
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_deployment: context[:agent_deployment])
-    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
+    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
+    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
 
     create_provider_entitlement!(
@@ -335,7 +289,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
 
     {
       conversation: conversation,
-      capability_snapshot: capability_snapshot,
+      capability_snapshot: context[:agent_program_version],
     }.merge(context)
   end
 

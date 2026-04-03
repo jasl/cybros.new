@@ -5,7 +5,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     bindings = ToolBindings::FreezeForWorkflowNode.call(
@@ -22,7 +22,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     first = ToolBindings::FreezeForWorkflowNode.call(
@@ -94,7 +94,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_environment: context.fetch(:execution_environment)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     binding = ToolBindings::FreezeForWorkflowNode.call(

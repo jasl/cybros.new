@@ -6,7 +6,7 @@ module AppAPI
         workspace: workspace,
         user: workspace.user,
         uploaded_file: params[:upload_file],
-        target_agent_deployment_id: current_deployment.public_id
+        target_agent_program_version_id: current_deployment.public_id
       )
 
       render json: {

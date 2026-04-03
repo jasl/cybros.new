@@ -5,8 +5,8 @@ module Fenix
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:, deployment_public_id: nil)
-        @layout = Layout.new(workspace_root:, conversation_id:, deployment_public_id:)
+      def initialize(workspace_root:, conversation_id:, agent_program_version_id: nil)
+        @layout = Layout.new(workspace_root:, conversation_id:, agent_program_version_id:)
       end
 
       def call
@@ -26,9 +26,9 @@ module Fenix
           layout.workspace_root.join(".env"),
           layout.workspace_root.join(".env.agent"),
         ]
-        if layout.deployment_public_id.present?
-          paths << layout.deployment_root.join(".env")
-          paths << layout.deployment_root.join(".env.agent")
+        if layout.agent_program_version_id.present?
+          paths << layout.program_version_root.join(".env")
+          paths << layout.program_version_root.join(".env.agent")
         end
         paths + [
           layout.conversation_root.join(".env"),

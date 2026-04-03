@@ -3,7 +3,8 @@ class CreateTurns < ActiveRecord::Migration[8.2]
     create_table :turns do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
-      t.references :agent_deployment, null: false, foreign_key: true
+      t.references :agent_program_version, null: false, foreign_key: true
+      t.references :execution_runtime, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.integer :sequence, null: false
       t.string :lifecycle_state, null: false
@@ -15,7 +16,7 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.string :external_event_key
       t.datetime :cancellation_requested_at
       t.string :cancellation_reason_kind
-      t.string :pinned_deployment_fingerprint, null: false
+      t.string :pinned_program_version_fingerprint, null: false
       t.jsonb :resolved_config_snapshot, null: false, default: {}
       t.jsonb :execution_snapshot_payload, null: false, default: {}
       t.jsonb :resolved_model_selection_snapshot, null: false, default: {}

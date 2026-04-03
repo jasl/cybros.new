@@ -52,8 +52,7 @@ class Conversation < ApplicationRecord
 
   belongs_to :installation
   belongs_to :workspace
-  belongs_to :execution_environment
-  belongs_to :agent_deployment
+  belongs_to :agent_program
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
   belongs_to :historical_anchor_message, class_name: "Message", optional: true
 
@@ -97,12 +96,11 @@ class Conversation < ApplicationRecord
     inverse_of: :ancestor_conversation
 
   validate :workspace_installation_match
-  validate :execution_environment_installation_match
-  validate :agent_deployment_installation_match
-  validate :agent_deployment_environment_match
+  validate :agent_program_installation_match
+  validate :workspace_agent_program_match
   validate :parent_lineage_rules
   validate :parent_workspace_match
-  validate :parent_execution_environment_match
+  validate :parent_agent_program_match
   validate :historical_anchor_membership
   validate :automation_rules
   validate :override_payload_must_be_hash
@@ -191,25 +189,18 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
-  def execution_environment_installation_match
-    return if execution_environment.blank?
-    return if execution_environment.installation_id == installation_id
+  def agent_program_installation_match
+    return if agent_program.blank?
+    return if agent_program.installation_id == installation_id
 
-    errors.add(:execution_environment, "must belong to the same installation")
+    errors.add(:agent_program, "must belong to the same installation")
   end
 
-  def agent_deployment_installation_match
-    return if agent_deployment.blank?
-    return if agent_deployment.installation_id == installation_id
+  def workspace_agent_program_match
+    return if workspace.blank? || agent_program.blank?
+    return if workspace.user_program_binding.agent_program_id == agent_program_id
 
-    errors.add(:agent_deployment, "must belong to the same installation")
-  end
-
-  def agent_deployment_environment_match
-    return if agent_deployment.blank? || execution_environment.blank?
-    return if agent_deployment.execution_environment_id == execution_environment_id
-
-    errors.add(:agent_deployment, "must belong to the bound execution environment")
+    errors.add(:agent_program, "must match the workspace agent program")
   end
 
   def parent_lineage_rules
@@ -252,11 +243,11 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must match the parent conversation workspace")
   end
 
-  def parent_execution_environment_match
+  def parent_agent_program_match
     return if parent_conversation.blank?
-    return if parent_conversation.execution_environment_id == execution_environment_id
+    return if parent_conversation.agent_program_id == agent_program_id
 
-    errors.add(:execution_environment, "must match the parent conversation execution environment")
+    errors.add(:agent_program, "must match the parent conversation agent program")
   end
 
   def override_payload_must_be_hash
@@ -264,34 +255,22 @@ class Conversation < ApplicationRecord
   end
 
   def override_reconciliation_report_must_be_hash
-    return if override_reconciliation_report.is_a?(Hash)
-
-    errors.add(:override_reconciliation_report, "must be a hash")
+    errors.add(:override_reconciliation_report, "must be a hash") unless override_reconciliation_report.is_a?(Hash)
   end
 
   def interactive_selector_rules
-    return if interactive_selector_mode.blank?
+    return unless explicit_candidate?
 
-    if auto?
-      errors.add(:interactive_selector_provider_handle, "must be blank for auto selector mode") if interactive_selector_provider_handle.present?
-      errors.add(:interactive_selector_model_ref, "must be blank for auto selector mode") if interactive_selector_model_ref.present?
-      return
-    end
-
-    if interactive_selector_provider_handle.blank?
-      errors.add(:interactive_selector_provider_handle, "must exist for explicit candidate selector mode")
-    end
-    if interactive_selector_model_ref.blank?
-      errors.add(:interactive_selector_model_ref, "must exist for explicit candidate selector mode")
-    end
+    errors.add(:interactive_selector_provider_handle, "must be present when explicit candidate mode is selected") if interactive_selector_provider_handle.blank?
+    errors.add(:interactive_selector_model_ref, "must be present when explicit candidate mode is selected") if interactive_selector_model_ref.blank?
   end
 
   def deleted_at_consistency
     if retained?
-      errors.add(:deleted_at, "must be blank while conversation is retained") if deleted_at.present?
+      errors.add(:deleted_at, "must be blank when deletion state is retained") if deleted_at.present?
       return
     end
 
-    errors.add(:deleted_at, "must exist once deletion is requested") if deleted_at.blank?
+    errors.add(:deleted_at, "must be present when deletion state is pending_delete or deleted") if deleted_at.blank?
   end
 end

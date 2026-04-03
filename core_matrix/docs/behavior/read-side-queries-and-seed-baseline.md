@@ -8,13 +8,13 @@ inventing demo users or UI state.
 
 ## Agent Visibility Query
 
-### `AgentInstallations::VisibleToUserQuery`
+### `AgentPrograms::VisibleToUserQuery`
 
-- Returns only `AgentInstallation` rows that are visible to one user inside the
+- Returns only `AgentProgram` rows that are visible to one user inside the
   single installation.
 - Visibility remains distinct:
-  - `global` agent installations are visible to every user in the installation
-  - `personal` agent installations are visible only to their `owner_user`
+  - `global` agent programs are visible to every user in the installation
+  - `personal` agent programs are visible only to their `owner_user`
 - Retired logical agent rows are excluded from the default visible list.
 - Results are ordered with global agents first, then personal agents, with a
   stable secondary order by display name and id.
@@ -167,7 +167,7 @@ of carrying separate counter families and close-summary logic in parallel.
 
 ## Failure Modes
 
-- Agent visibility queries exclude another user's personal agent installation
+- Agent visibility queries exclude another user's personal agent program
 - Human interaction inbox queries exclude resolved requests and requests owned
   by another user's private workspace
 - Workspace queries never cross the private workspace ownership boundary

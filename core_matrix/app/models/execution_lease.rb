@@ -32,14 +32,14 @@ class ExecutionLease < ApplicationRecord
   def holder_deployment
     return if holder_key.blank?
 
-    @holder_deployment ||= AgentDeployment.find_by(
+    @holder_deployment ||= AgentProgramVersion.find_by(
       installation_id: installation_id,
       public_id: holder_key
     )
   end
 
-  def holder_execution_environment
-    holder_deployment&.execution_environment
+  def holder_execution_runtime
+    holder_deployment&.execution_runtime
   end
 
   private

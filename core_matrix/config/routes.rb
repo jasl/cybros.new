@@ -13,7 +13,7 @@ Rails.application.routes.draw do
   root "home#index"
   mount ActionCable.server => "/cable"
 
-  namespace :agent_api do
+  namespace :program_api do
     resources :registrations, only: :create
     resources :heartbeats, only: :create
     resource :health, only: :show, controller: :health
@@ -40,11 +40,20 @@ Rails.application.routes.draw do
     end
     resources :human_interactions, only: :create
     resources :tool_invocations, only: :create
+    post "control/poll", to: "control#poll"
+    post "control/report", to: "control#report"
+  end
+
+  namespace :execution_api do
     resources :command_runs, only: :create do
       post :activate, on: :member
     end
     resources :process_runs, only: :create
-    post "control/poll", to: "control#poll"
+    resources :attachments, only: [] do
+      collection do
+        post "request", action: :create
+      end
+    end
     post "control/report", to: "control#report"
   end
 

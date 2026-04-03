@@ -4,9 +4,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
   test "creates an active delegated turn on agent addressable conversations" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,
@@ -19,7 +17,6 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       content: "Investigate this",
       sender_kind: "owner_agent",
       sender_conversation: owner_conversation,
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -42,9 +39,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
   test "rejects owner addressable conversations" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      workspace: context[:workspace]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -53,7 +48,6 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
         content: "Blocked",
         sender_kind: "owner_agent",
         sender_conversation: owner_conversation,
-        agent_deployment: context[:agent_deployment],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -70,8 +64,6 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
     )
     SubagentSession.create!(

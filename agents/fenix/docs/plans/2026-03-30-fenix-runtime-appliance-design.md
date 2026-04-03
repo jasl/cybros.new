@@ -11,7 +11,7 @@
 Turn `agents/fenix` from the current post-phase2 validated runtime baseline
 into a default, distributable runtime appliance that:
 
-- remains compatible with Core Matrix's `AgentDeployment + ExecutionEnvironment`
+- remains compatible with Core Matrix's `AgentProgramVersion + ExecutionRuntime`
   model
 - ships as the default agent implementation in Docker Compose deployments
 - can also run bare-metal on Ubuntu 24.04 LTS with documented prerequisites
@@ -22,12 +22,12 @@ into a default, distributable runtime appliance that:
 
 ## Current Constraints
 
-- `core_matrix` already models one stable `ExecutionEnvironment` plus one active
-  `AgentDeployment` per conversation and already supports
-  `agent_plane` / `environment_plane` / `effective_tool_catalog`.
+- `core_matrix` already models one stable `ExecutionRuntime`, frozen
+  `AgentProgramVersion` rows, and `program_plane` / `execution_plane` /
+  `effective_tool_catalog` contracts.
 - `agents/fenix` still exposes a mostly static pairing manifest and hardcoded
   tool composition, but it now handles both mailbox-driven agent execution and
-  environment-plane process control over the shared control plane.
+  execution-plane process control over the shared control plane.
 - `subagent_spawn`, `subagent_send`, `subagent_wait`, `subagent_close`, and
   `subagent_list` are Core Matrix reserved tools and should not be redefined as
   normal Fenix plugins.
@@ -44,7 +44,7 @@ into a default, distributable runtime appliance that:
 ## High-Level Decision
 
 Build Fenix as a single Ubuntu 24.04-based runtime appliance first, but define
-clear agent-plane and environment-plane seams from the beginning.
+clear program-plane and execution-plane seams from the beginning.
 
 The first release should keep one deployable service for product simplicity:
 
@@ -55,14 +55,14 @@ The first release should keep one deployable service for product simplicity:
 
 Internally, the implementation should still separate:
 
-- agent-plane logic
+- program-plane logic
   - prompts
   - profiles
   - skills
   - context compaction
   - memory policy
   - plugin registry composition
-- environment-plane logic
+- execution-plane logic
   - command execution
   - process management
   - browser automation
@@ -400,7 +400,7 @@ Before any implementation starts, re-check:
 - the final committed state of streamed command execution work
 - whether any ongoing refactors already introduced:
   - plugin registry helpers
-  - environment-plane execution paths
+  - execution-plane execution paths
   - workspace bootstrap code
   - process-backed tool abstractions
 

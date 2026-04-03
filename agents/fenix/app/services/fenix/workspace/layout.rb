@@ -7,26 +7,26 @@ module Fenix
         end
       end
 
-      attr_reader :workspace_root, :conversation_id, :deployment_public_id
+      attr_reader :workspace_root, :conversation_id, :agent_program_version_id
 
-      def initialize(workspace_root:, conversation_id: nil, deployment_public_id: nil)
+      def initialize(workspace_root:, conversation_id: nil, agent_program_version_id: nil)
         @workspace_root = Pathname.new(workspace_root)
         @conversation_id = conversation_id
-        @deployment_public_id = deployment_public_id
+        @agent_program_version_id = agent_program_version_id
       end
 
       def fenix_root
         workspace_root.join(".fenix")
       end
 
-      def deployment_root
-        return fenix_root unless deployment_public_id.present?
+      def program_version_root
+        return fenix_root unless agent_program_version_id.present?
 
-        fenix_root.join("deployments", deployment_public_id)
+        fenix_root.join("agent_program_versions", agent_program_version_id)
       end
 
       def memory_root
-        deployment_root.join("memory")
+        program_version_root.join("memory")
       end
 
       def root_memory_file
@@ -40,7 +40,7 @@ module Fenix
       def conversation_root
         return unless conversation_id.present?
 
-        deployment_root.join("conversations", conversation_id)
+        program_version_root.join("conversations", conversation_id)
       end
 
       def conversation_meta_file

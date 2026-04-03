@@ -24,7 +24,7 @@ module Fenix
       end
 
       def call
-        return fail_unsupported_runtime_plane unless @context.fetch("runtime_plane") == "agent"
+        return fail_unsupported_runtime_plane unless @context.fetch("runtime_plane") == "program"
 
         check_canceled!
         @collector.started!
@@ -412,7 +412,7 @@ module Fenix
       def fail_unsupported_runtime_plane
         failure_payload = {
           "failure_kind" => "unsupported_runtime_plane",
-          "last_error_summary" => "agent execution received #{@context.fetch("runtime_plane")} plane work",
+          "last_error_summary" => "program execution received #{@context.fetch("runtime_plane")} plane work",
           "retryable" => false,
         }
         @collector.fail!(terminal_payload: failure_payload)

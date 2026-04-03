@@ -57,7 +57,7 @@ Add tests that assert the manifest exposes additive operator metadata, for
 example:
 
 ```ruby
-test "pairing manifest exposes operator groups for environment tools" do
+test "pairing manifest exposes operator groups for execution tools" do
   get "/runtime/manifest"
 
   body = JSON.parse(response.body)
@@ -65,7 +65,7 @@ test "pairing manifest exposes operator groups for environment tools" do
 
   assert_includes groups.keys, "workspace"
   assert_includes groups.keys, "command_run"
-  assert body.fetch("environment_tool_catalog").any? { |entry| entry["operator_group"] == "workspace" }
+  assert body.fetch("execution_tool_catalog").any? { |entry| entry["operator_group"] == "workspace" }
 end
 ```
 

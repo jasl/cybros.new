@@ -1,9 +1,9 @@
 require "test_helper"
 
 class Fenix::Operator::CatalogTest < ActiveSupport::TestCase
-  test "groups environment tools into operator families" do
+  test "groups execution tools into operator families" do
     registry = Fenix::Plugins::Registry.default
-    groups = Fenix::Operator::Catalog.new(tool_catalog: registry.catalog.environment_tool_catalog).groups
+    groups = Fenix::Operator::Catalog.new(tool_catalog: registry.catalog.execution_tool_catalog).groups
 
     assert_equal "Workspace", groups.fetch("workspace").fetch("label")
     assert_equal %w[workspace_read workspace_write workspace_tree workspace_stat workspace_find], groups.fetch("workspace").fetch("tool_names")
@@ -19,7 +19,7 @@ class Fenix::Operator::CatalogTest < ActiveSupport::TestCase
   end
 
   test "decorates tool entries with operator metadata defaults" do
-    entry = Fenix::Plugins::Registry.default.catalog.environment_tool_catalog.find { |tool| tool.fetch("tool_name") == "exec_command" }
+    entry = Fenix::Plugins::Registry.default.catalog.execution_tool_catalog.find { |tool| tool.fetch("tool_name") == "exec_command" }
 
     assert_equal "command_run", entry.fetch("operator_group")
     assert_equal "Command Run", entry.fetch("operator_group_label")

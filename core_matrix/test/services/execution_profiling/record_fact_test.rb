@@ -4,15 +4,15 @@ class ExecutionProfiling::RecordFactTest < ActiveSupport::TestCase
   test "records execution profile facts through an explicit service boundary" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(
+    binding = create_user_program_binding!(
       installation: installation,
       user: user,
-      agent_installation: create_agent_installation!(installation: installation)
+      agent_program: create_agent_program!(installation: installation)
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      user_program_binding: binding
     )
 
     fact = ExecutionProfiling::RecordFact.call(

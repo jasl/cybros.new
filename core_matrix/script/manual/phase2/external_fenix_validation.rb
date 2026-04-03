@@ -7,7 +7,7 @@ delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 
 ManualAcceptanceSupport.reset_backend_state!
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-external = ManualAcceptanceSupport.create_external_agent_installation!(
+external = ManualAcceptanceSupport.create_external_agent_program!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: "fenix-external",
@@ -16,7 +16,7 @@ external = ManualAcceptanceSupport.create_external_agent_installation!(
 registration = ManualAcceptanceSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  environment_fingerprint: "phase2-external-fenix-environment",
+  runtime_fingerprint: "phase2-external-fenix-environment",
   fingerprint: "phase2-external-fenix-v1"
 )
 run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
@@ -55,7 +55,7 @@ ManualAcceptanceSupport.write_json(
     extra: {
       "deployment_id" => registration.fetch(:deployment).public_id,
       "delivery_mode" => delivery_mode,
-      "execution_environment_id" => registration.fetch(:deployment).execution_environment.public_id,
+      "execution_runtime_id" => registration.fetch(:deployment).execution_runtime.public_id,
       "registration_bootstrap_state" => registration.fetch(:registration).fetch("bootstrap_state"),
       "heartbeat_bootstrap_state" => registration.fetch(:heartbeat).fetch("bootstrap_state"),
       "conversation_id" => run.fetch(:conversation).public_id,

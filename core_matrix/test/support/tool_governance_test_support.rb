@@ -1,12 +1,12 @@
 module ToolGovernanceTestSupport
   private
 
-  def governed_environment_tool_catalog
+  def governed_execution_tool_catalog
     [
       {
         "tool_name" => "exec_command",
-        "tool_kind" => "environment_runtime",
-        "implementation_source" => "execution_environment",
+        "tool_kind" => "execution_runtime",
+        "implementation_source" => "execution_runtime",
         "implementation_ref" => "env/exec_command",
         "input_schema" => { "type" => "object", "properties" => {} },
         "result_schema" => { "type" => "object", "properties" => {} },
@@ -62,34 +62,30 @@ module ToolGovernanceTestSupport
   end
 
   def build_governed_tool_context!(
-    environment_tool_catalog: governed_environment_tool_catalog,
+    execution_tool_catalog: governed_execution_tool_catalog,
     agent_tool_catalog: governed_agent_tool_catalog,
     profile_catalog: governed_profile_catalog
   )
     context = build_agent_control_context!
-    context.fetch(:execution_environment).update!(tool_catalog: environment_tool_catalog)
+    context.fetch(:execution_runtime).update!(tool_catalog: execution_tool_catalog)
 
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context.fetch(:deployment),
-      version: 2,
+    activate_program_version!(
+      context,
       tool_catalog: agent_tool_catalog,
       profile_catalog: profile_catalog,
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context.fetch(:deployment).update!(active_capability_snapshot: capability_snapshot)
     context.fetch(:turn).update!(
-      resolved_model_selection_snapshot: context.fetch(:turn).resolved_model_selection_snapshot.merge(
-        "capability_snapshot_id" => capability_snapshot.id
-      )
+      agent_program_version: context.fetch(:agent_program_version),
+      pinned_program_version_fingerprint: context.fetch(:agent_program_version).fingerprint
     )
-
-    Conversations::RefreshRuntimeContract.call(conversation: context.fetch(:conversation))
     execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
     context.fetch(:turn).update!(execution_snapshot_payload: execution_snapshot.to_h)
 
     context.merge(
-      capability_snapshot: capability_snapshot,
+      capability_snapshot: context.fetch(:agent_program_version),
+      deployment: context.fetch(:agent_program_version),
       turn: context.fetch(:turn).reload,
       workflow_node: context.fetch(:workflow_node).reload
     )

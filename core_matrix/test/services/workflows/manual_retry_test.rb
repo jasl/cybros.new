@@ -5,8 +5,8 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     actor = create_user!(installation: context[:installation], role: "admin")
 
@@ -20,20 +20,20 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert retried.active?
     assert_not_equal context[:workflow_run].id, retried.id
     assert_equal "Paused retry input", retried.turn.selected_input_message.content
-    assert_equal replacement, retried.turn.agent_deployment
-    assert_equal replacement.fingerprint, retried.turn.pinned_deployment_fingerprint
+    assert_equal replacement, retried.turn.agent_program_version
+    assert_equal replacement.fingerprint, retried.turn.pinned_program_version_fingerprint
     assert_equal "candidate:openai/gpt-5.3-chat-latest", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.3-chat-latest", retried.turn.resolved_model_ref
-    assert_equal replacement.public_id, retried.execution_identity["agent_deployment_id"]
-    assert_equal context[:execution_environment].public_id, retried.execution_identity["execution_environment_id"]
+    assert_equal replacement.public_id, retried.execution_identity["agent_program_version_id"]
+    assert_equal context[:execution_runtime].public_id, retried.execution_identity["execution_runtime_id"]
     assert_equal ["root"], retried.workflow_nodes.order(:ordinal).pluck(:node_key)
 
     paused = context[:workflow_run].reload
     assert paused.canceled?
     assert paused.turn.reload.canceled?
     assert_equal context[:turn].selected_input_message.content, retried.turn.selected_input_message.content
-    assert_equal replacement, context[:conversation].reload.agent_deployment
+    assert_equal context[:agent_program], context[:conversation].reload.agent_program
 
     audit_log = AuditLog.find_by!(action: "workflow.manual_retried")
     assert_equal actor, audit_log.actor
@@ -49,7 +49,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Workflows::ManualRetry.call(
         workflow_run: context[:workflow_run],
-        deployment: context[:agent_deployment],
+        deployment: context[:agent_program_version],
         actor: create_user!(installation: context[:installation], role: "admin")
       )
     end
@@ -61,7 +61,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation]
+      agent_program: context[:agent_program]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -72,15 +72,15 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:agent_deployment], "must belong to the bound execution environment"
+    assert_includes error.record.errors[:agent_program_version], "must preserve the frozen execution runtime"
   end
 
   test "rejects manual retry when the frozen selector can no longer be resolved" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     ProviderEntitlement.where(installation: context[:installation]).update_all(active: false)
 
@@ -96,15 +96,15 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:resolved_model_selection_snapshot], "must remain resolvable for the recovery action"
     assert context[:workflow_run].reload.waiting?
     assert context[:turn].reload.active?
-    assert_equal context[:agent_deployment], context[:conversation].reload.agent_deployment
+    assert_equal context[:agent_program], context[:conversation].reload.agent_program
   end
 
   test "rechecks paused recovery state after acquiring the conversation lock" do
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     service = Workflows::ManualRetry.new(
       workflow_run: context[:workflow_run],
@@ -119,7 +119,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:wait_reason_kind], "must require manual recovery before retrying"
     assert context[:workflow_run].reload.ready?
-    assert_equal context[:agent_deployment], context[:conversation].reload.agent_deployment
+    assert_equal context[:agent_program], context[:conversation].reload.agent_program
     assert_equal 1, context[:conversation].turns.count
   end
 
@@ -127,14 +127,14 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context = build_paused_recovery_context!
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     original_resolve_call = nil
     resolve_calls = []
 
-    original_resolve_call = AgentDeployments::ResolveRecoveryTarget.method(:call)
-    AgentDeployments::ResolveRecoveryTarget.singleton_class.define_method(:call) do |*args, **kwargs|
+    original_resolve_call = AgentProgramVersions::ResolveRecoveryTarget.method(:call)
+    AgentProgramVersions::ResolveRecoveryTarget.singleton_class.define_method(:call) do |*args, **kwargs|
       resolve_calls << kwargs
       original_resolve_call.call(*args, **kwargs)
     end
@@ -149,11 +149,11 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert retried.active?
     assert_equal 1, resolve_calls.size
     assert_equal context[:turn].id, resolve_calls.first.fetch(:turn).id
-    assert_equal replacement, resolve_calls.first.fetch(:agent_deployment)
+    assert_equal replacement, resolve_calls.first.fetch(:agent_program_version)
     assert_equal "manual_recovery", resolve_calls.first.fetch(:selector_source)
   ensure
     if original_resolve_call
-      AgentDeployments::ResolveRecoveryTarget.singleton_class.define_method(:call, original_resolve_call)
+      AgentProgramVersions::ResolveRecoveryTarget.singleton_class.define_method(:call, original_resolve_call)
     end
   end
 
@@ -163,13 +163,13 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Paused retry input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -180,8 +180,8 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
       decision_source: "system",
       metadata: {}
     )
-    AgentDeployments::MarkUnavailable.call(
-      deployment: context[:agent_deployment],
+    AgentProgramVersions::MarkUnavailable.call(
+      deployment: context[:agent_program_version],
       severity: "prolonged",
       reason: "runtime_offline",
       occurred_at: Time.current
@@ -192,30 +192,41 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
 
   def create_compatible_replacement_deployment!(
     installation:,
-    agent_installation:,
-    execution_environment: create_execution_environment!(installation: installation)
+    agent_program:,
+    execution_runtime: create_execution_runtime!(installation: installation)
   )
-    agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(
-      bootstrap_state: "superseded",
+    AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
       updated_at: Time.current
     )
-    deployment = create_agent_deployment!(
+    deployment = create_agent_program_version!(
       installation: installation,
-      agent_installation: agent_installation,
-      execution_environment: execution_environment,
+      agent_program: agent_program,
       fingerprint: "replacement-#{next_test_sequence}",
-      health_status: "healthy",
-      auto_resume_eligible: true
-    )
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: deployment,
-      version: 1,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    deployment.update!(active_capability_snapshot: capability_snapshot)
+    agent_program.update!(default_execution_runtime: execution_runtime)
+    create_agent_session!(
+      installation: installation,
+      agent_program: agent_program,
+      agent_program_version: deployment,
+      health_status: "healthy",
+      auto_resume_eligible: true,
+      last_heartbeat_at: Time.current,
+      last_health_check_at: Time.current
+    )
+    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
+      updated_at: Time.current
+    )
+    create_execution_session!(
+      installation: installation,
+      execution_runtime: execution_runtime,
+      last_heartbeat_at: Time.current
+    )
 
     deployment
   end

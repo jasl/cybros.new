@@ -8,8 +8,8 @@ bundled_configuration = {
   display_name: "Phase 2 Human Wait Runtime",
   visibility: "global",
   lifecycle_state: "active",
-  environment_kind: "local",
-  environment_fingerprint: "phase2-d-human-environment",
+  runtime_kind: "local",
+  runtime_fingerprint: "phase2-d-human-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
@@ -59,21 +59,21 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
 )
-binding = UserAgentBindings::Enable.call(
+binding = UserProgramBindings::Enable.call(
   user: bootstrap.user,
-  agent_installation: registry.agent_installation
+  agent_program: registry.agent_program
 ).binding
 workspace = binding.workspaces.find_by!(is_default: true)
 
 conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  execution_environment: registry.execution_environment,
-  agent_deployment: registry.deployment
+  execution_runtime: registry.execution_runtime,
+  agent_program_version: registry.deployment
 )
 turn = Turns::StartUserTurn.call(
   conversation: conversation,
   content: "Need operator confirmation before continuing.",
-  agent_deployment: registry.deployment,
+  agent_program_version: registry.deployment,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )
@@ -102,7 +102,7 @@ Workflows::Mutate.call(
 workflow_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "agent_turn_step")
 agent_task_run = AgentTaskRun.create!(
   installation: workflow_run.installation,
-  agent_installation: registry.agent_installation,
+  agent_program: registry.agent_program,
   workflow_run: workflow_run,
   workflow_node: workflow_node,
   conversation: conversation,

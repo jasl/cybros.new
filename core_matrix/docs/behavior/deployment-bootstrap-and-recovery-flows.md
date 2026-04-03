@@ -23,13 +23,13 @@ Related design note:
 
 ## Deployment Bootstrap
 
-- `AgentDeployments::Bootstrap` materializes bootstrap as a normal automation
+- `AgentProgramVersions::Bootstrap` materializes bootstrap as a normal automation
   conversation, turn, and workflow run instead of a hidden row update.
 - bootstrap uses `Turn.origin_kind = "system_internal"` so deployment-scoped
   bootstrap work is distinguishable from schedule- or webhook-driven
   automation turns
 - bootstrap turns use:
-  - `source_ref_type = "AgentDeployment"`
+  - `source_ref_type = "AgentProgramVersion"`
   - `source_ref_id = <deployment public_id>`
 - bootstrap creates one root workflow node:
   - `node_key = "deployment_bootstrap"`
@@ -39,16 +39,16 @@ Related design note:
   - the turn origin payload
   - the root workflow-node metadata
 - bootstrap records the audit action
-  `agent_deployment.bootstrap_started`
+  `agent_program_version.bootstrap_started`
 
 ## Deployment Rotation
 
 - release change is modeled as deployment rotation, not in-place mutation
-- a replacement `AgentDeployment` registers as `pending`
+- a replacement `AgentProgramVersion` registers as `pending`
 - the first healthy heartbeat on that pending deployment:
   - promotes it to `bootstrap_state = "active"`
   - supersedes any previously active deployment for the same logical
-    `AgentInstallation`
+    `AgentProgram`
 - upgrade and downgrade follow the same kernel-facing rule
 - the superseded deployment may still be referenced by paused turns or old
   audits, but it is no longer eligible for new scheduling
@@ -58,7 +58,7 @@ Related design note:
 
 ## Outage Wait-State Model
 
-- `AgentDeployments::MarkUnavailable` is the control-plane service that moves
+- `AgentProgramVersions::MarkUnavailable` is the control-plane service that moves
   active work into a deployment-scoped wait state.
 - affected workflows are discovered by the deployment referenced on the pinned
   turn, not by a parallel pause ledger.
@@ -67,16 +67,16 @@ Related design note:
   - active workflows move to `wait_state = "waiting"`
   - `wait_reason_kind = "agent_unavailable"`
   - `wait_reason_payload["recovery_state"] = "transient_outage"`
-  - `blocking_resource_type = "AgentDeployment"`
+  - `blocking_resource_type = "AgentProgramVersion"`
   - `blocking_resource_id = <deployment public_id>`
-  - audit action `agent_deployment.degraded`
+  - audit action `agent_program_version.degraded`
 - prolonged outage behavior:
   - deployment moves to `health_status = "offline"`
   - `auto_resume_eligible = false`
   - active workflows remain `waiting` but move to
     `wait_reason_kind = "manual_recovery_required"`
   - `wait_reason_payload["recovery_state"] = "paused_agent_unavailable"`
-  - audit action `agent_deployment.paused_agent_unavailable`
+  - audit action `agent_program_version.paused_agent_unavailable`
 - the wait payload freezes the deployment fingerprint and capability version
   that were pinned when the workflow last ran safely
 - if a workflow was already waiting on another blocker such as
@@ -91,7 +91,7 @@ Related design note:
 
 ## Auto Resume
 
-- `AgentDeployments::AutoResumeWorkflows` only considers workflows already
+- `AgentProgramVersions::AutoResumeWorkflows` only considers workflows already
   waiting on `agent_unavailable`
 - waiting workflows are discovered by logical agent identity, not only by the
   currently active deployment row
@@ -103,35 +103,34 @@ Related design note:
     - pinned deployment fingerprint still matches the current deployment
       fingerprint and the pinned capability snapshot version still matches the
       current active capability snapshot version
-    - a rotated deployment from the same logical `AgentInstallation` preserves
+    - a rotated deployment from the same logical `AgentProgram` preserves
       the paused capability contract and the frozen selector still resolves on
       the replacement deployment
 - successful auto-resume preserves the existing turn and workflow-run IDs
 - if outage pause wrapped an older blocker, successful auto-resume restores
   that blocker instead of forcing the workflow to `ready`
-- `AgentDeployments::BuildRecoveryPlan` now owns drift classification and
+- `AgentProgramVersions::BuildRecoveryPlan` now owns drift classification and
   recovery planning and returns one explicit action:
   - `resume`
   - `resume_with_rebind`
   - `manual_recovery_required`
-- `AgentDeployments::ResolveRecoveryTarget` is the one paused-work
+- `AgentProgramVersions::ResolveRecoveryTarget` is the one paused-work
   target-resolution contract for:
   - scheduling and auto-resume eligibility checks
   - same-installation and same execution-environment checks for paused work
   - same logical-agent enforcement for paused resumptions
   - paused capability-contract compatibility
   - selector re-resolution on the candidate deployment
-- `AgentDeployments::ApplyRecoveryPlan` is now a thin orchestrator over the
+- `AgentProgramVersions::ApplyRecoveryPlan` is now a thin orchestrator over the
   planned recovery target and restored wait-state writes
-- `AgentDeployments::RebindTurn` is the one paused-turn mutation owner for:
-  - switching `conversation.agent_deployment`
-  - rewriting `turn.agent_deployment`
-  - rewriting `turn.pinned_deployment_fingerprint`
+- `AgentProgramVersions::RebindTurn` is the one paused-turn mutation owner for:
+  - rewriting `turn.agent_program_version`
+  - rewriting `turn.pinned_program_version_fingerprint`
   - replacing the frozen model-selection snapshot
   - rebuilding the turn execution snapshot
 - when the auto-resume target is a rotated replacement deployment, the kernel:
   - re-pins the turn to the replacement deployment
-  - refreshes the frozen capability snapshot binding
+  - refreshes the frozen program-version binding
   - re-assembles the execution context so execution identity now references the
     replacement deployment public id
 - if the deployment comes back healthy but runtime identity drifted, the kernel
@@ -146,14 +145,14 @@ Related design note:
 ### Manual Resume
 
 - `Workflows::ManualResume` resumes the existing paused workflow path in place.
-- manual resume reuses `AgentDeployments::ResolveRecoveryTarget` and
-  `AgentDeployments::RebindTurn`; it does not keep a second paused-work
+- manual resume reuses `AgentProgramVersions::ResolveRecoveryTarget` and
+  `AgentProgramVersions::RebindTurn`; it does not keep a second paused-work
   compatibility or rebinding path
 - manual resume is allowed only when:
   - the workflow is already paused in `paused_agent_unavailable`
   - the chosen deployment belongs to the same installation
   - the chosen deployment is eligible for scheduling
-  - the chosen deployment belongs to the same logical `AgentInstallation`
+  - the chosen deployment belongs to the same logical `AgentProgram`
   - the chosen deployment still preserves the paused workflow capability
     contract
   - the frozen selector, or a one-time replacement selector, can still resolve
@@ -171,7 +170,7 @@ Related design note:
 
 - `Workflows::ManualRetry` abandons the paused execution path and starts a new
   workflow from the last stable selected input.
-- manual retry reuses `AgentDeployments::ResolveRecoveryTarget` for
+- manual retry reuses `AgentProgramVersions::ResolveRecoveryTarget` for
   paused-work target validation, but it does not call `RebindTurn` because it
   starts a fresh turn instead of mutating the paused one
 - manual retry:
@@ -211,7 +210,7 @@ Related design note:
 
 - bootstrap is rejected when the workspace does not belong to the same
   installation as the deployment
-- `Conversations::ValidateAgentDeploymentTarget` remains the generic live
+- `Conversations::ValidateAgentProgramVersionTarget` remains the generic live
   conversation deployment-switch validator and does not carry paused-work
   logical-agent or capability-contract continuity checks
 - manual resume rejects logical-agent mismatch rather than silently continuing

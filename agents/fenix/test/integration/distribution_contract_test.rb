@@ -36,8 +36,8 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_match(/database: storage\/production\.sqlite3/, database_config)
     assert_match(/fenix dev proxy routes/, proxy_script)
 
-    assert_equal "ubuntu-24.04", body.dig("environment_capability_payload", "runtime_foundation", "base_image")
-    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("environment_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
+    assert_equal "ubuntu-24.04", body.dig("execution_capability_payload", "runtime_foundation", "base_image")
+    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("execution_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
 
     assert_equal ".", fenix_service.fetch("build")
     assert_equal ".", proxy_service.fetch("build")

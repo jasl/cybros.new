@@ -6,11 +6,12 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, content:, sender_kind:, sender_conversation: nil, agent_deployment:, resolved_config_snapshot:, resolved_model_selection_snapshot:)
+    def initialize(conversation:, content:, sender_kind:, sender_conversation: nil, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
       @conversation = conversation
       @content = content
       @sender_kind = sender_kind
       @sender_conversation = sender_conversation
+      @execution_runtime = execution_runtime
       @resolved_config_snapshot = resolved_config_snapshot
       @resolved_model_selection_snapshot = resolved_model_selection_snapshot
     end
@@ -29,19 +30,25 @@ module Turns
           rejection_message: "must be agent_addressable for agent turn entry"
         )
         validate_sender_kind!
-        agent_deployment = conversation.agent_deployment
+
+        agent_program_version = Turns::FreezeProgramVersion.call(conversation: conversation)
+        execution_runtime = Turns::SelectExecutionRuntime.call(
+          conversation: conversation,
+          execution_runtime: @execution_runtime
+        )
 
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_deployment: agent_deployment,
+          agent_program_version: agent_program_version,
+          execution_runtime: execution_runtime,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "active",
           origin_kind: "system_internal",
           origin_payload: sender_payload,
           source_ref_type: sender_source_ref_type,
           source_ref_id: sender_source_ref_id,
-          pinned_deployment_fingerprint: agent_deployment.fingerprint,
+          pinned_program_version_fingerprint: agent_program_version.fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )

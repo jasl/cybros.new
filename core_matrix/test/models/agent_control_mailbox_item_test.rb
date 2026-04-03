@@ -1,16 +1,16 @@
 require "test_helper"
 
 class AgentControlMailboxItemTest < ActiveSupport::TestCase
-  test "execution assignments persist agent-plane routing in durable mailbox columns" do
+  test "execution assignments persist program-plane routing in durable mailbox columns" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item).reload
     envelope = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
-    assert_equal "agent", mailbox_item.attributes["runtime_plane"]
-    assert_nil mailbox_item.attributes["target_execution_environment_id"]
-    assert_equal context[:agent_installation].public_id, mailbox_item.target_ref
-    assert_equal "agent", envelope.fetch("runtime_plane")
+    assert_equal "program", mailbox_item.attributes["runtime_plane"]
+    assert_nil mailbox_item.attributes["target_execution_runtime_id"]
+    assert_equal context[:agent_program].public_id, mailbox_item.target_ref
+    assert_equal "program", envelope.fetch("runtime_plane")
     refute envelope.fetch("payload").key?("runtime_plane")
   end
 
@@ -19,7 +19,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: context[:agent_installation],
+      target_agent_program: context[:agent_program],
       agent_task_run: agent_task_run,
       payload: { "task" => "turn_step" }
     )
@@ -29,7 +29,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     mailbox_item.update!(
       status: "leased",
-      leased_to_agent_deployment: context[:deployment],
+      leased_to_agent_session: context[:agent_session],
       leased_at: Time.current,
       lease_expires_at: 30.seconds.from_now,
       delivery_no: 1
@@ -42,23 +42,21 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     end
   end
 
-  test "requires deployment targeting to remain inside the targeted agent installation" do
+  test "requires deployment targeting to remain inside the targeted agent program" do
     context = build_agent_control_context!
-    other_agent_installation = create_agent_installation!(installation: context[:installation])
-    other_environment = create_execution_environment!(installation: context[:installation])
-    other_deployment = create_agent_deployment!(
+    other_agent_program = create_agent_program!(installation: context[:installation])
+    other_deployment = create_agent_program_version!(
       installation: context[:installation],
-      agent_installation: other_agent_installation,
-      execution_environment: other_environment
+      agent_program: other_agent_program
     )
 
     mailbox_item = AgentControlMailboxItem.new(
       installation: context[:installation],
-      target_agent_installation: context[:agent_installation],
-      target_agent_deployment: other_deployment,
+      target_agent_program: context[:agent_program],
+      target_agent_program_version: other_deployment,
       item_type: "resource_close_request",
-      runtime_plane: "agent",
-      target_kind: "agent_deployment",
+      runtime_plane: "program",
+      target_kind: "agent_program_version",
       target_ref: other_deployment.public_id,
       logical_work_id: "close-test",
       attempt_no: 1,
@@ -73,20 +71,20 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_not mailbox_item.valid?
-    assert_includes mailbox_item.errors[:target_agent_deployment], "must belong to the targeted agent installation"
+    assert_includes mailbox_item.errors[:target_agent_program_version], "must belong to the targeted agent program"
   end
 
-  test "environment-plane close work keeps the execution environment as the durable target reference" do
+  test "execution-plane close work keeps the execution runtime as the durable target reference" do
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -99,20 +97,19 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       force_deadline_at: 60.seconds.from_now
     )
 
-    assert_equal "environment", mailbox_item.attributes["runtime_plane"]
-    assert_equal context[:execution_environment].id, mailbox_item.attributes["target_execution_environment_id"]
-    assert_equal context[:execution_environment].public_id, mailbox_item.target_ref
+    assert_equal "execution", mailbox_item.attributes["runtime_plane"]
+    assert_equal context[:execution_runtime].id, mailbox_item.attributes["target_execution_runtime_id"]
+    assert_equal context[:execution_runtime].public_id, mailbox_item.target_ref
   end
 
-  test "agent-plane subagent session close work falls back to the owner conversation agent installation when no lease holder exists" do
+  test "program-plane subagent session close work falls back to the owner conversation agent program when no lease holder exists" do
     context = build_agent_control_context!
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      agent_program: context[:agent_program],
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -134,10 +131,10 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       force_deadline_at: 60.seconds.from_now
     )
 
-    assert_equal context[:agent_installation], mailbox_item.target_agent_installation
-    assert_equal "agent_installation", mailbox_item.target_kind
-    assert_equal context[:agent_installation].public_id, mailbox_item.target_ref
-    assert_equal "agent", mailbox_item.attributes["runtime_plane"]
+    assert_equal context[:agent_program], mailbox_item.target_agent_program
+    assert_equal "agent_program", mailbox_item.target_kind
+    assert_equal context[:agent_program].public_id, mailbox_item.target_ref
+    assert_equal "program", mailbox_item.attributes["runtime_plane"]
     assert_equal "SubagentSession", mailbox_item.payload.fetch("resource_type")
     assert_equal subagent_session.public_id, mailbox_item.payload.fetch("resource_id")
   end
@@ -149,8 +146,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      agent_program: context[:agent_program],
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -166,11 +162,11 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_installation: context[:agent_installation],
+      target_agent_program: context[:agent_program],
       item_type: "resource_close_request",
-      runtime_plane: "agent",
-      target_kind: "agent_installation",
-      target_ref: context[:agent_installation].public_id,
+      runtime_plane: "program",
+      target_kind: "agent_program",
+      target_ref: context[:agent_program].public_id,
       logical_work_id: "close-test-#{next_test_sequence}",
       protocol_message_id: protocol_message_id,
       priority: 0,
@@ -199,10 +195,10 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     mailbox_item = AgentControlMailboxItem.new(
       installation: context[:installation],
-      target_agent_installation: context[:agent_installation],
+      target_agent_program: context[:agent_program],
       item_type: "execution_assignment",
-      target_kind: "agent_installation",
-      target_ref: context[:agent_installation].public_id,
+      target_kind: "agent_program",
+      target_ref: context[:agent_program].public_id,
       logical_work_id: "assignment-#{next_test_sequence}",
       attempt_no: 1,
       delivery_no: 0,

@@ -57,16 +57,16 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("call_id")
     assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("task").fetch("workflow_node_id")
     assert_equal(
-      { "deployment_public_id" => context.fetch(:deployment).public_id },
-      program_exchange.execute_program_tool_requests.first.fetch("runtime_context").slice("deployment_public_id")
+      { "agent_program_version_id" => context.fetch(:deployment).public_id },
+      program_exchange.execute_program_tool_requests.first.fetch("runtime_context").slice("agent_program_version_id")
     )
   end
 
   test "routes execution-environment round tools back through the program mailbox exchange" do
     environment_tool = {
       "tool_name" => "memory_search",
-      "tool_kind" => "environment_runtime",
-      "implementation_source" => "execution_environment",
+      "tool_kind" => "execution_runtime",
+      "implementation_source" => "execution_runtime",
       "implementation_ref" => "env/memory_search",
       "input_schema" => {
         "type" => "object",
@@ -85,7 +85,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       "idempotency_policy" => "best_effort",
     }
     context = build_governed_tool_context!(
-      environment_tool_catalog: [environment_tool],
+      execution_tool_catalog: [environment_tool],
       profile_catalog: {
         "main" => {
           "label" => "Main",

@@ -71,7 +71,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "accepted", result.code
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "running", agent_task_run.reload.lifecycle_state
-    assert_equal context[:deployment], agent_task_run.holder_agent_deployment
+    assert_equal context[:agent_session], agent_task_run.holder_agent_session
     assert_equal context[:deployment].public_id, agent_task_run.execution_lease.holder_key
   end
 
@@ -450,13 +450,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
@@ -487,7 +487,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_rotated_runtime_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -598,8 +598,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -616,7 +616,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       resource: subagent_session
     ).fetch(:mailbox_item)
 
-    assert_equal "agent_installation", mailbox_item.target_kind
+    assert_equal "agent_program", mailbox_item.target_kind
 
     AgentControl::Poll.call(deployment: context[:replacement_deployment], limit: 10)
 
@@ -661,8 +661,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -706,13 +706,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-28 12:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = travel_to(occurred_at) do
@@ -737,7 +737,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     assert_equal "accepted", ack_result.code
     assert_equal "acked", close_request.reload.status
-    assert_equal context[:deployment], close_request.leased_to_agent_deployment
+    assert_equal context[:agent_session], close_request.leased_to_agent_session
 
     AgentControl::ProgressCloseRequest.call(
       mailbox_item: close_request,
@@ -746,7 +746,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     assert_equal "queued", close_request.reload.status
     assert_equal "forced", close_request.payload["strictness"]
-    assert_equal context[:deployment], close_request.leased_to_agent_deployment
+    assert_equal context[:agent_session], close_request.leased_to_agent_session
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
@@ -772,13 +772,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-28 13:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = travel_to(occurred_at) do
@@ -838,13 +838,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = MailboxScenarioBuilder.new(self).close_request!(
@@ -892,13 +892,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = MailboxScenarioBuilder.new(self).close_request!(
@@ -932,11 +932,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment]
+      execution_runtime: context[:execution_runtime]
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
@@ -988,9 +988,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def build_calculator_agent_control_context!
     context = build_agent_control_context!
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:deployment],
-      version: 2,
+    activate_program_version!(
+      context,
       tool_catalog: [
         {
           "tool_name" => "calculator",
@@ -1013,22 +1012,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
     context[:turn].update!(
-      resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
-        "capability_snapshot_id" => capability_snapshot.id
-      )
+      agent_program_version: context[:agent_program_version],
+      pinned_program_version_fingerprint: context[:agent_program_version].fingerprint
     )
 
-    conversation = context[:conversation].reload
     turn = context[:turn].reload
-
-    Conversations::RefreshRuntimeContract.call(conversation: conversation)
     execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn)
     turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
 
     context.merge(
-      conversation: conversation.reload,
       turn: turn.reload,
       workflow_run: context[:workflow_run].reload,
       workflow_node: context[:workflow_node].reload
@@ -1037,9 +1030,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def build_exec_command_agent_control_context!
     context = build_agent_control_context!
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:deployment],
-      version: 2,
+    activate_program_version!(
+      context,
       tool_catalog: [
         {
           "tool_name" => "exec_command",
@@ -1062,22 +1054,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context[:deployment].update!(active_capability_snapshot: capability_snapshot)
     context[:turn].update!(
-      resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
-        "capability_snapshot_id" => capability_snapshot.id
-      )
+      agent_program_version: context[:agent_program_version],
+      pinned_program_version_fingerprint: context[:agent_program_version].fingerprint
     )
 
-    conversation = context[:conversation].reload
     turn = context[:turn].reload
-
-    Conversations::RefreshRuntimeContract.call(conversation: conversation)
     execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn)
     turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
 
     context.merge(
-      conversation: conversation.reload,
       turn: turn.reload,
       workflow_run: context[:workflow_run].reload,
       workflow_node: context[:workflow_node].reload

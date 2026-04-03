@@ -27,13 +27,13 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_environment: context[:execution_environment],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: background_service,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     turn_scoped_session = create_turn_scoped_subagent_session!(
@@ -168,7 +168,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
 
     assert agent_task_run.reload.canceled?
     assert_equal "canceled", mailbox_item.reload.status
-    assert_nil mailbox_item.leased_to_agent_deployment
+    assert_nil mailbox_item.leased_to_agent_session
     assert_empty AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
   end
 
@@ -183,15 +183,15 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
 
     close_request = AgentControlMailboxItem.find_by!(
       item_type: "resource_close_request",
-      target_agent_installation: context[:agent_installation]
+      target_agent_program: context[:agent_program]
     )
 
     assert_equal "requested", turn_scoped_session.reload.close_state
     assert_equal turn_scoped_session.public_id, close_request.payload.fetch("resource_id")
     assert_equal "SubagentSession", close_request.payload.fetch("resource_type")
-    assert_equal "agent", close_request.runtime_plane
-    assert_equal "agent_installation", close_request.target_kind
-    assert_equal context[:agent_installation].public_id, close_request.target_ref
+    assert_equal "program", close_request.runtime_plane
+    assert_equal "agent_program", close_request.target_kind
+    assert_equal context[:agent_program].public_id, close_request.target_ref
   end
 
   test "reconciles an unfinished archive close after local mainline blockers are canceled" do
@@ -218,13 +218,12 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Interrupt me",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -247,8 +246,8 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )
 
@@ -270,8 +269,8 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )
     session = SubagentSession.create!(
@@ -288,7 +287,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       content: "Reusable delegated work",
       sender_kind: "owner_agent",
       sender_conversation: context[:conversation],
-      agent_deployment: context[:deployment],
+      agent_program_version: context[:deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

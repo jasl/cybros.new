@@ -7,7 +7,7 @@ module ProviderExecution
     def initialize(workflow_node:, transcript:, prior_tool_results:, program_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
-      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_deployment: workflow_node.turn.agent_deployment)
+      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_program_version: workflow_node.turn.agent_program_version)
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
       @prior_tool_results = Array(prior_tool_results).map { |entry| entry.deep_stringify_keys }
     end
@@ -38,10 +38,10 @@ module ProviderExecution
         "capability_projection" => @workflow_run.execution_snapshot.capability_projection,
         "provider_context" => @workflow_run.execution_snapshot.provider_context,
         "runtime_context" => {
-          "runtime_plane" => "agent",
+          "runtime_plane" => "program",
           "logical_work_id" => "prepare-round:#{@workflow_node.public_id}",
           "attempt_no" => 1,
-          "deployment_public_id" => @workflow_run.turn.agent_deployment.public_id,
+          "agent_program_version_id" => @workflow_run.turn.agent_program_version.public_id,
         },
       }
     end

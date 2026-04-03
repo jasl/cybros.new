@@ -5,13 +5,12 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      agent_program: context[:agent_program]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Recover this workflow",
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -23,35 +22,35 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
       metadata: {}
     )
 
-    AgentDeployments::MarkUnavailable.call(
-      deployment: context[:agent_deployment],
+    AgentProgramVersions::MarkUnavailable.call(
+      deployment: context[:agent_program_version],
       severity: "transient",
       reason: "heartbeat_missed",
       occurred_at: Time.current
     )
 
     drifted_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    context[:agent_deployment].update!(active_capability_snapshot: drifted_snapshot)
-    AgentDeployments::RecordHeartbeat.call(
-      deployment: context[:agent_deployment],
+    adopt_agent_program_version!(context, drifted_snapshot, turn: nil)
+    AgentProgramVersions::RecordHeartbeat.call(
+      deployment: context[:agent_program_version],
       health_status: "healthy",
       health_metadata: {},
       auto_resume_eligible: true
     )
 
-    assert_equal [], AgentDeployments::AutoResumeWorkflows.call(deployment: context[:agent_deployment])
+    assert_equal [], AgentProgramVersions::AutoResumeWorkflows.call(deployment: context[:agent_program_version])
 
     replacement = create_replacement_deployment!(
       installation: context[:installation],
-      agent_installation: context[:agent_installation],
-      execution_environment: context[:execution_environment]
+      agent_program: context[:agent_program],
+      execution_runtime: context[:execution_runtime]
     )
     retried = Workflows::ManualRetry.call(
       workflow_run: workflow_run.reload,
@@ -63,16 +62,16 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     assert workflow_run.reload.canceled?
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
     assert retried.active?
-    assert_equal replacement, conversation.reload.agent_deployment
-    assert_equal replacement, retried.turn.agent_deployment
+    assert_equal context[:agent_program], conversation.reload.agent_program
+    assert_equal replacement, retried.turn.agent_program_version
     assert_equal "role:planner", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.4", retried.turn.resolved_model_ref
-    assert_equal replacement.public_id, retried.turn.execution_snapshot.identity["agent_deployment_id"]
-    assert_equal replacement.public_id, retried.execution_identity["agent_deployment_id"]
-    assert_equal context[:execution_environment].public_id, retried.execution_identity["execution_environment_id"]
+    assert_equal replacement.public_id, retried.turn.execution_snapshot.identity["agent_program_version_id"]
+    assert_equal replacement.public_id, retried.execution_identity["agent_program_version_id"]
+    assert_equal context[:execution_runtime].public_id, retried.execution_identity["execution_runtime_id"]
     assert_equal(
-      %w[agent_deployment.degraded agent_deployment.paused_agent_unavailable workflow.manual_retried],
+      %w[agent_program_version.degraded agent_program_version.paused_agent_unavailable workflow.manual_retried],
       AuditLog.where(installation: context[:installation]).order(:created_at).pluck(:action).last(3)
     )
   end
@@ -81,30 +80,41 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
 
   def create_replacement_deployment!(
     installation:,
-    agent_installation:,
-    execution_environment: create_execution_environment!(installation: installation)
+    agent_program:,
+    execution_runtime: create_execution_runtime!(installation: installation)
   )
-    agent_installation.agent_deployments.where(bootstrap_state: "active").update_all(
-      bootstrap_state: "superseded",
+    AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
       updated_at: Time.current
     )
-    deployment = create_agent_deployment!(
+    deployment = create_agent_program_version!(
       installation: installation,
-      agent_installation: agent_installation,
-      execution_environment: execution_environment,
+      agent_program: agent_program,
       fingerprint: "replacement-#{next_test_sequence}",
-      health_status: "healthy",
-      auto_resume_eligible: true
-    )
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: deployment,
-      version: 1,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    deployment.update!(active_capability_snapshot: capability_snapshot)
+    agent_program.update!(default_execution_runtime: execution_runtime)
+    create_agent_session!(
+      installation: installation,
+      agent_program: agent_program,
+      agent_program_version: deployment,
+      health_status: "healthy",
+      auto_resume_eligible: true,
+      last_heartbeat_at: Time.current,
+      last_health_check_at: Time.current
+    )
+    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
+      updated_at: Time.current
+    )
+    create_execution_session!(
+      installation: installation,
+      execution_runtime: execution_runtime,
+      last_heartbeat_at: Time.current
+    )
     deployment
   end
 end

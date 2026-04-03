@@ -2,12 +2,11 @@ module Conversations
   module CreationSupport
     private
 
-    def create_root_conversation!(workspace:, execution_environment:, agent_deployment:, purpose:)
+    def create_root_conversation!(workspace:, agent_program:, purpose:)
       conversation = Conversation.create!(
         installation: workspace.installation,
         workspace: workspace,
-        execution_environment: execution_environment,
-        agent_deployment: agent_deployment,
+        agent_program: agent_program,
         kind: "root",
         purpose: purpose,
         lifecycle_state: "active"
@@ -15,7 +14,6 @@ module Conversations
 
       create_self_closure!(conversation)
       LineageStores::BootstrapForConversation.call(conversation: conversation)
-      Conversations::RefreshRuntimeContract.call(conversation: conversation)
 
       conversation
     end
@@ -23,7 +21,6 @@ module Conversations
     def initialize_child_conversation!(conversation:, parent:)
       create_parent_closures!(conversation, parent:)
       create_lineage_store_reference_for!(conversation, parent:)
-      Conversations::RefreshRuntimeContract.call(conversation: conversation)
       conversation
     end
 
@@ -31,8 +28,7 @@ module Conversations
       Conversation.new(
         installation: parent.installation,
         workspace: parent.workspace,
-        execution_environment: parent.execution_environment,
-        agent_deployment: parent.agent_deployment,
+        agent_program: parent.agent_program,
         parent_conversation: parent,
         kind: kind,
         purpose: parent.purpose,
@@ -45,8 +41,7 @@ module Conversations
     def refresh_child_conversation_from_parent!(conversation:, parent:)
       conversation.installation = parent.installation
       conversation.workspace = parent.workspace
-      conversation.execution_environment = parent.execution_environment
-      conversation.agent_deployment = parent.agent_deployment
+      conversation.agent_program = parent.agent_program
       conversation.parent_conversation = parent
       conversation.purpose = parent.purpose
       conversation.lifecycle_state = "active"

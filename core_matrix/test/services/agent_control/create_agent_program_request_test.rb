@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
-  test "creates and publishes a deployment-targeted mailbox request for the agent program" do
+  test "creates and publishes a program-version-targeted mailbox request for the agent program" do
     context = build_agent_control_context!
     published = []
     original_publish_pending = AgentControl::PublishPending.method(:call)
@@ -12,7 +12,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     end
 
     mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       request_kind: "prepare_round",
       payload: {
         "workflow_node_id" => context.fetch(:workflow_node).public_id,
@@ -24,10 +24,10 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     )
 
     assert_equal "agent_program_request", mailbox_item.item_type
-    assert_equal "agent", mailbox_item.runtime_plane
-    assert_equal "agent_deployment", mailbox_item.target_kind
-    assert_equal context.fetch(:deployment), mailbox_item.target_agent_deployment
-    assert_equal context.fetch(:agent_installation), mailbox_item.target_agent_installation
+    assert_equal "program", mailbox_item.runtime_plane
+    assert_equal "agent_program_version", mailbox_item.target_kind
+    assert_equal context.fetch(:deployment), mailbox_item.target_agent_program_version
+    assert_equal context.fetch(:agent_program), mailbox_item.target_agent_program
     assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
     assert_equal 2, mailbox_item.attempt_no
     assert_equal [mailbox_item], published

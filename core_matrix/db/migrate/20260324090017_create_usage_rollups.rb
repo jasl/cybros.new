@@ -7,8 +7,8 @@ class CreateUsageRollups < ActiveRecord::Migration[8.2]
       t.bigint :conversation_id
       t.bigint :turn_id
       t.string :workflow_node_key
-      t.references :agent_installation, foreign_key: true
-      t.references :agent_deployment, foreign_key: true
+      t.references :agent_program, foreign_key: true
+      t.references :agent_program_version, foreign_key: true
       t.string :provider_handle, null: false
       t.string :model_ref, null: false
       t.string :operation_kind, null: false

@@ -4,8 +4,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, method_id:, payload:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, execution_session: nil, method_id:, payload:, occurred_at: Time.current)
       @deployment = deployment
+      @agent_session = agent_session
+      @execution_session = execution_session
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -63,14 +65,13 @@ module AgentControl
     def validate_process_output_freshness!
       stale! unless @payload["resource_type"] == "ProcessRun"
       stale! unless process_run.running?
-      stale! unless @deployment.execution_environment_id == process_run.execution_environment_id
 
       execution_lease = process_run.execution_lease
       stale! unless execution_lease&.active?
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,
-        holder_key: @deployment.public_id,
+        holder_key: resolved_execution_session.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -82,14 +83,13 @@ module AgentControl
       allowed_states = ["starting"]
       allowed_states << "running" if allow_running
       stale! unless allowed_states.include?(process_run.lifecycle_state)
-      stale! unless @deployment.execution_environment_id == process_run.execution_environment_id
 
       execution_lease = process_run.execution_lease
       stale! unless execution_lease&.active?
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,
-        holder_key: @deployment.public_id,
+        holder_key: resolved_execution_session.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -156,6 +156,16 @@ module AgentControl
 
     def stale!
       raise Report::StaleReportError
+    end
+
+    def resolved_execution_session
+      @resolved_execution_session ||= begin
+        session = @execution_session || ExecutionSessions::ResolveActiveSession.call(execution_runtime: process_run.execution_runtime)
+        stale! if session.blank?
+        stale! unless session.execution_runtime_id == process_run.execution_runtime_id
+
+        session
+      end
     end
   end
 end

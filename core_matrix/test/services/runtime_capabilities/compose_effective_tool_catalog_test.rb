@@ -11,11 +11,11 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "delegates effective tool catalog rendering to the shared runtime capability contract" do
     registration = register_agent_runtime!(
-      environment_tool_catalog: [
+      execution_tool_catalog: [
         {
           "tool_name" => "exec_command",
-          "tool_kind" => "environment_runtime",
-          "implementation_source" => "execution_environment",
+          "tool_kind" => "execution_runtime",
+          "implementation_source" => "execution_runtime",
           "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -26,29 +26,29 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
       tool_catalog: default_tool_catalog("exec_command", "compact_context")
     )
     contract = RuntimeCapabilityContract.build(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot],
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment],
       core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
     )
 
     assert_equal(
       contract.effective_tool_catalog,
       RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-        execution_environment: registration[:execution_environment],
-        capability_snapshot: registration[:capability_snapshot]
+        execution_runtime: registration[:execution_runtime],
+        agent_program_version: registration[:deployment]
       )
     )
   end
 
   test "injects reserved subagent tools into the base effective catalog" do
     registration = register_agent_runtime!(
-      environment_tool_catalog: [],
+      execution_tool_catalog: [],
       tool_catalog: default_tool_catalog("exec_command")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     )
 
     assert_equal RESERVED_SUBAGENT_TOOLS, effective_catalog.first(RESERVED_SUBAGENT_TOOLS.length).map { |entry| entry.fetch("tool_name") }
@@ -60,11 +60,11 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "reserved subagent tool names cannot be overridden by runtime tools" do
     registration = register_agent_runtime!(
-      environment_tool_catalog: [
+      execution_tool_catalog: [
         {
           "tool_name" => "subagent_spawn",
-          "tool_kind" => "environment_runtime",
-          "implementation_source" => "execution_environment",
+          "tool_kind" => "execution_runtime",
+          "implementation_source" => "execution_runtime",
           "implementation_ref" => "env/subagent_spawn",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -76,8 +76,8 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     )
     spawn_entry = effective_catalog.find { |entry| entry.fetch("tool_name") == "subagent_spawn" }
 
@@ -89,11 +89,11 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "adds a default execution policy with parallel_safe false to effective tools" do
     registration = register_agent_runtime!(
-      environment_tool_catalog: [
+      execution_tool_catalog: [
         {
           "tool_name" => "exec_command",
-          "tool_kind" => "environment_runtime",
-          "implementation_source" => "execution_environment",
+          "tool_kind" => "execution_runtime",
+          "implementation_source" => "execution_runtime",
           "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -105,8 +105,8 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     )
 
     assert effective_catalog.present?
@@ -135,8 +135,8 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     ).find { |candidate| candidate.fetch("tool_name") == "remote_echo" }
 
     assert_equal false, entry.dig("execution_policy", "parallel_safe")
@@ -185,8 +185,8 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_environment: registration[:execution_environment],
-      capability_snapshot: registration[:capability_snapshot]
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
     )
 
     remote_echo = effective_catalog.find { |candidate| candidate.fetch("tool_name") == "remote_echo" }

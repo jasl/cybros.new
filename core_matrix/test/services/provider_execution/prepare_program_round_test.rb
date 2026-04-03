@@ -41,8 +41,8 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
     assert_equal "main", request_payload.fetch("capability_projection").fetch("profile_key")
     assert_includes request_payload.fetch("capability_projection").fetch("tool_surface").map { |entry| entry.fetch("tool_name") }, "exec_command"
     assert_equal(
-      { "deployment_public_id" => context.fetch(:deployment).public_id },
-      request_payload.fetch("runtime_context").slice("deployment_public_id")
+      { "agent_program_version_id" => context.fetch(:deployment).public_id },
+      request_payload.fetch("runtime_context").slice("agent_program_version_id")
     )
     assert_equal "prepare-round:#{context.fetch(:workflow_node).public_id}", request_payload.fetch("runtime_context").fetch("logical_work_id")
   end

@@ -9,7 +9,7 @@ require_relative "./governed_validation_support"
 runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   agent_key: "phase2-governed-tool",
   display_name: "Phase 2 Governed Tool Runtime",
-  environment_fingerprint: "phase2-governed-tool-environment",
+  runtime_fingerprint: "phase2-governed-tool-environment",
   fingerprint: "phase2-governed-tool-runtime",
   tool_catalog: [],
   profile_catalog: {

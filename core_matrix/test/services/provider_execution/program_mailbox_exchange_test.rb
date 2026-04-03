@@ -10,13 +10,13 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_deployment: kwargs.fetch(:agent_deployment),
+        leased_to_agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
-        installation: kwargs.fetch(:agent_deployment).installation,
-        agent_deployment: kwargs.fetch(:agent_deployment),
+        installation: kwargs.fetch(:agent_program_version).installation,
+        agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_program_completed",
@@ -41,7 +41,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     end
 
     result = ProviderExecution::ProgramMailboxExchange.new(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       sleeper: ->(_duration) { },
     ).prepare_round(
       payload: {
@@ -68,13 +68,13 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_deployment: kwargs.fetch(:agent_deployment),
+        leased_to_agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
-        installation: kwargs.fetch(:agent_deployment).installation,
-        agent_deployment: kwargs.fetch(:agent_deployment),
+        installation: kwargs.fetch(:agent_program_version).installation,
+        agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_program_failed",
@@ -98,7 +98,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     end
 
     result = ProviderExecution::ProgramMailboxExchange.new(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       sleeper: ->(_duration) { },
     ).execute_program_tool(
       payload: {
@@ -135,13 +135,13 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
         now = Time.current
         mailbox_item.update!(
           status: "leased",
-          leased_to_agent_deployment: kwargs.fetch(:agent_deployment),
+          leased_to_agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
           leased_at: now,
           lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
         )
         AgentControlReportReceipt.create!(
-          installation: kwargs.fetch(:agent_deployment).installation,
-          agent_deployment: kwargs.fetch(:agent_deployment),
+          installation: kwargs.fetch(:agent_program_version).installation,
+          agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
           mailbox_item: mailbox_item,
           protocol_message_id: "report-#{SecureRandom.uuid}",
           method_id: "agent_program_completed",
@@ -165,7 +165,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       end
 
       ProviderExecution::ProgramMailboxExchange.new(
-        agent_deployment: context.fetch(:deployment),
+        agent_program_version: context.fetch(:deployment),
         sleeper: ->(_duration) { },
       ).execute_program_tool(
         payload: {
@@ -197,7 +197,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
 
     error = assert_raises(ProviderExecution::ProgramMailboxExchange::TimeoutError) do
       ProviderExecution::ProgramMailboxExchange.new(
-        agent_deployment: context.fetch(:deployment),
+        agent_program_version: context.fetch(:deployment),
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -251,13 +251,13 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_deployment: context.fetch(:deployment),
+        leased_to_agent_session: context.fetch(:agent_session),
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
         installation: context.fetch(:deployment).installation,
-        agent_deployment: context.fetch(:deployment),
+        agent_session: context.fetch(:agent_session),
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_program_completed",
@@ -282,7 +282,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
 
     result = nil
     result = ProviderExecution::ProgramMailboxExchange.new(
-      agent_deployment: context.fetch(:deployment),
+      agent_program_version: context.fetch(:deployment),
       timeout: 0.02,
       poll_interval: 0.0,
       sleeper: sleeper,

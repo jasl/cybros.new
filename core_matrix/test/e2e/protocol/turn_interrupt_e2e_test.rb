@@ -8,19 +8,19 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       deployment: context[:deployment],
       machine_credential: context[:machine_credential]
     )
-    sibling_agent_installation = create_agent_installation!(installation: context[:installation])
-    sibling_execution_environment = create_execution_environment!(installation: context[:installation])
+    sibling_agent_program = create_agent_program!(installation: context[:installation])
+    sibling_execution_runtime = create_execution_runtime!(installation: context[:installation])
     sibling_registration = register_agent_runtime!(
       installation: context[:installation],
       actor: context[:actor],
-      agent_installation: sibling_agent_installation,
-      execution_environment: sibling_execution_environment,
+      agent_program: sibling_agent_program,
+      execution_runtime: sibling_execution_runtime,
       reuse_enrollment: true
     )
-    sibling_registration.fetch(:deployment).update!(
-      bootstrap_state: "active",
+    sibling_registration.fetch(:agent_session).update!(
       health_status: "healthy",
-      last_heartbeat_at: Time.current
+      last_heartbeat_at: Time.current,
+      last_health_check_at: Time.current
     )
     sibling_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
@@ -55,7 +55,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     assert_equal 409, sibling_terminal.fetch("http_status")
     assert_equal "stale", sibling_terminal.fetch("result")
     assert_equal "running", agent_task_run.reload.lifecycle_state
-    assert_equal context[:deployment], agent_task_run.holder_agent_deployment
+    assert_equal context[:deployment], agent_task_run.holder_agent_program_version
 
     holder_terminal = holder_harness.report!(
       method_id: "execution_complete",
@@ -154,8 +154,8 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )
 

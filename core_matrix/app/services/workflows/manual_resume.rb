@@ -22,22 +22,22 @@ module Workflows
           closing_message: "must not resume paused work while close is in progress"
         ) do |conversation, workflow_run, turn|
           validate_wait_state!(workflow_run)
-          recovery_target = AgentDeployments::ResolveRecoveryTarget.call(
+          recovery_target = AgentProgramVersions::ResolveRecoveryTarget.call(
             conversation: workflow_run.conversation,
             turn: turn,
-            agent_deployment: @deployment,
+            agent_program_version: @deployment,
             selector_source: "manual_recovery",
             selector: @selector.presence || turn.recovery_selector,
             rebind_turn: true
           )
-          previous_deployment = turn.agent_deployment
+          previous_deployment = turn.agent_program_version
 
-          AgentDeployments::RebindTurn.call(
+          AgentProgramVersions::RebindTurn.call(
             turn: turn,
             recovery_target: recovery_target
           )
           workflow_run.update!(
-            AgentDeployments::UnavailablePauseState.resume_attributes(
+            AgentProgramVersions::UnavailablePauseState.resume_attributes(
               workflow_run: workflow_run
             )
           )
@@ -49,7 +49,7 @@ module Workflows
             subject: workflow_run,
             metadata: {
               "previous_deployment_id" => previous_deployment.id,
-              "deployment_id" => recovery_target.agent_deployment.id,
+              "deployment_id" => recovery_target.agent_program_version.id,
               "temporary_selector_override" => @selector,
             }.compact
           )

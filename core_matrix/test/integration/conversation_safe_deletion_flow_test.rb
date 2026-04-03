@@ -18,12 +18,12 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
 
     Conversations::RequestDeletion.call(conversation: context[:conversation])
 
-    get "/agent_api/conversation_variables/resolve",
+    get "/program_api/conversation_variables/resolve",
       params: {
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: program_api_headers(registration[:machine_credential])
 
     assert_response :not_found
     assert_equal [], HumanInteractions::OpenForUserQuery.call(user: context[:user])
@@ -40,7 +40,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       Turns::StartUserTurn.call(
         conversation: context[:conversation],
         content: "Blocked input",
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -50,7 +50,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       Turns::QueueFollowUp.call(
         conversation: context[:conversation],
         content: "Blocked follow up",
-        agent_deployment: context[:agent_deployment],
+        agent_program_version: context[:agent_program_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -88,14 +88,14 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     child = Conversations::CreateFork.call(parent: parent)
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child still running",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

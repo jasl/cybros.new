@@ -3,15 +3,10 @@ require "test_helper"
 class Workflows::CreateForTurnTest < ActiveSupport::TestCase
   test "creates one active workflow with a root node for the turn" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -42,8 +37,8 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal turn.public_id, turn.execution_snapshot.identity["turn_id"]
     assert_equal context[:user].public_id, turn.execution_snapshot.identity["user_id"]
     assert_equal context[:workspace].public_id, turn.execution_snapshot.identity["workspace_id"]
-    assert_equal context[:execution_environment].public_id, turn.execution_snapshot.identity["execution_environment_id"]
-    assert_equal [attachment.public_id], turn.execution_snapshot.runtime_attachment_manifest.map { |item| item.fetch("attachment_id") }
+    assert_equal context[:execution_runtime].public_id, turn.execution_snapshot.identity["execution_runtime_id"]
+    assert_equal [attachment.public_id], turn.execution_snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal [attachment.public_id], turn.execution_snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert_equal turn.execution_snapshot.to_h, turn.execution_snapshot_payload
     refute Rails.root.join("app/services/workflows/context_assembler.rb").exist?
@@ -51,22 +46,16 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
   test "rejects a second active workflow in the same conversation" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -92,15 +81,10 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
   test "execution assignments transport frozen agent context from the turn snapshot" do
     context = prepare_profile_aware_execution_context!
-    conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -132,15 +116,10 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
   test "creates queued subagent step work and assignment when initial task parameters are provided" do
     context = prepare_profile_aware_execution_context!
-    owner_conversation = Conversations::CreateRoot.call(
-      workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
-    )
+    owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Owner input",
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -149,8 +128,6 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
       addressability: "agent_addressable"
     )
     subagent_session = SubagentSession.create!(
@@ -166,7 +143,6 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       content: "Delegated input",
       sender_kind: "owner_agent",
       sender_conversation: owner_conversation,
-      agent_deployment: context[:agent_deployment],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -199,17 +175,14 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
   def prepare_profile_aware_execution_context!
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    capability_snapshot = create_capability_snapshot!(
-      agent_deployment: context[:agent_deployment],
-      version: 2,
+    activate_program_version!(
+      context,
       tool_catalog: default_tool_catalog("exec_command", "compact_context"),
       profile_catalog: default_profile_catalog,
       config_schema_snapshot: profile_aware_config_schema_snapshot,
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    context[:agent_deployment].update!(active_capability_snapshot: capability_snapshot)
-
     context
   end
 end

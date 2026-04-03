@@ -146,7 +146,7 @@ module Fenix
               tool_call: normalized_tool_call,
               workspace_root: @context.dig("workspace_context", "workspace_root"),
               conversation_id: @context.fetch("conversation_id"),
-              deployment_public_id: @context.dig("runtime_identity", "deployment_public_id")
+              agent_program_version_id: @context.dig("runtime_identity", "agent_program_version_id")
             )
           when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
             Fenix::Plugins::System::Web::Runtime.call(tool_call: normalized_tool_call)

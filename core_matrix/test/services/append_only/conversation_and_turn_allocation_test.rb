@@ -8,17 +8,17 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
-    deployment_id = context[:agent_deployment].id
+    deployment_id = context[:agent_program_version].id
 
     turns = assert_parallel_success!(
       run_in_parallel(10) do |index|
         Turns::StartUserTurn.call(
           conversation: Conversation.find(conversation.id),
           content: "Input #{index}",
-          agent_deployment: AgentDeployment.find(deployment_id),
+          agent_program_version: AgentProgramVersion.find(deployment_id),
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {}
         )
@@ -34,11 +34,11 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     ),
       content: "Original input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -77,7 +77,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     assert_equal (0..9).to_a, ConversationEvent.where(conversation: conversation, stream_key: "status-card").order(:stream_revision).pluck(:stream_revision)
   end
 
-  test "reuses one reconciled capability snapshot version across concurrent handshakes" do
+  test "reuses one authenticated program version across concurrent handshakes" do
     registration = register_agent_runtime!(
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
@@ -87,8 +87,8 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
 
     results = assert_parallel_success!(
       run_in_parallel(5) do
-        AgentDeployments::Handshake.call(
-          deployment: AgentDeployment.find(deployment_id),
+        AgentProgramVersions::Handshake.call(
+          deployment: AgentProgramVersion.find(deployment_id),
           fingerprint: registration[:deployment].fingerprint,
           protocol_version: "2026-03-25",
           sdk_version: "fenix-0.2.0",
@@ -105,15 +105,14 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
       end
     )
 
-    snapshots = CapabilitySnapshot.where(agent_deployment_id: deployment_id).order(:version)
-    normalized_tool_catalog = RuntimeCapabilityContract.build(tool_catalog: expected_tool_catalog).agent_tool_catalog
+    tool_definition_names = registration[:deployment].reload.tool_definitions.order(:tool_name).pluck(:tool_name)
 
-    assert_equal [1, 2], snapshots.pluck(:version)
-    assert results.all? { |result| result.capability_snapshot.version == 2 }
-    assert_equal normalized_tool_catalog, registration[:deployment].reload.active_capability_snapshot.tool_catalog
+    assert results.all? { |result| result.capability_snapshot.id == deployment_id }
+    assert_equal tool_definition_names.uniq, tool_definition_names
+    assert_equal 1, registration[:deployment].reload.tool_definitions.where(tool_name: "subagent_spawn").count
   end
 
-  test "reuses one reconciled bundled capability snapshot version across concurrent registration passes" do
+  test "reuses one bundled program version across concurrent registration passes for the same fingerprint" do
     installation = create_installation!
     initial = Installations::RegisterBundledAgentRuntime.call(
       installation: installation,
@@ -121,6 +120,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     )
     updated_configuration = bundled_agent_configuration(
       enabled: true,
+      fingerprint: "bundled-fenix-runtime-v2",
       sdk_version: "fenix-0.2.0",
       tool_catalog: default_tool_catalog("exec_command", "subagent_spawn")
     )
@@ -134,11 +134,13 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
       end
     )
 
-    deployment = initial.deployment.reload
+    deployment = results.first.deployment.reload
 
-    assert_equal [1, 2], deployment.capability_snapshots.order(:version).pluck(:version)
     assert results.all? { |result| result.deployment.id == deployment.id }
-    assert results.all? { |result| result.capability_snapshot.version == 2 }
+    assert results.all? { |result| result.capability_snapshot.id == deployment.id }
+    assert_equal 2, AgentProgramVersion.where(agent_program: initial.agent_program).count
     assert_equal "fenix-0.2.0", deployment.sdk_version
+    assert_equal "active", deployment.bootstrap_state
+    assert_equal 1, AgentSession.where(agent_program: initial.agent_program, lifecycle_state: "active").count
   end
 end

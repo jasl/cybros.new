@@ -234,6 +234,69 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal ["content"], subagent_spawn.dig("function", "parameters", "required")
   end
 
+  test "keeps visible core matrix tools available when the agent program echoes them in prepare_round" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-round-core-matrix-echo",
+        choices: [
+          {
+            message: { role: "assistant", content: "Tools were available." },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 11,
+          completion_tokens: 5,
+          total_tokens: 16,
+        },
+      }
+    )
+    workflow_node = nil
+    transcript = nil
+
+    with_stubbed_provider_catalog(catalog) do
+      context = build_governed_tool_context!(
+        profile_catalog: {
+          "main" => {
+            "label" => "Main",
+            "description" => "Primary interactive profile",
+            "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
+          },
+        }
+      )
+      workflow_node = context.fetch(:workflow_node)
+      transcript = turn_step_messages_for(context.fetch(:workflow_run))
+    end
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: workflow_node,
+        transcript: transcript,
+        adapter: adapter,
+        effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_node.installation, catalog: catalog),
+        program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new(
+          prepared_rounds: [
+            {
+              "messages" => transcript,
+              "tool_surface" => [
+                { "tool_name" => "exec_command" },
+                { "tool_name" => "subagent_spawn" },
+              ],
+              "summary_artifacts" => [],
+              "trace" => [],
+            },
+          ]
+        )
+      )
+    end
+
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+
+    assert_includes request_body.fetch("tools").map { |entry| entry.dig("function", "name") }, "exec_command"
+    assert_includes request_body.fetch("tools").map { |entry| entry.dig("function", "name") }, "subagent_spawn"
+  end
+
   test "returns a graph batch instead of executing tool calls inline" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(

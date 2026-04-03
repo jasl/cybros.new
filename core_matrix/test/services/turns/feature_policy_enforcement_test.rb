@@ -5,8 +5,8 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     conversation.update!(
       enabled_feature_ids: %w[tool_invocation message_attachments conversation_archival],
@@ -16,7 +16,7 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Feature policy input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -47,8 +47,8 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     turn = Turns::StartAutomationTurn.call(
@@ -59,7 +59,7 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
       source_ref_id: "schedule-automation",
       idempotency_key: "automation-feature-policy",
       external_event_key: "automation-feature-policy",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -71,15 +71,15 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     conversation.update!(during_generation_input_policy: "reject")
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -103,13 +103,13 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Branch anchor",
-      agent_deployment: context[:agent_deployment],
+      agent_program_version: context[:agent_program_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -132,8 +132,8 @@ class Turns::FeaturePolicyEnforcementTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     conversation.update!(
       enabled_feature_ids: Conversation::FEATURE_IDS - ["conversation_archival"]

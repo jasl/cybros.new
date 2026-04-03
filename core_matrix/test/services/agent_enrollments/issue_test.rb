@@ -7,10 +7,10 @@ class AgentEnrollments::IssueTest < ActiveSupport::TestCase
   test "issues an enrollment token and writes an audit row" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
-    agent_installation = create_agent_installation!(installation: installation)
+    agent_program = create_agent_program!(installation: installation)
 
     enrollment = AgentEnrollments::Issue.call(
-      agent_installation: agent_installation,
+      agent_program: agent_program,
       actor: actor,
       expires_at: 2.hours.from_now
     )

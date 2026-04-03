@@ -173,7 +173,7 @@ exec_runtime = Fenix::Plugins::System::ExecCommand::Runtime
 collector = Fenix::RuntimeSurface::ReportCollector.new(
   context: {
     "protocol_message_id" => "operator-smoke",
-    "runtime_plane" => "agent",
+    "runtime_plane" => "program",
     "item_id" => "item-operator-smoke",
     "agent_task_run_id" => agent_task_run_id,
     "logical_work_id" => "logical-work-operator-smoke",

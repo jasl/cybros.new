@@ -1,0 +1,8 @@
+{
+  "command": "npm install",
+  "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
+  "success": true,
+  "exit_status": 0,
+  "stdout": "\nadded 257 packages, and audited 258 packages in 2s\n\n67 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
+  "stderr": ""
+}

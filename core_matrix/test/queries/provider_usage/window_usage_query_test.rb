@@ -4,27 +4,27 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
   test "aggregates rolling-window usage across dimension rollups for the same provider model and operation" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    agent_installation = create_agent_installation!(installation: installation)
-    first_binding = create_user_agent_binding!(
+    agent_program = create_agent_program!(installation: installation)
+    first_binding = create_user_program_binding!(
       installation: installation,
       user: user,
-      agent_installation: agent_installation
+      agent_program: agent_program
     )
-    second_binding = create_user_agent_binding!(
+    second_binding = create_user_program_binding!(
       installation: installation,
       user: user,
-      agent_installation: create_agent_installation!(installation: installation)
+      agent_program: create_agent_program!(installation: installation)
     )
     first_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: first_binding,
+      user_program_binding: first_binding,
       name: "First Workspace"
     )
     second_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: second_binding,
+      user_program_binding: second_binding,
       name: "Second Workspace"
     )
     window_key = "codex:2026-03-24T10"

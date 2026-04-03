@@ -5,8 +5,8 @@ class SubagentSessions::ValidateAddressabilityTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
 
     SubagentSessions::ValidateAddressability.call(
@@ -30,16 +30,16 @@ class SubagentSessions::ValidateAddressabilityTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
     conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_environment: context[:execution_environment],
-      agent_deployment: context[:agent_deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )
 

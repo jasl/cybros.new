@@ -6,7 +6,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
 
     assert_equal %w[execution_started execution_progress execution_complete],
       body.fetch("reports").map { |report| report.fetch("method_id") }
-    assert_equal ["agent"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
+    assert_equal ["program"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
     assert_equal "completed", body.fetch("status")
     assert_equal "The calculator returned 4.", body.fetch("output")
     assert_equal "main", body.fetch("trace").first.fetch("profile")
@@ -40,13 +40,13 @@ class RuntimeFlowTest < ActiveSupport::TestCase
     assert_equal "gpt-4.1-mini", prepared.fetch("likely_model")
   end
 
-  test "execution payload parsing exposes deployment runtime context" do
+  test "execution payload parsing exposes agent program version runtime context" do
     mailbox_item = runtime_assignment_payload
-    mailbox_item.fetch("payload").fetch("runtime_context")["deployment_public_id"] = "deployment-public-id"
+    mailbox_item.fetch("payload").fetch("runtime_context")["agent_program_version_id"] = "agent-program-version-public-id"
 
     context = Fenix::Context::BuildExecutionContext.call(mailbox_item: mailbox_item)
 
-    assert_equal "deployment-public-id", context.dig("runtime_identity", "deployment_public_id")
+    assert_equal "agent-program-version-public-id", context.dig("runtime_identity", "agent_program_version_id")
   end
 
   test "shared core matrix execution assignment fixture preserves the real model and visible tool contract" do
@@ -370,13 +370,13 @@ class RuntimeFlowTest < ActiveSupport::TestCase
 
     assert_equal %w[execution_started execution_fail],
       body.fetch("reports").map { |report| report.fetch("method_id") }
-    assert_equal ["agent"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
+    assert_equal ["program"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
     assert_equal "failed", body.fetch("status")
     assert_equal "runtime_error", body.fetch("error").fetch("failure_kind")
   end
 
   test "mailbox worker persists unsupported runtime-plane failures" do
-    body = run_runtime_execution(runtime_assignment_payload(runtime_plane: "environment"))
+    body = run_runtime_execution(runtime_assignment_payload(runtime_plane: "execution"))
 
     assert_equal "failed", body.fetch("status")
     assert_equal "unsupported_runtime_plane", body.fetch("error").fetch("failure_kind")

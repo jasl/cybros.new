@@ -4,22 +4,22 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
   test "records a usage event and projects hourly daily and rolling-window rollups" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    agent_installation = create_agent_installation!(installation: installation)
-    execution_environment = create_execution_environment!(installation: installation)
-    agent_deployment = create_agent_deployment!(
+    agent_program = create_agent_program!(installation: installation)
+    execution_runtime = create_execution_runtime!(installation: installation)
+    agent_program_version = create_agent_program_version!(
       installation: installation,
-      agent_installation: agent_installation,
-      execution_environment: execution_environment
+      agent_program: agent_program,
+      execution_runtime: execution_runtime
     )
-    binding = create_user_agent_binding!(
+    binding = create_user_program_binding!(
       installation: installation,
       user: user,
-      agent_installation: agent_installation
+      agent_program: agent_program
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      user_program_binding: binding
     )
 
     event = ProviderUsage::RecordEvent.call(
@@ -29,8 +29,8 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
       conversation_id: 101,
       turn_id: 202,
       workflow_node_key: "planner-step",
-      agent_installation: agent_installation,
-      agent_deployment: agent_deployment,
+      agent_program: agent_program,
+      agent_program_version: agent_program_version,
       provider_handle: "openai",
       model_ref: "gpt-5.3-chat-latest",
       operation_kind: "text_generation",
