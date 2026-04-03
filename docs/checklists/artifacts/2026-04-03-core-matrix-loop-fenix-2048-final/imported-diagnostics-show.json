@@ -1,8 +1,8 @@
 {
   "method_id": "conversation_diagnostics_show",
-  "conversation_id": "019d545d-8c84-7f59-9cf3-f31a5595f6bb",
+  "conversation_id": "019d54e1-1d0a-775e-96dd-1aedac822fae",
   "snapshot": {
-    "conversation_id": "019d545d-8c84-7f59-9cf3-f31a5595f6bb",
+    "conversation_id": "019d54e1-1d0a-775e-96dd-1aedac822fae",
     "lifecycle_state": "active",
     "turn_count": 1,
     "active_turn_count": 0,
@@ -14,7 +14,7 @@
     "output_tokens_total": 0,
     "total_tokens_total": 0,
     "estimated_cost_total": "0.0",
-    "attributed_user_id": "019d5458-9b41-71d0-9206-922f4d5ffdbe",
+    "attributed_user_id": "019d54db-96ad-7520-833f-47240aa964e4",
     "attributed_user_usage_event_count": 0,
     "attributed_user_input_tokens_total": 0,
     "attributed_user_output_tokens_total": 0,
@@ -33,8 +33,8 @@
     "steer_count": 0,
     "resume_attempt_count": 0,
     "retry_attempt_count": 0,
-    "most_expensive_turn_id": "019d545d-8cb2-7334-a112-e3f4ba676185",
-    "most_rounds_turn_id": "019d545d-8cb2-7334-a112-e3f4ba676185",
+    "most_expensive_turn_id": "019d54e1-1d34-7f9f-8508-06000eacf22d",
+    "most_rounds_turn_id": "019d54e1-1d34-7f9f-8508-06000eacf22d",
     "metadata": {
       "provider_usage_breakdown": [],
       "attributed_user_provider_usage_breakdown": [],
@@ -55,8 +55,8 @@
         "cost_data_complete": false
       },
       "outlier_refs": {
-        "most_expensive_turn_id": "019d545d-8cb2-7334-a112-e3f4ba676185",
-        "most_rounds_turn_id": "019d545d-8cb2-7334-a112-e3f4ba676185"
+        "most_expensive_turn_id": "019d54e1-1d34-7f9f-8508-06000eacf22d",
+        "most_rounds_turn_id": "019d54e1-1d34-7f9f-8508-06000eacf22d"
       }
     }
   }

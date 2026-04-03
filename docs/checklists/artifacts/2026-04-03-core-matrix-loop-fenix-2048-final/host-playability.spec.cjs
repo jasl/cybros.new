@@ -191,6 +191,7 @@ async function verifyDirectionFromFreshBoard(page, key, maxAttempts = 20) {
 
 test('host-side 2048 playability', async ({ page }) => {
   test.setTimeout(180000);
+  const gameOverStatusPattern = /game(?: |-)?over/i;
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await expect(await boardLocator(page)).toBeVisible();
@@ -209,7 +210,7 @@ test('host-side 2048 playability', async ({ page }) => {
   const priority = ['ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown'];
 
   for (let step = 0; step < 1500; step += 1) {
-    if (/game over/i.test(current.status)) break;
+    if (gameOverStatusPattern.test(current.status)) break;
 
     let moved = false;
     for (const key of priority) {
@@ -235,17 +236,17 @@ test('host-side 2048 playability', async ({ page }) => {
     if (!moved) {
       await page.keyboard.press('ArrowUp');
       current = await snapshot(page);
-      if (/game over/i.test(current.status)) break;
+      if (gameOverStatusPattern.test(current.status)) break;
       if (current.nonEmpty === 16) break;
     }
   }
 
-  if (!/game over/i.test(current.status)) {
+  if (!gameOverStatusPattern.test(current.status)) {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       await page.keyboard.press('ArrowUp');
       await page.keyboard.press('ArrowLeft');
       current = await snapshot(page);
-      if (/game over/i.test(current.status)) break;
+      if (gameOverStatusPattern.test(current.status)) break;
     }
   }
 
@@ -258,7 +259,7 @@ test('host-side 2048 playability', async ({ page }) => {
     directionChecks,
     mergeObserved,
     spawnObserved,
-    gameOverReached: /game over/i.test(preRestart.status),
+    gameOverReached: gameOverStatusPattern.test(preRestart.status),
     preRestart,
     postRestart,
     restartResetScore: postRestart.score === 0,

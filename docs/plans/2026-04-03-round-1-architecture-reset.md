@@ -250,8 +250,11 @@
 **Steps:**
 1. Reset both databases if migration history changed.
 2. Run all required verification commands from `AGENTS.md`.
-3. Run the provider-backed `2048` capstone acceptance end to end.
-4. Do one more repo-wide dead-code and stale-name sweep before closing the round.
+3. Perform the fresh-start gate through:
+   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/fresh_start_stack.sh`
+4. Run the provider-backed `2048` capstone acceptance end to end. Prefer:
+   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/run_with_fresh_start.sh`
+5. Do one more repo-wide dead-code and stale-name sweep before closing the round.
 
 **Verification:**
 - Run: `cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix && bin/brakeman --no-pager && bin/bundler-audit && bin/rubocop -f github && bun run lint:js && bin/rails db:test:prepare test && bin/rails db:test:prepare test:system`

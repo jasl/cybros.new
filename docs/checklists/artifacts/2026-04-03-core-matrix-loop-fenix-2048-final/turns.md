@@ -4,11 +4,11 @@
 
 - Scenario date: `2026-04-03`
 - Operator: `Codex`
-- Conversation `public_id`: `019d545a-2845-7494-bdc7-352844cdc8c9`
-- Turn `public_id`: `019d545a-2863-751f-8de4-d50cd45f4fd6`
-- Workflow-run `public_id`: `019d545a-2879-7bcd-b0ab-f57fd82c838e`
-- Agent program version `public_id`: `019d5458-9bb6-7065-b4c2-f61b8b9b0c4b`
-- Execution runtime `public_id`: `019d5458-9b9f-7279-91c7-9cd26129b47f`
+- Conversation `public_id`: `019d54dc-6f9b-7077-8d92-a93819440ba0`
+- Turn `public_id`: `019d54dc-6fb6-73b7-b217-e9cc7e4d8441`
+- Workflow-run `public_id`: `019d54dc-6fcc-718e-9c72-d710b9978a63`
+- Agent program version `public_id`: `019d54db-971a-76d6-96c9-2838687fc561`
+- Execution runtime `public_id`: `019d54db-9701-7a5b-b60b-64f56e4b56c1`
 - Runtime mode: `Core Matrix host runtime + Dockerized Fenix`
 - Provider handle: `openrouter`
 - Model ref: `openai-gpt-5.4`
@@ -16,17 +16,17 @@
 - Selector: `candidate:openrouter/openai-gpt-5.4`
 - Expected DAG shape: provider-backed `turn_step` with repeated `tool_call` and `barrier_join` expansion until completion
 - Observed DAG shape:
-  - `turn_step`: `25`
-  - `tool_call`: `25`
-  - `barrier_join`: `25`
-  - Total workflow nodes: `75`
-  - Highest observed provider round: `25`
+  - `turn_step`: `36`
+  - `tool_call`: `39`
+  - `barrier_join`: `39`
+  - Total workflow nodes: `114`
+  - Highest observed provider round: `36`
 - Expected conversation state: one user request followed by one completed agent response
 - Observed conversation state:
   - Conversation lifecycle: `active`
   - Turn lifecycle: `completed`
   - Message roles: `user`, `agent`
-  - Output message `public_id`: `019d545d-86e4-71b3-bab6-8692a5ebbb84`
+  - Output message `public_id`: `019d54e1-15b3-74c8-a876-2587e7b33750`
 - Subagent work expected: `yes`
 - Subagent work observed: `no`
 - Proof artifacts:

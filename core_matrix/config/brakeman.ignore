@@ -3,10 +3,6 @@
     {
       "fingerprint": "23ed4545aca04ce3686298e028c131f4b6030652a236cc31339e46df897ae9e5",
       "note": "Manual acceptance helper starts fixed docker runtime worker commands against a local test container without shell interpolation."
-    },
-    {
-      "fingerprint": "f51d07ef7f06a4cde6c0f9b59eb16497b4fb1ff5ff7dc2529a416254ec735bd4",
-      "note": "Manual acceptance helper copies a fixed allowlist of repo paths into a local test container."
     }
   ]
 }

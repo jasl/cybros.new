@@ -428,7 +428,6 @@ module ManualAcceptanceSupport
   def reset_docker_fenix_runtime_database!(
     container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
   )
-    sync_fenix_runtime_source_to_docker_container!(container_name:)
     ensure_docker_fenix_runtime_dependencies!(container_name:)
 
     stdout = nil
@@ -496,8 +495,6 @@ module ManualAcceptanceSupport
     container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone"),
     core_matrix_base_url: ENV.fetch("DOCKER_CORE_MATRIX_BASE_URL", "http://host.docker.internal:3000")
   )
-    sync_fenix_runtime_source_to_docker_container!(container_name:)
-
     Bundler.with_unbundled_env do
       stop_command = <<~SH.squish
         ps -eo pid=,args= |
@@ -573,54 +570,6 @@ module ManualAcceptanceSupport
       end
 
       sleep 0.2
-    end
-  end
-
-  def sync_fenix_runtime_source_to_docker_container!(
-    container_name: ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone"),
-    project_root: fenix_project_root
-  )
-    sync_targets = %w[
-      app
-      bin
-      config
-      db
-      lib
-      prompts
-      script
-      scripts
-      skills
-      Gemfile
-      Gemfile.lock
-      Rakefile
-      config.ru
-    ]
-
-    Bundler.with_unbundled_env do
-      sync_targets.each do |relative_path|
-        source = project_root.join(relative_path)
-        next unless source.exist?
-
-        destination = "/rails/#{relative_path}"
-        source_arg = source.directory? ? "#{source}/." : source.to_s
-        destination_parent = File.dirname(destination)
-
-        _stdout, stderr, status = Open3.capture3("docker", "exec", container_name, "rm", "-rf", destination)
-        raise "failed to clear #{destination} in #{container_name}: #{stderr}" unless status.success?
-
-        _stdout, stderr, status = Open3.capture3("docker", "exec", container_name, "mkdir", "-p", destination_parent)
-        raise "failed to prepare #{destination_parent} in #{container_name}: #{stderr}" unless status.success?
-
-        # brakeman:ignore[Command Injection]
-        # Manual acceptance helper copies a fixed allowlist of repo paths into a local test container.
-        _stdout, stderr, status = Open3.capture3(
-          "docker",
-          "cp",
-          source_arg,
-          "#{container_name}:#{destination}"
-        )
-        raise "failed to sync #{relative_path} into #{container_name}: #{stderr}" unless status.success?
-      end
     end
   end
 
@@ -751,6 +700,7 @@ module ManualAcceptanceSupport
       }
     )
     machine_credential = registration.fetch("machine_credential")
+    execution_machine_credential = registration.fetch("execution_machine_credential", machine_credential)
     heartbeat = http_post_json(
       "#{CONTROL_BASE_URL}/program_api/heartbeats",
       {
@@ -761,13 +711,16 @@ module ManualAcceptanceSupport
       headers: token_headers(machine_credential)
     )
     agent_program_version = AgentProgramVersion.find_by_public_id!(registration.fetch("agent_program_version_id"))
+    execution_runtime = registration["execution_runtime_id"].present? ? ExecutionRuntime.find_by_public_id!(registration.fetch("execution_runtime_id")) : nil
 
     {
       manifest: manifest,
       registration: registration,
       heartbeat: heartbeat,
       machine_credential: machine_credential,
+      execution_machine_credential: execution_machine_credential,
       agent_program_version: agent_program_version,
+      execution_runtime: execution_runtime,
       deployment: agent_program_version,
     }
   end
@@ -925,6 +878,7 @@ module ManualAcceptanceSupport
     agent_program_version: nil,
     deployment: nil,
     machine_credential:,
+    execution_machine_credential: machine_credential,
     runtime_base_url: nil,
     content:,
     mode:,
@@ -946,9 +900,15 @@ module ManualAcceptanceSupport
     )
     pump_result =
       if delivery_mode == "realtime"
-        run_fenix_control_loop_once!(machine_credential:)
+        run_fenix_control_loop_once!(
+          machine_credential:,
+          execution_machine_credential:
+        )
       else
-        run_fenix_mailbox_pump_once!(machine_credential:)
+        run_fenix_mailbox_pump_once!(
+          machine_credential:,
+          execution_machine_credential:
+        )
       end
     agent_task_run = wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
     mailbox_item = agent_task_run.agent_control_mailbox_items.order(:created_at, :id).last

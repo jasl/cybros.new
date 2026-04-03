@@ -79,6 +79,17 @@ portability:
 
 - `Core Matrix` may run by any normal local operator method
 - `Fenix` must run in Docker, not in-process on the host
+- before each capstone run, perform a fresh start of the host services and the
+  Dockerized runtime stack; the default external harness entrypoints are:
+  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/fresh_start_stack.sh`
+  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/run_with_fresh_start.sh`
+- in Docker mode, rebuild the runtime image from the current
+  `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix` source tree before
+  starting the containers; do not live-sync repo files into a running runtime
+  container
+- if a validation script expects a runtime on a non-default port, pass the
+  same `FENIX_RUNTIME_BASE_URL` into the wrapper so the fresh-start gate boots
+  the correct endpoint first
 - the Docker container must mount the workspace to
   `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix`
 - the development server must be reachable from the host machine

@@ -1,26 +1,26 @@
 {
   "method_id": "conversation_debug_export_request_show",
-  "conversation_id": "019d545a-2845-7494-bdc7-352844cdc8c9",
+  "conversation_id": "019d54dc-6f9b-7077-8d92-a93819440ba0",
   "debug_export_request": {
-    "request_id": "019d545d-8934-745e-85cd-2a21f71e0cbf",
-    "workspace_id": "019d545a-1158-757a-b648-95e8aa6f19a1",
-    "conversation_id": "019d545a-2845-7494-bdc7-352844cdc8c9",
-    "user_id": "019d5458-9b41-71d0-9206-922f4d5ffdbe",
+    "request_id": "019d54e1-190d-759b-9cd9-819c4f87546d",
+    "workspace_id": "019d54dc-5b7d-7cb2-bfcd-10e7bc5be5f6",
+    "conversation_id": "019d54dc-6f9b-7077-8d92-a93819440ba0",
+    "user_id": "019d54db-96ad-7520-833f-47240aa964e4",
     "lifecycle_state": "succeeded",
-    "created_at": "2026-04-03T17:21:49.362864Z",
-    "queued_at": "2026-04-03T17:21:49.362584Z",
-    "started_at": "2026-04-03T17:21:49.461634Z",
-    "finished_at": "2026-04-03T17:21:50.018010Z",
-    "expires_at": "2026-04-04T17:21:49.362026Z",
+    "created_at": "2026-04-03T19:45:31.404440Z",
+    "queued_at": "2026-04-03T19:45:31.401574Z",
+    "started_at": "2026-04-03T19:45:31.497182Z",
+    "finished_at": "2026-04-03T19:45:32.162647Z",
+    "expires_at": "2026-04-04T19:45:31.400823Z",
     "bundle_available": true,
     "result_payload": {
       "bundle_kind": "conversation_debug_export",
       "message_count": 2,
       "bundle_version": "2026-04-02",
       "attachment_count": 0,
-      "usage_event_count": 25,
+      "usage_event_count": 36,
       "workflow_run_count": 1,
-      "tool_invocation_count": 25
+      "tool_invocation_count": 39
     },
     "failure_payload": {}
   }

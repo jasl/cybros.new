@@ -1,4 +1,5 @@
 require_relative "boot"
+require_relative "../lib/fenix/app_creds"
 
 require "rails"
 # Pick the frameworks you want:
@@ -47,5 +48,10 @@ module Fenix
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Container and packaged deployments provide runtime secrets through ENV.
+    # Rails.app.creds keeps that contract explicit while still allowing the
+    # encrypted credentials file to act as a local fallback outside Docker.
+    config.secret_key_base = Fenix::AppCreds.secret_key_base if Rails.env.production?
   end
 end

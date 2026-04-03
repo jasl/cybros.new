@@ -131,6 +131,29 @@ No round is complete until all of the following are true with fresh evidence:
 - the provider-backed `2048` capstone acceptance passes under the current
   product contract
 
+## Fresh Start Gate
+
+Because compatibility is intentionally out of scope during this reset cycle,
+every round starts from fresh processes and a fresh runtime surface:
+
+- before each round begins, stop already running host services and relevant
+  containers, then restart them from the current source tree
+- after any contract change, repeat that fresh start before trusting new
+  verification or acceptance evidence
+- do not rely on long-lived host Rails servers, old runtime manifests, or
+  previously started container workers when judging current behavior
+- external harness steps and round checklists should encode this rule directly
+  instead of depending on operator memory
+- in Docker mode, rebuild the `Fenix` image from the current source tree before
+  starting containers; do not patch repo files into an already-running
+  container
+- the default external harness entrypoints are:
+  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/fresh_start_stack.sh`
+  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/run_with_fresh_start.sh`
+- when a target acceptance script expects a non-default runtime port, pass the
+  matching `FENIX_RUNTIME_BASE_URL` into the wrapper so the fresh-start step
+  boots the correct runtime endpoint before running the script
+
 ## Documentation Rules
 
 - active round planning lives in `docs/plans/`
@@ -165,9 +188,10 @@ When a new round begins:
 
 1. write a round-specific audit/design document in `docs/plans/`
 2. write the matching implementation plan in `docs/plans/`
-3. execute the round in bounded batches
-4. rerun full verification and acceptance
-5. archive the completed round documents to `docs/finished-plans/`
+3. perform the fresh-start gate for host services and relevant containers
+4. execute the round in bounded batches
+5. rerun full verification and acceptance
+6. archive the completed round documents to `docs/finished-plans/`
 
 This framework stays active until the codebase is judged structurally ready for
 the next product phase.

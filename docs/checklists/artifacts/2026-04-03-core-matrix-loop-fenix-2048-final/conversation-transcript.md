@@ -2,7 +2,7 @@
 
 ## Message 1
 
-- Message `public_id`: `019d545a-2864-7f4b-8701-13eda065beb4`
+- Message `public_id`: `019d54dc-6fb7-7ed7-8e29-78d23fa6cf4a`
 - Role: `user`
 
 ```text
@@ -39,24 +39,22 @@ Acceptance harness requirements:
 
 ## Message 2
 
-- Message `public_id`: `019d545d-86e4-71b3-bab6-8692a5ebbb84`
+- Message `public_id`: `019d54e1-15b3-74c8-a876-2587e7b33750`
 - Role: `agent`
 
 ```text
-Done — built a complete React/Vite/TypeScript 2048 game in `/workspace/game-2048`, including real movement/merge/spawn rules, score, win/game-over state, restart, and arrow/WASD controls.
+Done: built a complete React + Vite + TypeScript 2048 game in `/workspace/game-2048` with real movement/merge/spawn/score/win/game-over/restart behavior, arrow-key + WASD controls, and logic tests.
 
 Verified:
 - `npm test` ✅
 - `npm run build` ✅
-- app running on `0.0.0.0:4173` ✅
-- browser session opened and confirmed the app renders ✅
+- app running via `npm run preview` on `0.0.0.0:4173` ✅
+- opened and verified in browser session ✅
 
-Acceptance hooks implemented:
+Acceptance hooks included:
 - `data-testid="board"` with `role="grid"` and accessible name `2048 board`
-- exactly 16 `role="gridcell"` cells
+- 16 `role="gridcell"` cells
 - `data-testid="score"`
 - `data-testid="status"`
 - `data-testid="restart"`
-
-If needed, the dev server is active at `http://127.0.0.1:4173/`.
 ```

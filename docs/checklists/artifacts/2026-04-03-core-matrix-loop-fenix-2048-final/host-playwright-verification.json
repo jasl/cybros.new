@@ -3,12 +3,6 @@
     "board": [
       [
         null,
-        2,
-        null,
-        null
-      ],
-      [
-        null,
         null,
         null,
         null
@@ -16,40 +10,46 @@
       [
         null,
         null,
-        null,
+        4,
         null
       ],
       [
         null,
-        2,
+        null,
+        null,
+        2
+      ],
+      [
+        null,
+        null,
         null,
         null
       ]
     ],
     "score": 0,
-    "status": "Keep going",
+    "status": "Playing",
     "nonEmpty": 2
   },
   "directionChecks": {
     "ArrowLeft": {
       "changed": true,
-      "beforeScore": 3288,
-      "afterScore": 3292
+      "beforeScore": 580,
+      "afterScore": 604
     },
     "ArrowUp": {
       "changed": true,
-      "beforeScore": 3240,
-      "afterScore": 3248
+      "beforeScore": 604,
+      "afterScore": 608
     },
     "ArrowRight": {
       "changed": true,
-      "beforeScore": 3248,
-      "afterScore": 3248
+      "beforeScore": 604,
+      "afterScore": 604
     },
     "ArrowDown": {
       "changed": true,
       "beforeScore": 4,
-      "afterScore": 8,
+      "afterScore": 4,
       "attempts": 1
     }
   },
@@ -59,52 +59,52 @@
   "preRestart": {
     "board": [
       [
-        256,
-        128,
+        64,
+        16,
         2,
-        32
+        16
       ],
       [
-        8,
-        64,
         32,
+        2,
+        16,
         4
       ],
       [
-        2,
-        32,
+        4,
         16,
-        8
-      ],
-      [
-        16,
-        8,
         4,
         2
+      ],
+      [
+        2,
+        8,
+        2,
+        4
       ]
     ],
-    "score": 3292,
-    "status": "Game over",
+    "score": 608,
+    "status": "Game over!",
     "nonEmpty": 16
   },
   "postRestart": {
     "board": [
       [
         null,
-        2,
-        2,
-        null
-      ],
-      [
-        null,
         null,
         null,
         null
       ],
       [
         null,
+        2,
+        null,
+        null
+      ],
+      [
         null,
         null,
+        2,
         null
       ],
       [
@@ -115,7 +115,7 @@
       ]
     ],
     "score": 0,
-    "status": "Keep going",
+    "status": "Playing",
     "nonEmpty": 2
   },
   "restartResetScore": true,

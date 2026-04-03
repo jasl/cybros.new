@@ -1,23 +1,23 @@
 [
   {
-    "process_run_id": "019d545d-3e0a-7ab0-be4a-14e1166925bf",
-    "workflow_node_id": "019d545d-3d7a-74bf-b08d-cb7737b68fa2",
-    "workflow_run_id": "019d545a-2879-7bcd-b0ab-f57fd82c838e",
-    "conversation_id": "019d545a-2845-7494-bdc7-352844cdc8c9",
-    "turn_id": "019d545a-2863-751f-8de4-d50cd45f4fd6",
+    "process_run_id": "019d54e0-a892-7779-8113-a3cab1ef9f36",
+    "workflow_node_id": "019d54e0-a7a4-7ce7-a6c2-b0c176350258",
+    "workflow_run_id": "019d54dc-6fcc-718e-9c72-d710b9978a63",
+    "conversation_id": "019d54dc-6f9b-7077-8d92-a93819440ba0",
+    "turn_id": "019d54dc-6fb6-73b7-b217-e9cc7e4d8441",
     "kind": "background_service",
     "lifecycle_state": "running",
-    "command_line": "bash -lc 'cd /workspace/game-2048 && npm run dev -- --host 0.0.0.0 --port 4173'",
+    "command_line": "cd /workspace/game-2048 && npm run preview",
     "metadata": {
       "proxy": {
         "target_port": 4173
       },
       "attempt_no": 1,
-      "logical_work_id": "program-tool:019d545d-3d7a-74bf-b08d-cb7737b68fa2:call_99jhBmQdcmjmIgHIfoq9E5nI",
+      "logical_work_id": "program-tool:019d54e0-a7a4-7ce7-a6c2-b0c176350258:call_5p2cO3GcD4vNeYfR0NGxxSJ5",
       "provider_format": "chat_completions"
     },
-    "started_at": "2026-04-03T17:21:30.113322Z",
-    "created_at": "2026-04-03T17:21:30.121413Z",
-    "updated_at": "2026-04-03T17:21:30.351569Z"
+    "started_at": "2026-04-03T19:45:02.602217Z",
+    "created_at": "2026-04-03T19:45:02.609522Z",
+    "updated_at": "2026-04-03T19:45:02.861289Z"
   }
 ]

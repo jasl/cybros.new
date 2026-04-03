@@ -12,6 +12,7 @@ require "timeout"
 require "uri"
 require "zip"
 require_relative "../manual_acceptance_support"
+require_relative "../../../lib/manual_acceptance/conversation_runtime_validation"
 
 ARTIFACT_STAMP = "2026-04-03-core-matrix-loop-fenix-2048-final".freeze
 OPERATOR_NAME = "Codex".freeze
@@ -716,46 +717,7 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
 end
 
 def build_conversation_runtime_validation(tool_invocations:)
-  build_success = false
-  test_success = false
-  dev_server_ready = false
-  browser_content = nil
-
-  Array(tool_invocations).each do |entry|
-    tool_name = entry["tool_name"].to_s
-    status = entry["status"].to_s
-    response_payload = entry["response_payload"].is_a?(Hash) ? entry["response_payload"] : {}
-    stdout_tail = response_payload["stdout_tail"].to_s
-    stderr_tail = response_payload["stderr_tail"].to_s
-    combined_output = [stdout_tail, stderr_tail].join("\n")
-    current_url = response_payload["current_url"].to_s
-
-    if (tool_name == "command_run_wait" || tool_name == "write_stdin") && status == "succeeded"
-      build_success ||= response_payload["exit_status"].to_i.zero? &&
-        combined_output.include?("built in") &&
-        combined_output.include?("dist/")
-      test_success ||= response_payload["exit_status"].to_i.zero? &&
-        combined_output.match?(/Test Files .*passed|Tests .*passed/m)
-    elsif (tool_name == "command_run_read_output" || tool_name == "process_read_output") && status == "succeeded"
-      dev_server_ready ||= stdout_tail.include?("vite --host 0.0.0.0 --port 4173") &&
-        stdout_tail.include?("ready in")
-    elsif (tool_name == "browser_open" || tool_name == "browser_navigate") && status == "succeeded"
-      dev_server_ready ||= current_url.start_with?("http://127.0.0.1:4173")
-    elsif tool_name == "browser_get_content" && status == "succeeded"
-      dev_server_ready ||= current_url.start_with?("http://127.0.0.1:4173")
-      content = response_payload["content"].to_s.strip
-      browser_content = content if content.present?
-    end
-  end
-
-  {
-    "runtime_test_passed" => test_success,
-    "runtime_build_passed" => build_success,
-    "runtime_dev_server_ready" => dev_server_ready,
-    "runtime_browser_loaded" => browser_content.present?,
-    "runtime_browser_mentions_2048" => browser_content.to_s.match?(/2048/i),
-    "runtime_browser_content_excerpt" => browser_content.to_s[0, 240],
-  }
+  ManualAcceptance::ConversationRuntimeValidation.build(tool_invocations:)
 end
 
 def write_playability_verification_md(path:, playability_result:, generated_app_dir:, preview_port:, runtime_validation:, preview_validation:, host_skip_reason: nil)
@@ -1158,6 +1120,7 @@ def build_playwright_script(output_json_path:, screenshot_path:)
 
     test('host-side 2048 playability', async ({ page }) => {
       test.setTimeout(180000);
+      const gameOverStatusPattern = /game(?:\s|-)?over/i;
 
       await page.goto(baseUrl, { waitUntil: 'networkidle' });
       await expect(await boardLocator(page)).toBeVisible();
@@ -1176,7 +1139,7 @@ def build_playwright_script(output_json_path:, screenshot_path:)
       const priority = ['ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown'];
 
       for (let step = 0; step < 1500; step += 1) {
-        if (/game over/i.test(current.status)) break;
+        if (gameOverStatusPattern.test(current.status)) break;
 
         let moved = false;
         for (const key of priority) {
@@ -1202,17 +1165,17 @@ def build_playwright_script(output_json_path:, screenshot_path:)
         if (!moved) {
           await page.keyboard.press('ArrowUp');
           current = await snapshot(page);
-          if (/game over/i.test(current.status)) break;
+          if (gameOverStatusPattern.test(current.status)) break;
           if (current.nonEmpty === 16) break;
         }
       }
 
-      if (!/game over/i.test(current.status)) {
+      if (!gameOverStatusPattern.test(current.status)) {
         for (let attempt = 0; attempt < 20; attempt += 1) {
           await page.keyboard.press('ArrowUp');
           await page.keyboard.press('ArrowLeft');
           current = await snapshot(page);
-          if (/game over/i.test(current.status)) break;
+          if (gameOverStatusPattern.test(current.status)) break;
         }
       }
 
@@ -1225,7 +1188,7 @@ def build_playwright_script(output_json_path:, screenshot_path:)
         directionChecks,
         mergeObserved,
         spawnObserved,
-        gameOverReached: /game over/i.test(preRestart.status),
+        gameOverReached: gameOverStatusPattern.test(preRestart.status),
         preRestart,
         postRestart,
         restartResetScore: postRestart.score === 0,

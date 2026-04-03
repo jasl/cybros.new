@@ -49,6 +49,7 @@ File.write(source_root.join("references", "checklist.md"), "# Checklist\n")
 catalog_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
+  execution_machine_credential: registration.fetch(:execution_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "List available skills.",
   mode: "skills_catalog_list"
@@ -56,6 +57,7 @@ catalog_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
 load_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
+  execution_machine_credential: registration.fetch(:execution_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Load deploy-agent.",
   mode: "skills_load",
@@ -64,6 +66,7 @@ load_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
 read_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
+  execution_machine_credential: registration.fetch(:execution_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Read deploy-agent script.",
   mode: "skills_read_file",
@@ -75,6 +78,7 @@ read_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
 install_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
+  execution_machine_credential: registration.fetch(:execution_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Install portable-notes skill.",
   mode: "skills_install",
@@ -83,6 +87,7 @@ install_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
 load_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
+  execution_machine_credential: registration.fetch(:execution_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Load portable-notes on the next top-level turn.",
   mode: "skills_load",
@@ -91,6 +96,7 @@ load_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
 read_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: agent_program_version,
   machine_credential: registration.fetch(:machine_credential),
+  execution_machine_credential: registration.fetch(:execution_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Read portable-notes checklist.",
   mode: "skills_read_file",
@@ -153,8 +159,11 @@ ManualAcceptanceSupport.write_json(
     "passed" => scenario_runs_passed.call(scenario_12_runs) && scenario_runs_passed.call(scenario_13_runs),
     "proof_artifact_path" => nil,
     "agent_program_version_id" => agent_program_version.public_id,
-    "execution_runtime_id" => agent_program_version.agent_program.default_execution_runtime.public_id,
-    "heartbeat_bootstrap_state" => registration.fetch(:heartbeat).fetch("bootstrap_state"),
+    "execution_runtime_id" => registration.fetch(:execution_runtime)&.public_id,
+    "agent_session_id" => registration.fetch(:registration).fetch("agent_session_id"),
+    "execution_session_id" => registration.fetch(:registration)["execution_session_id"],
+    "heartbeat_lifecycle_state" => registration.fetch(:heartbeat).fetch("lifecycle_state"),
+    "heartbeat_health_status" => registration.fetch(:heartbeat).fetch("health_status"),
     "scenario_12" => {
       "passed" => scenario_runs_passed.call(scenario_12_runs),
       "expected_dag_shape" => ["agent_turn_step"],

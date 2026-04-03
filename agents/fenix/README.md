@@ -396,6 +396,9 @@ as the default sample:
 Key environment variables in the sample:
 
 - `SECRET_KEY_BASE=...`
+  - `Fenix` resolves runtime secrets through `Rails.app.creds`, so Docker
+    deployments should provide them through ENV instead of mounting
+    `config/master.key`
   - the sample uses a dev-only placeholder so `production` boots out of the box
   - replace it with a real secret for any non-local deployment
 - `FENIX_PUBLIC_BASE_URL=http://localhost:3101`
@@ -425,6 +428,7 @@ The canonical bare-metal target is Ubuntu 24.04. Operators should:
 - run `npm ci`
 - run `npx playwright install chromium`
 - provide `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_MACHINE_CREDENTIAL`
+- provide runtime secrets through ENV-backed `Rails.app.creds`
 - start the Rails runtime and, when proxy paths are needed, start
   `bin/fenix-dev-proxy`
 
