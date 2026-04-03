@@ -20,7 +20,7 @@ it is not a reusable template.
 - `WorkflowRun` may now persist workflow-owned resume hints through:
   - `resume_policy`
   - `resume_metadata`
-- Phase 2 currently freezes `resume_policy = "re_enter_agent"` for
+- The current implementation freezes `resume_policy = "re_enter_agent"` for
   workflow-yield continuation. The run stores the last yielded node and
   successor summary instead of auto-running a stale batch tail.
 - Supported v1 lifecycle states are:
@@ -52,7 +52,7 @@ it is not a reusable template.
   - `completed`
   - `failed`
   - `canceled`
-- `WorkflowNode` is the durable execution boundary for Phase 2 scheduling.
+- `WorkflowNode` is the durable execution boundary for current scheduling.
   Scheduling consumes `pending` nodes, moves them to `queued`, and later
   transitions them through `running` into a terminal state.
 - A node is one-shot per workflow run. Later predecessor arrivals must not
@@ -66,7 +66,7 @@ it is not a reusable template.
   transcript text.
 - `presentation_policy` is a frozen field on the node itself, not an inferred
   view over `node_type`.
-- Supported Phase 2 presentation policies are:
+- Supported current presentation policies are:
   - `internal_only`
   - `ops_trackable`
   - `user_projectable`

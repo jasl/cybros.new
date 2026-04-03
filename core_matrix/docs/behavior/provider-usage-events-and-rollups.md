@@ -18,7 +18,7 @@ derived aggregation layer for reporting and future quota or entitlement checks.
 - Operation kinds cover token and non-token AI work, including text, image,
   video, embeddings, speech, transcription, and future media analysis.
 - Token counts and media-unit counts are both supported.
-- Phase 2 provider-backed `turn_step` execution records authoritative usage from
+- Current provider-backed `turn_step` execution records authoritative usage from
   the provider response after the workflow step completes.
 - Successful provider-backed text generation records:
   - `provider_handle`

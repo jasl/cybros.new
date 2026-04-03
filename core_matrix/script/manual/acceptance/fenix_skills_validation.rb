@@ -4,9 +4,9 @@ require "fileutils"
 require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3102")
-live_root = ENV.fetch("FENIX_LIVE_SKILLS_ROOT", "/tmp/phase2-fenix-live-skills")
-staging_root = ENV.fetch("FENIX_STAGING_SKILLS_ROOT", "/tmp/phase2-fenix-staging")
-backup_root = ENV.fetch("FENIX_BACKUP_SKILLS_ROOT", "/tmp/phase2-fenix-backups")
+live_root = ENV.fetch("FENIX_LIVE_SKILLS_ROOT", "/tmp/acceptance-fenix-live-skills")
+staging_root = ENV.fetch("FENIX_STAGING_SKILLS_ROOT", "/tmp/acceptance-fenix-staging")
+backup_root = ENV.fetch("FENIX_BACKUP_SKILLS_ROOT", "/tmp/acceptance-fenix-backups")
 
 ManualAcceptanceSupport.reset_backend_state!
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
@@ -19,8 +19,8 @@ external = ManualAcceptanceSupport.create_external_agent_program!(
 registration = ManualAcceptanceSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "phase2-fenix-skills-environment",
-  fingerprint: "phase2-fenix-skills-v1"
+  runtime_fingerprint: "acceptance-fenix-skills-environment",
+  fingerprint: "acceptance-fenix-skills-v1"
 )
 agent_program_version = registration.fetch(:agent_program_version)
 
@@ -28,7 +28,7 @@ FileUtils.rm_rf(Dir.glob(File.join(live_root, "*")))
 FileUtils.rm_rf(Dir.glob(File.join(staging_root, "*")))
 FileUtils.rm_rf(Dir.glob(File.join(backup_root, "*")))
 
-source_root = Rails.root.join("tmp", "phase2-portable-notes-src", "portable-notes")
+source_root = Rails.root.join("tmp", "acceptance-portable-notes-src", "portable-notes")
 FileUtils.rm_rf(source_root.parent)
 FileUtils.mkdir_p(source_root.join("references"))
 File.write(

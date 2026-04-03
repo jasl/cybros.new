@@ -154,7 +154,7 @@ of carrying separate counter families and close-summary logic in parallel.
 - With `OPENAI_API_KEY` or `OPENROUTER_API_KEY` present, those real providers
   can participate in `role:main` immediately without changing conversation
   selector mode away from `auto`.
-- The Phase 2 acceptance operator scripts intentionally call one combined
+- The acceptance operator scripts intentionally call one combined
   bootstrap-and-seed path after each destructive reset so the development
   database always re-materializes:
   - the provider catalog baseline
@@ -163,7 +163,7 @@ of carrying separate counter families and close-summary logic in parallel.
     deployment
 - The acceptance support layer silences seed stdout during those script runs so
   the operator scripts can write pure JSON to stdout and be redirected
-  directly into `/tmp/phase2_*.json`.
+  directly into `/tmp/*.json`.
 
 ## Failure Modes
 

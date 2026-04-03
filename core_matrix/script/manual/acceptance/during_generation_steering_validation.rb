@@ -4,19 +4,19 @@ require_relative "../manual_acceptance_support"
 
 bundled_configuration = {
   enabled: true,
-  agent_key: "phase2-d-steering",
-  display_name: "Phase 2 Steering Runtime",
+  agent_key: "acceptance-d-steering",
+  display_name: "Acceptance Steering Runtime",
   visibility: "global",
   lifecycle_state: "active",
   runtime_kind: "local",
-  runtime_fingerprint: "phase2-d-steering-environment",
+  runtime_fingerprint: "acceptance-d-steering-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
     "base_url" => "http://127.0.0.1:4100",
     "runtime_manifest_path" => "/runtime/manifest",
   },
-  fingerprint: "phase2-d-steering-runtime",
+  fingerprint: "acceptance-d-steering-runtime",
   protocol_version: "2026-03-24",
   sdk_version: "fenix-0.1.0",
   protocol_methods: [

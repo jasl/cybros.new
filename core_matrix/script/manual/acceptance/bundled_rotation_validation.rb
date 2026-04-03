@@ -10,8 +10,8 @@ bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
 v1 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "phase2-bundled-rotation-environment",
-  fingerprint: "phase2-bundled-fenix-v1",
+  runtime_fingerprint: "acceptance-bundled-rotation-environment",
+  fingerprint: "acceptance-bundled-fenix-v1",
   sdk_version: "fenix-0.1.0"
 ).fetch(:runtime)
 
@@ -26,8 +26,8 @@ baseline = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
 v2 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "phase2-bundled-rotation-environment",
-  fingerprint: "phase2-bundled-fenix-v2",
+  runtime_fingerprint: "acceptance-bundled-rotation-environment",
+  fingerprint: "acceptance-bundled-fenix-v2",
   sdk_version: "fenix-0.2.0"
 ).fetch(:runtime)
 
@@ -47,8 +47,8 @@ upgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
 v0 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "phase2-bundled-rotation-environment",
-  fingerprint: "phase2-bundled-fenix-v0-9",
+  runtime_fingerprint: "acceptance-bundled-rotation-environment",
+  fingerprint: "acceptance-bundled-fenix-v0-9",
   sdk_version: "fenix-0.0.9"
 ).fetch(:runtime)
 

@@ -3,7 +3,7 @@
 ## Purpose
 
 Task 09.4 added the first context-assembly boundary for workflow execution.
-Task B1 and the Phase 2 execution-snapshot unification batch split persistent
+Task B1 and the later execution-snapshot unification batch split persistent
 config ownership from runtime-facing execution-snapshot ownership so workflow
 and provider execution stop reopening aggregate models or mixed JSON blobs.
 
@@ -95,7 +95,7 @@ freezes a per-turn execution snapshot that preserves:
 - `ProviderRequestSettingsSchema` is the canonical owner of request-setting
   filtering and validation for both catalog defaults and resolved runtime
   overrides
-- for Phase 2 provider-backed execution, merge precedence is:
+- for current provider-backed execution, merge precedence is:
   1. model catalog `request_defaults`
   2. the turn's resolved config snapshot
 - `budget_hints` keeps hard ceilings separate from advisory runtime hints:

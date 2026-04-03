@@ -124,8 +124,9 @@ Model `enabled` defaults to `true` when omitted. Catalog authors only need to
 declare it explicitly when disabling a model or when they want that boolean to
 remain fully explicit in local overrides.
 
-`request_defaults` remains model-scoped catalog state in Phase 1. Phase 2 now
-wires those values into provider-backed request execution.
+`request_defaults` remains model-scoped catalog state from the catalog layer.
+The current provider-backed execution path now wires those values into runtime
+request execution.
 
 For provider execution, merge precedence is:
 

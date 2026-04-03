@@ -4,19 +4,19 @@ require_relative "../manual_acceptance_support"
 
 bundled_configuration = {
   enabled: true,
-  agent_key: "phase2-d-subagents",
-  display_name: "Phase 2 Subagent Runtime",
+  agent_key: "acceptance-d-subagents",
+  display_name: "Acceptance Subagent Runtime",
   visibility: "global",
   lifecycle_state: "active",
   runtime_kind: "local",
-  runtime_fingerprint: "phase2-d-subagents-environment",
+  runtime_fingerprint: "acceptance-d-subagents-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
     "base_url" => "http://127.0.0.1:4100",
     "runtime_manifest_path" => "/runtime/manifest",
   },
-  fingerprint: "phase2-d-subagents-runtime",
+  fingerprint: "acceptance-d-subagents-runtime",
   protocol_version: "2026-03-24",
   sdk_version: "fenix-0.1.0",
   protocol_methods: [
@@ -176,7 +176,7 @@ AgentControl::Poll.call(deployment: registry.deployment, limit: 10)
 AgentControl::Report.call(
   deployment: registry.deployment,
   method_id: "execution_started",
-  protocol_message_id: "phase2-subagents-start",
+  protocol_message_id: "acceptance-subagents-start",
   mailbox_item_id: mailbox_item.public_id,
   agent_task_run_id: agent_task_run.public_id,
   logical_work_id: agent_task_run.logical_work_id,
@@ -186,7 +186,7 @@ AgentControl::Report.call(
 AgentControl::Report.call(
   deployment: registry.deployment,
   method_id: "execution_complete",
-  protocol_message_id: "phase2-subagents-complete",
+  protocol_message_id: "acceptance-subagents-complete",
   mailbox_item_id: mailbox_item.public_id,
   agent_task_run_id: agent_task_run.public_id,
   logical_work_id: agent_task_run.logical_work_id,
@@ -195,7 +195,7 @@ AgentControl::Report.call(
     "output" => "Delegated both research tasks",
     "wait_transition_requested" => {
       "batch_manifest" => {
-        "batch_id" => "phase2-subagents-batch",
+        "batch_id" => "acceptance-subagents-batch",
         "resume_policy" => "re_enter_agent",
         "successor" => {
           "node_key" => "agent_step_2",
@@ -208,7 +208,7 @@ AgentControl::Report.call(
             "completion_barrier" => "wait_all",
             "intents" => [
               {
-                "intent_id" => "phase2-subagents-batch:subagent:0",
+                "intent_id" => "acceptance-subagents-batch:subagent:0",
                 "intent_kind" => "subagent_spawn",
                 "node_key" => "subagent_alpha",
                 "node_type" => "subagent_spawn",
@@ -222,10 +222,10 @@ AgentControl::Report.call(
                   "profile_key" => "researcher",
                   "task_payload" => {},
                 },
-                "idempotency_key" => "phase2-subagents-batch:subagent:0",
+                "idempotency_key" => "acceptance-subagents-batch:subagent:0",
               },
               {
-                "intent_id" => "phase2-subagents-batch:subagent:1",
+                "intent_id" => "acceptance-subagents-batch:subagent:1",
                 "intent_kind" => "subagent_spawn",
                 "node_key" => "subagent_beta",
                 "node_type" => "subagent_spawn",
@@ -239,7 +239,7 @@ AgentControl::Report.call(
                   "profile_key" => "researcher",
                   "task_payload" => {},
                 },
-                "idempotency_key" => "phase2-subagents-batch:subagent:1",
+                "idempotency_key" => "acceptance-subagents-batch:subagent:1",
               },
             ],
           },
@@ -270,7 +270,7 @@ AgentControl::Poll.call(deployment: registry.deployment, limit: 10)
 AgentControl::Report.call(
   deployment: registry.deployment,
   method_id: "execution_started",
-  protocol_message_id: "phase2-subagents-child-1-start",
+  protocol_message_id: "acceptance-subagents-child-1-start",
   mailbox_item_id: first_mailbox_item.public_id,
   agent_task_run_id: first_child.public_id,
   logical_work_id: first_child.logical_work_id,
@@ -280,7 +280,7 @@ AgentControl::Report.call(
 AgentControl::Report.call(
   deployment: registry.deployment,
   method_id: "execution_complete",
-  protocol_message_id: "phase2-subagents-child-1-complete",
+  protocol_message_id: "acceptance-subagents-child-1-complete",
   mailbox_item_id: first_mailbox_item.public_id,
   agent_task_run_id: first_child.public_id,
   logical_work_id: first_child.logical_work_id,
@@ -298,7 +298,7 @@ AgentControl::Poll.call(deployment: registry.deployment, limit: 10)
 AgentControl::Report.call(
   deployment: registry.deployment,
   method_id: "execution_started",
-  protocol_message_id: "phase2-subagents-child-2-start",
+  protocol_message_id: "acceptance-subagents-child-2-start",
   mailbox_item_id: second_mailbox_item.public_id,
   agent_task_run_id: second_child.public_id,
   logical_work_id: second_child.logical_work_id,
@@ -308,7 +308,7 @@ AgentControl::Report.call(
 AgentControl::Report.call(
   deployment: registry.deployment,
   method_id: "execution_complete",
-  protocol_message_id: "phase2-subagents-child-2-complete",
+  protocol_message_id: "acceptance-subagents-child-2-complete",
   mailbox_item_id: second_mailbox_item.public_id,
   agent_task_run_id: second_child.public_id,
   logical_work_id: second_child.logical_work_id,

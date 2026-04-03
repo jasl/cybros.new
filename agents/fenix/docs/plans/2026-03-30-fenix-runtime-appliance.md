@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Turn `agents/fenix` from the current post-Phase-2 validated runtime into a distributable Ubuntu 24.04 runtime appliance with pluggable environment tools, `.fenix` workspace state, Firecrawl-backed web capabilities, browser automation, and `ProcessRun`-aligned long-lived service support.
+**Goal:** Turn `agents/fenix` from the current validated runtime into a distributable Ubuntu 24.04 runtime appliance with pluggable environment tools, `.fenix` workspace state, Firecrawl-backed web capabilities, browser automation, and `ProcessRun`-aligned long-lived service support.
 
 **Architecture:** Keep the shipped product as one default Fenix runtime service while separating program-plane logic from execution-plane logic inside the implementation. Replace the current hardcoded tool catalog with a registry-backed composition model, keep Core Matrix reserved tools outside the plugin collision domain, and split attached command execution from long-lived process execution.
 
@@ -12,7 +12,7 @@
 
 ## Preconditions
 
-- This plan has been revalidated against the current post-Phase-2 baseline.
+- This plan has been revalidated against the current validated runtime baseline.
   Execute it from the current runtime-control/resource-contract shape instead
   of the older minimal-runtime assumptions.
 - The following are already landed and should be treated as baseline, not

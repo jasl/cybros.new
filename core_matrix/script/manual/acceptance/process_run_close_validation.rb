@@ -4,14 +4,14 @@ require_relative "../manual_acceptance_support"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
-fingerprint = "phase2-process-run-runtime"
+fingerprint = "acceptance-process-run-runtime"
 
 ManualAcceptanceSupport.reset_backend_state!
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
 bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "phase2-process-run-environment",
+  runtime_fingerprint: "acceptance-process-run-environment",
   fingerprint: fingerprint,
   sdk_version: "fenix-0.1.0"
 )
@@ -64,7 +64,7 @@ ManualAcceptanceSupport.with_fenix_control_worker!(
     strictness: "graceful",
     grace_deadline_at: occurred_at + 30.seconds,
     force_deadline_at: occurred_at + 60.seconds,
-    protocol_message_id: "phase2-process-run-close"
+    protocol_message_id: "acceptance-process-run-close"
   )
 
   ManualAcceptanceSupport.wait_for_process_run_state!(

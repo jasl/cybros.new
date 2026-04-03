@@ -14,8 +14,8 @@ Related design documents in this directory:
 - [2026-03-31-core-matrix-loop-fenix-program-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-loop-fenix-program-design.md)
 - [2026-03-31-core-matrix-parallel-tool-execution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-03-31-core-matrix-parallel-tool-execution-design.md)
 
-The full Phase 2 plan chain, task records, follow-up designs, and superseded
-sequential milestone notes were archived to
+The earlier agent-loop plan chain, task records, follow-up designs, and
+superseded sequential milestone notes were archived to
 [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans)
 after the final CI sweep and manual acceptance rerun completed.
 

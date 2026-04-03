@@ -8,7 +8,7 @@ workflow work.
 
 ## Status
 
-This document reflects the landed Phase 2 scheduler and close-fence behavior.
+This document reflects the landed scheduler and close-fence behavior.
 
 ## Workflow Wait State Shape
 
@@ -62,7 +62,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
   - it locks the workflow run
   - moves each selected runnable node from `pending` to `queued`
   - enqueues one `Workflows::ExecuteNodeJob` per node
-- `WorkflowRun` is not the async execution unit. Phase 2 dispatches one job per
+- `WorkflowRun` is not the async execution unit. The current implementation dispatches one job per
   runnable `WorkflowNode`.
 - `Workflows::ExecuteRun` is the turn-step enqueue boundary; it
   resolves a runnable `turn_step` node and hands it to node dispatch instead of
@@ -89,7 +89,7 @@ This document reflects the landed Phase 2 scheduler and close-fence behavior.
 - accepted intents become durable workflow nodes
 - rejected intents remain audit-only node events
 - barrier summaries are stored as workflow artifacts on the yielding node
-- current Phase 2 resume policy is `re_enter_agent`; later continuation work
+- current resume policy is `re_enter_agent`; later continuation work
   should create a successor agent step from `resume_metadata` rather than
   continuing an old batch tail under a stale snapshot
 - `WorkflowRun.feature_policy_snapshot` freezes the turn-owned feature policy

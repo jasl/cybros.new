@@ -25,6 +25,8 @@ Thumbs.db
 
 # Test files
 /coverage/
+/test-results/
+/playwright-report/
 
 # MCP temp files
 .playwright-mcp/

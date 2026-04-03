@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the current Phase 2 conversation-bound deployment and execution-environment model with a turn-bound runtime model built around `AgentProgram`, `AgentProgramVersion`, optional `ExecutionRuntime`, and single-active session authentication.
+**Goal:** Replace the current conversation-bound deployment and execution-environment model with a turn-bound runtime model built around `AgentProgram`, `AgentProgramVersion`, optional `ExecutionRuntime`, and single-active session authentication.
 
 **Architecture:** Reset the domain in one destructive migration pass. `Conversation` binds only to `AgentProgram`. `Turn` freezes `AgentProgramVersion` and optional `ExecutionRuntime`. Live authentication and control-plane ownership move to `AgentSession` and `ExecutionSession`. Capability assembly, attachment delivery, recovery, and bundled `Fenix` bootstrap are rewritten around the new model. Obsolete services, docs, and tests are deleted instead of shimmed.
 
@@ -539,4 +539,3 @@ Expected: PASS with no new issues found
 The user explicitly requested uninterrupted execution in the current session.
 Proceed with in-session implementation and repeated verification loops unless a
 new design blocker appears that requires a product decision.
-

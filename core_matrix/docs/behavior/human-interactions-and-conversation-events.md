@@ -5,7 +5,7 @@
 Task 10.2 adds the first workflow-owned human-interaction runtime layer and the
 first conversation-local operational projection layer.
 
-The landed Phase 2 shape now also includes yielded wait-transition
+The current landed shape now also includes yielded wait-transition
 materialization and successor-step re-entry on the same workflow run.
 
 This task does not introduce a second pause ledger, transcript mutation escape
@@ -102,7 +102,7 @@ hatches, or runtime-private wait state. It establishes:
 
 - `ConversationEvent` is durable and replayable; it is not the only live
   delivery mechanism.
-- Phase 2 also exposes a temporary Action Cable runtime stream per
+- The current implementation also exposes a temporary Action Cable runtime stream per
   conversation:
   - stream name is derived from `Conversation.public_id`
   - payloads are emitted through `ConversationRuntime::Broadcast`

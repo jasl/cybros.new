@@ -202,14 +202,14 @@ All ids in responses must be public ids.
 
 ## Implementation Strategy
 
-### Phase 1
+### Stage 1
 
 - add snapshot tables and models
 - add missing `usage_events` indexes for `conversation_id` and `turn_id`
 - implement canonical recompute services
 - add request endpoints that refresh and then return snapshots
 
-### Phase 2
+### Stage 2
 
 - use the new diagnostics endpoints in agent-side analysis workflows
 - rerun the 2048 acceptance flow

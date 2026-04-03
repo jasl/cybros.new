@@ -11,10 +11,10 @@ server = FakeStreamableHttpMcpServer.new.start
 
 begin
   runtime_context = GovernedValidationSupport.bootstrap_runtime!(
-    agent_key: "phase2-governed-mcp",
-    display_name: "Phase 2 Governed MCP Runtime",
-    runtime_fingerprint: "phase2-governed-mcp-environment",
-    fingerprint: "phase2-governed-mcp-runtime",
+    agent_key: "acceptance-governed-mcp",
+    display_name: "Acceptance Governed MCP Runtime",
+    runtime_fingerprint: "acceptance-governed-mcp-environment",
+    fingerprint: "acceptance-governed-mcp-runtime",
     tool_catalog: [
       {
         "tool_name" => "remote_echo",

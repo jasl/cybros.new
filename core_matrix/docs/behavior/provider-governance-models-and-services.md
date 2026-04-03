@@ -10,7 +10,7 @@ The catalog declares whether a provider requires credentials and which
 credential kind it expects. Governance rows answer whether this installation
 currently satisfies those declared requirements.
 
-Phase 2 also adds an installation-scoped durable capability-governance layer
+The current implementation also adds an installation-scoped durable capability-governance layer
 for tool exposure and execution audit. Provider availability and tool
 governance stay separate concerns:
 
@@ -226,7 +226,7 @@ governance stay separate concerns:
 
 #### `MCP::StreamableHttpTransport`
 
-- implements the narrow Streamable HTTP MCP transport adopted in Phase 2
+- implements the current narrow Streamable HTTP MCP transport
 - opens one governed MCP session through:
   - `initialize`
   - `notifications/initialized`

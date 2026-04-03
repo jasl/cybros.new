@@ -7,14 +7,15 @@
 
 ## Goal
 
-Reset the Phase 2 runtime model so `Conversation` binds only to a logical
+Reset the current runtime model so `Conversation` binds only to a logical
 agent identity, while each `Turn` freezes the exact program version and
 optional execution runtime used for that turn.
 
-This design intentionally replaces the current Phase 2 assumption that a
+This design intentionally replaces the current assumption that a
 conversation is bound to one `AgentDeployment` and one
 `ExecutionEnvironment`. The codebase is already at the end of the first full
-Phase 2 implementation cycle, and the monorepo policy for this iteration is:
+provider-backed runtime implementation cycle, and the monorepo policy for this
+iteration is:
 
 - destructive schema changes are allowed
 - migration history may be edited in place
@@ -24,7 +25,7 @@ Phase 2 implementation cycle, and the monorepo policy for this iteration is:
 
 ## Why The Current Model Is Wrong
 
-The current Phase 2 implementation treats:
+The current implementation treats:
 
 - `Conversation.execution_environment`
 - `Conversation.agent_deployment`
@@ -563,4 +564,3 @@ Implementation is only complete when all of these are true:
 5. behavior docs no longer describe the old model
 6. the Fenix provider-backed 2048 capstone acceptance completes under the new
    contract
-

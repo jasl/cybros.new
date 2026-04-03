@@ -1,11 +1,12 @@
-# Phase 2 Reports
+# Acceptance Reports
 
-Use this directory for committed Phase 2 manual-validation proof artifacts.
+Use this directory for committed manual-validation proof artifacts from the
+accepted backend loop baseline.
 
 Recommended layout:
 
-- `docs/reports/phase-2/YYYY-MM-DD-<scenario-slug>/proof.md`
-- `docs/reports/phase-2/YYYY-MM-DD-<scenario-slug>/run-<workflow-run-id>.mmd`
+- `docs/reports/<collection>/YYYY-MM-DD-<scenario-slug>/proof.md`
+- `docs/reports/<collection>/YYYY-MM-DD-<scenario-slug>/run-<workflow-run-id>.mmd`
 
 Temporary exports may be generated elsewhere, but they do not count as formal
 acceptance evidence until the artifact package is recorded here.

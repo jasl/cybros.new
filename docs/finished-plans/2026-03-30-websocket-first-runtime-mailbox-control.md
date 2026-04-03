@@ -392,7 +392,7 @@ git commit -m "feat: route attached commands through command run APIs"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/manual_acceptance_support.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/docs/reports/phase-2/README.md`
-- Create/Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/phase2/*`
+- Create/Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/acceptance/*`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_recovery_flow_test.rb`
 
 **Step 1: Write the failing validation expectations**

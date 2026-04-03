@@ -6,7 +6,7 @@ Task 07.2 adds the first turn and transcript-bearing message foundation for
 Core Matrix. It also persists conversation-level override and interactive
 selector state without implementing selector resolution or fallback yet.
 
-The later Phase 2 execution-snapshot unification batch keeps that selector
+The later execution-snapshot unification batch keeps that selector
 boundary intact while explicitly splitting config persistence from runtime
 execution-snapshot persistence on the turn row.
 

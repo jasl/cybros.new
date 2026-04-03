@@ -24,8 +24,8 @@ here.
 
 ## Status
 
-This document describes the current landed runtime resource plane and the first
-Phase 2 mailbox control surface. Transcript, variable, and human-interaction
+This document describes the current landed runtime resource plane and the
+current mailbox control surface. Transcript, variable, and human-interaction
 APIs remain short HTTP resource-style boundaries. Mailbox delivery and
 resource-close reporting now use dedicated control endpoints plus the optional
 realtime stream described here. Broader turn-interrupt and conversation-close

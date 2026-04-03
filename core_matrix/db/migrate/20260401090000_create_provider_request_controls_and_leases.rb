@@ -1,9 +1,5 @@
-class ReworkProviderGovernanceForPhase2 < ActiveRecord::Migration[8.2]
+class CreateProviderRequestControlsAndLeases < ActiveRecord::Migration[8.2]
   def change
-    remove_column :provider_policies, :max_concurrent_requests, :integer, if_exists: true
-    remove_column :provider_policies, :throttle_limit, :integer, if_exists: true
-    remove_column :provider_policies, :throttle_period_seconds, :integer, if_exists: true
-
     create_table :provider_request_controls do |t|
       t.references :installation, null: false, foreign_key: true
       t.string :provider_handle, null: false

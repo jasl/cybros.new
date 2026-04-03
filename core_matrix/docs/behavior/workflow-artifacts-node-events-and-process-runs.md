@@ -3,7 +3,7 @@
 ## Purpose
 
 Task 10.1 added the first workflow-owned runtime resource layer beyond the DAG
-shape itself, and Phase 2 Milestone C extends that layer with mailbox-owned
+shape itself, and the later mailbox-control batch extends that layer with mailbox-owned
 execution resources and durable close metadata.
 
 The current runtime substrate still keeps workflow-local durable resources as
@@ -36,7 +36,7 @@ runtime resources that later tasks now build on are:
   `has_one_attached :file` attachment.
 - Artifact ownership stays workflow-scoped: a node may emit an artifact, but
   the artifact remains queryable through the owning workflow run.
-- Phase 2 yield materialization currently uses:
+- Current yield materialization uses:
   - `intent_batch_manifest`
   - `intent_batch_barrier`
   as inline-json workflow artifacts on the yielding node.
@@ -66,7 +66,7 @@ runtime resources that later tasks now build on are:
 - `WorkflowNodeEvent` remains the kernel trace surface; later tasks may project
   selected runtime state into `ConversationEvent` only when that state is
   intentionally user-visible.
-- Phase 2 also exposes a separate temporary runtime stream for live consumers:
+- The current implementation also exposes a separate temporary runtime stream for live consumers:
   - `ConversationRuntime::Broadcast` publishes ephemeral Action Cable payloads
   - these payloads may mirror node lifecycle changes or assistant-output deltas
   - they are transport only and must not be treated as scheduler truth,
@@ -85,7 +85,7 @@ runtime resources that later tasks now build on are:
     node is consumed into a durable subagent session
   - `Processes::Provision`, `Processes::Activate`, and `Processes::Exit` for
     environment-owned process resources
-- Phase 2 yield materialization currently records:
+- Current yield materialization records:
   - `yield_requested`
   - `intent_rejected`
   as yielding-node-local audit events.

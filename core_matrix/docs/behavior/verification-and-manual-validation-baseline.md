@@ -3,7 +3,7 @@
 ## Scope
 
 This note captures the backend verification baseline for the phase 1 substrate
-and the retained Phase 2 acceptance operator path.
+and the retained acceptance operator path.
 
 ## Current Behavior
 
@@ -44,7 +44,7 @@ and the retained Phase 2 acceptance operator path.
   - drift-triggered manual retry
 - The current agent-loop acceptance baseline now additionally relies on the
   reusable harness in `script/manual/manual_acceptance_support.rb` plus
-  concrete operator scripts under `script/manual/phase2/*`, run with
+  concrete operator scripts under `script/manual/acceptance/*`, run with
   `bundle exec ruby`, to cover:
   - bundled `Fenix` fast terminal
   - real provider-backed bundled turn using `.env`-materialized
@@ -62,8 +62,8 @@ and the retained Phase 2 acceptance operator path.
   - workflow proof export
 - The checklist at
   `../checklists/2026-03-24-core-matrix-kernel-manual-validation.md` is the
-  authoritative Phase 2 operator script, and
-  `../../docs/reports/phase-2/` is the committed proof-artifact ledger.
+  authoritative operator script, and the committed proof-artifact ledger lives
+  under `../../docs/reports/`.
 
 ## Validation Notes
 
@@ -75,8 +75,8 @@ and the retained Phase 2 acceptance operator path.
   seed baseline, credential lifecycle, selector resolution, conversation
   structure and rewrite flows, human forms and tasks, open-request projection,
   and publication access logging through Rails runner scripts.
-- The `2026-03-30` Phase 2 acceptance run exercised real bundled/external
+- The `2026-03-30` acceptance run exercised real bundled/external
   `Fenix`, real provider-backed OpenRouter execution, wait/resume and
   subagent orchestration, governed tool/MCP paths, deployment rotation,
   skill activation, and proof export, with proof packages stored under
-  `../../docs/reports/phase-2/`.
+  `../../docs/reports/`.

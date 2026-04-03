@@ -2,8 +2,10 @@
 
 ## Status
 
-Living checklist for real-environment verification during the backend greenfield
-build.
+Historical checklist preserved for the March 2026 backend acceptance run.
+Use
+`/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
+for the current provider-backed product acceptance path.
 
 Current backend baseline was rerun on `2026-03-25`.
 
@@ -105,7 +107,7 @@ acceptance run.
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/bundled_fast_terminal_validation.rb \
+bundle exec ruby script/manual/acceptance/bundled_fast_terminal_validation.rb \
   > /tmp/phase2_bundled_fast_terminal_validation.json
 
 jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
@@ -151,7 +153,7 @@ jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/provider_backed_turn_validation.rb \
+bundle exec ruby script/manual/acceptance/provider_backed_turn_validation.rb \
   > /tmp/phase2_provider_backed_turn_validation.json
 
 jq '.' /tmp/phase2_provider_backed_turn_validation.json
@@ -198,7 +200,7 @@ jq '.' /tmp/phase2_provider_backed_turn_validation.json
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/during_generation_steering_validation.rb \
+bundle exec ruby script/manual/acceptance/during_generation_steering_validation.rb \
   > /tmp/phase2_during_generation_steering.json
 
 jq '.' /tmp/phase2_during_generation_steering.json
@@ -244,7 +246,7 @@ jq '.' /tmp/phase2_during_generation_steering.json
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/human_interaction_wait_resume_validation.rb \
+bundle exec ruby script/manual/acceptance/human_interaction_wait_resume_validation.rb \
   > /tmp/phase2_human_interaction_wait_resume.json
 
 jq '.' /tmp/phase2_human_interaction_wait_resume.json
@@ -288,7 +290,7 @@ jq '.' /tmp/phase2_human_interaction_wait_resume.json
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/subagent_wait_all_validation.rb \
+bundle exec ruby script/manual/acceptance/subagent_wait_all_validation.rb \
   > /tmp/phase2_subagent_wait_all.json
 
 jq '.' /tmp/phase2_subagent_wait_all.json
@@ -328,7 +330,7 @@ jq '.' /tmp/phase2_subagent_wait_all.json
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/process_run_close_validation.rb \
+bundle exec ruby script/manual/acceptance/process_run_close_validation.rb \
   > /tmp/phase2_process_run_close_validation.json
 
 jq '.' /tmp/phase2_process_run_close_validation.json
@@ -389,7 +391,7 @@ jq '.' /tmp/phase2_process_run_close_validation.json
 ```bash
 core_matrix_reset_backend_state
 
-bundle exec ruby script/manual/phase2/governed_tool_validation.rb
+bundle exec ruby script/manual/acceptance/governed_tool_validation.rb
 ```
 
 - expected outputs:
@@ -476,7 +478,7 @@ RUBY
 ```bash
 core_matrix_reset_backend_state
 
-bundle exec ruby script/manual/phase2/governed_mcp_validation.rb
+bundle exec ruby script/manual/acceptance/governed_mcp_validation.rb
 ```
 
 - expected outputs:
@@ -513,7 +515,7 @@ bundle exec ruby script/manual/phase2/governed_mcp_validation.rb
 - exact commands:
 
 ```bash
-bundle exec ruby script/manual/phase2/bundled_rotation_validation.rb \
+bundle exec ruby script/manual/acceptance/bundled_rotation_validation.rb \
   > /tmp/phase2_bundled_rotation_validation.json
 
 jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_conversation_state, upgrade}' \
@@ -559,7 +561,7 @@ jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_con
 
 ```bash
 test -f /tmp/phase2_bundled_rotation_validation.json || \
-  bundle exec ruby script/manual/phase2/bundled_rotation_validation.rb \
+  bundle exec ruby script/manual/acceptance/bundled_rotation_validation.rb \
     > /tmp/phase2_bundled_rotation_validation.json
 
 jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_conversation_state, downgrade, current_conversation_agent_deployment_id, current_conversation_agent_deployment_fingerprint}' \
@@ -602,7 +604,7 @@ jq '{conversation_id, execution_environment_id, expected_dag_shape, expected_con
 
 ```bash
 FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3101 \
-  bundle exec ruby script/manual/phase2/external_fenix_validation.rb \
+  bundle exec ruby script/manual/acceptance/external_fenix_validation.rb \
   > /tmp/phase2_external_fenix_validation.json
 
 jq '.' /tmp/phase2_external_fenix_validation.json
@@ -655,7 +657,7 @@ FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3102 \
 FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
 FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
 FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
-bundle exec ruby script/manual/phase2/fenix_skills_validation.rb \
+bundle exec ruby script/manual/acceptance/fenix_skills_validation.rb \
   > /tmp/phase2_fenix_skills_validation.json
 
 jq '{deployment_id, execution_environment_id, heartbeat_bootstrap_state, scenario_12}' \
@@ -704,7 +706,7 @@ test -f /tmp/phase2_fenix_skills_validation.json || \
   FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
   FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
   FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
-  bundle exec ruby script/manual/phase2/fenix_skills_validation.rb \
+  bundle exec ruby script/manual/acceptance/fenix_skills_validation.rb \
     > /tmp/phase2_fenix_skills_validation.json
 
 jq '{deployment_id, execution_environment_id, scenario_13}' \
@@ -744,7 +746,7 @@ jq '{deployment_id, execution_environment_id, scenario_13}' \
 ```bash
 test -f /tmp/phase2_external_fenix_validation.json || \
   FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3101 \
-  bundle exec ruby script/manual/phase2/external_fenix_validation.rb \
+  bundle exec ruby script/manual/acceptance/external_fenix_validation.rb \
     > /tmp/phase2_external_fenix_validation.json
 
 PHASE2_WORKFLOW_RUN_ID=$(jq -r '.workflow_run_id' /tmp/phase2_external_fenix_validation.json)

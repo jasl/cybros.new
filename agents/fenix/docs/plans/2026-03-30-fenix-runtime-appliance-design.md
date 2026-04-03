@@ -3,12 +3,12 @@
 ## Status
 
 - Date: 2026-03-30
-- Status: approved draft, revalidated against the current post-Phase-2 runtime baseline
+- Status: approved draft, revalidated against the current validated runtime baseline
 - Execution status: ready to execute from the current `agents/fenix` and `core_matrix` state; refresh again only if the mailbox/control or runtime-resource contracts change materially
 
 ## Goal
 
-Turn `agents/fenix` from the current post-phase2 validated runtime baseline
+Turn `agents/fenix` from the current validated runtime baseline
 into a default, distributable runtime appliance that:
 
 - remains compatible with Core Matrix's `AgentProgramVersion + ExecutionRuntime`
@@ -361,7 +361,7 @@ command tools.
 
 ## Delivery Phases
 
-### Phase 1: Runtime foundation
+### Stage 1: Runtime foundation
 
 - Ubuntu 24.04 image
 - toolchain installation
@@ -369,7 +369,7 @@ command tools.
 - plugin registry skeleton
 - bare-metal requirements documentation
 
-### Phase 2: Core pluggable tools
+### Stage 2: Core pluggable tools
 
 - `exec_command`
 - `write_stdin`
@@ -377,14 +377,14 @@ command tools.
 - memory tools
 - manifest composition from plugin registry
 
-### Phase 3: Web and browser
+### Stage 3: Web and browser
 
 - local `web_fetch`
 - Firecrawl-backed `web_search`
 - explicit Firecrawl tools
 - browser and Playwright tooling
 
-### Phase 4: Long-lived processes and proxy
+### Stage 4: Long-lived processes and proxy
 
 - `ProcessRun`-backed long-lived process tools
 - fixed-port dev proxy

@@ -25,13 +25,14 @@ including the post-Milestone-C breadth and acceptance batch:
 - bundled and external `Fenix` runtime plus skill validation flows
 - workflow proof export and committed acceptance evidence
 
-The authoritative operator script for the final acceptance pass is:
+The baseline operator checklist for the manual acceptance pass is:
 
 - `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+- `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
 
-The committed proof-artifact ledger for that pass is:
+The committed proof-artifact ledger for that pass is documented in:
 
-- `../docs/reports/phase-2/`
+- `../docs/reports/README.md`
 
 Current authoritative project documents:
 
@@ -39,10 +40,12 @@ Current authoritative project documents:
 - Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 - Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md`
-- Active agent-loop plan: `../docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
+- Runtime reset design: `../docs/plans/2026-04-03-agent-program-execution-runtime-reset-design.md`
+- Runtime reset plan: `../docs/plans/2026-04-03-agent-program-execution-runtime-reset.md`
 - Active plan index: `../docs/plans/README.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+- Provider-backed capstone checklist: `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
 - Behavior notes for landed backend modules: `docs/behavior/`
 
 ## What Core Matrix Owns
@@ -76,16 +79,17 @@ claims real loop behavior, validation must include:
 - Phase 1 backend manual validation was rerun on `2026-03-25` against
   `bin/dev` and the checklist at
   `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`.
-- Acceptance evidence was captured on `2026-03-30` under
-  `../docs/reports/phase-2/`, including bundled/external `Fenix`, real
-  provider-backed turns, wait/resume, `process_run`, governed tool/MCP,
-  deployment rotation, skills, and proof export.
+- Acceptance evidence was captured on `2026-03-30`; see
+  `../docs/reports/README.md` for the committed proof ledger covering bundled
+  and external `Fenix`, real provider-backed turns, wait/resume,
+  `process_run`, governed tool/MCP, deployment rotation, skills, and proof
+  export.
 - The checklist now standardizes on a reusable
   `core_matrix_reset_backend_state` helper built on
   `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
 - The reusable manual-validation harness now lives in
   `script/manual/manual_acceptance_support.rb`.
-- Acceptance operator scenario scripts live under `script/manual/phase2/*`,
+- Acceptance operator scenario scripts live under `script/manual/acceptance/*`,
   reset and seed the development database in-process, and are intended to be
   run with `bundle exec ruby`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
@@ -105,8 +109,8 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
-bundle exec ruby script/manual/phase2/bundled_fast_terminal_validation.rb
-bundle exec ruby script/manual/phase2/provider_backed_turn_validation.rb
+bundle exec ruby script/manual/acceptance/bundled_fast_terminal_validation.rb
+bundle exec ruby script/manual/acceptance/provider_backed_turn_validation.rb
 bundle exec ruby script/manual/workflow_proof_export.rb export ...
 ```
 

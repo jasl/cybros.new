@@ -1,6 +1,6 @@
 # Queue Topology And Provider Governor
 
-This document describes the phase2 runtime topology for `core_matrix` and
+This document describes the current runtime topology for `core_matrix` and
 `agents/fenix`.
 
 The design is intentionally not backwards-compatible with the transitional

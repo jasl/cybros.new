@@ -7,10 +7,10 @@ require "json"
 require_relative "./governed_validation_support"
 
 runtime_context = GovernedValidationSupport.bootstrap_runtime!(
-  agent_key: "phase2-governed-tool",
-  display_name: "Phase 2 Governed Tool Runtime",
-  runtime_fingerprint: "phase2-governed-tool-environment",
-  fingerprint: "phase2-governed-tool-runtime",
+  agent_key: "acceptance-governed-tool",
+  display_name: "Acceptance Governed Tool Runtime",
+  runtime_fingerprint: "acceptance-governed-tool-environment",
+  fingerprint: "acceptance-governed-tool-runtime",
   tool_catalog: [],
   profile_catalog: {
     "main" => {
@@ -51,7 +51,7 @@ invocation = ToolInvocations::Start.call(
   request_payload: {
     "content" => "Investigate the delegated task.",
     "scope" => "turn",
-    "task_payload" => { "source" => "phase2_governed_tool_validation" },
+    "task_payload" => { "source" => "acceptance_governed_tool_validation" },
   }
 )
 
@@ -60,7 +60,7 @@ spawn_result = SubagentSessions::Spawn.call(
   origin_turn: task_context.fetch(:turn),
   content: "Investigate the delegated task.",
   scope: "turn",
-  task_payload: { "source" => "phase2_governed_tool_validation" }
+  task_payload: { "source" => "acceptance_governed_tool_validation" }
 )
 
 completed = ToolInvocations::Complete.call(
