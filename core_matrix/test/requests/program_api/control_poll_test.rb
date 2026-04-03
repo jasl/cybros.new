@@ -36,7 +36,7 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:workflow_run].id}")
   end
 
-  test "poll delivers execution-plane close work to the rotated program version on the same execution environment" do
+  test "poll does not deliver execution-plane close work even when the rotated program version shares the execution runtime" do
     context = build_rotated_runtime_context!
     other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
@@ -61,16 +61,12 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    item = response_body.fetch("mailbox_items").fetch(0)
-
-    assert_equal mailbox_item.public_id, item.fetch("item_id")
-    assert_equal "execution", item.fetch("runtime_plane")
-    refute item.key?("target_kind")
-    refute item.key?("target_ref")
-    assert_equal context[:execution_session].public_id, mailbox_item.reload.leased_to_execution_session.public_id
+    assert_empty response_body.fetch("mailbox_items")
+    assert_nil mailbox_item.reload.leased_to_agent_session
+    assert_nil mailbox_item.leased_to_execution_session
   end
 
-  test "poll delivers execution-plane close requests from the writer path without routing payload fallback" do
+  test "poll does not deliver execution-plane close requests from the writer path" do
     context = build_rotated_runtime_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
@@ -92,17 +88,9 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    item = response_body.fetch("mailbox_items").fetch(0)
-
-    assert_equal mailbox_item.public_id, item.fetch("item_id")
-    assert_equal "execution", item.fetch("runtime_plane")
-    refute item.key?("target_kind")
-    refute item.key?("target_ref")
-    assert_equal "ProcessRun", item.dig("payload", "resource_type")
-    assert_equal process_run.public_id, item.dig("payload", "resource_id")
-    refute item.fetch("payload").key?("runtime_plane")
-    refute item.fetch("payload").key?("execution_runtime_id")
+    assert_empty response_body.fetch("mailbox_items")
     assert_equal context[:execution_runtime].id, mailbox_item.reload.target_execution_runtime_id
-    assert_equal context[:execution_session].public_id, mailbox_item.reload.leased_to_execution_session.public_id
+    assert_nil mailbox_item.leased_to_agent_session
+    assert_nil mailbox_item.leased_to_execution_session
   end
 end

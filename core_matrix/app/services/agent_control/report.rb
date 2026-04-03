@@ -43,7 +43,7 @@ module AgentControl
       Result.new(
         code: result_code,
         http_status: result_code == "stale" ? :conflict : :ok,
-        mailbox_items: result_code == "stale" ? [] : Poll.call(deployment: @deployment, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
+        mailbox_items: result_code == "stale" ? [] : follow_up_mailbox_items
       )
     rescue ActiveRecord::RecordNotUnique
       duplicate_result_for(find_existing_receipt)
@@ -56,7 +56,7 @@ module AgentControl
       Result.new(
         code: code,
         http_status: code == "stale" ? :conflict : :ok,
-        mailbox_items: code == "stale" ? [] : Poll.call(deployment: @deployment, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
+        mailbox_items: code == "stale" ? [] : follow_up_mailbox_items
       )
     end
 
@@ -97,6 +97,19 @@ module AgentControl
 
     def resolved_agent_session
       @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
+    end
+
+    def follow_up_mailbox_items
+      poll_arguments = {
+        limit: Poll::DEFAULT_LIMIT,
+        occurred_at: @occurred_at,
+      }
+
+      if @execution_session.present?
+        Poll.call(execution_session: @execution_session, **poll_arguments)
+      else
+        Poll.call(deployment: @deployment, **poll_arguments)
+      end
     end
   end
 end

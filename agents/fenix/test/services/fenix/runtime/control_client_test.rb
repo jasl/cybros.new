@@ -160,16 +160,17 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
       "POST /execution_api/process_runs",
       "POST /execution_api/attachments/request",
       "POST /program_api/control/poll",
+      "POST /execution_api/control/poll",
       "POST /execution_api/control/report",
       "POST /program_api/control/report",
     ], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
     assert_equal Array.new(18, %(Token token="secret")) +
       Array.new(4, %(Token token="execution-secret")) +
-      [%(Token token="secret"), %(Token token="execution-secret"), %(Token token="secret")],
+      [%(Token token="secret"), %(Token token="execution-secret"), %(Token token="execution-secret"), %(Token token="secret")],
       requests.map { |entry| entry.fetch(:authorization) }
     assert_equal "ApprovalRequest", requests.fetch(16).fetch(:json_body).fetch("request_type")
-    assert_equal "process_started", requests.fetch(23).fetch(:json_body).fetch("method_id")
-    assert_equal "execution_started", requests.fetch(24).fetch(:json_body).fetch("method_id")
+    assert_equal "process_started", requests.fetch(24).fetch(:json_body).fetch("method_id")
+    assert_equal "execution_started", requests.fetch(25).fetch(:json_body).fetch("method_id")
   end
 
   private
@@ -198,7 +199,7 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
   end
 
   def default_response_for(request)
-    return { "mailbox_items" => [] } if request.path == "/program_api/control/poll"
+    return { "mailbox_items" => [] } if ["/program_api/control/poll", "/execution_api/control/poll"].include?(request.path)
 
     { "result" => "accepted" }
   end

@@ -5,7 +5,7 @@
 - The provider-backed loop stayed autonomous after the initial user turn and completed without manual mid-turn steering.
 - The run exercised the real `Core Matrix` plus Dockerized `Fenix` path instead of a debug-only shortcut.
 - The final product landed in the mounted host workspace and was independently runnable from the host.
-- The tool surface stayed stable, but this run did not export subagent evidence, so subagent capability should be probed again on the next capstone rerun.
+- Real subagent work surfaced during the run through at least one exported subagent session.
 
 ## Where Operator Intervention Was Still Needed
 

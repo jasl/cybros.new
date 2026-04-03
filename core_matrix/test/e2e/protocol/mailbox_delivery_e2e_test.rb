@@ -151,12 +151,13 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "active_control", context[:deployment].reload.control_activity_state
   end
 
-  test "report responses piggyback pending close control work onto the active runtime session" do
+  test "program report responses leave execution-plane close work for execution polling" do
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      machine_credential: context[:machine_credential],
+      execution_machine_credential: context[:execution_machine_credential]
     )
     scenario_builder = MailboxScenarioBuilder.new(self)
     scenario = scenario_builder.execution_assignment!(context: context)
@@ -177,7 +178,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = scenario_builder.close_request!(context: context, resource: process_run).fetch(:mailbox_item)
@@ -193,7 +194,13 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     )
 
     assert_equal 200, report_response.fetch("http_status")
-    assert_equal [close_request.public_id], report_response.fetch("mailbox_items").map { |item| item.fetch("item_id") }
+    assert_empty report_response.fetch("mailbox_items")
+
+    execution_delivery = harness.poll!.fetch("mailbox_items").find do |mailbox_item|
+      mailbox_item.fetch("item_id") == close_request.public_id
+    end
+
+    assert_equal "execution", execution_delivery.fetch("runtime_plane")
   end
 
   private

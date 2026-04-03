@@ -136,7 +136,7 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
 
     post "/execution_api/control/report",
       params: {
@@ -182,7 +182,7 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
       resource: process_run
     ).fetch(:mailbox_item)
     close_request = AgentControl::Poll.call(
-      deployment: context[:deployment],
+      execution_session: context[:execution_session],
       limit: 10
     ).find do |mailbox_item|
       mailbox_item.public_id == close_request.public_id

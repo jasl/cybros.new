@@ -22,6 +22,11 @@ module Fenix
       class << self
         OUTPUT_TAIL_LIMIT_BYTES = 8192
 
+        def sanitize_output_text(text)
+          sanitized = text.to_s.dup.force_encoding(Encoding::UTF_8)
+          sanitized.valid_encoding? ? sanitized : sanitized.scrub
+        end
+
         def register(command_run_id:, agent_task_run_id:, stdin:, stdout:, stderr:, wait_thread:)
           synchronize do
             entries[command_run_id] = LocalHandle.new(
@@ -170,7 +175,7 @@ module Fenix
         end
 
         def trim_tail(existing, text)
-          combined = +"#{existing}#{text}"
+          combined = +"#{sanitize_output_text(existing)}#{sanitize_output_text(text)}"
           bytes = combined.bytes
           return combined if bytes.length <= OUTPUT_TAIL_LIMIT_BYTES
 

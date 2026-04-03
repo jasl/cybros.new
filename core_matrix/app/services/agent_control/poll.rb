@@ -6,15 +6,16 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
+    def initialize(deployment: nil, agent_session: nil, execution_session: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
       @deployment = deployment
       @agent_session = agent_session
+      @execution_session = execution_session
       @limit = [limit.to_i, 1].max
       @occurred_at = occurred_at
     end
 
     def call
-      TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
+      touch_runtime_activity!
       progress_close_requests!
 
       deliveries = []
@@ -23,14 +24,14 @@ module AgentControl
         break if deliveries.size >= @limit
         next unless delivery_candidate?(mailbox_item)
 
-        if mailbox_item.leased? && mailbox_item.leased_to?(@deployment) && !mailbox_item.lease_stale?(at: @occurred_at)
+        if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
           deliveries << mailbox_item
           next
         end
 
         leased_item = LeaseMailboxItem.call(
           mailbox_item: mailbox_item,
-          deployment: @deployment,
+          deployment: lease_owner,
           occurred_at: @occurred_at
         )
         deliveries << leased_item if leased_item.present?
@@ -40,6 +41,12 @@ module AgentControl
     end
 
     private
+
+    def touch_runtime_activity!
+      return if @execution_session.present?
+
+      TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
+    end
 
     def progress_close_requests!
       close_request_scope.find_each do |mailbox_item|
@@ -51,26 +58,36 @@ module AgentControl
     end
 
     def close_request_scope
-      ResolveTargetRuntime
-        .candidate_scope_for(
-          deployment: @deployment,
-          relation: AgentControlMailboxItem.where(
-            installation_id: @deployment.installation_id,
-            item_type: "resource_close_request",
-            status: ProgressCloseRequest::ACTIVE_STATUSES
-          )
-        )
+      scoped_relation = AgentControlMailboxItem.where(
+        installation_id: installation_id,
+        item_type: "resource_close_request",
+        status: ProgressCloseRequest::ACTIVE_STATUSES
+      )
+
+      candidate_scope_relation(scoped_relation)
     end
 
     def candidate_scope
-      ResolveTargetRuntime
-        .candidate_scope_for(
-          deployment: @deployment,
-          relation: AgentControlMailboxItem.where(installation_id: @deployment.installation_id)
-        )
+      candidate_scope_relation(
+        AgentControlMailboxItem.where(installation_id: installation_id)
+      )
         .where(status: %w[queued leased])
         .where("available_at <= ?", @occurred_at)
         .order(priority: :asc, available_at: :asc, id: :asc)
+    end
+
+    def candidate_scope_relation(relation)
+      if execution_poll?
+        ResolveTargetRuntime.candidate_scope_for_execution_session(
+          execution_session: @execution_session,
+          relation: relation
+        )
+      else
+        ResolveTargetRuntime.candidate_scope_for(
+          deployment: @deployment,
+          relation: relation
+        )
+      end
     end
 
     def delivery_candidate?(mailbox_item)
@@ -78,17 +95,31 @@ module AgentControl
 
       resolution = ResolveTargetRuntime.call(mailbox_item: mailbox_item)
 
-      if mailbox_item.leased? && mailbox_item.leased_to?(@deployment) && !mailbox_item.lease_stale?(at: @occurred_at)
+      if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
         return true
       end
 
-      resolution.matches?(@deployment)
+      resolution.matches?(lease_owner)
     end
 
     def mailbox_item_deliverable?(mailbox_item)
+      return true if execution_poll?
+
       return true unless mailbox_item.execution_assignment?
 
       mailbox_item.agent_task_run&.queued?
+    end
+
+    def execution_poll?
+      @execution_session.present?
+    end
+
+    def lease_owner
+      execution_poll? ? @execution_session : @deployment
+    end
+
+    def installation_id
+      execution_poll? ? @execution_session.execution_runtime.installation_id : @deployment.installation_id
     end
   end
 end

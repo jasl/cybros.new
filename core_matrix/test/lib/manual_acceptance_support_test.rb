@@ -65,10 +65,10 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         assert_equal "fenix-capstone", sync_container
         assert_equal [
           "docker", "exec", "fenix-capstone", "sh", "-lc",
-          "cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+          "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
         ], capture3_args
         assert_equal(
-          "docker exec fenix-capstone sh -lc cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+          "docker exec fenix-capstone sh -lc cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
           result.fetch("command")
         )
         assert_equal "ok", result.fetch("stdout")
@@ -158,7 +158,9 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         "-e",
         "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL=token",
         "-e",
-        "RAILS_ENV=development",
+        "RAILS_ENV=production",
+        "-e",
+        "FENIX_WORKSPACE_ROOT=/workspace",
         "-w",
         "/rails",
         "fenix-capstone",
@@ -179,7 +181,9 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         "-e",
         "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL=token",
         "-e",
-        "RAILS_ENV=development",
+        "RAILS_ENV=production",
+        "-e",
+        "FENIX_WORKSPACE_ROOT=/workspace",
         "-w",
         "/rails",
         "fenix-capstone",

@@ -41,7 +41,7 @@ Reused the existing Dockerized `Fenix` runtime container:
 Synced local `agents/fenix` code into the running container and performed a destructive in-container database reset:
 
 ```bash
-docker exec fenix-capstone sh -lc 'cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
+docker exec fenix-capstone sh -lc 'cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
 ```
 
 Manifest probe:
@@ -54,17 +54,17 @@ curl -fsS http://127.0.0.1:3101/runtime/manifest
 
 Registered the bundled runtime from the published manifest and issued a new machine credential. Public bindings:
 
-- Agent program `public_id`: `019d52da-cdf9-72fa-9ca3-94b87091d175`
-- Agent program version `public_id`: `019d52da-ce01-7da4-9b6c-c48e27e8ed76`
-- Execution runtime `public_id`: `019d52da-cdec-7834-850f-6eb59ea31d2d`
+- Agent program `public_id`: `019d5325-440e-783e-a56c-8cb024a7bbad`
+- Agent program version `public_id`: `019d5325-4418-77ba-adea-4ba2d33527d6`
+- Execution runtime `public_id`: `019d5325-4401-7531-9266-4a9d174dc75a`
 - Skill source manifest: `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/skill-source-manifest.json`
 
 Restarted the persistent runtime worker after registration with the same base URL and machine credential:
 
 ```bash
-docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=15109de50cf8bb047347d53d9ff7a6a830112f5a1d985d0e63d993fd48b621c7   -d fenix-capstone sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
+docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=8636be1882bfb4169342bfb15182c7d45430651a19f83677b364e01a01417073   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
 
-docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=15109de50cf8bb047347d53d9ff7a6a830112f5a1d985d0e63d993fd48b621c7   -d fenix-capstone sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
+docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=8636be1882bfb4169342bfb15182c7d45430651a19f83677b364e01a01417073   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
 ```
 
 The runtime worker handled both the control loop and local Solid Queue execution during the acceptance run.

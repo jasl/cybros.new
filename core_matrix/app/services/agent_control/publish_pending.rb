@@ -4,15 +4,17 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, occurred_at: Time.current)
+    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, execution_session: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
       @deployment = deployment
       @agent_session = agent_session
+      @execution_session = execution_session
       @occurred_at = occurred_at
     end
 
     def call
       return publish_for_deployment! if @deployment.present?
+      return publish_for_execution_session! if @execution_session.present?
       return unless @mailbox_item.present?
 
       target_deployment = connected_target_for(@mailbox_item)
@@ -34,6 +36,12 @@ module AgentControl
     def publish_for_deployment!
       Poll.call(deployment: @deployment, agent_session: @agent_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
         broadcast(mailbox_item:, deployment: @deployment)
+      end
+    end
+
+    def publish_for_execution_session!
+      Poll.call(execution_session: @execution_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
+        broadcast(mailbox_item:, deployment: @execution_session)
       end
     end
 

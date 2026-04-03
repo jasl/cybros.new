@@ -1,16 +1,16 @@
 {
   "method_id": "conversation_bundle_import_request_show",
-  "workspace_id": "019d52da-f366-7da3-950d-9b44f544d504",
+  "workspace_id": "019d5325-6cac-735b-b633-09b11888bdf7",
   "import_request": {
-    "request_id": "019d52de-4d7b-7a42-ace7-01442defc43e",
-    "workspace_id": "019d52da-f366-7da3-950d-9b44f544d504",
-    "user_id": "019d52da-cd9f-7ca7-ad66-e24331724be7",
-    "imported_conversation_id": "019d52de-4df8-7732-be31-4f3f898b8347",
+    "request_id": "019d532b-e45f-728c-9a55-3cff03d26955",
+    "workspace_id": "019d5325-6cac-735b-b633-09b11888bdf7",
+    "user_id": "019d5325-43aa-729f-80d6-04e399364fc1",
+    "imported_conversation_id": "019d532b-e4cb-7391-b866-bf5528896e5a",
     "lifecycle_state": "succeeded",
-    "created_at": "2026-04-03T10:23:13.786145Z",
-    "queued_at": "2026-04-03T10:23:13.784484Z",
-    "started_at": "2026-04-03T10:23:13.896217Z",
-    "finished_at": "2026-04-03T10:23:13.938973Z",
+    "created_at": "2026-04-03T11:47:58.686195Z",
+    "queued_at": "2026-04-03T11:47:58.684804Z",
+    "started_at": "2026-04-03T11:47:58.779444Z",
+    "finished_at": "2026-04-03T11:47:58.821275Z",
     "upload_received": true,
     "upload_filename": "conversation-export.zip",
     "upload_content_type": "application/zip",
@@ -19,7 +19,7 @@
       "message_count": 2,
       "bundle_version": "2026-04-02",
       "attachment_count": 0,
-      "imported_conversation_id": "019d52de-4df8-7732-be31-4f3f898b8347"
+      "imported_conversation_id": "019d532b-e4cb-7391-b866-bf5528896e5a"
     },
     "failure_payload": {}
   }

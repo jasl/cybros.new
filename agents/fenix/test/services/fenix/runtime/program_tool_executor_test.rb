@@ -59,6 +59,43 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     assert_equal "hello\n", result.output_chunks.first.fetch("text")
   end
 
+  test "one-shot exec_command scrubs binary output into UTF-8-safe text" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      binary_bytes = "\x89PNG\r\n\x1A\nbinary".b
+      File.binwrite(File.join(workspace_root, "logo.png"), binary_bytes)
+
+      executor = Fenix::Runtime::ProgramToolExecutor.new(
+        context: {
+          "workflow_node_id" => "workflow-node-binary-1",
+          "conversation_id" => "conversation-binary-1",
+          "turn_id" => "turn-binary-1",
+          "agent_context" => { "allowed_tool_names" => ["exec_command"] },
+          "workspace_context" => { "workspace_root" => workspace_root },
+        }
+      )
+
+      result = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-binary-1",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "cat logo.png",
+            "timeout_seconds" => 5,
+            "pty" => false,
+          },
+        },
+        command_run: {
+          "command_run_id" => "command-run-binary-1",
+        }
+      )
+
+      assert_equal binary_bytes.bytesize, result.tool_result.fetch("stdout_bytes")
+      assert result.tool_result.fetch("stdout").valid_encoding?
+      assert_equal Encoding::UTF_8, result.tool_result.fetch("stdout").encoding
+      assert result.output_chunks.all? { |chunk| chunk.fetch("text").valid_encoding? }
+    end
+  end
+
   test "exec_command runs relative to the workspace root" do
     Dir.mktmpdir("fenix-workspace-") do |workspace_root|
       executor = Fenix::Runtime::ProgramToolExecutor.new(
@@ -225,6 +262,69 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     assert_equal 0, finished.tool_result.fetch("exit_status")
     assert_equal true, finished.tool_result.fetch("session_closed")
     assert_equal "hello\n", finished.tool_result.fetch("stdout_tail")
+  end
+
+  test "write_stdin wait_for_exit scrubs binary attached output into UTF-8-safe text" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      binary_bytes = "\x89PNG\r\n\x1A\nbinary".b
+      File.binwrite(File.join(workspace_root, "logo.png"), binary_bytes)
+
+      starting_executor = Fenix::Runtime::ProgramToolExecutor.new(
+        context: {
+          "workflow_node_id" => "workflow-node-binary-attached-1",
+          "conversation_id" => "conversation-binary-attached-1",
+          "turn_id" => "turn-binary-attached-1",
+          "agent_context" => {
+            "allowed_tool_names" => %w[exec_command write_stdin],
+          },
+          "workspace_context" => { "workspace_root" => workspace_root },
+        }
+      )
+
+      started = starting_executor.call(
+        tool_call: {
+          "call_id" => "tool-call-binary-attached-1",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "cat logo.png",
+            "pty" => true,
+          },
+        },
+        command_run: {
+          "command_run_id" => "command-run-binary-attached-1",
+        }
+      )
+
+      finishing_executor = Fenix::Runtime::ProgramToolExecutor.new(
+        context: {
+          "workflow_node_id" => "workflow-node-binary-attached-2",
+          "conversation_id" => "conversation-binary-attached-1",
+          "turn_id" => "turn-binary-attached-1",
+          "agent_context" => {
+            "allowed_tool_names" => %w[exec_command write_stdin],
+          },
+          "workspace_context" => { "workspace_root" => workspace_root },
+        }
+      )
+
+      finished = finishing_executor.call(
+        tool_call: {
+          "call_id" => "tool-call-binary-attached-2",
+          "tool_name" => "write_stdin",
+          "arguments" => {
+            "command_run_id" => started.tool_result.fetch("command_run_id"),
+            "text" => "",
+            "eof" => true,
+            "wait_for_exit" => true,
+          },
+        }
+      )
+
+      assert_equal binary_bytes.bytesize, finished.tool_result.fetch("stdout_bytes")
+      assert finished.tool_result.fetch("stdout_tail").valid_encoding?
+      assert_equal Encoding::UTF_8, finished.tool_result.fetch("stdout_tail").encoding
+      assert finished.output_chunks.all? { |chunk| chunk.fetch("text").valid_encoding? }
+    end
   end
 
   test "command_run_wait times out promptly for attached commands and keeps the handle available" do

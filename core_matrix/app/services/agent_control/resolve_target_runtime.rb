@@ -14,9 +14,21 @@ module AgentControl
 
         case delivery_endpoint
         when AgentSession
-          delivery_endpoint.agent_program_version_id == deployment.id
+          case deployment
+          when AgentSession
+            delivery_endpoint.id == deployment.id
+          when AgentProgramVersion
+            delivery_endpoint.agent_program_version_id == deployment.id
+          else
+            false
+          end
         when ExecutionSession
-          delivery_endpoint.execution_runtime_id == deployment.agent_program.default_execution_runtime_id
+          case deployment
+          when ExecutionSession
+            delivery_endpoint.id == deployment.id
+          else
+            false
+          end
         else
           false
         end
@@ -35,16 +47,17 @@ module AgentControl
             runtime_plane = :program_plane
             AND target_agent_program_id = :agent_program_id
           )
-          OR (
-            runtime_plane = :execution_plane
-            AND target_execution_runtime_id = :execution_runtime_id
-          )
         SQL
         deployment_id: deployment.id,
         program_plane: PROGRAM_PLANE,
-        execution_plane: EXECUTION_PLANE,
-        agent_program_id: deployment.agent_program_id,
-        execution_runtime_id: deployment.agent_program.default_execution_runtime_id
+        agent_program_id: deployment.agent_program_id
+      )
+    end
+
+    def self.candidate_scope_for_execution_session(execution_session:, relation: AgentControlMailboxItem.all)
+      relation.where(
+        runtime_plane: EXECUTION_PLANE,
+        target_execution_runtime_id: execution_session.execution_runtime_id
       )
     end
 

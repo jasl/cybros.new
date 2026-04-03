@@ -212,6 +212,7 @@ module Fenix
               command_stdout => { stream: "stdout", buffer: stdout },
               command_stderr => { stream: "stderr", buffer: stderr },
             }
+            stream_byte_counts = Hash.new(0)
 
             loop do
               check_canceled!
@@ -222,13 +223,14 @@ module Fenix
                 capture_ready_output!(
                   readers:,
                   command_run_id:,
-                  timeout_seconds: [remaining, 0.1].min
+                  timeout_seconds: [remaining, 0.1].min,
+                  stream_byte_counts:
                 )
 
                 next
               end
 
-              capture_ready_output!(readers:, command_run_id:, timeout_seconds: 0)
+              capture_ready_output!(readers:, command_run_id:, timeout_seconds: 0, stream_byte_counts:)
               break if readers.empty?
               sleep(0.01)
             end
@@ -241,9 +243,9 @@ module Fenix
               "exit_status" => exit_status,
               "stdout" => stdout,
               "stderr" => stderr,
-              "stdout_bytes" => stdout.bytesize,
-              "stderr_bytes" => stderr.bytesize,
-              "output_streamed" => stdout.present? || stderr.present?,
+              "stdout_bytes" => stream_byte_counts["stdout"],
+              "stderr_bytes" => stream_byte_counts["stderr"],
+              "output_streamed" => stream_byte_counts["stdout"].positive? || stream_byte_counts["stderr"].positive?,
             }
           rescue Timeout::Error
             terminate_subprocess!(pid: process_pid)
@@ -321,12 +323,13 @@ module Fenix
                 next if chunk.blank?
 
                 stream = readers.fetch(io)
+                sanitized_chunk = sanitize_output_text(chunk)
                 Fenix::Runtime::CommandRunRegistry.append_output(
                   command_run_id: command_run.command_run_id,
                   stream: stream,
                   text: chunk
                 )
-                output_chunks << { "stream" => stream, "text" => chunk }
+                output_chunks << { "stream" => stream, "text" => sanitized_chunk }
               rescue IO::WaitReadable
                 nil
               rescue EOFError
@@ -377,7 +380,7 @@ module Fenix
             nil
           end
 
-          def capture_ready_output!(readers:, command_run_id:, timeout_seconds:)
+          def capture_ready_output!(readers:, command_run_id:, timeout_seconds:, stream_byte_counts:)
             return if readers.empty?
 
             ready =
@@ -395,7 +398,9 @@ module Fenix
                 next if chunk.blank?
 
                 stream_details = readers.fetch(io)
-                stream_details.fetch(:buffer) << chunk
+                sanitized_chunk = sanitize_output_text(chunk)
+                stream_byte_counts[stream_details.fetch(:stream)] += chunk.bytesize
+                stream_details.fetch(:buffer) << sanitized_chunk
                 Fenix::Runtime::CommandRunRegistry.append_output(
                   command_run_id:,
                   stream: stream_details.fetch(:stream),
@@ -403,7 +408,7 @@ module Fenix
                 )
                 emit_tool_output!(
                   command_run_id:,
-                  output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => chunk }]
+                  output_chunks: [{ "stream" => stream_details.fetch(:stream), "text" => sanitized_chunk }]
                 )
               rescue IO::WaitReadable
                 nil
@@ -427,6 +432,10 @@ module Fenix
 
           def monotonic_now
             ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
+          end
+
+          def sanitize_output_text(text)
+            Fenix::Runtime::CommandRunRegistry.sanitize_output_text(text)
           end
 
           def canceled?

@@ -39,6 +39,7 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
     assert_equal "execution", result.runtime_plane
     assert_equal context[:execution_runtime], result.execution_runtime
     assert_equal context[:execution_session], result.delivery_endpoint
-    assert result.matches?(context[:deployment])
+    assert result.matches?(context[:execution_session])
+    refute result.matches?(context[:deployment])
   end
 end

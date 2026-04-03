@@ -26,7 +26,10 @@ module Fenix
       end
 
       def poll(limit:)
-        post_json("/program_api/control/poll", { limit: limit }).fetch("mailbox_items")
+        program_items = post_json("/program_api/control/poll", { limit: limit }, credential: machine_credential).fetch("mailbox_items")
+        execution_items = post_json("/execution_api/control/poll", { limit: limit }, credential: execution_machine_credential).fetch("mailbox_items")
+
+        (Array(program_items) + Array(execution_items)).map(&:deep_stringify_keys)
       end
 
       def report!(payload:)

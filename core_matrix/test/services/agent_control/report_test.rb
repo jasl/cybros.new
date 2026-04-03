@@ -722,10 +722,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
       ).fetch(:mailbox_item)
     end
 
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10, occurred_at: occurred_at)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
 
     ack_result = AgentControl::Report.call(
       deployment: context[:deployment],
+      execution_session: context[:execution_session],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -737,7 +738,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     assert_equal "accepted", ack_result.code
     assert_equal "acked", close_request.reload.status
-    assert_equal context[:agent_session], close_request.leased_to_agent_session
+    assert_equal context[:execution_session], close_request.leased_to_execution_session
 
     AgentControl::ProgressCloseRequest.call(
       mailbox_item: close_request,
@@ -746,10 +747,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     assert_equal "queued", close_request.reload.status
     assert_equal "forced", close_request.payload["strictness"]
-    assert_equal context[:agent_session], close_request.leased_to_agent_session
+    assert_equal context[:execution_session], close_request.leased_to_execution_session
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
+      execution_session: context[:execution_session],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -788,10 +790,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
       ).fetch(:mailbox_item)
     end
 
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10, occurred_at: occurred_at)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
 
     ack_result = AgentControl::Report.call(
       deployment: context[:deployment],
+      execution_session: context[:execution_session],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -818,6 +821,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
+      execution_session: context[:execution_session],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -851,12 +855,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
         deployment: context[:deployment],
+        execution_session: context[:execution_session],
         method_id: "resource_closed",
         protocol_message_id: "close-output-#{next_test_sequence}",
         mailbox_item_id: close_request.public_id,
@@ -905,12 +910,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
         deployment: context[:deployment],
+        execution_session: context[:execution_session],
         method_id: "resource_close_failed",
         protocol_message_id: "close-lost-#{next_test_sequence}",
         mailbox_item_id: close_request.public_id,
@@ -943,7 +949,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
     close_operation = ConversationCloseOperation.create!(
       installation: context[:conversation].installation,
       conversation: context[:conversation],
@@ -963,6 +969,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     params = {
       deployment: context[:deployment],
+      execution_session: context[:execution_session],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,

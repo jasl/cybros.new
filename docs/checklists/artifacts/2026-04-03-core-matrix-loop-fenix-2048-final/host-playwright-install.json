@@ -4,7 +4,7 @@
     "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
     "success": true,
     "exit_status": 0,
-    "stdout": "\nadded 3 packages, and audited 169 packages in 2s\n\n28 packages are looking for funding\n  run `npm fund` for details\n\n5 moderate severity vulnerabilities\n\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n",
+    "stdout": "\nadded 3 packages, and audited 262 packages in 3s\n\n67 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
     "stderr": ""
   },
   "browser_install": {

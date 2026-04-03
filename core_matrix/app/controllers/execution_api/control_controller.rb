@@ -9,6 +9,17 @@ module ExecutionAPI
       resource_close_failed
     ].freeze
 
+    def poll
+      mailbox_items = AgentControl::Poll.call(
+        execution_session: current_execution_session,
+        limit: request_payload.fetch("limit", AgentControl::Poll::DEFAULT_LIMIT)
+      )
+
+      render json: {
+        mailbox_items: mailbox_items.map { |item| AgentControl::SerializeMailboxItem.call(item) },
+      }
+    end
+
     def report
       payload = request_payload
       result = AgentControl::Report.call(

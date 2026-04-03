@@ -3,6 +3,6 @@
   "cwd": "/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048",
   "success": true,
   "exit_status": 0,
-  "stdout": "\nadded 165 packages, and audited 166 packages in 4s\n\n28 packages are looking for funding\n  run `npm fund` for details\n\n5 moderate severity vulnerabilities\n\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n",
-  "stderr": "npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation\n"
+  "stdout": "\nadded 258 packages, and audited 259 packages in 2s\n\n67 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
+  "stderr": ""
 }

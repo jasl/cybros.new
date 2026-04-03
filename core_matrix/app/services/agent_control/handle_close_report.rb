@@ -27,6 +27,7 @@ module AgentControl
 
           ValidateCloseReportFreshness.call(
             deployment: @deployment,
+            execution_session: @execution_session,
             payload: @payload,
             mailbox_item: mailbox_item,
             resource: resource,

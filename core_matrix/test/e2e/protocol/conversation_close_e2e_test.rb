@@ -6,7 +6,8 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      machine_credential: context[:machine_credential],
+      execution_machine_credential: context[:execution_machine_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
@@ -20,7 +21,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_session].public_id : context[:deployment].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -64,7 +65,8 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      machine_credential: context[:machine_credential],
+      execution_machine_credential: context[:execution_machine_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
@@ -79,7 +81,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_session].public_id : context[:deployment].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -146,7 +148,8 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      machine_credential: context[:machine_credential],
+      execution_machine_credential: context[:execution_machine_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
@@ -160,7 +163,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_session].public_id : context[:deployment].public_id,
         heartbeat_timeout_seconds: 30
       )
     end

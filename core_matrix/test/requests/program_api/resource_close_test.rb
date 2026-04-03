@@ -16,7 +16,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
 
     post "/execution_api/control/report",
       params: {
@@ -72,7 +72,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
 
     params = {
       method_id: "resource_closed",
@@ -123,7 +123,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     end
 
     travel_to(occurred_at) do
-      AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+      AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
     end
 
     travel_to(occurred_at + 31.seconds) do
@@ -145,7 +145,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "stale", JSON.parse(response.body).fetch("result")
     assert_equal "requested", process_run.reload.close_state
     assert_equal "leased", mailbox_item.reload.status
-    assert_equal context[:deployment].public_id, mailbox_item.leased_to_agent_program_version.public_id
+    assert_equal context[:execution_session].public_id, mailbox_item.leased_to_execution_session.public_id
   end
 
   test "resource_closed rejects wrong-environment reporters even when payload data is spoofed" do
@@ -180,7 +180,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
 
     assert mailbox_item.execution_plane?
 
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
 
     post "/execution_api/control/report",
       params: {
@@ -202,7 +202,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "Couldn't find ProcessRun", JSON.parse(response.body).fetch("error")
     assert_equal "requested", process_run.reload.close_state
     assert_equal "leased", mailbox_item.reload.status
-    assert_equal context[:deployment].public_id, mailbox_item.reload.leased_to_agent_program_version.public_id
+    assert_equal context[:execution_session].public_id, mailbox_item.reload.leased_to_execution_session.public_id
   end
 
   test "resource_closed terminalizes an agent task run, interrupts running command runs, and releases its execution lease" do
@@ -308,14 +308,14 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     lease = Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
 
     post "/execution_api/control/report",
       params: {
@@ -348,16 +348,16 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
 
-    post "/program_api/control/report",
+    post "/execution_api/control/report",
       params: {
         method_id: "resource_closed",
         protocol_message_id: "process-close-#{next_test_sequence}",
@@ -368,7 +368,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         close_outcome_kind: "residual_abandoned",
         close_outcome_payload: { "signal" => "SIGKILL", "residual" => true },
       },
-      headers: program_api_headers(context[:machine_credential]),
+      headers: execution_api_headers(context[:execution_machine_credential]),
       as: :json
 
     assert_response :success

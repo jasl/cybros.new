@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControlPublishPendingTest < ActiveSupport::TestCase
-  test "publishes execution-plane work for a deployment using durable execution runtime routing" do
+  test "publishes execution-plane work for an execution session using durable execution runtime routing" do
     context = build_rotated_runtime_context!
     other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
@@ -21,12 +21,12 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     broadcasts = []
 
     with_captured_broadcasts(broadcasts) do
-      AgentControl::PublishPending.call(deployment: context[:replacement_deployment])
+      AgentControl::PublishPending.call(execution_session: context[:execution_session])
     end
 
-    assert_equal [[AgentControl::StreamName.for_deployment(context[:replacement_deployment]), mailbox_item.public_id]],
+    assert_equal [[AgentControl::StreamName.for_deployment(context[:execution_session]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
-    assert_equal context[:replacement_registration].fetch(:agent_session), mailbox_item.reload.leased_to_agent_session
+    assert_equal context[:execution_session], mailbox_item.reload.leased_to_execution_session
   end
 
   test "publishes a queued mailbox item to the deployment selected by ResolveTargetRuntime" do

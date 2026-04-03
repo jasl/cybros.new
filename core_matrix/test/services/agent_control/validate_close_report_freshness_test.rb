@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
-  test "accepts fresh close reports for the leased deployment" do
+  test "accepts fresh close reports for the leased execution session" do
     context = build_agent_control_context!
     occurred_at = Time.zone.parse("2026-03-29 20:30:00 UTC")
     process_run = create_process_run!(
@@ -19,10 +19,11 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
       )
     end
 
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10, occurred_at: occurred_at)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
 
     result = AgentControl::ValidateCloseReportFreshness.call(
       deployment: context[:deployment],
+      execution_session: context[:execution_session],
       payload: { "close_request_id" => mailbox_item.public_id },
       mailbox_item: mailbox_item.reload,
       resource: process_run.reload,
@@ -32,7 +33,7 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
     assert_nil result
   end
 
-  test "rejects close reports from the wrong deployment after leasing moved elsewhere" do
+  test "rejects close reports from the wrong execution session after leasing moved elsewhere" do
     context = build_rotated_runtime_context!
     occurred_at = Time.zone.parse("2026-03-29 20:45:00 UTC")
     process_run = create_process_run!(
@@ -50,11 +51,14 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
       )
     end
 
-    AgentControl::Poll.call(deployment: context[:replacement_deployment], limit: 10, occurred_at: occurred_at)
+    previous_execution_session = context.fetch(:registration).fetch(:execution_session)
+
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::ValidateCloseReportFreshness.call(
         deployment: context[:previous_deployment],
+        execution_session: previous_execution_session,
         payload: { "close_request_id" => mailbox_item.public_id },
         mailbox_item: mailbox_item.reload,
         resource: process_run.reload,

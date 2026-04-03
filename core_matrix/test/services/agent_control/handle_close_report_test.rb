@@ -20,11 +20,12 @@ class AgentControl::HandleCloseReportTest < ActiveSupport::TestCase
       ).fetch(:mailbox_item)
     end
 
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10, occurred_at: occurred_at)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::HandleCloseReport.call(
         deployment: context[:deployment],
+        execution_session: context[:execution_session],
         method_id: "resource_close_acknowledged",
         payload: {
           "mailbox_item_id" => mailbox_item.public_id,
@@ -38,6 +39,6 @@ class AgentControl::HandleCloseReportTest < ActiveSupport::TestCase
 
     assert_equal "requested", process_run.reload.close_state
     assert_equal "leased", mailbox_item.reload.status
-    assert_equal context[:agent_session].public_id, mailbox_item.leased_to_agent_session.public_id
+    assert_equal context[:execution_session].public_id, mailbox_item.leased_to_execution_session.public_id
   end
 end

@@ -4,8 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, payload:, mailbox_item:, resource:, occurred_at: Time.current)
+    def initialize(deployment:, execution_session: nil, payload:, mailbox_item:, resource:, occurred_at: Time.current)
       @deployment = deployment
+      @execution_session = execution_session
       @payload = payload
       @mailbox_item = mailbox_item
       @resource = resource
@@ -14,7 +15,7 @@ module AgentControl
 
     def call
       stale! unless @mailbox_item.resource_close_request?
-      stale! unless @mailbox_item.leased_to?(@deployment)
+      stale! unless @mailbox_item.leased_to?(lease_owner)
       stale! if @mailbox_item.leased? && @mailbox_item.lease_stale?(at: @occurred_at)
       stale! unless @mailbox_item.payload["resource_type"] == @resource.class.name
       stale! unless @mailbox_item.payload["resource_id"] == @resource.public_id
@@ -31,6 +32,12 @@ module AgentControl
     end
 
     private
+
+    def lease_owner
+      return @execution_session if @mailbox_item.execution_plane?
+
+      @deployment
+    end
 
     def stale!
       raise Report::StaleReportError

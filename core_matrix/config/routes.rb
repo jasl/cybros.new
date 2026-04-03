@@ -54,6 +54,7 @@ Rails.application.routes.draw do
         post "request", action: :create
       end
     end
+    post "control/poll", to: "control#poll"
     post "control/report", to: "control#report"
   end
 

@@ -202,6 +202,69 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_process_terminated(attached_pid)
   end
 
+  test "write_stdin completes when an attached command emits binary output" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      previous_workspace_root = ENV["FENIX_WORKSPACE_ROOT"]
+      ENV["FENIX_WORKSPACE_ROOT"] = workspace_root
+      File.binwrite(File.join(workspace_root, "logo.png"), "\x89PNG\r\n\x1A\nbinary".b)
+
+      agent_task_run_id = "task-#{SecureRandom.uuid}"
+      control_client = build_runtime_control_client
+
+      exec_payload = runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "exec_command",
+          "command_line" => "cat logo.png",
+          "pty" => true,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      )
+      exec_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
+
+      started = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: exec_payload, control_client: control_client)
+      command_run_id = started.reports.last
+        .fetch("terminal_payload")
+        .fetch("tool_invocations")
+        .fetch(0)
+        .dig("response_payload", "command_run_id")
+
+      write_payload = runtime_assignment_payload(
+        mode: "deterministic_tool",
+        task_payload: {
+          "tool_name" => "write_stdin",
+          "command_run_id" => command_run_id,
+          "text" => "",
+          "eof" => true,
+          "wait_for_exit" => true,
+        },
+        agent_context: default_agent_context.merge(
+          "allowed_tool_names" => default_agent_context.fetch("allowed_tool_names") + %w[exec_command write_stdin]
+        )
+      )
+      write_payload.fetch("payload").fetch("task")["agent_task_run_id"] = agent_task_run_id
+
+      finished = Fenix::Runtime::ExecuteAssignment.call(mailbox_item: write_payload, control_client: control_client)
+      completed_invocation = finished.reports.last
+        .fetch("terminal_payload")
+        .fetch("tool_invocations")
+        .fetch(0)
+      output_progress = finished.reports.find do |report|
+        report.dig("progress_payload", "tool_invocation_output").present?
+      end.fetch("progress_payload").fetch("tool_invocation_output")
+      released_snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id: command_run_id)
+
+      assert_equal "completed", finished.status
+      assert_equal true, completed_invocation.dig("response_payload", "session_closed")
+      assert output_progress.fetch("output_chunks").all? { |chunk| chunk.fetch("text").valid_encoding? }
+      assert released_snapshot.fetch("stdout_tail").valid_encoding?
+    ensure
+      ENV["FENIX_WORKSPACE_ROOT"] = previous_workspace_root
+    end
+  end
+
   test "write_stdin routes through the exec command plugin runtime" do
     agent_task_run_id = "task-#{SecureRandom.uuid}"
     routed_call = nil

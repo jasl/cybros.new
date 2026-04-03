@@ -4,20 +4,20 @@
       [
         null,
         null,
+        null,
+        null
+      ],
+      [
+        null,
+        2,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
         2,
         null
-      ],
-      [
-        null,
-        null,
-        null,
-        null
-      ],
-      [
-        null,
-        null,
-        null,
-        2
       ],
       [
         null,
@@ -27,24 +27,24 @@
       ]
     ],
     "score": 0,
-    "status": "Use arrow keys or WASD to combine tiles.",
+    "status": "Game in progress",
     "nonEmpty": 2
   },
   "directionChecks": {
     "ArrowLeft": {
       "changed": true,
-      "beforeScore": 1312,
-      "afterScore": 1316
+      "beforeScore": 2368,
+      "afterScore": 2372
     },
     "ArrowUp": {
       "changed": true,
-      "beforeScore": 1296,
-      "afterScore": 1300
+      "beforeScore": 2352,
+      "afterScore": 2356
     },
     "ArrowRight": {
       "changed": true,
-      "beforeScore": 1280,
-      "afterScore": 1280
+      "beforeScore": 2352,
+      "afterScore": 2352
     },
     "ArrowDown": {
       "changed": true,
@@ -59,21 +59,21 @@
   "preRestart": {
     "board": [
       [
-        128,
+        2,
+        256,
         64,
-        16,
-        4
+        16
       ],
       [
         32,
-        8,
-        4,
-        2
+        2,
+        16,
+        8
       ],
       [
         4,
-        2,
         16,
+        8,
         4
       ],
       [
@@ -83,8 +83,8 @@
         2
       ]
     ],
-    "score": 1316,
-    "status": "Game over! No more valid moves.",
+    "score": 2372,
+    "status": "Game over! No more moves available.",
     "nonEmpty": 16
   },
   "postRestart": {
@@ -99,23 +99,23 @@
         null,
         null,
         null,
-        null
-      ],
-      [
-        null,
-        null,
-        null,
         2
       ],
       [
         null,
         null,
+        null,
+        null
+      ],
+      [
         2,
+        null,
+        null,
         null
       ]
     ],
     "score": 0,
-    "status": "Use arrow keys or WASD to combine tiles.",
+    "status": "Game in progress",
     "nonEmpty": 2
   },
   "restartResetScore": true,

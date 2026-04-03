@@ -27,9 +27,9 @@ Verification artifacts:
 ## Observed Run Details
 
 - Initial board had `2` tiles.
-- During automated host play, score reached `1316`.
-- Pre-restart state showed `Game over! No more valid moves.` with a full `4x4` board.
-- Post-restart state returned to `Use arrow keys or WASD to combine tiles.` and `2` starting tiles.
+- During automated host play, score reached `2372`.
+- Pre-restart state showed `Game over! No more moves available.` with a full `4x4` board.
+- Post-restart state returned to `Game in progress` and `2` starting tiles.
 
 ## Host Verification Commands
 

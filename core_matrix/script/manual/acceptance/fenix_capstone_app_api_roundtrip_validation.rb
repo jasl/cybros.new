@@ -57,6 +57,7 @@ Requirements:
 - support both arrow keys and WASD
 - add automated tests for the game logic
 - run the tests and production build successfully
+- ensure the final Vite/Vitest configuration keeps `npm run build` passing
 - start the app on `0.0.0.0:4173`
 - verify it in a browser session
 - use subagents when genuinely helpful
@@ -497,7 +498,7 @@ def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, a
     Synced local `agents/fenix` code into the running container and performed a destructive in-container database reset:
 
     ```bash
-    docker exec #{docker_container} sh -lc 'cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
+    docker exec #{docker_container} sh -lc 'cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
     ```
 
     Manifest probe:
@@ -521,11 +522,15 @@ def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, a
     docker exec \
       -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
       -e CORE_MATRIX_MACHINE_CREDENTIAL=#{redacted_credential} \
+      -e RAILS_ENV=production \
+      -e FENIX_WORKSPACE_ROOT=/workspace \
       -d #{docker_container} sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
 
     docker exec \
       -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
       -e CORE_MATRIX_MACHINE_CREDENTIAL=#{redacted_credential} \
+      -e RAILS_ENV=production \
+      -e FENIX_WORKSPACE_ROOT=/workspace \
       -d #{docker_container} sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
     ```
 
@@ -536,6 +541,19 @@ def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, a
 end
 
 def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, host_validation_notes:, preview_port:)
+  unless generated_app_dir.exist?
+    return write_text(path, <<~MD)
+      # Workspace Artifacts
+
+      Generated application directory was not created:
+
+      - Mounted host workspace root:
+        - `#{workspace_root}`
+      - Expected application path:
+        - `#{generated_app_dir}`
+    MD
+  end
+
   relative_files = Dir.chdir(generated_app_dir) do
     Dir.glob([
       "src/**/*",
@@ -594,6 +612,16 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
 end
 
 def write_playability_verification_md(path:, playability_result:, generated_app_dir:, preview_port:)
+  unless playability_result.present?
+    return write_text(path, <<~MD)
+      # Playability Verification
+
+      Host-side browser verification did not run because the generated application directory was missing:
+
+      - `#{generated_app_dir}`
+    MD
+  end
+
   direction_checks = playability_result.fetch("directionChecks")
   lines = [
     "# Playability Verification",
@@ -652,11 +680,11 @@ end
 def build_agent_evaluation(summary:, diagnostics_turn:, host_validation:, playability_result:)
   result_quality =
     if summary.fetch("transcript_roundtrip_match") &&
-        host_validation.fetch("npm_test").fetch("success") &&
-        host_validation.fetch("npm_build").fetch("success") &&
-        playability_result.fetch("gameOverReached") &&
-        playability_result.fetch("restartResetScore") &&
-        playability_result.fetch("restartResetTileCount")
+        host_validation.dig("npm_test", "success") &&
+        host_validation.dig("npm_build", "success") &&
+        playability_result&.fetch("gameOverReached", false) &&
+        playability_result&.fetch("restartResetScore", false) &&
+        playability_result&.fetch("restartResetTileCount", false)
       "strong"
     else
       "fail"
@@ -1279,6 +1307,30 @@ if generated_app_dir.exist?
   npm_test = capture_command("npm", "test", chdir: generated_app_dir)
   npm_build = capture_command("npm", "run", "build", chdir: generated_app_dir)
 
+  write_json(artifact_dir.join("host-npm-install.json"), npm_install)
+  write_json(artifact_dir.join("host-npm-test.json"), npm_test)
+  write_json(artifact_dir.join("host-npm-build.json"), npm_build)
+
+  unless npm_install.fetch("success") && npm_test.fetch("success") && npm_build.fetch("success")
+    write_text(artifact_dir.join("workspace-validation.md"), <<~MD)
+      # Workspace Validation
+
+      Host-side validation failed before browser preview:
+
+      - `npm install` success: `#{npm_install.fetch("success")}`
+      - `npm test` success: `#{npm_test.fetch("success")}`
+      - `npm run build` success: `#{npm_build.fetch("success")}`
+
+      See:
+
+      - `host-npm-install.json`
+      - `host-npm-test.json`
+      - `host-npm-build.json`
+    MD
+
+    raise "host validation failed before preview"
+  end
+
   preview_log = artifact_dir.join("host-preview.log")
   preview_pid = nil
   preview_out = nil
@@ -1324,9 +1376,6 @@ if generated_app_dir.exist?
     "preview_http" => preview_http,
   }
 
-  write_json(artifact_dir.join("host-npm-install.json"), npm_install)
-  write_json(artifact_dir.join("host-npm-test.json"), npm_test)
-  write_json(artifact_dir.join("host-npm-build.json"), npm_build)
   write_json(artifact_dir.join("host-preview.json"), preview_http)
   write_json(artifact_dir.join("host-playwright-install.json"), playwright_validation.fetch("install"))
   write_json(artifact_dir.join("host-playwright-test.json"), playwright_validation.fetch("test"))
@@ -1389,7 +1438,7 @@ write_workspace_artifacts_md(
 )
 write_playability_verification_md(
   path: artifact_dir.join("playability-verification.md"),
-  playability_result: playwright_validation.fetch("result"),
+  playability_result: playwright_validation["result"],
   generated_app_dir: generated_app_dir,
   preview_port: preview_port
 )
@@ -1434,7 +1483,7 @@ evaluation = build_agent_evaluation(
   summary: summary,
   diagnostics_turn: main_diagnostics_turn,
   host_validation: host_validation,
-  playability_result: playwright_validation.fetch("result")
+  playability_result: playwright_validation["result"]
 )
 summary["agent_evaluation"] = evaluation.transform_values { |payload| payload.fetch("rating") }
 

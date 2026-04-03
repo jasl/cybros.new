@@ -6,7 +6,8 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     correct_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      machine_credential: context[:machine_credential],
+      execution_machine_credential: context[:execution_machine_credential]
     )
     other_agent_program = create_agent_program!(installation: context[:installation])
     other_execution_runtime = create_execution_runtime!(installation: context[:installation])
@@ -26,7 +27,8 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     wrong_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: wrong_deployment,
-      machine_credential: wrong_registration.fetch(:machine_credential)
+      machine_credential: wrong_registration.fetch(:machine_credential),
+      execution_machine_credential: wrong_registration.fetch(:execution_machine_credential)
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
@@ -36,7 +38,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -57,8 +59,8 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
       close_outcome_payload: { "source" => "wrong-environment" }
     )
 
-    assert_equal 409, wrong_result.fetch("http_status")
-    assert_equal "stale", wrong_result.fetch("result")
+    assert_equal 404, wrong_result.fetch("http_status")
+    assert_equal "Couldn't find ProcessRun", wrong_result.fetch("error")
     assert_equal "requested", process_run.reload.close_state
   end
 
@@ -152,7 +154,8 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      machine_credential: context[:machine_credential],
+      execution_machine_credential: context[:execution_machine_credential]
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
@@ -162,7 +165,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:execution_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     occurred_at = Time.zone.parse("2026-03-26 15:00:00 UTC")

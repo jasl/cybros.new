@@ -441,7 +441,7 @@ module ManualAcceptanceSupport
         container_name,
         "sh",
         "-lc",
-        "cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed"
+        "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed"
       )
     end
 
@@ -450,7 +450,7 @@ module ManualAcceptanceSupport
     end
 
     {
-      "command" => "docker exec #{container_name} sh -lc cd /rails && export RAILS_ENV=development DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
+      "command" => "docker exec #{container_name} sh -lc cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
       "stdout" => stdout,
       "stderr" => stderr,
       "success" => true,
@@ -494,7 +494,8 @@ module ManualAcceptanceSupport
         "-e", "CORE_MATRIX_BASE_URL=#{core_matrix_base_url}",
         "-e", "CORE_MATRIX_MACHINE_CREDENTIAL=#{machine_credential}",
         "-e", "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL=#{execution_machine_credential}",
-        "-e", "RAILS_ENV=development",
+        "-e", "RAILS_ENV=production",
+        "-e", "FENIX_WORKSPACE_ROOT=/workspace",
       ]
       detached_commands = [
         ["bin/jobs", "start"],
