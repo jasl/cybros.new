@@ -27,9 +27,9 @@ Verification artifacts:
 ## Observed Run Details
 
 - Initial board had `2` tiles.
-- During automated host play, score reached `608`.
-- Pre-restart state showed `Game over!` with a full `4x4` board.
-- Post-restart state returned to `Playing` and `2` starting tiles.
+- During automated host play, score reached `2748`.
+- Pre-restart state showed `Game over` with a full `4x4` board.
+- Post-restart state returned to `Keep going` and `2` starting tiles.
 
 ## Host Verification Commands
 

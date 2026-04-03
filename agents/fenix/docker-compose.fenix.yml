@@ -1,15 +1,10 @@
 services:
   fenix:
     build: .
+    env_file:
+      - ./.env
     environment:
       - RAILS_ENV=production
-      - SECRET_KEY_BASE=fenix-compose-dev-only-secret-key-base
-      - FENIX_PUBLIC_BASE_URL=http://localhost:3101
-      - CORE_MATRIX_BASE_URL=http://core-matrix:3000
-      - CORE_MATRIX_MACHINE_CREDENTIAL=replace-me
-      - PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright
-      - FENIX_DEV_PROXY_PORT=3310
-      - FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy
     ports:
       - "3101:80"
     volumes:
@@ -20,10 +15,10 @@ services:
   fenix-dev-proxy:
     build: .
     command: /rails/bin/fenix-dev-proxy
+    env_file:
+      - ./.env
     environment:
-      - PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright
-      - FENIX_DEV_PROXY_PORT=3310
-      - FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy
+      - RAILS_ENV=production
     ports:
       - "3310:3310"
     volumes:

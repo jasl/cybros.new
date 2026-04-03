@@ -15,6 +15,7 @@ FENIX_DOCKER_PROXY_CONTAINER="${FENIX_DOCKER_PROXY_CONTAINER:-fenix-capstone-pro
 FENIX_DOCKER_IMAGE="${FENIX_DOCKER_IMAGE:-fenix-capstone-image}"
 FENIX_DOCKER_PROXY_PORT="${FENIX_DOCKER_PROXY_PORT:-3310}"
 FENIX_DOCKER_WORKSPACE_ROOT="${FENIX_DOCKER_WORKSPACE_ROOT:-${REPO_ROOT}/tmp/fenix}"
+FENIX_DOCKER_ENV_FILE="${FENIX_DOCKER_ENV_FILE:-${FENIX_ROOT}/.env}"
 RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
 
 mkdir -p "${LOG_DIR}"
@@ -256,25 +257,41 @@ remove_container_if_present() {
   wait_for_container_absent "${container_name}"
 }
 
+remove_volume_if_present() {
+  local volume_name="$1"
+  docker volume rm -f "${volume_name}" >/dev/null 2>&1 || true
+}
+
 rebuild_docker_capstone_image() {
   docker build -t "${FENIX_DOCKER_IMAGE}" "${FENIX_ROOT}" >>"${LOG_DIR}/fenix-docker-build.log" 2>&1
 }
 
 recreate_docker_capstone_stack() {
+  local docker_env_args=()
+
   mkdir -p "${FENIX_DOCKER_WORKSPACE_ROOT}"
   wait_for_docker_ready
   rebuild_docker_capstone_image
+
+  if [[ -f "${FENIX_DOCKER_ENV_FILE}" ]]; then
+    docker_env_args+=(--env-file "${FENIX_DOCKER_ENV_FILE}")
+  else
+    echo "missing Fenix docker env file: ${FENIX_DOCKER_ENV_FILE}" >&2
+    exit 1
+  fi
 
   remove_container_if_present "${FENIX_DOCKER_CONTAINER}"
   remove_container_if_present "${FENIX_DOCKER_PROXY_CONTAINER}"
   wait_for_container_absent "${FENIX_DOCKER_CONTAINER}"
   wait_for_container_absent "${FENIX_DOCKER_PROXY_CONTAINER}"
+  remove_volume_if_present "fenix_capstone_storage"
+  remove_volume_if_present "fenix_capstone_proxy_routes"
 
   docker run -d \
     --name "${FENIX_DOCKER_CONTAINER}" \
     -p "${FENIX_RUNTIME_PORT}:80" \
+    "${docker_env_args[@]}" \
     -e "RAILS_ENV=production" \
-    -e "SECRET_KEY_BASE=fenix-capstone-dev-only-secret-key-base" \
     -e "FENIX_PUBLIC_BASE_URL=${FENIX_RUNTIME_BASE_URL}" \
     -e "PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
@@ -288,6 +305,7 @@ recreate_docker_capstone_stack() {
   docker run -d \
     --name "${FENIX_DOCKER_PROXY_CONTAINER}" \
     -p "${FENIX_DOCKER_PROXY_PORT}:${FENIX_DOCKER_PROXY_PORT}" \
+    "${docker_env_args[@]}" \
     -e "RAILS_ENV=production" \
     -e "PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \

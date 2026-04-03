@@ -3,7 +3,7 @@ require "erb"
 require "yaml"
 
 class QueueConfigurationTest < ActiveSupport::TestCase
-  test "queue config renders every worker from the runtime topology" do
+  test "queue config renders every worker from queue.yml" do
     config = render_queue_yml
     queue_names = config.fetch("development").fetch("workers").map { |worker| worker.fetch("queues") }
 
@@ -11,6 +11,17 @@ class QueueConfigurationTest < ActiveSupport::TestCase
       %w[runtime_prepare_round runtime_pure_tools runtime_process_tools runtime_control maintenance],
       queue_names
     )
+  end
+
+  test "default worker threads match the 4 core runtime baseline" do
+    config = render_queue_yml
+    workers = config.fetch("development").fetch("workers").index_by { |worker| worker.fetch("queues") }
+
+    assert_equal 3, workers.fetch("runtime_prepare_round").fetch("threads")
+    assert_equal 8, workers.fetch("runtime_pure_tools").fetch("threads")
+    assert_equal 3, workers.fetch("runtime_process_tools").fetch("threads")
+    assert_equal 2, workers.fetch("runtime_control").fetch("threads")
+    assert_equal 1, workers.fetch("maintenance").fetch("threads")
   end
 
   test "queue overrides are applied from the worker-specific environment variables" do

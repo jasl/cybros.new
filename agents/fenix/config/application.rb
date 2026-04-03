@@ -1,5 +1,4 @@
 require_relative "boot"
-require_relative "../lib/fenix/app_creds"
 
 require "rails"
 # Pick the frameworks you want:
@@ -37,21 +36,38 @@ module Fenix
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
-    # Runtime jobs are isolated onto SolidQueue worker pools. Fenix is
-    # currently a single-machine deployment because it also acts as the
-    # effective ExecutionRuntime and owns registry-backed runtime state.
-    # Those tools are routed into a dedicated queue so operators can keep that
-    # pool narrow on the same host.
-    config.active_job.queue_adapter = :solid_queue
-
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
-    # Container and packaged deployments provide runtime secrets through ENV.
-    # Rails.app.creds keeps that contract explicit while still allowing the
-    # encrypted credentials file to act as a local fallback outside Docker.
-    config.secret_key_base = Fenix::AppCreds.secret_key_base if Rails.env.production?
+    # Disallow permanent checkout of activerecord connections (request scope):
+    config.active_record.permanent_connection_checkout = :disallowed
+
+    # ENV remains the easiest path for containers (`--env-file` / `env_file`),
+    # while host deployments can intentionally fall back to Rails credentials.
+    config.active_record.encryption.primary_key =
+      ENV["ACTIVE_RECORD_ENCRYPTION__PRIMARY_KEY"].presence ||
+      Rails.app.creds.option(:active_record_encryption, :primary_key)
+    config.active_record.encryption.deterministic_key =
+      ENV["ACTIVE_RECORD_ENCRYPTION__DETERMINISTIC_KEY"].presence ||
+      Rails.app.creds.option(:active_record_encryption, :deterministic_key)
+    config.active_record.encryption.key_derivation_salt =
+      ENV["ACTIVE_RECORD_ENCRYPTION__KEY_DERIVATION_SALT"].presence ||
+      Rails.app.creds.option(:active_record_encryption, :key_derivation_salt)
+
+    # Use modern header-based CSRF protection (requires Sec-Fetch-Site header support)
+    config.action_controller.forgery_protection_strategy = :header_only
+
+    config.i18n.available_locales = %i[en zh-CN]
+    config.i18n.load_path += Dir[Rails.root.join("config", "locales", "**", "*.{rb,yml}")]
+    # Fallback to English if translation key is missing
+    config.i18n.fallbacks = true
+
+    config.generators do |g|
+      g.helper false
+      g.assets false
+      g.test_framework nil
+    end
   end
 end

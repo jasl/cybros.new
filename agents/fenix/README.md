@@ -112,16 +112,24 @@ Long-lived environment resources also require a persistent mailbox worker.
 - `bin/jobs start`
   - starts the local Solid Queue workers that execute `RuntimeExecutionJob`
     across the runtime topology queues
+  - only needed in the standalone worker topology, where the web process runs
+    with `STANDALONE_SOLID_QUEUE=true`
 - `bin/runtime-worker`
-  - convenience wrapper that starts `bin/jobs start` in the background and then
-    runs `bin/rails runtime:control_loop_forever`
+  - convenience wrapper for the external runtime worker process
+  - always runs `bin/rails runtime:control_loop_forever`
+  - when `STANDALONE_SOLID_QUEUE=true`, it also starts `bin/jobs start` in the
+    background before entering the control loop
 
 When `Fenix` is registered as an external runtime, the control loop and the job
 worker must run with the same `CORE_MATRIX_BASE_URL` and
-`CORE_MATRIX_MACHINE_CREDENTIAL`. The queue worker is not optional in the
-default `solid_queue` topology because `MailboxWorker` enqueues runtime
-execution onto `runtime_prepare_round`, `runtime_pure_tools`,
-`runtime_process_tools`, and `runtime_control`.
+`CORE_MATRIX_MACHINE_CREDENTIAL`.
+
+In the default single-service deployment, Puma embeds the Solid Queue
+supervisor, so only the control loop must be started separately. When you
+split web and worker responsibilities across processes, enable
+`STANDALONE_SOLID_QUEUE=true` for the web process and run either `bin/jobs
+start` plus `bin/rails runtime:control_loop_forever`, or use
+`bin/runtime-worker`.
 
 Detached long-lived services therefore follow this contract:
 
@@ -383,24 +391,38 @@ manifest:
 Use [docker-compose.fenix.yml](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docker-compose.fenix.yml)
 as the default sample:
 
+1. Copy [env.sample](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/env.sample) to `.env`
+2. Fill in the Core Matrix credential and either:
+   - keep runtime secrets in the env file for container deployments, or
+   - leave them blank and mount Rails credentials intentionally
+3. Start the stack with Docker Compose, or use the same file with
+   `docker run --env-file ./.env <image_name>`
+
 - `fenix`
   - main Rails runtime
+  - loads `./.env` through Compose `env_file`
   - mounts `./tmp/docker-workspace:/workspace`
   - persists SQLite state in `/rails/storage`
   - exposes `3101 -> 80`
 - `fenix-dev-proxy`
   - runs [bin/fenix-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/fenix-dev-proxy)
+  - loads `./.env` through Compose `env_file`
   - serves the fixed-port developer proxy on `3310`
   - shares `tmp/dev-proxy/routes.caddy` through the `fenix_proxy_routes` volume
 
 Key environment variables in the sample:
 
 - `SECRET_KEY_BASE=...`
-  - `Fenix` resolves runtime secrets through `Rails.app.creds`, so Docker
-    deployments should provide them through ENV instead of mounting
-    `config/master.key`
-  - the sample uses a dev-only placeholder so `production` boots out of the box
-  - replace it with a real secret for any non-local deployment
+  - optional when Rails credentials already provide `secret_key_base`
+  - `Fenix` resolves it through `Rails.app.creds`, which prefers ENV over the
+    encrypted credentials file
+  - for container deployments, prefer keeping it in the env file used by
+    `docker run --env-file` or Compose `env_file`
+- `ACTIVE_RECORD_ENCRYPTION__*`
+  - optional when Rails credentials already provide
+    `active_record_encryption.*`
+  - for container deployments, keep them in the same env file as
+    `SECRET_KEY_BASE`
 - `FENIX_PUBLIC_BASE_URL=http://localhost:3101`
   - the sample publishes the reachable manifest base URL explicitly
   - set this to the externally reachable origin when a reverse proxy or TLS
@@ -428,7 +450,8 @@ The canonical bare-metal target is Ubuntu 24.04. Operators should:
 - run `npm ci`
 - run `npx playwright install chromium`
 - provide `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_MACHINE_CREDENTIAL`
-- provide runtime secrets through ENV-backed `Rails.app.creds`
+- provide runtime secrets either through ENV or by populating Rails credentials
+  with `bin/rails credentials:edit`
 - start the Rails runtime and, when proxy paths are needed, start
   `bin/fenix-dev-proxy`
 

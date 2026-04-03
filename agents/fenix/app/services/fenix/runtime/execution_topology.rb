@@ -1,14 +1,13 @@
 module Fenix
   module Runtime
     module ExecutionTopology
-      TOPOLOGY = (ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}).deep_stringify_keys.freeze
       LOCAL_ACTIVE_JOB_ADAPTERS = %w[async inline test].freeze
       SOLID_QUEUE_ADAPTERS = %w[solid_queue].freeze
-      RUNTIME_PREPARE_ROUND_QUEUE = TOPOLOGY.dig("queues", "prepare_round", "name").freeze
-      RUNTIME_PURE_TOOLS_QUEUE = TOPOLOGY.dig("queues", "pure_tools", "name").freeze
-      RUNTIME_PROCESS_TOOLS_QUEUE = TOPOLOGY.dig("queues", "process_tools", "name").freeze
-      RUNTIME_CONTROL_QUEUE = TOPOLOGY.dig("queues", "runtime_control", "name").freeze
-      MAINTENANCE_QUEUE = TOPOLOGY.dig("queues", "maintenance", "name").freeze
+      RUNTIME_PREPARE_ROUND_QUEUE = "runtime_prepare_round"
+      RUNTIME_PURE_TOOLS_QUEUE = "runtime_pure_tools"
+      RUNTIME_PROCESS_TOOLS_QUEUE = "runtime_process_tools"
+      RUNTIME_CONTROL_QUEUE = "runtime_control"
+      MAINTENANCE_QUEUE = "maintenance"
 
       UnsupportedActiveJobAdapterError = Class.new(StandardError)
 

@@ -1,7 +1,0 @@
-{
-  "command": "docker exec fenix-capstone sh -lc cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed",
-  "stdout": "Dropped database 'storage/production.sqlite3'\nDropped database 'storage/queue_production.sqlite3'\nCreated database 'storage/production.sqlite3'\nCreated database 'storage/queue_production.sqlite3'\n",
-  "stderr": "",
-  "success": true,
-  "exit_status": 0
-}

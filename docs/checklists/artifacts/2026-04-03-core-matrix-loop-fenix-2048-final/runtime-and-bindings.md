@@ -33,15 +33,19 @@ curl -fsS http://127.0.0.1:3000/up
 
 ## Dockerized Fenix
 
-Reused the existing Dockerized `Fenix` runtime container:
+Fresh-start automation rebuilt and recreated the Dockerized `Fenix`
+runtime container from the current local `agents/fenix` checkout.
 
 - Container: `fenix-capstone`
 - Public runtime base URL: `http://127.0.0.1:3101`
 
-Synced local `agents/fenix` code into the running container and performed a destructive in-container database reset:
+The top-level automation reset the Dockerized runtime by removing the
+`fenix_capstone_storage` volume before boot so no in-run database reset was
+needed.
 
 ```bash
-docker exec fenix-capstone sh -lc 'cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
+docker volume rm -f fenix_capstone_storage
+bash script/manual/acceptance/fresh_start_stack.sh
 ```
 
 Manifest probe:
@@ -54,17 +58,21 @@ curl -fsS http://127.0.0.1:3101/runtime/manifest
 
 Registered the bundled runtime from the published manifest and issued a new machine credential. Public bindings:
 
-- Agent program `public_id`: `019d54db-9712-7091-97ca-8623ff14eadd`
-- Agent program version `public_id`: `019d54db-971a-76d6-96c9-2838687fc561`
-- Execution runtime `public_id`: `019d54db-9701-7a5b-b60b-64f56e4b56c1`
+- Agent program `public_id`: `019d5565-9c96-7633-a356-7598a080bd0e`
+- Agent program version `public_id`: `019d5565-9ca0-7a8c-bb58-137cf4b918f8`
+- Execution runtime `public_id`: `019d5565-9c83-7c06-89e5-2a1fd4ab3fe1`
 - Skill source manifest: `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/skill-sources/skill-source-manifest.json`
 
-Restarted the persistent runtime worker after registration with the same base URL and machine credential:
+After runtime registration, the top-level automation recreated the
+Dockerized `Fenix` container with the issued machine credentials in its
+environment, then started the persistent runtime worker:
 
 ```bash
-docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=d30159f47b1629940930e2914f3d10b40c6d3cdbc60f96b2aad6076a5db77f7c   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
-
-docker exec   -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000   -e CORE_MATRIX_MACHINE_CREDENTIAL=d30159f47b1629940930e2914f3d10b40c6d3cdbc60f96b2aad6076a5db77f7c   -e RAILS_ENV=production   -e FENIX_WORKSPACE_ROOT=/workspace   -d fenix-capstone sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
+FENIX_MACHINE_CREDENTIAL=9fe73f6eb28e57a2c3278e9b13bce7a05f374a3c8e11a9762b8d4e51080089d9 FENIX_EXECUTION_MACHINE_CREDENTIAL=9fe73f6eb28e57a2c3278e9b13bce7a05f374a3c8e11a9762b8d4e51080089d9 DOCKER_CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 bash script/manual/acceptance/activate_fenix_docker_runtime.sh
 ```
 
-The runtime worker handled both the control loop and local Solid Queue execution during the acceptance run.
+The runtime worker booted through `bin/runtime-worker`, which reused Puma's embedded Solid Queue supervisor and only started the persistent control loop.
+
+Worker entrypoint(s):
+
+- `bin/runtime-worker`

@@ -3,13 +3,13 @@ require "erb"
 require "yaml"
 
 class DatabaseConfigurationTest < ActiveSupport::TestCase
-  test "default database pools come from the runtime topology" do
+  test "default database pools are baked into database.yml" do
     config = render_database_yml
 
-    assert_equal 5, config.dig("development", "primary", "max_connections")
-    assert_equal 8, config.dig("development", "queue", "max_connections")
-    assert_equal 5, config.dig("production", "primary", "max_connections")
-    assert_equal 8, config.dig("production", "queue", "max_connections")
+    assert_equal 8, config.dig("development", "primary", "max_connections")
+    assert_equal 16, config.dig("development", "queue", "max_connections")
+    assert_equal 8, config.dig("production", "primary", "max_connections")
+    assert_equal 16, config.dig("production", "queue", "max_connections")
   end
 
   test "explicit pool overrides apply independently" do

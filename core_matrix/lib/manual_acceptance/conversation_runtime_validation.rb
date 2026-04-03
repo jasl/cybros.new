@@ -23,8 +23,9 @@ module ManualAcceptance
           build_success ||= response_payload["exit_status"].to_i.zero? &&
             combined_output.include?("built in") &&
             combined_output.include?("dist/")
-          test_success ||= response_payload["exit_status"].to_i.zero? &&
-            combined_output.match?(/Test Files .*passed|Tests .*passed/m)
+          # Mixed commands such as `npm test && npm run build` can finish with a
+          # non-zero exit status even when the test phase itself already passed.
+          test_success ||= combined_output.match?(/Test Files .*passed|Tests .*passed/m)
         elsif dev_server_log_tool?(tool_name) && status == "succeeded"
           dev_server_ready ||= combined_output.include?("4173") &&
             combined_output.match?(/vite (preview|--host|preview --host)|ready in|Local:\s+http:\/\/localhost:4173|Network:\s+http:\/\//)

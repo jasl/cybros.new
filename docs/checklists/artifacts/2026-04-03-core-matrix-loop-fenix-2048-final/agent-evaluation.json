@@ -24,7 +24,7 @@
     ]
   },
   "convergence": {
-    "rating": "strong",
+    "rating": "acceptable",
     "summary": "Provider round count and tool churn were acceptable for a real coding-agent capstone, but not yet especially lean.",
     "evidence": [
       "run-summary.json",
@@ -34,7 +34,7 @@
     ]
   },
   "cost_efficiency": {
-    "rating": "strong",
+    "rating": "acceptable",
     "summary": "Token and tool usage were proportional to the difficulty of a real 2048 build, though the run still carried noticeable iteration cost.",
     "evidence": [
       "run-summary.json",

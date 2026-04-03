@@ -3,11 +3,12 @@
 
 # This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
 # docker build -t fenix .
-# docker run -d -p 80:80 -e SECRET_KEY_BASE=<runtime secret> --name fenix fenix
+# docker run -d -p 80:80 --env-file ./.env --name fenix fenix
 #
 # Runtime secrets are resolved through Rails.app.creds, which prefers ENV over
 # encrypted credentials. The production image therefore does not depend on
-# config/master.key being present inside the container.
+# config/master.key being present inside the container unless you choose to
+# mount credentials explicitly for a host-style deployment.
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 

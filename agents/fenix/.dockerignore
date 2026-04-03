@@ -107,6 +107,11 @@
 /config/settings/*.local.yml
 /config/environments/*.local.yml
 
+# Ignore runtime override files; mount config.d at runtime instead of baking local overrides into the image.
+/config.d/*
+!/config.d/.gitignore
+!/config.d/.keep
+
 # Ignore environment specified config files
 /config/deploy.yml
 /compose.yaml

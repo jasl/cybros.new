@@ -5,8 +5,8 @@
 - Final application path:
   - `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix/game-2048`
 - Final source tree includes:
-  - `dist/assets/index-B1BtIH1c.js`
-  - `dist/assets/index-BIjgs2DA.css`
+  - `dist/assets/index-Bq9dslgu.js`
+  - `dist/assets/index-ByhiyyuJ.css`
   - `dist/favicon.svg`
   - `dist/icons.svg`
   - `dist/index.html`

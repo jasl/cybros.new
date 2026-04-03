@@ -2,9 +2,16 @@
 set -euo pipefail
 
 jobs_pid=""
+standalone_solid_queue=false
+
+case "${STANDALONE_SOLID_QUEUE:-}" in
+  true|1)
+    standalone_solid_queue=true
+    ;;
+esac
 
 cleanup() {
-  if [[ -n "${jobs_pid}" ]]; then
+  if [[ "${standalone_solid_queue}" == "true" && -n "${jobs_pid}" ]]; then
     kill -TERM "${jobs_pid}" 2>/dev/null || true
     wait "${jobs_pid}" 2>/dev/null || true
   fi
@@ -12,7 +19,9 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-./bin/jobs start &
-jobs_pid="$!"
+if [[ "${standalone_solid_queue}" == "true" ]]; then
+  ./bin/jobs start &
+  jobs_pid="$!"
+fi
 
-./bin/rails runtime:control_loop_forever "$@"
+exec ./bin/rails runtime:control_loop_forever "$@"

@@ -9,47 +9,47 @@
       ],
       [
         null,
+        2,
         null,
-        4,
         null
       ],
       [
         null,
         null,
         null,
-        2
+        null
       ],
       [
         null,
         null,
-        null,
+        2,
         null
       ]
     ],
     "score": 0,
-    "status": "Playing",
+    "status": "Keep going",
     "nonEmpty": 2
   },
   "directionChecks": {
     "ArrowLeft": {
       "changed": true,
-      "beforeScore": 580,
-      "afterScore": 604
+      "beforeScore": 2716,
+      "afterScore": 2736
     },
     "ArrowUp": {
       "changed": true,
-      "beforeScore": 604,
-      "afterScore": 608
+      "beforeScore": 2740,
+      "afterScore": 2748
     },
     "ArrowRight": {
       "changed": true,
-      "beforeScore": 604,
-      "afterScore": 604
+      "beforeScore": 2736,
+      "afterScore": 2736
     },
     "ArrowDown": {
       "changed": true,
       "beforeScore": 4,
-      "afterScore": 4,
+      "afterScore": 8,
       "attempts": 1
     }
   },
@@ -59,15 +59,21 @@
   "preRestart": {
     "board": [
       [
-        64,
-        16,
+        256,
         2,
-        16
+        64,
+        32
       ],
       [
-        32,
-        2,
+        8,
+        64,
         16,
+        8
+      ],
+      [
+        2,
+        32,
+        8,
         4
       ],
       [
@@ -75,16 +81,10 @@
         16,
         4,
         2
-      ],
-      [
-        2,
-        8,
-        2,
-        4
       ]
     ],
-    "score": 608,
-    "status": "Game over!",
+    "score": 2748,
+    "status": "Game over",
     "nonEmpty": 16
   },
   "postRestart": {
@@ -97,25 +97,25 @@
       ],
       [
         null,
-        2,
+        null,
         null,
         null
       ],
       [
         null,
         null,
-        2,
-        null
+        null,
+        4
       ],
       [
-        null,
+        2,
         null,
         null,
         null
       ]
     ],
     "score": 0,
-    "status": "Playing",
+    "status": "Keep going",
     "nonEmpty": 2
   },
   "restartResetScore": true,

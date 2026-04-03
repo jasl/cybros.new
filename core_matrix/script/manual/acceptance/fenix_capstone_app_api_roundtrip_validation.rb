@@ -38,8 +38,10 @@ runtime_fingerprint = ENV.fetch("CAPSTONE_RUNTIME_FINGERPRINT", "capstone-fenix-
 program_fingerprint = ENV.fetch("CAPSTONE_PROGRAM_FINGERPRINT", "capstone-fenix-agent-program-v1")
 selector = ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
 preview_port = Integer(ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4174"))
-skip_worker_restart = ActiveModel::Type::Boolean.new.cast(ENV.fetch("SKIP_DOCKER_RUNTIME_WORKER_RESTART", "false"))
 scenario_date = Date.current.iso8601
+capstone_phase = ENV.fetch("CAPSTONE_PHASE", "execute")
+bootstrap_state_path = Pathname.new(ENV.fetch("CAPSTONE_BOOTSTRAP_STATE_PATH", artifact_dir.join("capstone-runtime-bootstrap.json").to_s))
+runtime_worker_boot_path = Pathname.new(ENV.fetch("CAPSTONE_RUNTIME_WORKER_BOOT_PATH", artifact_dir.join("docker-runtime-worker.json").to_s))
 
 prompt = <<~PROMPT
 Use `$using-superpowers`.
@@ -81,6 +83,10 @@ end
 def write_text(path, contents)
   FileUtils.mkdir_p(File.dirname(path))
   File.binwrite(path, contents)
+end
+
+def read_json(path)
+  JSON.parse(File.read(path))
 end
 
 def capture_command(*command, chdir:, env: {})
@@ -548,8 +554,28 @@ def write_collaboration_notes_md(path:, selector:, host_validation_notes:, subag
   write_text(path, lines.join("\n"))
 end
 
-def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, agent_program:, agent_program_version:, execution_runtime:, skill_source_manifest_path:, docker_container:, runtime_base_url:)
+def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, agent_program:, agent_program_version:, execution_runtime:, skill_source_manifest_path:, docker_container:, runtime_base_url:, runtime_worker_boot:)
   redacted_credential = machine_credential.to_s.sub(/:.+\z/, ":REDACTED")
+  worker_commands = Array(runtime_worker_boot&.fetch("worker_commands", nil))
+  standalone_solid_queue = runtime_worker_boot&.fetch("standalone_solid_queue", false)
+  activation_command = <<~CMD.chomp
+    FENIX_MACHINE_CREDENTIAL=#{redacted_credential} \
+    FENIX_EXECUTION_MACHINE_CREDENTIAL=#{redacted_credential} \
+    DOCKER_CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
+    bash script/manual/acceptance/activate_fenix_docker_runtime.sh
+  CMD
+  worker_summary =
+    if standalone_solid_queue
+      "The runtime worker booted through `bin/runtime-worker`, which in standalone mode also started the separate Solid Queue worker process."
+    else
+      "The runtime worker booted through `bin/runtime-worker`, which reused Puma's embedded Solid Queue supervisor and only started the persistent control loop."
+    end
+  worker_command_lines =
+    if worker_commands.present?
+      worker_commands.map { |command| "- `#{command}`" }.join("\n")
+    else
+      "- `bin/runtime-worker`"
+    end
 
   contents = <<~MD
     # Runtime And Bindings
@@ -587,15 +613,19 @@ def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, a
 
     ## Dockerized Fenix
 
-    Reused the existing Dockerized `Fenix` runtime container:
+    Fresh-start automation rebuilt and recreated the Dockerized `Fenix`
+    runtime container from the current local `agents/fenix` checkout.
 
     - Container: `#{docker_container}`
     - Public runtime base URL: `#{runtime_base_url}`
 
-    Synced local `agents/fenix` code into the running container and performed a destructive in-container database reset:
+    The top-level automation reset the Dockerized runtime by removing the
+    `fenix_capstone_storage` volume before boot so no in-run database reset was
+    needed.
 
     ```bash
-    docker exec #{docker_container} sh -lc 'cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed'
+    docker volume rm -f fenix_capstone_storage
+    bash script/manual/acceptance/fresh_start_stack.sh
     ```
 
     Manifest probe:
@@ -613,25 +643,19 @@ def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, a
     - Execution runtime `public_id`: `#{execution_runtime.public_id}`
     - Skill source manifest: `#{skill_source_manifest_path}`
 
-    Restarted the persistent runtime worker after registration with the same base URL and machine credential:
+    After runtime registration, the top-level automation recreated the
+    Dockerized `Fenix` container with the issued machine credentials in its
+    environment, then started the persistent runtime worker:
 
     ```bash
-    docker exec \
-      -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
-      -e CORE_MATRIX_MACHINE_CREDENTIAL=#{redacted_credential} \
-      -e RAILS_ENV=production \
-      -e FENIX_WORKSPACE_ROOT=/workspace \
-      -d #{docker_container} sh -lc 'cd /rails && exec bin/jobs start >>/tmp/runtime-jobs.log 2>&1'
-
-    docker exec \
-      -e CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
-      -e CORE_MATRIX_MACHINE_CREDENTIAL=#{redacted_credential} \
-      -e RAILS_ENV=production \
-      -e FENIX_WORKSPACE_ROOT=/workspace \
-      -d #{docker_container} sh -lc 'cd /rails && exec bin/rails runtime:control_loop_forever >>/tmp/runtime-control.log 2>&1'
+    #{activation_command}
     ```
 
-    The runtime worker handled both the control loop and local Solid Queue execution during the acceptance run.
+    #{worker_summary}
+
+    Worker entrypoint(s):
+
+    #{worker_command_lines}
   MD
 
   write_text(path, contents)
@@ -1256,39 +1280,64 @@ def run_host_playwright_verification!(artifact_dir:, base_url:, generated_app_di
   end
 end
 
-FileUtils.rm_rf(artifact_dir)
-FileUtils.mkdir_p(artifact_dir)
-FileUtils.rm_rf(generated_app_dir)
+case capstone_phase
+when "bootstrap"
+  FileUtils.rm_rf(artifact_dir)
+  FileUtils.mkdir_p(artifact_dir)
+  FileUtils.rm_rf(generated_app_dir)
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
-  installation: bootstrap.installation,
-  runtime_base_url: runtime_base_url,
-  runtime_fingerprint: runtime_fingerprint,
-  fingerprint: program_fingerprint,
-  sdk_version: "fenix-0.1.0"
-)
-
-machine_credential = bundled.fetch(:machine_credential)
-execution_machine_credential = bundled.fetch(:execution_machine_credential)
-agent_program = bundled.fetch(:runtime).agent_program
-agent_program_version = bundled.fetch(:runtime).deployment
-execution_runtime = bundled.fetch(:runtime).execution_runtime
-agent_session = bundled.fetch(:runtime).agent_session
-execution_session = bundled.fetch(:runtime).execution_session
-
-unless skip_worker_restart
-  docker_db_reset = ManualAcceptanceSupport.reset_docker_fenix_runtime_database!(
-    container_name: docker_container
+  ManualAcceptanceSupport.reset_backend_state!
+  bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+  bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+    installation: bootstrap.installation,
+    runtime_base_url: runtime_base_url,
+    runtime_fingerprint: runtime_fingerprint,
+    fingerprint: program_fingerprint,
+    sdk_version: "fenix-0.1.0"
   )
-  write_json(artifact_dir.join("docker-db-reset.json"), docker_db_reset)
 
-  ManualAcceptanceSupport.restart_docker_fenix_runtime_worker!(
-    machine_credential: machine_credential,
-    execution_machine_credential: execution_machine_credential,
-    container_name: docker_container
-  )
+  machine_credential = bundled.fetch(:machine_credential)
+  execution_machine_credential = bundled.fetch(:execution_machine_credential)
+  agent_program = bundled.fetch(:runtime).agent_program
+  agent_program_version = bundled.fetch(:runtime).deployment
+  execution_runtime = bundled.fetch(:runtime).execution_runtime
+  agent_session = bundled.fetch(:runtime).agent_session
+  execution_session = bundled.fetch(:runtime).execution_session
+
+  bootstrap_state = {
+    "scenario_date" => scenario_date,
+    "machine_credential" => machine_credential,
+    "execution_machine_credential" => execution_machine_credential,
+    "agent_program_id" => agent_program.public_id,
+    "agent_program_version_id" => agent_program_version.public_id,
+    "execution_runtime_id" => execution_runtime.public_id,
+    "agent_session_id" => agent_session.public_id,
+    "execution_session_id" => execution_session.public_id,
+    "runtime_base_url" => runtime_base_url,
+    "docker_container" => docker_container,
+    "runtime_fingerprint" => runtime_fingerprint,
+    "program_fingerprint" => program_fingerprint,
+  }
+
+  write_json(bootstrap_state_path, bootstrap_state)
+  puts JSON.pretty_generate(bootstrap_state)
+  exit 0
+when "execute"
+  raise "missing capstone bootstrap state: #{bootstrap_state_path}" unless bootstrap_state_path.exist?
+
+  bootstrap_state = read_json(bootstrap_state_path)
+  FileUtils.mkdir_p(artifact_dir)
+
+  machine_credential = bootstrap_state.fetch("machine_credential")
+  execution_machine_credential = bootstrap_state.fetch("execution_machine_credential")
+  agent_program = AgentProgram.find_by_public_id!(bootstrap_state.fetch("agent_program_id"))
+  agent_program_version = AgentProgramVersion.find_by_public_id!(bootstrap_state.fetch("agent_program_version_id"))
+  execution_runtime = ExecutionRuntime.find_by_public_id!(bootstrap_state.fetch("execution_runtime_id"))
+  agent_session = AgentSession.find_by_public_id!(bootstrap_state.fetch("agent_session_id"))
+  execution_session = ExecutionSession.find_by_public_id!(bootstrap_state.fetch("execution_session_id"))
+  runtime_worker_boot = runtime_worker_boot_path.exist? ? read_json(runtime_worker_boot_path) : nil
+else
+  raise "unsupported CAPSTONE_PHASE: #{capstone_phase}"
 end
 
 skill_sources = prepare_skill_sources!(skill_source_root:)
@@ -1576,7 +1625,8 @@ write_runtime_and_bindings_md(
   execution_runtime: execution_runtime,
   skill_source_manifest_path: skill_sources.fetch("manifest_path"),
   docker_container: docker_container,
-  runtime_base_url: runtime_base_url
+  runtime_base_url: runtime_base_url,
+  runtime_worker_boot: runtime_worker_boot
 )
 write_workspace_artifacts_md(
   path: artifact_dir.join("workspace-artifacts.md"),

@@ -26,7 +26,7 @@
 
 ## Convergence
 
-- Rating: `strong`
+- Rating: `acceptable`
 - Summary: Provider round count and tool churn were acceptable for a real coding-agent capstone, but not yet especially lean.
 - Evidence:
   - `run-summary.json`
@@ -36,7 +36,7 @@
 
 ## Cost Efficiency
 
-- Rating: `strong`
+- Rating: `acceptable`
 - Summary: Token and tool usage were proportional to the difficulty of a real 2048 build, though the run still carried noticeable iteration cost.
 - Evidence:
   - `run-summary.json`

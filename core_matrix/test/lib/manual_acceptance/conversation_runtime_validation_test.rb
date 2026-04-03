@@ -33,6 +33,51 @@ class ConversationRuntimeValidationTest < ActiveSupport::TestCase
     assert_equal true, result.fetch("runtime_build_passed")
   end
 
+  test "treats a successful test phase as passed even when a chained build later fails" do
+    result = ManualAcceptance::ConversationRuntimeValidation.build(
+      tool_invocations: [
+        {
+          "tool_name" => "exec_command",
+          "status" => "succeeded",
+          "response_payload" => {
+            "stdout" => <<~TEXT,
+              > game-2048@0.0.0 test
+              > vitest run
+
+              Test Files  1 passed (1)
+              Tests  7 passed (7)
+
+              > game-2048@0.0.0 build
+              > tsc -b && vite build
+
+              vite.config.ts(6,3): error TS2769: No overload matches this call.
+            TEXT
+            "stderr" => "",
+            "exit_status" => 2,
+          },
+        },
+        {
+          "tool_name" => "exec_command",
+          "status" => "succeeded",
+          "response_payload" => {
+            "stdout" => <<~TEXT,
+              > game-2048@0.0.0 build
+              > tsc -b && vite build
+
+              dist/index.html 0.45 kB
+              built in 84ms
+            TEXT
+            "stderr" => "",
+            "exit_status" => 0,
+          },
+        },
+      ]
+    )
+
+    assert_equal true, result.fetch("runtime_test_passed")
+    assert_equal true, result.fetch("runtime_build_passed")
+  end
+
   test "keeps browser evidence and preview readiness detection with exec_command payloads" do
     result = ManualAcceptance::ConversationRuntimeValidation.build(
       tool_invocations: [

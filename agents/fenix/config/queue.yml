@@ -1,20 +1,28 @@
-<%
-  runtime_topology = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}
-  runtime_topology = runtime_topology.deep_stringify_keys
-%>
 default: &default
   dispatchers:
-<% runtime_topology.fetch("dispatchers").each do |dispatcher| %>
-    - polling_interval: <%= dispatcher.fetch("polling_interval") %>
-      batch_size: <%= dispatcher.fetch("batch_size") %>
-<% end %>
+    - polling_interval: 1
+      batch_size: 500
   workers:
-<% runtime_topology.fetch("queues").each_value do |worker| %>
-    - queues: "<%= worker.fetch("name") %>"
-      threads: <%= ENV.fetch(worker.fetch("threads_env"), worker.fetch("default_threads")) %>
-      processes: <%= ENV.fetch(worker.fetch("processes_env"), worker.fetch("default_processes")) %>
-      polling_interval: <%= worker.fetch("polling_interval") %>
-<% end %>
+    - queues: "runtime_prepare_round"
+      threads: <%= ENV.fetch("SQ_THREADS_PREPARE", 3) %>
+      processes: <%= ENV.fetch("SQ_PROCESSES_PREPARE", 1) %>
+      polling_interval: 0.1
+    - queues: "runtime_pure_tools"
+      threads: <%= ENV.fetch("SQ_THREADS_PURE_TOOLS", 8) %>
+      processes: <%= ENV.fetch("SQ_PROCESSES_PURE_TOOLS", 1) %>
+      polling_interval: 0.1
+    - queues: "runtime_process_tools"
+      threads: <%= ENV.fetch("SQ_THREADS_PROCESS_TOOLS", 3) %>
+      processes: <%= ENV.fetch("SQ_PROCESSES_PROCESS_TOOLS", 1) %>
+      polling_interval: 0.1
+    - queues: "runtime_control"
+      threads: <%= ENV.fetch("SQ_THREADS_RUNTIME_CONTROL", 2) %>
+      processes: <%= ENV.fetch("SQ_PROCESSES_RUNTIME_CONTROL", 1) %>
+      polling_interval: 0.1
+    - queues: "maintenance"
+      threads: <%= ENV.fetch("SQ_THREADS_MAINTENANCE", 1) %>
+      processes: <%= ENV.fetch("SQ_PROCESSES_MAINTENANCE", 1) %>
+      polling_interval: 0.1
 
 development:
   <<: *default

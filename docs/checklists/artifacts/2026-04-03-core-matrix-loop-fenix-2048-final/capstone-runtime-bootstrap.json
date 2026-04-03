@@ -1,12 +1,14 @@
 {
+  "scenario_date": "2026-04-03",
+  "machine_credential": "9fe73f6eb28e57a2c3278e9b13bce7a05f374a3c8e11a9762b8d4e51080089d9",
+  "execution_machine_credential": "90475813a4a84bce39d7c3dd39cb6ffe6b2d080f624ae67c3dfa30c831a15aac",
   "agent_program_id": "019d5565-9c96-7633-a356-7598a080bd0e",
-  "agent_program_display_name": "Bundled Fenix",
   "agent_program_version_id": "019d5565-9ca0-7a8c-bb58-137cf4b918f8",
   "execution_runtime_id": "019d5565-9c83-7c06-89e5-2a1fd4ab3fe1",
-  "execution_runtime_display_name": "Bundled Fenix Runtime",
   "agent_session_id": "019d5565-9cb0-7353-b8a2-c557e9164700",
   "execution_session_id": "019d5565-9cbb-76ea-aa03-a600f4c4f997",
+  "runtime_base_url": "http://127.0.0.1:3101",
+  "docker_container": "fenix-capstone",
   "runtime_fingerprint": "capstone-fenix-execution-runtime-v1",
-  "program_fingerprint": "capstone-fenix-agent-program-v1",
-  "machine_credential_redacted": "9fe73f6eb28e57a2c3278e9b13bce7a05f374a3c8e11a9762b8d4e51080089d9"
+  "program_fingerprint": "capstone-fenix-agent-program-v1"
 }

@@ -1,9 +1,3 @@
-<%
-  runtime_topology = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}
-  runtime_topology = runtime_topology.deep_stringify_keys
-  primary_pool = runtime_topology.fetch("database_pools").fetch("primary")
-  queue_pool = runtime_topology.fetch("database_pools").fetch("queue")
-%>
 # SQLite. Versions 3.8.0 and up are supported.
 #   gem install sqlite3
 #
@@ -18,12 +12,12 @@ development:
   primary:
     <<: *default
     database: storage/development.sqlite3
-    max_connections: <%= ENV.fetch(primary_pool.fetch("env"), primary_pool.fetch("default")) %>
+    max_connections: <%= ENV.fetch("FENIX_PRIMARY_DB_POOL", 8) %>
   queue:
     <<: *default
     database: storage/queue_development.sqlite3
     migrations_paths: db/queue_migrate
-    max_connections: <%= ENV.fetch(queue_pool.fetch("env"), queue_pool.fetch("default")) %>
+    max_connections: <%= ENV.fetch("FENIX_QUEUE_DB_POOL", 16) %>
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
@@ -32,12 +26,12 @@ test:
   primary:
     <<: *default
     database: storage/test.sqlite3
-    max_connections: <%= ENV.fetch(primary_pool.fetch("env"), primary_pool.fetch("default")) %>
+    max_connections: <%= ENV.fetch("FENIX_PRIMARY_DB_POOL", 8) %>
   queue:
     <<: *default
     database: storage/queue_test.sqlite3
     migrations_paths: db/queue_migrate
-    max_connections: <%= ENV.fetch(queue_pool.fetch("env"), queue_pool.fetch("default")) %>
+    max_connections: <%= ENV.fetch("FENIX_QUEUE_DB_POOL", 16) %>
 
 # SQLite3 write its data on the local filesystem, as such it requires
 # persistent disks. If you are deploying to a managed service, you should
@@ -49,9 +43,9 @@ production:
   primary:
     <<: *default
     database: storage/production.sqlite3
-    max_connections: <%= ENV.fetch(primary_pool.fetch("env"), primary_pool.fetch("default")) %>
+    max_connections: <%= ENV.fetch("FENIX_PRIMARY_DB_POOL", 8) %>
   queue:
     <<: *default
     database: storage/queue_production.sqlite3
     migrations_paths: db/queue_migrate
-    max_connections: <%= ENV.fetch(queue_pool.fetch("env"), queue_pool.fetch("default")) %>
+    max_connections: <%= ENV.fetch("FENIX_QUEUE_DB_POOL", 16) %>
