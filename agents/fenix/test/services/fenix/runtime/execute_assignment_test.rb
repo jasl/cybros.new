@@ -578,6 +578,100 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert result.reports.all? { |report| report.key?("protocol_message_id") }
   end
 
+  test "skills_catalog_list mode completes through the shared skill flow" do
+    original_catalog_list = Fenix::Skills::CatalogList.method(:call)
+    Fenix::Skills::CatalogList.define_singleton_method(:call) { "catalog-output" }
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(mode: "skills_catalog_list")
+    )
+
+    assert_equal "completed", result.status
+    assert_equal "catalog-output", result.output
+    assert_equal %w[prepare_turn compact_context skills], result.trace.map { |entry| entry.fetch("hook") }
+    assert_equal %w[execution_started execution_complete], result.reports.map { |report| report.fetch("method_id") }
+  ensure
+    Fenix::Skills::CatalogList.define_singleton_method(:call, original_catalog_list) if original_catalog_list
+  end
+
+  test "skills_load mode delegates to the skills loader" do
+    original_load = Fenix::Skills::Load.method(:call)
+    captured_skill_name = nil
+    Fenix::Skills::Load.define_singleton_method(:call) do |skill_name:|
+      captured_skill_name = skill_name
+      "load-output"
+    end
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "skills_load",
+        task_payload: { "skill_name" => "example-skill" }
+      )
+    )
+
+    assert_equal "completed", result.status
+    assert_equal "load-output", result.output
+    assert_equal "example-skill", captured_skill_name
+    assert_equal %w[prepare_turn compact_context skills], result.trace.map { |entry| entry.fetch("hook") }
+  ensure
+    Fenix::Skills::Load.define_singleton_method(:call, original_load) if original_load
+  end
+
+  test "skills_read_file mode delegates to the skill repository reader" do
+    original_read_file = Fenix::Skills::ReadFile.method(:call)
+    captured_args = nil
+    Fenix::Skills::ReadFile.define_singleton_method(:call) do |skill_name:, relative_path:|
+      captured_args = { "skill_name" => skill_name, "relative_path" => relative_path }
+      "read-output"
+    end
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "skills_read_file",
+        task_payload: {
+          "skill_name" => "example-skill",
+          "relative_path" => "README.md",
+        }
+      )
+    )
+
+    assert_equal "completed", result.status
+    assert_equal "read-output", result.output
+    assert_equal(
+      {
+        "skill_name" => "example-skill",
+        "relative_path" => "README.md",
+      },
+      captured_args
+    )
+    assert_equal %w[prepare_turn compact_context skills], result.trace.map { |entry| entry.fetch("hook") }
+  ensure
+    Fenix::Skills::ReadFile.define_singleton_method(:call, original_read_file) if original_read_file
+  end
+
+  test "skills_install mode delegates to the skill installer" do
+    original_install = Fenix::Skills::Install.method(:call)
+    captured_source_path = nil
+    Fenix::Skills::Install.define_singleton_method(:call) do |source_path:|
+      captured_source_path = source_path
+      "install-output"
+    end
+
+    result = Fenix::Runtime::ExecuteAssignment.call(
+      mailbox_item: runtime_assignment_payload(
+        mode: "skills_install",
+        task_payload: { "source_path" => "/tmp/skill-source" }
+      )
+    )
+
+    assert_equal "completed", result.status
+    assert_equal "install-output", result.output
+    assert_equal "/tmp/skill-source", captured_source_path
+    assert_equal %w[prepare_turn compact_context skills], result.trace.map { |entry| entry.fetch("hook") }
+  ensure
+    Fenix::Skills::Install.define_singleton_method(:call, original_install) if original_install
+  end
+
   private
 
   def assert_process_terminated(pid)

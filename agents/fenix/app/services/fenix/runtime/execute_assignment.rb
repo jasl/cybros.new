@@ -41,30 +41,15 @@ module Fenix
         @trace << compacted.fetch("trace")
         check_canceled!
 
-        case @context.dig("task_payload", "mode")
+        dispatch = Fenix::Runtime::Assignments::DispatchMode.call(
+          task_payload: @context.fetch("task_payload", {})
+        )
+
+        case dispatch.fetch("kind")
         when "raise_error"
           raise StandardError, "boom"
-        when "skills_catalog_list"
-          execute_skill_flow(output: Fenix::Skills::CatalogList.call)
-        when "skills_load"
-          execute_skill_flow(
-            output: Fenix::Skills::Load.call(
-              skill_name: @context.dig("task_payload", "skill_name").to_s
-            )
-          )
-        when "skills_read_file"
-          execute_skill_flow(
-            output: Fenix::Skills::ReadFile.call(
-              skill_name: @context.dig("task_payload", "skill_name").to_s,
-              relative_path: @context.dig("task_payload", "relative_path").to_s
-            )
-          )
-        when "skills_install"
-          execute_skill_flow(
-            output: Fenix::Skills::Install.call(
-              source_path: @context.dig("task_payload", "source_path").to_s
-            )
-          )
+        when "skill_flow"
+          execute_skill_flow(output: dispatch.fetch("output"))
         else
           execute_deterministic_tool_flow
         end
