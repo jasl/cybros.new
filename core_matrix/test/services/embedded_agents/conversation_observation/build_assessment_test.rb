@@ -35,6 +35,52 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
     end
   end
 
+  test "preserves the latest completed workflow run so terminal observation can report completion" do
+    freeze_time do
+      context = build_canonical_variable_context!
+      workflow_node = create_workflow_node!(
+        workflow_run: context.fetch(:workflow_run),
+        node_key: "finalize",
+        node_type: "turn_step",
+        lifecycle_state: "completed",
+        presentation_policy: "ops_trackable",
+        decision_source: "agent_program",
+        started_at: 5.minutes.ago,
+        finished_at: 4.minutes.ago,
+        metadata: {}
+      )
+      context.fetch(:workflow_run).update!(
+        lifecycle_state: "completed",
+        wait_state: "ready",
+        wait_reason_payload: {}
+      )
+      session = ConversationObservationSession.create!(
+        installation: context.fetch(:installation),
+        target_conversation: context.fetch(:conversation),
+        initiator: context.fetch(:user),
+        lifecycle_state: "open",
+        responder_strategy: "builtin",
+        capability_policy_snapshot: {}
+      )
+      frame = EmbeddedAgents::ConversationObservation::BuildFrame.call(
+        conversation_observation_session: session
+      )
+      bundle = EmbeddedAgents::ConversationObservation::BuildBundle.call(
+        conversation_observation_frame: frame
+      )
+
+      assessment = EmbeddedAgents::ConversationObservation::BuildAssessment.call(
+        conversation_observation_frame: frame,
+        observation_bundle: bundle
+      )
+
+      assert_equal context.fetch(:workflow_run).public_id, frame.active_workflow_run_public_id
+      assert_equal workflow_node.public_id, frame.active_workflow_node_public_id
+      assert_equal "completed", assessment.fetch("overall_state")
+      assert_equal context.fetch(:workflow_run).public_id, assessment.fetch("workflow_run_id")
+    end
+  end
+
   private
 
   def build_observation_fixture!

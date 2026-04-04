@@ -19,6 +19,7 @@ OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
 PLAYWRIGHT_VERSION = "1.59.1".freeze
 EXPECTED_SKILL_DAG_SHAPE = ["agent_turn_step"].freeze
+OBSERVATION_PROMPT = "Summarize current progress for supervisor_status".freeze
 EXPECTED_SKILL_CONVERSATION_STATE = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
@@ -42,6 +43,9 @@ scenario_date = Date.current.iso8601
 capstone_phase = ENV.fetch("CAPSTONE_PHASE", "execute")
 bootstrap_state_path = Pathname.new(ENV.fetch("CAPSTONE_BOOTSTRAP_STATE_PATH", artifact_dir.join("capstone-runtime-bootstrap.json").to_s))
 runtime_worker_boot_path = Pathname.new(ENV.fetch("CAPSTONE_RUNTIME_WORKER_BOOT_PATH", artifact_dir.join("docker-runtime-worker.json").to_s))
+observation_poll_interval_seconds = Float(ENV.fetch("CAPSTONE_OBSERVATION_POLL_INTERVAL_SECONDS", "5"))
+observation_timeout_seconds = Integer(ENV.fetch("CAPSTONE_OBSERVATION_TIMEOUT_SECONDS", "3600"))
+observation_stall_threshold_ms = Integer(ENV.fetch("CAPSTONE_OBSERVATION_STALL_THRESHOLD_MS", (30 * 60 * 1000).to_s))
 
 prompt = <<~PROMPT
 Use `$using-superpowers`.
@@ -123,6 +127,66 @@ def wait_for_tcp_port!(host:, port:, timeout_seconds:)
 
       sleep(0.2)
     end
+  end
+end
+
+def supervise_conversation_progress!(
+  conversation_id:,
+  machine_credential:,
+  prompt: OBSERVATION_PROMPT,
+  timeout_seconds:,
+  poll_interval_seconds:,
+  stall_threshold_ms:
+)
+  session_payload = ManualAcceptanceSupport.app_api_create_conversation_observation_session!(
+    conversation_id: conversation_id,
+    machine_credential: machine_credential
+  )
+  observation_session_id = session_payload.dig("conversation_observation_session", "observation_session_id")
+  deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+  polls = []
+
+  loop do
+    response = ManualAcceptanceSupport.app_api_append_conversation_observation_message!(
+      observation_session_id: observation_session_id,
+      content: prompt,
+      machine_credential: machine_credential
+    )
+    supervisor_status = response.fetch("supervisor_status")
+    human_sidechat = response.fetch("human_sidechat")
+
+    polls << {
+      "assessment" => response.fetch("assessment"),
+      "supervisor_status" => supervisor_status,
+      "human_sidechat" => human_sidechat,
+      "user_message" => response.fetch("user_message"),
+      "observer_message" => response.fetch("observer_message"),
+    }
+
+    overall_state = supervisor_status.fetch("overall_state")
+    return {
+      "session" => session_payload,
+      "polls" => polls,
+      "final_response" => response,
+    } if %w[completed failed].include?(overall_state)
+
+    if supervisor_status.fetch("stall_for_ms").to_i >= stall_threshold_ms
+      raise <<~MSG
+        observation supervisor detected a stall after #{stall_threshold_ms}ms
+        last supervisor response:
+        #{JSON.pretty_generate(response)}
+      MSG
+    end
+
+    if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+      raise <<~MSG
+        timed out supervising conversation #{conversation_id} through observation
+        last supervisor response:
+        #{JSON.pretty_generate(response)}
+      MSG
+    end
+
+    sleep(poll_interval_seconds)
   end
 end
 
@@ -1347,16 +1411,33 @@ skills_validation = install_and_validate_skills!(
 )
 
 conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
-run = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
   conversation: conversation_context.fetch(:conversation),
   agent_program_version: agent_program_version,
   content: prompt,
+  root_node_key: "turn_step",
+  root_node_type: "turn_step",
+  decision_source: "system",
+  selector_source: "conversation",
   selector: selector
 )
+dispatched_node = Workflows::ExecuteRun.call(workflow_run: run.fetch(:workflow_run))
+ManualAcceptanceSupport.execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
 
 conversation = conversation_context.fetch(:conversation).reload
+observation_trace = supervise_conversation_progress!(
+  conversation_id: conversation.public_id,
+  machine_credential: machine_credential,
+  timeout_seconds: observation_timeout_seconds,
+  poll_interval_seconds: observation_poll_interval_seconds,
+  stall_threshold_ms: observation_stall_threshold_ms
+)
+
 turn = run.fetch(:turn).reload
-workflow_run = run.fetch(:workflow_run).reload
+workflow_run = ManualAcceptanceSupport.wait_for_workflow_run_terminal!(
+  workflow_run: run.fetch(:workflow_run),
+  timeout_seconds: 30
+)
 
 source_transcript = ManualAcceptanceSupport.app_api_conversation_transcript!(
   conversation_id: conversation.public_id,
@@ -1453,6 +1534,9 @@ write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
   "prompt" => prompt,
 })
 write_json(artifact_dir.join("skills-validation.json"), skills_validation)
+write_json(artifact_dir.join("observation-session.json"), observation_trace.fetch("session"))
+write_json(artifact_dir.join("observation-polls.json"), observation_trace.fetch("polls"))
+write_json(artifact_dir.join("observation-final.json"), observation_trace.fetch("final_response"))
 write_json(artifact_dir.join("source-transcript.json"), source_transcript)
 write_json(artifact_dir.join("source-diagnostics-show.json"), source_diagnostics_show)
 write_json(artifact_dir.join("source-diagnostics-turns.json"), source_diagnostics_turns)
@@ -1485,6 +1569,9 @@ write_text(artifact_dir.join("export-roundtrip.md"), <<~MD)
   - `#{imported_conversation_id}`
 
   Results:
+  - observation session: `#{observation_trace.dig("session", "conversation_observation_session", "observation_session_id")}`
+  - observation poll count: `#{observation_trace.fetch("polls").length}`
+  - final observation state: `#{observation_trace.dig("final_response", "supervisor_status", "overall_state")}`
   - `ConversationExport` succeeded through `/app_api/conversation_export_requests`
   - `ConversationDebugExport` succeeded through `/app_api/conversation_debug_export_requests`
   - `ConversationImport` succeeded through `/app_api/conversation_bundle_import_requests`
@@ -1603,6 +1690,9 @@ write_turns_md(
     "capstone-run-bootstrap.json",
     "skills-validation.json",
     "workspace-validation.md",
+    "observation-session.json",
+    "observation-polls.json",
+    "observation-final.json",
     ("host-preview.json" if preview_http.present?),
     ("host-playwright-verification.json" if playwright_validation.present?),
     ("host-playability.png" if playwright_validation.present?),
@@ -1663,6 +1753,10 @@ summary = {
   "selector" => selector,
   "workflow_state" => workflow_run.lifecycle_state,
   "turn_state" => turn.lifecycle_state,
+  "observation_session_id" => observation_trace.dig("session", "conversation_observation_session", "observation_session_id"),
+  "observation_poll_count" => observation_trace.fetch("polls").length,
+  "observation_final_state" => observation_trace.dig("final_response", "supervisor_status", "overall_state"),
+  "observation_human_sidechat" => observation_trace.dig("final_response", "human_sidechat", "content"),
   "user_bundle_path" => user_bundle_path.to_s,
   "debug_bundle_path" => debug_bundle_path.to_s,
   "imported_conversation_id" => imported_conversation_id,

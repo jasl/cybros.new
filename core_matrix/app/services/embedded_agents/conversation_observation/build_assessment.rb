@@ -74,6 +74,9 @@ module EmbeddedAgents
           return "Waiting on #{workflow_view["wait_reason_kind"]} at #{node_label}"
         end
 
+        return "Completed #{node_label}" if overall_state == "completed"
+        return "Failed #{node_label}" if overall_state == "failed"
+
         node_state = workflow_view["node_lifecycle_state"] || workflow_view["workflow_lifecycle_state"] || "active"
         "Running #{node_label} (#{node_state})"
       end

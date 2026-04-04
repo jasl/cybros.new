@@ -49,6 +49,12 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationDiagnosticsSnapshot
   end
 
+  test "reset_backend_state! includes conversation observation tables" do
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationObservationSession
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationObservationFrame
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationObservationMessage
+  end
+
   test "register_external_runtime! returns the execution machine credential from the registration payload" do
     registration_calls = []
     heartbeat_calls = []

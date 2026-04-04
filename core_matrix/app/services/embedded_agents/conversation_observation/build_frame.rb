@@ -12,8 +12,8 @@ module EmbeddedAgents
       def call
         conversation = @conversation_observation_session.target_conversation
         anchor_turn = anchor_turn_for(conversation)
-        workflow_run = active_workflow_run_for(conversation)
-        workflow_node = active_workflow_node_for(workflow_run)
+        workflow_run = current_workflow_run_for(conversation)
+        workflow_node = current_workflow_node_for(workflow_run)
         active_subagent_sessions = active_subagent_sessions_for(conversation)
 
         frame = @conversation_observation_session.conversation_observation_frames.create!(
@@ -47,11 +47,12 @@ module EmbeddedAgents
         conversation.turns.where.not(lifecycle_state: "canceled").order(:sequence).last
       end
 
-      def active_workflow_run_for(conversation)
-        conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at).last
+      def current_workflow_run_for(conversation)
+        conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at).last ||
+          conversation.workflow_runs.order(:created_at).last
       end
 
-      def active_workflow_node_for(workflow_run)
+      def current_workflow_node_for(workflow_run)
         return if workflow_run.blank?
 
         nodes = workflow_run.workflow_nodes.order(:ordinal).to_a

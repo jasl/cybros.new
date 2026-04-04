@@ -41,7 +41,8 @@ module EmbeddedAgents
 
       def workflow_view_for(conversation)
         workflow_run = conversation.workflow_runs.find_by(public_id: @conversation_observation_frame.active_workflow_run_public_id) ||
-          conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at).last
+          conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at).last ||
+          conversation.workflow_runs.order(:created_at).last
         workflow_node = workflow_run&.workflow_nodes&.find_by(public_id: @conversation_observation_frame.active_workflow_node_public_id) ||
           active_workflow_node_for(workflow_run)
 
