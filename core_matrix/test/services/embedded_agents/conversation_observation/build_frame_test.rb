@@ -22,6 +22,8 @@ class EmbeddedAgents::ConversationObservation::BuildFrameTest < ActiveSupport::T
     assert_equal context.fetch(:turn).public_id, frame.runtime_state_snapshot.fetch("anchor_turn_id")
     assert_equal "active", frame.runtime_state_snapshot.fetch("conversation_lifecycle_state")
     assert_equal "running", frame.runtime_state_snapshot.fetch("active_workflow_node_state")
+    assert_equal context.fetch(:conversation).public_id, frame.bundle_snapshot.dig("transcript_view", "conversation_id")
+    assert_equal context.fetch(:workflow_run).public_id, frame.bundle_snapshot.dig("workflow_view", "workflow_run_id")
     assert_equal({}, frame.assessment_payload)
     assert frame.conversation_event_projection_sequence_snapshot >= 0
   end

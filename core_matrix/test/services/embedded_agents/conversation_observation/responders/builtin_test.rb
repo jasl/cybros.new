@@ -15,12 +15,14 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
       first_response = EmbeddedAgents::ConversationObservation::RouteResponder.call(
         conversation_observation_session: fixture.fetch(:session),
         conversation_observation_frame: fixture.fetch(:frame),
-        observation_bundle: fixture.fetch(:bundle)
+        observation_bundle: fixture.fetch(:bundle),
+        question: "What are you doing right now?"
       )
       second_response = EmbeddedAgents::ConversationObservation::RouteResponder.call(
         conversation_observation_session: fixture.fetch(:session),
         conversation_observation_frame: fixture.fetch(:frame),
-        observation_bundle: fixture.fetch(:bundle)
+        observation_bundle: fixture.fetch(:bundle),
+        question: "What are you doing right now?"
       )
 
       assert_equal first_response, second_response
@@ -34,10 +36,62 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
       assert_equal assessment.fetch("proof_refs"), human_sidechat.fetch("proof_refs")
       assert_equal assessment.fetch("overall_state"), supervisor_status.fetch("overall_state")
       assert_equal assessment.fetch("current_activity"), human_sidechat.fetch("current_activity")
-      assert_equal assessment.fetch("human_summary"), human_sidechat.fetch("content")
+      refute_equal assessment.fetch("human_summary"), human_sidechat.fetch("content")
       refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, human_sidechat.fetch("content"))
-      assert_match(/\AThe conversation is currently /, human_sidechat.fetch("content"))
+      assert_match(/\ARight now the conversation is /, human_sidechat.fetch("content"))
       assert_equal assessment, fixture.fetch(:frame).reload.assessment_payload
+    end
+  end
+
+  test "changes the human sidechat projection based on the current question and prior observation history" do
+    freeze_time do
+      fixture = build_observation_fixture!
+      previous_frame = fixture.fetch(:session).conversation_observation_frames.create!(
+        installation: fixture.fetch(:session).installation,
+        target_conversation: fixture.fetch(:session).target_conversation,
+        anchor_turn_public_id: fixture.fetch(:frame).anchor_turn_public_id,
+        anchor_turn_sequence_snapshot: fixture.fetch(:frame).anchor_turn_sequence_snapshot,
+        conversation_event_projection_sequence_snapshot: fixture.fetch(:frame).conversation_event_projection_sequence_snapshot,
+        active_workflow_run_public_id: fixture.fetch(:frame).active_workflow_run_public_id,
+        active_workflow_node_public_id: fixture.fetch(:frame).active_workflow_node_public_id,
+        wait_state: fixture.fetch(:frame).wait_state,
+        wait_reason_kind: fixture.fetch(:frame).wait_reason_kind,
+        active_subagent_session_public_ids: fixture.fetch(:frame).active_subagent_session_public_ids,
+        runtime_state_snapshot: fixture.fetch(:frame).runtime_state_snapshot,
+        bundle_snapshot: fixture.fetch(:frame).bundle_snapshot,
+        assessment_payload: {}
+      )
+      fixture.fetch(:session).conversation_observation_messages.create!(
+        installation: fixture.fetch(:session).installation,
+        target_conversation: fixture.fetch(:session).target_conversation,
+        conversation_observation_frame: previous_frame,
+        role: "observer_agent",
+        content: "Previous summary",
+        metadata: {
+          "supervisor_status" => {
+            "overall_state" => "running",
+            "current_activity" => "Running provider_round_1 (running)",
+            "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
+            "transcript_refs" => [],
+          }
+        }
+      )
+
+      progress_response = EmbeddedAgents::ConversationObservation::RouteResponder.call(
+        conversation_observation_session: fixture.fetch(:session),
+        conversation_observation_frame: fixture.fetch(:frame),
+        observation_bundle: fixture.fetch(:bundle),
+        question: "What are you doing right now?"
+      )
+      change_response = EmbeddedAgents::ConversationObservation::RouteResponder.call(
+        conversation_observation_session: fixture.fetch(:session),
+        conversation_observation_frame: fixture.fetch(:frame),
+        observation_bundle: fixture.fetch(:bundle),
+        question: "What changed most recently?"
+      )
+
+      refute_equal progress_response.dig("human_sidechat", "content"), change_response.dig("human_sidechat", "content")
+      assert_match(/Since the last observation/, change_response.dig("human_sidechat", "content"))
     end
   end
 

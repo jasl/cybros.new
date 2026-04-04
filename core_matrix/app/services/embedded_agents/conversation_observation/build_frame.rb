@@ -15,13 +15,22 @@ module EmbeddedAgents
         workflow_run = current_workflow_run_for(conversation)
         workflow_node = current_workflow_node_for(workflow_run)
         active_subagent_sessions = active_subagent_sessions_for(conversation)
+        latest_projection_sequence = latest_projection_sequence_for(conversation)
+        bundle_snapshot = BuildBundleSnapshot.call(
+          conversation: conversation,
+          anchor_turn: anchor_turn,
+          latest_projection_sequence: latest_projection_sequence,
+          workflow_run: workflow_run,
+          workflow_node: workflow_node,
+          active_subagent_sessions: active_subagent_sessions
+        )
 
         frame = @conversation_observation_session.conversation_observation_frames.create!(
           installation: conversation.installation,
           target_conversation: conversation,
           anchor_turn_public_id: anchor_turn&.public_id,
           anchor_turn_sequence_snapshot: anchor_turn&.sequence,
-          conversation_event_projection_sequence_snapshot: latest_projection_sequence_for(conversation),
+          conversation_event_projection_sequence_snapshot: latest_projection_sequence,
           active_workflow_run_public_id: workflow_run&.public_id,
           active_workflow_node_public_id: workflow_node&.public_id,
           wait_state: workflow_run&.wait_state,
@@ -34,6 +43,7 @@ module EmbeddedAgents
             workflow_node: workflow_node,
             active_subagent_sessions: active_subagent_sessions
           ),
+          bundle_snapshot: bundle_snapshot,
           assessment_payload: {}
         )
 

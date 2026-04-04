@@ -33,6 +33,33 @@ class EmbeddedAgents::ConversationObservation::AppendMessageTest < ActiveSupport
     assert_equal result.fetch("assessment").fetch("proof_refs"), result.dig("human_sidechat", "proof_refs")
   end
 
+  test "requires the session initiator and rejects closed sessions" do
+    fixture = build_observation_fixture!
+    outsider = create_user!(installation: fixture.fetch(:installation))
+
+    unauthorized_error = assert_raises(EmbeddedAgents::Errors::UnauthorizedObservation) do
+      EmbeddedAgents::ConversationObservation::AppendMessage.call(
+        actor: outsider,
+        conversation_observation_session: fixture.fetch(:session),
+        content: "What are you doing?"
+      )
+    end
+
+    assert_equal "not allowed to observe conversation", unauthorized_error.message
+
+    fixture.fetch(:session).update!(lifecycle_state: "closed")
+
+    closed_error = assert_raises(EmbeddedAgents::Errors::ClosedObservationSession) do
+      EmbeddedAgents::ConversationObservation::AppendMessage.call(
+        actor: fixture.fetch(:user),
+        conversation_observation_session: fixture.fetch(:session),
+        content: "What are you doing?"
+      )
+    end
+
+    assert_equal "observation session is closed", closed_error.message
+  end
+
   private
 
   def build_observation_fixture!
@@ -105,6 +132,8 @@ class EmbeddedAgents::ConversationObservation::AppendMessageTest < ActiveSupport
     )
 
     context.merge(
+      installation: context.fetch(:installation),
+      user: context.fetch(:user),
       conversation: conversation,
       current_turn: current_turn,
       workflow_run: workflow_run,

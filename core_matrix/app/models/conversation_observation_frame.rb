@@ -34,6 +34,7 @@ class ConversationObservationFrame < ApplicationRecord
   def snapshot_payloads_must_be_hashes_or_arrays
     errors.add(:active_subagent_session_public_ids, "must be an array") unless active_subagent_session_public_ids.is_a?(Array)
     errors.add(:runtime_state_snapshot, "must be a hash") unless runtime_state_snapshot.is_a?(Hash)
+    errors.add(:bundle_snapshot, "must be a hash") unless bundle_snapshot.is_a?(Hash)
     errors.add(:assessment_payload, "must be a hash") unless assessment_payload.is_a?(Hash)
   end
 end

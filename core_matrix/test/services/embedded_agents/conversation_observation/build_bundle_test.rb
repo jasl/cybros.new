@@ -4,22 +4,8 @@ class EmbeddedAgents::ConversationObservation::BuildBundleTest < ActiveSupport::
   test "builds a bounded observation bundle from transcript workflow activity and diagnostics" do
     context = build_bundle_context!
     session = create_observation_session!(context:)
-    frame = ConversationObservationFrame.create!(
-      installation: context.fetch(:installation),
-      target_conversation: context.fetch(:conversation),
-      conversation_observation_session: session,
-      anchor_turn_public_id: context.fetch(:current_turn).public_id,
-      anchor_turn_sequence_snapshot: context.fetch(:current_turn).sequence,
-      conversation_event_projection_sequence_snapshot: ConversationEvent.where(conversation: context.fetch(:conversation)).maximum(:projection_sequence),
-      active_workflow_run_public_id: context.fetch(:workflow_run).public_id,
-      active_workflow_node_public_id: context.fetch(:workflow_node).public_id,
-      wait_state: context.fetch(:workflow_run).wait_state,
-      wait_reason_kind: context.fetch(:workflow_run).wait_reason_kind,
-      active_subagent_session_public_ids: [context.fetch(:subagent_session).public_id],
-      runtime_state_snapshot: {
-        "anchor_turn_id" => context.fetch(:current_turn).public_id,
-      },
-      assessment_payload: {}
+    frame = EmbeddedAgents::ConversationObservation::BuildFrame.call(
+      conversation_observation_session: session
     )
 
     bundle = EmbeddedAgents::ConversationObservation::BuildBundle.call(
@@ -63,6 +49,47 @@ class EmbeddedAgents::ConversationObservation::BuildBundleTest < ActiveSupport::
 
     assert_equal({}, bundle.fetch("memory_view"))
     assert_public_id_boundaries!(bundle)
+  end
+
+  test "returns the frozen bundle snapshot even after the target conversation advances" do
+    context = build_bundle_context!
+    session = create_observation_session!(context:)
+    frame = EmbeddedAgents::ConversationObservation::BuildFrame.call(
+      conversation_observation_session: session
+    )
+    frozen_bundle = EmbeddedAgents::ConversationObservation::BuildBundle.call(
+      conversation_observation_frame: frame
+    )
+
+    later_turn = Turns::StartUserTurn.call(
+      conversation: context.fetch(:conversation),
+      content: "A later turn that should not appear in the frozen bundle",
+      agent_program_version: context.fetch(:agent_program_version),
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    later_output = attach_selected_output!(later_turn, content: "A later output that should stay out of the frozen bundle")
+    ConversationRuntime::PublishEvent.call(
+      conversation: context.fetch(:conversation),
+      turn: later_turn,
+      event_kind: "runtime.workflow_node.completed",
+      payload: {
+        "workflow_run_id" => context.fetch(:workflow_run).public_id,
+        "workflow_node_id" => context.fetch(:workflow_node).public_id,
+        "state" => "completed",
+      }
+    )
+
+    reloaded_bundle = EmbeddedAgents::ConversationObservation::BuildBundle.call(
+      conversation_observation_frame: frame.reload
+    )
+
+    assert_equal frozen_bundle, reloaded_bundle
+
+    transcript_ids = reloaded_bundle.fetch("transcript_view").fetch("messages").map { |message| message.fetch("message_id") }
+    refute_includes transcript_ids, later_turn.selected_input_message.public_id
+    refute_includes transcript_ids, later_output.public_id
+    refute reloaded_bundle.fetch("activity_view").fetch("items").any? { |item| item.fetch("event_kind") == "runtime.workflow_node.completed" }
   end
 
   private

@@ -39,6 +39,7 @@ class ConversationObservationFrameTest < ActiveSupport::TestCase
       wait_reason_kind: "external_dependency_blocked",
       active_subagent_session_public_ids: ["subagent-session-public"],
       runtime_state_snapshot: { "state" => "running" },
+      bundle_snapshot: { "workflow_view" => { "workflow_run_id" => workflow_run.public_id } },
       assessment_payload: { "overall_state" => "running" }
     )
 
@@ -47,6 +48,7 @@ class ConversationObservationFrameTest < ActiveSupport::TestCase
     assert_equal turn.public_id, frame.anchor_turn_public_id
     assert_equal workflow_run.public_id, frame.active_workflow_run_public_id
     assert_equal ["subagent-session-public"], frame.active_subagent_session_public_ids
+    assert_equal({ "workflow_view" => { "workflow_run_id" => workflow_run.public_id } }, frame.bundle_snapshot)
     assert_equal({ "overall_state" => "running" }, frame.assessment_payload)
   end
 
@@ -96,6 +98,7 @@ class ConversationObservationFrameTest < ActiveSupport::TestCase
       wait_state: "ready",
       active_subagent_session_public_ids: [],
       runtime_state_snapshot: {},
+      bundle_snapshot: {},
       assessment_payload: {}
     )
 

@@ -16,11 +16,14 @@ class ConversationEvent < ApplicationRecord
   validate :source_installation_match
   validate :source_conversation_match
 
-  def self.live_projection(conversation:)
+  def self.live_projection(conversation:, max_projection_sequence: nil)
     projection = []
     stream_positions = {}
 
-    where(conversation: conversation).order(:projection_sequence).each do |event|
+    scope = where(conversation: conversation)
+    scope = scope.where(projection_sequence: ..max_projection_sequence) if max_projection_sequence.present?
+
+    scope.order(:projection_sequence).each do |event|
       if event.stream_key.present?
         if stream_positions.key?(event.stream_key)
           projection[stream_positions[event.stream_key]] = event

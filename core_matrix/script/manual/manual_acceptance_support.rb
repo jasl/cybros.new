@@ -260,25 +260,39 @@ module ManualAcceptanceSupport
     )
   end
 
-  def app_api_create_conversation_observation_session!(conversation_id:, machine_credential:, responder_strategy: "builtin")
-    app_api_post_json(
-      "/app_api/conversation_observation_sessions",
-      {
-        conversation_id: conversation_id,
-        responder_strategy: responder_strategy,
-      },
-      machine_credential:
+  def create_conversation_observation_session!(conversation_id:, actor:, responder_strategy: "builtin")
+    conversation = Conversation.find_by_public_id!(conversation_id)
+    session = EmbeddedAgents::ConversationObservation::CreateSession.call(
+      actor: actor,
+      conversation: conversation,
+      responder_strategy: responder_strategy
     )
+
+    {
+      "method_id" => "conversation_observation_session_create",
+      "conversation_id" => conversation.public_id,
+      "conversation_observation_session" => serialize_observation_session(session),
+    }
   end
 
-  def app_api_append_conversation_observation_message!(observation_session_id:, content:, machine_credential:)
-    app_api_post_json(
-      "/app_api/conversation_observation_sessions/#{observation_session_id}/messages",
-      {
-        content: content,
-      },
-      machine_credential:
+  def append_conversation_observation_message!(observation_session_id:, actor:, content:)
+    session = ConversationObservationSession.find_by_public_id!(observation_session_id)
+    result = EmbeddedAgents::ConversationObservation::AppendMessage.call(
+      actor: actor,
+      conversation_observation_session: session,
+      content: content
     )
+
+    {
+      "method_id" => "conversation_observation_message_create",
+      "conversation_id" => session.target_conversation.public_id,
+      "observation_session_id" => session.public_id,
+      "assessment" => result.fetch("assessment"),
+      "supervisor_status" => result.fetch("supervisor_status"),
+      "human_sidechat" => result.fetch("human_sidechat"),
+      "user_message" => serialize_observation_message(result.fetch("user_message")),
+      "observer_message" => serialize_observation_message(result.fetch("observer_message")),
+    }
   end
 
   def app_api_export_conversation!(conversation_id:, machine_credential:, destination_path:, timeout_seconds: 60)
@@ -667,6 +681,7 @@ module ManualAcceptanceSupport
     workspace = enable_default_workspace!(agent_program_version: agent_program_version)
 
     {
+      actor: workspace.user,
       workspace: workspace,
       conversation: Conversations::CreateRoot.call(
         workspace: workspace,
@@ -894,6 +909,33 @@ module ManualAcceptanceSupport
     true
   rescue Errno::ESRCH
     false
+  end
+
+  def serialize_observation_session(session)
+    {
+      "observation_session_id" => session.public_id,
+      "target_conversation_id" => session.target_conversation.public_id,
+      "initiator_type" => session.initiator_type,
+      "initiator_id" => session.initiator.respond_to?(:public_id) ? session.initiator.public_id : nil,
+      "lifecycle_state" => session.lifecycle_state,
+      "responder_strategy" => session.responder_strategy,
+      "capability_policy_snapshot" => session.capability_policy_snapshot,
+      "last_observed_at" => session.last_observed_at&.iso8601(6),
+      "created_at" => session.created_at&.iso8601(6),
+    }.compact
+  end
+
+  def serialize_observation_message(message)
+    {
+      "observation_message_id" => message.public_id,
+      "observation_session_id" => message.conversation_observation_session.public_id,
+      "observation_frame_id" => message.conversation_observation_frame.public_id,
+      "target_conversation_id" => message.target_conversation.public_id,
+      "role" => message.role,
+      "content" => message.content,
+      "metadata" => message.metadata,
+      "created_at" => message.created_at&.iso8601(6),
+    }
   end
 
   def execute_inline_if_queued!(workflow_node:)

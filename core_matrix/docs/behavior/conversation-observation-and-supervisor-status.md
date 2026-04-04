@@ -26,7 +26,8 @@ The durable records are:
   - records the initiator, responder strategy, and capability snapshot
 - `ConversationObservationFrame`
   - one frozen observation anchor per observe exchange
-  - stores compact public-id anchors and the canonical assessment payload
+  - stores compact public-id anchors, the frozen bundle snapshot, and the
+    canonical assessment payload
 - `ConversationObservationMessage`
   - the side-session message history
   - stores the user observation prompt and the observer response
@@ -57,13 +58,14 @@ One observation message exchange follows this order:
 1. authorize the actor against the target conversation
 2. create a `ConversationObservationFrame`
 3. persist the side-session user message
-4. build the bounded observation bundle
+4. read the frozen bundle snapshot from the frame
 5. run the configured responder
 6. persist the observer response message
 
-The frame is frozen before bundle construction and responder execution. The
-anchor is therefore stable even if the target conversation advances while the
-response is being prepared.
+The frame captures and persists the bounded observation bundle before responder
+execution. The responder never re-reads live conversation state for that same
+exchange, so the proof surface stays stable even if the target conversation
+advances while the answer is being prepared.
 
 ## Observation Bundle
 
@@ -202,28 +204,30 @@ assessment, then derives `supervisor_status` and `human_sidechat` from that
 same assessment.
 
 `proof_text` remains the internal proof-oriented wording on the assessment.
-`human_sidechat` uses `human_summary`, which is phrased for people and avoids
-embedding workflow or transcript public ids directly in the visible text.
+`human_summary` remains the canonical general-purpose summary on the
+assessment. `human_sidechat` is question-aware: it uses the current sidechat
+question, the current assessment, and prior sidechat status when available,
+while still avoiding workflow or transcript public ids in the visible text.
 
 The architecture keeps a future seam for a program-backed responder, but the
 feature does not depend on one.
 
-## App API Surface
+## Current Integration Surface
 
-The app-facing observation API is session-based:
+Observation is currently integrated as a service-first core surface.
 
-- `POST /app_api/conversation_observation_sessions`
-- `GET /app_api/conversation_observation_sessions/:id`
-- `GET /app_api/conversation_observation_sessions/:conversation_observation_session_id/messages`
-- `POST /app_api/conversation_observation_sessions/:conversation_observation_session_id/messages`
+Current internal callers, including the acceptance harness, use:
 
-Posting an observation message returns:
+- `EmbeddedAgents::ConversationObservation::CreateSession`
+- `EmbeddedAgents::ConversationObservation::AppendMessage`
 
-- `assessment`
-- `supervisor_status`
-- `human_sidechat`
-- the persisted user observation message
-- the persisted observer message
+Internal scripts and acceptance flows should call those services directly.
+
+The temporary observation-specific `app_api` endpoints remain available as a
+legacy bridge, but they are not the primary boundary and should not drive the
+long-term product design. A formal product-facing API is still deferred until
+user-session authentication and authorization semantics are designed at the
+right layer.
 
 The target conversation transcript remains unchanged.
 
@@ -235,7 +239,7 @@ in-flight supervision source.
 The flow is:
 
 1. create a target conversation and start the workflow run
-2. create a conversation observation session through the app API
+2. create a conversation observation session through the observation service
 3. repeatedly post observation prompts
 4. inspect `supervisor_status.overall_state`
 5. stop when the run reaches `completed` or `failed`, or when

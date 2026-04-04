@@ -173,73 +173,136 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal "execution-secret", captured_execution_machine_credential
   end
 
-  test "app_api_create_conversation_observation_session! posts to the observation session endpoint" do
+  test "create_conversation_observation_session! calls the create-session service and serializes the result" do
+    actor = Struct.new(:public_id).new("user-public-id")
+    session_double = Struct.new(
+      :public_id,
+      :target_conversation,
+      :initiator_type,
+      :initiator,
+      :lifecycle_state,
+      :responder_strategy,
+      :capability_policy_snapshot,
+      :last_observed_at,
+      :created_at
+    ).new(
+      "obs_session_123",
+      Struct.new(:public_id).new("conversation_123"),
+      "User",
+      actor,
+      "open",
+      "builtin",
+      { "observe" => true },
+      nil,
+      nil
+    )
     captured = nil
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
-      :app_api_post_json,
-      lambda do |path, payload, machine_credential:|
-        captured = [path, payload, machine_credential]
-        {
-          "conversation_observation_session" => {
-            "observation_session_id" => "obs_session_123",
-            "target_conversation_id" => "conversation_123",
-          },
-        }
-      end
+      Conversation,
+      :find_by_public_id!,
+      ->(public_id) { Struct.new(:public_id).new(public_id) }
     ) do
-      result = ManualAcceptanceSupport.app_api_create_conversation_observation_session!(
-        conversation_id: "conversation_123",
-        machine_credential: "program-secret"
-      )
+      with_redefined_singleton_method(
+        EmbeddedAgents::ConversationObservation::CreateSession,
+        :call,
+        lambda do |actor:, conversation:, responder_strategy:|
+          captured = [actor, conversation.public_id, responder_strategy]
+          session_double
+        end
+      ) do
+        result = ManualAcceptanceSupport.create_conversation_observation_session!(
+          conversation_id: "conversation_123",
+          actor: actor
+        )
 
-      assert_equal "obs_session_123", result.dig("conversation_observation_session", "observation_session_id")
-      assert_equal(
-        [
-          "/app_api/conversation_observation_sessions",
-          { conversation_id: "conversation_123", responder_strategy: "builtin" },
-          "program-secret",
-        ],
-        captured
-      )
+        assert_equal "obs_session_123", result.dig("conversation_observation_session", "observation_session_id")
+        assert_equal [actor, "conversation_123", "builtin"], captured
+      end
     end
   end
 
-  test "app_api_append_conversation_observation_message! posts to the observation message endpoint" do
+  test "append_conversation_observation_message! calls the append-message service and serializes the exchange" do
+    actor = Struct.new(:public_id).new("user-public-id")
+    session = Struct.new(:public_id, :target_conversation).new(
+      "obs_session_123",
+      Struct.new(:public_id).new("conversation_123")
+    )
+    frame = Struct.new(:public_id).new("obs_frame_123")
+    user_message = Struct.new(
+      :public_id,
+      :conversation_observation_session,
+      :conversation_observation_frame,
+      :target_conversation,
+      :role,
+      :content,
+      :metadata,
+      :created_at
+    ).new(
+      "user_msg_123",
+      session,
+      frame,
+      session.target_conversation,
+      "user",
+      "Summarize current progress",
+      {},
+      nil
+    )
+    observer_message = Struct.new(
+      :public_id,
+      :conversation_observation_session,
+      :conversation_observation_frame,
+      :target_conversation,
+      :role,
+      :content,
+      :metadata,
+      :created_at
+    ).new(
+      "observer_msg_123",
+      session,
+      frame,
+      session.target_conversation,
+      "observer_agent",
+      "Right now the conversation is running.",
+      { "proof_refs" => { "conversation_id" => "conversation_123" } },
+      nil
+    )
     captured = nil
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
-      :app_api_post_json,
-      lambda do |path, payload, machine_credential:|
-        captured = [path, payload, machine_credential]
-        {
-          "observation_session_id" => "obs_session_123",
-          "assessment" => {
-            "observation_frame_id" => "obs_frame_123",
-          },
-          "supervisor_status" => {
-            "proof_refs" => { "conversation_id" => "conversation_123" },
-          },
-        }
+      ConversationObservationSession,
+      :find_by_public_id!,
+      lambda do |public_id|
+        raise "unexpected session id #{public_id.inspect}" unless public_id == "obs_session_123"
+
+        session
       end
     ) do
-      result = ManualAcceptanceSupport.app_api_append_conversation_observation_message!(
-        observation_session_id: "obs_session_123",
-        content: "Summarize current progress for supervisor_status",
-        machine_credential: "program-secret"
-      )
+      with_redefined_singleton_method(
+        EmbeddedAgents::ConversationObservation::AppendMessage,
+        :call,
+        lambda do |actor:, conversation_observation_session:, content:|
+          captured = [actor, conversation_observation_session.public_id, content]
+          {
+            "assessment" => { "observation_frame_id" => "obs_frame_123" },
+            "supervisor_status" => { "proof_refs" => { "conversation_id" => "conversation_123" } },
+            "human_sidechat" => { "content" => "Right now the conversation is running.", "proof_refs" => { "conversation_id" => "conversation_123" } },
+            "user_message" => user_message,
+            "observer_message" => observer_message,
+          }
+        end
+      ) do
+        result = ManualAcceptanceSupport.append_conversation_observation_message!(
+          observation_session_id: "obs_session_123",
+          actor: actor,
+          content: "Summarize current progress"
+        )
 
-      assert_equal "obs_frame_123", result.dig("assessment", "observation_frame_id")
-      assert_equal(
-        [
-          "/app_api/conversation_observation_sessions/obs_session_123/messages",
-          { content: "Summarize current progress for supervisor_status" },
-          "program-secret",
-        ],
-        captured
-      )
+        assert_equal "obs_frame_123", result.dig("assessment", "observation_frame_id")
+        assert_equal [actor, "obs_session_123", "Summarize current progress"], captured
+        assert_equal "user", result.dig("user_message", "role")
+        assert_equal "observer_agent", result.dig("observer_message", "role")
+      end
     end
   end
 

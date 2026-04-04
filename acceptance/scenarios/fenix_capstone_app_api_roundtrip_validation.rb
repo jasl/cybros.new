@@ -134,25 +134,25 @@ end
 
 def supervise_conversation_progress!(
   conversation_id:,
-  machine_credential:,
+  actor:,
   prompt: OBSERVATION_PROMPT,
   timeout_seconds:,
   poll_interval_seconds:,
   stall_threshold_ms:
 )
-  session_payload = ManualAcceptanceSupport.app_api_create_conversation_observation_session!(
+  session_payload = ManualAcceptanceSupport.create_conversation_observation_session!(
     conversation_id: conversation_id,
-    machine_credential: machine_credential
+    actor: actor
   )
   observation_session_id = session_payload.dig("conversation_observation_session", "observation_session_id")
   deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
   polls = []
 
   loop do
-    response = ManualAcceptanceSupport.app_api_append_conversation_observation_message!(
+    response = ManualAcceptanceSupport.append_conversation_observation_message!(
       observation_session_id: observation_session_id,
       content: prompt,
-      machine_credential: machine_credential
+      actor: actor
     )
     supervisor_status = response.fetch("supervisor_status")
     human_sidechat = response.fetch("human_sidechat")
@@ -1614,7 +1614,7 @@ ManualAcceptanceSupport.execute_inline_if_queued!(workflow_node: dispatched_node
 conversation = conversation_context.fetch(:conversation).reload
 observation_trace = supervise_conversation_progress!(
   conversation_id: conversation.public_id,
-  machine_credential: machine_credential,
+  actor: conversation_context.fetch(:actor),
   timeout_seconds: observation_timeout_seconds,
   poll_interval_seconds: observation_poll_interval_seconds,
   stall_threshold_ms: observation_stall_threshold_ms

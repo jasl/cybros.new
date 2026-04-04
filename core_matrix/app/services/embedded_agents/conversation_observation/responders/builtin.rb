@@ -6,9 +6,11 @@ module EmbeddedAgents
           new(...).call
         end
 
-        def initialize(conversation_observation_frame:, observation_bundle:)
+        def initialize(conversation_observation_session:, conversation_observation_frame:, observation_bundle:, question:)
+          @conversation_observation_session = conversation_observation_session
           @conversation_observation_frame = conversation_observation_frame
           @observation_bundle = observation_bundle
+          @question = question
         end
 
         def call
@@ -48,15 +50,25 @@ module EmbeddedAgents
         end
 
         def human_sidechat(assessment)
-          {
-            "observation_session_id" => assessment.fetch("observation_session_id"),
-            "observation_frame_id" => assessment.fetch("observation_frame_id"),
-            "conversation_id" => assessment.fetch("conversation_id"),
-            "overall_state" => assessment.fetch("overall_state"),
-            "current_activity" => assessment.fetch("current_activity"),
-            "content" => assessment.fetch("human_summary"),
-            "proof_refs" => assessment.fetch("proof_refs"),
-          }
+          BuildHumanSidechat.call(
+            question: @question,
+            assessment: assessment,
+            observation_bundle: @observation_bundle,
+            previous_supervisor_status: previous_supervisor_status
+          )
+        end
+
+        def previous_supervisor_status
+          previous_message = @conversation_observation_session.conversation_observation_messages
+            .where(role: "observer_agent")
+            .where.not(conversation_observation_frame_id: @conversation_observation_frame.id)
+            .order(:created_at, :id)
+            .last
+
+          metadata = previous_message&.metadata
+          return {} unless metadata.is_a?(Hash)
+
+          metadata.fetch("supervisor_status", {})
         end
       end
     end

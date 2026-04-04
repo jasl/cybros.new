@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_05_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -499,6 +499,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.string "anchor_turn_public_id"
     t.integer "anchor_turn_sequence_snapshot"
     t.jsonb "assessment_payload", default: {}, null: false
+    t.jsonb "bundle_snapshot", default: {}, null: false
     t.integer "conversation_event_projection_sequence_snapshot"
     t.bigint "conversation_observation_session_id", null: false
     t.datetime "created_at", null: false

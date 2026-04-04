@@ -22,7 +22,7 @@ module EmbeddedAgents
 
       def call
         authority = Authority.call(actor: @actor, conversation_id: @conversation.public_id)
-        raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless authority.allowed?
+        raise EmbeddedAgents::Errors::UnauthorizedObservation, "not allowed to observe conversation" unless authority.allowed?
 
         ConversationObservationSession.create!(
           installation: @conversation.installation,

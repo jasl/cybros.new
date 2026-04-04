@@ -27,6 +27,7 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       wait_state: "ready",
       active_subagent_session_public_ids: [],
       runtime_state_snapshot: {},
+      bundle_snapshot: {},
       assessment_payload: {}
     )
 
@@ -98,6 +99,7 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       wait_state: "ready",
       active_subagent_session_public_ids: [],
       runtime_state_snapshot: {},
+      bundle_snapshot: {},
       assessment_payload: {}
     )
 
@@ -141,6 +143,7 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       wait_state: "ready",
       active_subagent_session_public_ids: [],
       runtime_state_snapshot: {},
+      bundle_snapshot: {},
       assessment_payload: {}
     )
 
