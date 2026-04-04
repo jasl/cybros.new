@@ -18,7 +18,7 @@ OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
 PLAYWRIGHT_VERSION = "1.59.1".freeze
 EXPECTED_SKILL_DAG_SHAPE = ["agent_turn_step"].freeze
-OBSERVATION_PROMPT = "Summarize current progress for supervisor_status".freeze
+OBSERVATION_PROMPT = "Please tell a human supervisor what you are doing right now and what changed most recently.".freeze
 EXPECTED_SKILL_CONVERSATION_STATE = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
@@ -514,6 +514,178 @@ def write_conversation_transcript_md(path, transcript_payload)
     lines << "```text"
     lines << item.fetch("content").to_s.rstrip
     lines << "```"
+    lines << ""
+  end
+
+  write_text(path, lines.join("\n").rstrip + "\n")
+end
+
+def public_id_like?(value)
+  value.is_a?(String) && value.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/)
+end
+
+def suspicious_internal_tokens(text)
+  return [] if text.blank?
+
+  text.scan(/\b\d{6,}\b/).uniq
+end
+
+def observation_public_id_boundary_failures(poll)
+  failures = []
+
+  scalar_checks = [
+    ["assessment.observation_session_id", poll.dig("assessment", "observation_session_id")],
+    ["assessment.observation_frame_id", poll.dig("assessment", "observation_frame_id")],
+    ["assessment.conversation_id", poll.dig("assessment", "conversation_id")],
+    ["assessment.workflow_run_id", poll.dig("assessment", "workflow_run_id")],
+    ["assessment.workflow_node_id", poll.dig("assessment", "workflow_node_id")],
+    ["supervisor_status.observation_session_id", poll.dig("supervisor_status", "observation_session_id")],
+    ["supervisor_status.observation_frame_id", poll.dig("supervisor_status", "observation_frame_id")],
+    ["supervisor_status.conversation_id", poll.dig("supervisor_status", "conversation_id")],
+    ["supervisor_status.workflow_run_id", poll.dig("supervisor_status", "workflow_run_id")],
+    ["supervisor_status.workflow_node_id", poll.dig("supervisor_status", "workflow_node_id")],
+    ["human_sidechat.observation_session_id", poll.dig("human_sidechat", "observation_session_id")],
+    ["human_sidechat.observation_frame_id", poll.dig("human_sidechat", "observation_frame_id")],
+    ["human_sidechat.conversation_id", poll.dig("human_sidechat", "conversation_id")],
+    ["user_message.observation_message_id", poll.dig("user_message", "observation_message_id")],
+    ["user_message.observation_session_id", poll.dig("user_message", "observation_session_id")],
+    ["user_message.observation_frame_id", poll.dig("user_message", "observation_frame_id")],
+    ["user_message.target_conversation_id", poll.dig("user_message", "target_conversation_id")],
+    ["observer_message.observation_message_id", poll.dig("observer_message", "observation_message_id")],
+    ["observer_message.observation_session_id", poll.dig("observer_message", "observation_session_id")],
+    ["observer_message.observation_frame_id", poll.dig("observer_message", "observation_frame_id")],
+    ["observer_message.target_conversation_id", poll.dig("observer_message", "target_conversation_id")],
+    ["proof_refs.conversation_id", poll.dig("human_sidechat", "proof_refs", "conversation_id")],
+    ["proof_refs.workflow_run_id", poll.dig("human_sidechat", "proof_refs", "workflow_run_id")],
+    ["proof_refs.workflow_node_id", poll.dig("human_sidechat", "proof_refs", "workflow_node_id")],
+  ]
+
+  scalar_checks.each do |label, value|
+    next if value.blank?
+    next if public_id_like?(value)
+
+    failures << "#{label}=#{value.inspect}"
+  end
+
+  array_checks = [
+    ["proof_refs.transcript_message_ids", Array(poll.dig("human_sidechat", "proof_refs", "transcript_message_ids"))],
+    ["proof_refs.subagent_session_ids", Array(poll.dig("human_sidechat", "proof_refs", "subagent_session_ids"))],
+  ]
+
+  array_checks.each do |label, values|
+    values.each do |value|
+      failures << "#{label}=#{value.inspect}" unless public_id_like?(value)
+    end
+  end
+
+  failures
+end
+
+def append_observation_proof_ref_lines(lines, proof_refs)
+  lines << "- Proof refs:"
+  lines << "  - Conversation: `#{proof_refs["conversation_id"] || "none"}`"
+  lines << "  - Workflow run: `#{proof_refs["workflow_run_id"] || "none"}`"
+  lines << "  - Workflow node: `#{proof_refs["workflow_node_id"] || "none"}`"
+  lines << "  - Transcript refs: `#{Array(proof_refs["transcript_message_ids"]).join("`, `")}`" if Array(proof_refs["transcript_message_ids"]).any?
+  lines << "  - Subagent refs: `#{Array(proof_refs["subagent_session_ids"]).join("`, `")}`" if Array(proof_refs["subagent_session_ids"]).any?
+  lines << "  - Activity projection sequences: `#{Array(proof_refs["activity_projection_sequences"]).join("`, `")}`" if Array(proof_refs["activity_projection_sequences"]).any?
+end
+
+def write_observation_conversation_md(path:, observation_trace:, prompt:)
+  session_id = observation_trace.dig("session", "conversation_observation_session", "observation_session_id")
+  polls = observation_trace.fetch("polls")
+  lines = [
+    "# Observation Conversation",
+    "",
+    "- Observation session `public_id`: `#{session_id}`",
+    "- Poll count: `#{polls.length}`",
+    "- Supervisor question template:",
+    "",
+    "```text",
+    prompt,
+    "```",
+    "",
+  ]
+
+  polls.each_with_index do |poll, index|
+    boundary_failures = observation_public_id_boundary_failures(poll)
+    human_sidechat = poll.fetch("human_sidechat")
+    user_message = poll.fetch("user_message")
+    observer_message = poll.fetch("observer_message")
+    suspicious_tokens = suspicious_internal_tokens(human_sidechat.fetch("content")) +
+      suspicious_internal_tokens(user_message.fetch("content"))
+
+    lines << "## Exchange #{index + 1}"
+    lines << ""
+    lines << "- Observation frame `public_id`: `#{poll.dig("assessment", "observation_frame_id")}`"
+    lines << "- Overall state: `#{poll.dig("supervisor_status", "overall_state")}`"
+    lines << "- Current activity: `#{poll.dig("supervisor_status", "current_activity")}`"
+    lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
+    lines << "- Human-visible leak scan: `#{suspicious_tokens.empty? ? "pass" : "fail"}`"
+    lines << "- User message `public_id`: `#{user_message.fetch("observation_message_id")}`"
+    lines << "- Observer message `public_id`: `#{observer_message.fetch("observation_message_id")}`"
+    lines << ""
+    lines << "### User Question"
+    lines << ""
+    lines << "```text"
+    lines << user_message.fetch("content").to_s.rstrip
+    lines << "```"
+    lines << ""
+    lines << "### Human Sidechat"
+    lines << ""
+    lines << "```text"
+    lines << human_sidechat.fetch("content").to_s.rstrip
+    lines << "```"
+    lines << ""
+    if boundary_failures.any?
+      lines << "- Boundary failures:"
+      boundary_failures.each { |failure| lines << "  - `#{failure}`" }
+    end
+    if suspicious_tokens.any?
+      lines << "- Suspicious numeric tokens in human-visible text:"
+      suspicious_tokens.uniq.each { |token| lines << "  - `#{token}`" }
+    end
+    append_observation_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))
+    lines << ""
+  end
+
+  write_text(path, lines.join("\n").rstrip + "\n")
+end
+
+def write_observation_supervisor_md(path:, observation_trace:)
+  session_id = observation_trace.dig("session", "conversation_observation_session", "observation_session_id")
+  final_response = observation_trace.fetch("final_response")
+  polls = observation_trace.fetch("polls")
+  lines = [
+    "# Observation Supervisor Status",
+    "",
+    "- Observation session `public_id`: `#{session_id}`",
+    "- Final overall state: `#{final_response.dig("supervisor_status", "overall_state")}`",
+    "- Final current activity: `#{final_response.dig("supervisor_status", "current_activity")}`",
+    "- Poll count: `#{polls.length}`",
+    "",
+  ]
+
+  polls.each_with_index do |poll, index|
+    supervisor_status = poll.fetch("supervisor_status")
+    boundary_failures = observation_public_id_boundary_failures(poll)
+    latest_activity = Array(supervisor_status["recent_activity_items"]).last || {}
+
+    lines << "## Poll #{index + 1}"
+    lines << ""
+    lines << "- Observation frame `public_id`: `#{supervisor_status.fetch("observation_frame_id")}`"
+    lines << "- Overall state: `#{supervisor_status.fetch("overall_state")}`"
+    lines << "- Current activity: `#{supervisor_status.fetch("current_activity")}`"
+    lines << "- Blocking reason: `#{supervisor_status["blocking_reason"] || "none"}`"
+    lines << "- Stall for ms: `#{supervisor_status.fetch("stall_for_ms")}`"
+    lines << "- Last progress at: `#{supervisor_status["last_progress_at"] || "unknown"}`"
+    lines << "- Workflow run `public_id`: `#{supervisor_status["workflow_run_id"] || "none"}`"
+    lines << "- Workflow node `public_id`: `#{supervisor_status["workflow_node_id"] || "none"}`"
+    lines << "- Transcript refs: `#{Array(supervisor_status["transcript_refs"]).join("`, `")}`"
+    lines << "- Latest activity event: `#{latest_activity["event_kind"] || "none"}`"
+    lines << "- Latest activity projection sequence: `#{latest_activity["projection_sequence"] || "none"}`"
+    lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
+    append_observation_proof_ref_lines(lines, supervisor_status.fetch("proof_refs"))
     lines << ""
   end
 
@@ -1539,6 +1711,15 @@ write_json(artifact_dir.join("skills-validation.json"), skills_validation)
 write_json(artifact_dir.join("observation-session.json"), observation_trace.fetch("session"))
 write_json(artifact_dir.join("observation-polls.json"), observation_trace.fetch("polls"))
 write_json(artifact_dir.join("observation-final.json"), observation_trace.fetch("final_response"))
+write_observation_conversation_md(
+  path: artifact_dir.join("observation-conversation.md"),
+  observation_trace: observation_trace,
+  prompt: OBSERVATION_PROMPT
+)
+write_observation_supervisor_md(
+  path: artifact_dir.join("observation-supervisor.md"),
+  observation_trace: observation_trace
+)
 write_json(artifact_dir.join("source-transcript.json"), source_transcript)
 write_json(artifact_dir.join("source-diagnostics-show.json"), source_diagnostics_show)
 write_json(artifact_dir.join("source-diagnostics-turns.json"), source_diagnostics_turns)
@@ -1695,6 +1876,8 @@ write_turns_md(
     "observation-session.json",
     "observation-polls.json",
     "observation-final.json",
+    "observation-conversation.md",
+    "observation-supervisor.md",
     ("host-preview.json" if preview_http.present?),
     ("host-playwright-verification.json" if playwright_validation.present?),
     ("host-playability.png" if playwright_validation.present?),
