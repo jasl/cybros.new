@@ -34,6 +34,51 @@ class ProviderExecution::FailureClassificationTest < ActiveSupport::TestCase
     refute classification.terminal?
   end
 
+  test "classifies provider auth expiry as a manual external block" do
+    error = build_provider_http_error(
+      message: "Invalid API key",
+      status: 401
+    )
+
+    classification = ProviderExecution::FailureClassification.call(error: error)
+
+    assert_equal "external_dependency_blocked", classification.failure_category
+    assert_equal "provider_auth_expired", classification.failure_kind
+    assert_equal "external_dependency_blocked", classification.wait_reason_kind
+    assert_equal "manual", classification.retry_strategy
+    assert_nil classification.next_retry_at
+    refute classification.terminal?
+  end
+
+  test "classifies provider overload as an automatic external block" do
+    error = build_provider_http_error(
+      message: "Upstream overloaded",
+      status: 503
+    )
+
+    classification = ProviderExecution::FailureClassification.call(error: error)
+
+    assert_equal "external_dependency_blocked", classification.failure_category
+    assert_equal "provider_overloaded", classification.failure_kind
+    assert_equal "external_dependency_blocked", classification.wait_reason_kind
+    assert_equal "automatic", classification.retry_strategy
+    assert_equal 2, classification.max_auto_retries
+    refute classification.terminal?
+  end
+
+  test "classifies provider connection failures as an automatic external block" do
+    classification = ProviderExecution::FailureClassification.call(
+      error: SimpleInference::ConnectionError.new("dial tcp timeout")
+    )
+
+    assert_equal "external_dependency_blocked", classification.failure_category
+    assert_equal "provider_unreachable", classification.failure_kind
+    assert_equal "external_dependency_blocked", classification.wait_reason_kind
+    assert_equal "automatic", classification.retry_strategy
+    assert_equal 2, classification.max_auto_retries
+    refute classification.terminal?
+  end
+
   test "classifies invalid program responses as retryable contract errors" do
     error = ProviderExecution::ProgramMailboxExchange::ProtocolError.new(
       code: "invalid_prepare_round_response",

@@ -15,7 +15,23 @@ Out of scope for this slice:
 
 - APP-layer product choices between "resume same step" and "start a new run"
 - provider-specific billing UX
-- OpenRouter live verification until credits are restored
+
+## Current status
+
+The main state model is already implemented in `core_matrix`:
+
+- `Turn.lifecycle_state` supports `waiting`
+- `WorkflowRun.wait_reason_kind` includes `external_dependency_blocked`
+- `ProviderExecution::FailureClassification` maps provider, transport, and
+  protocol failures into explicit categories
+- `Workflows::BlockNodeForFailure`, `Workflows::ResumeBlockedStep`, and
+  `Workflows::ResumeBlockedStepJob` carry the blocked-step lifecycle
+
+The remaining work is mostly closure work:
+
+- broaden integration coverage for recoverable provider and contract failures
+- remove dead assertions and stale plan assumptions
+- keep behavior docs aligned with the implemented scheduler semantics
 
 ## Core Decisions
 

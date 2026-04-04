@@ -36,7 +36,7 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
 
     last_status_event = workflow_node.reload.workflow_node_events.order(:ordinal).last
     assert_equal "waiting", last_status_event.payload["state"]
-    assert_equal "provider_credits_exhausted", result.failure_outcome.failure_kind if false
+    assert_equal "provider_overloaded", result.failure_outcome.failure_kind
     assert_equal "provider-request-1", last_status_event.payload["provider_request_id"]
     assert_equal "SimpleInference::HTTPError", last_status_event.payload["error_class"]
   end

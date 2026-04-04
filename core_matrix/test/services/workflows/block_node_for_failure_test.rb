@@ -82,4 +82,50 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     assert_equal 3, workflow_run.reload.wait_reason_payload["attempt_no"]
     assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
   end
+
+  test "does not enqueue automatic resume for manual external dependency blocks" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
+
+    assert_no_enqueued_jobs only: Workflows::ResumeBlockedStepJob do
+      result = Workflows::BlockNodeForFailure.call(
+        workflow_node: workflow_node,
+        failure_category: "external_dependency_blocked",
+        failure_kind: "provider_auth_expired",
+        retry_strategy: "manual",
+        max_auto_retries: 0,
+        last_error_summary: "provider auth expired"
+      )
+
+      refute result.terminal?
+    end
+
+    assert_equal "external_dependency_blocked", workflow_run.reload.wait_reason_kind
+    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal "provider_auth_expired", workflow_run.wait_reason_payload["failure_kind"]
+  end
+
+  test "enqueues automatic resume for retryable contract failures" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
+
+    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [workflow_run.public_id]) do
+      result = Workflows::BlockNodeForFailure.call(
+        workflow_node: workflow_node,
+        failure_category: "contract_error",
+        failure_kind: "invalid_program_response_contract",
+        retry_strategy: "automatic",
+        max_auto_retries: 1,
+        last_error_summary: "program response is invalid"
+      )
+
+      refute result.terminal?
+    end
+
+    assert_equal "retryable_failure", workflow_run.reload.wait_reason_kind
+    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal "invalid_program_response_contract", workflow_run.wait_reason_payload["failure_kind"]
+  end
 end

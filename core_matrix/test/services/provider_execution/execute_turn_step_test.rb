@@ -31,6 +31,32 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     end
   end
 
+  class AuthExpiredAdapter < SimpleInference::HTTPAdapter
+    def call(_env)
+      {
+        status: 401,
+        headers: { "content-type" => "application/json" },
+        body: JSON.generate({ error: { message: "Invalid API key" } }),
+      }
+    end
+  end
+
+  class OverloadedAdapter < SimpleInference::HTTPAdapter
+    def call(_env)
+      {
+        status: 503,
+        headers: { "content-type" => "application/json" },
+        body: JSON.generate({ error: { message: "upstream overloaded" } }),
+      }
+    end
+  end
+
+  class UnreachableAdapter < SimpleInference::HTTPAdapter
+    def call(_env)
+      raise SimpleInference::ConnectionError, "Timed out while connecting to upstream provider"
+    end
+  end
+
   test "uses the persisted execution snapshot contract for provider request context" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
@@ -342,6 +368,78 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
     assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
     assert_equal "provider_credits_exhausted", workflow_run.wait_reason_payload["failure_kind"]
+  end
+
+  test "enters manual waiting instead of failing when provider authentication expires" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: AuthExpiredAdapter.new,
+        program_exchange: program_exchange
+      )
+    end
+
+    assert_equal "waiting", workflow_run.reload.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal "provider_auth_expired", workflow_run.wait_reason_payload["failure_kind"]
+  end
+
+  test "enters automatic waiting instead of failing when provider is overloaded" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: OverloadedAdapter.new,
+        program_exchange: program_exchange
+      )
+    end
+
+    assert_equal "waiting", workflow_run.reload.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal "provider_overloaded", workflow_run.wait_reason_payload["failure_kind"]
+  end
+
+  test "enters automatic waiting instead of failing when provider is unreachable" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: UnreachableAdapter.new,
+        program_exchange: program_exchange
+      )
+    end
+
+    assert_equal "waiting", workflow_run.reload.wait_state
+    assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
+    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal "provider_unreachable", workflow_run.wait_reason_payload["failure_kind"]
   end
 
   test "blocks the step for retry instead of failing when the provider round budget is exceeded" do

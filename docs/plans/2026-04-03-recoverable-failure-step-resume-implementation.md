@@ -8,6 +8,15 @@
 
 **Tech Stack:** Ruby on Rails, Active Record, Solid Queue, Minitest
 
+## Status
+
+- Tasks 1 through 7 are implemented.
+- Task 8 is in progress; provider and contract coverage is being broadened.
+- Task 9 is partially done through behavior docs, but this plan should remain the
+  source of truth for the remaining closure work.
+- Task 10 stays open until the next full verification pass completes after the
+  latest coverage and cleanup changes.
+
 ---
 
 ### Task 1: Add the new waiting reason and turn state
@@ -133,7 +142,8 @@
 
 **Step 3: Narrow `PersistTurnStepFailure`**
 
-- Make it the terminal-only path, or replace its callers with the new blocking service
+- Keep it as the shared provider failure persistence entrypoint, but ensure it
+  always delegates terminal vs waiting semantics through `BlockNodeForFailure`
 
 ### Task 6: Add blocked-step resume job
 
@@ -238,7 +248,7 @@ cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference
 bundle exec rake
 ```
 
-**Step 3: Re-run acceptance after OpenRouter credits are restored**
+**Step 3: Re-run acceptance after implementation stabilizes**
 
 - 2048 checklist
 - blocked failure recovery scenario
