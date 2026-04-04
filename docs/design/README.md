@@ -3,6 +3,14 @@
 These documents define the durable design baseline for `core_matrix`. They are
 not task-by-task execution plans.
 
+Some records in this directory predate the April 2026 naming and boundary
+reset. Read them as retained design history unless a document explicitly says
+it matches the current code. For current implementation truth, use:
+
+- [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
+- [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
+- [docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md)
+
 - [2026-03-24-core-matrix-kernel-greenfield-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md)
 - [2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md)
 - [2026-03-24-core-matrix-model-role-resolution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-model-role-resolution-design.md)

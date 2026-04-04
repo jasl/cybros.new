@@ -1,0 +1,304 @@
+version: 1
+
+providers:
+  codex_subscription:
+    display_name: Codex Subscription
+    enabled: true
+    environments:
+      - development
+      - test
+      - production
+    adapter_key: codex_subscription_responses
+    base_url: https://api.openai.example.test/v1
+    headers: {}
+    wire_api: responses
+    transport: https
+    responses_path: /responses
+    requires_credential: true
+    credential_kind: oauth_codex
+    metadata:
+      access_model: bundled_subscription
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 4
+      cooldown_seconds: 15
+    models:
+      gpt-5.4:
+        enabled: true
+        display_name: GPT-5.4
+        api_model: gpt-5.4
+        tokenizer_hint: o200k_base
+        context_window_tokens: 1000000
+        max_output_tokens: 128000
+        context_soft_limit_ratio: 0.9
+        request_defaults:
+          reasoning_effort: high
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: true
+            audio: false
+            video: false
+            file: true
+      gpt-5.3-codex:
+        enabled: true
+        display_name: GPT-5.3 Codex
+        api_model: gpt-5.3-codex
+        tokenizer_hint: o200k_base
+        context_window_tokens: 400000
+        max_output_tokens: 128000
+        context_soft_limit_ratio: 0.8
+        request_defaults:
+          reasoning_effort: medium
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: true
+            audio: false
+            video: false
+            file: true
+
+  openai:
+    display_name: OpenAI
+    enabled: true
+    environments:
+      - development
+      - test
+      - production
+    adapter_key: openai_responses
+    base_url: https://api.openai.example.test/v1
+    headers: {}
+    wire_api: responses
+    transport: https
+    responses_path: /responses
+    requires_credential: true
+    credential_kind: api_key
+    metadata:
+      api_family: responses
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 4
+      cooldown_seconds: 15
+    models:
+      gpt-5.4:
+        enabled: true
+        display_name: GPT-5.4
+        api_model: gpt-5.4
+        tokenizer_hint: o200k_base
+        context_window_tokens: 1000000
+        max_output_tokens: 128000
+        context_soft_limit_ratio: 0.9
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: true
+            audio: false
+            video: false
+            file: true
+      gpt-5.3-chat-latest:
+        enabled: true
+        display_name: GPT-5.3 Instant
+        api_model: gpt-5.3-chat-latest
+        tokenizer_hint: o200k_base
+        context_window_tokens: 128000
+        max_output_tokens: 16384
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: true
+            audio: false
+            video: false
+            file: true
+
+  openrouter:
+    display_name: OpenRouter
+    enabled: true
+    environments:
+      - development
+      - test
+      - production
+    adapter_key: openrouter_chat_completions
+    base_url: https://openrouter.example.test/api/v1
+    headers: {}
+    wire_api: chat_completions
+    transport: https
+    responses_path: /chat/completions
+    requires_credential: true
+    credential_kind: api_key
+    metadata:
+      provider_family: openrouter
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 2
+      cooldown_seconds: 20
+    models:
+      openai-gpt-5.4:
+        enabled: true
+        display_name: OpenAI GPT-5.4
+        api_model: openai/gpt-5.4
+        tokenizer_hint: o200k_base
+        context_window_tokens: 1000000
+        max_output_tokens: 128000
+        context_soft_limit_ratio: 0.9
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+      openai-gpt-5.3-codex:
+        enabled: true
+        display_name: GPT-5.3 Codex
+        api_model: openai/gpt-5.3-codex
+        tokenizer_hint: o200k_base
+        context_window_tokens: 400000
+        max_output_tokens: 128000
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
+  dev:
+    display_name: Development Mock LLM
+    enabled: true
+    environments:
+      - development
+      - test
+    adapter_key: mock_llm_chat_completions
+    base_url: http://127.0.0.1:3000/mock_llm/v1
+    headers: {}
+    wire_api: chat_completions
+    transport: http
+    responses_path: /chat/completions
+    requires_credential: false
+    credential_kind: none
+    metadata:
+      provider_family: mock
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 2
+      cooldown_seconds: 5
+    models:
+      mock-model:
+        enabled: true
+        display_name: Mock Model
+        api_model: mock-model
+        tokenizer_hint: o200k_base
+        context_window_tokens: 128000
+        max_output_tokens: 16384
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: true
+            audio: false
+            video: false
+            file: true
+      vision-model:
+        enabled: true
+        display_name: Vision Mock Model
+        api_model: vision-model
+        tokenizer_hint: o200k_base
+        context_window_tokens: 128000
+        max_output_tokens: 16384
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          multimodal_inputs:
+            image: true
+            audio: false
+            video: false
+            file: true
+
+  local:
+    display_name: Local OpenAI-Compatible
+    enabled: false
+    environments:
+      - development
+      - test
+      - production
+    adapter_key: local_openai_compatible_chat_completions
+    base_url: http://127.0.0.1:11434/v1
+    headers: {}
+    wire_api: chat_completions
+    transport: http
+    responses_path: /chat/completions
+    requires_credential: false
+    credential_kind: none
+    metadata:
+      provider_family: local
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 1
+      cooldown_seconds: 5
+    models:
+      qwen3-14b:
+        enabled: true
+        display_name: Qwen3 14B
+        api_model: qwen3-14b
+        tokenizer_hint: qwen3
+        context_window_tokens: 131072
+        max_output_tokens: 32768
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
+model_roles:
+  main:
+    - codex_subscription/gpt-5.4
+    - openai/gpt-5.4
+    - openrouter/openai-gpt-5.4
+  planner:
+    - openai/gpt-5.4
+  coder:
+    - codex_subscription/gpt-5.4
+    - codex_subscription/gpt-5.3-codex
+    - openai/gpt-5.4
+    - openrouter/openai-gpt-5.3-codex
+  mock:
+    - dev/mock-model

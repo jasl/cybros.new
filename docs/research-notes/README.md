@@ -3,6 +3,16 @@
 These documents record technical investigations, library evaluations, and
 architecture option analysis that are not part of an active execution plan.
 
+Research notes are intentionally historical and may preserve the terminology
+that was current when the investigation was written. They should not override
+current product naming or runtime contracts.
+
+Current code and acceptance now use `AgentProgram`, `AgentProgramVersion`,
+`AgentSession`, `ExecutionRuntime`, and `ExecutionSession`. Use
+[docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md) and
+[docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
+for the current implementation path.
+
 Write the durable conclusions, tradeoffs, and re-evaluation triggers directly
 into the note. Do not make the note depend on the current state of
 `references/`, external branches, or unstable upstream commits to remain

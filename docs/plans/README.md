@@ -2,13 +2,24 @@
 
 This directory contains active execution plans for `core_matrix`.
 
-## Current Status (`2026-04-03`)
+## Current Status (`2026-04-04`)
 
 The current active planning documents in this directory are:
 
 - [2026-04-03-multi-round-architecture-audit-and-reset-framework.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-multi-round-architecture-audit-and-reset-framework.md)
 - [2026-04-03-round-1-architecture-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-audit-design.md)
 - [2026-04-03-round-1-architecture-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-reset.md)
+- [2026-04-03-recoverable-failure-step-resume-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-design.md)
+- [2026-04-03-recoverable-failure-step-resume-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-implementation.md)
+
+Practical state:
+
+- Round 1 reset batches have already landed in code and verification.
+- The recoverable-failure step-resume work is partially implemented and remains
+  the main open closure item in this directory.
+- Current acceptance runs now execute through the top-level
+  [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
+  not the old `core_matrix/script/manual/acceptance` path.
 
 Earlier execution plans, implementation records, and accepted reset designs
 were archived to

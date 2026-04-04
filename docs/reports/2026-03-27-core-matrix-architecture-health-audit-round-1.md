@@ -1,5 +1,13 @@
 # Core Matrix Architecture Health Audit Round 1
 
+> Historical report preserved as the Round 1 diagnosis that led to the April
+> 2026 reset batches. This document intentionally preserves the terminology and
+> implementation context of that date. For the current code state, use
+> [docs/plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md),
+> [docs/finished-plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md),
+> and the active acceptance checklist at
+> [docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md).
+
 ## Scope For This Round
 
 - product: `core_matrix`

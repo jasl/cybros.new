@@ -8,6 +8,21 @@
 
 **Tech Stack:** Ruby on Rails, PostgreSQL, Action Cable, Active Job / Solid Queue, JSONB snapshots, mailbox-first runtime protocol, provider-backed LLM loop, Dockerized `Fenix`
 
+## Current status
+
+This plan now serves as the active Round 1 ledger rather than a greenfield
+proposal.
+
+- The duplication, mailbox, plane-split, and large-service extraction batches
+  described in Tasks 2 through 7 have already landed in code.
+- The current remaining value in this document is:
+  - preserving the reset boundary decisions
+  - recording what was intentionally removed in Round 1
+  - guiding any final cleanup that still belongs to the same reset family
+- Current acceptance execution uses the top-level
+  [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
+  not `core_matrix/script/manual/acceptance`.
+
 ---
 
 ### Task 1: Land the round-1 contract and deprecation list in docs

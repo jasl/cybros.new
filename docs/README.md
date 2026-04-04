@@ -13,6 +13,25 @@
 - [checklists](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/README.md): manual validation and verification checklists
 - [operations](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/queue-topology-and-provider-governor.md): runtime queue topology, scaling knobs, and durable provider admission guidance
 
+## Current Truth
+
+For the current implementation state, start here:
+
+- active execution work:
+  [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
+- current manual/product acceptance:
+  [docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md)
+- runtime-generated acceptance outputs:
+  [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
+- completed, verified reset and product-shape changes:
+  [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
+
+Many older design, research, report, and checklist records are intentionally
+kept for traceability. Those records may preserve superseded naming from before
+the April 2026 reset. The current codebase uses `AgentProgram`,
+`AgentProgramVersion`, `AgentSession`, `ExecutionRuntime`, and
+`ExecutionSession`.
+
 ## Lifecycle
 
 Move work through the tree in this order:

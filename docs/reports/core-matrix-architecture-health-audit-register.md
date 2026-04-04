@@ -1,5 +1,13 @@
 # Core Matrix Architecture Health Audit Register
 
+> Historical audit register preserved for traceability. Entry wording and
+> naming reflect the architecture review as it was originally recorded, not the
+> post-reset codebase. Use
+> [docs/plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
+> and
+> [docs/finished-plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
+> for current execution state.
+
 ## Status Model
 
 - `candidate`: observed signal that has not yet cleared main-thread review

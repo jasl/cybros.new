@@ -5,6 +5,10 @@ Active `phase 2` execution plans now live in:
 
 - [docs/plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
 
+These records are not required to match the latest code line-by-line. They are
+kept as deferred planning inputs, and some retain earlier naming from before
+the April 2026 reset.
+
 Remaining future-oriented records:
 
 - [2026-03-31-fenix-plugin-ecosystem-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-31-fenix-plugin-ecosystem-follow-up.md)
