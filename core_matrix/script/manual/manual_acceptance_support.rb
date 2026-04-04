@@ -257,6 +257,27 @@ module ManualAcceptanceSupport
     )
   end
 
+  def app_api_create_conversation_observation_session!(conversation_id:, machine_credential:, responder_strategy: "builtin")
+    app_api_post_json(
+      "/app_api/conversation_observation_sessions",
+      {
+        conversation_id: conversation_id,
+        responder_strategy: responder_strategy,
+      },
+      machine_credential:
+    )
+  end
+
+  def app_api_append_conversation_observation_message!(observation_session_id:, content:, machine_credential:)
+    app_api_post_json(
+      "/app_api/conversation_observation_sessions/#{observation_session_id}/messages",
+      {
+        content: content,
+      },
+      machine_credential:
+    )
+  end
+
   def app_api_export_conversation!(conversation_id:, machine_credential:, destination_path:, timeout_seconds: 60)
     created = app_api_post_json(
       "/app_api/conversation_export_requests",

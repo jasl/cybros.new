@@ -167,6 +167,76 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal "execution-secret", captured_execution_machine_credential
   end
 
+  test "app_api_create_conversation_observation_session! posts to the observation session endpoint" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      ManualAcceptanceSupport,
+      :app_api_post_json,
+      lambda do |path, payload, machine_credential:|
+        captured = [path, payload, machine_credential]
+        {
+          "conversation_observation_session" => {
+            "observation_session_id" => "obs_session_123",
+            "target_conversation_id" => "conversation_123",
+          },
+        }
+      end
+    ) do
+      result = ManualAcceptanceSupport.app_api_create_conversation_observation_session!(
+        conversation_id: "conversation_123",
+        machine_credential: "program-secret"
+      )
+
+      assert_equal "obs_session_123", result.dig("conversation_observation_session", "observation_session_id")
+      assert_equal(
+        [
+          "/app_api/conversation_observation_sessions",
+          { conversation_id: "conversation_123", responder_strategy: "builtin" },
+          "program-secret",
+        ],
+        captured
+      )
+    end
+  end
+
+  test "app_api_append_conversation_observation_message! posts to the observation message endpoint" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      ManualAcceptanceSupport,
+      :app_api_post_json,
+      lambda do |path, payload, machine_credential:|
+        captured = [path, payload, machine_credential]
+        {
+          "observation_session_id" => "obs_session_123",
+          "assessment" => {
+            "observation_frame_id" => "obs_frame_123",
+          },
+          "supervisor_status" => {
+            "proof_refs" => { "conversation_id" => "conversation_123" },
+          },
+        }
+      end
+    ) do
+      result = ManualAcceptanceSupport.app_api_append_conversation_observation_message!(
+        observation_session_id: "obs_session_123",
+        content: "Summarize current progress for supervisor_status",
+        machine_credential: "program-secret"
+      )
+
+      assert_equal "obs_frame_123", result.dig("assessment", "observation_frame_id")
+      assert_equal(
+        [
+          "/app_api/conversation_observation_sessions/obs_session_123/messages",
+          { content: "Summarize current progress for supervisor_status" },
+          "program-secret",
+        ],
+        captured
+      )
+    end
+  end
+
   private
 
   def with_redefined_singleton_method(target, method_name, replacement)
