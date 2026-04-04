@@ -211,7 +211,7 @@ module ProviderExecution
     end
 
     def broadcast_workflow_node_event!(event_kind, **payload)
-      ConversationRuntime::Broadcast.call(
+      ConversationRuntime::PublishEvent.call(
         conversation: @workflow_run.conversation,
         turn: @turn,
         event_kind: event_kind,

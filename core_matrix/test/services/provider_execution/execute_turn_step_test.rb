@@ -155,6 +155,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "The calculator returned 4.", delta_payload.fetch("delta")
     assert_equal "The calculator returned 4.", completed_payload.fetch("content")
     assert_equal workflow_run.turn.reload.selected_output_message.public_id, completed_payload.fetch("message_id")
+
+    runtime_projection = ConversationEvent.live_projection(conversation: workflow_run.conversation)
+      .select { |event| event.event_kind.start_with?("runtime.workflow_node.") }
+
+    assert_equal 1, runtime_projection.length
+    assert_equal "runtime.workflow_node.completed", runtime_projection.first.event_kind
+    assert_equal workflow_run.public_id, runtime_projection.first.payload.fetch("workflow_run_id")
+    assert_equal workflow_run.workflow_nodes.find_by!(node_key: "turn_step").public_id, runtime_projection.first.payload.fetch("workflow_node_id")
   end
 
   test "persists normalized responses-api output text instead of raw provider_result content" do
@@ -344,6 +352,13 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "waiting", workflow_node.reload.lifecycle_state
     assert_equal ["runtime.workflow_node.started", "runtime.workflow_node.waiting"], broadcasts.map { |payload| payload.fetch("event_kind") }
     assert_equal "provider_rate_limited", broadcasts.last.fetch("payload").fetch("failure_kind")
+
+    runtime_projection = ConversationEvent.live_projection(conversation: workflow_run.conversation)
+      .select { |event| event.event_kind.start_with?("runtime.workflow_node.") }
+
+    assert_equal 1, runtime_projection.length
+    assert_equal "runtime.workflow_node.waiting", runtime_projection.first.event_kind
+    assert_equal "provider_rate_limited", runtime_projection.first.payload.fetch("failure_kind")
   end
 
   test "enters manual waiting instead of failing when provider credits are exhausted" do

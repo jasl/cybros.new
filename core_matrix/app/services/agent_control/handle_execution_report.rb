@@ -205,7 +205,7 @@ module AgentControl
     end
 
     def broadcast_runtime_event!(event_kind, payload)
-      ConversationRuntime::Broadcast.call(
+      ConversationRuntime::PublishEvent.call(
         conversation: agent_task_run.conversation,
         turn: agent_task_run.turn,
         event_kind: event_kind,

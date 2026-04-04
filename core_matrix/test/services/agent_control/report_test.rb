@@ -230,6 +230,14 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "calculator", started_tool_payload.fetch("tool_name")
     assert_equal call_id, started_tool_payload.fetch("call_id")
     assert_equal "The calculator returned 4.", completed_tool_payload.dig("response_payload", "content")
+
+    runtime_projection = ConversationEvent.live_projection(conversation: agent_task_run.conversation)
+      .select { |event| event.event_kind.start_with?("runtime.agent_task.") }
+
+    assert_equal 1, runtime_projection.length
+    assert_equal "runtime.agent_task.completed", runtime_projection.first.event_kind
+    assert_equal agent_task_run.public_id, runtime_projection.first.payload.fetch("agent_task_run_id")
+    assert_equal agent_task_run.workflow_run.public_id, runtime_projection.first.payload.fetch("workflow_run_id")
   end
 
   test "execution progress can stream exec_command output through tool invocation runtime events" do

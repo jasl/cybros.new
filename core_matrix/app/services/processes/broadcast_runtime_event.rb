@@ -12,7 +12,7 @@ module Processes
     end
 
     def call
-      ConversationRuntime::Broadcast.call(
+      ConversationRuntime::PublishEvent.call(
         conversation: @process_run.conversation,
         turn: @process_run.turn,
         event_kind: @event_kind,
