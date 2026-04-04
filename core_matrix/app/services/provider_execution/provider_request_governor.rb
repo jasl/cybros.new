@@ -56,6 +56,10 @@ module ProviderExecution
       new(**kwargs).record_rate_limit!(retry_after: retry_after)
     end
 
+    def self.retry_after_seconds_for(retry_after:, **kwargs)
+      new(**kwargs).retry_after_seconds_for(retry_after:)
+    end
+
     def initialize(installation:, provider_handle:, effective_catalog:, workflow_run: nil, workflow_node: nil, now: Time.current, lease_ttl_seconds: DEFAULT_LEASE_TTL_SECONDS)
       @installation = installation
       @provider_handle = provider_handle.to_s
@@ -144,6 +148,10 @@ module ProviderExecution
           last_rate_limit_reason: "upstream_rate_limit"
         )
       end
+    end
+
+    def retry_after_seconds_for(retry_after:)
+      normalize_retry_after(retry_after)
     end
 
     private

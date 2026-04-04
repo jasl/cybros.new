@@ -174,7 +174,7 @@ module Fenix
       end
 
       def self.program_tool_catalog
-        new(base_url: "http://runtime.invalid").send(:program_tool_catalog)
+        new(base_url: "http://runtime.invalid").program_tool_catalog
       end
 
       def initialize(base_url:)
@@ -206,6 +206,10 @@ module Fenix
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
           "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,
         }
+      end
+
+      def program_tool_catalog
+        @program_tool_catalog ||= CODE_OWNED_TOOL_CATALOG + plugin_catalog.program_tool_catalog
       end
 
       private
@@ -249,10 +253,6 @@ module Fenix
           "capability_payload" => execution_capability_payload,
           "tool_catalog" => execution_tool_catalog,
         }
-      end
-
-      def program_tool_catalog
-        @program_tool_catalog ||= CODE_OWNED_TOOL_CATALOG + plugin_catalog.program_tool_catalog
       end
 
       def execution_tool_catalog

@@ -77,12 +77,6 @@ module Fenix
           sessions.each { |session| session.host.close }
         end
 
-        private
-
-        def registry
-          @registry ||= {}
-        end
-
         def register(session)
           synchronize do
             registry[session.browser_session_id] = session
@@ -107,6 +101,12 @@ module Fenix
             "agent_task_run_id" => session.agent_task_run_id,
             "current_url" => session.current_url,
           }.compact
+        end
+
+        private
+
+        def registry
+          @registry ||= {}
         end
 
         def mutex
@@ -156,7 +156,7 @@ module Fenix
         session_id = "browser-session-#{SecureRandom.uuid}"
         host = @host_factory.call(session_id:)
         payload = host.dispatch(command: "open", arguments: { "url" => @url }.compact)
-        self.class.send(:register, LocalSession.new(browser_session_id: session_id, agent_task_run_id: @agent_task_run_id, host:, current_url: payload["current_url"]))
+        self.class.register(LocalSession.new(browser_session_id: session_id, agent_task_run_id: @agent_task_run_id, host:, current_url: payload["current_url"]))
         payload.merge("browser_session_id" => session_id)
       rescue StandardError
         host&.close
@@ -167,7 +167,7 @@ module Fenix
         session = lookup_session!
         payload = session.host.dispatch(command:, arguments:)
         session.current_url = payload["current_url"] if payload["current_url"].present?
-        self.class.send(:update, session)
+        self.class.update(session)
         payload.merge("browser_session_id" => session.browser_session_id)
       end
 
@@ -175,7 +175,7 @@ module Fenix
         session = lookup_session!
         payload = session.host.dispatch(command: "close", arguments: {})
         session.host.close
-        self.class.send(:remove, browser_session_id: session.browser_session_id)
+        self.class.remove(browser_session_id: session.browser_session_id)
         payload.merge("browser_session_id" => session.browser_session_id)
       end
 
@@ -190,11 +190,11 @@ module Fenix
       end
 
       def list_sessions
-        { "entries" => self.class.send(:list, agent_task_run_id: @agent_task_run_id) }
+        { "entries" => self.class.list(agent_task_run_id: @agent_task_run_id) }
       end
 
       def session_info
-        self.class.send(:snapshot_for, lookup_session!)
+        self.class.snapshot_for(lookup_session!)
       end
 
       def default_host_factory(session_id:)

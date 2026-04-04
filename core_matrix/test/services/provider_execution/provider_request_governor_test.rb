@@ -80,6 +80,22 @@ class ProviderExecution::ProviderRequestGovernorTest < ActiveSupport::TestCase
     assert_equal "upstream_rate_limit", control.last_rate_limit_reason
   end
 
+  test "parses retry-after through the public helper without reaching into a private API" do
+    installation = create_installation!
+    effective_catalog = ProviderCatalog::EffectiveCatalog.new(installation: installation)
+    now = Time.zone.parse("2026-04-04 12:00:00 UTC")
+
+    seconds = ProviderExecution::ProviderRequestGovernor.retry_after_seconds_for(
+      installation: installation,
+      provider_handle: "openai",
+      effective_catalog: effective_catalog,
+      now: now,
+      retry_after: (now + 45.seconds).httpdate
+    )
+
+    assert_equal 45, seconds
+  end
+
   test "renew keeps an active lease past its original expiry" do
     installation = create_installation!
     effective_catalog = ProviderCatalog::EffectiveCatalog.new(installation: installation)

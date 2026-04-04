@@ -89,7 +89,7 @@ module Fenix
       def execute_deterministic_tool_flow
         check_canceled!
         tool_call = build_deterministic_tool_call
-        program_tool_executor.send(:assert_execution_topology_supported!, tool_name: tool_call.fetch("tool_name"))
+        program_tool_executor.assert_execution_topology_supported!(tool_name: tool_call.fetch("tool_name"))
         return execute_process_tool_flow(tool_call) if process_tool?(tool_call.fetch("tool_name"))
 
         @current_tool_invocation = {
@@ -102,7 +102,7 @@ module Fenix
           allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
         )
         @trace << { "hook" => "review_tool_call", "tool_name" => reviewed_tool_call.fetch("tool_name") }
-        program_tool_executor.send(:assert_execution_topology_supported!, tool_name: reviewed_tool_call.fetch("tool_name"))
+        program_tool_executor.assert_execution_topology_supported!(tool_name: reviewed_tool_call.fetch("tool_name"))
         check_canceled!
         tool_invocation = provision_tool_invocation!(reviewed_tool_call)
         check_canceled!

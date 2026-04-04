@@ -108,11 +108,12 @@ module ProviderExecution
 
     def retry_at_for(error)
       retry_after = error.headers["retry-after"] || error.headers["Retry-After"]
-      seconds = @governor.new(
+      seconds = @governor.retry_after_seconds_for(
+        retry_after:,
         installation: @workflow_run.installation,
         provider_handle: @request_context.provider_handle,
         effective_catalog: @effective_catalog
-      ).send(:normalize_retry_after, retry_after)
+      )
       Time.current + seconds
     end
   end

@@ -5,7 +5,7 @@ module Conversations
     end
 
     def self.base_messages_for(conversation:)
-      new(conversation: conversation).send(:base_messages)
+      new(conversation: conversation).base_messages
     end
 
     def initialize(conversation:)
@@ -19,11 +19,11 @@ module Conversations
       messages.reject { |message| hidden_in_projection?(message, overlay_lookup) }
     end
 
-    private
-
     def base_messages
       inherited_transcript_messages + selected_messages_for_own_turns
     end
+
+    private
 
     def inherited_transcript_messages
       return [] if @conversation.parent_conversation.blank?
