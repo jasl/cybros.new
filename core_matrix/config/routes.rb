@@ -66,6 +66,7 @@ Rails.application.routes.draw do
         get "turns"
       end
     end
+    resources :conversation_observation_sessions, only: [:create, :show]
     resources :conversation_export_requests, only: [:create, :show] do
       member do
         get "download"
