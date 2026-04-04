@@ -16,7 +16,7 @@ Practical state:
 
 - Round 1 reset batches have already landed in code and verification.
 - The recoverable-failure step-resume work is partially implemented and remains
-  the main open closure item in this directory.
+  another open closure item in this directory.
 - Current acceptance runs now execute through the top-level
   [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
   not the old `core_matrix/script/manual/acceptance` path.

@@ -12,6 +12,7 @@ of leaving only a volatile reference path behind.
 
 Recent archived records from the accepted provider-backed loop and reset batch:
 
+- [2026-04-04-conversation-observation-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-04-conversation-observation-implementation.md)
 - [2026-03-31-core-matrix-loop-fenix-program-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-program-design.md)
 - [2026-03-31-core-matrix-loop-fenix-program.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-program.md)
 - [2026-03-31-core-matrix-parallel-tool-execution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution-design.md)

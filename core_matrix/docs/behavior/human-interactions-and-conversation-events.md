@@ -15,6 +15,11 @@ hatches, or runtime-private wait state. It establishes:
 - append-only `ConversationEvent` rows as the user-visible projection surface
 - default same-workflow resume for blocking human-interaction resolution
 
+Conversation observation and supervisor-facing status now build on this same
+operational projection layer. See
+[`core_matrix/docs/behavior/conversation-observation-and-supervisor-status.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/conversation-observation-and-supervisor-status.md)
+for the observation-specific contract.
+
 ## Human Interaction Requests
 
 - `HumanInteractionRequest` uses STI with exactly three supported subclasses in
@@ -105,7 +110,8 @@ hatches, or runtime-private wait state. It establishes:
 - The current implementation also exposes a temporary Action Cable runtime stream per
   conversation:
   - stream name is derived from `Conversation.public_id`
-  - payloads are emitted through `ConversationRuntime::Broadcast`
+  - payloads are emitted through `ConversationRuntime::PublishEvent`, which
+    still broadcasts through `ConversationRuntime::Broadcast`
   - current event families include:
     - `runtime.assistant_output.*`
     - `runtime.workflow_node.*`
@@ -125,6 +131,34 @@ hatches, or runtime-private wait state. It establishes:
 - The first consumer surface is `PublicationRuntimeChannel`, which allows
   `external_public` publications with a valid `publication_token` to subscribe
   to the owning conversation runtime stream.
+- Observation and supervisor status reuse the durable projection side of these
+  runtime events through `ConversationEvent.live_projection`, rather than
+  reading raw runtime transport output directly.
+
+## Runtime Projection For Observation
+
+- Runtime broadcast and durable projection now share the same application
+  writer through `ConversationRuntime::PublishEvent`.
+- Supported runtime families still broadcast live payloads, and they now also
+  project compact operational facts into `ConversationEvent` when the payload
+  carries a stable runtime resource public id.
+- The compact durable runtime families currently used by conversation
+  observation are:
+  - `runtime.workflow_node.*`
+  - `runtime.agent_task.*`
+  - `runtime.process_run.*`
+  - `runtime.tool_invocation.*`
+- Replaceable runtime streams use resource-scoped stream keys such as:
+  - `runtime.workflow_node:<workflow_node_public_id>`
+  - `runtime.agent_task:<agent_task_run_public_id>`
+  - `runtime.process_run:<process_run_public_id>`
+  - `runtime.tool_invocation:<tool_invocation_public_id>`
+- Large textual payloads remain transport-oriented:
+  - assistant output deltas still do not persist into `ConversationEvent`
+  - process/tool output events redact bulk `text` fields before projection
+- `ConversationObservation` reuses this compact durable projection through
+  `ConversationEvent.live_projection` instead of introducing another runtime
+  event store.
 
 ## Projection Ordering And Replaceable Streams
 
