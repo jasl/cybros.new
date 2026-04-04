@@ -303,35 +303,11 @@ module Fenix
       end
 
       def provision_tool_invocation!(tool_call)
-        @control_client.create_tool_invocation!(
-          agent_task_run_id: current_agent_task_run_id,
-          tool_name: tool_call.fetch("tool_name"),
-          request_payload: tool_call.except("call_id"),
-          idempotency_key: tool_call.fetch("call_id"),
-          stream_output: streaming_tool?(tool_call.fetch("tool_name")),
-          metadata: {
-            "logical_work_id" => @context.fetch("logical_work_id"),
-            "attempt_no" => @context.fetch("attempt_no"),
-            "proxy" => {
-              "target_port" => tool_call.dig("arguments", "proxy_port"),
-            }.compact.presence,
-          }
-        )
+        control_provisioner.create_tool_invocation!(tool_call:)
       end
 
       def provision_command_run_if_needed!(tool_call, tool_invocation)
-        return unless tool_call.fetch("tool_name") == "exec_command"
-
-        @control_client.create_command_run!(
-          tool_invocation_id: tool_invocation.fetch("tool_invocation_id"),
-          command_line: tool_call.dig("arguments", "command_line"),
-          timeout_seconds: tool_call.dig("arguments", "timeout_seconds"),
-          pty: tool_call.dig("arguments", "pty"),
-          metadata: {
-            "logical_work_id" => @context.fetch("logical_work_id"),
-            "attempt_no" => @context.fetch("attempt_no"),
-          }
-        )
+        control_provisioner.create_command_run_if_needed!(tool_call:, tool_invocation:)
       end
 
       def build_current_tool_invocation(tool_call:, tool_invocation:, command_run:)
@@ -353,38 +329,12 @@ module Fenix
         )
       end
 
-      def streaming_tool?(tool_name)
-        %w[exec_command write_stdin].include?(tool_name)
-      end
-
       def process_tool?(tool_name)
         tool_name == "process_exec"
       end
 
       def provision_process_run!(tool_call)
-        @control_client.create_process_run!(
-          agent_task_run_id: current_agent_task_run_id,
-          tool_name: tool_call.fetch("tool_name"),
-          kind: normalize_process_kind(tool_call.dig("arguments", "kind")),
-          command_line: tool_call.dig("arguments", "command_line"),
-          idempotency_key: tool_call.fetch("call_id"),
-          metadata: {
-            "logical_work_id" => @context.fetch("logical_work_id"),
-            "attempt_no" => @context.fetch("attempt_no"),
-            "proxy" => {
-              "target_port" => tool_call.dig("arguments", "proxy_port"),
-            }.compact.presence,
-          }
-        )
-      end
-
-      def normalize_process_kind(kind)
-        case kind.to_s
-        when "", "background", "background_service", "command", "process", "web", "web_server", "server", "default"
-          "background_service"
-        else
-          kind
-        end
+        control_provisioner.create_process_run!(tool_call:)
       end
 
       def program_tool_executor
@@ -393,6 +343,14 @@ module Fenix
           collector: @collector,
           control_client: @control_client,
           cancellation_probe: @cancellation_probe
+        )
+      end
+
+      def control_provisioner
+        @control_provisioner ||= Fenix::Runtime::Assignments::ControlProvisioner.new(
+          control_client: @control_client,
+          context: @context,
+          agent_task_run_id: current_agent_task_run_id
         )
       end
     end
