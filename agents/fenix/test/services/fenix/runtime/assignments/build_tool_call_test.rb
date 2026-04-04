@@ -65,4 +65,40 @@ class Fenix::Runtime::Assignments::BuildToolCallTest < ActiveSupport::TestCase
       tool_call.fetch("arguments")
     )
   end
+
+  test "builds process_exec calls with the default background service kind" do
+    tool_call = Fenix::Runtime::Assignments::BuildToolCall.call(
+      task_payload: {
+        "tool_name" => "process_exec",
+        "command_line" => "bin/dev",
+        "proxy_port" => 4173,
+      }
+    )
+
+    assert_equal(
+      {
+        "command_line" => "bin/dev",
+        "kind" => "background_service",
+        "proxy_port" => 4173,
+      },
+      tool_call.fetch("arguments")
+    )
+  end
+
+  test "builds command run wait calls with command_run_id and default timeout" do
+    tool_call = Fenix::Runtime::Assignments::BuildToolCall.call(
+      task_payload: {
+        "tool_name" => "command_run_wait",
+        "command_run_id" => "command-run-1",
+      }
+    )
+
+    assert_equal(
+      {
+        "command_run_id" => "command-run-1",
+        "timeout_seconds" => 30,
+      },
+      tool_call.fetch("arguments")
+    )
+  end
 end

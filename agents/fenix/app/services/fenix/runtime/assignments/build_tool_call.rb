@@ -27,20 +27,42 @@ module Fenix
         def arguments_for(tool_name)
           case tool_name
           when "calculator"
-            { "expression" => @task_payload["expression"] || "2 + 2" }
+            calculator_arguments
           when "exec_command"
-            {
-              "command_line" => @task_payload["command_line"] || "printf 'hello\\n'",
-              "timeout_seconds" => @task_payload["timeout_seconds"] || 30,
-              "pty" => @task_payload["pty"] || false,
-            }
+            exec_command_arguments
+          when "command_run_list", "command_run_read_output", "command_run_terminate", "command_run_wait", "write_stdin"
+            command_run_arguments(tool_name)
+          when "process_exec", "process_list", "process_read_output", "process_proxy_info"
+            process_arguments(tool_name)
+          when "workspace_read", "workspace_tree", "workspace_stat", "workspace_find", "workspace_write"
+            workspace_arguments(tool_name)
+          when "memory_append_daily", "memory_compact_summary", "memory_get", "memory_list", "memory_search", "memory_store"
+            memory_arguments(tool_name)
+          when "web_fetch", "web_search", "firecrawl_search", "firecrawl_scrape"
+            web_arguments(tool_name)
+          when "browser_open", "browser_list", "browser_session_info", "browser_navigate", "browser_get_content", "browser_screenshot", "browser_close"
+            browser_arguments(tool_name)
+          else
+            {}
+          end
+        end
+
+        def calculator_arguments
+          { "expression" => @task_payload["expression"] || "2 + 2" }
+        end
+
+        def exec_command_arguments
+          {
+            "command_line" => @task_payload["command_line"] || "printf 'hello\\n'",
+            "timeout_seconds" => @task_payload["timeout_seconds"] || 30,
+            "pty" => @task_payload["pty"] || false,
+          }
+        end
+
+        def command_run_arguments(tool_name)
+          case tool_name
           when "command_run_list"
             {}
-          when "command_run_read_output", "command_run_terminate", "command_run_wait"
-            {
-              "command_run_id" => @task_payload["command_run_id"],
-              "timeout_seconds" => @task_payload["timeout_seconds"] || 30,
-            }.compact
           when "write_stdin"
             {
               "command_run_id" => @task_payload["command_run_id"],
@@ -49,6 +71,16 @@ module Fenix
               "wait_for_exit" => @task_payload["wait_for_exit"] || false,
               "timeout_seconds" => @task_payload["timeout_seconds"] || 30,
             }
+          else
+            {
+              "command_run_id" => @task_payload["command_run_id"],
+              "timeout_seconds" => @task_payload["timeout_seconds"] || 30,
+            }.compact
+          end
+        end
+
+        def process_arguments(tool_name)
+          case tool_name
           when "process_exec"
             {
               "command_line" => @task_payload["command_line"] || "bin/dev",
@@ -57,10 +89,15 @@ module Fenix
             }
           when "process_list"
             {}
-          when "process_read_output", "process_proxy_info"
+          else
             {
               "process_run_id" => @task_payload["process_run_id"],
             }
+          end
+        end
+
+        def workspace_arguments(tool_name)
+          case tool_name
           when "workspace_read"
             {
               "path" => @task_payload["path"] || "README.md",
@@ -80,6 +117,11 @@ module Fenix
               "path" => @task_payload["path"] || "notes/output.txt",
               "content" => @task_payload["content"].to_s,
             }
+          end
+        end
+
+        def memory_arguments(tool_name)
+          case tool_name
           when "memory_append_daily"
             {
               "text" => @task_payload["text"].to_s,
@@ -109,6 +151,11 @@ module Fenix
               "title" => @task_payload["title"].to_s,
               "scope" => @task_payload["scope"] || "daily",
             }
+          end
+        end
+
+        def web_arguments(tool_name)
+          case tool_name
           when "web_fetch"
             {
               "url" => @task_payload["url"] || "https://example.com",
@@ -124,6 +171,11 @@ module Fenix
               "url" => @task_payload["url"] || "https://example.com",
               "formats" => Array(@task_payload["formats"]).presence || ["markdown"],
             }
+          end
+        end
+
+        def browser_arguments(tool_name)
+          case tool_name
           when "browser_open"
             {
               "url" => @task_payload["url"] || "https://example.com",
@@ -152,8 +204,6 @@ module Fenix
             {
               "browser_session_id" => @task_payload["browser_session_id"],
             }
-          else
-            {}
           end
         end
       end
