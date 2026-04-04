@@ -66,7 +66,9 @@ Rails.application.routes.draw do
         get "turns"
       end
     end
-    resources :conversation_observation_sessions, only: [:create, :show]
+    resources :conversation_observation_sessions, only: [:create, :show] do
+      resources :conversation_observation_messages, path: "messages", only: [:index, :create]
+    end
     resources :conversation_export_requests, only: [:create, :show] do
       member do
         get "download"
