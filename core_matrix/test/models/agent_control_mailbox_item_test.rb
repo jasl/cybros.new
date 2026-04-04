@@ -98,7 +98,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     assert_equal "execution", mailbox_item.attributes["runtime_plane"]
     assert_equal context[:execution_runtime].id, mailbox_item.attributes["target_execution_runtime_id"]
-    assert_equal context[:execution_runtime].public_id, mailbox_item.target_ref
+    refute_respond_to mailbox_item, :target_ref
   end
 
   test "program-plane subagent session close work falls back to the owner conversation agent program when no lease holder exists" do
@@ -131,8 +131,8 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal context[:agent_program], mailbox_item.target_agent_program
-    assert_equal "agent_program", mailbox_item.target_kind
-    assert_equal context[:agent_program].public_id, mailbox_item.target_ref
+    refute_respond_to mailbox_item, :target_kind
+    refute_respond_to mailbox_item, :target_ref
     assert_equal "program", mailbox_item.attributes["runtime_plane"]
     assert_equal "SubagentSession", mailbox_item.payload.fetch("resource_type")
     assert_equal subagent_session.public_id, mailbox_item.payload.fetch("resource_id")

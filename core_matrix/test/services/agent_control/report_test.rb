@@ -616,7 +616,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       resource: subagent_session
     ).fetch(:mailbox_item)
 
-    assert_equal "agent_program", mailbox_item.target_kind
+    refute_respond_to mailbox_item, :target_kind
 
     AgentControl::Poll.call(deployment: context[:replacement_deployment], limit: 10)
 

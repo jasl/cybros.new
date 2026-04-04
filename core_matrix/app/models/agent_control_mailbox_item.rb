@@ -57,26 +57,6 @@ class AgentControlMailboxItem < ApplicationRecord
     runtime_plane == "execution"
   end
 
-  def target_kind
-    if execution_plane?
-      "execution_runtime"
-    elsif target_agent_program_version_id.present?
-      "agent_program_version"
-    else
-      "agent_program"
-    end
-  end
-
-  def target_ref
-    if execution_plane?
-      target_execution_runtime&.public_id
-    elsif target_agent_program_version_id.present?
-      target_agent_program_version&.public_id
-    else
-      target_agent_program&.public_id
-    end
-  end
-
   def target_agent_program_version?
     target_agent_program_version_id.present?
   end

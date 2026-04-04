@@ -190,8 +190,8 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal turn_scoped_session.public_id, close_request.payload.fetch("resource_id")
     assert_equal "SubagentSession", close_request.payload.fetch("resource_type")
     assert_equal "program", close_request.runtime_plane
-    assert_equal "agent_program", close_request.target_kind
-    assert_equal context[:agent_program].public_id, close_request.target_ref
+    refute_respond_to close_request, :target_kind
+    refute_respond_to close_request, :target_ref
   end
 
   test "reconciles an unfinished archive close after local mainline blockers are canceled" do

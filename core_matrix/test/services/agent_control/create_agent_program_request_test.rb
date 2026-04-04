@@ -25,7 +25,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
 
     assert_equal "agent_program_request", mailbox_item.item_type
     assert_equal "program", mailbox_item.runtime_plane
-    assert_equal "agent_program_version", mailbox_item.target_kind
+    refute_respond_to mailbox_item, :target_kind
     assert_equal context.fetch(:deployment), mailbox_item.target_agent_program_version
     assert_equal context.fetch(:agent_program), mailbox_item.target_agent_program
     assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
