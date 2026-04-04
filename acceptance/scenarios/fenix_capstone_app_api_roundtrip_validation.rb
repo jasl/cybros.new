@@ -14,7 +14,6 @@ require "zip"
 require_relative "../lib/boot"
 require_relative "../lib/conversation_runtime_validation"
 
-ARTIFACT_STAMP = "2026-04-03-core-matrix-loop-fenix-2048-final".freeze
 OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
 PLAYWRIGHT_VERSION = "1.59.1".freeze
@@ -29,7 +28,10 @@ EXPECTED_SKILL_CONVERSATION_STATE = {
 }.freeze
 
 repo_root = AcceptanceHarness.repo_root
-artifact_dir = repo_root.join("acceptance", "artifacts", ARTIFACT_STAMP)
+artifact_stamp = ENV.fetch("CAPSTONE_ARTIFACT_STAMP") do
+  "#{Time.current.strftime("%Y-%m-%d-%H%M%S")}-core-matrix-loop-fenix-2048-final"
+end
+artifact_dir = repo_root.join("acceptance", "artifacts", artifact_stamp)
 workspace_root = Pathname.new(ENV.fetch("CAPSTONE_WORKSPACE_ROOT", repo_root.join("tmp", "fenix").to_s)).expand_path
 generated_app_dir = workspace_root.join("game-2048")
 skill_source_root = workspace_root.join("skill-sources")

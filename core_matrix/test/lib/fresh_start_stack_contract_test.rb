@@ -51,6 +51,22 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "ARTIFACT_DIR=\"${REPO_ROOT}/acceptance/artifacts/${ARTIFACT_STAMP}\""
   end
 
+  test "capstone orchestrator derives a readable timestamped artifact stamp once and exports it" do
+    script = Rails.root.join("../acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh").read
+
+    assert_includes script, "DEFAULT_ARTIFACT_STAMP=\"$(date '+%Y-%m-%d-%H%M%S')-core-matrix-loop-fenix-2048-final\""
+    assert_includes script, "ARTIFACT_STAMP=\"${CAPSTONE_ARTIFACT_STAMP:-${DEFAULT_ARTIFACT_STAMP}}\""
+    assert_includes script, "export CAPSTONE_ARTIFACT_STAMP=\"${ARTIFACT_STAMP}\""
+  end
+
+  test "capstone scenario derives its artifact stamp from the environment before using a timestamped fallback" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, 'ENV.fetch("CAPSTONE_ARTIFACT_STAMP")'
+    assert_includes scenario, 'Time.current.strftime("%Y-%m-%d-%H%M%S")'
+    refute_includes scenario, 'ARTIFACT_STAMP = "2026-04-03-core-matrix-loop-fenix-2048-final".freeze'
+  end
+
   test "acceptance harness owns its own gemfile" do
     gemfile = Rails.root.join("../acceptance/Gemfile")
 
