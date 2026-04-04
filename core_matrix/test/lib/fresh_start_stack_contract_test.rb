@@ -70,12 +70,19 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
   test "capstone scenario writes human-readable observation markdown artifacts" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'write_observation_conversation_md('
-    assert_includes scenario, 'write_observation_supervisor_md('
+    assert_includes scenario, "write_observation_conversation_md("
+    assert_includes scenario, "write_observation_supervisor_md("
     assert_includes scenario, 'artifact_dir.join("observation-conversation.md")'
     assert_includes scenario, 'artifact_dir.join("observation-supervisor.md")'
     assert_includes scenario, '"observation-conversation.md"'
     assert_includes scenario, '"observation-supervisor.md"'
+  end
+
+  test "observation conversation artifact keeps human sidechat separate from raw proof refs" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "append_observation_grounding_lines("
+    refute_includes scenario, 'append_observation_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))'
   end
 
   test "capstone scenario uses a natural-language observation prompt for the supervisor side channel" do

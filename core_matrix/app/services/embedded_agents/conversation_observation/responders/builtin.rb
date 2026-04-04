@@ -54,7 +54,7 @@ module EmbeddedAgents
             "conversation_id" => assessment.fetch("conversation_id"),
             "overall_state" => assessment.fetch("overall_state"),
             "current_activity" => assessment.fetch("current_activity"),
-            "content" => assessment.fetch("proof_text"),
+            "content" => assessment.fetch("human_summary"),
             "proof_refs" => assessment.fetch("proof_refs"),
           }
         end

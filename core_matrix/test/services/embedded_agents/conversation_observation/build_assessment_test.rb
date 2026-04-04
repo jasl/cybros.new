@@ -28,6 +28,8 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
         ],
         assessment.fetch("transcript_refs")
       )
+      assert_equal "The conversation is currently waiting. It is waiting for a running subagent before work on implement can continue. The latest tracked activity was a runtime.process_run.output event. This summary is grounded in workflow state, transcript context, recent activity, and subagent status.", assessment.fetch("human_summary")
+      refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, assessment.fetch("human_summary"))
       assert_includes assessment.fetch("proof_text"), fixture.fetch(:workflow_run).public_id
       assert_includes assessment.fetch("proof_text"), fixture.fetch(:workflow_node).public_id
       assert assessment.fetch("stall_for_ms") >= 0

@@ -165,6 +165,7 @@ The assessment includes:
 - `transcript_refs`
 - `proof_refs`
 - `proof_text`
+- `human_summary`
 
 `overall_state` is normalized to:
 
@@ -181,7 +182,8 @@ One canonical assessment yields two outward-facing result projections:
 - `supervisor_status`
   - stable machine-readable status for automation and acceptance harnesses
 - `human_sidechat`
-  - concise human-readable explanation with the same proof refs
+  - concise human-readable explanation without raw object refs in the text body
+  - structured `proof_refs` remain attached alongside the text for grounding
 
 The platform does not run two independent observe passes for these views.
 Both projections come from the same frame and the same assessment payload.
@@ -198,6 +200,10 @@ The builtin responder is deterministic and does not require an external model
 call. It converts the already-bounded observation bundle into the canonical
 assessment, then derives `supervisor_status` and `human_sidechat` from that
 same assessment.
+
+`proof_text` remains the internal proof-oriented wording on the assessment.
+`human_sidechat` uses `human_summary`, which is phrased for people and avoids
+embedding workflow or transcript public ids directly in the visible text.
 
 The architecture keeps a future seam for a program-backed responder, but the
 feature does not depend on one.

@@ -34,7 +34,9 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
       assert_equal assessment.fetch("proof_refs"), human_sidechat.fetch("proof_refs")
       assert_equal assessment.fetch("overall_state"), supervisor_status.fetch("overall_state")
       assert_equal assessment.fetch("current_activity"), human_sidechat.fetch("current_activity")
-      assert_equal assessment.fetch("proof_text"), human_sidechat.fetch("content")
+      assert_equal assessment.fetch("human_summary"), human_sidechat.fetch("content")
+      refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, human_sidechat.fetch("content"))
+      assert_match(/\AThe conversation is currently /, human_sidechat.fetch("content"))
       assert_equal assessment, fixture.fetch(:frame).reload.assessment_payload
     end
   end

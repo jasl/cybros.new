@@ -530,6 +530,16 @@ def suspicious_internal_tokens(text)
   text.scan(/\b\d{6,}\b/).uniq
 end
 
+def public_id_tokens(text)
+  return [] if text.blank?
+
+  text.scan(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i).uniq
+end
+
+def human_visible_leak_tokens(text)
+  (suspicious_internal_tokens(text) + public_id_tokens(text)).uniq
+end
+
 def observation_public_id_boundary_failures(poll)
   failures = []
 
@@ -591,13 +601,20 @@ def append_observation_proof_ref_lines(lines, proof_refs)
   lines << "  - Activity projection sequences: `#{Array(proof_refs["activity_projection_sequences"]).join("`, `")}`" if Array(proof_refs["activity_projection_sequences"]).any?
 end
 
+def append_observation_grounding_lines(lines, proof_refs)
+  lines << "- Evidence grounding:"
+  lines << "  - Workflow state available: `#{proof_refs["workflow_run_id"].present?}`"
+  lines << "  - Workflow node available: `#{proof_refs["workflow_node_id"].present?}`"
+  lines << "  - Transcript reference count: `#{Array(proof_refs["transcript_message_ids"]).length}`"
+  lines << "  - Subagent reference count: `#{Array(proof_refs["subagent_session_ids"]).length}`"
+  lines << "  - Activity event count: `#{Array(proof_refs["activity_projection_sequences"]).length}`"
+end
+
 def write_observation_conversation_md(path:, observation_trace:, prompt:)
-  session_id = observation_trace.dig("session", "conversation_observation_session", "observation_session_id")
   polls = observation_trace.fetch("polls")
   lines = [
     "# Observation Conversation",
     "",
-    "- Observation session `public_id`: `#{session_id}`",
     "- Poll count: `#{polls.length}`",
     "- Supervisor question template:",
     "",
@@ -611,19 +628,15 @@ def write_observation_conversation_md(path:, observation_trace:, prompt:)
     boundary_failures = observation_public_id_boundary_failures(poll)
     human_sidechat = poll.fetch("human_sidechat")
     user_message = poll.fetch("user_message")
-    observer_message = poll.fetch("observer_message")
-    suspicious_tokens = suspicious_internal_tokens(human_sidechat.fetch("content")) +
-      suspicious_internal_tokens(user_message.fetch("content"))
+    suspicious_tokens = human_visible_leak_tokens(human_sidechat.fetch("content")) +
+      human_visible_leak_tokens(user_message.fetch("content"))
 
     lines << "## Exchange #{index + 1}"
     lines << ""
-    lines << "- Observation frame `public_id`: `#{poll.dig("assessment", "observation_frame_id")}`"
     lines << "- Overall state: `#{poll.dig("supervisor_status", "overall_state")}`"
     lines << "- Current activity: `#{poll.dig("supervisor_status", "current_activity")}`"
     lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
     lines << "- Human-visible leak scan: `#{suspicious_tokens.empty? ? "pass" : "fail"}`"
-    lines << "- User message `public_id`: `#{user_message.fetch("observation_message_id")}`"
-    lines << "- Observer message `public_id`: `#{observer_message.fetch("observation_message_id")}`"
     lines << ""
     lines << "### User Question"
     lines << ""
@@ -642,10 +655,10 @@ def write_observation_conversation_md(path:, observation_trace:, prompt:)
       boundary_failures.each { |failure| lines << "  - `#{failure}`" }
     end
     if suspicious_tokens.any?
-      lines << "- Suspicious numeric tokens in human-visible text:"
+      lines << "- Suspicious human-visible leak tokens:"
       suspicious_tokens.uniq.each { |token| lines << "  - `#{token}`" }
     end
-    append_observation_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))
+    append_observation_grounding_lines(lines, human_sidechat.fetch("proof_refs"))
     lines << ""
   end
 

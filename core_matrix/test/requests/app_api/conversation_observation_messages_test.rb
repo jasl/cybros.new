@@ -22,6 +22,8 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
     assert_equal "waiting", response_body.dig("supervisor_status", "overall_state")
     assert_equal response_body.dig("assessment", "proof_refs"), response_body.dig("human_sidechat", "proof_refs")
     assert_equal response_body.dig("assessment", "proof_refs"), response_body.dig("supervisor_status", "proof_refs")
+    assert_match(/\AThe conversation is currently /, response_body.dig("human_sidechat", "content"))
+    refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, response_body.dig("human_sidechat", "content"))
     assert_equal "user", response_body.dig("user_message", "role")
     assert_equal "observer_agent", response_body.dig("observer_message", "role")
 
