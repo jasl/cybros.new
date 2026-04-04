@@ -1,6 +1,7 @@
 {
   "name": "app",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE.md",
   "scripts": {
     "build": "bun bun.config.js",
     "build:css": "bunx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css",

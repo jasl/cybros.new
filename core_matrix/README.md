@@ -128,3 +128,13 @@ bundle exec ruby script/manual/workflow_proof_export.rb export ...
 - Containerized services still use Docker Compose environment injection. In
   `compose.yaml.sample`, explicit service `environment` values override
   same-named values coming from `env_file`.
+
+## License
+
+`core_matrix` is licensed under the O'Saasy License Agreement. See
+[LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/LICENSE.md).
+
+This project includes separately licensed vendored code under
+[vendor/simple_inference](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference).
+That vendored gem remains licensed under the MIT License, as stated in
+[LICENSE.txt](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference/LICENSE.txt).

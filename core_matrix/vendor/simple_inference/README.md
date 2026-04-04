@@ -456,4 +456,5 @@ The client is thread-safe:
 
 ## License
 
-MIT License. See [LICENSE](LICENSE.txt) for details.
+SimpleInference remains licensed under the MIT License. See
+[LICENSE](LICENSE.txt) for details.

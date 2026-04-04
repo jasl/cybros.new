@@ -466,3 +466,8 @@ canonical appliance baseline:
 - run `npx playwright install chromium`
 - keep using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only if you intentionally
   want a non-default browser binary
+
+## License
+
+The `fenix` project is licensed under the O'Saasy License Agreement. See
+[LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/LICENSE.md).

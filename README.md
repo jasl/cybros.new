@@ -44,3 +44,22 @@ claims real loop behavior, validation must include:
 - `bin/dev`
 - a real LLM API
 - manual validation flows maintained under `docs/checklists`
+
+## Licensing
+
+Licensing in this monorepo is project-scoped.
+
+- Repository-root materials that are not covered by a more specific
+  subdirectory license are licensed under the O'Saasy License Agreement. See
+  [LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/LICENSE.md).
+- [core_matrix](/Users/jasl/Workspaces/Ruby/cybros/core_matrix) and each
+  standalone project under
+  [agents/](/Users/jasl/Workspaces/Ruby/cybros/agents) are licensed under the
+  O'Saasy License Agreement, as stated in the license file at the root of the
+  relevant project.
+- [core_matrix/vendor/simple_inference](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference)
+  is a separately licensed vendored gem and remains licensed under the MIT
+  License. See
+  [LICENSE.txt](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference/LICENSE.txt).
+- Where a subdirectory contains its own license file, that subdirectory-specific
+  license controls for the contents of that subdirectory.
