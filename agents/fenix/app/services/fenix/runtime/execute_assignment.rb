@@ -296,17 +296,9 @@ module Fenix
       def failed_tool_invocation_payload(error)
         return if @current_tool_invocation.blank?
 
-        {
-          "event" => "failed",
-          "call_id" => @current_tool_invocation.fetch("call_id"),
-          "tool_name" => @current_tool_invocation.fetch("tool_name"),
-          "request_payload" => @current_tool_invocation.fetch("request_payload"),
-          "error_payload" => tool_invocation_error_payload(error),
-        }.merge(
-          {
-            "tool_invocation_id" => @current_tool_invocation["tool_invocation_id"],
-            "command_run_id" => @current_tool_invocation["command_run_id"],
-          }.compact
+        Fenix::Runtime::Assignments::ToolInvocationPayloads.failed(
+          current_tool_invocation: @current_tool_invocation,
+          error:
         )
       end
 
@@ -343,35 +335,22 @@ module Fenix
       end
 
       def build_current_tool_invocation(tool_call:, tool_invocation:, command_run:)
-        {
-          "tool_invocation_id" => tool_invocation.fetch("tool_invocation_id"),
-          "command_run_id" => command_run&.fetch("command_run_id"),
-          "call_id" => tool_call.fetch("call_id"),
-          "tool_name" => tool_call.fetch("tool_name"),
-          "request_payload" => tool_call.except("call_id"),
-        }.compact
+        Fenix::Runtime::Assignments::ToolInvocationPayloads.current(
+          tool_call:,
+          tool_invocation:,
+          command_run:
+        )
       end
 
       def started_tool_invocation_payload(current_tool_invocation)
-        {
-          "event" => "started",
-          "tool_invocation_id" => current_tool_invocation.fetch("tool_invocation_id"),
-          "command_run_id" => current_tool_invocation["command_run_id"],
-          "call_id" => current_tool_invocation.fetch("call_id"),
-          "tool_name" => current_tool_invocation.fetch("tool_name"),
-          "request_payload" => current_tool_invocation.fetch("request_payload"),
-        }.compact
+        Fenix::Runtime::Assignments::ToolInvocationPayloads.started(current_tool_invocation)
       end
 
       def completed_tool_invocation_payload(current_tool_invocation:, response_payload:)
-        {
-          "event" => "completed",
-          "tool_invocation_id" => current_tool_invocation.fetch("tool_invocation_id"),
-          "command_run_id" => current_tool_invocation["command_run_id"],
-          "call_id" => current_tool_invocation.fetch("call_id"),
-          "tool_name" => current_tool_invocation.fetch("tool_name"),
-          "response_payload" => response_payload,
-        }.compact
+        Fenix::Runtime::Assignments::ToolInvocationPayloads.completed(
+          current_tool_invocation:,
+          response_payload:
+        )
       end
 
       def streaming_tool?(tool_name)
@@ -406,10 +385,6 @@ module Fenix
         else
           kind
         end
-      end
-
-      def tool_invocation_error_payload(error)
-        Fenix::Runtime::ProgramToolExecutor.error_payload_for(error)
       end
 
       def program_tool_executor
