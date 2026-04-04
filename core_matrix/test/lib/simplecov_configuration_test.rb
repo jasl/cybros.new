@@ -74,4 +74,46 @@ class SimplecovConfigurationTest < ActiveSupport::TestCase
 
     assert_equal [nil, 2, 0, nil, 0], normalized.fetch("lines")
   end
+
+  test "normalizes cached resultset coverage to the current tracked file length" do
+    require "tempfile"
+
+    tracked_file = Tempfile.create(["simplecov", ".rb"])
+    tracked_file.write("line one\nline two\n")
+    tracked_file.flush
+
+    resultset = {
+      "Minitest" => {
+        "coverage" => {
+          tracked_file.path => {
+            "lines" => [1, 1, 1],
+          },
+        },
+        "timestamp" => Time.now.to_i,
+      },
+    }
+
+    original_tracked_files = SimpleCov.method(:tracked_files)
+    original_simulate_coverage = SimpleCov::SimulateCoverage.method(:call)
+
+    SimpleCov.singleton_class.send(:define_method, :tracked_files) do
+      tracked_file.path
+    end
+
+    SimpleCov::SimulateCoverage.singleton_class.send(:define_method, :call) do |_path|
+      { "lines" => [0, 0] }
+    end
+
+    normalized = CoreMatrixSimpleCov.normalize_resultset_coverage(resultset)
+
+    assert_equal [1, 1], normalized.fetch("Minitest").fetch("coverage").fetch(tracked_file.path).fetch("lines")
+  ensure
+    if tracked_file
+      path = tracked_file.path
+      tracked_file.close unless tracked_file.closed?
+      File.unlink(path) if path && File.exist?(path)
+    end
+    SimpleCov.singleton_class.send(:define_method, :tracked_files, original_tracked_files)
+    SimpleCov::SimulateCoverage.singleton_class.send(:define_method, :call, original_simulate_coverage)
+  end
 end

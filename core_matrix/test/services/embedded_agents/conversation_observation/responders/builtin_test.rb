@@ -73,7 +73,7 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
             "current_activity" => "Running provider_round_1 (running)",
             "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
             "transcript_refs" => [],
-          }
+          },
         }
       )
 
@@ -92,6 +92,24 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
 
       refute_equal progress_response.dig("human_sidechat", "content"), change_response.dig("human_sidechat", "content")
       assert_match(/Since the last observation/, change_response.dig("human_sidechat", "content"))
+    end
+  end
+
+  test "transcript detail questions do not quote raw transcript content from the frozen observation snapshot" do
+    freeze_time do
+      fixture = build_observation_fixture!
+
+      detail_response = EmbeddedAgents::ConversationObservation::RouteResponder.call(
+        conversation_observation_session: fixture.fetch(:session),
+        conversation_observation_frame: fixture.fetch(:frame),
+        observation_bundle: fixture.fetch(:bundle),
+        question: "What did it say earlier about the plan details?"
+      )
+
+      content = detail_response.dig("human_sidechat", "content")
+      refute_includes content, "Working through the current implementation."
+      refute_includes content, "Current progress update?"
+      assert_match(/transcript ref|transcript surface|snapshot does not retain raw transcript text/i, content)
     end
   end
 

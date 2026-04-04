@@ -13,6 +13,7 @@ class CreateConversationObservationFrames < ActiveRecord::Migration[8.2]
       t.string :wait_state
       t.string :wait_reason_kind
       t.jsonb :active_subagent_session_public_ids, null: false, default: []
+      t.jsonb :bundle_snapshot, null: false, default: {}
       t.jsonb :runtime_state_snapshot, null: false, default: {}
       t.jsonb :assessment_payload, null: false, default: {}
 

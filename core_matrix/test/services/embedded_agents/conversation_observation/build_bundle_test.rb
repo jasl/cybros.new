@@ -12,7 +12,7 @@ class EmbeddedAgents::ConversationObservation::BuildBundleTest < ActiveSupport::
       conversation_observation_frame: frame
     )
 
-    assert_equal %w[activity_view diagnostic_view memory_view subagent_view transcript_view workflow_view], bundle.keys.sort
+    assert_equal %w[activity_view subagent_view transcript_view workflow_view], bundle.keys.sort
 
     transcript_ids = bundle.fetch("transcript_view").fetch("messages").map { |message| message.fetch("message_id") }
     assert_equal(
@@ -26,28 +26,33 @@ class EmbeddedAgents::ConversationObservation::BuildBundleTest < ActiveSupport::
     refute_includes transcript_ids, context.fetch(:hidden_output).public_id
 
     workflow_view = bundle.fetch("workflow_view")
-    assert_equal context.fetch(:conversation).public_id, workflow_view.fetch("conversation_id")
     assert_equal context.fetch(:workflow_run).public_id, workflow_view.fetch("workflow_run_id")
     assert_equal context.fetch(:workflow_node).public_id, workflow_view.fetch("workflow_node_id")
     assert_equal "waiting", workflow_view.fetch("wait_state")
     assert_equal "subagent_barrier", workflow_view.fetch("wait_reason_kind")
+    refute workflow_view.key?("conversation_id")
+    refute workflow_view.key?("wait_reason_payload")
+    refute workflow_view.key?("resume_policy")
+
+    transcript_messages = bundle.fetch("transcript_view").fetch("messages")
+    refute_empty transcript_messages
+    assert transcript_messages.all? { |message| message.keys.sort == %w[created_at message_id role slot] }
+    refute transcript_messages.any? { |message| message.key?("content") }
+    refute transcript_messages.any? { |message| message.key?("turn_id") }
 
     activity_items = bundle.fetch("activity_view").fetch("items")
     assert_equal ["runtime.workflow_node.started", "runtime.process_run.output"], activity_items.map { |item| item.fetch("event_kind") }
     refute activity_items.any? { |item| item.fetch("event_kind") == "message.appended" }
-    refute activity_items.last.fetch("payload").key?("text")
+    assert activity_items.all? { |item| item.keys.sort == %w[created_at event_kind projection_sequence] }
+    refute activity_items.any? { |item| item.key?("payload") }
+    refute activity_items.any? { |item| item.key?("stream_key") }
+    refute activity_items.any? { |item| item.key?("stream_revision") }
+    refute activity_items.any? { |item| item.key?("turn_id") }
 
     subagent_view = bundle.fetch("subagent_view")
     assert_equal [context.fetch(:subagent_session).public_id], subagent_view.fetch("items").map { |item| item.fetch("subagent_session_id") }
     assert_equal "running", subagent_view.fetch("items").first.fetch("observed_status")
-
-    diagnostic_view = bundle.fetch("diagnostic_view")
-    assert_equal context.fetch(:conversation).public_id, diagnostic_view.fetch("conversation_id")
-    assert_equal 2, diagnostic_view.fetch("turn_count")
-    assert_equal 1, diagnostic_view.fetch("provider_round_count")
-    assert_equal context.fetch(:first_turn).public_id, diagnostic_view.dig("outlier_refs", "most_expensive_turn_id")
-
-    assert_equal({}, bundle.fetch("memory_view"))
+    assert_equal %w[observed_status profile_key subagent_session_id], subagent_view.fetch("items").first.keys.sort
     assert_public_id_boundaries!(bundle)
   end
 

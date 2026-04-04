@@ -147,7 +147,7 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
         "activity_view" => { "conversation_id" => conversation.public_id, "latest_projection_sequence" => 1, "items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started", "payload" => { "workflow_run_id" => workflow_run.public_id }, "created_at" => Time.current.iso8601(6) }] },
         "subagent_view" => { "conversation_id" => conversation.public_id, "items" => [{ "subagent_session_id" => subagent_session.public_id, "conversation_id" => child_conversation.public_id, "scope" => subagent_session.scope, "profile_key" => subagent_session.profile_key, "observed_status" => subagent_session.observed_status, "derived_close_status" => subagent_session.derived_close_status, "depth" => subagent_session.depth }] },
         "diagnostic_view" => { "conversation_id" => conversation.public_id, "lifecycle_state" => conversation.lifecycle_state, "turn_count" => 2, "active_turn_count" => 1, "completed_turn_count" => 1, "failed_turn_count" => 0, "provider_round_count" => 0, "tool_call_count" => 0, "tool_failure_count" => 0, "command_run_count" => 0, "command_failure_count" => 0, "process_run_count" => 0, "process_failure_count" => 0, "subagent_session_count" => 1, "estimated_cost_total" => "0.0", "outlier_refs" => {}, "cost_summary" => {}, "tool_breakdown" => {}, "subagent_status_counts" => {} },
-        "memory_view" => {}
+        "memory_view" => {},
       },
       assessment_payload: {}
     )
@@ -162,8 +162,8 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
           "overall_state" => "running",
           "current_activity" => "Running provider_round_1 (queued)",
           "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
-          "transcript_refs" => []
-        }
+          "transcript_refs" => [],
+        },
       }
     )
 

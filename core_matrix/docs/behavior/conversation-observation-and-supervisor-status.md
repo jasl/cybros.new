@@ -71,8 +71,10 @@ advances while the answer is being prepared.
 
 The platform assembles a bounded `ObservationBundle` for each frame.
 
-The bundle is conversation-scoped and reuses existing read models instead of
-building a second diagnostics subsystem.
+The bundle is conversation-scoped and intentionally compact.
+
+It freezes durable refs and minimal operational facts rather than copying raw
+transcript content or raw runtime payloads into every observation frame.
 
 ### `transcript_view`
 
@@ -81,9 +83,10 @@ Built from the same transcript eligibility rules used by
 
 It includes:
 
-- the anchored turn public id when present
 - selected input and output message refs when present
-- recent transcript-tail items with compact excerpts
+- message role, slot, and timestamps needed for progress and grounding
+
+It does not persist raw transcript text.
 
 ### `workflow_view`
 
@@ -112,7 +115,7 @@ Current observation-facing runtime families include:
 - `runtime.tool_invocation.*`
 
 These events carry compact ids and status only. Observation does not persist
-raw stdout/stderr chunks or assistant token deltas.
+raw runtime payloads, stdout/stderr chunks, or assistant token deltas.
 
 ### `subagent_view`
 
@@ -121,28 +124,8 @@ Built from current `SubagentSession` rows attached to the target conversation.
 It includes:
 
 - subagent session public ids
-- scope and profile metadata
+- compact profile metadata
 - observed status
-- close state
-
-### `diagnostic_view`
-
-Built by reusing `ConversationDiagnostics::RecomputeConversationSnapshot`.
-
-It includes compact execution health facts such as:
-
-- provider round counts
-- tool, command, and process counts
-- failure counts and recent failure summaries
-- usage and cost rollups when available
-
-### `memory_view`
-
-`memory_view` is intentionally minimal in v1.
-
-If no dedicated conversation-scoped short-term memory projection exists, the
-bundle returns an empty summary rather than granting the responder general
-filesystem or workspace read capability.
 
 ## Canonical Assessment
 
@@ -166,7 +149,6 @@ The assessment includes:
 - `recent_activity_items`
 - `transcript_refs`
 - `proof_refs`
-- `proof_text`
 - `human_summary`
 
 `overall_state` is normalized to:
@@ -203,11 +185,13 @@ call. It converts the already-bounded observation bundle into the canonical
 assessment, then derives `supervisor_status` and `human_sidechat` from that
 same assessment.
 
-`proof_text` remains the internal proof-oriented wording on the assessment.
 `human_summary` remains the canonical general-purpose summary on the
 assessment. `human_sidechat` is question-aware: it uses the current sidechat
 question, the current assessment, and prior sidechat status when available,
 while still avoiding workflow or transcript public ids in the visible text.
+For transcript-detail questions, the builtin responder answers from transcript
+refs only; it does not quote raw historical message text from the frozen
+observation snapshot.
 
 The architecture keeps a future seam for a program-backed responder, but the
 feature does not depend on one.

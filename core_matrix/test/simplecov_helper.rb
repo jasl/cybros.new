@@ -17,6 +17,20 @@ module CoreMatrixSimpleCov
     end
   end
 
+  def normalize_resultset_coverage(resultset)
+    return resultset unless resultset.is_a?(Hash)
+
+    resultset.each_with_object({}) do |(command_name, data), normalized|
+      coverage = data.is_a?(Hash) ? data["coverage"] || data[:coverage] : nil
+      normalized[command_name] =
+        if coverage.is_a?(Hash)
+          data.merge("coverage" => normalize_tracked_file_coverage(coverage))
+        else
+          data
+        end
+    end
+  end
+
   def normalize_file_coverage(existing, template)
     return template unless existing
 
@@ -49,6 +63,12 @@ module CoreMatrixSimpleCov
 end
 
 module CoreMatrixSimpleCov
+  module ResultsetNormalization
+    def parse_file(path)
+      CoreMatrixSimpleCov.normalize_resultset_coverage(super)
+    end
+  end
+
   module ResultNormalization
     private
 
@@ -64,6 +84,7 @@ module CoreMatrixSimpleCov
   end
 end
 
+SimpleCov::ResultMerger.singleton_class.prepend(CoreMatrixSimpleCov::ResultsetNormalization)
 SimpleCov.singleton_class.prepend(CoreMatrixSimpleCov::ResultNormalization)
 
 SimpleCov.enable_for_subprocesses true

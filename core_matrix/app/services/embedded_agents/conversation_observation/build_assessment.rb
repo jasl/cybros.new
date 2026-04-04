@@ -32,7 +32,6 @@ module EmbeddedAgents
           "recent_activity_items" => recent_activity_items,
           "transcript_refs" => transcript_refs,
           "proof_refs" => proof_refs,
-          "proof_text" => proof_text,
           "human_summary" => human_summary,
           "observed_at" => Time.current.iso8601(6),
         }.compact
@@ -105,20 +104,6 @@ module EmbeddedAgents
           "subagent_session_ids" => Array(subagent_view["items"]).map { |item| item.fetch("subagent_session_id") },
           "activity_projection_sequences" => recent_activity_items.map { |item| item.fetch("projection_sequence") },
         }.compact
-      end
-
-      def proof_text
-        segments = []
-        segments << "Conversation #{proof_refs.fetch("conversation_id")} is #{overall_state}."
-        segments << current_activity
-        segments << "Blocking reason: #{blocking_reason}." if blocking_reason.present?
-        segments << "Workflow run #{proof_refs["workflow_run_id"]}."
-        segments << "Workflow node #{proof_refs["workflow_node_id"]}." if proof_refs["workflow_node_id"].present?
-        segments << "Transcript refs: #{transcript_refs.join(", ")}." if transcript_refs.any?
-        if proof_refs["subagent_session_ids"].any?
-          segments << "Subagent refs: #{proof_refs.fetch("subagent_session_ids").join(", ")}."
-        end
-        segments.join(" ")
       end
 
       def human_summary

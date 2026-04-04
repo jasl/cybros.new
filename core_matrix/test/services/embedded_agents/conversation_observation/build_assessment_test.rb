@@ -19,6 +19,7 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
       assert_equal fixture.fetch(:workflow_run).public_id, assessment.fetch("workflow_run_id")
       assert_equal fixture.fetch(:workflow_node).public_id, assessment.fetch("workflow_node_id")
       assert_equal 2, assessment.fetch("recent_activity_items").length
+      assert assessment.fetch("recent_activity_items").all? { |item| item.keys.sort == %w[created_at event_kind projection_sequence] }
       assert_equal [fixture.fetch(:subagent_session).public_id], assessment.dig("proof_refs", "subagent_session_ids")
       assert_equal(
         [
@@ -30,8 +31,8 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
       )
       assert_equal "The conversation is currently waiting. It is waiting for a running subagent before work on implement can continue. The latest tracked activity was a runtime.process_run.output event. This summary is grounded in workflow state, transcript context, recent activity, and subagent status.", assessment.fetch("human_summary")
       refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, assessment.fetch("human_summary"))
-      assert_includes assessment.fetch("proof_text"), fixture.fetch(:workflow_run).public_id
-      assert_includes assessment.fetch("proof_text"), fixture.fetch(:workflow_node).public_id
+      refute assessment.key?("proof_text")
+      refute assessment.fetch("recent_activity_items").any? { |item| item.key?("payload") }
       assert assessment.fetch("stall_for_ms") >= 0
       assert_equal Time.current.iso8601(6), assessment.fetch("observed_at")
     end

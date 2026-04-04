@@ -60,8 +60,6 @@ module EmbeddedAgents
         "刚才说",
         "讨论",
       ].freeze
-      MAX_TRANSCRIPT_SNIPPET_LENGTH = 140
-
       def self.call(...)
         new(...).call
       end
@@ -205,20 +203,14 @@ module EmbeddedAgents
           counts[item.fetch("observed_status", "unknown")] += 1
         end
         fragments = status_counts.sort.map { |status, count| "#{count} #{humanize(status)}" }
-        "This snapshot shows #{items.length} active subagent#{'s' if items.length != 1}: #{fragments.join(', ')}."
+        "This snapshot shows #{items.length} active subagent#{"s" if items.length != 1}: #{fragments.join(", ")}."
       end
 
       def transcript_detail_sentence
         messages = Array(@observation_bundle.dig("transcript_view", "messages")).last(2)
-        return "This snapshot does not include transcript context to answer that detail question." if messages.empty?
+        return "This snapshot does not include transcript refs to answer that detail question." if messages.empty?
 
-        snippets = messages.map do |message|
-          role = message.fetch("role")
-          content = compress(message.fetch("content"))
-          "#{role} said \"#{truncate(content)}\""
-        end
-
-        "Recent transcript context includes #{snippets.join(' and ')}."
+        "This snapshot keeps transcript refs for #{messages.length} recent message#{"s" if messages.length != 1}, but it does not retain raw transcript text. Use the transcript surface for verbatim detail."
       end
 
       def grounding_sentence
@@ -230,7 +222,7 @@ module EmbeddedAgents
         if evidence_parts.one?
           "This answer is grounded in #{evidence_parts.first}."
         else
-          "This answer is grounded in #{evidence_parts[0...-1].join(', ')}, and #{evidence_parts.last}."
+          "This answer is grounded in #{evidence_parts[0...-1].join(", ")}, and #{evidence_parts.last}."
         end
       end
 
@@ -244,16 +236,6 @@ module EmbeddedAgents
 
       def humanize(value)
         value.to_s.tr("_", " ")
-      end
-
-      def compress(value)
-        value.to_s.gsub(/\s+/, " ").strip
-      end
-
-      def truncate(value)
-        return value if value.length <= MAX_TRANSCRIPT_SNIPPET_LENGTH
-
-        "#{value[0, MAX_TRANSCRIPT_SNIPPET_LENGTH - 3]}..."
       end
     end
   end
