@@ -1,5 +1,5 @@
 module RuntimeCapabilities
-  class ComposeForConversation
+  class PreviewForConversation
     ToolNotVisibleError = Class.new(StandardError)
 
     def self.call(...)

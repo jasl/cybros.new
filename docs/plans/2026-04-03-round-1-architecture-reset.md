@@ -223,16 +223,16 @@
 ### Task 8: Delete transitional wrappers and stale tests
 
 **Files:**
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/preview_for_conversation.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/spawn.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/runtime_capabilities/compose_for_conversation_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/runtime_capabilities/preview_for_conversation_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_sessions/spawn_test.rb`
 - Scan: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test`
 - Scan: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/test`
 
 **Steps:**
-1. Replace the fake-turn conversation preview with an explicit preview-capability
-   object or a direct turn-surface preview helper.
+1. Replace the old conversation composition wrapper with an explicit preview-capability
+   object for conversation-scoped visibility checks.
 2. Update subagent spawning to use the new preview path.
 3. Delete tests that only exist to preserve removed transitional behavior.
 4. Run repo-wide scans for dead names introduced by the round-1 reset.

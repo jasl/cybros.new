@@ -1,6 +1,6 @@
 require "test_helper"
 
-class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
+class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
   SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
 
   test "preview contracts omit the removed attachment-access helper from the top-level payload" do
@@ -9,7 +9,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     )
     conversation = create_root_conversation_for!(registration)
 
-    contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
+    contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
 
     refute contract.key?("attachment_access")
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
@@ -21,7 +21,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     )
     conversation = create_root_conversation_for!(registration)
 
-    contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
+    contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
 
     assert_equal registration[:execution_runtime].public_id, contract.fetch("execution_runtime_id")
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
@@ -56,7 +56,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     )
     conversation = create_root_conversation_for!(registration)
 
-    contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
+    contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
     shell_entry = contract.fetch("tool_catalog").find { |entry| entry.fetch("tool_name") == "exec_command" }
 
     assert_equal "execution_runtime", shell_entry.fetch("tool_kind")
@@ -73,7 +73,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       selector_mode: "auto"
     )
 
-    contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
+    contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
 
     assert_empty contract.fetch("tool_catalog").select { |entry| SUBAGENT_TOOL_NAMES.include?(entry.fetch("tool_name")) }
   end
@@ -92,10 +92,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       profile_key: "researcher"
     ).fetch(:conversation)
 
-    root_tool_names = RuntimeCapabilities::ComposeForConversation.call(
+    root_tool_names = RuntimeCapabilities::PreviewForConversation.call(
       conversation: root_conversation
     ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
-    child_tool_names = RuntimeCapabilities::ComposeForConversation.call(
+    child_tool_names = RuntimeCapabilities::PreviewForConversation.call(
       conversation: child
     ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
 
@@ -117,7 +117,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       profile_key: "researcher"
     ).fetch(:conversation)
 
-    child_tool_names = RuntimeCapabilities::ComposeForConversation.call(
+    child_tool_names = RuntimeCapabilities::PreviewForConversation.call(
       conversation: child
     ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
 
@@ -142,10 +142,10 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       profile_key: "researcher"
     ).fetch(:conversation)
 
-    parent_tool_names = RuntimeCapabilities::ComposeForConversation.call(
+    parent_tool_names = RuntimeCapabilities::PreviewForConversation.call(
       conversation: root_conversation
     ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
-    child_tool_names = RuntimeCapabilities::ComposeForConversation.call(
+    child_tool_names = RuntimeCapabilities::PreviewForConversation.call(
       conversation: child
     ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
 
@@ -169,8 +169,8 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       profile_key: "researcher"
     ).fetch(:conversation)
 
-    error = assert_raises(RuntimeCapabilities::ComposeForConversation::ToolNotVisibleError) do
-      RuntimeCapabilities::ComposeForConversation.visible_tool_entry!(
+    error = assert_raises(RuntimeCapabilities::PreviewForConversation::ToolNotVisibleError) do
+      RuntimeCapabilities::PreviewForConversation.visible_tool_entry!(
         conversation: child,
         tool_name: "subagent_spawn"
       )
@@ -188,7 +188,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
       raise "unexpected synthetic turn preview"
     end
 
-    contract = RuntimeCapabilities::ComposeForConversation.call(conversation: conversation)
+    contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
 
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
   ensure
@@ -199,7 +199,7 @@ class RuntimeCapabilities::ComposeForConversationTest < ActiveSupport::TestCase
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)
 
-    entry = RuntimeCapabilities::ComposeForConversation.call(
+    entry = RuntimeCapabilities::PreviewForConversation.call(
       conversation: conversation
     ).fetch("tool_catalog").find { |tool| tool.fetch("tool_name") == "subagent_spawn" }
 

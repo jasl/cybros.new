@@ -99,11 +99,11 @@ module SubagentSessions
     end
 
     def validate_spawn_visibility!(conversation:)
-      RuntimeCapabilities::ComposeForConversation.visible_tool_entry!(
+      RuntimeCapabilities::PreviewForConversation.visible_tool_entry!(
         conversation: conversation,
         tool_name: "subagent_spawn"
       )
-    rescue RuntimeCapabilities::ComposeForConversation::ToolNotVisibleError => error
+    rescue RuntimeCapabilities::PreviewForConversation::ToolNotVisibleError => error
       raise_invalid!(conversation, :base, error.message)
     end
 

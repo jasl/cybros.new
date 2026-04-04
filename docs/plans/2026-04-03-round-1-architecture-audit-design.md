@@ -227,28 +227,29 @@ Recommended reset:
 - replace `ProjectToolResult` with a registry keyed by tool name or operator
   group
 
-### P2: conversation-scoped capability preview is still implemented as a fake turn
+### P2: conversation-scoped capability preview stayed under a transitional wrapper
 
 Symptoms:
 
-- `ComposeForConversation` creates an unsaved preview `Turn` just to ask
-  `ComposeForTurn` what tools would be visible.
-- subagent spawning uses that wrapper for visibility validation.
+- the conversation-scoped capability preview survived as its own wrapper after
+  the turn-scoped model was accepted.
+- subagent spawning depended on that transitional name for visibility
+  validation.
 
 Evidence:
 
-- [core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb#L32) creates a preview turn.
-- [core_matrix/app/services/subagent_sessions/spawn.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/spawn.rb#L101) still depends on that wrapper.
+- [core_matrix/app/services/runtime_capabilities/preview_for_conversation.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/preview_for_conversation.rb) now represents the explicit preview surface.
+- [core_matrix/app/services/subagent_sessions/spawn.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/spawn.rb#L101) is the main consumer of that preview object.
 
 Why it matters:
 
-- this is not a correctness bug, but it preserves one more transitional layer
+- this is not a correctness bug, but it was a naming and layering holdover
   after the turn-scoped model was accepted
 
 Recommended reset:
 
-- replace this with an explicit "preview capability surface" object that does
-  not pretend to be a turn row
+- keep an explicit preview capability surface object and delete the old
+  conversation-composition wrapper name
 
 ## Candidate Reset List
 
