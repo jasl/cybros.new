@@ -1,5 +1,6 @@
 class Conversation < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   FEATURE_IDS = %w[
     human_interaction
@@ -49,6 +50,8 @@ class Conversation < ApplicationRecord
       explicit_candidate: "explicit_candidate",
     },
     validate: true
+
+  data_lifecycle_kind! :owner_bound
 
   belongs_to :installation
   belongs_to :workspace

@@ -1,6 +1,8 @@
 require "digest"
 
 class UsageRollup < ApplicationRecord
+  include DataLifecycle
+
   DIMENSION_KEYS = %i[
     user_id
     workspace_id
@@ -39,6 +41,8 @@ class UsageRollup < ApplicationRecord
   validate :workspace_installation_match
   validate :agent_program_installation_match
   validate :agent_program_version_installation_match
+
+  data_lifecycle_kind! :retained_aggregate
 
   def self.dimension_digest_for(attributes)
     values = DIMENSION_KEYS.to_h do |key|

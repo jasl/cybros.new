@@ -1,4 +1,6 @@
 class ConversationEvent < ApplicationRecord
+  include DataLifecycle
+
   belongs_to :installation
   belongs_to :conversation
   belongs_to :turn, optional: true
@@ -15,6 +17,8 @@ class ConversationEvent < ApplicationRecord
   validate :stream_pairing
   validate :source_installation_match
   validate :source_conversation_match
+
+  data_lifecycle_kind! :owner_bound
 
   def self.live_projection(conversation:, max_projection_sequence: nil)
     projection = []

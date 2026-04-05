@@ -1,10 +1,13 @@
 class Message < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   TRANSCRIPT_BEARING_TYPES = %w[UserMessage AgentMessage].freeze
 
   enum :role, { user: "user", agent: "agent" }, validate: true
   enum :slot, { input: "input", output: "output" }, validate: true
+
+  data_lifecycle_kind! :owner_bound
 
   belongs_to :installation
   belongs_to :conversation

@@ -1,4 +1,6 @@
 class UsageEvent < ApplicationRecord
+  include DataLifecycle
+
   enum :operation_kind,
     {
       text_generation: "text_generation",
@@ -30,6 +32,8 @@ class UsageEvent < ApplicationRecord
   validate :workspace_installation_match
   validate :agent_program_installation_match
   validate :agent_program_version_installation_match
+
+  data_lifecycle_kind! :bounded_audit
 
   def total_tokens
     return nil if input_tokens.nil? && output_tokens.nil?

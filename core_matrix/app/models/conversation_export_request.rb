@@ -1,5 +1,6 @@
 class ConversationExportRequest < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   enum :lifecycle_state,
     {
@@ -27,6 +28,8 @@ class ConversationExportRequest < ApplicationRecord
   validate :conversation_workspace_match
   validate :user_installation_match
   validate :bundle_file_required_when_succeeded
+
+  data_lifecycle_kind! :ephemeral_observability
 
   private
 

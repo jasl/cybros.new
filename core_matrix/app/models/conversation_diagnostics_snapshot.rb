@@ -1,4 +1,6 @@
 class ConversationDiagnosticsSnapshot < ApplicationRecord
+  include DataLifecycle
+
   belongs_to :installation
   belongs_to :conversation
   belongs_to :most_expensive_turn, class_name: "Turn", optional: true
@@ -8,6 +10,8 @@ class ConversationDiagnosticsSnapshot < ApplicationRecord
   validate :metadata_must_be_hash
   validate :installation_matches_conversation
   validate :outlier_turns_belong_to_conversation
+
+  data_lifecycle_kind! :recomputable
 
   private
 

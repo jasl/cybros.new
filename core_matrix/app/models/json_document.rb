@@ -1,5 +1,6 @@
 class JsonDocument < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   MAX_CONTENT_BYTESIZE = 8.megabytes
 
@@ -17,6 +18,8 @@ class JsonDocument < ApplicationRecord
       less_than_or_equal_to: MAX_CONTENT_BYTESIZE,
     }
   validate :payload_must_be_json_container
+
+  data_lifecycle_kind! :reference_owned
 
   private
 

@@ -1,4 +1,6 @@
 class ConversationSummarySegment < ApplicationRecord
+  include DataLifecycle
+
   belongs_to :installation
   belongs_to :conversation
   belongs_to :start_message, class_name: "Message"
@@ -20,6 +22,8 @@ class ConversationSummarySegment < ApplicationRecord
   validate :start_message_installation_match
   validate :end_message_installation_match
   validate :superseded_by_rules
+
+  data_lifecycle_kind! :owner_bound
 
   private
 

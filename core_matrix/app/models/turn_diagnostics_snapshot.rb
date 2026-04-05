@@ -1,4 +1,6 @@
 class TurnDiagnosticsSnapshot < ApplicationRecord
+  include DataLifecycle
+
   belongs_to :installation
   belongs_to :conversation
   belongs_to :turn
@@ -8,6 +10,8 @@ class TurnDiagnosticsSnapshot < ApplicationRecord
   validate :installation_matches_conversation
   validate :installation_matches_turn
   validate :turn_matches_conversation
+
+  data_lifecycle_kind! :recomputable
 
   private
 

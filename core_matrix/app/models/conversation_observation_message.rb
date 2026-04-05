@@ -1,5 +1,6 @@
 class ConversationObservationMessage < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   enum :role,
     {
@@ -19,6 +20,8 @@ class ConversationObservationMessage < ApplicationRecord
   validate :session_installation_match
   validate :frame_installation_match
   validate :frame_session_match
+
+  data_lifecycle_kind! :ephemeral_observability
 
   private
 

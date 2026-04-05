@@ -1,5 +1,6 @@
 class ConversationObservationSession < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   enum :lifecycle_state,
     {
@@ -28,6 +29,8 @@ class ConversationObservationSession < ApplicationRecord
   validate :target_conversation_installation_match
   validate :initiator_installation_match
   validate :capability_policy_snapshot_must_be_hash
+
+  data_lifecycle_kind! :ephemeral_observability
 
   private
 

@@ -1,5 +1,6 @@
 class ConversationObservationFrame < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
 
   belongs_to :installation
   belongs_to :target_conversation, class_name: "Conversation"
@@ -14,6 +15,8 @@ class ConversationObservationFrame < ApplicationRecord
   validate :target_conversation_match
   validate :session_installation_match
   validate :snapshot_payloads_must_be_hashes_or_arrays
+
+  data_lifecycle_kind! :ephemeral_observability
 
   private
 

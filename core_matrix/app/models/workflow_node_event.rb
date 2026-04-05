@@ -1,4 +1,6 @@
 class WorkflowNodeEvent < ApplicationRecord
+  include DataLifecycle
+
   belongs_to :installation
   belongs_to :workflow_run
   belongs_to :workflow_node
@@ -25,6 +27,8 @@ class WorkflowNodeEvent < ApplicationRecord
   validate :workflow_node_installation_match
   validate :workflow_node_workflow_run_match
   validate :projection_integrity
+
+  data_lifecycle_kind! :owner_bound
 
   private
 

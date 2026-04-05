@@ -1,4 +1,6 @@
 class ConversationImport < ApplicationRecord
+  include DataLifecycle
+
   enum :kind,
     {
       branch_prefix: "branch_prefix",
@@ -6,6 +8,8 @@ class ConversationImport < ApplicationRecord
       quoted_context: "quoted_context",
     },
     validate: true
+
+  data_lifecycle_kind! :owner_bound
 
   belongs_to :installation
   belongs_to :conversation
