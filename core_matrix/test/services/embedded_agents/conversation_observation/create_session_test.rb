@@ -40,4 +40,26 @@ class EmbeddedAgents::ConversationObservation::CreateSessionTest < ActiveSupport
 
     assert_equal "not allowed to observe conversation", error.message
   end
+
+  test "raises record not found for a missing conversation row" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      agent_program: context[:agent_program]
+    )
+    conversation_id = conversation.id
+    conversation.delete
+
+    error = assert_raises(ActiveRecord::RecordNotFound) do
+      EmbeddedAgents::ConversationObservation::CreateSession.call(
+        actor: context[:user],
+        conversation: conversation
+      )
+    end
+
+    assert_match(/Couldn't find Conversation/, error.message)
+    assert_nil Conversation.unscoped.find_by(id: conversation_id)
+  end
 end

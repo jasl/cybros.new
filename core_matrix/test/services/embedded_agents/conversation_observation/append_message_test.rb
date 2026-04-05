@@ -60,6 +60,25 @@ class EmbeddedAgents::ConversationObservation::AppendMessageTest < ActiveSupport
     assert_equal "observation session is closed", closed_error.message
   end
 
+  test "raises record not found for a missing session row" do
+    fixture = build_observation_fixture!
+    session = fixture.fetch(:session)
+    session_id = session.id
+
+    ConversationObservationSession.unscoped.where(id: session_id).delete_all
+
+    error = assert_raises(ActiveRecord::RecordNotFound) do
+      EmbeddedAgents::ConversationObservation::AppendMessage.call(
+        actor: fixture.fetch(:user),
+        conversation_observation_session: session,
+        content: "What are you doing?"
+      )
+    end
+
+    assert_match(/Couldn't find ConversationObservationSession/, error.message)
+    assert_nil ConversationObservationSession.unscoped.find_by(id: session_id)
+  end
+
   private
 
   def build_observation_fixture!

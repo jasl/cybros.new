@@ -21,12 +21,13 @@ module EmbeddedAgents
       end
 
       def call
-        authority = Authority.call(actor: @actor, conversation_id: @conversation.public_id)
+        conversation = @conversation.reload
+        authority = Authority.call(actor: @actor, conversation_id: conversation.public_id)
         raise EmbeddedAgents::Errors::UnauthorizedObservation, "not allowed to observe conversation" unless authority.allowed?
 
         ConversationObservationSession.create!(
-          installation: @conversation.installation,
-          target_conversation: @conversation,
+          installation: conversation.installation,
+          target_conversation: conversation,
           initiator: @actor,
           lifecycle_state: "open",
           responder_strategy: @responder_strategy,

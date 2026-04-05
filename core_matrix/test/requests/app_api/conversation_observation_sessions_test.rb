@@ -81,4 +81,24 @@ class AppApiConversationObservationSessionsTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "returns not found for missing observation conversations and sessions" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    post "/app_api/conversation_observation_sessions",
+      params: {
+        conversation_id: "missing-conversation",
+        responder_strategy: "builtin",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+
+    get "/app_api/conversation_observation_sessions/missing-session",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
+  end
 end

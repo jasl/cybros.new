@@ -59,6 +59,61 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
     assert_response :not_found
   end
 
+  test "returns not found for missing observation sessions" do
+    fixture = build_observation_fixture!
+    registration = register_machine_api_for_context!(fixture)
+
+    post "/app_api/conversation_observation_sessions/missing-session/messages",
+      params: {
+        content: "What changed most recently?",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+
+    get "/app_api/conversation_observation_sessions/missing-session/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
+  end
+
+  test "keeps closed observation history readable while rejecting new messages" do
+    fixture = build_observation_fixture!
+    registration = register_machine_api_for_context!(fixture)
+    fixture.fetch(:session).update!(lifecycle_state: "closed")
+
+    get "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :success
+    assert_equal fixture.fetch(:session).public_id, JSON.parse(response.body).fetch("observation_session_id")
+
+    post "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
+      params: {
+        content: "What changed most recently?",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :gone
+  end
+
+  test "returns gone when observation history references a missing frame row" do
+    fixture = build_observation_fixture!
+    registration = register_machine_api_for_context!(fixture)
+    frame = fixture.fetch(:session).conversation_observation_frames.order(:created_at).last
+
+    ActiveRecord::Base.connection.disable_referential_integrity do
+      ConversationObservationFrame.unscoped.where(id: frame.id).delete_all
+    end
+
+    get "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :gone
+  end
+
   private
 
   def build_observation_fixture!

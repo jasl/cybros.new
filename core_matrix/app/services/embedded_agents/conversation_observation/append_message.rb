@@ -12,9 +12,11 @@ module EmbeddedAgents
       end
 
       def call
+        @conversation_observation_session = @conversation_observation_session.reload
+        target_conversation = @conversation_observation_session.target_conversation.reload
         authority = Authority.call(
           actor: @actor,
-          conversation_id: @conversation_observation_session.target_conversation.public_id
+          conversation_id: target_conversation.public_id
         )
         raise EmbeddedAgents::Errors::UnauthorizedObservation, "not allowed to observe conversation" unless authority.allowed?
         raise EmbeddedAgents::Errors::UnauthorizedObservation, "not allowed to append to observation session" unless initiator_matches_actor?
