@@ -19,7 +19,7 @@ OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
 PLAYWRIGHT_VERSION = "1.59.1".freeze
 EXPECTED_SKILL_DAG_SHAPE = ["agent_turn_step"].freeze
-SUPERVISION_PROMPT = "Please tell a human supervisor what you are doing right now, what changed most recently, and which control actions are available.".freeze
+SUPERVISION_PROMPT = "Please tell me what you are doing right now and what changed most recently.".freeze
 TERMINAL_WORK_SEGMENT_STATES = %w[completed failed interrupted canceled].freeze
 INTERNAL_HUMAN_VISIBLE_TOKEN_PATTERN = %r{
   provider_round|

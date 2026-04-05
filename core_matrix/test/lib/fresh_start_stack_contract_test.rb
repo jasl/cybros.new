@@ -91,7 +91,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
   test "capstone scenario uses supervision naming and helper entrypoints" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'SUPERVISION_PROMPT = "Please tell a human supervisor what you are doing right now, what changed most recently, and which control actions are available."'
+    assert_includes scenario, 'SUPERVISION_PROMPT = "Please tell me what you are doing right now and what changed most recently."'
     assert_includes scenario, "ManualAcceptanceSupport.create_conversation_supervision_session!("
     assert_includes scenario, "ManualAcceptanceSupport.append_conversation_supervision_message!("
     assert_includes scenario, 'response.fetch("machine_status")'

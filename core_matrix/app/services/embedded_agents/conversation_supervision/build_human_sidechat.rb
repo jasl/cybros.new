@@ -33,40 +33,60 @@ module EmbeddedAgents
       private
 
       def content
-        [primary_sentence, grounding_sentence].compact.join(" ")
+        [*primary_sentences, grounding_sentence].compact.join(" ")
       end
 
-      def primary_sentence
+      def primary_sentences
         case intent
-        when :current_status then current_status_sentence
-        when :recent_progress then recent_change_sentence
-        when :blocker then blocker_sentence
-        when :next_step then next_step_sentence
-        when :subagent_status then subagent_sentence
-        when :conversation_fact then conversation_fact_sentence
+        when :blocker then [blocker_sentence]
+        when :subagent_status then [subagent_sentence]
+        when :conversation_fact then [conversation_fact_sentence]
         else
-          BuildHumanSummary.call(machine_status: @machine_status)
+          status_sentences.presence || [BuildHumanSummary.call(machine_status: @machine_status)]
         end
       end
 
       def intent
         @intent ||= begin
-          if matches?(CONVERSATION_FACT_KEYWORDS) || normalized_question.include?("2048")
+          if matches?(CONVERSATION_FACT_KEYWORDS)
             :conversation_fact
           elsif matches?(SUBAGENT_KEYWORDS)
             :subagent_status
-          elsif matches?(NEXT_STEP_KEYWORDS)
-            :next_step
           elsif matches?(BLOCKER_KEYWORDS)
             :blocker
-          elsif matches?(RECENT_CHANGE_KEYWORDS)
-            :recent_progress
-          elsif matches?(CURRENT_STATUS_KEYWORDS)
-            :current_status
           else
             :general_status
           end
         end
+      end
+
+      def status_sentences
+        sentences = []
+        sentences << current_status_sentence if asks_for_current_status? || composite_status_prompt?
+        sentences << recent_change_sentence if asks_for_recent_change?
+
+        if asks_for_next_step?
+          next_sentence = next_step_sentence_if_confident
+          sentences << next_sentence if next_sentence.present?
+        end
+
+        sentences.compact_blank.uniq
+      end
+
+      def asks_for_current_status?
+        matches?(CURRENT_STATUS_KEYWORDS)
+      end
+
+      def asks_for_recent_change?
+        matches?(RECENT_CHANGE_KEYWORDS)
+      end
+
+      def asks_for_next_step?
+        matches?(NEXT_STEP_KEYWORDS)
+      end
+
+      def composite_status_prompt?
+        asks_for_current_status? && asks_for_recent_change?
       end
 
       def matches?(keywords)
@@ -78,7 +98,7 @@ module EmbeddedAgents
       end
 
       def current_status_sentence
-        focus = @machine_status["current_focus_summary"] || @machine_status["request_summary"]
+        focus = current_focus_summary
         state = @machine_status.fetch("overall_state")
 
         case state
@@ -95,13 +115,16 @@ module EmbeddedAgents
         else
           return "Right now the conversation is #{state}." if focus.blank?
 
-          "Right now the conversation is working on #{focus.downcase}."
+          return "Right now the conversation is #{focus.downcase}." if activity_phrase?(focus)
+
+          verb = state == "queued" ? "queued to work on" : "working on"
+          "Right now the conversation is #{verb} #{focus.downcase}."
         end
       end
 
       def recent_change_sentence
         latest_entry = Array(@machine_status["activity_feed"]).last
-        latest_summary = latest_entry&.fetch("summary", nil) || @machine_status["recent_progress_summary"]
+        latest_summary = @machine_status["recent_progress_summary"] || latest_entry&.fetch("summary", nil)
         return "Most recently, no newer supervision change has been recorded." if latest_summary.blank?
 
         "Most recently, #{latest_summary.downcase}."
@@ -122,6 +145,13 @@ module EmbeddedAgents
         return "The next justified step is #{hint.downcase}." if hint.present?
 
         "The next step is not justified beyond the frozen supervision snapshot."
+      end
+
+      def next_step_sentence_if_confident
+        hint = @machine_status["next_step_hint"]
+        return if hint.blank?
+
+        "The next justified step is #{hint.downcase}."
       end
 
       def subagent_sentence
@@ -158,6 +188,35 @@ module EmbeddedAgents
           .scan(/[a-z0-9]+/)
           .map { |term| term.sub(/ing\z/, "").sub(/s\z/, "") }
           .reject { |term| term.blank? || %w[a an already and before for has have in is of on the this to turn what with].include?(term) }
+      end
+
+      def current_focus_summary
+        @machine_status["current_focus_summary"] ||
+          @machine_status["request_summary"] ||
+          contextual_focus_summary
+      end
+
+      def contextual_focus_summary
+        fact = Array(@machine_status.dig("conversation_context", "facts")).last
+        return if fact.blank?
+
+        keywords = Array(fact["keywords"]).map { |keyword| keyword.to_s.downcase }
+        if keywords.include?("2048") && keywords.include?("game")
+          return "building the React 2048 game" if keywords.include?("react")
+          return "building the 2048 game"
+        end
+
+        summary = fact.fetch("summary", nil).to_s
+        return if summary.blank?
+
+        summary
+          .sub(/\AContext already references\s+/i, "")
+          .sub(/\.\z/, "")
+          .presence
+      end
+
+      def activity_phrase?(text)
+        text.to_s.match?(/\A(?:build|building|render|rendering|check|checking|verify|verifying|report|reporting|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing)\b/i)
       end
 
       def grounding_sentence

@@ -88,6 +88,73 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_includes tests_response.dig("human_sidechat", "content"), "We already agreed to add tests before refactoring."
   end
 
+  test "answers the default supervision prompt with current work and recent change" do
+    fixture = prepare_conversation_supervision_context!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/right now/i, content)
+    assert_match(/most recently/i, content)
+    assert_match(/rendering the frozen supervision snapshot/i, content)
+    assert_match(/replaced the old observation bundle with structured supervision data/i, content)
+  end
+
+  test "falls back to contextual work summary when the snapshot has no explicit focus summary" do
+    fixture = prepare_conversation_supervision_context!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    snapshot.update!(
+      machine_status_payload: snapshot.machine_status_payload.merge(
+        "overall_state" => "running",
+        "board_lane" => "active",
+        "current_focus_summary" => nil,
+        "request_summary" => nil,
+        "recent_progress_summary" => nil,
+        "activity_feed" => [
+          {
+            "summary" => "Started the turn."
+          }
+        ],
+        "conversation_context" => {
+          "facts" => [
+            {
+              "summary" => "Context already references the 2048 acceptance flow.",
+              "keywords" => %w[build react 2048 game acceptance flow]
+            }
+          ]
+        }
+      )
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/right now/i, content)
+    assert_match(/most recently/i, content)
+    assert_match(/react 2048 game/i, content)
+    assert_match(/started the turn/i, content)
+  end
+
   test "renders human-readable confirmation for dispatched control intents" do
     fixture = prepare_conversation_supervision_context!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
