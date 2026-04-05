@@ -87,4 +87,33 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_includes fact_response.dig("human_sidechat", "content"), "The 2048 acceptance flow is already wired."
     refute_includes tests_response.dig("human_sidechat", "content"), "We already agreed to add tests before refactoring."
   end
+
+  test "renders human-readable confirmation for dispatched control intents" do
+    fixture = prepare_conversation_supervision_context!(control_enabled: true)
+    session = create_conversation_supervision_session!(fixture)
+    decision = EmbeddedAgents::ConversationSupervision::MaybeDispatchControlIntent.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      question: "stop"
+    )
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "stop",
+      control_decision: decision
+    )
+
+    assert_equal "control_request", response.dig("human_sidechat", "intent")
+    assert_equal "request_turn_interrupt", response.dig("human_sidechat", "classified_intent")
+    assert_equal "control_dispatched", response.dig("human_sidechat", "response_kind")
+    assert_equal decision.conversation_control_request.public_id,
+      response.dig("human_sidechat", "conversation_control_request_id")
+    refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, response.dig("human_sidechat", "content"))
+  end
 end

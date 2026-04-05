@@ -26,12 +26,17 @@ module EmbeddedAgents
         raise EmbeddedAgents::Errors::ClosedSupervisionSession, "supervision session is closed" unless @conversation_supervision_session.open?
 
         ApplicationRecord.transaction do
+          control_decision = MaybeDispatchControlIntent.call(
+            actor: @actor,
+            conversation_supervision_session: @conversation_supervision_session,
+            question: @content
+          )
           snapshot = BuildSnapshot.call(
             actor: @actor,
             conversation_supervision_session: @conversation_supervision_session
           )
           user_message = create_user_message(snapshot)
-          responder_output = respond(snapshot)
+          responder_output = respond(snapshot, control_decision:)
           supervisor_message = create_supervisor_message(snapshot, responder_output)
 
           responder_output.merge(
@@ -61,13 +66,15 @@ module EmbeddedAgents
         )
       end
 
-      def respond(snapshot)
+      def respond(snapshot, control_decision:)
         case @conversation_supervision_session.responder_strategy
         when "builtin"
           Responders::Builtin.call(
+            actor: @actor,
             conversation_supervision_session: @conversation_supervision_session,
             conversation_supervision_snapshot: snapshot,
-            question: @content
+            question: @content,
+            control_decision:
           )
         else
           raise ArgumentError, "unsupported conversation supervision responder strategy #{@conversation_supervision_session.responder_strategy.inspect}"

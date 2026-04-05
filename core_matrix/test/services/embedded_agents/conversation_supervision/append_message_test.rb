@@ -81,4 +81,47 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     assert_match(/Couldn't find ConversationSupervisionSession/, error.message)
     assert_nil ConversationSupervisionSession.unscoped.find_by(id: session_id)
   end
+
+  test "dispatches high-confidence control phrases and records a confirmation exchange" do
+    fixture = prepare_conversation_supervision_context!(control_enabled: true)
+    session = create_conversation_supervision_session!(fixture)
+    result = nil
+
+    assert_difference("ConversationControlRequest.count", 1) do
+      assert_difference("ConversationSupervisionSnapshot.count", 1) do
+        assert_difference("ConversationSupervisionMessage.count", 2) do
+          result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+            actor: fixture.fetch(:user),
+            conversation_supervision_session: session,
+            content: "stop"
+          )
+        end
+      end
+    end
+
+    request = ConversationControlRequest.order(:id).last
+
+    assert_equal "control_request", result.dig("human_sidechat", "intent")
+    assert_equal "request_turn_interrupt", result.dig("human_sidechat", "classified_intent")
+    assert_equal request.public_id, result.dig("human_sidechat", "conversation_control_request_id")
+    assert_match(/asked the current task to stop|requested that the current task stop/i, result.dig("human_sidechat", "content"))
+    assert_equal result.dig("human_sidechat", "content"), session.conversation_supervision_messages.order(:created_at).last.content
+  end
+
+  test "returns an explanatory chat response instead of dispatching control when control is disabled" do
+    fixture = prepare_conversation_supervision_context!(control_enabled: false)
+    session = create_conversation_supervision_session!(fixture)
+
+    assert_no_difference("ConversationControlRequest.count") do
+      result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+        actor: fixture.fetch(:user),
+        conversation_supervision_session: session,
+        content: "stop"
+      )
+
+      assert_equal "control_request", result.dig("human_sidechat", "intent")
+      assert_equal "control_unavailable", result.dig("human_sidechat", "response_kind")
+      assert_match(/control is not enabled/i, result.dig("human_sidechat", "content"))
+    end
+  end
 end

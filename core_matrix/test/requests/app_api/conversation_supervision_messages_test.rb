@@ -81,4 +81,28 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
 
     assert_response :gone
   end
+
+  test "returns bounded control confirmation for high-confidence control phrases" do
+    fixture = prepare_conversation_supervision_context!(control_enabled: true)
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+
+    assert_difference("ConversationControlRequest.count", 1) do
+      post "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+        params: {
+          content: "快住手",
+        },
+        headers: app_api_headers(registration[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :created
+
+    response_body = JSON.parse(response.body)
+
+    assert_equal "control_request", response_body.dig("human_sidechat", "intent")
+    assert_equal "request_turn_interrupt", response_body.dig("human_sidechat", "classified_intent")
+    assert_equal "control_dispatched", response_body.dig("human_sidechat", "response_kind")
+    assert_match(/stop|interrupt/i, response_body.dig("human_sidechat", "content"))
+  end
 end
