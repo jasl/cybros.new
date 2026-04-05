@@ -124,6 +124,7 @@ class AgentControlMailboxItem < ApplicationRecord
   def reconstructed_agent_program_request_payload
     payload = payload_document.payload.deep_dup
     payload.merge!(payload_body)
+    payload["protocol_version"] ||= "agent-program/2026-04-01"
 
     task = payload["task"].is_a?(Hash) ? payload["task"].deep_dup : {}
     if workflow_node.present?
@@ -139,6 +140,14 @@ class AgentControlMailboxItem < ApplicationRecord
       payload["provider_context"] = execution_contract.provider_context
     end
 
+    request_kind = payload["request_kind"]
+    if execution_contract.present? && !payload.key?("agent_context")
+      payload["agent_context"] = reconstructed_agent_context(payload)
+    end
+    if execution_contract.present? && request_kind == "prepare_round" && !payload.key?("round_context")
+      payload["round_context"] = reconstructed_round_context
+    end
+
     runtime_context = payload["runtime_context"].is_a?(Hash) ? payload["runtime_context"].deep_dup : {}
     runtime_context["logical_work_id"] = logical_work_id
     runtime_context["attempt_no"] = attempt_no
@@ -147,6 +156,35 @@ class AgentControlMailboxItem < ApplicationRecord
     payload["runtime_context"] = runtime_context if runtime_context.present?
 
     payload
+  end
+
+  def reconstructed_agent_context(payload)
+    capability_projection = execution_contract.turn.execution_snapshot.capability_projection
+    tool_name = payload.dig("program_tool_call", "tool_name")
+    allowed_tool_names =
+      if tool_name.present?
+        [tool_name]
+      else
+        capability_projection.fetch("tool_surface", []).map { |entry| entry.fetch("tool_name") }.uniq
+      end
+
+    {
+      "profile" => capability_projection.fetch("profile_key", "main"),
+      "is_subagent" => capability_projection["is_subagent"] == true,
+      "subagent_session_id" => capability_projection["subagent_session_id"],
+      "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+      "subagent_depth" => capability_projection["subagent_depth"],
+      "owner_conversation_id" => capability_projection["owner_conversation_id"],
+      "allowed_tool_names" => allowed_tool_names,
+    }.compact
+  end
+
+  def reconstructed_round_context
+    execution_contract.turn.execution_snapshot.conversation_projection.slice(
+      "messages",
+      "context_imports",
+      "projection_fingerprint"
+    )
   end
 
   def payload_must_be_hash

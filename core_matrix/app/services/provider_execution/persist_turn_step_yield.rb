@@ -226,7 +226,7 @@ module ProviderExecution
         artifact_key: @tool_batch_result.fetch("batch_id"),
         artifact_kind: "provider_tool_batch_manifest",
         storage_mode: "json_document",
-        payload: @tool_batch_result
+        payload: compact_manifest_payload
       )
     end
 
@@ -256,6 +256,41 @@ module ProviderExecution
         "input_tokens" => payload[:prompt_tokens] || payload["prompt_tokens"] || payload[:input_tokens] || payload["input_tokens"],
         "output_tokens" => payload[:completion_tokens] || payload["completion_tokens"] || payload[:output_tokens] || payload["output_tokens"],
         "total_tokens" => payload[:total_tokens] || payload["total_tokens"],
+      }.compact
+    end
+
+    def compact_manifest_payload
+      {
+        "batch_id" => @tool_batch_result.fetch("batch_id"),
+        "provider_round_index" => @tool_batch_result.fetch("provider_round_index"),
+        "ordered_tool_node_keys" => @tool_batch_result.fetch("ordered_tool_node_keys"),
+        "successor" => @tool_batch_result.fetch("successor"),
+        "stages" => stages.map { |stage| compact_manifest_stage(stage) },
+      }
+    end
+
+    def compact_manifest_stage(stage)
+      {
+        "stage_index" => stage.fetch("stage_index"),
+        "dispatch_mode" => stage.fetch("dispatch_mode"),
+        "completion_barrier" => stage.fetch("completion_barrier"),
+        "join_node_key" => stage.fetch("join_node_key"),
+        "tool_entries" => stage.fetch("tool_entries").map { |entry| compact_manifest_tool_entry(entry) },
+      }
+    end
+
+    def compact_manifest_tool_entry(entry)
+      source_binding = @round_bindings.find { |candidate| candidate.id == entry.fetch("source_tool_binding_id") }
+
+      {
+        "tool_node_key" => entry.fetch("tool_node_key"),
+        "stage_index" => entry.fetch("stage_index"),
+        "stage_position" => entry.fetch("stage_position"),
+        "parallel_safe" => entry.fetch("parallel_safe"),
+        "source_tool_binding_public_id" => source_binding&.public_id,
+        "call_id" => entry.dig("tool_call", "call_id"),
+        "tool_name" => entry.dig("tool_call", "tool_name"),
+        "provider_format" => entry.dig("tool_call", "provider_format"),
       }.compact
     end
 

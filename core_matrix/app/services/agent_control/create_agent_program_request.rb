@@ -67,7 +67,10 @@ module AgentControl
     def compact_request_payload(payload, workflow_node:, execution_contract:)
       compact = payload.deep_dup
       compact.delete("request_kind")
+      compact.delete("protocol_version")
       compact.delete("provider_context") if execution_contract.present?
+      compact.delete("agent_context") if execution_contract.present?
+      compact.delete("round_context") if execution_contract.present? && @request_kind == "prepare_round"
 
       task = extract_task_payload(compact)
       if task.present?

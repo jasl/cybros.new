@@ -278,6 +278,15 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal ["provider_round_1_tool_1"], successor.prior_tool_node_keys
     assert_equal 2, successor.provider_round_index
     assert_equal [], program_exchange.execute_program_tool_requests
+
+    manifest = workflow_run.workflow_artifacts.find_by!(artifact_kind: "provider_tool_batch_manifest")
+    tool_entry = manifest.payload.fetch("stages").sole.fetch("tool_entries").sole
+
+    refute tool_entry.key?("tool_call")
+    assert_equal "provider_round_1_tool_1", tool_entry.fetch("tool_node_key")
+    assert_equal "call-calculator-1", tool_entry.fetch("call_id")
+    assert_equal "calculator", tool_entry.fetch("tool_name")
+    assert_equal "chat_completions", tool_entry.fetch("provider_format")
   end
 
   test "rejects a turn_step that was already claimed running before dispatch" do

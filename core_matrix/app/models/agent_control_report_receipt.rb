@@ -27,7 +27,13 @@ class AgentControlReportReceipt < ApplicationRecord
   validate :payload_must_be_hash_when_provided
 
   def payload
-    (report_document&.payload || {}).deep_dup.merge(structured_payload_fields)
+    payload = (report_document&.payload || {}).deep_dup
+    reconstructed_response = reconstructed_response_payload(payload)
+    if reconstructed_response.present?
+      existing_response = payload["response_payload"].is_a?(Hash) ? payload["response_payload"].deep_dup : {}
+      payload["response_payload"] = existing_response.merge(reconstructed_response)
+    end
+    payload.merge(structured_payload_fields)
   end
 
   def payload=(value)
@@ -56,7 +62,17 @@ class AgentControlReportReceipt < ApplicationRecord
   end
 
   def compact_payload_for_storage(payload)
-    payload.deep_stringify_keys.except(*STRUCTURED_PAYLOAD_KEYS, "control")
+    compact = payload.deep_stringify_keys.except(*STRUCTURED_PAYLOAD_KEYS, "control")
+    response_payload = compact["response_payload"]
+    return compact unless compact_program_tool_report_response?(response_payload)
+
+    compact_response = compact_response_payload(response_payload)
+    if compact_response.present?
+      compact["response_payload"] = compact_response
+    else
+      compact.delete("response_payload")
+    end
+    compact
   end
 
   def structured_payload_fields
@@ -88,5 +104,52 @@ class AgentControlReportReceipt < ApplicationRecord
 
   def resolved_conversation
     resolved_agent_task_run&.conversation || resolved_workflow_node&.conversation
+  end
+
+  def resolved_tool_invocation
+    tool_invocation_id = mailbox_item&.payload&.dig("runtime_resource_refs", "tool_invocation", "tool_invocation_id")
+    return if tool_invocation_id.blank?
+
+    resolved_agent_task_run&.tool_invocations&.find_by(public_id: tool_invocation_id) ||
+      resolved_workflow_node&.tool_invocations&.find_by(public_id: tool_invocation_id) ||
+      ToolInvocation.find_by(installation_id: installation_id, public_id: tool_invocation_id)
+  end
+
+  def compact_program_tool_report_response?(response_payload)
+    method_id == "agent_program_completed" &&
+      mailbox_item&.payload&.fetch("request_kind", nil) == "execute_program_tool" &&
+      response_payload.is_a?(Hash) &&
+      resolved_tool_invocation.present?
+  end
+
+  def compact_response_payload(response_payload)
+    response_payload
+      .deep_stringify_keys
+      .except("result", "program_tool_call")
+      .tap do |compact|
+        compact.delete("status") if compact["status"] == "ok"
+        compact.delete("output_chunks") if Array(compact["output_chunks"]).empty?
+        compact.delete("summary_artifacts") if Array(compact["summary_artifacts"]).empty?
+      end
+      .presence
+  end
+
+  def reconstructed_response_payload(payload)
+    return {} unless method_id == "agent_program_completed"
+    return {} unless mailbox_item&.payload&.fetch("request_kind", nil) == "execute_program_tool"
+
+    existing = payload["response_payload"].is_a?(Hash) ? payload["response_payload"] : {}
+    response = {}
+
+    response["status"] = "ok" unless existing.key?("status")
+    response["output_chunks"] = [] unless existing.key?("output_chunks")
+    response["summary_artifacts"] = [] unless existing.key?("summary_artifacts")
+    response["program_tool_call"] = mailbox_item.payload.fetch("program_tool_call") unless existing.key?("program_tool_call")
+
+    if !existing.key?("result") && (tool_invocation = resolved_tool_invocation).present?
+      response["result"] = tool_invocation.response_payload
+    end
+
+    response.compact
   end
 end

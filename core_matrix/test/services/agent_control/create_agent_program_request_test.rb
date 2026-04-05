@@ -86,4 +86,60 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_equal context.fetch(:deployment).public_id, mailbox_item.payload.dig("runtime_context", "agent_program_version_id")
     assert_equal "keep-me", mailbox_item.payload.dig("runtime_context", "custom_flag")
   end
+
+  test "reconstructs prepare_round snapshot context from the execution contract instead of storing it inline" do
+    context = build_agent_control_context!
+    execution_snapshot = context.fetch(:turn).execution_snapshot
+    logical_work_id = "prepare-round:#{context.fetch(:workflow_node).public_id}"
+    round_context = execution_snapshot.conversation_projection.slice("messages", "context_imports", "projection_fingerprint")
+    capability_projection = execution_snapshot.capability_projection
+    expected_agent_context = {
+      "profile" => capability_projection.fetch("profile_key", "main"),
+      "is_subagent" => capability_projection["is_subagent"] == true,
+      "subagent_session_id" => capability_projection["subagent_session_id"],
+      "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+      "subagent_depth" => capability_projection["subagent_depth"],
+      "owner_conversation_id" => capability_projection["owner_conversation_id"],
+      "allowed_tool_names" => capability_projection.fetch("tool_surface", []).map { |entry| entry.fetch("tool_name") }.uniq,
+    }.compact
+
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "protocol_version" => "agent-program/2026-04-01",
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+        "round_context" => round_context,
+        "agent_context" => expected_agent_context,
+        "provider_context" => execution_snapshot.provider_context,
+        "runtime_context" => {
+          "logical_work_id" => logical_work_id,
+          "attempt_no" => 1,
+          "runtime_plane" => "program",
+          "agent_program_version_id" => context.fetch(:deployment).public_id,
+        },
+      },
+      logical_work_id: logical_work_id,
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    stored_payload = mailbox_item.payload_document.payload
+
+    refute stored_payload.key?("protocol_version")
+    refute stored_payload.key?("round_context")
+    refute stored_payload.key?("agent_context")
+    refute stored_payload.key?("provider_context")
+
+    assert_equal "agent-program/2026-04-01", mailbox_item.payload.fetch("protocol_version")
+    assert_equal round_context, mailbox_item.payload.fetch("round_context")
+    assert_equal expected_agent_context, mailbox_item.payload.fetch("agent_context")
+    assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
+  end
 end
