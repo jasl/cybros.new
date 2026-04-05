@@ -1,6 +1,10 @@
 require "test_helper"
 
 class UsageEventTest < ActiveSupport::TestCase
+  test "is explicitly classified as bounded audit data" do
+    assert_equal :bounded_audit, UsageEvent.data_lifecycle_kind
+  end
+
   test "captures usage dimensions for token-based events" do
     installation = create_installation!
     user = create_user!(installation: installation)

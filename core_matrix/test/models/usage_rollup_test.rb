@@ -1,6 +1,10 @@
 require "test_helper"
 
 class UsageRollupTest < ActiveSupport::TestCase
+  test "is explicitly classified as a retained aggregate" do
+    assert_equal :retained_aggregate, UsageRollup.data_lifecycle_kind
+  end
+
   test "enforces uniqueness by bucket and dimensions" do
     installation = create_installation!
     dimension_digest = UsageRollup.dimension_digest_for(
