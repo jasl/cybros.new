@@ -1,9 +1,19 @@
 module EmbeddedAgents
-  module ConversationObservation
+  module ConversationSupervision
     class Authority
+      CONTROL_VERBS = %w[
+        request_status_refresh
+        request_turn_interrupt
+        request_conversation_close
+        send_guidance_to_active_agent
+        send_guidance_to_subagent
+        request_subagent_close
+        retry_blocked_step
+        resume_waiting_workflow
+      ].freeze
       PUBLIC_ID_PATTERN = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
 
-      attr_reader :actor, :conversation, :allowed
+      attr_reader :actor, :conversation, :policy
 
       def self.call(...)
         new(...).call
@@ -18,12 +28,30 @@ module EmbeddedAgents
 
       def call
         @conversation = resolve_conversation
-        @allowed = owner_on_own_conversation?
+        @policy = @conversation.conversation_capability_policy
         self
       end
 
       def allowed?
-        !!@allowed
+        owner_on_own_conversation?
+      end
+
+      def supervision_enabled?
+        policy&.supervision_enabled?
+      end
+
+      def side_chat_enabled?
+        supervision_enabled? && policy&.side_chat_enabled?
+      end
+
+      def control_enabled?
+        side_chat_enabled? && policy&.control_enabled?
+      end
+
+      def available_control_verbs
+        return [] unless control_enabled?
+
+        CONTROL_VERBS
       end
 
       private

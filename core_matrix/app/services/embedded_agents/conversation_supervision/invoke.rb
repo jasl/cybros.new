@@ -1,11 +1,11 @@
 module EmbeddedAgents
-  module ConversationObservation
+  module ConversationSupervision
     class Invoke
       def self.call(...)
         new(...).call
       end
 
-      def initialize(actor:, target:, input:, options: {}, agent_key: "conversation_observation")
+      def initialize(actor:, target:, input:, options: {}, agent_key: "conversation_supervision")
         @actor = actor
         @target = target
         @input = input
@@ -15,14 +15,15 @@ module EmbeddedAgents
 
       def call
         authority = Authority.call(actor: @actor, conversation_id: conversation_id_from_target)
-        raise EmbeddedAgents::Errors::UnauthorizedObservation, "not allowed to observe conversation" unless authority.allowed?
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless authority.side_chat_enabled?
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless authority.allowed?
 
         EmbeddedAgents::Result.new(
           agent_key: @agent_key,
           status: "ok",
           output: {
             "conversation_id" => authority.conversation.public_id,
-            "conversation_observation_allowed" => true,
+            "conversation_supervision_allowed" => true,
           },
           metadata: {
             "mode" => "builtin",

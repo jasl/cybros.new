@@ -4,6 +4,9 @@ module EmbeddedAgents
 
     class UnknownAgentKey < Error; end
     class InvalidTargetIdentifier < Error; end
+    class UnauthorizedSupervision < Error; end
+    class ClosedSupervisionSession < Error; end
+    class UnavailableSupervisionArtifact < Error; end
     class UnauthorizedObservation < Error; end
     class ClosedObservationSession < Error; end
     class UnavailableObservationArtifact < Error; end

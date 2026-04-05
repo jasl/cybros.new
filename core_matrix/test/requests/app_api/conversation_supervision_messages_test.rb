@@ -1,0 +1,84 @@
+require "test_helper"
+
+class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTest
+  include ConversationSupervisionFixtureBuilder
+
+  test "posting a message persists a snapshot-backed exchange and listing returns session history only" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+    transcript_count = fixture.fetch(:conversation).messages.count
+
+    post "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+      params: {
+        content: "What changed most recently?",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :created
+    assert_equal transcript_count, fixture.fetch(:conversation).reload.messages.count
+
+    response_body = JSON.parse(response.body)
+    assert_equal "conversation_supervision_message_create", response_body.fetch("method_id")
+    assert_equal session.public_id, response_body.fetch("supervision_session_id")
+    assert_equal "waiting", response_body.dig("machine_status", "overall_state")
+    assert_match(/most recently|latest/i, response_body.dig("human_sidechat", "content"))
+    refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, response_body.dig("human_sidechat", "content"))
+    refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, response_body.dig("human_sidechat", "content"))
+    assert_equal "user", response_body.dig("user_message", "role")
+    assert_equal "supervisor_agent", response_body.dig("supervisor_message", "role")
+
+    get "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "conversation_supervision_message_list", response_body.fetch("method_id")
+    assert_equal session.public_id, response_body.fetch("supervision_session_id")
+    assert_equal %w[user supervisor_agent], response_body.fetch("items").map { |item| item.fetch("role") }
+    assert_equal "What changed most recently?", response_body.fetch("items").first.fetch("content")
+  end
+
+  test "rejects raw bigint session identifiers for create and list" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+
+    post "/app_api/conversation_supervision_sessions/#{session.id}/messages",
+      params: {
+        content: "What changed most recently?",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+
+    get "/app_api/conversation_supervision_sessions/#{session.id}/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
+  end
+
+  test "treats closed supervision sessions as gone" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+    session.update!(lifecycle_state: "closed")
+
+    get "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :gone
+
+    post "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+      params: {
+        content: "What changed most recently?",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :gone
+  end
+end

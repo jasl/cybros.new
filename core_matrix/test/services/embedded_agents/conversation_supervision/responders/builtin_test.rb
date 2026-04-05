@@ -1,0 +1,90 @@
+require "test_helper"
+
+module EmbeddedAgents
+  module ConversationSupervision
+    module Responders
+    end
+  end
+end
+
+class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveSupport::TestCase
+  include ConversationSupervisionFixtureBuilder
+
+  test "derives machine status and human sidechat from the same frozen snapshot" do
+    fixture = prepare_conversation_supervision_context!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What are you doing right now?"
+    )
+
+    assert_equal "builtin", response.fetch("responder_kind")
+    assert_equal snapshot.machine_status_payload, response.fetch("machine_status")
+    assert_equal snapshot.public_id, response.dig("human_sidechat", "supervision_snapshot_id")
+    assert_equal snapshot.machine_status_payload.fetch("overall_state"), response.dig("human_sidechat", "overall_state")
+    assert_predicate response.dig("human_sidechat", "content"), :present?
+    refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, response.dig("human_sidechat", "content"))
+    refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, response.dig("human_sidechat", "content"))
+  end
+
+  test "answers status progress blocker next-step subagent and conversation-fact questions without leaking raw tokens" do
+    fixture = prepare_conversation_supervision_context!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    current_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What are you doing now?"
+    )
+    change_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What changed most recently?"
+    )
+    blocker_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What are you waiting on?"
+    )
+    next_step_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What will you do next?"
+    )
+    subagent_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What is the subagent doing?"
+    )
+    fact_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What fact about the 2048 acceptance flow is already established?"
+    )
+    tests_response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Has this turn already committed to adding tests?"
+    )
+
+    assert_match(/working on|currently/i, current_response.dig("human_sidechat", "content"))
+    assert_match(/most recently|latest/i, change_response.dig("human_sidechat", "content"))
+    assert_match(/waiting|blocked|child/i, blocker_response.dig("human_sidechat", "content"))
+    assert_match(/next/i, next_step_response.dig("human_sidechat", "content"))
+    assert_match(/child|researcher|acceptance flow/i, subagent_response.dig("human_sidechat", "content"))
+    assert_match(/2048 acceptance flow/i, fact_response.dig("human_sidechat", "content"))
+    assert_match(/adding tests/i, tests_response.dig("human_sidechat", "content"))
+    refute_includes fact_response.dig("human_sidechat", "content"), "The 2048 acceptance flow is already wired."
+    refute_includes tests_response.dig("human_sidechat", "content"), "We already agreed to add tests before refactoring."
+  end
+end
