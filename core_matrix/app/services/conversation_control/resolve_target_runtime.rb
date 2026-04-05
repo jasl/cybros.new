@@ -106,7 +106,7 @@ module ConversationControl
         target_public_id: workflow_run&.public_id,
         active_turn: workflow_run&.turn || active_turn,
         workflow_run: workflow_run,
-        agent_program_version: workflow_run&.turn&.agent_program_version || resolved_agent_program_version
+        agent_program_version: resolved_agent_program_version
       )
     end
 
@@ -127,10 +127,17 @@ module ConversationControl
     end
 
     def resolved_agent_program_version
-      active_turn&.agent_program_version ||
+      active_agent_session&.agent_program_version ||
+        active_turn&.agent_program_version ||
         active_workflow_run&.turn&.agent_program_version ||
-        AgentSession.find_by(agent_program: @conversation.agent_program, lifecycle_state: "active")&.agent_program_version ||
         @conversation.turns.order(:created_at, :id).last&.agent_program_version
+    end
+
+    def active_agent_session
+      @active_agent_session ||= AgentSession.find_by(
+        agent_program: @conversation.agent_program,
+        lifecycle_state: "active"
+      )
     end
   end
 end

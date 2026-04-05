@@ -73,7 +73,7 @@ module ConversationControl
         Workflows::ManualResume.call(
           workflow_run: workflow_run,
           deployment: resolved_target.agent_program_version,
-          actor: @conversation_control_request.conversation_supervision_session.initiator,
+          actor: request_actor,
           conversation_control_request: @conversation_control_request
         )
       when "retry_blocked_step"
@@ -146,6 +146,20 @@ module ConversationControl
         )
       )
       @conversation_control_request.reload
+    end
+
+    def request_actor
+      actor_payload = @conversation_control_request.request_payload["control_actor"]
+      fallback_actor = @conversation_control_request.conversation_supervision_session.initiator
+      return fallback_actor unless actor_payload.is_a?(Hash)
+
+      actor_class = actor_payload["kind"].to_s.safe_constantize
+      return fallback_actor unless actor_class&.respond_to?(:find_by)
+
+      actor_class.find_by(
+        installation_id: conversation.installation_id,
+        public_id: actor_payload["public_id"]
+      ) || fallback_actor
     end
   end
 end

@@ -29,7 +29,7 @@ module ConversationControl
         target_kind: authorization.target_kind,
         target_public_id: authorization.target_public_id,
         lifecycle_state: "queued",
-        request_payload: @request_payload,
+        request_payload: persisted_request_payload,
         result_payload: {}
       )
 
@@ -47,11 +47,20 @@ module ConversationControl
         target_kind: authorization.target_kind || ConversationControl::ResolveTargetRuntime.target_kind_for(@request_kind),
         target_public_id: authorization.target_public_id,
         lifecycle_state: "queued",
-        request_payload: @request_payload,
+        request_payload: persisted_request_payload,
         result_payload: {}
       ).tap do |request|
         request.errors.add(:base, authorization.rejection_reason)
       end
+    end
+
+    def persisted_request_payload
+      @persisted_request_payload ||= @request_payload.merge(
+        "control_actor" => {
+          "kind" => @actor.class.base_class.name,
+          "public_id" => @actor.public_id
+        }
+      )
     end
   end
 end

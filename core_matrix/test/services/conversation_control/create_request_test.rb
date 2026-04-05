@@ -69,4 +69,108 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
       end
     end
   end
+
+  test "request_status_refresh targets the active runtime deployment after a runtime rotation" do
+    context = build_rotated_runtime_context!
+    ConversationCapabilityPolicy.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      supervision_enabled: true,
+      side_chat_enabled: true,
+      control_enabled: true,
+      policy_payload: {}
+    )
+    session = ConversationSupervisionSession.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      initiator: context.fetch(:user),
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {
+        "supervision_enabled" => true,
+        "side_chat_enabled" => true,
+        "control_enabled" => true
+      },
+      last_snapshot_at: Time.current
+    )
+
+    request = ConversationControl::CreateRequest.call(
+      actor: context.fetch(:user),
+      conversation_supervision_session: session,
+      request_kind: "request_status_refresh",
+      request_payload: {}
+    )
+    mailbox_item = AgentControlMailboxItem.order(:id).last
+
+    assert_equal "dispatched", request.lifecycle_state
+    assert_equal context.fetch(:replacement_deployment), mailbox_item.target_agent_program_version
+  end
+
+  test "resume_waiting_workflow uses the authorized requester as the recovery audit actor" do
+    context = build_agent_control_context!
+    outsider = create_user!(installation: context.fetch(:installation))
+    ConversationCapabilityPolicy.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      supervision_enabled: true,
+      side_chat_enabled: true,
+      control_enabled: true,
+      policy_payload: {}
+    )
+    ConversationCapabilityGrant.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      grantee_kind: "user",
+      grantee_public_id: outsider.public_id,
+      capability: "resume_waiting_workflow",
+      grant_state: "active",
+      policy_payload: {}
+    )
+    context.fetch(:workflow_run).update!(
+      wait_state: "waiting",
+      wait_reason_kind: "manual_recovery_required",
+      wait_reason_payload: {},
+      waiting_since_at: Time.current,
+      recovery_state: "paused_agent_unavailable"
+    )
+    session = ConversationSupervisionSession.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      initiator: context.fetch(:user),
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {
+        "supervision_enabled" => true,
+        "side_chat_enabled" => true,
+        "control_enabled" => true
+      },
+      last_snapshot_at: Time.current
+    )
+    captured = nil
+    original_call = Workflows::ManualResume.method(:call)
+    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, deployment:, actor:, conversation_control_request: nil, **_rest|
+      captured = [workflow_run.public_id, deployment.public_id, actor.public_id, conversation_control_request&.public_id]
+      workflow_run
+    end
+
+    begin
+      ConversationControl::CreateRequest.call(
+        actor: outsider,
+        conversation_supervision_session: session,
+        request_kind: "resume_waiting_workflow",
+        request_payload: {}
+      )
+    ensure
+      Workflows::ManualResume.singleton_class.define_method(:call, original_call)
+    end
+
+    request = ConversationControlRequest.order(:id).last
+
+    assert_equal [
+      context.fetch(:workflow_run).public_id,
+      context.fetch(:deployment).public_id,
+      outsider.public_id,
+      request.public_id
+    ], captured
+  end
 end
