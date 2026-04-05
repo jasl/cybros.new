@@ -102,40 +102,15 @@ module ProviderExecution
     end
 
     def record_profiling_fact!(workflow_run)
-      usage = normalize_usage(@provider_result.usage)
-      total_tokens = usage["total_tokens"] || usage["input_tokens"].to_i + usage["output_tokens"].to_i
-      threshold = @request_context.advisory_hints["recommended_compaction_threshold"]
-
-      ExecutionProfiling::RecordFact.call(
-        installation: workflow_run.installation,
-        user: workflow_run.workspace.user,
-        workspace: workflow_run.workspace,
-        conversation_id: workflow_run.conversation_id,
-        turn_id: workflow_run.turn_id,
+      ExecutionProfiling::RecordProviderRequestFact.call(
+        workflow_run: workflow_run,
         workflow_node_key: @workflow_node.node_key,
-        fact_kind: "provider_request",
-        fact_key: @workflow_node.node_key,
-        count_value: @messages_count,
+        request_context: @request_context,
+        provider_request_id: @provider_request_id,
+        messages_count: @messages_count,
         duration_ms: @duration_ms,
         success: true,
-        metadata: {
-          "provider_request_id" => @provider_request_id,
-          "provider_handle" => @request_context.provider_handle,
-          "model_ref" => @request_context.model_ref,
-          "api_model" => @request_context.api_model,
-          "wire_api" => @request_context.wire_api,
-          "execution_settings" => @request_context.execution_settings,
-          "hard_limits" => @request_context.hard_limits,
-          "advisory_hints" => @request_context.advisory_hints,
-          "usage_evaluation" => {
-            "source" => "provider",
-            "input_tokens" => usage["input_tokens"],
-            "output_tokens" => usage["output_tokens"],
-            "total_tokens" => total_tokens,
-            "recommended_compaction_threshold" => threshold,
-            "threshold_crossed" => threshold.present? && total_tokens >= threshold,
-          }.compact,
-        }
+        usage: @provider_result.usage
       )
     end
 

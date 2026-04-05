@@ -27,7 +27,6 @@ module ProviderExecution
 
     def call
       usage = normalize_usage(@provider_result.usage)
-      usage_evaluation = evaluate_usage(usage)
       result = nil
 
       ApplicationRecord.transaction do
@@ -55,19 +54,15 @@ module ProviderExecution
             success: true,
             entitlement_window_key: current_turn.resolved_model_selection_snapshot["entitlement_key"]
           )
-          profiling_fact = ExecutionProfiling::RecordFact.call(
-            installation: current_workflow_run.installation,
-            user: current_workflow_run.workspace.user,
-            workspace: current_workflow_run.workspace,
-            conversation_id: current_workflow_run.conversation_id,
-            turn_id: current_workflow_run.turn_id,
+          profiling_fact = ExecutionProfiling::RecordProviderRequestFact.call(
+            workflow_run: current_workflow_run,
             workflow_node_key: current_node.node_key,
-            fact_kind: "provider_request",
-            fact_key: current_node.node_key,
-            count_value: @messages_count,
+            request_context: @request_context,
+            provider_request_id: @provider_request_id,
+            messages_count: @messages_count,
             duration_ms: @duration_ms,
             success: true,
-            metadata: profiling_metadata(usage_evaluation)
+            usage: usage
           )
 
           current_turn.update!(
@@ -118,34 +113,6 @@ module ProviderExecution
 
     def final_output_content
       @final_output_content ||= @output_content.to_s.presence || @provider_result.content.to_s
-    end
-
-    def evaluate_usage(usage)
-      total_tokens = usage["total_tokens"] || usage["input_tokens"].to_i + usage["output_tokens"].to_i
-      threshold = @request_context.advisory_hints["recommended_compaction_threshold"]
-
-      {
-        "source" => "provider",
-        "input_tokens" => usage["input_tokens"],
-        "output_tokens" => usage["output_tokens"],
-        "total_tokens" => total_tokens,
-        "recommended_compaction_threshold" => threshold,
-        "threshold_crossed" => threshold.present? && total_tokens >= threshold,
-      }.compact
-    end
-
-    def profiling_metadata(usage_evaluation)
-      {
-        "provider_request_id" => @provider_request_id,
-        "provider_handle" => @request_context.provider_handle,
-        "model_ref" => @request_context.model_ref,
-        "api_model" => @request_context.api_model,
-        "wire_api" => @request_context.wire_api,
-        "execution_settings" => @request_context.execution_settings,
-        "hard_limits" => @request_context.hard_limits,
-        "advisory_hints" => @request_context.advisory_hints,
-        "usage_evaluation" => usage_evaluation,
-      }
     end
 
     def append_status_event!(workflow_node:, workflow_run:, state:, **payload)

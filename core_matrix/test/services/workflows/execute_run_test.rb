@@ -175,9 +175,13 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     assert profiling_fact.provider_request?
     assert_equal "turn_step", profiling_fact.fact_key
     assert profiling_fact.success
-    assert_equal "provider-request-123", profiling_fact.metadata["provider_request_id"]
-    assert_equal true, profiling_fact.metadata.dig("usage_evaluation", "threshold_crossed")
-    assert_equal 50, profiling_fact.metadata.dig("usage_evaluation", "recommended_compaction_threshold")
+    assert_equal "provider-request-123", profiling_fact.provider_request_id
+    assert_equal "dev", profiling_fact.provider_handle
+    assert_equal "mock-model", profiling_fact.model_ref
+    assert_equal "chat_completions", profiling_fact.wire_api
+    assert_equal true, profiling_fact.threshold_crossed
+    assert_equal 50, profiling_fact.recommended_compaction_threshold
+    assert_equal({}, profiling_fact.metadata)
     assert_equal %w[running completed], workflow_node_events.map { |event| event.payload.fetch("state") }
   end
 

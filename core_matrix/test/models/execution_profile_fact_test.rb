@@ -41,7 +41,15 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
       duration_ms: 1_250,
       success: true,
       occurred_at: Time.utc(2026, 3, 24, 12, 2, 0),
-      metadata: { "provider_request_id" => "req-123" }
+      provider_request_id: "req-123",
+      provider_handle: "openrouter",
+      model_ref: "openai/gpt-5.4",
+      api_model: "gpt-5.4",
+      wire_api: "responses",
+      total_tokens: 22,
+      recommended_compaction_threshold: 50,
+      threshold_crossed: false,
+      metadata: {}
     )
     subagent_outcome = ExecutionProfileFact.create!(
       installation: installation,
@@ -78,6 +86,14 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
     assert process_failure.process_failure?
     assert_equal 45_000, approval_wait.duration_ms
     assert_equal 505, process_failure.process_run_id
+    assert_equal "req-123", provider_request.provider_request_id
+    assert_equal "openrouter", provider_request.provider_handle
+    assert_equal "openai/gpt-5.4", provider_request.model_ref
+    assert_equal "gpt-5.4", provider_request.api_model
+    assert_equal "responses", provider_request.wire_api
+    assert_equal 22, provider_request.total_tokens
+    assert_equal 50, provider_request.recommended_compaction_threshold
+    assert_equal false, provider_request.threshold_crossed
   end
 
   test "rejects cross installation references" do
@@ -115,5 +131,25 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
 
     assert_not fact.valid?
     assert_includes fact.errors[:metadata], "must be a hash"
+  end
+
+  test "rejects provider request metadata that duplicates structured fields" do
+    fact = ExecutionProfileFact.new(
+      installation: create_installation!,
+      fact_kind: "provider_request",
+      fact_key: "turn_step",
+      occurred_at: Time.utc(2026, 3, 24, 12, 15, 0),
+      provider_request_id: "req-123",
+      provider_handle: "openrouter",
+      model_ref: "openai/gpt-5.4",
+      api_model: "gpt-5.4",
+      wire_api: "responses",
+      total_tokens: 20,
+      threshold_crossed: false,
+      metadata: { "provider_request_id" => "req-123", "usage_evaluation" => { "total_tokens" => 20 } }
+    )
+
+    assert_not fact.valid?
+    assert_includes fact.errors[:metadata], "must not duplicate structured provider request fields"
   end
 end

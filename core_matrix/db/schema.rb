@@ -706,22 +706,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   end
 
   create_table "execution_profile_facts", force: :cascade do |t|
+    t.string "api_model"
     t.bigint "conversation_id"
     t.integer "count_value"
     t.datetime "created_at", null: false
     t.integer "duration_ms"
+    t.string "error_class"
+    t.text "error_message"
     t.string "fact_key", null: false
     t.string "fact_kind", null: false
     t.bigint "human_interaction_request_id"
     t.bigint "installation_id", null: false
     t.jsonb "metadata", default: {}, null: false
+    t.string "model_ref"
     t.datetime "occurred_at", null: false
     t.bigint "process_run_id"
+    t.string "provider_handle"
+    t.string "provider_request_id"
+    t.integer "recommended_compaction_threshold"
     t.bigint "subagent_session_id"
     t.boolean "success"
+    t.boolean "threshold_crossed"
+    t.integer "total_tokens"
     t.bigint "turn_id"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.string "wire_api"
     t.string "workflow_node_key"
     t.bigint "workspace_id"
     t.index ["installation_id", "fact_kind", "fact_key"], name: "idx_execution_profile_facts_installation_kind_key"

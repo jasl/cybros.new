@@ -12,6 +12,16 @@ class CreateExecutionProfileFacts < ActiveRecord::Migration[8.2]
       t.bigint :human_interaction_request_id
       t.string :fact_kind, null: false
       t.string :fact_key, null: false
+      t.string :provider_request_id
+      t.string :provider_handle
+      t.string :model_ref
+      t.string :api_model
+      t.string :wire_api
+      t.integer :total_tokens
+      t.integer :recommended_compaction_threshold
+      t.boolean :threshold_crossed
+      t.string :error_class
+      t.text :error_message
       t.integer :count_value
       t.integer :duration_ms
       t.boolean :success

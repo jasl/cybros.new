@@ -31,9 +31,13 @@ class ProviderExecution::PersistTurnStepSuccessTest < ActiveSupport::TestCase
     assert_equal 12, result.usage_event.input_tokens
     assert_equal 8, result.usage_event.output_tokens
     assert_equal true, result.execution_profile_fact.success
-    assert_equal "provider-request-1", result.execution_profile_fact.metadata["provider_request_id"]
-    assert_equal 20, result.execution_profile_fact.metadata.dig("usage_evaluation", "total_tokens")
-    assert_equal false, result.execution_profile_fact.metadata.dig("usage_evaluation", "threshold_crossed")
+    assert_equal "provider-request-1", result.execution_profile_fact.provider_request_id
+    assert_equal "dev", result.execution_profile_fact.provider_handle
+    assert_equal "mock-model", result.execution_profile_fact.model_ref
+    assert_equal "chat_completions", result.execution_profile_fact.wire_api
+    assert_equal 20, result.execution_profile_fact.total_tokens
+    assert_equal false, result.execution_profile_fact.threshold_crossed
+    assert_equal({}, result.execution_profile_fact.metadata)
 
     last_status_event = workflow_node.reload.workflow_node_events.order(:ordinal).last
     assert_equal "completed", last_status_event.payload["state"]
@@ -105,7 +109,7 @@ class ProviderExecution::PersistTurnStepSuccessTest < ActiveSupport::TestCase
       duration_ms: 123
     )
 
-    assert_equal 50, result.execution_profile_fact.metadata.dig("usage_evaluation", "recommended_compaction_threshold")
-    assert_equal true, result.execution_profile_fact.metadata.dig("usage_evaluation", "threshold_crossed")
+    assert_equal 50, result.execution_profile_fact.recommended_compaction_threshold
+    assert_equal true, result.execution_profile_fact.threshold_crossed
   end
 end

@@ -24,26 +24,15 @@ module ProviderExecution
 
       ApplicationRecord.transaction do
         ProviderExecution::WithFreshExecutionStateLock.call(workflow_node: @workflow_node) do |current_node, current_workflow_run, current_turn|
-          profiling_fact = ExecutionProfiling::RecordFact.call(
-            installation: current_workflow_run.installation,
-            user: current_workflow_run.workspace.user,
-            workspace: current_workflow_run.workspace,
-            conversation_id: current_workflow_run.conversation_id,
-            turn_id: current_workflow_run.turn_id,
+          profiling_fact = ExecutionProfiling::RecordProviderRequestFact.call(
+            workflow_run: current_workflow_run,
             workflow_node_key: current_node.node_key,
-            fact_kind: "provider_request",
-            fact_key: current_node.node_key,
-            count_value: @messages_count,
+            request_context: @request_context,
+            provider_request_id: @provider_request_id,
+            messages_count: @messages_count,
             duration_ms: @duration_ms,
             success: false,
-            metadata: {
-              "provider_request_id" => @provider_request_id,
-              "provider_handle" => @request_context.provider_handle,
-              "model_ref" => @request_context.model_ref,
-              "wire_api" => @request_context.wire_api,
-              "error_class" => @error.class.name,
-              "error_message" => @error.message,
-            }
+            error: @error
           )
 
           failure_outcome = Workflows::BlockNodeForFailure.call(

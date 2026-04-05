@@ -31,8 +31,12 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
     assert_equal "waiting", workflow_run.turn.reload.lifecycle_state
     assert_equal "waiting", workflow_node.reload.lifecycle_state
     assert_equal false, profiling_fact.success
-    assert_equal "provider-request-1", profiling_fact.metadata["provider_request_id"]
-    assert_equal "SimpleInference::HTTPError", profiling_fact.metadata["error_class"]
+    assert_equal "provider-request-1", profiling_fact.provider_request_id
+    assert_equal "dev", profiling_fact.provider_handle
+    assert_equal "mock-model", profiling_fact.model_ref
+    assert_equal "chat_completions", profiling_fact.wire_api
+    assert_equal "SimpleInference::HTTPError", profiling_fact.error_class
+    assert_equal({}, profiling_fact.metadata)
 
     last_status_event = workflow_node.reload.workflow_node_events.order(:ordinal).last
     assert_equal "waiting", last_status_event.payload["state"]
@@ -101,5 +105,7 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
     assert_equal "failed", workflow_run.reload.lifecycle_state
     assert_equal "failed", workflow_run.turn.reload.lifecycle_state
     assert_equal "failed", workflow_node.reload.lifecycle_state
+    assert_equal "StandardError", result.profiling_fact.error_class
+    assert_equal "boom", result.profiling_fact.error_message
   end
 end
