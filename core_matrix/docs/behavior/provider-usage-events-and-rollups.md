@@ -6,6 +6,16 @@ Task 06.1 adds provider usage accounting as an event-truth layer plus projected
 rollups. `UsageEvent` is the durable detailed source. `UsageRollup` is a
 derived aggregation layer for reporting and future quota or entitlement checks.
 
+Within the lifecycle model:
+
+- `UsageEvent` is `bounded_audit`
+- `UsageRollup` is `retained_aggregate`
+
+That means detailed provider usage is not modeled as forever-retained business
+truth. The current system does not implement cleanup jobs yet, but future raw
+event retention may be bounded while rollups remain available for long-horizon
+reporting.
+
 ## Usage Event Behavior
 
 - `UsageEvent` records one usage fact at a point in time.
@@ -43,6 +53,8 @@ derived aggregation layer for reporting and future quota or entitlement checks.
   reporting and quota logic can stay scoped.
 - Rollup uniqueness is enforced by installation, bucket, and a dimension digest
   instead of a giant nullable-column unique index.
+- Long-horizon reporting should prefer rollups rather than depending on raw
+  `UsageEvent` rows remaining forever.
 
 ## Projection Behavior
 
@@ -62,6 +74,7 @@ derived aggregation layer for reporting and future quota or entitlement checks.
 
 - usage events remain the detailed accounting truth
 - rollups remain derived performance and reporting rows
+- raw usage-event retention is allowed to be shorter than rollup retention
 - this task does not hard-couple to future conversation, turn, or workflow
   tables that land later in Milestone 3
 - provider/model references are preserved on the event exactly as observed at

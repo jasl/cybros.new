@@ -35,6 +35,14 @@ The durable records are:
 Observation records are not transcript-bearing `Message` rows and never mutate
 the target conversation transcript.
 
+Within the lifecycle model:
+
+- observation rows are `ephemeral_observability`
+- target conversation rows remain `owner_bound`
+
+That means observation state is intentionally disposable. Removing observation
+history must not damage the target conversation, workflow state, or transcript.
+
 ## Public Id Rules
 
 All app-facing observation boundaries use public ids only.
@@ -214,6 +222,11 @@ user-session authentication and authorization semantics are designed at the
 right layer.
 
 The target conversation transcript remains unchanged.
+
+If observation rows have expired or been removed, the system should surface
+closed, not found, or unavailable semantics for the observation surface only.
+It should not treat missing observation history as corruption in the target
+conversation.
 
 ## Supervisor And Acceptance Flow
 

@@ -10,6 +10,13 @@ workflow work.
 
 This document reflects the landed scheduler and close-fence behavior.
 
+Within the lifecycle model, workflow runs and workflow nodes remain
+`owner_bound`. Their wait-state fields are canonical runtime state, not
+ephemeral diagnostics.
+
+This document describes lifecycle and cleanup boundaries, not an active cleanup
+job. No automatic retention policy is implemented here yet.
+
 ## Workflow Wait State Shape
 
 - `WorkflowRun` persists:
@@ -40,6 +47,8 @@ This document reflects the landed scheduler and close-fence behavior.
   - `external_dependency_blocked`
 - `waiting` requires a reason kind and `waiting_since_at`
 - `ready` must not retain stale wait fields or blocking-resource references
+- because these fields are canonical runtime state, future cleanup work must
+  not delete them independently from the owning workflow run
 
 ## Scheduler Behavior
 
@@ -144,6 +153,7 @@ This document reflects the landed scheduler and close-fence behavior.
   that original blocker and restores it after recovery instead of erasing it
 - `WorkflowWaitSnapshot` is the explicit parser and restore contract for those
   nested pause payloads
+- wait snapshots are runtime-owned state, not disposable observability rows
 - `AgentProgramVersions::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
 - compatible rotated replacements may auto resume only when they preserve the
