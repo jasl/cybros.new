@@ -1,5 +1,8 @@
 class ExecutionContextSnapshot < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
+
+  data_lifecycle_kind! :shared_frozen_contract
 
   belongs_to :installation
 

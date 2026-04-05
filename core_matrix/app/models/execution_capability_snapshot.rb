@@ -1,5 +1,8 @@
 class ExecutionCapabilitySnapshot < ApplicationRecord
   include HasPublicId
+  include DataLifecycle
+
+  data_lifecycle_kind! :shared_frozen_contract
 
   belongs_to :installation
   belongs_to :tool_surface_document, class_name: "JsonDocument"
