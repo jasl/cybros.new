@@ -43,6 +43,33 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     end
   end
 
+  test "loads payload from payload_document when the mailbox item externalizes a large request" do
+    context = build_agent_control_context!
+    payload_document = JsonDocuments::Store.call(
+      installation: context[:installation],
+      document_kind: "agent_program_request",
+      payload: {
+        "request_kind" => "prepare_round",
+        "conversation_projection" => {
+          "messages" => [{ "role" => "user", "content" => "Input" }],
+        },
+      }
+    )
+    mailbox_item = create_agent_control_mailbox_item!(
+      installation: context[:installation],
+      target_agent_program: context[:agent_program],
+      target_agent_program_version: context[:deployment],
+      item_type: "agent_program_request",
+      runtime_plane: "program",
+      logical_work_id: "prepare-round-#{next_test_sequence}",
+      payload_document: payload_document,
+      payload: { "request_kind" => "prepare_round" }
+    )
+
+    assert_equal payload_document.payload, mailbox_item.payload
+    assert_equal({ "request_kind" => "prepare_round" }, mailbox_item.payload_body)
+  end
+
   test "requires deployment targeting to remain inside the targeted agent program" do
     context = build_agent_control_context!
     other_agent_program = create_agent_program!(installation: context[:installation])

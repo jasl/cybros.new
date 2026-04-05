@@ -134,20 +134,12 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
       tool_catalog: default_tool_catalog("process_exec")
     )
     adopt_agent_program_version!(context, capability_snapshot)
-    execution_snapshot = context[:turn].execution_snapshot.to_h
-    capability_projection = execution_snapshot.fetch("capability_projection", {})
     context[:turn].update!(
-      execution_snapshot_payload: execution_snapshot.merge(
-        "capability_projection" => capability_projection.merge(
-          "tool_surface" => [
-            { "tool_name" => "process_exec" },
-          ]
-        )
-      ),
       resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
         "agent_program_version_id" => capability_snapshot.public_id
       )
     )
+    Workflows::BuildExecutionSnapshot.call(turn: context[:turn].reload)
     agent_task_run = create_agent_task_run!(
       workflow_node: context.fetch(:workflow_node),
       lifecycle_state: "running",

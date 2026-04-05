@@ -66,6 +66,40 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_nil mailbox_item.leased_to_execution_session
   end
 
+  test "poll returns full agent program request envelopes when the mailbox row stores a payload document" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+        },
+      },
+      logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    post "/program_api/control/poll",
+      params: { limit: 10 },
+      headers: program_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    item = JSON.parse(response.body).fetch("mailbox_items").find { |entry| entry.fetch("item_id") == mailbox_item.public_id }
+
+    assert item.present?
+    assert_equal "agent_program_request", item.fetch("item_type")
+    assert_equal "prepare_round", item.dig("payload", "request_kind")
+    assert_equal context[:workflow_node].public_id, item.dig("payload", "task", "workflow_node_id")
+    assert_equal context[:turn].public_id, item.dig("payload", "task", "turn_id")
+  end
+
   test "poll does not deliver execution-plane close requests from the writer path" do
     context = build_rotated_runtime_context!
     process_run = create_process_run!(

@@ -1033,8 +1033,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     )
 
     turn = context[:turn].reload
-    execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn)
-    turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
+    Workflows::BuildExecutionSnapshot.call(turn: turn)
 
     context.merge(
       turn: turn.reload,
@@ -1075,8 +1074,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     )
 
     turn = context[:turn].reload
-    execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn)
-    turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
+    Workflows::BuildExecutionSnapshot.call(turn: turn)
 
     context.merge(
       turn: turn.reload,

@@ -67,13 +67,13 @@ class Workflows::ResumePausedTurnTest < ActiveSupport::TestCase
 
     assert_equal "Paused steering input", resumed.turn.reload.selected_input_message.content
     assert_equal "Paused steering input",
-      resumed.turn.execution_snapshot_payload
+      resumed.turn.execution_snapshot.to_h
         .fetch("conversation_projection")
         .fetch("messages")
         .last
         .fetch("content")
     assert_equal resumed.turn.selected_input_message.public_id,
-      resumed.turn.execution_snapshot_payload
+      resumed.turn.execution_snapshot.to_h
         .fetch("task")
         .fetch("selected_input_message_id")
   end

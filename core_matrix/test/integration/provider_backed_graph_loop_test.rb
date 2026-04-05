@@ -58,13 +58,13 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
       prepared_rounds: [
         {
           "messages" => transcript,
-          "tool_surface" => [calculator_tool_entry],
+          "visible_tool_names" => ["calculator"],
           "summary_artifacts" => [],
           "trace" => [],
         },
         {
           "messages" => transcript,
-          "tool_surface" => [],
+          "visible_tool_names" => [],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -121,7 +121,13 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
       ],
       proof.observed_dag_shape
     )
-    assert_equal({ "value" => 4 }, program_exchange.prepare_round_requests.second.fetch("conversation_projection").fetch("prior_tool_results").first.fetch("result"))
+    final_request_body = JSON.parse(final_adapter.last_request.fetch(:body))
+    tool_messages = final_request_body.fetch("messages").last(2)
+
+    assert_equal "assistant", tool_messages.first.fetch("role")
+    assert_equal "tool", tool_messages.second.fetch("role")
+    assert_equal "calculator", tool_messages.second.fetch("name")
+    assert_equal JSON.generate("value" => 4), tool_messages.second.fetch("content")
     assert_equal 1, program_exchange.execute_program_tool_requests.length
   end
 

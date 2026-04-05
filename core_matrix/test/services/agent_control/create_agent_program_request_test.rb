@@ -29,6 +29,8 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_equal context.fetch(:deployment), mailbox_item.target_agent_program_version
     assert_equal context.fetch(:agent_program), mailbox_item.target_agent_program
     assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
+    assert_equal({ "request_kind" => "prepare_round" }, mailbox_item.payload_body)
+    assert_equal "agent_program_request", mailbox_item.payload_document.document_kind
     assert_equal 2, mailbox_item.attempt_no
     assert_equal [mailbox_item], published
   ensure

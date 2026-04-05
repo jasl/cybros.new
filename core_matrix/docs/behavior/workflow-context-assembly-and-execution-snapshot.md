@@ -26,10 +26,12 @@ freezes a per-turn execution snapshot that preserves:
 - `Workflows::CreateForTurn` resolves model selection first, then persists two
   separate turn-owned row contracts:
   - `turns.resolved_config_snapshot`
-  - `turns.execution_snapshot_payload`
+  - `execution_contracts`
 - `resolved_config_snapshot` preserves only the resolved configuration payload
   for the turn.
-- `execution_snapshot_payload` freezes the runtime-facing execution contract.
+- `ExecutionContract` freezes the runtime-facing execution contract while
+  `ExecutionCapabilitySnapshot` and `ExecutionContextSnapshot` hold the
+  deduplicated capability surface and visible context membership.
 - `Turn#execution_snapshot` wraps that payload in `TurnExecutionSnapshot`, which
   owns the runtime field readers and `to_h`.
 - The persisted execution snapshot currently freezes these top-level fields:
@@ -171,6 +173,39 @@ freezes a per-turn execution snapshot that preserves:
   assembly by default because the builder reads transcript-bearing messages and
   explicit import rows only
 
+## Program Wire Contract
+
+- the frozen `execution_snapshot` remains the canonical turn-owned contract
+  inside Core Matrix
+- the program runtime does not receive that contract verbatim
+- `prepare_round` now projects only the compact fields the external runtime
+  actually consumes:
+  - `round_context.messages`
+  - `round_context.context_imports`
+  - `round_context.projection_fingerprint`
+  - `agent_context.profile`
+  - `agent_context.is_subagent`
+  - `agent_context.subagent_session_id`
+  - `agent_context.parent_subagent_session_id`
+  - `agent_context.subagent_depth`
+  - `agent_context.owner_conversation_id`
+  - `agent_context.allowed_tool_names`
+  - `provider_context`
+  - `runtime_context`
+- `prepare_round` does not carry `prior_tool_results`; prior tool results are
+  appended later by Core Matrix when it materializes the next provider request
+- `execute_program_tool` also uses compact `agent_context` instead of shipping
+  the full frozen `tool_surface`
+- `prepare_round` responses now return `visible_tool_names` instead of a full
+  repeated `tool_surface` schema array
+- Core Matrix maps `visible_tool_names` back onto the canonical frozen
+  `capability_projection.tool_surface` when it needs concrete tool schemas for
+  provider dispatch
+- this split is intentional:
+  - the database still freezes the full execution contract once
+  - the wire contract sends only the minimal runtime projection needed for the
+    current protocol step
+
 ## Attachment Projection
 
 - the canonical attachment store for this task is `attachment_manifest`
@@ -217,7 +252,7 @@ freezes a per-turn execution snapshot that preserves:
   - frozen agent-program-version / execution-runtime identity
   - resolved config snapshot row
   - resolved model-selection snapshot row
-  - execution snapshot payload row
+  - execution contract pointer
 - `Turn` exposes one runtime-facing reader: `execution_snapshot`
 - `WorkflowRun` delegates runtime-facing snapshot reads through
   `turn.execution_snapshot`

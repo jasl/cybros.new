@@ -682,9 +682,7 @@ module ActiveSupport
         pinned_program_version_fingerprint: agent_program_version.fingerprint
       )
 
-      if turn.resolved_provider_handle.present? && turn.resolved_model_ref.present?
-        turn.update!(execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn.reload).to_h)
-      end
+      Workflows::BuildExecutionSnapshot.call(turn: turn.reload) if turn.resolved_provider_handle.present? && turn.resolved_model_ref.present?
 
       context[:turn] = turn.reload if context.key?(:turn)
       context

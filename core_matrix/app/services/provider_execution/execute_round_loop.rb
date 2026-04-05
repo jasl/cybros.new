@@ -71,7 +71,6 @@ module ProviderExecution
       prepared_round = ProviderExecution::PrepareProgramRound.call(
         workflow_node: @workflow_node,
         transcript: @transcript,
-        prior_tool_results: prior_tool_results,
         program_exchange: @program_exchange
       )
       program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
@@ -182,10 +181,10 @@ module ProviderExecution
 
     def round_tool_catalog_for(prepared_round)
       visible_tool_surface = @workflow_run.execution_snapshot.capability_projection.fetch("tool_surface", [])
-      selected_tool_names = Array(prepared_round.fetch("tool_surface")).map { |entry| entry.fetch("tool_name") }
+      visible_tool_names = Array(prepared_round.fetch("visible_tool_names")).map(&:to_s)
 
       visible_tool_surface.select do |entry|
-        selected_tool_names.include?(entry.fetch("tool_name")) && round_bindable_tool_entry?(entry)
+        visible_tool_names.include?(entry.fetch("tool_name")) && round_bindable_tool_entry?(entry)
       end
     end
 

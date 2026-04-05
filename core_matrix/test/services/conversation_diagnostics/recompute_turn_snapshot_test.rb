@@ -195,11 +195,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       snapshot.metadata.fetch("attributed_user_cost_summary")
     )
     assert_equal "paused_turn", snapshot.metadata.fetch("pause_state")
-    refreshed_turn = turn.reload
-    assert_equal refreshed_turn.public_id, snapshot.metadata.dig("evidence_refs", "turn_id")
-    assert_equal workflow_run.public_id, snapshot.metadata.dig("evidence_refs", "workflow_run_id")
-    assert_equal refreshed_turn.selected_input_message.public_id, snapshot.metadata.dig("evidence_refs", "selected_input_message_id")
-    assert_equal refreshed_turn.selected_output_message.public_id, snapshot.metadata.dig("evidence_refs", "selected_output_message_id")
+    assert_nil snapshot.metadata["evidence_refs"]
   end
 
   test "marks cost data unavailable when usage events have no estimated cost" do

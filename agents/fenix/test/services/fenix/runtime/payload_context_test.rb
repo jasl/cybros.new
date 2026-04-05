@@ -51,4 +51,17 @@ class Fenix::Runtime::PayloadContextTest < ActiveSupport::TestCase
     assert_equal 3, context.fetch("attempt_no")
     assert_equal "program", context.fetch("runtime_plane")
   end
+
+  test "accepts compact program payloads that use round_context and agent_context" do
+    payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload")
+
+    context = Fenix::Runtime::PayloadContext.call(payload:)
+
+    assert_equal payload.dig("round_context", "messages"), context.fetch("context_messages")
+    assert_equal payload.dig("round_context", "context_imports"), context.fetch("context_imports")
+    assert_equal [], context.fetch("prior_tool_results")
+    assert_equal payload.dig("agent_context", "allowed_tool_names"), context.dig("agent_context", "allowed_tool_names")
+    assert_equal payload.dig("agent_context", "profile"), context.dig("agent_context", "profile")
+    assert_equal payload.dig("agent_context", "is_subagent"), context.dig("agent_context", "is_subagent")
+  end
 end

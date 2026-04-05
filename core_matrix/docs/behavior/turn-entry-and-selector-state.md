@@ -66,15 +66,15 @@ execution-snapshot persistence on the turn row.
   - feature policy snapshot row
   - pinned program-version fingerprint
   - resolved config snapshot row
-  - execution snapshot payload row
+  - execution contract row
   - resolved model-selection snapshot row
 - the frozen turn feature-policy snapshot contains:
   - `enabled_feature_ids`
   - `during_generation_input_policy`
 - `resolved_config_snapshot` stores only the resolved config payload for the
   turn
-- `execution_snapshot_payload` stores the runtime-facing frozen execution
-  contract and is read through `Turn#execution_snapshot`
+- `execution_contract` stores the runtime-facing frozen execution contract and
+  is read through `Turn#execution_snapshot`
 - turn sequence is unique within one conversation
 - turn-sequence allocation is serialized at the conversation boundary so
   concurrent turn writers keep a monotonic append-only order without leaking

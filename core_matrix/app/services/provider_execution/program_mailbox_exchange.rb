@@ -139,7 +139,7 @@ module ProviderExecution
 
     def validate_prepare_round_response!(response)
       raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include messages") unless response["messages"].is_a?(Array)
-      raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include tool_surface") unless response["tool_surface"].is_a?(Array)
+      raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include visible_tool_names") unless response["visible_tool_names"].is_a?(Array)
     end
   end
 end

@@ -52,7 +52,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "tool_surface" => [calculator_tool_entry],
+          "visible_tool_names" => ["calculator"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -148,7 +148,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "tool_surface" => [calculator_tool_entry],
+          "visible_tool_names" => ["calculator"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -217,7 +217,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           prepared_rounds: [
             {
               "messages" => transcript,
-              "tool_surface" => [],
+              "visible_tool_names" => [],
               "summary_artifacts" => [],
               "trace" => [],
             },
@@ -279,10 +279,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           prepared_rounds: [
             {
               "messages" => transcript,
-              "tool_surface" => [
-                { "tool_name" => "exec_command" },
-                { "tool_name" => "subagent_spawn" },
-              ],
+              "visible_tool_names" => %w[exec_command subagent_spawn],
               "summary_artifacts" => [],
               "trace" => [],
             },
@@ -344,7 +341,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "tool_surface" => [calculator_tool_entry],
+          "visible_tool_names" => ["calculator"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -461,7 +458,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "tool_surface" => [],
+          "visible_tool_names" => [],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -480,7 +477,13 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       assert result.final?
     end
 
-    assert_equal({ "value" => 4 }, program_exchange.prepare_round_requests.first.fetch("conversation_projection").fetch("prior_tool_results").first.fetch("result"))
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+    tool_messages = request_body.fetch("messages").last(2)
+
+    assert_equal "assistant", tool_messages.first.fetch("role")
+    assert_equal "tool", tool_messages.second.fetch("role")
+    assert_equal "calculator", tool_messages.second.fetch("name")
+    assert_equal JSON.generate("value" => 4), tool_messages.second.fetch("content")
   end
 
   private

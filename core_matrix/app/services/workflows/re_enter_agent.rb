@@ -114,8 +114,7 @@ module Workflows
     end
 
     def refresh_execution_snapshot!(turn)
-      execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: turn.reload)
-      turn.update!(execution_snapshot_payload: execution_snapshot.to_h)
+      Workflows::BuildExecutionSnapshot.call(turn: turn.reload)
     end
 
     def successor_task_kind(successor_node)

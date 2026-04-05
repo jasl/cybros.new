@@ -62,11 +62,11 @@ module Fenix
       end
 
       def conversation_projection
-        @conversation_projection ||= @payload.fetch("conversation_projection", {}).deep_stringify_keys
+        @conversation_projection ||= @payload.fetch("round_context", @payload.fetch("conversation_projection", {})).deep_stringify_keys
       end
 
       def capability_projection
-        @capability_projection ||= @payload.fetch("capability_projection").deep_stringify_keys
+        @capability_projection ||= @payload.fetch("capability_projection", {}).deep_stringify_keys
       end
 
       def provider_context
@@ -78,15 +78,31 @@ module Fenix
       end
 
       def normalized_agent_context
-        @normalized_agent_context ||= {
-          "profile" => capability_projection["profile_key"] || "main",
-          "is_subagent" => capability_projection["is_subagent"] == true,
-          "subagent_session_id" => capability_projection["subagent_session_id"],
-          "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
-          "subagent_depth" => capability_projection["subagent_depth"],
-          "allowed_tool_names" => Array(capability_projection["tool_surface"]).filter_map { |entry| entry["tool_name"] },
-          "owner_conversation_id" => capability_projection["owner_conversation_id"],
-        }.compact
+        @normalized_agent_context ||= begin
+          projected_agent_context = @payload.fetch("agent_context", {}).deep_stringify_keys
+
+          if projected_agent_context.present?
+            {
+              "profile" => projected_agent_context["profile"] || "main",
+              "is_subagent" => projected_agent_context["is_subagent"] == true,
+              "subagent_session_id" => projected_agent_context["subagent_session_id"],
+              "parent_subagent_session_id" => projected_agent_context["parent_subagent_session_id"],
+              "subagent_depth" => projected_agent_context["subagent_depth"],
+              "allowed_tool_names" => Array(projected_agent_context["allowed_tool_names"]).map(&:to_s),
+              "owner_conversation_id" => projected_agent_context["owner_conversation_id"],
+            }.compact
+          else
+            {
+              "profile" => capability_projection["profile_key"] || "main",
+              "is_subagent" => capability_projection["is_subagent"] == true,
+              "subagent_session_id" => capability_projection["subagent_session_id"],
+              "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+              "subagent_depth" => capability_projection["subagent_depth"],
+              "allowed_tool_names" => Array(capability_projection["tool_surface"]).filter_map { |entry| entry["tool_name"] },
+              "owner_conversation_id" => capability_projection["owner_conversation_id"],
+            }.compact
+          end
+        end
       end
 
       def normalized_messages

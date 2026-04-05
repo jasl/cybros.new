@@ -35,7 +35,6 @@ class TurnTest < ActiveSupport::TestCase
       pinned_program_version_fingerprint: agent_program_version.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {},
       resolved_model_selection_snapshot: {}
     )
 
@@ -78,7 +77,6 @@ class TurnTest < ActiveSupport::TestCase
       pinned_program_version_fingerprint: agent_program_version.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {},
       resolved_model_selection_snapshot: {}
     )
 
@@ -93,7 +91,6 @@ class TurnTest < ActiveSupport::TestCase
       pinned_program_version_fingerprint: agent_program_version.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {},
       resolved_model_selection_snapshot: {}
     )
 
@@ -136,7 +133,6 @@ class TurnTest < ActiveSupport::TestCase
       pinned_program_version_fingerprint: agent_program_version.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {},
       resolved_model_selection_snapshot: {}
     )
 
@@ -179,7 +175,6 @@ class TurnTest < ActiveSupport::TestCase
       pinned_program_version_fingerprint: agent_program_version.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {},
       resolved_model_selection_snapshot: {}
     )
 
@@ -223,7 +218,6 @@ class TurnTest < ActiveSupport::TestCase
       pinned_program_version_fingerprint: agent_program_version.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {},
       resolved_model_selection_snapshot: {}
     )
 

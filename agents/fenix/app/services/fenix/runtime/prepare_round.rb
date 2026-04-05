@@ -22,7 +22,7 @@ module Fenix
         {
           "status" => "ok",
           "messages" => compacted.fetch("messages"),
-          "tool_surface" => visible_tool_surface,
+          "visible_tool_names" => visible_tool_names,
           "likely_model" => prepared.fetch("likely_model"),
           "summary_artifacts" => [],
           "trace" => [prepared.fetch("trace"), compacted.fetch("trace")],
@@ -35,10 +35,8 @@ module Fenix
         @round_context ||= Fenix::Runtime::PayloadContext.call(payload: @payload)
       end
 
-      def visible_tool_surface
-        Array(round_context.dig("capability_projection", "tool_surface")).map do |entry|
-          entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : {}
-        end
+      def visible_tool_names
+        Array(round_context.dig("agent_context", "allowed_tool_names")).map(&:to_s)
       end
     end
   end

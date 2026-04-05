@@ -31,7 +31,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
           "response_payload" => {
             "status" => "ok",
             "messages" => [],
-            "tool_surface" => [],
+            "visible_tool_names" => [],
             "summary_artifacts" => [],
             "trace" => [],
           },
@@ -54,7 +54,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       }
     )
 
-    assert_equal({ "status" => "ok", "messages" => [], "tool_surface" => [], "summary_artifacts" => [], "trace" => [] }, result)
+    assert_equal({ "status" => "ok", "messages" => [], "visible_tool_names" => [], "summary_artifacts" => [], "trace" => [] }, result)
   ensure
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
   end
@@ -272,7 +272,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
             "response_payload" => {
               "status" => "ok",
               "messages" => [],
-              "tool_surface" => [],
+              "visible_tool_names" => [],
               "summary_artifacts" => [],
               "trace" => [],
             },
@@ -297,7 +297,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       }
     )
 
-    assert_equal({ "status" => "ok", "messages" => [], "tool_surface" => [], "summary_artifacts" => [], "trace" => [] }, result)
+    assert_equal({ "status" => "ok", "messages" => [], "visible_tool_names" => [], "summary_artifacts" => [], "trace" => [] }, result)
     assert_operator sleep_calls, :>=, 1
   ensure
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator

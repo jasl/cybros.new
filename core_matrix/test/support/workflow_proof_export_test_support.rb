@@ -106,7 +106,7 @@ module WorkflowProofExportTestSupport
       workflow_node: yielding_node,
       artifact_key: "batch-1:stage:0",
       artifact_kind: "intent_batch_barrier",
-      storage_mode: "inline_json",
+      storage_mode: "json_document",
       payload: {
         "stage" => {
           "stage_index" => 0,

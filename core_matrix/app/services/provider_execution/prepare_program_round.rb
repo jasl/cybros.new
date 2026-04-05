@@ -4,12 +4,11 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, transcript:, prior_tool_results:, program_exchange: nil)
+    def initialize(workflow_node:, transcript:, program_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_program_version: workflow_node.turn.agent_program_version)
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
-      @prior_tool_results = Array(prior_tool_results).map { |entry| entry.deep_stringify_keys }
     end
 
     def call
@@ -31,11 +30,8 @@ module ProviderExecution
           "turn_id" => @workflow_run.turn.public_id,
           "kind" => "turn_step",
         },
-        "conversation_projection" => @workflow_run.execution_snapshot.conversation_projection.merge(
-          "messages" => @transcript,
-          "prior_tool_results" => @prior_tool_results
-        ),
-        "capability_projection" => @workflow_run.execution_snapshot.capability_projection,
+        "round_context" => round_context,
+        "agent_context" => agent_context,
         "provider_context" => @workflow_run.execution_snapshot.provider_context,
         "runtime_context" => {
           "runtime_plane" => "program",
@@ -48,7 +44,31 @@ module ProviderExecution
 
     def validate_response!(response)
       raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include messages") unless response["messages"].is_a?(Array)
-      raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include tool_surface") unless response["tool_surface"].is_a?(Array)
+      raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(code: "invalid_prepare_round_response", message: "agent program prepare_round response must include visible_tool_names") unless response["visible_tool_names"].is_a?(Array)
+    end
+
+    def round_context
+      execution_context = @workflow_run.execution_snapshot.conversation_projection
+
+      {
+        "messages" => @transcript,
+        "context_imports" => execution_context.fetch("context_imports", []),
+        "projection_fingerprint" => execution_context["projection_fingerprint"],
+      }.compact
+    end
+
+    def agent_context
+      capability_projection = @workflow_run.execution_snapshot.capability_projection
+
+      {
+        "profile" => capability_projection.fetch("profile_key", "main"),
+        "is_subagent" => capability_projection["is_subagent"] == true,
+        "subagent_session_id" => capability_projection["subagent_session_id"],
+        "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+        "subagent_depth" => capability_projection["subagent_depth"],
+        "owner_conversation_id" => capability_projection["owner_conversation_id"],
+        "allowed_tool_names" => Array(capability_projection.fetch("tool_surface", [])).map { |entry| entry.fetch("tool_name") }.uniq,
+      }.compact
     end
   end
 end

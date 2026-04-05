@@ -19,9 +19,7 @@ class RuntimeProgramContractTest < ActiveSupport::TestCase
 
   test "execute_program_tool mailbox work rejects tools outside the visible program surface" do
     payload = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item")
-    payload["payload"]["capability_projection"]["tool_surface"] = [
-      { "tool_name" => "compact_context" },
-    ]
+    payload["payload"]["agent_context"]["allowed_tool_names"] = ["compact_context"]
 
     result = run_runtime_execution(payload)
 
@@ -54,7 +52,7 @@ class RuntimeProgramContractTest < ActiveSupport::TestCase
     normalized["response_payload"] = {
       "status" => normalized.fetch("response_payload").fetch("status"),
       "messages" => normalized.fetch("response_payload").fetch("messages").map { |entry| entry.slice("role") },
-      "tool_surface" => normalized.fetch("response_payload").fetch("tool_surface").map { |entry| entry.slice("tool_name") },
+      "visible_tool_names" => normalized.fetch("response_payload").fetch("visible_tool_names"),
       "summary_artifacts" => normalized.fetch("response_payload").fetch("summary_artifacts"),
       "trace" => normalized.fetch("response_payload").fetch("trace").map { |entry| entry.slice("hook") },
     }

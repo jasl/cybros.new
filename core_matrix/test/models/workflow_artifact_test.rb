@@ -1,7 +1,7 @@
 require "test_helper"
 
 class WorkflowArtifactTest < ActiveSupport::TestCase
-  test "supports inline json and attached file storage modes" do
+  test "supports json document and attached file storage modes" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -24,7 +24,7 @@ class WorkflowArtifactTest < ActiveSupport::TestCase
       workflow_node: workflow_node,
       artifact_key: "summary",
       artifact_kind: "terminal_summary",
-      storage_mode: "inline_json",
+      storage_mode: "json_document",
       payload: { "summary" => "done" }
     )
     file_artifact = WorkflowArtifact.new(
@@ -85,7 +85,7 @@ class WorkflowArtifactTest < ActiveSupport::TestCase
       workflow_node: workflow_node,
       artifact_key: "batch-1",
       artifact_kind: "intent_batch_manifest",
-      storage_mode: "inline_json",
+      storage_mode: "json_document",
       payload: { "batch_id" => "batch-1" }
     )
 

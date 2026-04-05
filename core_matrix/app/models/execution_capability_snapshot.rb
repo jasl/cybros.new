@@ -1,0 +1,25 @@
+class ExecutionCapabilitySnapshot < ApplicationRecord
+  include HasPublicId
+
+  belongs_to :installation
+  belongs_to :tool_surface_document, class_name: "JsonDocument"
+  belongs_to :subagent_session, optional: true
+  belongs_to :parent_subagent_session, class_name: "SubagentSession", optional: true
+  belongs_to :owner_conversation, class_name: "Conversation", optional: true
+
+  validates :fingerprint, presence: true, uniqueness: { scope: :installation_id }
+  validates :program_version_fingerprint, presence: true
+  validates :profile_key, presence: true
+  validate :subagent_policy_snapshot_must_be_hash
+
+  def tool_surface
+    payload = tool_surface_document&.payload
+    payload.is_a?(Array) ? payload.deep_dup : []
+  end
+
+  private
+
+  def subagent_policy_snapshot_must_be_hash
+    errors.add(:subagent_policy_snapshot, "must be a hash") unless subagent_policy_snapshot.is_a?(Hash)
+  end
+end

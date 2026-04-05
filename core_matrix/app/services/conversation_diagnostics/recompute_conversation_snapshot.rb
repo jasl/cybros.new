@@ -44,7 +44,8 @@ module ConversationDiagnostics
       snapshot.retry_attempt_count = sum(turn_snapshots, :retry_attempt_count)
       snapshot.most_expensive_turn = turn_snapshots.max_by { |item| [item.estimated_cost_total.to_d, item.turn_id] }&.turn
       snapshot.most_rounds_turn = turn_snapshots.max_by { |item| [item.provider_round_count.to_i, item.turn_id] }&.turn
-      snapshot.metadata = {
+      snapshot.metadata = compact_metadata(
+        {
         "provider_usage_breakdown" => merge_provider_breakdowns(turn_snapshots),
         "attributed_user_provider_usage_breakdown" => merge_provider_breakdowns(
           turn_snapshots,
@@ -59,11 +60,8 @@ module ConversationDiagnostics
           turn_snapshots,
           key: "attributed_user_cost_summary"
         ),
-        "outlier_refs" => {
-          "most_expensive_turn_id" => snapshot.most_expensive_turn&.public_id,
-          "most_rounds_turn_id" => snapshot.most_rounds_turn&.public_id,
-        }.compact,
-      }
+        }
+      )
       snapshot.save!
       snapshot
     end
@@ -163,6 +161,28 @@ module ConversationDiagnostics
         "cost_data_available" => summary["estimated_cost_event_count"].positive?,
         "cost_data_complete" => total_events.positive? && summary["estimated_cost_missing_event_count"].zero?
       )
+    end
+
+    def compact_metadata(value)
+      case value
+      when Hash
+        value.each_with_object({}) do |(key, nested_value), memo|
+          compacted = compact_metadata(nested_value)
+          memo[key] = compacted unless removable_metadata_value?(compacted)
+        end
+      when Array
+        value.filter_map do |entry|
+          compacted = compact_metadata(entry)
+          compacted unless removable_metadata_value?(compacted)
+        end
+      else
+        value
+      end
+    end
+
+    def removable_metadata_value?(value)
+      value.nil? ||
+        (value.respond_to?(:empty?) && value.empty?)
     end
   end
 end

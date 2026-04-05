@@ -31,10 +31,7 @@ module Workflows
         )
         @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
         execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: @turn)
-        @turn.update!(
-          resolved_config_snapshot: @turn.resolved_config_snapshot,
-          execution_snapshot_payload: execution_snapshot.to_h
-        )
+        @turn.update!(resolved_config_snapshot: @turn.resolved_config_snapshot)
 
         workflow_run = WorkflowRun.create!(
           installation: @turn.installation,

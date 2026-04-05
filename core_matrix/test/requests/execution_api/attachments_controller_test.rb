@@ -8,9 +8,7 @@ class ExecutionApiAttachmentsControllerTest < ActionDispatch::IntegrationTest
       filename: "notes.txt",
       body: "hello attachment"
     )
-    context[:turn].update!(
-      execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: context[:turn]).to_h
-    )
+    Workflows::BuildExecutionSnapshot.call(turn: context[:turn])
 
     post "/execution_api/attachments/request",
       params: {
@@ -38,9 +36,7 @@ class ExecutionApiAttachmentsControllerTest < ActionDispatch::IntegrationTest
   test "request_attachment rejects an execution session from another runtime" do
     context = build_agent_control_context!
     attachment = create_message_attachment!(message: context[:turn].selected_input_message)
-    context[:turn].update!(
-      execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: context[:turn]).to_h
-    )
+    Workflows::BuildExecutionSnapshot.call(turn: context[:turn])
 
     other_registration = register_agent_runtime!(
       installation: context[:installation],

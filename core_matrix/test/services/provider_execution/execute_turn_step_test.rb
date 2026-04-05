@@ -248,7 +248,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
-          "tool_surface" => [round_budget_calculator_tool_entry],
+          "visible_tool_names" => ["calculator"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -504,7 +504,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
-          "tool_surface" => [round_budget_calculator_tool_entry],
+          "visible_tool_names" => ["calculator"],
           "summary_artifacts" => [],
           "trace" => [],
         },

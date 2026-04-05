@@ -267,7 +267,8 @@ module Workflows
       WorkflowArtifact
         .where(workflow_run_id: @workflow_run.id)
         .order(:workflow_node_ordinal, :artifact_kind, :artifact_key)
-        .pluck(:workflow_node_key, :artifact_key, :artifact_kind, :payload)
+        .left_outer_joins(:json_document)
+        .pluck(:workflow_node_key, :artifact_key, :artifact_kind, Arel.sql("json_documents.payload"))
         .each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(workflow_node_key, artifact_key, artifact_kind, payload), grouped|
           grouped[workflow_node_key] << build_artifact_summary(
             artifact_key: artifact_key,

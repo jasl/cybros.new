@@ -13,6 +13,8 @@ module Conversations
       purge_conversation_metadata!
       purge_runtime_rows!
       purge_transcript_rows!
+      purge_orphaned_snapshot_rows!
+      purge_orphaned_json_documents!
       purge_structural_rows!
 
       self
@@ -45,6 +47,10 @@ module Conversations
       @tool_invocation_ids = ToolInvocation.where(agent_task_run_id: @agent_task_run_ids).pluck(:id)
       @workflow_artifact_ids = WorkflowArtifact.where(workflow_run_id: @workflow_run_ids).pluck(:id)
       @message_attachment_ids = MessageAttachment.where(conversation_id: @owned_conversation_ids).pluck(:id)
+      @execution_contract_ids = ExecutionContract.where(turn_id: @turn_ids).pluck(:id)
+      @execution_context_snapshot_ids = ExecutionContract.where(id: @execution_contract_ids).pluck(:execution_context_snapshot_id).compact
+      @execution_capability_snapshot_ids = ExecutionContract.where(id: @execution_contract_ids).pluck(:execution_capability_snapshot_id).compact
+      @json_document_ids = collect_json_document_ids
       @session_execution_lease_ids = ExecutionLease.where(
         leased_resource_type: "SubagentSession",
         leased_resource_id: @subagent_session_ids
@@ -87,6 +93,20 @@ module Conversations
       ids.concat AgentControlReportReceipt.where(mailbox_item_id: @mailbox_item_ids).pluck(:id) if @mailbox_item_ids.any?
 
       ids.uniq
+    end
+
+    def collect_json_document_ids
+      ids = []
+
+      ids.concat WorkflowArtifact.where(id: @workflow_artifact_ids).where.not(json_document_id: nil).pluck(:json_document_id)
+      ids.concat ToolInvocation.where(id: @tool_invocation_ids).where.not(request_document_id: nil).pluck(:request_document_id)
+      ids.concat ToolInvocation.where(id: @tool_invocation_ids).where.not(response_document_id: nil).pluck(:response_document_id)
+      ids.concat ToolInvocation.where(id: @tool_invocation_ids).where.not(error_document_id: nil).pluck(:error_document_id)
+      ids.concat AgentControlReportReceipt.where(id: @report_receipt_ids).where.not(report_document_id: nil).pluck(:report_document_id)
+      ids.concat AgentControlMailboxItem.where(id: @mailbox_item_ids).where.not(payload_document_id: nil).pluck(:payload_document_id)
+      ids.concat ExecutionCapabilitySnapshot.where(id: @execution_capability_snapshot_ids).where.not(tool_surface_document_id: nil).pluck(:tool_surface_document_id)
+
+      ids.compact.uniq
     end
 
     def purge_publication_rows!
@@ -139,11 +159,27 @@ module Conversations
       Turn.where(id: @turn_ids).update_all(
         selected_input_message_id: nil,
         selected_output_message_id: nil,
+        execution_contract_id: nil,
         updated_at: Time.current
       )
+      ExecutionContract.where(id: @execution_contract_ids).update_all(
+        selected_input_message_id: nil,
+        selected_output_message_id: nil,
+        updated_at: Time.current
+      )
+      ExecutionContract.where(id: @execution_contract_ids).delete_all
 
       Message.where(id: @message_ids).delete_all
       Turn.where(id: @turn_ids).delete_all
+    end
+
+    def purge_orphaned_snapshot_rows!
+      orphan_execution_context_snapshot_scope.delete_all
+      orphan_execution_capability_snapshot_scope.delete_all
+    end
+
+    def purge_orphaned_json_documents!
+      orphan_json_document_scope.delete_all
     end
 
     def nullify_message_attachment_ancestry!
@@ -183,6 +219,10 @@ module Conversations
         WorkflowNodeEvent.where(workflow_run_id: @workflow_run_ids),
         WorkflowEdge.where(workflow_run_id: @workflow_run_ids),
         WorkflowArtifact.where(id: @workflow_artifact_ids),
+        ExecutionContract.where(id: @execution_contract_ids),
+        orphan_execution_context_snapshot_scope,
+        orphan_execution_capability_snapshot_scope,
+        orphan_json_document_scope,
         WorkflowNode.where(id: @workflow_node_ids),
         WorkflowRun.where(id: @workflow_run_ids),
         ConversationCloseOperation.where(conversation_id: @owned_conversation_ids),
@@ -201,6 +241,35 @@ module Conversations
           ConversationClosure.where(descendant_conversation_id: @owned_conversation_ids)
         ),
       ]
+    end
+
+    def orphan_execution_context_snapshot_scope
+      return ExecutionContextSnapshot.none if @execution_context_snapshot_ids.empty?
+
+      referenced_ids = ExecutionContract.where(execution_context_snapshot_id: @execution_context_snapshot_ids).pluck(:execution_context_snapshot_id)
+      ExecutionContextSnapshot.where(id: @execution_context_snapshot_ids - referenced_ids)
+    end
+
+    def orphan_execution_capability_snapshot_scope
+      return ExecutionCapabilitySnapshot.none if @execution_capability_snapshot_ids.empty?
+
+      referenced_ids = ExecutionContract.where(execution_capability_snapshot_id: @execution_capability_snapshot_ids).pluck(:execution_capability_snapshot_id)
+      ExecutionCapabilitySnapshot.where(id: @execution_capability_snapshot_ids - referenced_ids)
+    end
+
+    def orphan_json_document_scope
+      return JsonDocument.none if @json_document_ids.empty?
+
+      referenced_ids = []
+      referenced_ids.concat WorkflowArtifact.where(json_document_id: @json_document_ids).pluck(:json_document_id)
+      referenced_ids.concat ToolInvocation.where(request_document_id: @json_document_ids).pluck(:request_document_id)
+      referenced_ids.concat ToolInvocation.where(response_document_id: @json_document_ids).pluck(:response_document_id)
+      referenced_ids.concat ToolInvocation.where(error_document_id: @json_document_ids).pluck(:error_document_id)
+      referenced_ids.concat AgentControlReportReceipt.where(report_document_id: @json_document_ids).pluck(:report_document_id)
+      referenced_ids.concat AgentControlMailboxItem.where(payload_document_id: @json_document_ids).pluck(:payload_document_id)
+      referenced_ids.concat ExecutionCapabilitySnapshot.where(tool_surface_document_id: @json_document_ids).pluck(:tool_surface_document_id)
+
+      JsonDocument.where(id: @json_document_ids - referenced_ids.compact.uniq)
     end
 
     def active_storage_attachment_scope

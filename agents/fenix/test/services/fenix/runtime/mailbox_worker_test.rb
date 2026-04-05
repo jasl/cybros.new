@@ -182,9 +182,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
         "pty" => false,
       },
     }
-    mailbox_item["payload"]["capability_projection"]["tool_surface"] = [
-      { "tool_name" => "exec_command" },
-    ]
+    mailbox_item["payload"]["agent_context"]["allowed_tool_names"] = ["exec_command"]
 
     assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_process_tools") do
       Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)
@@ -241,9 +239,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
         "tool_name" => tool_name,
         "arguments" => arguments,
       }
-      mailbox_item["payload"]["capability_projection"]["tool_surface"] = [
-        { "tool_name" => tool_name },
-      ]
+      mailbox_item["payload"]["agent_context"]["allowed_tool_names"] = [tool_name]
 
       assert_enqueued_with(job: RuntimeExecutionJob, queue: "runtime_process_tools") do
         Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item)

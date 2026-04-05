@@ -1,7 +1,7 @@
 class WorkflowArtifact < ApplicationRecord
   enum :storage_mode,
     {
-      inline_json: "inline_json",
+      json_document: "json_document",
       attached_file: "attached_file",
     },
     validate: true
@@ -19,14 +19,16 @@ class WorkflowArtifact < ApplicationRecord
   belongs_to :workspace
   belongs_to :conversation
   belongs_to :turn
+  belongs_to :json_document, optional: true
 
   has_one_attached :file
 
   before_validation :default_projection_fields_from_workflow_node
+  before_validation :materialize_pending_payload
 
   validates :artifact_key, presence: true
   validates :artifact_kind, presence: true
-  validate :payload_must_be_hash
+  validate :json_document_presence_for_json_document_mode
   validate :workflow_run_installation_match
   validate :workflow_node_installation_match
   validate :workflow_node_workflow_run_match
@@ -46,8 +48,8 @@ class WorkflowArtifact < ApplicationRecord
     self.presentation_policy ||= workflow_node.presentation_policy
   end
 
-  def payload_must_be_hash
-    errors.add(:payload, "must be a hash") unless payload.is_a?(Hash)
+  def json_document_presence_for_json_document_mode
+    errors.add(:json_document, "must be present for json_document storage mode") if json_document.blank? && json_document?
   end
 
   def workflow_run_installation_match
@@ -100,6 +102,38 @@ class WorkflowArtifact < ApplicationRecord
       return
     end
 
-    errors.add(:file, "must be blank for inline_json storage mode") if file.attached?
+    errors.add(:file, "must be blank for json_document storage mode") if file.attached?
+  end
+
+  public
+
+  def payload
+    json_document&.payload || {}
+  end
+
+  def payload=(value)
+    @pending_payload = value
+  end
+
+  def json_document?
+    storage_mode == "json_document"
+  end
+
+  def attached_file?
+    storage_mode == "attached_file"
+  end
+
+  def materialize_pending_payload
+    return unless defined?(@pending_payload)
+    return if @pending_payload.nil?
+    return if installation.blank?
+    return if @pending_payload.blank?
+
+    self.json_document = JsonDocuments::Store.call(
+      installation: installation,
+      document_kind: "workflow_artifact_payload",
+      payload: @pending_payload
+    )
+    self.storage_mode = "json_document" if storage_mode.blank? || json_document?
   end
 end

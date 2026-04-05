@@ -21,19 +21,11 @@
         "role": "user"
       }
     ],
-    "tool_surface": [
-      {
-        "tool_name": "compact_context"
-      },
-      {
-        "tool_name": "estimate_messages"
-      },
-      {
-        "tool_name": "estimate_tokens"
-      },
-      {
-        "tool_name": "calculator"
-      }
+    "visible_tool_names": [
+      "compact_context",
+      "estimate_messages",
+      "estimate_tokens",
+      "calculator"
     ],
     "summary_artifacts": [],
     "trace": [

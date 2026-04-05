@@ -211,35 +211,37 @@ class WorkflowRunTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
     )
-    turn = Turn.create!(
-      installation: context[:installation],
+    turn = Turns::StartUserTurn.call(
       conversation: conversation,
+      content: "Input",
       agent_program_version: context[:agent_program_version],
-      sequence: 1,
-      lifecycle_state: "active",
-      origin_kind: "manual_user",
-      origin_payload: {},
-      pinned_program_version_fingerprint: context[:agent_program_version].fingerprint,
       resolved_config_snapshot: {},
-      execution_snapshot_payload: {
-        "identity" => {
-          "turn_id" => "turn-public-id",
-          "agent_program_version_id" => context[:agent_program_version].public_id,
-        },
-        "conversation_projection" => {
-          "messages" => [{ "role" => "user", "content" => "Input" }],
-          "context_imports" => [],
-          "prior_tool_results" => [],
-        },
-      },
-      resolved_model_selection_snapshot: {}
+      resolved_model_selection_snapshot: {
+        "resolved_provider_handle" => "codex_subscription",
+        "resolved_model_ref" => "gpt-5.4",
+      }
     )
+    Workflows::BuildExecutionSnapshot.call(turn: turn)
     workflow_run = create_workflow_run!(turn: turn)
 
-    assert_equal "turn-public-id", workflow_run.execution_identity.fetch("turn_id")
-    assert_equal [{ "role" => "user", "content" => "Input" }], workflow_run.execution_snapshot.conversation_projection.fetch("messages")
+    assert_equal turn.public_id, workflow_run.execution_identity.fetch("turn_id")
+    assert_equal context[:agent_program_version].public_id, workflow_run.execution_identity.fetch("agent_program_version_id")
+    assert_equal(
+      [
+        {
+          "message_id" => turn.selected_input_message.public_id,
+          "conversation_id" => conversation.public_id,
+          "turn_id" => turn.public_id,
+          "role" => "user",
+          "slot" => "input",
+          "content" => "Input",
+        },
+      ],
+      workflow_run.execution_snapshot.conversation_projection.fetch("messages")
+    )
   end
 
   test "derives workspace and feature policy from the turn instead of duplicate columns" do

@@ -17,67 +17,83 @@ module Workflows
       raw_attachment_manifest = build_raw_attachment_manifest
       attachment_manifest = build_attachment_manifest(raw_attachment_manifest)
 
-      TurnExecutionSnapshot.new(
-        "identity" => execution_identity,
-        "task" => task,
-        "conversation_projection" => conversation_projection,
-        "capability_projection" => capability_projection,
-        "provider_context" => provider_context,
-        "runtime_context" => runtime_context,
-        "turn_origin" => turn_origin,
-        "attachment_manifest" => attachment_manifest,
-        "model_input_attachments" => build_model_input_attachments(attachment_manifest),
-        "attachment_diagnostics" => build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
-      )
+      capability_snapshot = find_or_create_capability_snapshot!
+      context_snapshot = find_or_create_context_snapshot!(attachment_manifest:)
+      execution_contract = ExecutionContract.find_or_initialize_by(turn: @turn)
+
+      execution_contract.installation = @turn.installation
+      execution_contract.agent_program_version = @turn.agent_program_version
+      execution_contract.execution_runtime = @turn.execution_runtime
+      execution_contract.selected_input_message = @turn.selected_input_message
+      execution_contract.selected_output_message = @turn.selected_output_message
+      execution_contract.execution_capability_snapshot = capability_snapshot
+      execution_contract.execution_context_snapshot = context_snapshot
+      execution_contract.provider_context = provider_context
+      execution_contract.turn_origin = turn_origin
+      execution_contract.attachment_manifest = attachment_manifest
+      execution_contract.model_input_attachments = build_model_input_attachments(attachment_manifest)
+      execution_contract.attachment_diagnostics = build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
+      execution_contract.save!
+
+      @turn.update!(execution_contract: execution_contract) unless @turn.execution_contract_id == execution_contract.id
+
+      TurnExecutionSnapshot.new(turn: @turn.reload)
     end
 
     private
 
-    def execution_identity
-      {
-        "user_id" => @turn.conversation.workspace.user.public_id,
-        "workspace_id" => @turn.conversation.workspace.public_id,
-        "conversation_id" => @turn.conversation.public_id,
-        "turn_id" => @turn.public_id,
-        "selected_input_message_id" => @turn.selected_input_message&.public_id,
-        "execution_runtime_id" => @turn.execution_runtime&.public_id,
-        "agent_program_version_id" => @turn.agent_program_version.public_id,
-      }
-    end
+    def find_or_create_capability_snapshot!
+      tool_surface_document = JsonDocuments::Store.call(
+        installation: @turn.installation,
+        document_kind: "execution_tool_surface",
+        payload: visible_tool_surface
+      )
 
-    def task
-      {
-        "conversation_id" => @turn.conversation.public_id,
-        "turn_id" => @turn.public_id,
-        "selected_input_message_id" => @turn.selected_input_message&.public_id,
-        "selected_output_message_id" => @turn.selected_output_message&.public_id,
-        "origin_kind" => @turn.origin_kind,
-        "origin_payload" => @turn.origin_payload,
-        "source_ref_type" => @turn.source_ref_type,
-        "source_ref_id" => @turn.source_ref_id,
-      }.compact
-    end
-
-    def conversation_projection
-      {
-        "messages" => messages_projection,
-        "context_imports" => context_imports,
-        "prior_tool_results" => [],
-        "projection_fingerprint" => projection_fingerprint,
-      }
-    end
-
-    def capability_projection
-      {
-        "tool_surface" => visible_tool_surface,
+      snapshot_payload = {
+        "tool_surface_sha" => tool_surface_document.content_sha256,
+        "program_version_fingerprint" => @turn.agent_program_version.fingerprint,
         "profile_key" => current_profile_key,
-        "is_subagent" => subagent_session.present?,
+        "subagent" => subagent_session.present?,
         "subagent_session_id" => subagent_session&.public_id,
         "parent_subagent_session_id" => subagent_session&.parent_subagent_session&.public_id,
         "subagent_depth" => subagent_session&.depth,
         "owner_conversation_id" => subagent_session&.owner_conversation&.public_id,
         "subagent_policy" => deep_stringify(capability_contract.default_config_snapshot.fetch("subagents", {})),
       }
+      fingerprint = "sha256:#{Digest::SHA256.hexdigest(JSON.generate(snapshot_payload))}"
+
+      ExecutionCapabilitySnapshot.find_or_create_by!(
+        installation: @turn.installation,
+        fingerprint: fingerprint
+      ) do |snapshot|
+        snapshot.tool_surface_document = tool_surface_document
+        snapshot.program_version_fingerprint = @turn.agent_program_version.fingerprint
+        snapshot.profile_key = current_profile_key
+        snapshot.subagent = subagent_session.present?
+        snapshot.subagent_session = subagent_session
+        snapshot.parent_subagent_session = subagent_session&.parent_subagent_session
+        snapshot.owner_conversation = subagent_session&.owner_conversation
+        snapshot.subagent_depth = subagent_session&.depth
+        snapshot.subagent_policy_snapshot = snapshot_payload.fetch("subagent_policy")
+      end
+    end
+
+    def find_or_create_context_snapshot!(attachment_manifest:)
+      message_refs = build_message_refs
+      import_refs = build_import_refs
+      attachment_refs = build_attachment_refs(attachment_manifest)
+      projection_fingerprint = projection_fingerprint(message_refs:, import_refs:)
+      fingerprint = "sha256:#{Digest::SHA256.hexdigest(JSON.generate({ "messages" => message_refs, "imports" => import_refs, "attachments" => attachment_refs }))}"
+
+      ExecutionContextSnapshot.find_or_create_by!(
+        installation: @turn.installation,
+        fingerprint: fingerprint
+      ) do |snapshot|
+        snapshot.projection_fingerprint = projection_fingerprint
+        snapshot.message_refs = message_refs
+        snapshot.import_refs = import_refs
+        snapshot.attachment_refs = attachment_refs
+      end
     end
 
     def provider_context
@@ -85,16 +101,6 @@ module Workflows
         "budget_hints" => budget_hints,
         "provider_execution" => provider_execution,
         "model_context" => model_context,
-      }
-    end
-
-    def runtime_context
-      {
-        "runtime_plane" => "program",
-        "logical_work_id" => nil,
-        "attempt_no" => nil,
-        "agent_program_version_id" => @turn.agent_program_version.public_id,
-        "execution_runtime_id" => @turn.execution_runtime&.public_id,
       }
     end
 
@@ -142,29 +148,54 @@ module Workflows
       }
     end
 
-    def messages_projection
+    def build_message_refs
       visible_context_messages.filter_map do |message|
         next unless message.is_a?(Message)
 
         {
           "message_id" => message.public_id,
-          "conversation_id" => message.conversation.public_id,
-          "turn_id" => message.turn.public_id,
           "role" => provider_role_for(message),
           "slot" => message.slot,
-          "content" => message.content,
+          "created_at" => message.created_at&.iso8601,
         }
       end
     end
 
-    def visible_tool_surface
-      capability_surface.fetch("tool_catalog", []).map { |entry| deep_stringify(entry) }
+    def build_import_refs
+      @turn.conversation.conversation_imports
+        .includes(:source_conversation, :source_message, :summary_segment)
+        .order(:id)
+        .filter_map do |conversation_import|
+          next if conversation_import.summary_segment&.superseded_by_id.present?
+
+          {
+            "kind" => conversation_import.kind,
+            "source_conversation_id" => conversation_import.source_conversation&.public_id,
+            "source_message_id" => conversation_import.source_message&.public_id,
+            "summary_segment_id" => conversation_import.summary_segment_id,
+          }.compact
+        end
     end
 
-    def projection_fingerprint
+    def build_attachment_refs(attachment_manifest)
+      attachment_manifest.map do |entry|
+        entry.slice(
+          "attachment_id",
+          "source_message_id",
+          "origin_attachment_id",
+          "origin_message_id",
+          "filename",
+          "content_type",
+          "byte_size",
+          "modality"
+        )
+      end
+    end
+
+    def projection_fingerprint(message_refs:, import_refs:)
       payload = {
-        "messages" => messages_projection,
-        "context_imports" => context_imports,
+        "messages" => message_refs,
+        "context_imports" => import_refs,
       }
 
       "sha256:#{Digest::SHA256.hexdigest(JSON.generate(payload))}"
@@ -179,20 +210,8 @@ module Workflows
       end
     end
 
-    def context_imports
-      @turn.conversation.conversation_imports
-        .includes(:source_conversation, :source_message, :summary_segment)
-        .order(:id)
-        .filter_map do |conversation_import|
-          next if conversation_import.summary_segment&.superseded_by_id.present?
-
-          {
-            "kind" => conversation_import.kind,
-            "source_conversation_id" => conversation_import.source_conversation&.public_id,
-            "source_message_id" => conversation_import.source_message&.public_id,
-            "content" => imported_content(conversation_import),
-          }.compact
-        end
+    def visible_tool_surface
+      capability_surface.fetch("tool_catalog", []).map { |entry| deep_stringify(entry) }
     end
 
     def build_raw_attachment_manifest
@@ -229,7 +248,7 @@ module Workflows
       end
     end
 
-    def build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
+    def build_attachment_diagnostics(_raw_attachment_manifest, attachment_manifest)
       attachment_manifest.filter_map do |entry|
         next if modality_supported?(entry.fetch("modality"))
 
@@ -246,13 +265,6 @@ module Workflows
       @visible_context_messages ||= Conversations::ContextProjection.call(conversation: @turn.conversation).messages.select do |message|
         message.conversation_id != @turn.conversation_id || message.turn.sequence <= @turn.sequence
       end
-    end
-
-    def imported_content(conversation_import)
-      return conversation_import.summary_segment.content if conversation_import.summary_segment.present?
-      return conversation_import.source_message.content if conversation_import.source_message.present?
-
-      nil
     end
 
     def modality_for(content_type)

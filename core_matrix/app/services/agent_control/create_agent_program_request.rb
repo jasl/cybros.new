@@ -41,7 +41,12 @@ module AgentControl
         dispatch_deadline_at: @dispatch_deadline_at,
         lease_timeout_seconds: @lease_timeout_seconds,
         execution_hard_deadline_at: @execution_hard_deadline_at,
-        payload: request_payload
+        payload_document: JsonDocuments::Store.call(
+          installation: @agent_program_version.installation,
+          document_kind: "agent_program_request",
+          payload: request_payload
+        ),
+        payload: { "request_kind" => @request_kind }
       )
 
       PublishPending.call(mailbox_item: mailbox_item)

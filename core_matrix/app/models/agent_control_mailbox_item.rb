@@ -29,6 +29,8 @@ class AgentControlMailboxItem < ApplicationRecord
   belongs_to :target_agent_program_version, class_name: "AgentProgramVersion", optional: true
   belongs_to :target_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :agent_task_run, optional: true
+  belongs_to :execution_contract, optional: true
+  belongs_to :payload_document, class_name: "JsonDocument", optional: true
   belongs_to :leased_to_agent_session, class_name: "AgentSession", optional: true
   belongs_to :leased_to_execution_session, class_name: "ExecutionSession", optional: true
 
@@ -48,6 +50,18 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :agent_task_run_match
   validate :lease_holder_match
   validate :runtime_plane_contract
+
+  def payload
+    return payload_document.payload.deep_dup if payload_document.present?
+    return payload_body unless execution_assignment? && execution_contract.present?
+
+    AgentControl::SerializeMailboxItem.serialized_payload(self, compact_payload: payload_body)
+  end
+
+  def payload_body
+    value = self[:payload]
+    value.is_a?(Hash) ? value.deep_dup : {}
+  end
 
   def program_plane?
     runtime_plane == "program"
@@ -102,7 +116,7 @@ class AgentControlMailboxItem < ApplicationRecord
   private
 
   def payload_must_be_hash
-    errors.add(:payload, "must be a hash") unless payload.is_a?(Hash)
+    errors.add(:payload, "must be a hash") unless payload_body.is_a?(Hash)
   end
 
   def target_installation_match

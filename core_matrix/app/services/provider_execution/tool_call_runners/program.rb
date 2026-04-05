@@ -98,11 +98,6 @@ module ProviderExecution
       end
 
       def execute_program_tool_payload(invocation:, runtime_resource_refs:)
-        capability_projection = @workflow_node.workflow_run.execution_snapshot.capability_projection
-        tool_surface = capability_projection.fetch("tool_surface", []).select do |entry|
-          entry.fetch("tool_name") == @tool_call.fetch("tool_name")
-        end
-
         {
           "protocol_version" => "agent-program/2026-04-01",
           "request_kind" => "execute_program_tool",
@@ -112,9 +107,7 @@ module ProviderExecution
             "turn_id" => @workflow_node.turn.public_id,
             "kind" => "turn_step",
           },
-          "capability_projection" => capability_projection.merge(
-            "tool_surface" => tool_surface
-          ),
+          "agent_context" => agent_context,
           "provider_context" => {
             "provider_execution" => @workflow_node.workflow_run.provider_execution,
             "model_context" => @workflow_node.workflow_run.model_context,
@@ -135,6 +128,20 @@ module ProviderExecution
               "tool_invocation_id" => invocation.public_id,
             }
           ),
+        }.compact
+      end
+
+      def agent_context
+        capability_projection = @workflow_node.workflow_run.execution_snapshot.capability_projection
+
+        {
+          "profile" => capability_projection.fetch("profile_key", "main"),
+          "is_subagent" => capability_projection["is_subagent"] == true,
+          "subagent_session_id" => capability_projection["subagent_session_id"],
+          "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+          "subagent_depth" => capability_projection["subagent_depth"],
+          "owner_conversation_id" => capability_projection["owner_conversation_id"],
+          "allowed_tool_names" => [@tool_call.fetch("tool_name")],
         }.compact
       end
 

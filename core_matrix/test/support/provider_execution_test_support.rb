@@ -17,10 +17,8 @@ module ProviderExecutionTestSupport
 
       round = @prepared_rounds.shift || {
         "status" => "ok",
-        "messages" => payload.fetch("conversation_projection").fetch("messages"),
-        "tool_surface" => payload.fetch("capability_projection").fetch("tool_surface", []).select do |entry|
-          entry.fetch("implementation_source", nil) != "core_matrix"
-        end,
+        "messages" => payload.fetch("round_context").fetch("messages"),
+        "visible_tool_names" => Array(payload.dig("agent_context", "allowed_tool_names")),
         "summary_artifacts" => [],
         "trace" => [],
       }

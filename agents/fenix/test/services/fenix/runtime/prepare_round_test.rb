@@ -60,7 +60,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
       )
 
       payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload").merge(
-        "conversation_projection" => {
+        "round_context" => {
           "messages" => [
             {
               "role" => "user",
@@ -68,7 +68,6 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
             },
           ],
           "context_imports" => [],
-          "prior_tool_results" => [],
           "projection_fingerprint" => "sha256:test",
         },
       )
@@ -82,7 +81,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     end
   end
 
-  test "returns prepared messages and profile-visible tool surface" do
+  test "returns prepared messages and profile-visible tool names" do
     result = Fenix::Runtime::PrepareRound.call(payload: high_budget_prepare_round_payload)
 
     first_message = result.fetch("messages").first
@@ -92,7 +91,7 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     assert_equal default_context_messages, result.fetch("messages").drop(1)
     assert_equal "ok", result.fetch("status")
     assert_equal %w[compact_context estimate_messages estimate_tokens calculator],
-      result.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
+      result.fetch("visible_tool_names")
     assert_equal [], result.fetch("summary_artifacts")
     assert_equal %w[prepare_turn compact_context], result.fetch("trace").map { |entry| entry.fetch("hook") }
   end
@@ -119,37 +118,18 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
     prepare_turn_singleton.send(:define_method, :call, original_prepare_turn) if prepare_turn_singleton && original_prepare_turn
   end
 
-  test "preserves execution-runtime tools from the capability projection" do
+  test "preserves execution-runtime tools from the agent context" do
     payload = high_budget_prepare_round_payload.deep_dup
-    payload["capability_projection"]["tool_surface"] = [
-      {
-        "tool_name" => "exec_command",
-        "tool_kind" => "execution_runtime",
-        "input_schema" => { "type" => "object" },
-      },
-      {
-        "tool_name" => "browser_open",
-        "tool_kind" => "execution_runtime",
-        "input_schema" => { "type" => "object" },
-      },
-      {
-        "tool_name" => "subagent_spawn",
-        "tool_kind" => "effect_intent",
-        "input_schema" => { "type" => "object" },
-      },
-    ]
+    payload["agent_context"]["allowed_tool_names"] = %w[exec_command browser_open subagent_spawn]
 
     result = Fenix::Runtime::PrepareRound.call(payload:)
 
-    assert_equal %w[exec_command browser_open subagent_spawn],
-      result.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
-    assert_equal %w[execution_runtime execution_runtime effect_intent],
-      result.fetch("tool_surface").map { |entry| entry.fetch("tool_kind") }
+    assert_equal %w[exec_command browser_open subagent_spawn], result.fetch("visible_tool_names")
   end
 
   test "does not fold prior tool results into the prepared transcript messages" do
     payload = high_budget_prepare_round_payload.merge(
-      "conversation_projection" => high_budget_prepare_round_payload.fetch("conversation_projection").merge(
+      "round_context" => high_budget_prepare_round_payload.fetch("round_context").merge(
         "prior_tool_results" => [
           {
             "call_id" => "tool-call-1",

@@ -27,7 +27,7 @@ module Workflows
           workflow_run.update!(Workflows::TurnPauseState.resume_attributes(workflow_run: workflow_run))
           return workflow_run if workflow_run.reload.waiting?
 
-          turn.update!(execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: turn.reload).to_h)
+          Workflows::BuildExecutionSnapshot.call(turn: turn.reload)
 
           create_next_attempt!(workflow_run:, turn:, paused_task:)
           workflow_run.reload

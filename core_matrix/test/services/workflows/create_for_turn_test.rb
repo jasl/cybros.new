@@ -40,7 +40,9 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal context[:execution_runtime].public_id, turn.execution_snapshot.identity["execution_runtime_id"]
     assert_equal [attachment.public_id], turn.execution_snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal [attachment.public_id], turn.execution_snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
-    assert_equal turn.execution_snapshot.to_h, turn.execution_snapshot_payload
+    assert turn.execution_contract.present?
+    assert turn.execution_contract.execution_capability_snapshot.present?
+    assert turn.execution_contract.execution_context_snapshot.present?
     refute Rails.root.join("app/services/workflows/context_assembler.rb").exist?
   end
 

@@ -16,8 +16,13 @@ class ToolInvocation < ApplicationRecord
   belongs_to :tool_binding
   belongs_to :tool_definition
   belongs_to :tool_implementation
+  belongs_to :request_document, class_name: "JsonDocument", optional: true
+  belongs_to :response_document, class_name: "JsonDocument", optional: true
+  belongs_to :error_document, class_name: "JsonDocument", optional: true
 
   has_one :command_run, dependent: :destroy
+
+  before_validation :materialize_pending_documents
 
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
   validate :execution_subject_present
@@ -27,13 +32,77 @@ class ToolInvocation < ApplicationRecord
   validate :installation_matches_tool_definition
   validate :installation_matches_tool_implementation
   validate :binding_projection_alignment
-  validate :request_payload_must_be_hash
-  validate :response_payload_must_be_hash
-  validate :error_payload_must_be_hash
   validate :metadata_must_be_hash
   validate :lifecycle_timestamps
 
+  def request_payload
+    request_document&.payload || {}
+  end
+
+  def request_payload=(value)
+    @pending_request_payload = value
+  end
+
+  def response_payload
+    response_document&.payload || {}
+  end
+
+  def response_payload=(value)
+    @pending_response_payload = value
+  end
+
+  def error_payload
+    error_document&.payload || {}
+  end
+
+  def error_payload=(value)
+    @pending_error_payload = value
+  end
+
   private
+
+  def materialize_pending_documents
+    return if installation.blank?
+
+    if defined?(@pending_request_payload)
+      self.request_document =
+        if @pending_request_payload.blank?
+          nil
+        else
+          JsonDocuments::Store.call(
+            installation: installation,
+            document_kind: "tool_invocation_request",
+            payload: @pending_request_payload
+          )
+        end
+    end
+
+    if defined?(@pending_response_payload)
+      self.response_document =
+        if @pending_response_payload.blank?
+          nil
+        else
+          JsonDocuments::Store.call(
+            installation: installation,
+            document_kind: "tool_invocation_response",
+            payload: @pending_response_payload
+          )
+        end
+    end
+
+    if defined?(@pending_error_payload)
+      self.error_document =
+        if @pending_error_payload.blank?
+          nil
+        else
+          JsonDocuments::Store.call(
+            installation: installation,
+            document_kind: "tool_invocation_error",
+            payload: @pending_error_payload
+          )
+        end
+    end
+  end
 
   def execution_subject_present
     return if agent_task_run.present? || workflow_node.present?
@@ -89,18 +158,6 @@ class ToolInvocation < ApplicationRecord
     if tool_implementation.present? && tool_binding.tool_implementation_id != tool_implementation_id
       errors.add(:tool_implementation, "must match the frozen tool binding")
     end
-  end
-
-  def request_payload_must_be_hash
-    errors.add(:request_payload, "must be a hash") unless request_payload.is_a?(Hash)
-  end
-
-  def response_payload_must_be_hash
-    errors.add(:response_payload, "must be a hash") unless response_payload.is_a?(Hash)
-  end
-
-  def error_payload_must_be_hash
-    errors.add(:error_payload, "must be a hash") unless error_payload.is_a?(Hash)
   end
 
   def metadata_must_be_hash

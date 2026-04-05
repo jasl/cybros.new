@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport::TestCase
-  test "rolls up turn snapshots and exposes outlier turn references" do
+  test "rolls up turn snapshots without duplicating outlier references in metadata" do
     context = build_canonical_variable_context!
     conversation = context[:conversation]
     first_turn = context[:turn]
@@ -106,7 +106,6 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       },
       snapshot.metadata.fetch("cost_summary")
     )
-    assert_equal second_turn.public_id, snapshot.metadata.dig("outlier_refs", "most_expensive_turn_id")
-    assert_equal second_turn.public_id, snapshot.metadata.dig("outlier_refs", "most_rounds_turn_id")
+    assert_nil snapshot.metadata["outlier_refs"]
   end
 end

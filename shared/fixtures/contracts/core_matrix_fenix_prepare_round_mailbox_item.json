@@ -19,7 +19,7 @@
       "turn_id": "turn-public-id",
       "kind": "turn_step"
     },
-    "conversation_projection": {
+    "round_context": {
       "messages": [
         {
           "role": "system",
@@ -31,19 +31,17 @@
         }
       ],
       "context_imports": [],
-      "prior_tool_results": [],
       "projection_fingerprint": "sha256:prepare-round-projection"
     },
-    "capability_projection": {
-      "tool_surface": [
-        { "tool_name": "compact_context" },
-        { "tool_name": "estimate_messages" },
-        { "tool_name": "estimate_tokens" },
-        { "tool_name": "calculator" }
-      ],
-      "profile_key": "main",
+    "agent_context": {
+      "profile": "main",
       "is_subagent": false,
-      "subagent_policy": {}
+      "allowed_tool_names": [
+        "compact_context",
+        "estimate_messages",
+        "estimate_tokens",
+        "calculator"
+      ]
     },
     "provider_context": {
       "budget_hints": {

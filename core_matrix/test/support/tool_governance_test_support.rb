@@ -80,8 +80,7 @@ module ToolGovernanceTestSupport
       agent_program_version: context.fetch(:agent_program_version),
       pinned_program_version_fingerprint: context.fetch(:agent_program_version).fingerprint
     )
-    execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
-    context.fetch(:turn).update!(execution_snapshot_payload: execution_snapshot.to_h)
+    Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
 
     context.merge(
       capability_snapshot: context.fetch(:agent_program_version),

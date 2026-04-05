@@ -108,7 +108,7 @@ module Workflows
         workflow_node: @yielding_node,
         artifact_key: batch_id,
         artifact_kind: "intent_batch_manifest",
-        storage_mode: "inline_json",
+        storage_mode: "json_document",
         payload: @batch_manifest.merge(
           "accepted_intent_count" => accepted_intents.size,
           "rejected_intent_count" => rejected_intents.size,
@@ -126,7 +126,7 @@ module Workflows
             workflow_node: @yielding_node,
             artifact_key: "#{batch_id}:stage:#{stage.fetch("stage_index")}",
             artifact_kind: "intent_batch_barrier",
-            storage_mode: "inline_json",
+            storage_mode: "json_document",
             payload: {
               "batch_id" => batch_id,
               "stage" => stage.slice("stage_index", "dispatch_mode", "completion_barrier"),

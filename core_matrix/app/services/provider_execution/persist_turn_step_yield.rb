@@ -249,7 +249,7 @@ module ProviderExecution
         workflow_node: workflow_node,
         artifact_key: @tool_batch_result.fetch("batch_id"),
         artifact_kind: "provider_tool_batch_manifest",
-        storage_mode: "inline_json",
+        storage_mode: "json_document",
         payload: @tool_batch_result
       )
     end
@@ -262,7 +262,7 @@ module ProviderExecution
           workflow_node: workflow_node,
           artifact_key: "#{@tool_batch_result.fetch("batch_id")}:stage:#{stage.fetch("stage_index")}",
           artifact_kind: "intent_batch_barrier",
-          storage_mode: "inline_json",
+          storage_mode: "json_document",
           payload: {
             "batch_id" => @tool_batch_result.fetch("batch_id"),
             "stage" => stage.slice("stage_index", "dispatch_mode", "completion_barrier"),

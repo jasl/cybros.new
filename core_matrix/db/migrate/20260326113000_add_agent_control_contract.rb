@@ -1,5 +1,63 @@
 class AddAgentControlContract < ActiveRecord::Migration[8.2]
   def change
+    create_table :execution_capability_snapshots do |t|
+      t.references :installation, null: false, foreign_key: true
+      t.references :tool_surface_document, null: false, foreign_key: { to_table: :json_documents }
+      t.references :subagent_session, foreign_key: true
+      t.references :parent_subagent_session, foreign_key: { to_table: :subagent_sessions }
+      t.references :owner_conversation, foreign_key: { to_table: :conversations }
+      t.uuid :public_id, default: -> { "uuidv7()" }, null: false
+      t.string :fingerprint, null: false
+      t.string :program_version_fingerprint, null: false
+      t.string :profile_key, null: false
+      t.boolean :subagent, null: false, default: false
+      t.integer :subagent_depth
+      t.jsonb :subagent_policy_snapshot, null: false, default: {}
+      t.timestamps
+    end
+    add_index :execution_capability_snapshots, :public_id, unique: true
+    add_index :execution_capability_snapshots,
+      [:installation_id, :fingerprint],
+      unique: true,
+      name: "idx_execution_capability_snapshots_fingerprint"
+
+    create_table :execution_context_snapshots do |t|
+      t.references :installation, null: false, foreign_key: true
+      t.uuid :public_id, default: -> { "uuidv7()" }, null: false
+      t.string :fingerprint, null: false
+      t.string :projection_fingerprint, null: false
+      t.jsonb :message_refs, null: false, default: []
+      t.jsonb :import_refs, null: false, default: []
+      t.jsonb :attachment_refs, null: false, default: []
+      t.timestamps
+    end
+    add_index :execution_context_snapshots, :public_id, unique: true
+    add_index :execution_context_snapshots,
+      [:installation_id, :fingerprint],
+      unique: true,
+      name: "idx_execution_context_snapshots_fingerprint"
+
+    create_table :execution_contracts do |t|
+      t.references :installation, null: false, foreign_key: true
+      t.references :turn, null: false, foreign_key: true, index: { unique: true }
+      t.references :agent_program_version, null: false, foreign_key: true
+      t.references :execution_runtime, foreign_key: true
+      t.references :selected_input_message, foreign_key: { to_table: :messages }
+      t.references :selected_output_message, foreign_key: { to_table: :messages }
+      t.references :execution_capability_snapshot, null: false, foreign_key: true
+      t.references :execution_context_snapshot, null: false, foreign_key: true
+      t.uuid :public_id, default: -> { "uuidv7()" }, null: false
+      t.jsonb :provider_context, null: false, default: {}
+      t.jsonb :turn_origin, null: false, default: {}
+      t.jsonb :attachment_manifest, null: false, default: []
+      t.jsonb :model_input_attachments, null: false, default: []
+      t.jsonb :attachment_diagnostics, null: false, default: []
+      t.timestamps
+    end
+    add_index :execution_contracts, :public_id, unique: true
+
+    add_reference :turns, :execution_contract, foreign_key: true
+
     create_table :agent_sessions do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :agent_program, null: false, foreign_key: true
@@ -86,6 +144,8 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :target_agent_program_version, foreign_key: { to_table: :agent_program_versions }
       t.references :target_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.references :agent_task_run, foreign_key: true
+      t.references :execution_contract, foreign_key: true
+      t.references :payload_document, foreign_key: { to_table: :json_documents }
       t.references :leased_to_agent_session, foreign_key: { to_table: :agent_sessions }
       t.references :leased_to_execution_session, foreign_key: { to_table: :execution_sessions }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
@@ -127,7 +187,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.string :logical_work_id
       t.integer :attempt_no
       t.string :result_code, null: false
-      t.jsonb :payload, null: false, default: {}
+      t.references :report_document, foreign_key: { to_table: :json_documents }
       t.timestamps
     end
     add_index :agent_control_report_receipts, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_report_receipts_protocol_message"

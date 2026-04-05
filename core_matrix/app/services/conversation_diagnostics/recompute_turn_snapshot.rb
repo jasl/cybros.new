@@ -72,7 +72,8 @@ module ConversationDiagnostics
       snapshot.output_variant_count = turn.messages.where(slot: "output").count
       snapshot.resume_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' = 'turn_resume'").count
       snapshot.retry_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' IN (?)", RETRY_DELIVERY_KINDS).count
-      snapshot.metadata = {
+      snapshot.metadata = compact_metadata(
+        {
         "provider_usage_breakdown" => provider_usage_breakdown(usage_scope),
         "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(attributed_usage_scope),
         "workflow_node_type_counts" => stringify_hash(workflow_nodes.group(:node_type).count),
@@ -83,13 +84,8 @@ module ConversationDiagnostics
         "cost_summary" => usage_metrics.fetch("cost_summary"),
         "attributed_user_cost_summary" => attributed_usage_metrics.fetch("cost_summary"),
         "pause_state" => turn.workflow_run&.wait_reason_payload&.[]("recovery_state"),
-        "evidence_refs" => {
-          "turn_id" => turn.public_id,
-          "workflow_run_id" => turn.workflow_run&.public_id,
-          "selected_input_message_id" => turn.selected_input_message&.public_id,
-          "selected_output_message_id" => turn.selected_output_message&.public_id,
-        }.compact,
-      }
+        }
+      )
       snapshot.save!
       snapshot
     end
@@ -225,6 +221,28 @@ module ConversationDiagnostics
 
     def stringify_hash(hash)
       hash.to_h.transform_keys(&:to_s)
+    end
+
+    def compact_metadata(value)
+      case value
+      when Hash
+        value.each_with_object({}) do |(key, nested_value), memo|
+          compacted = compact_metadata(nested_value)
+          memo[key] = compacted unless removable_metadata_value?(compacted)
+        end
+      when Array
+        value.filter_map do |entry|
+          compacted = compact_metadata(entry)
+          compacted unless removable_metadata_value?(compacted)
+        end
+      else
+        value
+      end
+    end
+
+    def removable_metadata_value?(value)
+      value.nil? ||
+        (value.respond_to?(:empty?) && value.empty?)
     end
   end
 end

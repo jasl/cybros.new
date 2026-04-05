@@ -31,6 +31,7 @@ class Turn < ApplicationRecord
   belongs_to :conversation
   belongs_to :agent_program_version
   belongs_to :execution_runtime, optional: true
+  belongs_to :execution_contract, optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
 
@@ -44,7 +45,6 @@ class Turn < ApplicationRecord
   validate :origin_payload_must_be_hash
   validate :feature_policy_snapshot_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
-  validate :execution_snapshot_payload_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
   validate :agent_program_version_installation_match
@@ -82,7 +82,7 @@ class Turn < ApplicationRecord
   end
 
   def execution_snapshot
-    TurnExecutionSnapshot.new(execution_snapshot_payload || {})
+    TurnExecutionSnapshot.new(turn: self)
   end
 
   def pinned_capability_snapshot_version
@@ -120,10 +120,6 @@ class Turn < ApplicationRecord
 
   def resolved_config_snapshot_must_be_hash
     errors.add(:resolved_config_snapshot, "must be a hash") unless resolved_config_snapshot.is_a?(Hash)
-  end
-
-  def execution_snapshot_payload_must_be_hash
-    errors.add(:execution_snapshot_payload, "must be a hash") unless execution_snapshot_payload.is_a?(Hash)
   end
 
   def resolved_model_selection_snapshot_must_be_hash

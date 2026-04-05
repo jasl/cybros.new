@@ -20,9 +20,7 @@ module AgentProgramVersions
           pinned_program_version_fingerprint: @recovery_target.agent_program_version.fingerprint,
           resolved_model_selection_snapshot: @recovery_target.resolved_model_selection_snapshot
         )
-        @turn.update!(
-          execution_snapshot_payload: Workflows::BuildExecutionSnapshot.call(turn: @turn).to_h
-        )
+        Workflows::BuildExecutionSnapshot.call(turn: @turn.reload)
       end
 
       @turn

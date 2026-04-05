@@ -18,13 +18,12 @@
       "turn_id": "turn-public-id",
       "kind": "turn_step"
     },
-    "capability_projection": {
-      "tool_surface": [
-        { "tool_name": "calculator" }
-      ],
-      "profile_key": "main",
+    "agent_context": {
+      "profile": "main",
       "is_subagent": false,
-      "subagent_policy": {}
+      "allowed_tool_names": [
+        "calculator"
+      ]
     },
     "provider_context": {
       "provider_execution": {

@@ -22,4 +22,30 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     refute serialized.key?("target_ref")
     refute serialized.key?("id")
   end
+
+  test "serializes full payload documents for agent program requests" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+        },
+      },
+      logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    serialized = AgentControl::SerializeMailboxItem.call(mailbox_item)
+
+    assert_equal "prepare_round", serialized.dig("payload", "request_kind")
+    assert_equal context.fetch(:workflow_node).public_id, serialized.dig("payload", "task", "workflow_node_id")
+    assert_equal context.fetch(:turn).public_id, serialized.dig("payload", "task", "turn_id")
+  end
 end

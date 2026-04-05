@@ -28,10 +28,10 @@ runtime resources that later tasks now build on are:
   - `workflow_node_ordinal`
   - `presentation_policy`
 - Artifacts use explicit storage modes rather than ad hoc payload shapes:
-  - `inline_json`
+  - `json_document`
   - `attached_file`
-- `inline_json` persists structured payload in `payload` and does not attach a
-  file.
+- `json_document` persists structured payload through an immutable
+  `JsonDocument` row and does not attach a file.
 - `attached_file` persists canonical metadata in `payload` and requires a
   `has_one_attached :file` attachment.
 - Artifact ownership stays workflow-scoped: a node may emit an artifact, but
@@ -39,7 +39,7 @@ runtime resources that later tasks now build on are:
 - Current yield materialization uses:
   - `intent_batch_manifest`
   - `intent_batch_barrier`
-  as inline-json workflow artifacts on the yielding node.
+  as json-document workflow artifacts on the yielding node.
 
 ## Workflow Node Events
 
