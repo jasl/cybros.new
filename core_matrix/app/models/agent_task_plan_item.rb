@@ -42,6 +42,12 @@ class AgentTaskPlanItem < ApplicationRecord
     if delegated_subagent_session.present? && delegated_subagent_session.installation_id != installation_id
       errors.add(:delegated_subagent_session, "must belong to the same installation")
     end
+
+    if delegated_subagent_session.present? &&
+        agent_task_run.present? &&
+        delegated_subagent_session.owner_conversation_id != agent_task_run.conversation_id
+      errors.add(:delegated_subagent_session, "must be owned by the task conversation")
+    end
   end
 
   def single_in_progress_item_per_task

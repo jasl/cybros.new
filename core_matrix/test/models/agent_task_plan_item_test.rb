@@ -61,4 +61,45 @@ class AgentTaskPlanItemTest < ActiveSupport::TestCase
     assert_not duplicate_in_progress.valid?
     assert_includes duplicate_in_progress.errors[:status], "only one plan item may be in progress per task"
   end
+
+  test "requires delegated sessions to belong to the task conversation" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
+    unrelated_owner = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    unrelated_child = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      parent_conversation: unrelated_owner,
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
+      kind: "fork",
+      addressability: "agent_addressable"
+    )
+    unrelated_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: unrelated_owner,
+      conversation: unrelated_child,
+      scope: "conversation",
+      profile_key: "worker",
+      depth: 0
+    )
+
+    item = AgentTaskPlanItem.new(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      delegated_subagent_session: unrelated_session,
+      item_key: "projection",
+      title: "Wire the projector into report handling",
+      status: "pending",
+      position: 0,
+      details_payload: {}
+    )
+
+    assert_not item.valid?
+    assert_includes item.errors[:delegated_subagent_session], "must be owned by the task conversation"
+  end
 end

@@ -3,11 +3,10 @@ class AgentTaskProgressEntry < ApplicationRecord
   include DataLifecycle
 
   INTERNAL_RUNTIME_TOKEN_PATTERN = %r{
-    provider_round_\d+_tool_\d+|
-    tool_[a-z0-9_]+|
-    runtime\.[a-z0-9_.]+|
-    subagent_barrier|
-    workflow_node
+    \bprovider_round_\d+_tool_\d+\b|
+    \bruntime\.[a-z0-9_.]+\b|
+    \bsubagent_barrier\b|
+    \bworkflow_node_[a-z0-9_]+\b
   }ix
 
   data_lifecycle_kind! :owner_bound
@@ -35,6 +34,12 @@ class AgentTaskProgressEntry < ApplicationRecord
 
     if subagent_session.present? && subagent_session.installation_id != installation_id
       errors.add(:subagent_session, "must belong to the same installation")
+    end
+
+    if subagent_session.present? &&
+        agent_task_run.present? &&
+        subagent_session.owner_conversation_id != agent_task_run.conversation_id
+      errors.add(:subagent_session, "must be owned by the task conversation")
     end
   end
 
