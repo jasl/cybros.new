@@ -57,6 +57,41 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "completed", mailbox_item.reload.status
   end
 
+  test "resource_close_acknowledged report stays under an execution-plane request query budget" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_runtime: context[:execution_runtime]
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
+
+    queries = capture_sql_queries do
+      post "/execution_api/control/report",
+        params: {
+          method_id: "resource_close_acknowledged",
+          protocol_message_id: "close-ack-budget-#{next_test_sequence}",
+          mailbox_item_id: mailbox_item.public_id,
+          close_request_id: mailbox_item.public_id,
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+        },
+        headers: execution_api_headers(context[:execution_machine_credential]),
+        as: :json
+    end
+
+    assert_response :success
+    assert_operator queries.length, :<=, 45, "Expected resource_close_acknowledged report to stay under 45 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
+
   test "duplicate resource_closed is idempotent by protocol_message_id" do
     context = build_agent_control_context!
     process_run = create_process_run!(

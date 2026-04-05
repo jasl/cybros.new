@@ -54,14 +54,22 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :runtime_plane_contract
 
   def payload
+    materialized_payload
+  end
+
+  def materialized_payload(execution_snapshot: nil)
     if payload_document.present?
-      return reconstructed_agent_program_request_payload if agent_program_request?
+      return reconstructed_agent_program_request_payload(execution_snapshot:) if agent_program_request?
 
       return payload_document.payload.deep_dup
     end
     return payload_body unless execution_assignment? && execution_contract.present?
 
-    AgentControl::SerializeMailboxItem.serialized_payload(self, compact_payload: payload_body)
+    AgentControl::SerializeMailboxItem.serialized_payload(
+      self,
+      compact_payload: payload_body,
+      execution_snapshot:
+    )
   end
 
   def payload_body
@@ -121,7 +129,7 @@ class AgentControlMailboxItem < ApplicationRecord
 
   private
 
-  def reconstructed_agent_program_request_payload
+  def reconstructed_agent_program_request_payload(execution_snapshot: nil)
     payload = payload_document.payload.deep_dup
     payload.merge!(payload_body)
     payload["protocol_version"] ||= "agent-program/2026-04-01"
@@ -136,16 +144,18 @@ class AgentControlMailboxItem < ApplicationRecord
     end
     payload["task"] = task if task.present?
 
+    snapshot = execution_snapshot || execution_contract&.turn&.execution_snapshot
+
     if execution_contract.present? && !payload.key?("provider_context")
       payload["provider_context"] = execution_contract.provider_context
     end
 
     request_kind = payload["request_kind"]
     if execution_contract.present? && !payload.key?("agent_context")
-      payload["agent_context"] = reconstructed_agent_context(payload)
+      payload["agent_context"] = reconstructed_agent_context(payload, execution_snapshot: snapshot)
     end
     if execution_contract.present? && request_kind == "prepare_round" && !payload.key?("round_context")
-      payload["round_context"] = reconstructed_round_context
+      payload["round_context"] = reconstructed_round_context(execution_snapshot: snapshot)
     end
 
     runtime_context = payload["runtime_context"].is_a?(Hash) ? payload["runtime_context"].deep_dup : {}
@@ -158,8 +168,8 @@ class AgentControlMailboxItem < ApplicationRecord
     payload
   end
 
-  def reconstructed_agent_context(payload)
-    capability_projection = execution_contract.turn.execution_snapshot.capability_projection
+  def reconstructed_agent_context(payload, execution_snapshot:)
+    capability_projection = execution_snapshot&.capability_projection || {}
     tool_name = payload.dig("program_tool_call", "tool_name")
     allowed_tool_names =
       if tool_name.present?
@@ -179,8 +189,8 @@ class AgentControlMailboxItem < ApplicationRecord
     }.compact
   end
 
-  def reconstructed_round_context
-    execution_contract.turn.execution_snapshot.conversation_projection.slice(
+  def reconstructed_round_context(execution_snapshot:)
+    (execution_snapshot&.conversation_projection || {}).slice(
       "messages",
       "context_imports",
       "projection_fingerprint"

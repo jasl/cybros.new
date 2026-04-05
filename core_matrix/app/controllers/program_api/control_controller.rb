@@ -8,7 +8,7 @@ module ProgramAPI
       )
 
       render json: {
-        mailbox_items: mailbox_items.map { |item| AgentControl::SerializeMailboxItem.call(item) },
+        mailbox_items: AgentControl::SerializeMailboxItems.call(mailbox_items),
       }
     end
 
@@ -21,7 +21,7 @@ module ProgramAPI
 
       render json: {
         result: result.code,
-        mailbox_items: result.mailbox_items.map { |item| AgentControl::SerializeMailboxItem.call(item) },
+        mailbox_items: AgentControl::SerializeMailboxItems.call(result.mailbox_items),
       }, status: result.http_status
     end
   end

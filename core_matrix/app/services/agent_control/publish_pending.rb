@@ -18,12 +18,14 @@ module AgentControl
       return publish_for_execution_session! if @execution_session.present?
       return unless @mailbox_item.present?
 
-      target_deployment = connected_target_for(@mailbox_item)
+      resolution = routing_resolution_for(@mailbox_item)
+      target_deployment = connected_target_for(@mailbox_item, resolution)
       return if target_deployment.blank?
 
       leased_item = LeaseMailboxItem.call(
         mailbox_item: @mailbox_item,
         deployment: target_deployment,
+        resolved_delivery_endpoint: resolution.delivery_endpoint,
         occurred_at: @occurred_at
       )
       return if leased_item.blank?
@@ -35,19 +37,25 @@ module AgentControl
     private
 
     def publish_for_deployment!
-      Poll.call(deployment: @deployment, agent_session: @agent_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
-        broadcast(mailbox_item:, deployment: @deployment)
+      mailbox_items = Poll.call(deployment: @deployment, agent_session: @agent_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
+      serialized_items = SerializeMailboxItems.call(mailbox_items)
+
+      mailbox_items.zip(serialized_items).each do |mailbox_item, serialized_item|
+        broadcast(mailbox_item:, deployment: @deployment, serialized_item:)
       end
     end
 
     def publish_for_execution_session!
-      Poll.call(execution_session: @execution_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at).each do |mailbox_item|
-        broadcast(mailbox_item:, deployment: @execution_session)
+      mailbox_items = Poll.call(execution_session: @execution_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
+      serialized_items = SerializeMailboxItems.call(mailbox_items)
+
+      mailbox_items.zip(serialized_items).each do |mailbox_item, serialized_item|
+        broadcast(mailbox_item:, deployment: @execution_session, serialized_item:)
       end
     end
 
-    def connected_target_for(mailbox_item)
-      delivery_endpoint = @resolved_delivery_endpoint || routing_resolution_for(mailbox_item).delivery_endpoint
+    def connected_target_for(mailbox_item, resolution)
+      delivery_endpoint = @resolved_delivery_endpoint || resolution.delivery_endpoint
       return if delivery_endpoint.blank? || !delivery_endpoint.realtime_link_connected?
 
       case delivery_endpoint
@@ -64,10 +72,10 @@ module AgentControl
       ResolveTargetRuntime.call(mailbox_item: mailbox_item)
     end
 
-    def broadcast(mailbox_item:, deployment:)
+    def broadcast(mailbox_item:, deployment:, serialized_item: nil)
       ActionCable.server.broadcast(
         StreamName.for_deployment(deployment),
-        SerializeMailboxItem.call(mailbox_item)
+        serialized_item || SerializeMailboxItem.call(mailbox_item)
       )
     end
   end

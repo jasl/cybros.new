@@ -64,4 +64,51 @@ class AgentControlPollTest < ActiveSupport::TestCase
     assert_nil mailbox_item.reload.leased_to_agent_session
     assert_nil mailbox_item.leased_to_execution_session
   end
+
+  test "polls mixed program-plane work without target resolution query explosion" do
+    context = build_agent_control_context!
+    scenario_builder = MailboxScenarioBuilder.new(self)
+
+    3.times do |index|
+      scenario_builder.execution_assignment!(
+        context: context,
+        task_payload: { "step" => "execute-#{index}" }
+      )
+    end
+
+    2.times do |index|
+      scenario_builder.agent_program_request!(
+        context: context,
+        request_kind: "prepare_round",
+        logical_work_id: "prepare-round-#{index}",
+        payload: {
+          "request_kind" => "prepare_round",
+          "protocol_version" => "agent-program/2026-04-01",
+          "task" => {
+            "workflow_node_id" => context[:workflow_node].public_id,
+            "workflow_run_id" => context[:workflow_run].public_id,
+            "conversation_id" => context[:conversation].public_id,
+            "turn_id" => context[:turn].public_id,
+            "kind" => context[:workflow_node].node_type,
+          },
+          "runtime_context" => {
+            "logical_work_id" => "prepare-round-#{index}",
+            "attempt_no" => 1,
+            "runtime_plane" => "program",
+            "agent_program_version_id" => context[:deployment].public_id,
+          },
+        }
+      )
+    end
+
+    queries = capture_sql_queries do
+      AgentControl::Poll.call(
+        deployment: context[:deployment],
+        agent_session: context[:agent_session],
+        limit: 10
+      )
+    end
+
+    assert_operator queries.length, :<=, 15, "Expected mixed program poll to stay under 15 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
 end

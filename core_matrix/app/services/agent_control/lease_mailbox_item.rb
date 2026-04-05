@@ -4,15 +4,15 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item:, deployment:, occurred_at: Time.current)
+    def initialize(mailbox_item:, deployment:, resolved_delivery_endpoint: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
       @deployment = deployment
+      @resolved_delivery_endpoint = resolved_delivery_endpoint
       @occurred_at = occurred_at
     end
 
     def call
       @mailbox_item.with_lock do
-        @mailbox_item.reload
         expire_if_past_deadline!
         return if terminal_status?
         return if @mailbox_item.available_at > @occurred_at
@@ -22,13 +22,14 @@ module AgentControl
           return if !@mailbox_item.lease_stale?(at: @occurred_at)
         end
 
-        @mailbox_item.update!(
+        @mailbox_item.update_columns(
           status: "leased",
-          leased_to_agent_session: leased_agent_session,
-          leased_to_execution_session: leased_execution_session,
+          leased_to_agent_session_id: leased_agent_session&.id,
+          leased_to_execution_session_id: leased_execution_session&.id,
           leased_at: @occurred_at,
           lease_expires_at: @occurred_at + @mailbox_item.lease_timeout_seconds.seconds,
-          delivery_no: @mailbox_item.delivery_no + 1
+          delivery_no: @mailbox_item.delivery_no + 1,
+          updated_at: @occurred_at
         )
         @mailbox_item
       end
@@ -43,11 +44,16 @@ module AgentControl
     def expire_if_past_deadline!
       return unless @mailbox_item.dispatch_deadline_at < @occurred_at
 
-      @mailbox_item.update!(status: "expired", failed_at: @occurred_at)
+      @mailbox_item.update_columns(
+        status: "expired",
+        failed_at: @occurred_at,
+        updated_at: @occurred_at
+      )
     end
 
     def leased_agent_session
       return @leased_agent_session if defined?(@leased_agent_session)
+      return @leased_agent_session = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(AgentSession)
 
       @leased_agent_session =
         case @deployment
@@ -60,6 +66,7 @@ module AgentControl
 
     def leased_execution_session
       return @leased_execution_session if defined?(@leased_execution_session)
+      return @leased_execution_session = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(ExecutionSession)
 
       @leased_execution_session =
         case @deployment

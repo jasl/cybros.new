@@ -3,6 +3,46 @@ module AgentControl
     EXECUTION_PLANE = "execution".freeze
     PROGRAM_PLANE = "program".freeze
 
+    class SessionCache
+      def initialize(agent_session: nil, execution_session: nil)
+        @agent_session = agent_session
+        @execution_session = execution_session
+        @program_sessions_by_agent_program_id = {}
+        @program_sessions_by_agent_program_version_id = {}
+        @execution_sessions_by_runtime_id = {}
+      end
+
+      def program_delivery_endpoint_for(mailbox_item)
+        if mailbox_item.target_agent_program_version_id.present?
+          version_id = mailbox_item.target_agent_program_version_id
+          return @agent_session if @agent_session&.agent_program_version_id == version_id
+
+          @program_sessions_by_agent_program_version_id[version_id] ||= AgentSession.find_by(
+            agent_program_version_id: version_id,
+            lifecycle_state: "active"
+          )
+        else
+          program_id = mailbox_item.target_agent_program_id
+          return @agent_session if @agent_session&.agent_program_id == program_id
+
+          @program_sessions_by_agent_program_id[program_id] ||= AgentSession.find_by(
+            agent_program_id: program_id,
+            lifecycle_state: "active"
+          )
+        end
+      end
+
+      def execution_delivery_endpoint_for(mailbox_item)
+        runtime_id = mailbox_item.target_execution_runtime_id
+        return @execution_session if @execution_session&.execution_runtime_id == runtime_id
+
+        @execution_sessions_by_runtime_id[runtime_id] ||= ExecutionSession.find_by(
+          execution_runtime_id: runtime_id,
+          lifecycle_state: "active"
+        )
+      end
+    end
+
     Result = Struct.new(
       :runtime_plane,
       :execution_runtime,
@@ -61,8 +101,9 @@ module AgentControl
       )
     end
 
-    def initialize(mailbox_item: nil)
+    def initialize(mailbox_item: nil, session_cache: nil)
       @mailbox_item = mailbox_item
+      @session_cache = session_cache
     end
 
     def call
@@ -81,7 +122,7 @@ module AgentControl
       Result.new(
         runtime_plane: EXECUTION_PLANE,
         execution_runtime: execution_runtime,
-        delivery_endpoint: execution_runtime.present? ? ExecutionSessions::ResolveActiveSession.call(execution_runtime: execution_runtime) : nil
+        delivery_endpoint: resolve_execution_delivery_endpoint
       )
     end
 
@@ -94,11 +135,20 @@ module AgentControl
     end
 
     def resolve_program_delivery_endpoint
+      return @session_cache.program_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
+
       if @mailbox_item.target_agent_program_version?
         AgentSession.find_by(agent_program_version: @mailbox_item.target_agent_program_version, lifecycle_state: "active")
       else
         AgentSession.find_by(agent_program: @mailbox_item.target_agent_program, lifecycle_state: "active")
       end
+    end
+
+    def resolve_execution_delivery_endpoint
+      return if @mailbox_item.target_execution_runtime.blank?
+      return @session_cache.execution_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
+
+      ExecutionSessions::ResolveActiveSession.call(execution_runtime: @mailbox_item.target_execution_runtime)
     end
   end
 end

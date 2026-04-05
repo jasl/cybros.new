@@ -82,7 +82,7 @@ class Turn < ApplicationRecord
   end
 
   def execution_snapshot
-    TurnExecutionSnapshot.new(turn: self)
+    @execution_snapshot ||= TurnExecutionSnapshot.new(turn: self)
   end
 
   def pinned_capability_snapshot_version

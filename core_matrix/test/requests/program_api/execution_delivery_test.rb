@@ -28,6 +28,32 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal context[:deployment], agent_task_run.holder_agent_program_version
   end
 
+  test "execution_started report stays under a request query budget" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    queries = capture_sql_queries do
+      post "/program_api/control/report",
+        params: {
+          method_id: "execution_started",
+          protocol_message_id: "agent-start-budget-#{next_test_sequence}",
+          mailbox_item_id: mailbox_item.public_id,
+          agent_task_run_id: agent_task_run.public_id,
+          logical_work_id: agent_task_run.logical_work_id,
+          attempt_no: agent_task_run.attempt_no,
+          expected_duration_seconds: 30,
+        },
+        headers: program_api_headers(context[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :success
+    assert_operator queries.length, :<=, 55, "Expected execution_started report to stay under 55 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
+
   test "execution_progress and execution_complete update durable task state through the public report api" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

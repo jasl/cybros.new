@@ -11,9 +11,10 @@ module AgentControl
     end
 
     def call
-      resolved_agent_session.update!(
+      resolved_agent_session.update_columns(
         control_activity_state: "active",
-        last_control_activity_at: @occurred_at
+        last_control_activity_at: @occurred_at,
+        updated_at: @occurred_at
       )
       resolved_agent_session
     end

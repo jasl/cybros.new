@@ -12,6 +12,10 @@ module AgentControl
       @execution_session = execution_session
       @limit = [limit.to_i, 1].max
       @occurred_at = occurred_at
+      @resolution_cache = ResolveTargetRuntime::SessionCache.new(
+        agent_session: @agent_session,
+        execution_session: @execution_session
+      )
     end
 
     def call
@@ -22,7 +26,8 @@ module AgentControl
 
       candidate_scope.limit(@limit * 10).each do |mailbox_item|
         break if deliveries.size >= @limit
-        next unless delivery_candidate?(mailbox_item)
+        resolution = resolution_for(mailbox_item)
+        next unless delivery_candidate?(mailbox_item, resolution)
 
         if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
           deliveries << mailbox_item
@@ -32,6 +37,7 @@ module AgentControl
         leased_item = LeaseMailboxItem.call(
           mailbox_item: mailbox_item,
           deployment: lease_owner,
+          resolved_delivery_endpoint: resolution.delivery_endpoint,
           occurred_at: @occurred_at
         )
         deliveries << leased_item if leased_item.present?
@@ -71,6 +77,7 @@ module AgentControl
       candidate_scope_relation(
         AgentControlMailboxItem.where(installation_id: installation_id)
       )
+        .includes(:agent_task_run)
         .where(status: %w[queued leased])
         .where("available_at <= ?", @occurred_at)
         .order(priority: :asc, available_at: :asc, id: :asc)
@@ -90,10 +97,11 @@ module AgentControl
       end
     end
 
-    def delivery_candidate?(mailbox_item)
+    def delivery_candidate?(mailbox_item, resolution)
       return false unless mailbox_item_deliverable?(mailbox_item)
+      return true if execution_poll?
 
-      resolution = ResolveTargetRuntime.call(mailbox_item: mailbox_item)
+      return false if resolution.blank?
 
       if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
         return true
@@ -112,6 +120,23 @@ module AgentControl
 
     def execution_poll?
       @execution_session.present?
+    end
+
+    def resolution_for(mailbox_item)
+      return execution_resolution if execution_poll?
+
+      ResolveTargetRuntime.call(
+        mailbox_item: mailbox_item,
+        session_cache: @resolution_cache
+      )
+    end
+
+    def execution_resolution
+      @execution_resolution ||= ResolveTargetRuntime::Result.new(
+        runtime_plane: ResolveTargetRuntime::EXECUTION_PLANE,
+        execution_runtime: @execution_session.execution_runtime,
+        delivery_endpoint: @execution_session
+      )
     end
 
     def lease_owner

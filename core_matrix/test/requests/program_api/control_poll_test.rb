@@ -127,4 +127,44 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_nil mailbox_item.leased_to_agent_session
     assert_nil mailbox_item.leased_to_execution_session
   end
+
+  test "poll returns mixed mailbox work without control poll query explosion" do
+    context = build_agent_control_context!
+    scenario_builder = MailboxScenarioBuilder.new(self)
+
+    3.times do |index|
+      scenario_builder.execution_assignment!(
+        context: context,
+        task_payload: { "step" => "execute-#{index}" }
+      )
+    end
+
+    2.times do |index|
+      scenario_builder.agent_program_request!(
+        context: context,
+        request_kind: "prepare_round",
+        logical_work_id: "prepare-round-#{index}",
+        payload: {
+          "request_kind" => "prepare_round",
+          "task" => {
+            "kind" => "turn_step",
+            "turn_id" => context[:turn].public_id,
+            "conversation_id" => context[:conversation].public_id,
+            "workflow_run_id" => context[:workflow_run].public_id,
+            "workflow_node_id" => context[:workflow_node].public_id,
+          },
+        }
+      )
+    end
+
+    queries = capture_sql_queries do
+      post "/program_api/control/poll",
+        params: { limit: 10 },
+        headers: program_api_headers(context[:machine_credential]),
+        as: :json
+    end
+
+    assert_response :success
+    assert_operator queries.length, :<=, 40, "Expected program control poll to stay under 40 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
 end
