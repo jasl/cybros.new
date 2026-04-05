@@ -125,7 +125,7 @@ class AgentControlReportReceipt < ApplicationRecord
   def compact_response_payload(response_payload)
     response_payload
       .deep_stringify_keys
-      .except("result", "program_tool_call")
+      .except("program_tool_call")
       .tap do |compact|
         compact.delete("status") if compact["status"] == "ok"
         compact.delete("output_chunks") if Array(compact["output_chunks"]).empty?

@@ -2,6 +2,48 @@ require "test_helper"
 
 class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
   test "builds a debug payload with diagnostics workflow traces and usage data" do
+    fixture = build_debug_export_fixture!
+    conversation = fixture.fetch(:conversation)
+    subagent_session = fixture.fetch(:subagent_session)
+
+    payload = ConversationDebugExports::BuildPayload.call(conversation: conversation)
+
+    assert_equal "conversation_debug_export", payload.fetch("bundle_kind")
+    assert_equal "2026-04-02", payload.fetch("bundle_version")
+    assert_equal conversation.public_id, payload.dig("conversation_payload", "conversation", "public_id")
+    assert_equal conversation.public_id, payload.dig("diagnostics", "conversation", "conversation_id")
+    assert_equal 1, payload.fetch("workflow_runs").length
+    assert_equal %w[provider_round_1 debug_intent_1], payload.fetch("workflow_nodes").map { |node| node.fetch("node_key") }
+    intent_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "debug_intent_1" }
+    assert_equal "batch-debug-1", intent_node_payload.fetch("intent_batch_id")
+    assert_equal({ "summary" => "debug intent" }, intent_node_payload.fetch("intent_payload"))
+    assert_equal subagent_session.public_id, intent_node_payload.fetch("spawned_subagent_session_id")
+    assert_equal "provider_rate_limited", intent_node_payload.fetch("blocked_retry_failure_kind")
+    assert_equal 2, intent_node_payload.fetch("blocked_retry_attempt_no")
+    round_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "provider_round_1" }
+    assert_equal 1, round_node_payload.fetch("provider_round_index")
+    assert_equal true, round_node_payload.fetch("transcript_side_effect_committed")
+    assert_equal 1, payload.fetch("workflow_node_events").length
+    assert_equal subagent_session.public_id, payload.fetch("subagent_sessions").first.fetch("subagent_session_id")
+    assert_not payload.fetch("subagent_sessions").first.key?("summary")
+    assert_equal 123, payload.fetch("usage_events").first.fetch("input_tokens")
+    refute_includes JSON.generate(payload), %("#{conversation.id}")
+    refute_includes JSON.generate(payload), %("#{fixture.fetch(:turn).id}")
+  end
+
+  test "preloads normalized associations instead of repeatedly reloading workflow projections" do
+    fixture = build_debug_export_fixture!
+
+    queries = capture_sql_queries do
+      ConversationDebugExports::BuildPayload.call(conversation: fixture.fetch(:conversation))
+    end
+
+    assert_operator queries.length, :<=, 120, "Expected debug export payload to stay under 120 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
+
+  private
+
+  def build_debug_export_fixture!
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -59,7 +101,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       finished_at: 90.seconds.ago,
       presentation_policy: "ops_trackable"
     )
-    workflow_node = create_workflow_node!(
+    create_workflow_node!(
       workflow_run: workflow_run,
       node_key: "debug_intent_1",
       node_type: "conversation_title_update",
@@ -129,28 +171,12 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    payload = ConversationDebugExports::BuildPayload.call(conversation: conversation)
-
-    assert_equal "conversation_debug_export", payload.fetch("bundle_kind")
-    assert_equal "2026-04-02", payload.fetch("bundle_version")
-    assert_equal conversation.public_id, payload.dig("conversation_payload", "conversation", "public_id")
-    assert_equal conversation.public_id, payload.dig("diagnostics", "conversation", "conversation_id")
-    assert_equal 1, payload.fetch("workflow_runs").length
-    assert_equal %w[provider_round_1 debug_intent_1], payload.fetch("workflow_nodes").map { |node| node.fetch("node_key") }
-    intent_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "debug_intent_1" }
-    assert_equal "batch-debug-1", intent_node_payload.fetch("intent_batch_id")
-    assert_equal({ "summary" => "debug intent" }, intent_node_payload.fetch("intent_payload"))
-    assert_equal subagent_session.public_id, intent_node_payload.fetch("spawned_subagent_session_id")
-    assert_equal "provider_rate_limited", intent_node_payload.fetch("blocked_retry_failure_kind")
-    assert_equal 2, intent_node_payload.fetch("blocked_retry_attempt_no")
-    round_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "provider_round_1" }
-    assert_equal 1, round_node_payload.fetch("provider_round_index")
-    assert_equal true, round_node_payload.fetch("transcript_side_effect_committed")
-    assert_equal 1, payload.fetch("workflow_node_events").length
-    assert_equal subagent_session.public_id, payload.fetch("subagent_sessions").first.fetch("subagent_session_id")
-    assert_not payload.fetch("subagent_sessions").first.key?("summary")
-    assert_equal 123, payload.fetch("usage_events").first.fetch("input_tokens")
-    refute_includes JSON.generate(payload), %("#{conversation.id}")
-    refute_includes JSON.generate(payload), %("#{turn.id}")
+    {
+      context: context,
+      conversation: conversation,
+      turn: turn,
+      workflow_run: workflow_run,
+      subagent_session: subagent_session,
+    }
   end
 end

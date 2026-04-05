@@ -13,7 +13,11 @@ module ConversationDebugExports
 
     def call
       ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
-      turn_snapshots = TurnDiagnosticsSnapshot.where(conversation: @conversation).joins(:turn).includes(:turn).order("turns.sequence ASC")
+      turn_snapshots = TurnDiagnosticsSnapshot
+        .where(conversation: @conversation)
+        .joins(:turn)
+        .includes(:conversation, :turn)
+        .order("turns.sequence ASC")
 
       {
         "bundle_kind" => BUNDLE_KIND,
@@ -21,7 +25,9 @@ module ConversationDebugExports
         "conversation_payload" => ConversationExports::BuildConversationPayload.call(conversation: @conversation),
         "diagnostics" => {
           "conversation" => serialize_conversation_snapshot(
-            ConversationDiagnosticsSnapshot.find_by(conversation: @conversation)
+            ConversationDiagnosticsSnapshot
+              .includes(:conversation, :most_expensive_turn, :most_rounds_turn)
+              .find_by(conversation: @conversation)
           ),
           "turns" => turn_snapshots.map { |snapshot| serialize_turn_snapshot(snapshot) },
         },
@@ -40,56 +46,91 @@ module ConversationDebugExports
     private
 
     def workflow_runs
-      @workflow_runs ||= @conversation.workflow_runs.order(:created_at, :id)
+      @workflow_runs ||= @conversation.workflow_runs
+        .preload(:conversation, :turn, :wait_snapshot_document, :workflow_artifacts)
+        .order(:created_at, :id)
     end
 
     def workflow_nodes
       @workflow_nodes ||= WorkflowNode
         .where(workflow_run: workflow_runs)
-        .includes(:opened_human_interaction_request, :spawned_subagent_session)
+        .preload(
+          :workflow_run,
+          :conversation,
+          :turn,
+          :yielding_workflow_node,
+          :opened_human_interaction_request,
+          :spawned_subagent_session
+        )
         .order(:created_at, :id)
     end
 
     def workflow_node_events
-      @workflow_node_events ||= WorkflowNodeEvent.where(workflow_run: workflow_runs).order(:created_at, :id)
+      @workflow_node_events ||= WorkflowNodeEvent
+        .where(workflow_run: workflow_runs)
+        .preload(:workflow_node, :workflow_run, :conversation, :turn)
+        .order(:created_at, :id)
     end
 
     def agent_task_runs
-      @agent_task_runs ||= AgentTaskRun.where(conversation: @conversation).includes(:workflow_run, :workflow_node, :subagent_session).order(:created_at, :id)
+      @agent_task_runs ||= AgentTaskRun
+        .where(conversation: @conversation)
+        .preload(
+          :conversation,
+          :turn,
+          :workflow_run,
+          :workflow_node,
+          :subagent_session,
+          :origin_turn,
+          holder_agent_session: :agent_program_version
+        )
+        .order(:created_at, :id)
     end
 
     def tool_invocations
       @tool_invocations ||= ToolInvocation
-        .includes(:tool_definition, :tool_implementation, :tool_binding, :workflow_node, :agent_task_run)
         .where(workflow_node: workflow_nodes)
         .or(
           ToolInvocation
-            .includes(:tool_definition, :tool_implementation, :tool_binding, :workflow_node, :agent_task_run)
             .where(agent_task_run: agent_task_runs)
+        )
+        .preload(
+          :tool_definition,
+          :tool_implementation,
+          :tool_binding,
+          :workflow_node,
+          :agent_task_run,
+          :request_document,
+          :response_document,
+          :error_document,
+          :trace_document
         )
         .order(:created_at, :id)
     end
 
     def command_runs
       @command_runs ||= CommandRun
-        .includes(:tool_invocation, :workflow_node, :agent_task_run)
         .where(workflow_node: workflow_nodes)
         .or(
           CommandRun
-            .includes(:tool_invocation, :workflow_node, :agent_task_run)
             .where(agent_task_run: agent_task_runs)
         )
+        .preload(:tool_invocation, :workflow_node, :agent_task_run)
         .order(:created_at, :id)
     end
 
     def process_runs
-      @process_runs ||= ProcessRun.where(conversation: @conversation).includes(:workflow_node, :origin_message).order(:created_at, :id)
+      @process_runs ||= ProcessRun
+        .where(conversation: @conversation)
+        .preload(:conversation, :turn, :origin_message, workflow_node: :workflow_run)
+        .order(:created_at, :id)
     end
 
     def subagent_sessions
       @subagent_sessions ||= SubagentSession
         .where(owner_conversation: @conversation)
         .or(SubagentSession.where(conversation: @conversation))
+        .preload(:owner_conversation, :conversation, :origin_turn, :parent_subagent_session)
         .order(:created_at, :id)
     end
 

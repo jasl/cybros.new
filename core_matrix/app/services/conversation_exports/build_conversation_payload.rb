@@ -48,7 +48,7 @@ module ConversationExports
         "content" => message.content,
         "created_at" => message.created_at&.iso8601(6),
         "updated_at" => message.updated_at&.iso8601(6),
-        "attachments" => message.message_attachments.order(:id).map { |attachment| attachment_payload(message, attachment) },
+        "attachments" => message.message_attachments.sort_by(&:id).map { |attachment| attachment_payload(message, attachment) },
       }.compact
     end
 
@@ -68,7 +68,24 @@ module ConversationExports
     end
 
     def transcript_messages
-      @transcript_messages ||= Conversations::TranscriptProjection.call(conversation: @conversation)
+      @transcript_messages ||= begin
+        messages = Conversations::TranscriptProjection.call(conversation: @conversation)
+        ActiveRecord::Associations::Preloader.new(
+          records: messages,
+          associations: [
+            :conversation,
+            :turn,
+            {
+              message_attachments: [
+                :origin_attachment,
+                :origin_message,
+                { file_attachment: :blob },
+              ],
+            },
+          ]
+        ).call
+        messages
+      end
     end
 
     def original_title

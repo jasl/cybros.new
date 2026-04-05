@@ -122,6 +122,120 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
   end
 
+  test "returns execute_program_tool results from the terminal receipt before tool invocation reconciliation" do
+    context = build_agent_control_context!
+    implementation_source = ImplementationSource.create!(
+      installation: context.fetch(:installation),
+      source_kind: "agent",
+      source_ref: "agent/browser_open",
+      metadata: {}
+    )
+    tool_definition = ToolDefinition.create!(
+      installation: context.fetch(:installation),
+      agent_program_version: context.fetch(:deployment),
+      tool_name: "browser_open",
+      tool_kind: "agent_observation",
+      governance_mode: "replaceable",
+      policy_payload: {}
+    )
+    tool_implementation = ToolImplementation.create!(
+      installation: context.fetch(:installation),
+      tool_definition: tool_definition,
+      implementation_source: implementation_source,
+      implementation_ref: "agent/browser_open",
+      idempotency_policy: "best_effort",
+      input_schema: {},
+      result_schema: {},
+      metadata: {},
+      default_for_snapshot: true
+    )
+    binding = ToolBinding.create!(
+      installation: context.fetch(:installation),
+      workflow_node: context.fetch(:workflow_node),
+      tool_definition: tool_definition,
+      tool_implementation: tool_implementation,
+      binding_reason: "snapshot_default",
+      runtime_state: {}
+    )
+    invocation = ToolInvocations::Provision.call(
+      tool_binding: binding,
+      request_payload: { "url" => "http://127.0.0.1:4173" },
+      idempotency_key: "tool-call-#{next_test_sequence}"
+    ).tool_invocation
+
+    original_creator = AgentControl::CreateAgentProgramRequest.method(:call)
+
+    AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call) do |**kwargs|
+      mailbox_item = original_creator.call(**kwargs)
+      now = Time.current
+      mailbox_item.update!(
+        status: "leased",
+        leased_to_agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
+        leased_at: now,
+        lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
+      )
+      AgentControlReportReceipt.create!(
+        installation: kwargs.fetch(:agent_program_version).installation,
+        agent_session: kwargs.fetch(:agent_program_version).active_agent_session,
+        mailbox_item: mailbox_item,
+        protocol_message_id: "report-#{SecureRandom.uuid}",
+        method_id: "agent_program_completed",
+        logical_work_id: mailbox_item.logical_work_id,
+        attempt_no: mailbox_item.attempt_no,
+        result_code: "accepted",
+        payload: {
+          "method_id" => "agent_program_completed",
+          "mailbox_item_id" => mailbox_item.public_id,
+          "logical_work_id" => mailbox_item.logical_work_id,
+          "attempt_no" => mailbox_item.attempt_no,
+          "response_payload" => {
+            "status" => "ok",
+            "program_tool_call" => kwargs.fetch(:payload).fetch("program_tool_call"),
+            "result" => {
+              "browser_session_id" => "browser-session-1",
+              "current_url" => "http://127.0.0.1:4173",
+              "content" => "Browser session browser-session-1 opened at http://127.0.0.1:4173.",
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          },
+        }
+      )
+      mailbox_item
+    end
+
+    result = ProviderExecution::ProgramMailboxExchange.new(
+      agent_program_version: context.fetch(:deployment),
+      sleeper: ->(_duration) { },
+    ).execute_program_tool(
+      payload: {
+        "task" => {
+          "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "turn_id" => context.fetch(:workflow_node).turn.public_id,
+          "kind" => "turn_step",
+        },
+        "program_tool_call" => {
+          "call_id" => invocation.idempotency_key,
+          "tool_name" => "browser_open",
+          "arguments" => { "url" => "http://127.0.0.1:4173" },
+        },
+        "runtime_resource_refs" => {
+          "tool_invocation" => {
+            "tool_invocation_id" => invocation.public_id,
+          },
+        },
+      }
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal "browser-session-1", result.dig("result", "browser_session_id")
+    assert_equal "http://127.0.0.1:4173", result.dig("result", "current_url")
+    assert_equal [], result.fetch("output_chunks")
+  ensure
+    AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
+  end
+
   test "gives long-running execute_program_tool requests enough time to finish before the mailbox lease expires" do
     context = build_agent_control_context!
     original_creator = AgentControl::CreateAgentProgramRequest.method(:call)

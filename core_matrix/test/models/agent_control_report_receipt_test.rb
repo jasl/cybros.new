@@ -83,7 +83,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     assert_equal({ "content" => "ok" }, payload.fetch("response_payload"))
   end
 
-  test "reconstructs execute_program_tool terminal payloads from mailbox and tool invocation refs" do
+  test "keeps execute_program_tool result in storage while still reconstructing mailbox defaults" do
     context = build_agent_control_context!
     implementation_source = ImplementationSource.create!(
       installation: context.fetch(:installation),
@@ -200,7 +200,13 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
 
     stored_payload = receipt.report_document.payload
 
-    refute stored_payload.dig("response_payload", "result")
+    assert_equal(
+      {
+        "content" => "hello",
+        "exit_status" => 0,
+      },
+      stored_payload.dig("response_payload", "result")
+    )
     refute stored_payload.dig("response_payload", "program_tool_call")
     refute stored_payload.dig("response_payload", "output_chunks")
     refute stored_payload.dig("response_payload", "status")
@@ -211,5 +217,129 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     assert_equal [], response_payload.fetch("output_chunks")
     assert_equal mailbox_item.payload.fetch("program_tool_call"), response_payload.fetch("program_tool_call")
     assert_equal [], response_payload.fetch("summary_artifacts")
+  end
+
+  test "returns the original execute_program_tool result before tool invocation reconciliation runs" do
+    context = build_agent_control_context!
+    implementation_source = ImplementationSource.create!(
+      installation: context.fetch(:installation),
+      source_kind: "agent",
+      source_ref: "agent/browser_open",
+      metadata: {}
+    )
+    tool_definition = ToolDefinition.create!(
+      installation: context.fetch(:installation),
+      agent_program_version: context.fetch(:deployment),
+      tool_name: "browser_open",
+      tool_kind: "agent_observation",
+      governance_mode: "replaceable",
+      policy_payload: {}
+    )
+    tool_implementation = ToolImplementation.create!(
+      installation: context.fetch(:installation),
+      tool_definition: tool_definition,
+      implementation_source: implementation_source,
+      implementation_ref: "agent/browser_open",
+      idempotency_policy: "best_effort",
+      input_schema: {},
+      result_schema: {},
+      metadata: {},
+      default_for_snapshot: true
+    )
+    binding = ToolBinding.create!(
+      installation: context.fetch(:installation),
+      workflow_node: context.fetch(:workflow_node),
+      tool_definition: tool_definition,
+      tool_implementation: tool_implementation,
+      binding_reason: "snapshot_default",
+      runtime_state: {}
+    )
+    invocation = ToolInvocations::Provision.call(
+      tool_binding: binding,
+      request_payload: { "url" => "http://127.0.0.1:4173" },
+      idempotency_key: "call-#{next_test_sequence}"
+    ).tool_invocation
+
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "execute_program_tool",
+      payload: {
+        "protocol_version" => "agent-program/2026-04-01",
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+        "program_tool_call" => {
+          "call_id" => invocation.idempotency_key,
+          "tool_name" => "browser_open",
+          "arguments" => { "url" => "http://127.0.0.1:4173" },
+        },
+        "runtime_resource_refs" => {
+          "tool_invocation" => {
+            "tool_invocation_id" => invocation.public_id,
+          },
+        },
+        "agent_context" => {
+          "profile" => "main",
+          "is_subagent" => false,
+          "allowed_tool_names" => ["browser_open"],
+        },
+        "provider_context" => context.fetch(:turn).execution_contract.provider_context,
+        "runtime_context" => {
+          "logical_work_id" => "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
+          "attempt_no" => 1,
+          "runtime_plane" => "program",
+          "agent_program_version_id" => context.fetch(:deployment).public_id,
+        },
+      },
+      logical_work_id: "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    receipt = AgentControlReportReceipt.create!(
+      installation: context.fetch(:installation),
+      agent_session: context.fetch(:agent_session),
+      mailbox_item: mailbox_item,
+      protocol_message_id: "receipt-program-tool-pending-#{next_test_sequence}",
+      method_id: "agent_program_completed",
+      logical_work_id: mailbox_item.logical_work_id,
+      attempt_no: mailbox_item.attempt_no,
+      result_code: "accepted",
+      payload: {
+        "response_payload" => {
+          "status" => "ok",
+          "result" => {
+            "browser_session_id" => "browser-session-1",
+            "current_url" => "http://127.0.0.1:4173",
+            "content" => "Browser session browser-session-1 opened at http://127.0.0.1:4173.",
+          },
+          "output_chunks" => [],
+          "program_tool_call" => {
+            "call_id" => invocation.idempotency_key,
+            "tool_name" => "browser_open",
+            "arguments" => { "url" => "http://127.0.0.1:4173" },
+          },
+          "summary_artifacts" => [],
+        },
+      }
+    )
+
+    response_payload = receipt.payload.fetch("response_payload")
+
+    assert_equal(
+      {
+        "browser_session_id" => "browser-session-1",
+        "current_url" => "http://127.0.0.1:4173",
+        "content" => "Browser session browser-session-1 opened at http://127.0.0.1:4173.",
+      },
+      response_payload.fetch("result")
+    )
+    assert_equal "ok", response_payload.fetch("status")
+    assert_equal mailbox_item.payload.fetch("program_tool_call"), response_payload.fetch("program_tool_call")
+    assert_equal [], response_payload.fetch("output_chunks")
   end
 end

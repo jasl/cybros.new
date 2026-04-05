@@ -33,7 +33,11 @@ module ConversationDiagnostics
     end
 
     def call
-      turn = Turn.includes(:conversation, :workflow_run).find(@turn.id)
+      turn = if @turn.is_a?(Turn)
+        @turn
+      else
+        Turn.includes(:workflow_run, conversation: :workspace).find(@turn.id)
+      end
       conversation = turn.conversation
       usage_scope = UsageEvent.where(turn_id: turn.id)
       attributed_usage_scope = usage_scope.where(user_id: conversation.workspace.user_id)

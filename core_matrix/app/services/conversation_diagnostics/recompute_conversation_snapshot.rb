@@ -9,8 +9,10 @@ module ConversationDiagnostics
     end
 
     def call
-      conversation = Conversation.find(@conversation.id)
-      turn_snapshots = conversation.turns.order(:sequence).map do |turn|
+      conversation = Conversation
+        .includes(:workspace, turns: [:workflow_run, { conversation: :workspace }])
+        .find(@conversation.id)
+      turn_snapshots = conversation.turns.sort_by(&:sequence).map do |turn|
         ConversationDiagnostics::RecomputeTurnSnapshot.call(turn: turn)
       end
 
