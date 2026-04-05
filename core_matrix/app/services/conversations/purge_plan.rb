@@ -11,6 +11,9 @@ module Conversations
       purge_publication_rows!
       purge_agent_control_rows!
       purge_conversation_metadata!
+      purge_diagnostics_rows!
+      purge_observation_rows!
+      purge_export_request_rows!
       purge_runtime_rows!
       purge_transcript_rows!
       purge_orphaned_snapshot_rows!
@@ -153,6 +156,30 @@ module Conversations
       ConversationSummarySegment.where(conversation_id: @owned_conversation_ids).delete_all
     end
 
+    def purge_diagnostics_rows!
+      TurnDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids).delete_all
+      ConversationDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids).delete_all
+    end
+
+    def purge_observation_rows!
+      ConversationObservationMessage.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationObservationFrame.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationObservationSession.where(target_conversation_id: @owned_conversation_ids).delete_all
+    end
+
+    def purge_export_request_rows!
+      purge_conversation_export_requests!
+      purge_conversation_debug_export_requests!
+    end
+
+    def purge_conversation_export_requests!
+      ConversationExportRequest.where(conversation_id: @owned_conversation_ids).find_each(&:destroy!)
+    end
+
+    def purge_conversation_debug_export_requests!
+      ConversationDebugExportRequest.where(conversation_id: @owned_conversation_ids).find_each(&:destroy!)
+    end
+
     def purge_transcript_rows!
       nullify_message_attachment_ancestry!
       purge_message_attachments!
@@ -248,6 +275,13 @@ module Conversations
         HumanInteractionRequest.where(conversation_id: @owned_conversation_ids),
         ConversationImport.where(conversation_id: @owned_conversation_ids),
         ConversationSummarySegment.where(conversation_id: @owned_conversation_ids),
+        TurnDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids),
+        ConversationDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids),
+        ConversationObservationMessage.where(target_conversation_id: @owned_conversation_ids),
+        ConversationObservationFrame.where(target_conversation_id: @owned_conversation_ids),
+        ConversationObservationSession.where(target_conversation_id: @owned_conversation_ids),
+        ConversationExportRequest.where(conversation_id: @owned_conversation_ids),
+        ConversationDebugExportRequest.where(conversation_id: @owned_conversation_ids),
         MessageAttachment.where(id: @message_attachment_ids),
         active_storage_attachment_scope,
         Message.where(id: @message_ids),

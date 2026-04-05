@@ -310,6 +310,102 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert_not WorkflowArtifact.exists?(artifact.id)
   end
 
+  test "purges derived diagnostics, observation, and export rows without foreign key failures" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Derived purge anchor",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    create_workflow_node!(workflow_run: workflow_run)
+
+    conversation_diagnostics_snapshot = ConversationDiagnosticsSnapshot.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      lifecycle_state: "completed",
+      metadata: {},
+      most_expensive_turn: turn,
+      most_rounds_turn: turn
+    )
+    turn_diagnostics_snapshot = TurnDiagnosticsSnapshot.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      turn: turn,
+      lifecycle_state: "completed",
+      metadata: {}
+    )
+    observation_session = ConversationObservationSession.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {}
+    )
+    observation_frame = ConversationObservationFrame.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      conversation_observation_session: observation_session,
+      anchor_turn_public_id: turn.public_id,
+      anchor_turn_sequence_snapshot: turn.sequence,
+      conversation_event_projection_sequence_snapshot: 1,
+      wait_state: "ready",
+      active_subagent_session_public_ids: [],
+      bundle_snapshot: {},
+      assessment_payload: {}
+    )
+    observation_message = ConversationObservationMessage.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      conversation_observation_session: observation_session,
+      conversation_observation_frame: observation_frame,
+      role: "user",
+      content: "What are you doing?"
+    )
+    export_request = create_export_request!(klass: ConversationExportRequest, context: context, conversation: conversation)
+    debug_export_request = create_export_request!(klass: ConversationDebugExportRequest, context: context, conversation: conversation)
+
+    complete_turn_and_workflow!(turn: turn, workflow_run: workflow_run)
+    delete_and_finalize_conversation!(conversation)
+
+    assert_difference("Conversation.count", -1) do
+      assert_difference("ConversationDiagnosticsSnapshot.count", -1) do
+        assert_difference("TurnDiagnosticsSnapshot.count", -1) do
+          assert_difference("ConversationObservationSession.count", -1) do
+            assert_difference("ConversationObservationFrame.count", -1) do
+              assert_difference("ConversationObservationMessage.count", -1) do
+                assert_difference("ConversationExportRequest.count", -1) do
+                  assert_difference("ConversationDebugExportRequest.count", -1) do
+                    assert_difference("ActiveStorage::Attachment.count", -2) do
+                      Conversations::PurgeDeleted.call(conversation: conversation.reload)
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    assert_not Conversation.exists?(conversation.id)
+    assert_not ConversationDiagnosticsSnapshot.exists?(conversation_diagnostics_snapshot.id)
+    assert_not TurnDiagnosticsSnapshot.exists?(turn_diagnostics_snapshot.id)
+    assert_not ConversationObservationSession.exists?(observation_session.id)
+    assert_not ConversationObservationFrame.exists?(observation_frame.id)
+    assert_not ConversationObservationMessage.exists?(observation_message.id)
+    assert_not ConversationExportRequest.exists?(export_request.id)
+    assert_not ConversationDebugExportRequest.exists?(debug_export_request.id)
+  end
+
   test "rejects shell removal when the purge plan reports remaining owned rows" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -642,6 +738,30 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     yield
   rescue StandardError => error
     flunk("expected purge to succeed, but raised #{error.class}: #{error.message}")
+  end
+
+  def create_export_request!(klass:, context:, conversation:)
+    request = klass.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      conversation: conversation,
+      user: context[:user],
+      lifecycle_state: "queued",
+      expires_at: 2.hours.from_now,
+      request_payload: { "bundle_kind" => klass.name }
+    )
+    request.bundle_file.attach(
+      io: StringIO.new("#{klass.name} bundle"),
+      filename: "#{klass.model_name.singular}-#{next_test_sequence}.zip",
+      content_type: "application/zip"
+    )
+    request.update!(
+      lifecycle_state: "succeeded",
+      started_at: Time.current,
+      finished_at: Time.current,
+      result_payload: { "bundle_kind" => klass.name }
+    )
+    request
   end
 
   def create_nested_subagent_session_tree!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_program_version:)
