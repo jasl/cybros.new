@@ -81,9 +81,12 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
       t.references :workflow_node, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :status, null: false
+      t.string :provider_format
+      t.boolean :stream_output, null: false, default: false
       t.references :request_document, foreign_key: { to_table: :json_documents }
       t.references :response_document, foreign_key: { to_table: :json_documents }
       t.references :error_document, foreign_key: { to_table: :json_documents }
+      t.references :trace_document, foreign_key: { to_table: :json_documents }
       t.integer :attempt_no, null: false, default: 1
       t.string :idempotency_key
       t.jsonb :metadata, null: false, default: {}

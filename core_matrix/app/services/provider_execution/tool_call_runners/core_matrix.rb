@@ -18,9 +18,7 @@ module ProviderExecution
             "arguments" => @tool_call.fetch("arguments", {}),
           },
           idempotency_key: @tool_call.fetch("call_id"),
-          metadata: {
-            "provider_format" => @tool_call["provider_format"],
-          }.compact
+          provider_format: @tool_call["provider_format"]
         )
         invocation = provision.tool_invocation
         return existing_result(invocation) unless provision.created

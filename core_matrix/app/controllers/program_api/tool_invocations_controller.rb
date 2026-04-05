@@ -8,9 +8,8 @@ module ProgramAPI
         tool_binding: tool_binding,
         request_payload: request_payload.fetch("request_payload", {}),
         idempotency_key: request_payload["idempotency_key"],
-        metadata: request_payload.fetch("metadata", {}).merge(
-          "stream_output" => request_payload.fetch("stream_output", false)
-        )
+        stream_output: request_payload.fetch("stream_output", false),
+        metadata: request_payload.fetch("metadata", {})
       )
 
       render json: {

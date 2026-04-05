@@ -116,4 +116,32 @@ class SimplecovConfigurationTest < ActiveSupport::TestCase
     SimpleCov.singleton_class.send(:define_method, :tracked_files, original_tracked_files)
     SimpleCov::SimulateCoverage.singleton_class.send(:define_method, :call, original_simulate_coverage)
   end
+
+  test "normalizes source file coverage before simplecov builds lines" do
+    require "tempfile"
+
+    tracked_file = Tempfile.create(["simplecov-source", ".rb"])
+    tracked_file.write("line one\nline two\n")
+    tracked_file.flush
+
+    original_simulate_coverage = SimpleCov::SimulateCoverage.method(:call)
+
+    SimpleCov::SimulateCoverage.singleton_class.send(:define_method, :call) do |_path|
+      { "lines" => [0, 0] }
+    end
+
+    source_file = SimpleCov::SourceFile.new(
+      tracked_file.path,
+      { "lines" => [1, 1, 1] }
+    )
+
+    assert_equal [1, 1], source_file.coverage_data.fetch("lines")
+  ensure
+    if tracked_file
+      path = tracked_file.path
+      tracked_file.close unless tracked_file.closed?
+      File.unlink(path) if path && File.exist?(path)
+    end
+    SimpleCov::SimulateCoverage.singleton_class.send(:define_method, :call, original_simulate_coverage)
+  end
 end

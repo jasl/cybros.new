@@ -82,6 +82,52 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     assert_equal context.fetch(:workflow_node), invocation.workflow_node
   end
 
+  test "stores structured execution facts and trace payload outside metadata" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      capability_snapshot: context.fetch(:capability_snapshot),
+      execution_runtime: context.fetch(:execution_runtime)
+    )
+
+    task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
+    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "compact_context" })
+
+    invocation = ToolInvocations::Start.call(
+      tool_binding: binding,
+      request_payload: { "conversation_id" => context.fetch(:conversation).public_id },
+      provider_format: "chat_completions",
+      stream_output: true,
+      metadata: { "transport" => "mailbox_runtime" }
+    )
+
+    ToolInvocations::Complete.call(
+      tool_invocation: invocation,
+      response_payload: { "summary" => "done" },
+      trace_payload: {
+        "summary_artifacts" => [{ "kind" => "tool_batch", "text" => "done" }],
+        "output_chunks" => [{ "stream" => "stdout", "text" => "done\n" }],
+      },
+      metadata: { "reported_via" => "execution_complete" }
+    )
+
+    invocation.reload
+
+    assert_equal "chat_completions", invocation.provider_format
+    assert_equal true, invocation.stream_output
+    assert_equal "mailbox_runtime", invocation.metadata.fetch("transport")
+    assert_equal "execution_complete", invocation.metadata.fetch("reported_via")
+    refute invocation.metadata.key?("provider_format")
+    refute invocation.metadata.key?("stream_output")
+    refute invocation.metadata.key?("fenix")
+    assert_equal(
+      {
+        "summary_artifacts" => [{ "kind" => "tool_batch", "text" => "done" }],
+        "output_chunks" => [{ "stream" => "stdout", "text" => "done\n" }],
+      },
+      invocation.trace_payload
+    )
+  end
+
   test "terminal updates ignore stale copies once an invocation has already terminalized" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(

@@ -1244,14 +1244,17 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.string "idempotency_key"
     t.bigint "installation_id", null: false
     t.jsonb "metadata", default: {}, null: false
+    t.string "provider_format"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.bigint "request_document_id"
     t.bigint "response_document_id"
     t.datetime "started_at"
     t.string "status", null: false
+    t.boolean "stream_output", default: false, null: false
     t.bigint "tool_binding_id", null: false
     t.bigint "tool_definition_id", null: false
     t.bigint "tool_implementation_id", null: false
+    t.bigint "trace_document_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_node_id"
     t.index ["agent_task_run_id"], name: "index_tool_invocations_on_agent_task_run_id"
@@ -1265,6 +1268,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["tool_binding_id"], name: "index_tool_invocations_on_tool_binding_id"
     t.index ["tool_definition_id"], name: "index_tool_invocations_on_tool_definition_id"
     t.index ["tool_implementation_id"], name: "index_tool_invocations_on_tool_implementation_id"
+    t.index ["trace_document_id"], name: "index_tool_invocations_on_trace_document_id"
     t.index ["workflow_node_id"], name: "index_tool_invocations_on_workflow_node_id"
   end
 
@@ -1822,6 +1826,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "tool_invocations", "json_documents", column: "error_document_id"
   add_foreign_key "tool_invocations", "json_documents", column: "request_document_id"
   add_foreign_key "tool_invocations", "json_documents", column: "response_document_id"
+  add_foreign_key "tool_invocations", "json_documents", column: "trace_document_id"
   add_foreign_key "tool_invocations", "tool_bindings"
   add_foreign_key "tool_invocations", "tool_definitions"
   add_foreign_key "tool_invocations", "tool_implementations"

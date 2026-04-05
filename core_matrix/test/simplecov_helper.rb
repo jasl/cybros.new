@@ -82,10 +82,25 @@ module CoreMatrixSimpleCov
       )
     end
   end
+
+  module SourceFileNormalization
+    def initialize(filename, coverage_data)
+      template = SimpleCov::SimulateCoverage.call(filename)
+      normalized_coverage =
+        if coverage_data.is_a?(Hash)
+          CoreMatrixSimpleCov.normalize_file_coverage(coverage_data, template)
+        else
+          coverage_data
+        end
+
+      super(filename, normalized_coverage)
+    end
+  end
 end
 
 SimpleCov::ResultMerger.singleton_class.prepend(CoreMatrixSimpleCov::ResultsetNormalization)
 SimpleCov.singleton_class.prepend(CoreMatrixSimpleCov::ResultNormalization)
+SimpleCov::SourceFile.prepend(CoreMatrixSimpleCov::SourceFileNormalization)
 
 SimpleCov.enable_for_subprocesses true
 SimpleCov.at_fork do |pid|

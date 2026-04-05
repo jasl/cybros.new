@@ -213,7 +213,7 @@ module ProgramAPI
         "tool_name" => tool_invocation.tool_definition.tool_name,
         "status" => tool_invocation.status,
         "request_payload" => tool_invocation.request_payload,
-        "stream_output" => tool_invocation.metadata["stream_output"] == true,
+        "stream_output" => tool_invocation.stream_output == true,
       }
     end
 

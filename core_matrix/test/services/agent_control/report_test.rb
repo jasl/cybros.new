@@ -258,9 +258,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
         "command_line" => "printf 'hello\\n'",
       },
       idempotency_key: call_id,
-      metadata: {
-        "stream_output" => true,
-      }
+      stream_output: true
     )
     command_run = CommandRuns::Provision.call(
       tool_invocation: invocation,
@@ -424,9 +422,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
         "pty" => true,
       },
       idempotency_key: "tool-call-#{next_test_sequence}",
-      metadata: {
-        "stream_output" => true,
-      }
+      stream_output: true
     )
     command_run = CommandRuns::Provision.call(
       tool_invocation: invocation,

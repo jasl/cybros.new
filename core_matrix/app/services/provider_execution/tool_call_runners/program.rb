@@ -19,9 +19,7 @@ module ProviderExecution
             "arguments" => @tool_call.fetch("arguments", {}),
           },
           idempotency_key: @tool_call.fetch("call_id"),
-          metadata: {
-            "provider_format" => @tool_call["provider_format"],
-          }.compact
+          provider_format: @tool_call["provider_format"]
         )
         invocation = provision.tool_invocation
         return existing_result(invocation) unless provision.created
@@ -41,7 +39,7 @@ module ProviderExecution
             ToolInvocations::Complete.call(
               tool_invocation: invocation,
               response_payload: response.fetch("result"),
-              metadata: tool_execution_metadata(response)
+              trace_payload: tool_execution_trace(response)
             )
             reconcile_runtime_resources_on_success!(
               command_run: runtime_resource_refs[:command_run],
@@ -58,7 +56,7 @@ module ProviderExecution
             ToolInvocations::Fail.call(
               tool_invocation: invocation,
               error_payload: response.fetch("failure"),
-              metadata: tool_execution_metadata(response)
+              trace_payload: tool_execution_trace(response)
             )
             reconcile_runtime_resources_on_failure!(
               command_run: runtime_resource_refs[:command_run],
@@ -316,13 +314,11 @@ module ProviderExecution
         )
       end
 
-      def tool_execution_metadata(response)
+      def tool_execution_trace(response)
         {
-          "fenix" => {
-            "summary_artifacts" => response["summary_artifacts"],
-            "output_chunks" => response["output_chunks"],
-          }.compact,
-        }
+          "summary_artifacts" => response["summary_artifacts"],
+          "output_chunks" => response["output_chunks"],
+        }.compact
       end
 
       def execution_error_payload_for(error)

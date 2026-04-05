@@ -1,6 +1,8 @@
 class ToolInvocation < ApplicationRecord
   include HasPublicId
 
+  STRUCTURED_METADATA_KEYS = %w[provider_format stream_output fenix].freeze
+
   enum :status,
     {
       running: "running",
@@ -19,6 +21,7 @@ class ToolInvocation < ApplicationRecord
   belongs_to :request_document, class_name: "JsonDocument", optional: true
   belongs_to :response_document, class_name: "JsonDocument", optional: true
   belongs_to :error_document, class_name: "JsonDocument", optional: true
+  belongs_to :trace_document, class_name: "JsonDocument", optional: true
 
   has_one :command_run, dependent: :destroy
 
@@ -57,6 +60,14 @@ class ToolInvocation < ApplicationRecord
 
   def error_payload=(value)
     @pending_error_payload = value
+  end
+
+  def trace_payload
+    trace_document&.payload || {}
+  end
+
+  def trace_payload=(value)
+    @pending_trace_payload = value
   end
 
   private
@@ -99,6 +110,19 @@ class ToolInvocation < ApplicationRecord
             installation: installation,
             document_kind: "tool_invocation_error",
             payload: @pending_error_payload
+          )
+        end
+    end
+
+    if defined?(@pending_trace_payload)
+      self.trace_document =
+        if @pending_trace_payload.blank?
+          nil
+        else
+          JsonDocuments::Store.call(
+            installation: installation,
+            document_kind: "tool_invocation_trace",
+            payload: @pending_trace_payload
           )
         end
     end
@@ -162,6 +186,12 @@ class ToolInvocation < ApplicationRecord
 
   def metadata_must_be_hash
     errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
+    return unless metadata.is_a?(Hash)
+
+    duplicate_keys = metadata.stringify_keys.keys & STRUCTURED_METADATA_KEYS
+    return if duplicate_keys.empty?
+
+    errors.add(:metadata, "must not duplicate structured invocation fields")
   end
 
   def lifecycle_timestamps

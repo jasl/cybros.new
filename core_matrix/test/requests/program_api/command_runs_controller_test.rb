@@ -209,9 +209,7 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
         "pty" => false,
       },
       idempotency_key: "tool-call-#{next_test_sequence}",
-      metadata: {
-        "stream_output" => true,
-      }
+      stream_output: true
     )
   end
 

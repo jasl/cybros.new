@@ -4,10 +4,12 @@ module ToolInvocations
       new(...).call
     end
 
-    def initialize(tool_binding:, request_payload:, idempotency_key: nil, metadata: {})
+    def initialize(tool_binding:, request_payload:, idempotency_key: nil, provider_format: nil, stream_output: false, metadata: {})
       @tool_binding = tool_binding
       @request_payload = request_payload
       @idempotency_key = idempotency_key
+      @provider_format = provider_format
+      @stream_output = stream_output == true
       @metadata = metadata
     end
 
@@ -24,8 +26,11 @@ module ToolInvocations
           request_payload: @request_payload,
           response_payload: {},
           error_payload: {},
+          trace_payload: {},
           attempt_no: next_attempt_no,
           idempotency_key: @idempotency_key,
+          provider_format: @provider_format,
+          stream_output: @stream_output,
           metadata: @metadata,
           started_at: Time.current
         )

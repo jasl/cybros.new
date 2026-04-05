@@ -35,7 +35,8 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal true, response_body.fetch("stream_output")
     assert_equal invocation.public_id, response_body.fetch("tool_invocation_id")
     assert_equal "mailbox_runtime", invocation.metadata.fetch("transport")
-    assert_equal true, invocation.metadata.fetch("stream_output")
+    assert_equal true, invocation.stream_output
+    refute invocation.metadata.key?("stream_output")
     assert_equal context[:agent_task_run], invocation.agent_task_run
     assert_equal "exec_command", invocation.tool_definition.tool_name
     refute_includes response.body, %("#{invocation.id}")

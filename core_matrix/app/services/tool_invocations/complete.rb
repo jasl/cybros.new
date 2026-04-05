@@ -4,9 +4,10 @@ module ToolInvocations
       new(...).call
     end
 
-    def initialize(tool_invocation:, response_payload:, metadata: nil)
+    def initialize(tool_invocation:, response_payload:, trace_payload: nil, metadata: nil)
       @tool_invocation = tool_invocation
       @response_payload = response_payload
+      @trace_payload = trace_payload
       @metadata = metadata
     end
 
@@ -20,6 +21,7 @@ module ToolInvocations
           response_payload: @response_payload,
           finished_at: Time.current,
         }
+        attributes[:trace_payload] = @trace_payload if @trace_payload.present?
         attributes[:metadata] = @tool_invocation.metadata.merge(@metadata) if @metadata.present?
 
         @tool_invocation.update!(attributes)

@@ -416,9 +416,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         "command_line" => "sleep 30",
       },
       idempotency_key: "tool-call-#{next_test_sequence}",
-      metadata: {
-        "stream_output" => true,
-      }
+      stream_output: true
     )
 
     command_run = CommandRuns::Provision.call(

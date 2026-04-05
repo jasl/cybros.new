@@ -52,8 +52,16 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_nil invocation.agent_task_run
+    assert_equal "chat_completions", invocation.provider_format
     assert_equal({ "expression" => "2 + 2" }, invocation.request_payload.fetch("arguments"))
     assert_equal({ "value" => 4 }, invocation.response_payload)
+    assert_equal(
+      {
+        "summary_artifacts" => [{ "kind" => "tool_batch", "label" => "Calculator", "text" => "4", "metadata" => {} }],
+        "output_chunks" => [],
+      },
+      invocation.trace_payload
+    )
     assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("call_id")
     assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("task").fetch("workflow_node_id")
     assert_equal(
