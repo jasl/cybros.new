@@ -12,7 +12,7 @@ module Conversations
       purge_agent_control_rows!
       purge_conversation_metadata!
       purge_diagnostics_rows!
-      purge_observation_rows!
+      purge_supervision_rows!
       purge_export_request_rows!
       purge_runtime_rows!
       purge_transcript_rows!
@@ -162,10 +162,14 @@ module Conversations
       ConversationDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids).delete_all
     end
 
-    def purge_observation_rows!
-      ConversationObservationMessage.where(target_conversation_id: @owned_conversation_ids).delete_all
-      ConversationObservationFrame.where(target_conversation_id: @owned_conversation_ids).delete_all
-      ConversationObservationSession.where(target_conversation_id: @owned_conversation_ids).delete_all
+    def purge_supervision_rows!
+      ConversationSupervisionMessage.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationSupervisionSnapshot.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationControlRequest.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationCapabilityGrant.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationCapabilityPolicy.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationSupervisionState.where(target_conversation_id: @owned_conversation_ids).delete_all
+      ConversationSupervisionSession.where(target_conversation_id: @owned_conversation_ids).delete_all
     end
 
     def purge_export_request_rows!
@@ -278,9 +282,13 @@ module Conversations
         ConversationSummarySegment.where(conversation_id: @owned_conversation_ids),
         TurnDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids),
         ConversationDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids),
-        ConversationObservationMessage.where(target_conversation_id: @owned_conversation_ids),
-        ConversationObservationFrame.where(target_conversation_id: @owned_conversation_ids),
-        ConversationObservationSession.where(target_conversation_id: @owned_conversation_ids),
+        ConversationSupervisionMessage.where(target_conversation_id: @owned_conversation_ids),
+        ConversationSupervisionSnapshot.where(target_conversation_id: @owned_conversation_ids),
+        ConversationControlRequest.where(target_conversation_id: @owned_conversation_ids),
+        ConversationCapabilityGrant.where(target_conversation_id: @owned_conversation_ids),
+        ConversationCapabilityPolicy.where(target_conversation_id: @owned_conversation_ids),
+        ConversationSupervisionState.where(target_conversation_id: @owned_conversation_ids),
+        ConversationSupervisionSession.where(target_conversation_id: @owned_conversation_ids),
         ConversationExportRequest.where(conversation_id: @owned_conversation_ids),
         ConversationDebugExportRequest.where(conversation_id: @owned_conversation_ids),
         MessageAttachment.where(id: @message_attachment_ids),

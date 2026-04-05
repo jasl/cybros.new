@@ -30,7 +30,7 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
     assert_not Turn.exists?(turn.id)
   end
 
-  test "removes derived diagnostics, observation, and export rows before the conversation is deleted" do
+  test "removes derived diagnostics, supervision, capability, and export rows before the conversation is deleted" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -63,34 +63,7 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       lifecycle_state: "completed",
       metadata: {}
     )
-    observation_session = ConversationObservationSession.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      initiator: context[:user],
-      lifecycle_state: "open",
-      responder_strategy: "builtin",
-      capability_policy_snapshot: {}
-    )
-    observation_frame = ConversationObservationFrame.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      conversation_observation_session: observation_session,
-      anchor_turn_public_id: turn.public_id,
-      anchor_turn_sequence_snapshot: turn.sequence,
-      conversation_event_projection_sequence_snapshot: 1,
-      wait_state: "ready",
-      active_subagent_session_public_ids: [],
-      bundle_snapshot: {},
-      assessment_payload: {}
-    )
-    observation_message = ConversationObservationMessage.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      conversation_observation_session: observation_session,
-      conversation_observation_frame: observation_frame,
-      role: "user",
-      content: "What are you doing?"
-    )
+    supervision_rows = create_supervision_rows!(context:, conversation:, turn:)
     export_request = create_export_request!(klass: ConversationExportRequest, context: context, conversation: conversation)
     debug_export_request = create_export_request!(klass: ConversationDebugExportRequest, context: context, conversation: conversation)
 
@@ -100,13 +73,21 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
 
     assert_difference("ConversationDiagnosticsSnapshot.count", -1) do
       assert_difference("TurnDiagnosticsSnapshot.count", -1) do
-        assert_difference("ConversationObservationSession.count", -1) do
-          assert_difference("ConversationObservationFrame.count", -1) do
-            assert_difference("ConversationObservationMessage.count", -1) do
-              assert_difference("ConversationExportRequest.count", -1) do
-                assert_difference("ConversationDebugExportRequest.count", -1) do
-                  assert_difference("ActiveStorage::Attachment.count", -2) do
-                    plan.execute!
+        assert_difference("ConversationSupervisionSession.count", -1) do
+          assert_difference("ConversationSupervisionSnapshot.count", -1) do
+            assert_difference("ConversationSupervisionMessage.count", -1) do
+              assert_difference("ConversationSupervisionState.count", -1) do
+                assert_difference("ConversationCapabilityPolicy.count", -1) do
+                  assert_difference("ConversationCapabilityGrant.count", -1) do
+                    assert_difference("ConversationControlRequest.count", -1) do
+                      assert_difference("ConversationExportRequest.count", -1) do
+                        assert_difference("ConversationDebugExportRequest.count", -1) do
+                          assert_difference("ActiveStorage::Attachment.count", -2) do
+                            plan.execute!
+                          end
+                        end
+                      end
+                    end
                   end
                 end
               end
@@ -119,9 +100,13 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
     assert_not plan.remaining_owned_rows?
     assert_not ConversationDiagnosticsSnapshot.exists?(conversation_diagnostics_snapshot.id)
     assert_not TurnDiagnosticsSnapshot.exists?(turn_diagnostics_snapshot.id)
-    assert_not ConversationObservationSession.exists?(observation_session.id)
-    assert_not ConversationObservationFrame.exists?(observation_frame.id)
-    assert_not ConversationObservationMessage.exists?(observation_message.id)
+    assert_not ConversationSupervisionSession.exists?(supervision_rows.fetch(:session).id)
+    assert_not ConversationSupervisionSnapshot.exists?(supervision_rows.fetch(:snapshot).id)
+    assert_not ConversationSupervisionMessage.exists?(supervision_rows.fetch(:message).id)
+    assert_not ConversationSupervisionState.exists?(supervision_rows.fetch(:state).id)
+    assert_not ConversationCapabilityPolicy.exists?(supervision_rows.fetch(:policy).id)
+    assert_not ConversationCapabilityGrant.exists?(supervision_rows.fetch(:grant).id)
+    assert_not ConversationControlRequest.exists?(supervision_rows.fetch(:control_request).id)
     assert_not ConversationExportRequest.exists?(export_request.id)
     assert_not ConversationDebugExportRequest.exists?(debug_export_request.id)
   end
@@ -159,34 +144,7 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       lifecycle_state: "completed",
       metadata: {}
     )
-    observation_session = ConversationObservationSession.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      initiator: context[:user],
-      lifecycle_state: "open",
-      responder_strategy: "builtin",
-      capability_policy_snapshot: {}
-    )
-    observation_frame = ConversationObservationFrame.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      conversation_observation_session: observation_session,
-      anchor_turn_public_id: turn.public_id,
-      anchor_turn_sequence_snapshot: turn.sequence,
-      conversation_event_projection_sequence_snapshot: 1,
-      wait_state: "ready",
-      active_subagent_session_public_ids: [],
-      bundle_snapshot: {},
-      assessment_payload: {}
-    )
-    ConversationObservationMessage.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      conversation_observation_session: observation_session,
-      conversation_observation_frame: observation_frame,
-      role: "user",
-      content: "Status?"
-    )
+    create_supervision_rows!(context:, conversation:, turn:)
     create_export_request!(klass: ConversationExportRequest, context: context, conversation: conversation)
     create_export_request!(klass: ConversationDebugExportRequest, context: context, conversation: conversation)
 
@@ -221,5 +179,85 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       result_payload: { "bundle_kind" => klass.name }
     )
     request
+  end
+
+  def create_supervision_rows!(context:, conversation:, turn:)
+    session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {},
+      last_snapshot_at: Time.current
+    )
+    policy = ConversationCapabilityPolicy.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      supervision_enabled: true,
+      side_chat_enabled: true,
+      control_enabled: true,
+      policy_payload: {}
+    )
+    state = ConversationSupervisionState.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      overall_state: "running",
+      current_owner_kind: "workflow_run",
+      current_owner_public_id: "workflow_run_public_id",
+      last_progress_at: Time.current,
+      status_payload: {}
+    )
+    snapshot = ConversationSupervisionSnapshot.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      conversation_supervision_session: session,
+      conversation_supervision_state_public_id: state.public_id,
+      conversation_capability_policy_public_id: policy.public_id,
+      anchor_turn_public_id: turn.public_id,
+      anchor_turn_sequence_snapshot: turn.sequence,
+      conversation_event_projection_sequence_snapshot: 1,
+      active_subagent_session_public_ids: [],
+      bundle_payload: {},
+      machine_status_payload: {}
+    )
+    message = ConversationSupervisionMessage.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      role: "user",
+      content: "What are you doing?"
+    )
+    grant = ConversationCapabilityGrant.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      grantee_kind: "user",
+      grantee_public_id: context[:user].public_id,
+      capability: "request_turn_interrupt",
+      grant_state: "active",
+      policy_payload: {}
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: session,
+      target_conversation: conversation,
+      request_kind: "request_status_refresh",
+      target_kind: "conversation",
+      target_public_id: conversation.public_id,
+      lifecycle_state: "queued",
+      request_payload: {},
+      result_payload: {}
+    )
+
+    {
+      session: session,
+      snapshot: snapshot,
+      message: message,
+      state: state,
+      policy: policy,
+      grant: grant,
+      control_request: control_request,
+    }
   end
 end
