@@ -406,6 +406,80 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert_not ConversationDebugExportRequest.exists?(debug_export_request.id)
   end
 
+  test "purges a deleted conversation with derived rows without query explosion" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Purge deleted query budget input",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    create_workflow_node!(workflow_run: workflow_run)
+
+    ConversationDiagnosticsSnapshot.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      lifecycle_state: "completed",
+      metadata: {},
+      most_expensive_turn: turn,
+      most_rounds_turn: turn
+    )
+    TurnDiagnosticsSnapshot.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      turn: turn,
+      lifecycle_state: "completed",
+      metadata: {}
+    )
+    observation_session = ConversationObservationSession.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {}
+    )
+    observation_frame = ConversationObservationFrame.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      conversation_observation_session: observation_session,
+      anchor_turn_public_id: turn.public_id,
+      anchor_turn_sequence_snapshot: turn.sequence,
+      conversation_event_projection_sequence_snapshot: 1,
+      wait_state: "ready",
+      active_subagent_session_public_ids: [],
+      bundle_snapshot: {},
+      assessment_payload: {}
+    )
+    ConversationObservationMessage.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      conversation_observation_session: observation_session,
+      conversation_observation_frame: observation_frame,
+      role: "user",
+      content: "Status?"
+    )
+    create_export_request!(klass: ConversationExportRequest, context: context, conversation: conversation)
+    create_export_request!(klass: ConversationDebugExportRequest, context: context, conversation: conversation)
+
+    complete_turn_and_workflow!(turn: turn, workflow_run: workflow_run)
+    delete_and_finalize_conversation!(conversation)
+
+    queries = capture_sql_queries do
+      Conversations::PurgeDeleted.call(conversation: conversation.reload)
+    end
+
+    assert_operator queries.length, :<=, 115, "Expected purge deleted flow to stay under 115 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_not Conversation.exists?(conversation.id)
+  end
+
   test "rejects shell removal when the purge plan reports remaining owned rows" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

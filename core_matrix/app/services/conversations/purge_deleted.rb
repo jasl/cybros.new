@@ -22,17 +22,20 @@ module Conversations
           locked_conversation = conversation.reload
           affected_conversation_ids = reconcile_target_ids(locked_conversation)
           ensure_finalized_state!(locked_conversation)
+          blocker_snapshot = nil
           if @force
             force_quiesce!(locked_conversation)
             next if quiescence_pending_after_force?(locked_conversation)
           else
+            blocker_snapshot = Conversations::BlockerSnapshotQuery.call(conversation: locked_conversation)
             Conversations::ValidateQuiescence.call(
               conversation: locked_conversation,
               stage: "purge",
-              mainline_only: false
+              mainline_only: false,
+              blocker_snapshot: blocker_snapshot
             )
           end
-          next if purge_blocked?(locked_conversation)
+          next if purge_blocked?(locked_conversation, blocker_snapshot)
 
           plan = Conversations::PurgePlan.new(conversation: locked_conversation)
           plan.execute!
@@ -83,8 +86,8 @@ module Conversations
       true
     end
 
-    def purge_blocked?(conversation)
-      Conversations::BlockerSnapshotQuery.call(conversation: conversation).dependency_blockers.blocked?
+    def purge_blocked?(conversation, blocker_snapshot = nil)
+      (blocker_snapshot || Conversations::BlockerSnapshotQuery.call(conversation: conversation)).dependency_blockers.blocked?
     end
 
     def ancestor_conversation_ids(conversation)

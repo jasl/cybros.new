@@ -48,4 +48,58 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     refute_includes json, %("#{conversation.id}")
     refute_includes json, %("#{turn.id}")
   end
+
+  test "preloads transcript and attachments without query explosion" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    first_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Export query budget input 1",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    first_source_attachment = create_message_attachment!(
+      message: first_turn.selected_input_message,
+      filename: "input-1.txt",
+      body: "first attachment"
+    )
+    first_output_message = attach_selected_output!(first_turn, content: "First exported answer")
+    create_message_attachment!(
+      message: first_output_message,
+      origin_attachment: first_source_attachment,
+      filename: "output-1.txt",
+      body: "first derived attachment"
+    )
+
+    second_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Export query budget input 2",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    second_source_attachment = create_message_attachment!(
+      message: second_turn.selected_input_message,
+      filename: "input-2.txt",
+      body: "second attachment"
+    )
+    second_output_message = attach_selected_output!(second_turn, content: "Second exported answer")
+    create_message_attachment!(
+      message: second_output_message,
+      origin_attachment: second_source_attachment,
+      filename: "output-2.txt",
+      body: "second derived attachment"
+    )
+
+    queries = capture_sql_queries do
+      ConversationExports::BuildConversationPayload.call(conversation: conversation)
+    end
+
+    assert_operator queries.length, :<=, 30, "Expected conversation export payload to stay under 30 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
 end

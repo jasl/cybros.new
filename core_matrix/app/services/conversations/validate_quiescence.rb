@@ -4,11 +4,12 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, stage:, mainline_only:, record: conversation)
+    def initialize(conversation:, stage:, mainline_only:, record: conversation, blocker_snapshot: nil)
       @conversation = conversation
       @stage = stage
       @mainline_only = mainline_only
       @record = record
+      @blocker_snapshot = blocker_snapshot
     end
 
     def call
@@ -33,7 +34,7 @@ module Conversations
     private
 
     def barrier
-      @barrier ||= Conversations::BlockerSnapshotQuery.call(conversation: @conversation).work_barrier
+      @barrier ||= @blocker_snapshot&.work_barrier || Conversations::BlockerSnapshotQuery.call(conversation: @conversation).work_barrier
     end
 
     def ensure_owned_subagent_sessions_closed!
