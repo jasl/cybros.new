@@ -101,5 +101,15 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     assert_equal 2, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_event_count")
     assert_equal 0, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_missing_event_count")
     assert_nil snapshot.metadata["outlier_refs"]
+
+    ConversationDiagnosticsSnapshot.where(conversation: conversation).delete_all
+    TurnDiagnosticsSnapshot.where(conversation: conversation).delete_all
+
+    recreated_snapshot = ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: conversation)
+
+    assert_equal snapshot.conversation_id, recreated_snapshot.conversation_id
+    assert_equal snapshot.turn_count, recreated_snapshot.turn_count
+    assert_equal 1, ConversationDiagnosticsSnapshot.where(conversation: conversation).count
+    assert_equal 2, TurnDiagnosticsSnapshot.where(conversation: conversation).count
   end
 end

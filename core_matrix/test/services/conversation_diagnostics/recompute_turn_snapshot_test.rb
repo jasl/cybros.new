@@ -179,6 +179,13 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       snapshot.avg_latency_ms
     )
     assert_nil snapshot.metadata["evidence_refs"]
+
+    TurnDiagnosticsSnapshot.where(turn: turn).delete_all
+    recreated_snapshot = ConversationDiagnostics::RecomputeTurnSnapshot.call(turn: turn)
+
+    assert_equal snapshot.turn_id, recreated_snapshot.turn_id
+    assert_equal snapshot.usage_event_count, recreated_snapshot.usage_event_count
+    assert_equal 1, TurnDiagnosticsSnapshot.where(turn: turn).count
   end
 
   test "marks cost data unavailable when usage events have no estimated cost" do

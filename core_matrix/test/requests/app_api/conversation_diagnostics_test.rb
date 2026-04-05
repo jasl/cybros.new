@@ -25,6 +25,9 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       occurred_at: Time.utc(2026, 4, 2, 9, 0, 0)
     )
 
+    ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
+    TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
+
     get "/app_api/conversation_diagnostics/show",
       params: {
         conversation_id: context[:conversation].public_id,
@@ -81,6 +84,8 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     assert_equal 40, response_body["items"].first.fetch("attributed_user_output_tokens_total")
     assert_equal 160, response_body["items"].first.fetch("attributed_user_total_tokens_total")
     assert_equal 0, response_body["items"].first.fetch("steer_count")
+    assert_equal 1, ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).count
+    assert_equal 1, TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).count
   end
 
   test "rejects raw bigint identifiers for conversation diagnostics lookups" do
