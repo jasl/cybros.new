@@ -236,6 +236,39 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal "turn_interrupted", workflow_run.reload.cancellation_reason_kind
   end
 
+  test "records completion on a linked conversation control request" do
+    context = build_agent_control_context!
+    session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: session,
+      target_conversation: context[:conversation],
+      request_kind: "request_turn_interrupt",
+      target_kind: "conversation",
+      target_public_id: context[:conversation].public_id,
+      lifecycle_state: "queued",
+      request_payload: {},
+      result_payload: {}
+    )
+
+    Conversations::RequestTurnInterrupt.call(
+      turn: context[:turn],
+      occurred_at: Time.zone.parse("2026-03-29 10:05:00 UTC"),
+      conversation_control_request: control_request
+    )
+
+    assert_equal "completed", control_request.reload.lifecycle_state
+    assert_equal context[:turn].public_id, control_request.result_payload["turn_id"]
+  end
+
   private
 
   def create_turn_scoped_subagent_session!(context:, origin_turn:)

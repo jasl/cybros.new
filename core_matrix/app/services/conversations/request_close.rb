@@ -17,10 +17,11 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, intent_kind:, occurred_at: Time.current)
+    def initialize(conversation:, intent_kind:, occurred_at: Time.current, conversation_control_request: nil)
       @conversation = conversation
       @intent_kind = intent_kind
       @occurred_at = occurred_at
+      @conversation_control_request = conversation_control_request
     end
 
     def call
@@ -57,7 +58,9 @@ module Conversations
         )
       end
 
-      conversation.reload
+      closed_conversation = conversation.reload
+      complete_control_request!(closed_conversation)
+      closed_conversation
     end
 
     private
@@ -173,6 +176,19 @@ module Conversations
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def complete_control_request!(conversation)
+      return if @conversation_control_request.blank?
+
+      @conversation_control_request.update!(
+        lifecycle_state: "completed",
+        completed_at: @occurred_at,
+        result_payload: @conversation_control_request.result_payload.merge(
+          "conversation_id" => conversation.public_id,
+          "intent_kind" => @intent_kind
+        )
+      )
     end
   end
 end

@@ -31,6 +31,42 @@ class SubagentSessions::RequestCloseTest < ActiveSupport::TestCase
     assert_equal session.public_id, close_request.payload.fetch("resource_id")
   end
 
+  test "records completion on a linked conversation control request" do
+    context = build_agent_control_context!
+    session = create_running_subagent_session!(context: context)
+    supervision_session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: supervision_session,
+      target_conversation: context[:conversation],
+      request_kind: "request_subagent_close",
+      target_kind: "subagent_session",
+      target_public_id: session.public_id,
+      lifecycle_state: "queued",
+      request_payload: {},
+      result_payload: {}
+    )
+
+    SubagentSessions::RequestClose.call(
+      subagent_session: session,
+      request_kind: "request_subagent_close",
+      reason_kind: "supervision_subagent_close_requested",
+      strictness: "graceful",
+      conversation_control_request: control_request
+    )
+
+    assert_equal "completed", control_request.reload.lifecycle_state
+    assert_equal session.public_id, control_request.result_payload["subagent_session_id"]
+  end
+
   private
 
   def create_running_subagent_session!(context:)

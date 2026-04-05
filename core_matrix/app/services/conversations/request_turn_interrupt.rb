@@ -4,9 +4,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(turn:, occurred_at: Time.current)
+    def initialize(turn:, occurred_at: Time.current, conversation_control_request: nil)
       @turn = turn
       @occurred_at = occurred_at
+      @conversation_control_request = conversation_control_request
     end
 
     def call
@@ -22,7 +23,9 @@ module Conversations
         reconcile_close_operation!
       end
 
-      @turn.reload
+      turn = @turn.reload
+      complete_control_request!(turn)
+      turn
     end
 
     private
@@ -144,6 +147,19 @@ module Conversations
       Conversations::ReconcileCloseOperation.call(
         conversation: conversation,
         occurred_at: @occurred_at
+      )
+    end
+
+    def complete_control_request!(turn)
+      return if @conversation_control_request.blank?
+
+      @conversation_control_request.update!(
+        lifecycle_state: "completed",
+        completed_at: @occurred_at,
+        result_payload: @conversation_control_request.result_payload.merge(
+          "turn_id" => turn.public_id,
+          "conversation_id" => turn.conversation.public_id
+        )
       )
     end
   end

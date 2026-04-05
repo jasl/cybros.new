@@ -142,4 +142,28 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_equal expected_agent_context, mailbox_item.payload.fetch("agent_context")
     assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
   end
+
+  test "supports supervision control request kinds without workflow context" do
+    context = build_agent_control_context!
+
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "supervision_status_refresh",
+      payload: {
+        "conversation_control" => {
+          "conversation_control_request_id" => "control-request-public-id",
+          "conversation_id" => context.fetch(:conversation).public_id,
+        }
+      },
+      logical_work_id: "supervision-status-refresh:#{context.fetch(:conversation).public_id}",
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    assert_equal "supervision_status_refresh", mailbox_item.payload.fetch("request_kind")
+    assert_equal "control-request-public-id",
+      mailbox_item.payload.dig("conversation_control", "conversation_control_request_id")
+    assert_nil mailbox_item.workflow_node
+    assert_nil mailbox_item.execution_contract
+  end
 end

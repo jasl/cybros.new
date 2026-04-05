@@ -105,6 +105,40 @@ class Conversations::RequestCloseTest < ActiveSupport::TestCase
     assert_operator queries.length, :<=, 70, "Expected request close to stay under 70 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
+  test "records completion on a linked conversation control request" do
+    conversation = create_conversation!
+    session = ConversationSupervisionSession.create!(
+      installation: conversation.installation,
+      target_conversation: conversation,
+      initiator: conversation.workspace.user,
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: conversation.installation,
+      conversation_supervision_session: session,
+      target_conversation: conversation,
+      request_kind: "request_conversation_close",
+      target_kind: "conversation",
+      target_public_id: conversation.public_id,
+      lifecycle_state: "queued",
+      request_payload: { "intent_kind" => "archive" },
+      result_payload: {}
+    )
+
+    Conversations::RequestClose.call(
+      conversation: conversation,
+      intent_kind: "archive",
+      occurred_at: Time.zone.parse("2026-03-29 08:05:00 UTC"),
+      conversation_control_request: control_request
+    )
+
+    assert_equal "completed", control_request.reload.lifecycle_state
+    assert_equal conversation.public_id, control_request.result_payload["conversation_id"]
+  end
+
   private
 
   def create_conversation!

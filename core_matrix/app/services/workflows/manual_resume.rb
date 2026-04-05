@@ -4,17 +4,18 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_run:, deployment:, actor:, selector: nil)
+    def initialize(workflow_run:, deployment:, actor:, selector: nil, conversation_control_request: nil)
       @workflow_run = workflow_run
       @deployment = deployment
       @actor = actor
       @selector = selector
+      @conversation_control_request = conversation_control_request
     end
 
     def call
       validate_wait_state!
 
-      ApplicationRecord.transaction do
+      resumed_workflow_run = ApplicationRecord.transaction do
         Workflows::WithMutableWorkflowContext.call(
           workflow_run: @workflow_run,
           retained_message: "must be retained before manual recovery",
@@ -57,6 +58,9 @@ module Workflows
           workflow_run
         end
       end
+
+      complete_control_request!(resumed_workflow_run)
+      resumed_workflow_run
     end
 
     private
@@ -70,6 +74,19 @@ module Workflows
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def complete_control_request!(workflow_run)
+      return if @conversation_control_request.blank?
+
+      @conversation_control_request.update!(
+        lifecycle_state: "completed",
+        completed_at: Time.current,
+        result_payload: @conversation_control_request.result_payload.merge(
+          "workflow_run_id" => workflow_run.public_id,
+          "conversation_id" => workflow_run.conversation.public_id
+        )
+      )
     end
   end
 end

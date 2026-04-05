@@ -2,7 +2,12 @@ require "securerandom"
 
 module AgentControl
   class CreateAgentProgramRequest
-    REQUEST_KINDS = %w[prepare_round execute_program_tool].freeze
+    REQUEST_KINDS = %w[
+      prepare_round
+      execute_program_tool
+      supervision_status_refresh
+      supervision_guidance
+    ].freeze
 
     def self.call(...)
       new(...).call

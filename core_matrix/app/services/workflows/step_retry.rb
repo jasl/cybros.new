@@ -4,17 +4,22 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_run:, occurred_at: Time.current)
+    def initialize(workflow_run:, occurred_at: Time.current, conversation_control_request: nil)
       @workflow_run = workflow_run
       @occurred_at = occurred_at
+      @conversation_control_request = conversation_control_request
     end
 
     def call
       validate_retry_gate!
 
-      return retry_blocked_workflow_node! if @workflow_run.blocking_resource_type == "WorkflowNode"
+      if @workflow_run.blocking_resource_type == "WorkflowNode"
+        workflow_node = retry_blocked_workflow_node!
+        complete_control_request!(workflow_node)
+        return workflow_node
+      end
 
-      ApplicationRecord.transaction do
+      retried_task = ApplicationRecord.transaction do
         Workflows::WithMutableWorkflowContext.call(
           workflow_run: @workflow_run,
           retained_message: "must be retained before step retry",
@@ -67,6 +72,9 @@ module Workflows
           end
         end
       end
+
+      complete_control_request!(retried_task)
+      retried_task
     end
 
     private
@@ -112,6 +120,23 @@ module Workflows
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def complete_control_request!(resource)
+      return if @conversation_control_request.blank?
+
+      result_payload = {
+        "workflow_run_id" => @workflow_run.public_id,
+        "conversation_id" => @workflow_run.conversation.public_id
+      }
+      result_payload["agent_task_run_id"] = resource.public_id if resource.is_a?(AgentTaskRun)
+      result_payload["workflow_node_id"] = resource.public_id if resource.is_a?(WorkflowNode)
+
+      @conversation_control_request.update!(
+        lifecycle_state: "completed",
+        completed_at: @occurred_at,
+        result_payload: @conversation_control_request.result_payload.merge(result_payload)
+      )
     end
   end
 end
