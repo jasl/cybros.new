@@ -10,28 +10,19 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
         observation_bundle: fixture.fetch(:bundle)
       )
 
-      assert_equal fixture.fetch(:session).public_id, assessment.fetch("observation_session_id")
-      assert_equal fixture.fetch(:frame).public_id, assessment.fetch("observation_frame_id")
-      assert_equal fixture.fetch(:conversation).public_id, assessment.fetch("conversation_id")
       assert_equal "waiting", assessment.fetch("overall_state")
       assert_equal "Waiting on subagent_barrier at implement", assessment.fetch("current_activity")
       assert_equal "subagent_barrier", assessment.fetch("blocking_reason")
-      assert_equal fixture.fetch(:workflow_run).public_id, assessment.fetch("workflow_run_id")
-      assert_equal fixture.fetch(:workflow_node).public_id, assessment.fetch("workflow_node_id")
-      assert_equal 2, assessment.fetch("recent_activity_items").length
-      assert assessment.fetch("recent_activity_items").all? { |item| item.keys.sort == %w[created_at event_kind projection_sequence] }
-      assert_equal [fixture.fetch(:subagent_session).public_id], assessment.dig("proof_refs", "subagent_session_ids")
-      assert_equal(
-        [
-          fixture.fetch(:first_turn).selected_input_message.public_id,
-          fixture.fetch(:current_turn).selected_input_message.public_id,
-          fixture.fetch(:current_turn).selected_output_message.public_id,
-        ],
-        assessment.fetch("transcript_refs")
-      )
+      refute assessment.key?("observation_session_id")
+      refute assessment.key?("observation_frame_id")
+      refute assessment.key?("conversation_id")
+      refute assessment.key?("workflow_run_id")
+      refute assessment.key?("workflow_node_id")
+      refute assessment.key?("recent_activity_items")
+      refute assessment.key?("proof_refs")
+      refute assessment.key?("transcript_refs")
       refute assessment.key?("human_summary")
       refute assessment.key?("proof_text")
-      refute assessment.fetch("recent_activity_items").any? { |item| item.key?("payload") }
       assert assessment.fetch("stall_for_ms") >= 0
       assert_equal Time.current.iso8601(6), assessment.fetch("observed_at")
     end
@@ -79,7 +70,8 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
       assert_equal context.fetch(:workflow_run).public_id, frame.active_workflow_run_public_id
       assert_equal workflow_node.public_id, frame.active_workflow_node_public_id
       assert_equal "completed", assessment.fetch("overall_state")
-      assert_equal context.fetch(:workflow_run).public_id, assessment.fetch("workflow_run_id")
+      refute assessment.key?("conversation_id")
+      refute assessment.key?("workflow_run_id")
     end
   end
 

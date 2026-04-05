@@ -64,29 +64,30 @@ module EmbeddedAgents
         new(...).call
       end
 
-      def initialize(question:, assessment:, observation_bundle:, previous_supervisor_status: nil)
+      def initialize(question:, assessment:, supervisor_status:, observation_bundle:, previous_supervisor_status: nil)
         @question = question.to_s
         @assessment = assessment
+        @supervisor_status = supervisor_status
         @observation_bundle = observation_bundle
         @previous_supervisor_status = previous_supervisor_status.is_a?(Hash) ? previous_supervisor_status : {}
       end
 
       def call
         {
-          "observation_session_id" => @assessment.fetch("observation_session_id"),
-          "observation_frame_id" => @assessment.fetch("observation_frame_id"),
-          "conversation_id" => @assessment.fetch("conversation_id"),
+          "observation_session_id" => @supervisor_status.fetch("observation_session_id"),
+          "observation_frame_id" => @supervisor_status.fetch("observation_frame_id"),
+          "conversation_id" => @supervisor_status.fetch("conversation_id"),
           "overall_state" => @assessment.fetch("overall_state"),
           "current_activity" => @assessment.fetch("current_activity"),
           "content" => content,
-          "proof_refs" => @assessment.fetch("proof_refs"),
+          "proof_refs" => @supervisor_status.fetch("proof_refs"),
         }
       end
 
       private
 
       def content
-        return BuildHumanSummary.call(assessment: @assessment) if requested_topics.empty?
+        return BuildHumanSummary.call(assessment: @assessment, supervisor_status: @supervisor_status) if requested_topics.empty?
 
         segments = requested_topics.filter_map do |topic|
           case topic
@@ -174,7 +175,7 @@ module EmbeddedAgents
         end
 
         previous_transcript_count = Array(previous_supervisor_status["transcript_refs"]).length
-        current_transcript_count = Array(@assessment["transcript_refs"]).length
+        current_transcript_count = Array(@supervisor_status["transcript_refs"]).length
         return "Since the last observation, new transcript context became available." if current_transcript_count > previous_transcript_count
 
         "Since the last observation, no newer durable change has been recorded."
@@ -215,9 +216,9 @@ module EmbeddedAgents
 
       def grounding_sentence
         evidence_parts = ["workflow state"]
-        evidence_parts << "transcript context" if Array(@assessment["transcript_refs"]).any?
-        evidence_parts << "recent activity" if Array(@assessment["recent_activity_items"]).any?
-        evidence_parts << "subagent status" if Array(@assessment.dig("proof_refs", "subagent_session_ids")).any?
+        evidence_parts << "transcript context" if Array(@supervisor_status["transcript_refs"]).any?
+        evidence_parts << "recent activity" if Array(@supervisor_status["recent_activity_items"]).any?
+        evidence_parts << "subagent status" if Array(@supervisor_status.dig("proof_refs", "subagent_session_ids")).any?
 
         if evidence_parts.one?
           "This answer is grounded in #{evidence_parts.first}."
@@ -227,7 +228,7 @@ module EmbeddedAgents
       end
 
       def latest_activity_item
-        Array(@assessment["recent_activity_items"]).last
+        Array(@supervisor_status["recent_activity_items"]).last
       end
 
       def previous_supervisor_status

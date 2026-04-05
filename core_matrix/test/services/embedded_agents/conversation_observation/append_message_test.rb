@@ -29,8 +29,8 @@ class EmbeddedAgents::ConversationObservation::AppendMessageTest < ActiveSupport
     assert_equal "Summarize current progress for supervisor_status", user_message.content
     assert_equal result.dig("human_sidechat", "content"), observer_message.content
     assert_equal result.fetch("assessment"), frame.reload.assessment_payload
-    assert_equal result.fetch("assessment").fetch("proof_refs"), result.dig("supervisor_status", "proof_refs")
-    assert_equal result.fetch("assessment").fetch("proof_refs"), result.dig("human_sidechat", "proof_refs")
+    refute result.fetch("assessment").key?("proof_refs")
+    assert_equal result.dig("supervisor_status", "proof_refs"), result.dig("human_sidechat", "proof_refs")
   end
 
   test "requires the session initiator and rejects closed sessions" do

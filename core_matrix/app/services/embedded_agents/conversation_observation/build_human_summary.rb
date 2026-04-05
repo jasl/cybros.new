@@ -5,8 +5,9 @@ module EmbeddedAgents
         new(...).call
       end
 
-      def initialize(assessment:)
+      def initialize(assessment:, supervisor_status:)
         @assessment = assessment
+        @supervisor_status = supervisor_status
       end
 
       def call
@@ -33,15 +34,15 @@ module EmbeddedAgents
       end
 
       def recent_activity_items
-        Array(@assessment["recent_activity_items"])
+        Array(@supervisor_status["recent_activity_items"])
       end
 
       def transcript_refs
-        Array(@assessment["transcript_refs"])
+        Array(@supervisor_status["transcript_refs"])
       end
 
       def proof_refs
-        @assessment.fetch("proof_refs")
+        @supervisor_status.fetch("proof_refs")
       end
 
       def human_state_sentence

@@ -18,41 +18,29 @@ module EmbeddedAgents
             conversation_observation_frame: @conversation_observation_frame,
             observation_bundle: @observation_bundle
           )
+          supervisor_status = BuildSupervisorStatus.call(
+            conversation_observation_frame: @conversation_observation_frame,
+            assessment: assessment,
+            observation_bundle: @observation_bundle
+          )
 
           @conversation_observation_frame.update!(assessment_payload: assessment)
 
           {
             "assessment" => assessment,
-            "supervisor_status" => supervisor_status(assessment),
-            "human_sidechat" => human_sidechat(assessment),
+            "supervisor_status" => supervisor_status,
+            "human_sidechat" => human_sidechat(assessment, supervisor_status),
             "responder_kind" => "builtin",
           }
         end
 
         private
 
-        def supervisor_status(assessment)
-          {
-            "observation_session_id" => assessment.fetch("observation_session_id"),
-            "observation_frame_id" => assessment.fetch("observation_frame_id"),
-            "conversation_id" => assessment.fetch("conversation_id"),
-            "overall_state" => assessment.fetch("overall_state"),
-            "current_activity" => assessment.fetch("current_activity"),
-            "workflow_run_id" => assessment["workflow_run_id"],
-            "workflow_node_id" => assessment["workflow_node_id"],
-            "last_progress_at" => assessment["last_progress_at"],
-            "stall_for_ms" => assessment.fetch("stall_for_ms"),
-            "blocking_reason" => assessment["blocking_reason"],
-            "recent_activity_items" => assessment.fetch("recent_activity_items"),
-            "transcript_refs" => assessment.fetch("transcript_refs"),
-            "proof_refs" => assessment.fetch("proof_refs"),
-          }.compact
-        end
-
-        def human_sidechat(assessment)
+        def human_sidechat(assessment, supervisor_status)
           BuildHumanSidechat.call(
             question: @question,
             assessment: assessment,
+            supervisor_status: supervisor_status,
             observation_bundle: @observation_bundle,
             previous_supervisor_status: previous_supervisor_status
           )
@@ -66,9 +54,14 @@ module EmbeddedAgents
             .last
 
           assessment = previous_frame&.assessment_payload
+          return {} unless previous_frame.present?
           return {} unless assessment.is_a?(Hash) && assessment.present?
 
-          supervisor_status(assessment)
+          BuildSupervisorStatus.call(
+            conversation_observation_frame: previous_frame,
+            assessment: assessment,
+            observation_bundle: previous_frame.bundle_snapshot
+          )
         end
       end
     end

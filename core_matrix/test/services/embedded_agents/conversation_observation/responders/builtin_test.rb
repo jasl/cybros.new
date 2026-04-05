@@ -32,10 +32,11 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
       supervisor_status = first_response.fetch("supervisor_status")
       human_sidechat = first_response.fetch("human_sidechat")
 
-      assert_equal assessment.fetch("proof_refs"), supervisor_status.fetch("proof_refs")
-      assert_equal assessment.fetch("proof_refs"), human_sidechat.fetch("proof_refs")
+      refute assessment.key?("proof_refs")
       assert_equal assessment.fetch("overall_state"), supervisor_status.fetch("overall_state")
       assert_equal assessment.fetch("current_activity"), human_sidechat.fetch("current_activity")
+      assert_equal supervisor_status.fetch("proof_refs"), human_sidechat.fetch("proof_refs")
+      assert_equal fixture.fetch(:conversation).public_id, supervisor_status.dig("proof_refs", "conversation_id")
       refute assessment.key?("human_summary")
       assert_predicate human_sidechat.fetch("content"), :present?
       refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, human_sidechat.fetch("content"))
@@ -68,12 +69,7 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
           "conversation_id" => fixture.fetch(:session).target_conversation.public_id,
           "overall_state" => "running",
           "current_activity" => "Running provider_round_1 (running)",
-          "workflow_run_id" => fixture.fetch(:frame).active_workflow_run_public_id,
-          "workflow_node_id" => fixture.fetch(:frame).active_workflow_node_public_id,
           "stall_for_ms" => 0,
-          "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
-          "transcript_refs" => [],
-          "proof_refs" => { "conversation_id" => fixture.fetch(:session).target_conversation.public_id },
         }
       )
 
@@ -200,6 +196,7 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
     )
 
     {
+      conversation: conversation,
       session: session,
       frame: frame,
       bundle: bundle,

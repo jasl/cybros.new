@@ -19,19 +19,11 @@ module EmbeddedAgents
 
       def call
         {
-          "observation_session_id" => @conversation_observation_frame.conversation_observation_session.public_id,
-          "observation_frame_id" => @conversation_observation_frame.public_id,
-          "conversation_id" => @conversation_observation_frame.target_conversation.public_id,
           "overall_state" => overall_state,
           "current_activity" => current_activity,
-          "workflow_run_id" => workflow_view["workflow_run_id"],
-          "workflow_node_id" => workflow_view["workflow_node_id"],
           "last_progress_at" => last_progress_at&.iso8601(6),
           "stall_for_ms" => stall_for_ms,
           "blocking_reason" => blocking_reason,
-          "recent_activity_items" => recent_activity_items,
-          "transcript_refs" => transcript_refs,
-          "proof_refs" => proof_refs,
           "observed_at" => Time.current.iso8601(6),
         }.compact
       end
@@ -82,27 +74,6 @@ module EmbeddedAgents
 
       def blocking_reason
         workflow_view["wait_reason_kind"]
-      end
-
-      def recent_activity_items
-        Array(activity_view["items"]).map do |item|
-          item.slice("projection_sequence", "turn_id", "event_kind", "stream_key", "stream_revision", "payload", "created_at")
-        end
-      end
-
-      def transcript_refs
-        Array(transcript_view["messages"]).map { |message| message.fetch("message_id") }
-      end
-
-      def proof_refs
-        {
-          "conversation_id" => @conversation_observation_frame.target_conversation.public_id,
-          "workflow_run_id" => workflow_view["workflow_run_id"],
-          "workflow_node_id" => workflow_view["workflow_node_id"],
-          "transcript_message_ids" => transcript_refs,
-          "subagent_session_ids" => Array(subagent_view["items"]).map { |item| item.fetch("subagent_session_id") },
-          "activity_projection_sequences" => recent_activity_items.map { |item| item.fetch("projection_sequence") },
-        }.compact
       end
 
       def last_progress_at
