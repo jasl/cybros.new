@@ -1,4 +1,4 @@
-class ConversationObservationSession < ApplicationRecord
+class ConversationSupervisionSession < ApplicationRecord
   include HasPublicId
   include DataLifecycle
 
@@ -15,22 +15,25 @@ class ConversationObservationSession < ApplicationRecord
     },
     validate: true
 
+  data_lifecycle_kind! :ephemeral_observability
+
   belongs_to :installation
   belongs_to :target_conversation, class_name: "Conversation"
   belongs_to :initiator, polymorphic: true
 
-  has_many :conversation_observation_frames,
+  has_many :conversation_supervision_snapshots,
     dependent: :restrict_with_exception,
-    inverse_of: :conversation_observation_session
-  has_many :conversation_observation_messages,
+    inverse_of: :conversation_supervision_session
+  has_many :conversation_supervision_messages,
     dependent: :restrict_with_exception,
-    inverse_of: :conversation_observation_session
+    inverse_of: :conversation_supervision_session
+  has_many :conversation_control_requests,
+    dependent: :restrict_with_exception,
+    inverse_of: :conversation_supervision_session
 
   validate :target_conversation_installation_match
   validate :initiator_installation_match
   validate :capability_policy_snapshot_must_be_hash
-
-  data_lifecycle_kind! :ephemeral_observability
 
   private
 

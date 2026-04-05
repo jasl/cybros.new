@@ -67,8 +67,23 @@ class Conversation < ApplicationRecord
   has_many :conversation_events, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :workflow_runs, dependent: :restrict_with_exception
-  has_many :conversation_observation_sessions,
-    class_name: "ConversationObservationSession",
+  has_one :conversation_capability_policy,
+    foreign_key: :target_conversation_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :target_conversation
+  has_one :conversation_supervision_state,
+    foreign_key: :target_conversation_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :target_conversation
+  has_many :conversation_supervision_sessions,
+    foreign_key: :target_conversation_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :target_conversation
+  has_many :conversation_control_requests,
+    foreign_key: :target_conversation_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :target_conversation
+  has_many :conversation_capability_grants,
     foreign_key: :target_conversation_id,
     dependent: :restrict_with_exception,
     inverse_of: :target_conversation

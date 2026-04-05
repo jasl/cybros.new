@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_05_093110) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -331,6 +331,39 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["workspace_id"], name: "index_conversation_bundle_import_requests_on_workspace_id"
   end
 
+  create_table "conversation_capability_grants", force: :cascade do |t|
+    t.string "capability", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "grant_state", default: "active", null: false
+    t.string "grantee_kind", null: false
+    t.string "grantee_public_id", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "policy_payload", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "target_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["installation_id"], name: "index_conversation_capability_grants_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_capability_grants_on_public_id", unique: true
+    t.index ["target_conversation_id", "grantee_kind", "grantee_public_id", "capability"], name: "idx_conversation_capability_grants_lookup"
+    t.index ["target_conversation_id"], name: "index_conversation_capability_grants_on_target_conversation_id"
+  end
+
+  create_table "conversation_capability_policies", force: :cascade do |t|
+    t.boolean "control_enabled", default: false, null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "policy_payload", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.boolean "side_chat_enabled", default: false, null: false
+    t.boolean "supervision_enabled", default: false, null: false
+    t.bigint "target_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["installation_id"], name: "index_conversation_capability_policies_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_capability_policies_on_public_id", unique: true
+    t.index ["target_conversation_id"], name: "idx_conversation_capability_policies_target", unique: true
+  end
+
   create_table "conversation_close_operations", force: :cascade do |t|
     t.datetime "completed_at"
     t.bigint "conversation_id", null: false
@@ -359,6 +392,26 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["descendant_conversation_id"], name: "index_conversation_closures_on_descendant_conversation_id"
     t.index ["installation_id", "ancestor_conversation_id", "descendant_conversation_id"], name: "idx_conversation_closures_installation_ancestor_descendant", unique: true
     t.index ["installation_id"], name: "index_conversation_closures_on_installation_id"
+  end
+
+  create_table "conversation_control_requests", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.bigint "conversation_supervision_session_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "queued", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "request_kind", null: false
+    t.jsonb "request_payload", default: {}, null: false
+    t.jsonb "result_payload", default: {}, null: false
+    t.bigint "target_conversation_id", null: false
+    t.string "target_kind", null: false
+    t.string "target_public_id"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_supervision_session_id"], name: "idx_on_conversation_supervision_session_id_38f140b9f0"
+    t.index ["installation_id"], name: "index_conversation_control_requests_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_control_requests_on_public_id", unique: true
+    t.index ["target_conversation_id"], name: "index_conversation_control_requests_on_target_conversation_id"
   end
 
   create_table "conversation_debug_export_requests", force: :cascade do |t|
@@ -503,67 +556,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["message_id"], name: "index_conversation_message_visibilities_on_message_id"
   end
 
-  create_table "conversation_observation_frames", force: :cascade do |t|
-    t.jsonb "active_subagent_session_public_ids", default: [], null: false
-    t.string "active_workflow_node_public_id"
-    t.string "active_workflow_run_public_id"
-    t.string "anchor_turn_public_id"
-    t.integer "anchor_turn_sequence_snapshot"
-    t.jsonb "assessment_payload", default: {}, null: false
-    t.jsonb "bundle_snapshot", default: {}, null: false
-    t.integer "conversation_event_projection_sequence_snapshot"
-    t.bigint "conversation_observation_session_id", null: false
-    t.datetime "created_at", null: false
-    t.bigint "installation_id", null: false
-    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.bigint "target_conversation_id", null: false
-    t.datetime "updated_at", null: false
-    t.string "wait_reason_kind"
-    t.string "wait_state"
-    t.index ["conversation_observation_session_id", "created_at"], name: "idx_conversation_observation_frames_session_created"
-    t.index ["conversation_observation_session_id"], name: "idx_on_conversation_observation_session_id_2bd73c4b14"
-    t.index ["installation_id"], name: "index_conversation_observation_frames_on_installation_id"
-    t.index ["public_id"], name: "index_conversation_observation_frames_on_public_id", unique: true
-    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_0ee17eb1b8"
-  end
-
-  create_table "conversation_observation_messages", force: :cascade do |t|
-    t.text "content", null: false
-    t.bigint "conversation_observation_frame_id", null: false
-    t.bigint "conversation_observation_session_id", null: false
-    t.datetime "created_at", null: false
-    t.bigint "installation_id", null: false
-    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "role", null: false
-    t.bigint "target_conversation_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["conversation_observation_frame_id"], name: "idx_on_conversation_observation_frame_id_6960dafb35"
-    t.index ["conversation_observation_session_id", "created_at"], name: "idx_conversation_observation_messages_session_created"
-    t.index ["conversation_observation_session_id"], name: "idx_on_conversation_observation_session_id_4aa6d9c29c"
-    t.index ["installation_id"], name: "index_conversation_observation_messages_on_installation_id"
-    t.index ["public_id"], name: "index_conversation_observation_messages_on_public_id", unique: true
-    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_0ade7b5b19"
-  end
-
-  create_table "conversation_observation_sessions", force: :cascade do |t|
-    t.jsonb "capability_policy_snapshot", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.bigint "initiator_id", null: false
-    t.string "initiator_type", null: false
-    t.bigint "installation_id", null: false
-    t.datetime "last_observed_at"
-    t.string "lifecycle_state", default: "open", null: false
-    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "responder_strategy", default: "builtin", null: false
-    t.bigint "target_conversation_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["initiator_type", "initiator_id"], name: "index_conversation_observation_sessions_on_initiator"
-    t.index ["installation_id"], name: "index_conversation_observation_sessions_on_installation_id"
-    t.index ["public_id"], name: "index_conversation_observation_sessions_on_public_id", unique: true
-    t.index ["target_conversation_id", "created_at"], name: "idx_conversation_observation_sessions_target_created"
-    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_8c236bbe71"
-  end
-
   create_table "conversation_summary_segments", force: :cascade do |t|
     t.text "content", null: false
     t.bigint "conversation_id", null: false
@@ -578,6 +570,90 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["installation_id"], name: "index_conversation_summary_segments_on_installation_id"
     t.index ["start_message_id"], name: "index_conversation_summary_segments_on_start_message_id"
     t.index ["superseded_by_id"], name: "index_conversation_summary_segments_on_superseded_by_id"
+  end
+
+  create_table "conversation_supervision_messages", force: :cascade do |t|
+    t.text "content", null: false
+    t.bigint "conversation_supervision_session_id", null: false
+    t.bigint "conversation_supervision_snapshot_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "role", null: false
+    t.bigint "target_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_supervision_session_id", "created_at"], name: "idx_conversation_supervision_messages_session_created"
+    t.index ["conversation_supervision_session_id"], name: "idx_on_conversation_supervision_session_id_e90028369c"
+    t.index ["conversation_supervision_snapshot_id"], name: "idx_on_conversation_supervision_snapshot_id_3bc399b19b"
+    t.index ["installation_id"], name: "index_conversation_supervision_messages_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_supervision_messages_on_public_id", unique: true
+    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_640b61cd24"
+  end
+
+  create_table "conversation_supervision_sessions", force: :cascade do |t|
+    t.jsonb "capability_policy_snapshot", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.bigint "initiator_id", null: false
+    t.string "initiator_type", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "last_snapshot_at"
+    t.string "lifecycle_state", default: "open", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "responder_strategy", default: "builtin", null: false
+    t.bigint "target_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["initiator_type", "initiator_id"], name: "index_conversation_supervision_sessions_on_initiator"
+    t.index ["installation_id"], name: "index_conversation_supervision_sessions_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_supervision_sessions_on_public_id", unique: true
+    t.index ["target_conversation_id", "created_at"], name: "idx_conversation_supervision_sessions_target_created"
+    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_894b853f4a"
+  end
+
+  create_table "conversation_supervision_snapshots", force: :cascade do |t|
+    t.jsonb "active_subagent_session_public_ids", default: [], null: false
+    t.string "active_workflow_node_public_id"
+    t.string "active_workflow_run_public_id"
+    t.string "anchor_turn_public_id"
+    t.integer "anchor_turn_sequence_snapshot"
+    t.jsonb "bundle_payload", default: {}, null: false
+    t.string "conversation_capability_policy_public_id"
+    t.integer "conversation_event_projection_sequence_snapshot"
+    t.bigint "conversation_supervision_session_id", null: false
+    t.string "conversation_supervision_state_public_id"
+    t.datetime "created_at", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "machine_status_payload", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "target_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_supervision_session_id", "created_at"], name: "idx_conversation_supervision_snapshots_session_created"
+    t.index ["conversation_supervision_session_id"], name: "idx_on_conversation_supervision_session_id_822fd45ddc"
+    t.index ["installation_id"], name: "index_conversation_supervision_snapshots_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_supervision_snapshots_on_public_id", unique: true
+    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_58845791db"
+  end
+
+  create_table "conversation_supervision_states", force: :cascade do |t|
+    t.string "blocked_summary"
+    t.datetime "created_at", null: false
+    t.string "current_focus_summary"
+    t.string "current_owner_kind"
+    t.string "current_owner_public_id"
+    t.bigint "installation_id", null: false
+    t.datetime "last_progress_at"
+    t.string "next_step_hint"
+    t.string "overall_state", default: "running", null: false
+    t.integer "projection_version", default: 0, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "recent_progress_summary"
+    t.string "request_summary"
+    t.jsonb "status_payload", default: {}, null: false
+    t.bigint "target_conversation_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "waiting_summary"
+    t.index ["installation_id"], name: "index_conversation_supervision_states_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_supervision_states_on_public_id", unique: true
+    t.index ["target_conversation_id"], name: "idx_conversation_supervision_states_target", unique: true
   end
 
   create_table "conversations", force: :cascade do |t|
@@ -1690,11 +1766,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "conversation_bundle_import_requests", "installations"
   add_foreign_key "conversation_bundle_import_requests", "users"
   add_foreign_key "conversation_bundle_import_requests", "workspaces"
+  add_foreign_key "conversation_capability_grants", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_capability_grants", "installations"
+  add_foreign_key "conversation_capability_policies", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_capability_policies", "installations"
   add_foreign_key "conversation_close_operations", "conversations"
   add_foreign_key "conversation_close_operations", "installations"
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
   add_foreign_key "conversation_closures", "conversations", column: "descendant_conversation_id"
   add_foreign_key "conversation_closures", "installations"
+  add_foreign_key "conversation_control_requests", "conversation_supervision_sessions"
+  add_foreign_key "conversation_control_requests", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_control_requests", "installations"
   add_foreign_key "conversation_debug_export_requests", "conversations"
   add_foreign_key "conversation_debug_export_requests", "installations"
   add_foreign_key "conversation_debug_export_requests", "users"
@@ -1718,20 +1801,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "conversation_message_visibilities", "conversations"
   add_foreign_key "conversation_message_visibilities", "installations"
   add_foreign_key "conversation_message_visibilities", "messages"
-  add_foreign_key "conversation_observation_frames", "conversation_observation_sessions"
-  add_foreign_key "conversation_observation_frames", "conversations", column: "target_conversation_id"
-  add_foreign_key "conversation_observation_frames", "installations"
-  add_foreign_key "conversation_observation_messages", "conversation_observation_frames"
-  add_foreign_key "conversation_observation_messages", "conversation_observation_sessions"
-  add_foreign_key "conversation_observation_messages", "conversations", column: "target_conversation_id"
-  add_foreign_key "conversation_observation_messages", "installations"
-  add_foreign_key "conversation_observation_sessions", "conversations", column: "target_conversation_id"
-  add_foreign_key "conversation_observation_sessions", "installations"
   add_foreign_key "conversation_summary_segments", "conversation_summary_segments", column: "superseded_by_id"
   add_foreign_key "conversation_summary_segments", "conversations"
   add_foreign_key "conversation_summary_segments", "installations"
   add_foreign_key "conversation_summary_segments", "messages", column: "end_message_id"
   add_foreign_key "conversation_summary_segments", "messages", column: "start_message_id"
+  add_foreign_key "conversation_supervision_messages", "conversation_supervision_sessions"
+  add_foreign_key "conversation_supervision_messages", "conversation_supervision_snapshots"
+  add_foreign_key "conversation_supervision_messages", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_supervision_messages", "installations"
+  add_foreign_key "conversation_supervision_sessions", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_supervision_sessions", "installations"
+  add_foreign_key "conversation_supervision_snapshots", "conversation_supervision_sessions"
+  add_foreign_key "conversation_supervision_snapshots", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_supervision_snapshots", "installations"
+  add_foreign_key "conversation_supervision_states", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_supervision_states", "installations"
   add_foreign_key "conversations", "agent_programs"
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
   add_foreign_key "conversations", "installations"
