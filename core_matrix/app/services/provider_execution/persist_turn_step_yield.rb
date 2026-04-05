@@ -155,10 +155,10 @@ module ProviderExecution
             yielding_node_key: current_node.node_key,
             presentation_policy: "internal_only",
             decision_source: "llm",
+            tool_call_payload: entry.fetch("tool_call"),
             metadata: {
               "batch_id" => @tool_batch_result.fetch("batch_id"),
               "provider_round_index" => @tool_batch_result.fetch("provider_round_index"),
-              "tool_call" => entry.fetch("tool_call"),
               "source_tool_binding_id" => entry.fetch("source_tool_binding_id"),
             },
           }
@@ -231,12 +231,12 @@ module ProviderExecution
             binding.installation = tool_node.installation
             binding.tool_implementation = source_binding.tool_implementation
             binding.binding_reason = source_binding.binding_reason
-            binding.binding_payload = source_binding.binding_payload.merge(
-              "source_workflow_node_id" => @workflow_node.public_id,
-              "source_workflow_node_key" => @workflow_node.node_key,
-              "source_tool_binding_id" => source_binding.public_id,
-              "tool_call_id" => entry.dig("tool_call", "call_id")
-            )
+            binding.round_scoped = source_binding.round_scoped
+            binding.parallel_safe = source_binding.parallel_safe
+            binding.source_workflow_node = @workflow_node
+            binding.source_tool_binding = source_binding
+            binding.tool_call_id = entry.dig("tool_call", "call_id")
+            binding.runtime_state = source_binding.runtime_state.deep_dup
           end
         end
       end

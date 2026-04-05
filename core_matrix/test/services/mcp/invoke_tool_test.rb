@@ -24,7 +24,7 @@ class MCP::InvokeToolTest < ActiveSupport::TestCase
 
     assert_equal "succeeded", invocation.reload.status
     assert_equal "echo: hello", invocation.response_payload.dig("content", 0, "text")
-    assert_match(/\Asession-\d+\z/, binding.reload.binding_payload.dig("mcp", "session_id"))
+    assert_match(/\Asession-\d+\z/, binding.reload.runtime_state.dig("mcp", "session_id"))
   end
 
   test "classifies session_not_found as a retryable transport failure and clears the stored session" do
@@ -47,7 +47,7 @@ class MCP::InvokeToolTest < ActiveSupport::TestCase
     assert_equal "transport", failed.error_payload.fetch("classification")
     assert_equal "session_not_found", failed.error_payload.fetch("code")
     assert_equal true, failed.error_payload.fetch("retryable")
-    assert_nil binding.reload.binding_payload.dig("mcp", "session_id")
+    assert_nil binding.reload.runtime_state.dig("mcp", "session_id")
   end
 
   test "classifies malformed JSON-RPC responses as protocol failures" do

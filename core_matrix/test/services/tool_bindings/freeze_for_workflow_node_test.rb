@@ -61,8 +61,8 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     assert_nil binding.agent_task_run
     assert_equal context.fetch(:workflow_node), binding.workflow_node
     assert_equal "fenix/runtime/workspace_write_file", binding.tool_implementation.implementation_ref
-    assert_equal true, binding.binding_payload.fetch("round_scoped")
-    assert_equal false, binding.binding_payload.dig("execution_policy", "parallel_safe")
+    assert_equal true, binding.round_scoped
+    assert_equal false, binding.parallel_safe
     assert_equal false, binding.tool_implementation.metadata.dig("execution_policy", "parallel_safe")
   end
 
@@ -101,7 +101,8 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
       workflow_node: context.fetch(:workflow_node)
     ).includes(:tool_definition, :tool_implementation).find { |entry| entry.tool_definition.tool_name == "compact_context" }
 
-    assert_equal false, binding.binding_payload.dig("execution_policy", "parallel_safe")
+    assert_equal false, binding.parallel_safe
+    assert_equal false, binding.round_scoped
     assert_equal false, binding.tool_implementation.metadata.dig("execution_policy", "parallel_safe")
   end
 end

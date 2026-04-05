@@ -11,6 +11,7 @@ class CreateWorkflowNodes < ActiveRecord::Migration[8.2]
       t.datetime :started_at
       t.datetime :finished_at
       t.string :decision_source, null: false
+      t.references :tool_call_document, foreign_key: { to_table: :json_documents }
       t.jsonb :metadata, null: false, default: {}
 
       t.timestamps

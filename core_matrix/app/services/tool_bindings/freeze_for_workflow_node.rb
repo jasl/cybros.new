@@ -140,13 +140,9 @@ module ToolBindings
       binding.installation = @workflow_node.installation
       binding.tool_implementation = implementation
       binding.binding_reason = "snapshot_default"
-      binding.binding_payload = {
-        "agent_program_version_id" => agent_program_version.public_id,
-        "program_version_fingerprint" => agent_program_version.fingerprint,
-        "governance_mode" => definition.governance_mode,
-        "round_scoped" => round_scoped,
-        "execution_policy" => execution_policy_for(definition: definition, implementation: implementation),
-      }
+      binding.round_scoped = round_scoped
+      binding.parallel_safe = execution_policy_for(definition: definition, implementation: implementation).fetch("parallel_safe")
+      binding.runtime_state = binding.runtime_state.presence || {}
       binding.save! if binding.new_record? || binding.changed?
       binding
     end

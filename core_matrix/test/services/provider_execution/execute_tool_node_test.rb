@@ -17,13 +17,12 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           node_type: "tool_call",
           decision_source: "llm",
           yielding_node_key: root_node.node_key,
-          metadata: {
-            "tool_call" => {
-              "call_id" => "call-calculator-1",
-              "tool_name" => "calculator",
-              "arguments" => { "expression" => "2 + 2" },
-              "provider_format" => "chat_completions",
-            },
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-calculator-1",
+            "tool_name" => "calculator",
+            "arguments" => { "expression" => "2 + 2" },
+            "provider_format" => "chat_completions",
           },
         },
         {
@@ -54,7 +53,9 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       tool_definition: source_binding.tool_definition,
       tool_implementation: source_binding.tool_implementation,
       binding_reason: "snapshot_default",
-      binding_payload: source_binding.binding_payload
+      runtime_state: source_binding.runtime_state,
+      round_scoped: source_binding.round_scoped,
+      parallel_safe: source_binding.parallel_safe
     )
 
     result = ProviderExecution::ExecuteToolNode.call(
@@ -89,13 +90,12 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           node_type: "tool_call",
           decision_source: "llm",
           yielding_node_key: root_node.node_key,
-          metadata: {
-            "tool_call" => {
-              "call_id" => "call-missing-1",
-              "tool_name" => "missing_tool",
-              "arguments" => {},
-              "provider_format" => "chat_completions",
-            },
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-missing-1",
+            "tool_name" => "missing_tool",
+            "arguments" => {},
+            "provider_format" => "chat_completions",
           },
         },
       ],
@@ -134,13 +134,12 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           node_type: "tool_call",
           decision_source: "llm",
           yielding_node_key: root_node.node_key,
-          metadata: {
-            "tool_call" => {
-              "call_id" => "call-timeout-1",
-              "tool_name" => "calculator",
-              "arguments" => { "expression" => "2 + 2" },
-              "provider_format" => "chat_completions",
-            },
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-timeout-1",
+            "tool_name" => "calculator",
+            "arguments" => { "expression" => "2 + 2" },
+            "provider_format" => "chat_completions",
           },
         },
       ],
@@ -160,7 +159,9 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       tool_definition: source_binding.tool_definition,
       tool_implementation: source_binding.tool_implementation,
       binding_reason: "snapshot_default",
-      binding_payload: source_binding.binding_payload
+      runtime_state: source_binding.runtime_state,
+      round_scoped: source_binding.round_scoped,
+      parallel_safe: source_binding.parallel_safe
     )
 
     result = ProviderExecution::ExecuteToolNode.call(
@@ -199,13 +200,12 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           node_type: "tool_call",
           decision_source: "llm",
           yielding_node_key: root_node.node_key,
-          metadata: {
-            "tool_call" => {
-              "call_id" => "call-invalid-contract-1",
-              "tool_name" => "calculator",
-              "arguments" => { "expression" => "2 + 2" },
-              "provider_format" => "chat_completions",
-            },
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-invalid-contract-1",
+            "tool_name" => "calculator",
+            "arguments" => { "expression" => "2 + 2" },
+            "provider_format" => "chat_completions",
           },
         },
       ],
@@ -225,7 +225,9 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       tool_definition: source_binding.tool_definition,
       tool_implementation: source_binding.tool_implementation,
       binding_reason: "snapshot_default",
-      binding_payload: source_binding.binding_payload
+      runtime_state: source_binding.runtime_state,
+      round_scoped: source_binding.round_scoped,
+      parallel_safe: source_binding.parallel_safe
     )
 
     result = ProviderExecution::ExecuteToolNode.call(

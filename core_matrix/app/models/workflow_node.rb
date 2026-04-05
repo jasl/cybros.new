@@ -36,6 +36,7 @@ class WorkflowNode < ApplicationRecord
   belongs_to :conversation
   belongs_to :turn
   belongs_to :yielding_workflow_node, class_name: "WorkflowNode", optional: true
+  belongs_to :tool_call_document, class_name: "JsonDocument", optional: true
 
   has_many :outgoing_edges,
     class_name: "WorkflowEdge",
@@ -78,6 +79,7 @@ class WorkflowNode < ApplicationRecord
   validate :workspace_installation_match
   validate :conversation_installation_match
   validate :turn_installation_match
+  validate :tool_call_document_installation_match
   validate :workflow_projection_match
   validate :yielding_workflow_integrity
   validate :execution_timestamps_consistency
@@ -85,6 +87,10 @@ class WorkflowNode < ApplicationRecord
 
   def terminal?
     completed? || failed? || canceled?
+  end
+
+  def tool_call_payload
+    tool_call_document&.payload
   end
 
   private
@@ -123,6 +129,13 @@ class WorkflowNode < ApplicationRecord
     return if turn.installation_id == installation_id
 
     errors.add(:turn, "must belong to the same installation")
+  end
+
+  def tool_call_document_installation_match
+    return if tool_call_document.blank?
+    return if tool_call_document.installation_id == installation_id
+
+    errors.add(:tool_call_document, "must belong to the same installation")
   end
 
   def workflow_projection_match

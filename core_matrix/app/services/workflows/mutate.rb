@@ -29,6 +29,7 @@ module Workflows
 
       @nodes.each do |node_attributes|
         yielding_node = resolve_optional_node(node_lookup, node_attributes[:yielding_node_key])
+        tool_call_document = resolve_tool_call_document(node_attributes)
         node = WorkflowNode.create!(
           installation: @workflow_run.installation,
           workflow_run: @workflow_run,
@@ -40,6 +41,7 @@ module Workflows
           stage_index: node_attributes[:stage_index],
           stage_position: node_attributes[:stage_position],
           yielding_workflow_node: yielding_node,
+          tool_call_document: tool_call_document,
           presentation_policy: node_attributes.fetch(:presentation_policy, "internal_only"),
           decision_source: node_attributes.fetch(:decision_source),
           metadata: node_attributes.fetch(:metadata, {})
@@ -47,6 +49,19 @@ module Workflows
         node_lookup[node.node_key] = node
         next_ordinal += 1
       end
+    end
+
+    def resolve_tool_call_document(node_attributes)
+      return node_attributes[:tool_call_document] if node_attributes[:tool_call_document].present?
+
+      payload = node_attributes[:tool_call_payload]
+      return if payload.blank?
+
+      JsonDocuments::Store.call(
+        installation: @workflow_run.installation,
+        document_kind: "workflow_node_tool_call",
+        payload: payload
+      )
     end
 
     def append_edges!(node_lookup)

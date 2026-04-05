@@ -52,16 +52,25 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :idempotency_key
       t.string :binding_reason, null: false
-      t.jsonb :binding_payload, null: false, default: {}
+      t.boolean :round_scoped, null: false, default: false
+      t.boolean :parallel_safe, null: false, default: false
+      t.bigint :source_tool_binding_id
+      t.bigint :source_workflow_node_id
+      t.string :tool_call_id
+      t.jsonb :runtime_state, null: false, default: {}
       t.timestamps
     end
     add_index :tool_bindings, :public_id, unique: true
     add_index :tool_bindings, [:agent_task_run_id, :tool_definition_id], unique: true, name: "idx_tool_bindings_task_definition"
+    add_index :tool_bindings, :source_tool_binding_id
+    add_index :tool_bindings, :source_workflow_node_id
     add_index :tool_bindings,
               [:workflow_node_id, :tool_definition_id],
               unique: true,
               where: "workflow_node_id IS NOT NULL AND agent_task_run_id IS NULL",
               name: "idx_tool_bindings_node_definition"
+    add_foreign_key :tool_bindings, :tool_bindings, column: :source_tool_binding_id
+    add_foreign_key :tool_bindings, :workflow_nodes, column: :source_workflow_node_id
 
     create_table :tool_invocations do |t|
       t.references :installation, null: false, foreign_key: true

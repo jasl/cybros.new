@@ -22,7 +22,7 @@ class ToolBindingTest < ActiveSupport::TestCase
       tool_definition: definition,
       tool_implementation: implementation,
       binding_reason: "snapshot_default",
-      binding_payload: {}
+      runtime_state: {}
     )
 
     assert binding.valid?
@@ -55,7 +55,7 @@ class ToolBindingTest < ActiveSupport::TestCase
       tool_definition: definition,
       tool_implementation: implementation,
       binding_reason: "snapshot_default",
-      binding_payload: {}
+      runtime_state: {}
     )
 
     assert_not invalid_binding.valid?
@@ -84,7 +84,7 @@ class ToolBindingTest < ActiveSupport::TestCase
       tool_definition: definition,
       tool_implementation: implementation,
       binding_reason: "snapshot_default",
-      binding_payload: {}
+      runtime_state: {}
     )
 
     assert_not duplicate.valid?
@@ -112,7 +112,7 @@ class ToolBindingTest < ActiveSupport::TestCase
       tool_definition: definition,
       tool_implementation: implementation,
       binding_reason: "snapshot_default",
-      binding_payload: {}
+      runtime_state: {}
     )
 
     duplicate = ToolBinding.new(
@@ -121,14 +121,14 @@ class ToolBindingTest < ActiveSupport::TestCase
       tool_definition: definition,
       tool_implementation: implementation,
       binding_reason: "snapshot_default",
-      binding_payload: {}
+      runtime_state: {}
     )
 
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:tool_definition], "has already been bound for the workflow node"
   end
 
-  test "preserves frozen execution policy in binding payload" do
+  test "preserves frozen execution policy as structured columns" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
@@ -139,6 +139,8 @@ class ToolBindingTest < ActiveSupport::TestCase
       workflow_node: context.fetch(:workflow_node)
     ).find { |entry| entry.tool_definition.tool_name == "compact_context" }
 
-    assert_equal({ "parallel_safe" => false }, binding.binding_payload.fetch("execution_policy"))
+    assert_equal false, binding.parallel_safe
+    assert_equal false, binding.round_scoped
+    assert_equal({}, binding.runtime_state)
   end
 end

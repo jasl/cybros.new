@@ -14,11 +14,12 @@ module ProviderExecution
       return current_node if current_node.terminal? || current_node.running?
 
       raise_invalid!(current_node, :node_type, "must be a tool_call workflow node") unless current_node.node_type == "tool_call"
+      raise_invalid!(current_node, :tool_call_document, "must include a frozen tool call payload") if current_node.tool_call_payload.blank?
 
       claim_running!(current_node)
       result = ProviderExecution::RouteToolCall.call(
         workflow_node: current_node,
-        tool_call: current_node.metadata.fetch("tool_call"),
+        tool_call: current_node.tool_call_payload,
         round_bindings: current_node.tool_bindings.includes(tool_implementation: :implementation_source).to_a,
         program_exchange: @program_exchange
       )
@@ -26,7 +27,7 @@ module ProviderExecution
       Workflows::CompleteNode.call(
         workflow_node: current_node,
         event_payload: {
-          "tool_call_id" => current_node.metadata.dig("tool_call", "call_id"),
+          "tool_call_id" => current_node.tool_call_payload["call_id"],
           "tool_invocation_id" => result.tool_invocation&.public_id,
         }.compact
       )

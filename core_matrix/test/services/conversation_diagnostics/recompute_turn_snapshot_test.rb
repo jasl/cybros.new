@@ -270,7 +270,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     ) do |binding|
       binding.tool_implementation = tool_implementation
       binding.binding_reason = "snapshot_default"
-      binding.binding_payload = {}
+      binding.runtime_state = {}
     end
     tool_invocation = ToolInvocation.create!(
       installation: context[:installation],

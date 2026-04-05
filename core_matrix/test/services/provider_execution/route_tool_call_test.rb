@@ -547,7 +547,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "echo: hello from loop", result.result.dig("content", 0, "text")
-    assert_match(/\Asession-\d+\z/, result.tool_binding.reload.binding_payload.dig("mcp", "session_id"))
+    assert_match(/\Asession-\d+\z/, result.tool_binding.reload.runtime_state.dig("mcp", "session_id"))
   end
 
   test "routes core matrix tools without delegating back to the program mailbox exchange" do

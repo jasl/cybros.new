@@ -68,13 +68,15 @@ module Workflows
       workflow_run_summary = load_workflow_run_summary
       node_rows = load_node_rows
       node_key_by_id = node_rows.to_h { |row| [row.fetch(:id), row.fetch(:node_key)] }
+      tool_call_payloads_by_document_id = load_tool_call_payloads(node_rows)
       event_summaries_by_node_key = build_event_summaries_by_node_key
       artifact_summaries_by_node_key = build_artifact_summaries_by_node_key
       node_summaries = build_node_summaries(
         node_rows: node_rows,
         node_key_by_id: node_key_by_id,
         workflow_run_summary: workflow_run_summary,
-        event_summaries_by_node_key: event_summaries_by_node_key
+        event_summaries_by_node_key: event_summaries_by_node_key,
+        tool_call_payloads_by_document_id: tool_call_payloads_by_document_id
       )
       edge_summaries = build_edge_summaries(node_key_by_id: node_key_by_id)
 
@@ -157,9 +159,10 @@ module Workflows
           :yielding_workflow_node_id,
           :stage_index,
           :stage_position,
+          :tool_call_document_id,
           :metadata
         )
-        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, metadata|
+        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, tool_call_document_id, metadata|
           {
             id: id,
             public_id: public_id,
@@ -171,17 +174,28 @@ module Workflows
             yielding_workflow_node_id: yielding_workflow_node_id,
             stage_index: stage_index,
             stage_position: stage_position,
+            tool_call_document_id: tool_call_document_id,
             metadata: metadata || {},
           }
         end
     end
 
-    def build_node_summaries(node_rows:, node_key_by_id:, workflow_run_summary:, event_summaries_by_node_key:)
+    def load_tool_call_payloads(node_rows)
+      document_ids = node_rows.map { |row| row[:tool_call_document_id] }.compact
+      return {} if document_ids.empty?
+
+      JsonDocument.where(id: document_ids).pluck(:id, :payload).to_h
+    end
+
+    def build_node_summaries(node_rows:, node_key_by_id:, workflow_run_summary:, event_summaries_by_node_key:, tool_call_payloads_by_document_id:)
       successor_node_key = workflow_run_summary.dig("resume_metadata", "successor", "node_key")
 
       node_rows.map do |row|
         node_key = row.fetch(:node_key)
         events = event_summaries_by_node_key.fetch(node_key, EMPTY_ARRAY)
+        metadata = row.fetch(:metadata).dup
+        tool_call_payload = tool_call_payloads_by_document_id[row[:tool_call_document_id]]
+        metadata["tool_call"] = tool_call_payload if tool_call_payload.present?
         NodeSummary.new(
           public_id: row.fetch(:public_id),
           node_key: node_key,
@@ -192,7 +206,7 @@ module Workflows
           yielding_node_key: node_key_by_id[row.fetch(:yielding_workflow_node_id)],
           stage_index: row.fetch(:stage_index),
           stage_position: row.fetch(:stage_position),
-          metadata: deep_freeze(row.fetch(:metadata)),
+          metadata: deep_freeze(metadata),
           state: derive_node_state(events),
           yield_requested: events.any? { |event| event.event_kind == "yield_requested" },
           resume_successor: successor_node_key.present? && successor_node_key == node_key

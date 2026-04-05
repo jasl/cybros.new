@@ -49,7 +49,7 @@ module MCP
     private
 
     def ensure_session!
-      session_id = @tool_binding.reload.binding_payload.dig("mcp", "session_id")
+      session_id = @tool_binding.reload.runtime_state.dig("mcp", "session_id")
       return { "session_id" => session_id, "sse_events" => [] } if session_id.present?
 
       session = transport.initialize_session!(
@@ -86,8 +86,8 @@ module MCP
     end
 
     def persist_session_state!(session_id:, session_state:, sse_events:, initialize_result: nil)
-      binding_payload = @tool_binding.reload.binding_payload.deep_dup
-      binding_payload["mcp"] = {
+      runtime_state = @tool_binding.reload.runtime_state.deep_dup
+      runtime_state["mcp"] = {
         "transport_kind" => implementation_metadata.fetch("transport_kind"),
         "server_url" => server_url,
         "tool_name" => mcp_tool_name,
@@ -96,19 +96,19 @@ module MCP
         "last_sse_event" => sse_events.last,
         "initialize_result" => initialize_result,
       }.compact
-      @tool_binding.update!(binding_payload: binding_payload)
+      @tool_binding.update!(runtime_state: runtime_state)
     end
 
     def clear_session_state!
-      binding_payload = @tool_binding.reload.binding_payload.deep_dup
-      binding_payload["mcp"] = binding_payload.fetch("mcp", {}).merge(
+      runtime_state = @tool_binding.reload.runtime_state.deep_dup
+      runtime_state["mcp"] = runtime_state.fetch("mcp", {}).merge(
         "transport_kind" => implementation_metadata.fetch("transport_kind"),
         "server_url" => server_url,
         "tool_name" => mcp_tool_name,
         "session_id" => nil,
         "session_state" => "closed",
       )
-      @tool_binding.update!(binding_payload: binding_payload)
+      @tool_binding.update!(runtime_state: runtime_state)
     end
 
     def fail_invocation!(invocation, error, classification:)

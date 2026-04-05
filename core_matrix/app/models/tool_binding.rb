@@ -12,6 +12,8 @@ class ToolBinding < ApplicationRecord
   belongs_to :installation
   belongs_to :agent_task_run, optional: true
   belongs_to :workflow_node, optional: true
+  belongs_to :source_tool_binding, class_name: "ToolBinding", optional: true
+  belongs_to :source_workflow_node, class_name: "WorkflowNode", optional: true
   belongs_to :tool_definition
   belongs_to :tool_implementation
 
@@ -20,13 +22,16 @@ class ToolBinding < ApplicationRecord
   validate :execution_subject_present
   validate :installation_matches_task
   validate :installation_matches_workflow_node
+  validate :installation_matches_source_tool_binding
+  validate :installation_matches_source_workflow_node
   validate :installation_matches_tool_definition
   validate :installation_matches_tool_implementation
   validate :workflow_node_matches_task_projection
+  validate :source_binding_matches_source_workflow_node
   validate :tool_definition_matches_execution_projection
   validate :tool_implementation_matches_tool_definition
   validate :tool_definition_unique_within_owner
-  validate :binding_payload_must_be_hash
+  validate :runtime_state_must_be_hash
 
   private
 
@@ -48,6 +53,18 @@ class ToolBinding < ApplicationRecord
     errors.add(:installation, "must match the workflow node installation")
   end
 
+  def installation_matches_source_tool_binding
+    return if source_tool_binding.blank? || source_tool_binding.installation_id == installation_id
+
+    errors.add(:installation, "must match the source tool binding installation")
+  end
+
+  def installation_matches_source_workflow_node
+    return if source_workflow_node.blank? || source_workflow_node.installation_id == installation_id
+
+    errors.add(:installation, "must match the source workflow node installation")
+  end
+
   def installation_matches_tool_definition
     return if tool_definition.blank? || tool_definition.installation_id == installation_id
 
@@ -65,6 +82,13 @@ class ToolBinding < ApplicationRecord
     return if agent_task_run.workflow_node_id == workflow_node_id
 
     errors.add(:workflow_node, "must match the task workflow node")
+  end
+
+  def source_binding_matches_source_workflow_node
+    return if source_tool_binding.blank? || source_workflow_node.blank?
+    return if source_tool_binding.workflow_node_id == source_workflow_node_id
+
+    errors.add(:source_tool_binding, "must belong to the source workflow node")
   end
 
   def tool_implementation_matches_tool_definition
@@ -85,8 +109,8 @@ class ToolBinding < ApplicationRecord
     errors.add(:tool_definition, "must belong to the execution agent program version")
   end
 
-  def binding_payload_must_be_hash
-    errors.add(:binding_payload, "must be a hash") unless binding_payload.is_a?(Hash)
+  def runtime_state_must_be_hash
+    errors.add(:runtime_state, "must be a hash") unless runtime_state.is_a?(Hash)
   end
 
   def tool_definition_unique_within_owner

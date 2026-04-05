@@ -42,12 +42,11 @@ class Workflows::DispatchRunnableNodesTest < ActiveSupport::TestCase
           node_key: "tool_node",
           node_type: "tool_call",
           decision_source: "agent_program",
-          metadata: {
-            "tool_call" => {
-              "call_id" => "call-1",
-              "tool_name" => "calculator",
-              "arguments" => { "expression" => "2 + 2" },
-            },
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-1",
+            "tool_name" => "calculator",
+            "arguments" => { "expression" => "2 + 2" },
           },
         },
       ],

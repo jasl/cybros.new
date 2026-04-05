@@ -26,7 +26,7 @@ module ToolBindings
     end
 
     def raise_invalid!(message)
-      record = ToolBinding.new(tool_definition: @tool_definition, tool_implementation: @preferred_implementation, binding_payload: {})
+      record = ToolBinding.new(tool_definition: @tool_definition, tool_implementation: @preferred_implementation, runtime_state: {})
       record.errors.add(:tool_definition, message)
       raise ActiveRecord::RecordInvalid, record
     end

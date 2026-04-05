@@ -1156,12 +1156,17 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
 
   create_table "tool_bindings", force: :cascade do |t|
     t.bigint "agent_task_run_id"
-    t.jsonb "binding_payload", default: {}, null: false
     t.string "binding_reason", null: false
     t.datetime "created_at", null: false
     t.string "idempotency_key"
     t.bigint "installation_id", null: false
+    t.boolean "parallel_safe", default: false, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.boolean "round_scoped", default: false, null: false
+    t.jsonb "runtime_state", default: {}, null: false
+    t.bigint "source_tool_binding_id"
+    t.bigint "source_workflow_node_id"
+    t.string "tool_call_id"
     t.bigint "tool_definition_id", null: false
     t.bigint "tool_implementation_id", null: false
     t.datetime "updated_at", null: false
@@ -1170,6 +1175,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["agent_task_run_id"], name: "index_tool_bindings_on_agent_task_run_id"
     t.index ["installation_id"], name: "index_tool_bindings_on_installation_id"
     t.index ["public_id"], name: "index_tool_bindings_on_public_id", unique: true
+    t.index ["source_tool_binding_id"], name: "index_tool_bindings_on_source_tool_binding_id"
+    t.index ["source_workflow_node_id"], name: "index_tool_bindings_on_source_workflow_node_id"
     t.index ["tool_definition_id"], name: "index_tool_bindings_on_tool_definition_id"
     t.index ["tool_implementation_id"], name: "index_tool_bindings_on_tool_implementation_id"
     t.index ["workflow_node_id", "tool_definition_id"], name: "idx_tool_bindings_node_definition", unique: true, where: "((workflow_node_id IS NOT NULL) AND (agent_task_run_id IS NULL))"
@@ -1506,6 +1513,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.integer "stage_index"
     t.integer "stage_position"
     t.datetime "started_at"
+    t.bigint "tool_call_document_id"
     t.bigint "turn_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_run_id", null: false
@@ -1514,6 +1522,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["conversation_id"], name: "index_workflow_nodes_on_conversation_id"
     t.index ["installation_id"], name: "index_workflow_nodes_on_installation_id"
     t.index ["public_id"], name: "index_workflow_nodes_on_public_id", unique: true
+    t.index ["tool_call_document_id"], name: "index_workflow_nodes_on_tool_call_document_id"
     t.index ["turn_id"], name: "index_workflow_nodes_on_turn_id"
     t.index ["workflow_run_id", "lifecycle_state", "ordinal"], name: "index_workflow_nodes_on_run_state_order"
     t.index ["workflow_run_id", "node_key"], name: "index_workflow_nodes_on_workflow_run_id_and_node_key", unique: true
@@ -1746,9 +1755,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "subagent_sessions", "turns", column: "origin_turn_id"
   add_foreign_key "tool_bindings", "agent_task_runs"
   add_foreign_key "tool_bindings", "installations"
+  add_foreign_key "tool_bindings", "tool_bindings", column: "source_tool_binding_id"
   add_foreign_key "tool_bindings", "tool_definitions"
   add_foreign_key "tool_bindings", "tool_implementations"
   add_foreign_key "tool_bindings", "workflow_nodes"
+  add_foreign_key "tool_bindings", "workflow_nodes", column: "source_workflow_node_id"
   add_foreign_key "tool_definitions", "agent_program_versions"
   add_foreign_key "tool_definitions", "installations"
   add_foreign_key "tool_implementations", "implementation_sources"
@@ -1808,6 +1819,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "workflow_node_events", "workspaces"
   add_foreign_key "workflow_nodes", "conversations"
   add_foreign_key "workflow_nodes", "installations"
+  add_foreign_key "workflow_nodes", "json_documents", column: "tool_call_document_id"
   add_foreign_key "workflow_nodes", "turns"
   add_foreign_key "workflow_nodes", "workflow_nodes", column: "yielding_workflow_node_id"
   add_foreign_key "workflow_nodes", "workflow_runs"

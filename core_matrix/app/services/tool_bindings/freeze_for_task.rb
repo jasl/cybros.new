@@ -29,11 +29,9 @@ module ToolBindings
           binding.installation = @agent_task_run.installation
           binding.tool_implementation = implementation
           binding.binding_reason = "snapshot_default"
-          binding.binding_payload = {
-            "agent_program_version_id" => agent_program_version.public_id,
-            "program_version_fingerprint" => agent_program_version.fingerprint,
-            "governance_mode" => definition.governance_mode,
-          }
+          binding.round_scoped = false
+          binding.parallel_safe = execution_policy_for(definition:, implementation:)
+          binding.runtime_state = {}
         end
       end
 
@@ -76,6 +74,12 @@ module ToolBindings
         agent_program_version: agent_program_version,
         tool_name: allowed_tool_names
       ).includes(:tool_implementations).index_by(&:tool_name)
+    end
+
+    def execution_policy_for(definition:, implementation:)
+      implementation&.metadata&.dig("execution_policy", "parallel_safe") ||
+        definition&.policy_payload&.dig("execution_policy", "parallel_safe") ||
+        false
     end
 
     def raise_invalid!(message)

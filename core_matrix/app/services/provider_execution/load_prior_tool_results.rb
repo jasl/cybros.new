@@ -10,7 +10,8 @@ module ProviderExecution
 
     def call
       ordered_tool_nodes.map do |node|
-        tool_call = node.metadata.fetch("tool_call").deep_stringify_keys
+        tool_call = node.tool_call_payload&.deep_stringify_keys ||
+          raise(ActiveRecord::RecordNotFound, "missing tool call payload for #{node.node_key}")
         invocation = node.tool_invocations.order(:created_at).last ||
           raise(ActiveRecord::RecordNotFound, "missing ToolInvocation for #{node.node_key}")
 

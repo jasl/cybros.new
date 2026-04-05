@@ -63,7 +63,7 @@ module ProviderExecution
           "tool_call" => tool_call,
           "tool_node_key" => "provider_round_#{current_round_index}_tool_#{index + 1}",
           "source_tool_binding_id" => binding.id,
-          "parallel_safe" => binding.binding_payload.dig("execution_policy", "parallel_safe") == true,
+          "parallel_safe" => binding.parallel_safe?,
         }
       end
     end
