@@ -80,8 +80,8 @@ module Workflows
         raise_invalid!(workflow_run, :turn, "must not be fenced by turn interrupt")
       end
 
-      unless workflow_run.wait_reason_payload["retry_scope"] == "step"
-        raise_invalid!(workflow_run, :wait_reason_payload, "must use step retry scope")
+      unless workflow_run.wait_retry_scope == "step"
+        raise_invalid!(workflow_run, :wait_retry_scope, "must use step retry scope")
       end
 
       if workflow_run.blocking_resource_type.present? &&

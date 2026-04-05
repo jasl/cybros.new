@@ -131,12 +131,10 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "retryable" => true,
-        "retry_scope" => "step",
-        "logical_work_id" => failed_task.logical_work_id,
-        "attempt_no" => failed_task.attempt_no,
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "tool_failure",
+      wait_retry_scope: "step",
+      wait_attempt_no: failed_task.attempt_no,
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentTaskRun",
       blocking_resource_id: failed_task.public_id

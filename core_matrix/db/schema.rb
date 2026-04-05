@@ -1579,8 +1579,17 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.string "resume_yielding_node_key"
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
+    t.integer "wait_attempt_no"
+    t.string "wait_failure_kind"
+    t.text "wait_last_error_summary"
+    t.integer "wait_max_auto_retries"
+    t.datetime "wait_next_retry_at"
+    t.string "wait_policy_mode"
     t.string "wait_reason_kind"
     t.jsonb "wait_reason_payload", default: {}, null: false
+    t.string "wait_resume_mode"
+    t.string "wait_retry_scope"
+    t.string "wait_retry_strategy"
     t.bigint "wait_snapshot_document_id"
     t.string "wait_state", default: "ready", null: false
     t.datetime "waiting_since_at"

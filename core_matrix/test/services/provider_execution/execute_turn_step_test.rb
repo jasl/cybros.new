@@ -382,8 +382,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     assert_equal "waiting", workflow_run.reload.wait_state
     assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
-    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal "provider_credits_exhausted", workflow_run.wait_reason_payload["failure_kind"]
+    assert_equal "manual", workflow_run.wait_retry_strategy
+    assert_equal "provider_credits_exhausted", workflow_run.wait_failure_kind
   end
 
   test "enters manual waiting instead of failing when provider authentication expires" do
@@ -406,8 +406,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     assert_equal "waiting", workflow_run.reload.wait_state
     assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
-    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal "provider_auth_expired", workflow_run.wait_reason_payload["failure_kind"]
+    assert_equal "manual", workflow_run.wait_retry_strategy
+    assert_equal "provider_auth_expired", workflow_run.wait_failure_kind
   end
 
   test "enters automatic waiting instead of failing when provider is overloaded" do
@@ -430,8 +430,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     assert_equal "waiting", workflow_run.reload.wait_state
     assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
-    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal "provider_overloaded", workflow_run.wait_reason_payload["failure_kind"]
+    assert_equal "automatic", workflow_run.wait_retry_strategy
+    assert_equal "provider_overloaded", workflow_run.wait_failure_kind
   end
 
   test "enters automatic waiting instead of failing when provider is unreachable" do
@@ -454,8 +454,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     assert_equal "waiting", workflow_run.reload.wait_state
     assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
-    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal "provider_unreachable", workflow_run.wait_reason_payload["failure_kind"]
+    assert_equal "automatic", workflow_run.wait_retry_strategy
+    assert_equal "provider_unreachable", workflow_run.wait_failure_kind
   end
 
   test "blocks the step for retry instead of failing when the provider round budget is exceeded" do

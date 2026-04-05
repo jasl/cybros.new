@@ -173,8 +173,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert_equal "human_interaction", workflow_run.wait_reason_kind
     assert_equal "HumanInteractionRequest", workflow_run.blocking_resource_type
     assert_equal context[:request].public_id, workflow_run.blocking_resource_id
-    assert_equal context[:request].public_id, workflow_run.wait_reason_payload["request_id"]
-    assert_equal "HumanTaskRequest", workflow_run.wait_reason_payload["request_type"]
+    assert_equal({}, workflow_run.wait_reason_payload)
   end
 
   test "does not restore a human-interaction blocker that was resolved during the outage" do

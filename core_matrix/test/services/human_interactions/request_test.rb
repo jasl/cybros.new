@@ -140,7 +140,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_equal "human_interaction", workflow_run.wait_reason_kind
     assert_equal "HumanInteractionRequest", workflow_run.blocking_resource_type
     assert_equal request.public_id, workflow_run.blocking_resource_id
-    assert_equal request.public_id, workflow_run.wait_reason_payload["request_id"]
+    assert_equal({}, workflow_run.wait_reason_payload)
     assert_equal request, context[:workflow_node].reload.opened_human_interaction_request
 
     event = ConversationEvent.find_by!(source: request, event_kind: "human_interaction.opened")

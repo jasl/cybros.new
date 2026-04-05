@@ -208,8 +208,11 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?
     assert_equal "retryable_failure", workflow_run.wait_reason_kind
-    assert_equal "step", workflow_run.wait_reason_payload["retry_scope"]
-    assert_equal agent_task_run.logical_work_id, workflow_run.wait_reason_payload["logical_work_id"]
+    assert_equal "step", workflow_run.wait_retry_scope
+    assert_equal "tool_failure", workflow_run.wait_failure_kind
+    assert_equal agent_task_run.attempt_no, workflow_run.wait_attempt_no
+    assert_equal "exit status 1", workflow_run.wait_last_error_summary
+    assert_equal({}, workflow_run.wait_reason_payload)
     assert_equal agent_task_run.public_id, workflow_run.blocking_resource_id
     assert context[:turn].reload.active?
   end

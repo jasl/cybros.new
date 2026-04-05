@@ -27,9 +27,14 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     assert_equal "external_dependency_blocked", workflow_run.wait_reason_kind
     assert_equal "WorkflowNode", workflow_run.blocking_resource_type
     assert_equal workflow_node.public_id, workflow_run.blocking_resource_id
-    assert_equal "provider_rate_limited", workflow_run.wait_reason_payload["failure_kind"]
-    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal 1, workflow_run.wait_reason_payload["attempt_no"]
+    assert_equal "provider_rate_limited", workflow_run.wait_failure_kind
+    assert_equal "step", workflow_run.wait_retry_scope
+    assert_equal "automatic", workflow_run.wait_retry_strategy
+    assert_equal 1, workflow_run.wait_attempt_no
+    assert_equal 2, workflow_run.wait_max_auto_retries
+    assert workflow_run.wait_next_retry_at.present?
+    assert_equal "provider is rate limited", workflow_run.wait_last_error_summary
+    assert_equal({}, workflow_run.wait_reason_payload)
     assert_equal "provider_rate_limited", workflow_node.reload.blocked_retry_failure_kind
     assert_equal 1, workflow_node.blocked_retry_attempt_no
     refute result.terminal?
@@ -77,8 +82,8 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     refute result.terminal?
     assert_equal "manual", result.retry_strategy
     assert_nil result.next_retry_at
-    assert_equal 3, workflow_run.reload.wait_reason_payload["attempt_no"]
-    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
+    assert_equal 3, workflow_run.reload.wait_attempt_no
+    assert_equal "manual", workflow_run.wait_retry_strategy
   end
 
   test "does not enqueue automatic resume for manual external dependency blocks" do
@@ -100,8 +105,8 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     end
 
     assert_equal "external_dependency_blocked", workflow_run.reload.wait_reason_kind
-    assert_equal "manual", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal "provider_auth_expired", workflow_run.wait_reason_payload["failure_kind"]
+    assert_equal "manual", workflow_run.wait_retry_strategy
+    assert_equal "provider_auth_expired", workflow_run.wait_failure_kind
   end
 
   test "enqueues automatic resume for retryable contract failures" do
@@ -123,7 +128,7 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     end
 
     assert_equal "retryable_failure", workflow_run.reload.wait_reason_kind
-    assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
-    assert_equal "invalid_program_response_contract", workflow_run.wait_reason_payload["failure_kind"]
+    assert_equal "automatic", workflow_run.wait_retry_strategy
+    assert_equal "invalid_program_response_contract", workflow_run.wait_failure_kind
   end
 end

@@ -99,9 +99,7 @@ module Workflows
       paused_task.task_payload.deep_stringify_keys.merge(
         "delivery_kind" => @delivery_kind,
         "previous_attempt_no" => paused_task.attempt_no,
-        "paused_agent_task_run_id" => paused_task.public_id,
-        "paused_progress_payload" => paused_task.progress_payload.deep_stringify_keys,
-        "paused_terminal_payload" => paused_task.terminal_payload.deep_stringify_keys
+        "paused_agent_task_run_id" => paused_task.public_id
       )
     end
 

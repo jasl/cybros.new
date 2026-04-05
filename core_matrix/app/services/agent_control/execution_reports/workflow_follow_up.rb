@@ -32,19 +32,19 @@ module AgentControl
         return unless terminal_payload["retry_scope"] == "step"
 
         @agent_task_run.workflow_run.update!(
-          wait_state: "waiting",
-          wait_reason_kind: "retryable_failure",
-          wait_reason_payload: {
-            "failure_kind" => terminal_payload["failure_kind"],
-            "retryable" => true,
-            "retry_scope" => "step",
-            "logical_work_id" => @agent_task_run.logical_work_id,
-            "attempt_no" => @agent_task_run.attempt_no,
-            "last_error_summary" => terminal_payload["last_error_summary"],
-          }.compact,
-          waiting_since_at: @occurred_at,
-          blocking_resource_type: "AgentTaskRun",
-          blocking_resource_id: @agent_task_run.public_id
+          Workflows::WaitState.cleared_detail_attributes.merge(
+            wait_state: "waiting",
+            wait_reason_kind: "retryable_failure",
+            wait_reason_payload: {},
+            wait_retry_scope: "step",
+            wait_resume_mode: "same_step",
+            wait_failure_kind: terminal_payload["failure_kind"],
+            wait_attempt_no: @agent_task_run.attempt_no,
+            wait_last_error_summary: terminal_payload["last_error_summary"],
+            waiting_since_at: @occurred_at,
+            blocking_resource_type: "AgentTaskRun",
+            blocking_resource_id: @agent_task_run.public_id
+          )
         )
       end
 

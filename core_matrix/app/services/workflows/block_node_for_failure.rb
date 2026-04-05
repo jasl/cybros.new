@@ -136,23 +136,22 @@ module Workflows
       )
       turn.update!(lifecycle_state: "waiting")
       workflow_run.update!(
-        wait_state: "waiting",
-        wait_reason_kind: wait_reason_kind,
-        wait_reason_payload: {
-          "failure_category" => @failure_category,
-          "failure_kind" => @failure_kind,
-          "retry_scope" => "step",
-          "resume_mode" => "same_step",
-          "retry_strategy" => effective_retry_strategy,
-          "auto_retryable" => effective_retry_strategy == "automatic",
-          "attempt_no" => attempt_no,
-          "max_auto_retries" => @max_auto_retries,
-          "next_retry_at" => effective_next_retry_at&.iso8601,
-          "last_error_summary" => @last_error_summary,
-        }.merge(@metadata).compact,
-        waiting_since_at: @occurred_at,
-        blocking_resource_type: "WorkflowNode",
-        blocking_resource_id: workflow_node.public_id
+        Workflows::WaitState.cleared_detail_attributes.merge(
+          wait_state: "waiting",
+          wait_reason_kind: wait_reason_kind,
+          wait_reason_payload: @metadata.compact,
+          wait_retry_scope: "step",
+          wait_resume_mode: "same_step",
+          wait_failure_kind: @failure_kind,
+          wait_retry_strategy: effective_retry_strategy,
+          wait_attempt_no: attempt_no,
+          wait_max_auto_retries: @max_auto_retries,
+          wait_next_retry_at: effective_next_retry_at,
+          wait_last_error_summary: @last_error_summary.presence,
+          waiting_since_at: @occurred_at,
+          blocking_resource_type: "WorkflowNode",
+          blocking_resource_id: workflow_node.public_id
+        )
       )
       append_status_event!(
         workflow_node: workflow_node,

@@ -78,15 +78,14 @@ module HumanInteractions
 
     def wait_for_request!(workflow_run, request)
       workflow_run.update!(
-        wait_state: "waiting",
-        wait_reason_kind: "human_interaction",
-        wait_reason_payload: {
-          "request_id" => request.public_id,
-          "request_type" => request.type,
-        },
-        waiting_since_at: Time.current,
-        blocking_resource_type: "HumanInteractionRequest",
-        blocking_resource_id: request.public_id
+        Workflows::WaitState.cleared_detail_attributes.merge(
+          wait_state: "waiting",
+          wait_reason_kind: "human_interaction",
+          wait_reason_payload: {},
+          waiting_since_at: Time.current,
+          blocking_resource_type: "HumanInteractionRequest",
+          blocking_resource_id: request.public_id
+        )
       )
     end
 

@@ -11,11 +11,11 @@ class Workflows::ResumeBlockedStepTest < ActiveSupport::TestCase
     workflow_run.update!(
       wait_state: "waiting",
       wait_reason_kind: "external_dependency_blocked",
-      wait_reason_payload: {
-        "failure_kind" => "provider_rate_limited",
-        "retry_scope" => "step",
-        "retry_strategy" => "automatic",
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "provider_rate_limited",
+      wait_retry_scope: "step",
+      wait_retry_strategy: "automatic",
+      wait_attempt_no: 1,
       waiting_since_at: Time.current,
       blocking_resource_type: "WorkflowNode",
       blocking_resource_id: workflow_node.public_id
@@ -44,11 +44,11 @@ class Workflows::ResumeBlockedStepTest < ActiveSupport::TestCase
     workflow_run.update!(
       wait_state: "waiting",
       wait_reason_kind: "external_dependency_blocked",
-      wait_reason_payload: {
-        "failure_kind" => "provider_rate_limited",
-        "retry_scope" => "step",
-        "retry_strategy" => "automatic",
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "provider_rate_limited",
+      wait_retry_scope: "step",
+      wait_retry_strategy: "automatic",
+      wait_attempt_no: 1,
       waiting_since_at: Time.current,
       blocking_resource_type: "WorkflowNode",
       blocking_resource_id: workflow_node.public_id

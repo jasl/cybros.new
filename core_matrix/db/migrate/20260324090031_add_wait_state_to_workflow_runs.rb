@@ -4,6 +4,15 @@ class AddWaitStateToWorkflowRuns < ActiveRecord::Migration[8.2]
       t.string :wait_state, null: false, default: "ready"
       t.string :wait_reason_kind
       t.jsonb :wait_reason_payload, null: false, default: {}
+      t.string :wait_policy_mode
+      t.string :wait_retry_scope
+      t.string :wait_resume_mode
+      t.string :wait_failure_kind
+      t.string :wait_retry_strategy
+      t.integer :wait_attempt_no
+      t.integer :wait_max_auto_retries
+      t.datetime :wait_next_retry_at
+      t.text :wait_last_error_summary
       t.string :recovery_state
       t.string :recovery_reason
       t.string :recovery_drift_reason

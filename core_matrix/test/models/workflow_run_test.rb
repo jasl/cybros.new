@@ -83,7 +83,8 @@ class WorkflowRunTest < ActiveSupport::TestCase
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_kind: "policy_gate",
-      wait_reason_payload: { "policy_mode" => "restart" },
+      wait_reason_payload: {},
+      wait_policy_mode: "restart",
       waiting_since_at: Time.current,
       blocking_resource_type: "Turn",
       blocking_resource_id: "queued-turn-1"
@@ -98,7 +99,7 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
 
     assert waiting_run.valid?
-    assert_equal "restart", waiting_run.wait_reason_payload["policy_mode"]
+    assert_equal "restart", waiting_run.wait_policy_mode
     assert_not invalid_waiting_run.valid?
     assert_includes invalid_waiting_run.errors[:wait_reason_kind], "must exist when workflow run is waiting"
     assert_includes invalid_waiting_run.errors[:waiting_since_at], "must exist when workflow run is waiting"
@@ -142,11 +143,11 @@ class WorkflowRunTest < ActiveSupport::TestCase
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_kind: "external_dependency_blocked",
-      wait_reason_payload: {
-        "failure_kind" => "provider_credits_exhausted",
-        "retry_scope" => "step",
-        "retry_strategy" => "manual",
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "provider_credits_exhausted",
+      wait_retry_scope: "step",
+      wait_retry_strategy: "manual",
+      wait_attempt_no: 1,
       waiting_since_at: Time.current,
       blocking_resource_type: "WorkflowNode",
       blocking_resource_id: "workflow-node-1"

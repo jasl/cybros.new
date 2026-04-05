@@ -100,15 +100,15 @@ module Workflows
             raise_invalid!(@turn, :workflow_run, "must exist for restart policy") if workflow_run.blank?
 
             workflow_run.update!(
-              wait_state: "waiting",
-              wait_reason_kind: "policy_gate",
-              wait_reason_payload: {
-                "policy_mode" => "restart",
-                "queued_turn_id" => queued_turn.public_id,
-              },
-              waiting_since_at: Time.current,
-              blocking_resource_type: "Turn",
-              blocking_resource_id: queued_turn.public_id
+              Workflows::WaitState.cleared_detail_attributes.merge(
+                wait_state: "waiting",
+                wait_reason_kind: "policy_gate",
+                wait_reason_payload: {},
+                wait_policy_mode: "restart",
+                waiting_since_at: Time.current,
+                blocking_resource_type: "Turn",
+                blocking_resource_id: queued_turn.public_id
+              )
             )
           end
 
@@ -176,8 +176,7 @@ module Workflows
           return unless workflow_run.waiting? &&
             workflow_run.wait_reason_kind == "policy_gate" &&
             workflow_run.blocking_resource_type == "Turn" &&
-            workflow_run.blocking_resource_id == queued_turn.public_id &&
-            workflow_run.wait_reason_payload["queued_turn_id"] == queued_turn.public_id
+            workflow_run.blocking_resource_id == queued_turn.public_id
 
           workflow_run.update!(Workflows::WaitState.ready_attributes)
         end

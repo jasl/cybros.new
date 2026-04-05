@@ -35,8 +35,11 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
     assert_equal "accepted", failed.fetch("result")
     assert workflow_run.waiting?
     assert_equal "retryable_failure", workflow_run.wait_reason_kind
-    assert_equal "step", workflow_run.wait_reason_payload.fetch("retry_scope")
-    assert_equal initial_task.logical_work_id, workflow_run.wait_reason_payload.fetch("logical_work_id")
+    assert_equal "step", workflow_run.wait_retry_scope
+    assert_equal "tool_failure", workflow_run.wait_failure_kind
+    assert_equal initial_task.attempt_no, workflow_run.wait_attempt_no
+    assert_equal "exit status 1", workflow_run.wait_last_error_summary
+    assert_equal({}, workflow_run.wait_reason_payload)
     assert_equal initial_task.public_id, workflow_run.blocking_resource_id
 
     retried_task = Workflows::StepRetry.call(workflow_run: workflow_run)

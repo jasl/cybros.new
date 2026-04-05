@@ -15,7 +15,7 @@ class AgentProgramVersions::UnavailablePauseStateTest < ActiveSupport::TestCase
       document_kind: WorkflowWaitSnapshot::DOCUMENT_KIND,
       payload: {
         "wait_reason_kind" => "human_interaction",
-        "wait_reason_payload" => { "request_id" => request.public_id },
+        "wait_reason_payload" => {},
         "waiting_since_at" => paused_since.iso8601,
         "blocking_resource_type" => "HumanInteractionRequest",
         "blocking_resource_id" => request.public_id,
@@ -41,7 +41,7 @@ class AgentProgramVersions::UnavailablePauseStateTest < ActiveSupport::TestCase
       {
         wait_state: "waiting",
         wait_reason_kind: "human_interaction",
-        wait_reason_payload: { "request_id" => request.public_id },
+        wait_reason_payload: {},
         recovery_state: nil,
         recovery_reason: nil,
         recovery_drift_reason: nil,
@@ -68,7 +68,7 @@ class AgentProgramVersions::UnavailablePauseStateTest < ActiveSupport::TestCase
       document_kind: WorkflowWaitSnapshot::DOCUMENT_KIND,
       payload: {
         "wait_reason_kind" => "human_interaction",
-        "wait_reason_payload" => { "request_id" => request.public_id },
+        "wait_reason_payload" => {},
         "blocking_resource_type" => "HumanInteractionRequest",
         "blocking_resource_id" => request.public_id,
       }

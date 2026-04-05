@@ -36,13 +36,7 @@ module Workflows
     private
 
     def current_wait_context(workflow_run)
-      {
-        "wait_reason_kind" => workflow_run.wait_reason_kind,
-        "wait_reason_payload" => workflow_run.wait_reason_payload,
-        "waiting_since_at" => workflow_run.waiting_since_at,
-        "blocking_resource_type" => workflow_run.blocking_resource_type,
-        "blocking_resource_id" => workflow_run.blocking_resource_id,
-      }.compact
+      workflow_run.wait_context_snapshot
     end
 
     def predecessor_nodes_for(workflow_run, snapshot)

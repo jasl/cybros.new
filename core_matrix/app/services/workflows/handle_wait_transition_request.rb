@@ -92,19 +92,21 @@ module Workflows
       )
 
       @workflow_run.reload.update!(
-        wait_state: "waiting",
-        wait_reason_kind: "subagent_barrier",
-        wait_reason_payload: {
-          "batch_id" => batch_id,
-          "stage_index" => stage.fetch("stage_index"),
-          "barrier_artifact_key" => barrier_artifact.artifact_key,
-          "subagent_session_ids" => spawned_sessions.map(&:public_id),
-          "yielding_node_id" => @yielding_node.public_id,
-          "yielding_node_key" => @yielding_node.node_key,
-        },
-        waiting_since_at: @occurred_at,
-        blocking_resource_type: "SubagentBarrier",
-        blocking_resource_id: barrier_artifact.artifact_key
+        Workflows::WaitState.cleared_detail_attributes.merge(
+          wait_state: "waiting",
+          wait_reason_kind: "subagent_barrier",
+          wait_reason_payload: {
+            "batch_id" => batch_id,
+            "stage_index" => stage.fetch("stage_index"),
+            "barrier_artifact_key" => barrier_artifact.artifact_key,
+            "subagent_session_ids" => spawned_sessions.map(&:public_id),
+            "yielding_node_id" => @yielding_node.public_id,
+            "yielding_node_key" => @yielding_node.node_key,
+          },
+          waiting_since_at: @occurred_at,
+          blocking_resource_type: "SubagentBarrier",
+          blocking_resource_id: barrier_artifact.artifact_key
+        )
       )
     end
 

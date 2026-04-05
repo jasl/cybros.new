@@ -6,13 +6,7 @@ class WorkflowWaitSnapshot
     return if workflow_run.wait_state != "waiting"
     return if workflow_run.wait_reason_kind.in?(%w[agent_unavailable manual_recovery_required])
 
-    new(
-      "wait_reason_kind" => workflow_run.wait_reason_kind,
-      "wait_reason_payload" => workflow_run.wait_reason_payload,
-      "waiting_since_at" => workflow_run.waiting_since_at,
-      "blocking_resource_type" => workflow_run.blocking_resource_type,
-      "blocking_resource_id" => workflow_run.blocking_resource_id
-    )
+    new(workflow_run.wait_context_snapshot)
   end
 
   def self.from_workflow_run(workflow_run)
@@ -36,12 +30,32 @@ class WorkflowWaitSnapshot
     )
   end
 
-  attr_reader :wait_reason_kind, :blocking_resource_type, :blocking_resource_id
+  attr_reader :wait_reason_kind,
+    :wait_policy_mode,
+    :wait_retry_scope,
+    :wait_resume_mode,
+    :wait_failure_kind,
+    :wait_retry_strategy,
+    :wait_attempt_no,
+    :wait_max_auto_retries,
+    :wait_next_retry_at,
+    :wait_last_error_summary,
+    :blocking_resource_type,
+    :blocking_resource_id
 
   def initialize(payload)
     normalized_payload = normalize_payload(payload)
     @wait_reason_kind = normalized_payload.fetch("wait_reason_kind")
     @wait_reason_payload = normalized_payload.fetch("wait_reason_payload")
+    @wait_policy_mode = normalized_payload["wait_policy_mode"]
+    @wait_retry_scope = normalized_payload["wait_retry_scope"]
+    @wait_resume_mode = normalized_payload["wait_resume_mode"]
+    @wait_failure_kind = normalized_payload["wait_failure_kind"]
+    @wait_retry_strategy = normalized_payload["wait_retry_strategy"]
+    @wait_attempt_no = normalized_payload["wait_attempt_no"]
+    @wait_max_auto_retries = normalized_payload["wait_max_auto_retries"]
+    @wait_next_retry_at = parse_time(normalized_payload["wait_next_retry_at"])
+    @wait_last_error_summary = normalized_payload["wait_last_error_summary"]
     @waiting_since_at = parse_waiting_since(normalized_payload["waiting_since_at"])
     @blocking_resource_type = normalized_payload["blocking_resource_type"]
     @blocking_resource_id = normalized_payload["blocking_resource_id"]
@@ -59,6 +73,15 @@ class WorkflowWaitSnapshot
     {
       "wait_reason_kind" => wait_reason_kind,
       "wait_reason_payload" => wait_reason_payload,
+      "wait_policy_mode" => wait_policy_mode,
+      "wait_retry_scope" => wait_retry_scope,
+      "wait_resume_mode" => wait_resume_mode,
+      "wait_failure_kind" => wait_failure_kind,
+      "wait_retry_strategy" => wait_retry_strategy,
+      "wait_attempt_no" => wait_attempt_no,
+      "wait_max_auto_retries" => wait_max_auto_retries,
+      "wait_next_retry_at" => wait_next_retry_at&.iso8601,
+      "wait_last_error_summary" => wait_last_error_summary,
       "waiting_since_at" => waiting_since_at&.iso8601,
       "blocking_resource_type" => blocking_resource_type,
       "blocking_resource_id" => blocking_resource_id,
@@ -70,6 +93,15 @@ class WorkflowWaitSnapshot
       "wait_state" => "waiting",
       "wait_reason_kind" => wait_reason_kind,
       "wait_reason_payload" => wait_reason_payload,
+      "wait_policy_mode" => wait_policy_mode,
+      "wait_retry_scope" => wait_retry_scope,
+      "wait_resume_mode" => wait_resume_mode,
+      "wait_failure_kind" => wait_failure_kind,
+      "wait_retry_strategy" => wait_retry_strategy,
+      "wait_attempt_no" => wait_attempt_no,
+      "wait_max_auto_retries" => wait_max_auto_retries,
+      "wait_next_retry_at" => wait_next_retry_at,
+      "wait_last_error_summary" => wait_last_error_summary,
       "waiting_since_at" => waiting_since_at,
       "blocking_resource_type" => blocking_resource_type,
       "blocking_resource_id" => blocking_resource_id,
@@ -104,7 +136,7 @@ class WorkflowWaitSnapshot
 
       sessions.none? { |session| !session.terminal_for_wait? }
     when "policy_gate"
-      queued_turn_id = wait_reason_payload["queued_turn_id"]
+      queued_turn_id = blocking_resource_id
       return true if queued_turn_id.blank?
 
       Turn.where(
@@ -128,6 +160,10 @@ class WorkflowWaitSnapshot
   end
 
   def parse_waiting_since(value)
+    parse_time(value)
+  end
+
+  def parse_time(value)
     return value if value.is_a?(ActiveSupport::TimeWithZone) || value.is_a?(Time)
     return if value.blank?
 

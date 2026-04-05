@@ -13,7 +13,7 @@ module AgentProgramVersions
         waiting_since_at: occurred_at,
         blocking_resource_type: "AgentProgramVersion",
         blocking_resource_id: deployment.public_id,
-      }
+      }.merge(Workflows::WaitState.cleared_detail_attributes)
     end
 
     def self.resume_attributes(workflow_run:)

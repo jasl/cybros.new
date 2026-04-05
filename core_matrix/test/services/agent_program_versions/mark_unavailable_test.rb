@@ -83,7 +83,7 @@ class AgentProgramVersions::MarkUnavailableTest < ActiveSupport::TestCase
     assert_equal "human_interaction", snapshot["wait_reason_kind"]
     assert_equal request.public_id, snapshot["blocking_resource_id"]
     assert_equal "HumanInteractionRequest", snapshot["blocking_resource_type"]
-    assert_equal request.public_id, snapshot["wait_reason_payload"]["request_id"]
+    assert_equal({}, snapshot["wait_reason_payload"])
   end
 
   test "rechecks workflow activity before applying the unavailable wait state" do

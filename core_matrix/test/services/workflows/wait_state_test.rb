@@ -15,7 +15,7 @@ class Workflows::WaitStateTest < ActiveSupport::TestCase
         waiting_since_at: nil,
         blocking_resource_type: nil,
         blocking_resource_id: nil,
-      },
+      }.merge(Workflows::WaitState.cleared_detail_attributes),
       Workflows::WaitState.ready_attributes
     )
   end

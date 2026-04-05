@@ -26,7 +26,7 @@ module Workflows
         waiting_since_at: occurred_at,
         blocking_resource_type: paused_task_run.present? ? "AgentTaskRun" : nil,
         blocking_resource_id: paused_task_run&.public_id,
-      }
+      }.merge(Workflows::WaitState.cleared_detail_attributes)
     end
 
     def paused_attributes(workflow_run:)
@@ -42,7 +42,7 @@ module Workflows
         waiting_since_at: workflow_run.waiting_since_at || Time.current,
         blocking_resource_type: nil,
         blocking_resource_id: nil,
-      }
+      }.merge(Workflows::WaitState.cleared_detail_attributes)
     end
 
     def resume_attributes(workflow_run:)

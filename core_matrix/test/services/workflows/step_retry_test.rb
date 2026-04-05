@@ -23,13 +23,11 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "retryable" => true,
-        "retry_scope" => "step",
-        "logical_work_id" => failed_task.logical_work_id,
-        "attempt_no" => failed_task.attempt_no,
-        "last_error_summary" => "exit status 1",
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "tool_failure",
+      wait_retry_scope: "step",
+      wait_attempt_no: failed_task.attempt_no,
+      wait_last_error_summary: "exit status 1",
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentTaskRun",
       blocking_resource_id: failed_task.public_id
@@ -84,13 +82,11 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "retryable" => true,
-        "retry_scope" => "step",
-        "logical_work_id" => failed_task.logical_work_id,
-        "attempt_no" => failed_task.attempt_no,
-        "last_error_summary" => "exit status 1",
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "tool_failure",
+      wait_retry_scope: "step",
+      wait_attempt_no: failed_task.attempt_no,
+      wait_last_error_summary: "exit status 1",
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentTaskRun",
       blocking_resource_id: failed_task.public_id
@@ -122,12 +118,10 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "retryable" => true,
-        "retry_scope" => "step",
-        "logical_work_id" => failed_task.logical_work_id,
-        "attempt_no" => failed_task.attempt_no,
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "tool_failure",
+      wait_retry_scope: "step",
+      wait_attempt_no: failed_task.attempt_no,
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentTaskRun",
       blocking_resource_id: failed_task.public_id
@@ -161,12 +155,10 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "retryable" => true,
-        "retry_scope" => "step",
-        "logical_work_id" => failed_task.logical_work_id,
-        "attempt_no" => failed_task.attempt_no,
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "tool_failure",
+      wait_retry_scope: "step",
+      wait_attempt_no: failed_task.attempt_no,
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentTaskRun",
       blocking_resource_id: failed_task.public_id
@@ -198,12 +190,10 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "retryable" => true,
-        "retry_scope" => "step",
-        "logical_work_id" => failed_task.logical_work_id,
-        "attempt_no" => failed_task.attempt_no,
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "tool_failure",
+      wait_retry_scope: "step",
+      wait_attempt_no: failed_task.attempt_no,
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentTaskRun",
       blocking_resource_id: failed_task.public_id
@@ -233,10 +223,10 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
     workflow_run.update!(
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
-      wait_reason_payload: {
-        "failure_kind" => "provider_round_limit_exceeded",
-        "retry_scope" => "step",
-      },
+      wait_reason_payload: {},
+      wait_failure_kind: "provider_round_limit_exceeded",
+      wait_retry_scope: "step",
+      wait_attempt_no: 1,
       waiting_since_at: Time.current,
       blocking_resource_type: "WorkflowNode",
       blocking_resource_id: workflow_node.public_id
@@ -266,6 +256,9 @@ class Workflows::StepRetryTest < ActiveSupport::TestCase
             wait_state: "ready",
             wait_reason_kind: nil,
             wait_reason_payload: {},
+            wait_failure_kind: nil,
+            wait_retry_scope: nil,
+            wait_attempt_no: nil,
             waiting_since_at: nil,
             blocking_resource_type: nil,
             blocking_resource_id: nil

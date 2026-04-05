@@ -1,6 +1,8 @@
 class WorkflowRun < ApplicationRecord
   include HasPublicId
 
+  WAIT_DETAIL_ATTRIBUTE_NAMES = Workflows::WaitState::DETAIL_ATTRIBUTE_NAMES.map(&:to_s).freeze
+
   enum :lifecycle_state,
     {
       active: "active",
@@ -162,6 +164,25 @@ class WorkflowRun < ApplicationRecord
     }.compact
   end
 
+  def wait_context_snapshot
+    {
+      "wait_reason_kind" => wait_reason_kind,
+      "wait_reason_payload" => wait_reason_payload,
+      "wait_policy_mode" => wait_policy_mode,
+      "wait_retry_scope" => wait_retry_scope,
+      "wait_resume_mode" => wait_resume_mode,
+      "wait_failure_kind" => wait_failure_kind,
+      "wait_retry_strategy" => wait_retry_strategy,
+      "wait_attempt_no" => wait_attempt_no,
+      "wait_max_auto_retries" => wait_max_auto_retries,
+      "wait_next_retry_at" => wait_next_retry_at&.iso8601,
+      "wait_last_error_summary" => wait_last_error_summary,
+      "waiting_since_at" => waiting_since_at&.iso8601,
+      "blocking_resource_type" => blocking_resource_type,
+      "blocking_resource_id" => blocking_resource_id,
+    }.compact
+  end
+
   private
 
   def conversation_installation_match
@@ -205,6 +226,7 @@ class WorkflowRun < ApplicationRecord
     if waiting?
       errors.add(:wait_reason_kind, "must exist when workflow run is waiting") if wait_reason_kind.blank?
       errors.add(:waiting_since_at, "must exist when workflow run is waiting") if waiting_since_at.blank?
+      validate_wait_reason_details
     else
       errors.add(:wait_reason_payload, "must be empty when workflow run is ready") if wait_reason_payload.present?
       errors.add(:wait_reason_kind, "must be blank when workflow run is ready") if wait_reason_kind.present?
@@ -216,10 +238,24 @@ class WorkflowRun < ApplicationRecord
       errors.add(:waiting_since_at, "must be blank when workflow run is ready") if waiting_since_at.present?
       errors.add(:blocking_resource_type, "must be blank when workflow run is ready") if blocking_resource_type.present?
       errors.add(:blocking_resource_id, "must be blank when workflow run is ready") if blocking_resource_id.present?
+      WAIT_DETAIL_ATTRIBUTE_NAMES.each do |attribute_name|
+        errors.add(attribute_name, "must be blank when workflow run is ready") if self[attribute_name].present?
+      end
     end
 
     if blocking_resource_type.present? ^ blocking_resource_id.present?
       errors.add(:blocking_resource_id, "must be paired with blocking resource type")
+    end
+  end
+
+  def validate_wait_reason_details
+    case wait_reason_kind
+    when "policy_gate"
+      errors.add(:wait_policy_mode, "must exist when policy gate is active") if wait_policy_mode.blank?
+    when "retryable_failure", "external_dependency_blocked"
+      errors.add(:wait_failure_kind, "must exist for retry waits") if wait_failure_kind.blank?
+      errors.add(:wait_retry_scope, "must exist for retry waits") if wait_retry_scope.blank?
+      errors.add(:wait_attempt_no, "must exist for retry waits") if wait_attempt_no.blank?
     end
   end
 

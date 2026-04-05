@@ -24,8 +24,8 @@ class Workflows::ResumePausedTurnTest < ActiveSupport::TestCase
     assert_equal "turn_resume", new_task.task_payload["delivery_kind"]
     assert_equal 1, new_task.task_payload["previous_attempt_no"]
     assert_equal context[:agent_task_run].public_id, new_task.task_payload["paused_agent_task_run_id"]
-    assert_equal({ "step" => "running", "percent" => 45 }, new_task.task_payload["paused_progress_payload"])
-    assert_equal context[:agent_task_run].reload.terminal_payload, new_task.task_payload["paused_terminal_payload"]
+    refute new_task.task_payload.key?("paused_progress_payload")
+    refute new_task.task_payload.key?("paused_terminal_payload")
 
     assignment = AgentControlMailboxItem.find_by!(agent_task_run: new_task)
     assert_equal "execution_assignment", assignment.item_type
