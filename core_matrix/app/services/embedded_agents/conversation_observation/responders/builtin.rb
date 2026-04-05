@@ -59,16 +59,16 @@ module EmbeddedAgents
         end
 
         def previous_supervisor_status
-          previous_message = @conversation_observation_session.conversation_observation_messages
-            .where(role: "observer_agent")
-            .where.not(conversation_observation_frame_id: @conversation_observation_frame.id)
+          previous_frame = @conversation_observation_session.conversation_observation_frames
+            .where.not(id: @conversation_observation_frame.id)
+            .where.not(assessment_payload: {})
             .order(:created_at, :id)
             .last
 
-          metadata = previous_message&.metadata
-          return {} unless metadata.is_a?(Hash)
+          assessment = previous_frame&.assessment_payload
+          return {} unless assessment.is_a?(Hash) && assessment.present?
 
-          metadata.fetch("supervisor_status", {})
+          supervisor_status(assessment)
         end
       end
     end

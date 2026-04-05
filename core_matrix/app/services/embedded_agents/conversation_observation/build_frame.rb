@@ -36,13 +36,6 @@ module EmbeddedAgents
           wait_state: workflow_run&.wait_state,
           wait_reason_kind: workflow_run&.wait_reason_kind,
           active_subagent_session_public_ids: active_subagent_sessions.map(&:public_id),
-          runtime_state_snapshot: runtime_state_snapshot(
-            conversation: conversation,
-            anchor_turn: anchor_turn,
-            workflow_run: workflow_run,
-            workflow_node: workflow_node,
-            active_subagent_sessions: active_subagent_sessions
-          ),
           bundle_snapshot: bundle_snapshot,
           assessment_payload: {}
         )
@@ -81,20 +74,6 @@ module EmbeddedAgents
 
       def latest_projection_sequence_for(conversation)
         ConversationEvent.where(conversation: conversation).maximum(:projection_sequence)
-      end
-
-      def runtime_state_snapshot(conversation:, anchor_turn:, workflow_run:, workflow_node:, active_subagent_sessions:)
-        {
-          "conversation_id" => conversation.public_id,
-          "conversation_lifecycle_state" => conversation.lifecycle_state,
-          "anchor_turn_id" => anchor_turn&.public_id,
-          "anchor_turn_state" => anchor_turn&.lifecycle_state,
-          "active_workflow_run_id" => workflow_run&.public_id,
-          "active_workflow_run_state" => workflow_run&.lifecycle_state,
-          "active_workflow_node_id" => workflow_node&.public_id,
-          "active_workflow_node_state" => workflow_node&.lifecycle_state,
-          "active_subagent_session_ids" => active_subagent_sessions.map(&:public_id),
-        }.compact
       end
     end
   end

@@ -55,8 +55,7 @@ module EmbeddedAgents
           target_conversation: @conversation_observation_session.target_conversation,
           conversation_observation_frame: frame,
           role: "user",
-          content: @content,
-          metadata: {}
+          content: @content
         )
       end
 
@@ -69,11 +68,7 @@ module EmbeddedAgents
           target_conversation: @conversation_observation_session.target_conversation,
           conversation_observation_frame: frame,
           role: "observer_agent",
-          content: human_sidechat.fetch("content"),
-          metadata: {
-            "proof_refs" => human_sidechat.fetch("proof_refs"),
-            "supervisor_status" => supervisor_status,
-          }
+          content: human_sidechat.fetch("content")
         )
       end
     end

@@ -48,7 +48,6 @@ module AppAPI
         "target_conversation_id" => message.target_conversation.public_id,
         "role" => message.role,
         "content" => message.content,
-        "metadata" => message.metadata,
         "created_at" => message.created_at&.iso8601(6),
       }
     end

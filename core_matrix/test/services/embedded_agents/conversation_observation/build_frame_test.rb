@@ -19,9 +19,6 @@ class EmbeddedAgents::ConversationObservation::BuildFrameTest < ActiveSupport::T
     assert_equal "waiting", frame.wait_state
     assert_equal "subagent_barrier", frame.wait_reason_kind
     assert_equal [context.fetch(:subagent_session).public_id], frame.active_subagent_session_public_ids
-    assert_equal context.fetch(:turn).public_id, frame.runtime_state_snapshot.fetch("anchor_turn_id")
-    assert_equal "active", frame.runtime_state_snapshot.fetch("conversation_lifecycle_state")
-    assert_equal "running", frame.runtime_state_snapshot.fetch("active_workflow_node_state")
     assert_equal %w[activity_view subagent_view transcript_view workflow_view], frame.bundle_snapshot.keys.sort
     assert_equal context.fetch(:workflow_run).public_id, frame.bundle_snapshot.dig("workflow_view", "workflow_run_id")
     assert_equal({}, frame.assessment_payload)

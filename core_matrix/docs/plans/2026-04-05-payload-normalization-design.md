@@ -64,6 +64,22 @@ Examples that may remain inline:
 - small health/session metadata
 - node metadata that is domain state rather than copied transport payload
 
+### 6. Derived presentation rows do not own duplicated state
+
+If one row already owns the frozen assessment or contract, adjacent rows that
+exist only for presentation or transcript-like display should store only their
+own content and refs.
+
+Examples:
+
+- observation frames own frozen bundle and assessment data
+- observation messages store rendered sidechat text and frame refs, not another
+  copy of supervisor state
+- workflow nodes store a ref to large tool call payloads, not the raw call body
+
+This rule prevents "small" secondary tables from quietly reintroducing the same
+duplication pattern after the main snapshot table has already been normalized.
+
 ## New Core Models
 
 ### `JsonDocument`
@@ -95,6 +111,20 @@ Rules:
 
 This name is intentionally common and explicit. The model stores JSON documents,
 not arbitrary "payload blobs".
+
+## Applied Refactors
+
+The current implementation already applies this design to several important
+paths:
+
+- turn execution snapshots, agent control mailbox items, and report receipts use
+  first-class execution contracts and document-backed evidence
+- workflow node tool calls are stored via `tool_call_document_id` instead of
+  inline metadata payloads
+- tool bindings keep structured governance columns and `runtime_state` only for
+  mutable session state
+- observation frames own compact frozen evidence; observation messages no
+  longer duplicate supervisor state or runtime headers
 
 ### `ExecutionCapabilitySnapshot`
 

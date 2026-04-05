@@ -15,7 +15,6 @@ class ConversationObservationMessage < ApplicationRecord
   belongs_to :conversation_observation_frame
 
   validates :content, presence: true
-  validate :metadata_must_be_hash
   validate :target_conversation_match
   validate :session_installation_match
   validate :frame_installation_match
@@ -49,9 +48,5 @@ class ConversationObservationMessage < ApplicationRecord
     return if conversation_observation_frame.conversation_observation_session_id == conversation_observation_session_id
 
     errors.add(:conversation_observation_frame, "must belong to the same observation session")
-  end
-
-  def metadata_must_be_hash
-    errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
   end
 end

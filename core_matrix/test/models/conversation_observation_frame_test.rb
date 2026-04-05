@@ -38,7 +38,6 @@ class ConversationObservationFrameTest < ActiveSupport::TestCase
       wait_state: "waiting",
       wait_reason_kind: "external_dependency_blocked",
       active_subagent_session_public_ids: ["subagent-session-public"],
-      runtime_state_snapshot: { "state" => "running" },
       bundle_snapshot: { "workflow_view" => { "workflow_run_id" => workflow_run.public_id } },
       assessment_payload: { "overall_state" => "running" }
     )
@@ -97,7 +96,6 @@ class ConversationObservationFrameTest < ActiveSupport::TestCase
       conversation_event_projection_sequence_snapshot: 1,
       wait_state: "ready",
       active_subagent_session_public_ids: [],
-      runtime_state_snapshot: {},
       bundle_snapshot: {},
       assessment_payload: {}
     )

@@ -8,7 +8,6 @@ class CreateConversationObservationMessages < ActiveRecord::Migration[8.2]
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :role, null: false
       t.text :content, null: false
-      t.jsonb :metadata, null: false, default: {}
 
       t.timestamps
     end

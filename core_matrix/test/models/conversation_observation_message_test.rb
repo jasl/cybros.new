@@ -26,7 +26,6 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       conversation_event_projection_sequence_snapshot: 1,
       wait_state: "ready",
       active_subagent_session_public_ids: [],
-      runtime_state_snapshot: {},
       bundle_snapshot: {},
       assessment_payload: {}
     )
@@ -37,8 +36,7 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       conversation_observation_session: session,
       conversation_observation_frame: frame,
       role: "user",
-      content: "What are you doing?",
-      metadata: {}
+      content: "What are you doing?"
     )
 
     observer_message = ConversationObservationMessage.create!(
@@ -47,8 +45,7 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       conversation_observation_session: session,
       conversation_observation_frame: frame,
       role: "observer_agent",
-      content: "I am waiting on provider execution.",
-      metadata: { "kind" => "supervisor_status" }
+      content: "I am waiting on provider execution."
     )
 
     system_message = ConversationObservationMessage.create!(
@@ -57,8 +54,7 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       conversation_observation_session: session,
       conversation_observation_frame: frame,
       role: "system",
-      content: "Observation note",
-      metadata: {}
+      content: "Observation note"
     )
 
     assert_equal [user_message, observer_message, system_message], ConversationObservationMessage.order(:id)
@@ -98,7 +94,6 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       conversation_event_projection_sequence_snapshot: 1,
       wait_state: "ready",
       active_subagent_session_public_ids: [],
-      runtime_state_snapshot: {},
       bundle_snapshot: {},
       assessment_payload: {}
     )
@@ -109,55 +104,11 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
       conversation_observation_session: session,
       conversation_observation_frame: frame,
       role: "user",
-      content: "Mismatch",
-      metadata: {}
+      content: "Mismatch"
     )
 
     assert_not message.valid?
     assert_includes message.errors[:target_conversation], "must match the observation session target conversation"
   end
 
-  test "requires metadata to be a hash" do
-    context = create_workspace_context!
-    conversation = create_conversation_record!(
-      workspace: context[:workspace],
-      installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
-      agent_program: context[:agent_program]
-    )
-    session = ConversationObservationSession.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      initiator: context[:user],
-      lifecycle_state: "open",
-      responder_strategy: "builtin",
-      capability_policy_snapshot: {}
-    )
-    frame = ConversationObservationFrame.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      conversation_observation_session: session,
-      anchor_turn_public_id: "turn_public",
-      anchor_turn_sequence_snapshot: 1,
-      conversation_event_projection_sequence_snapshot: 1,
-      wait_state: "ready",
-      active_subagent_session_public_ids: [],
-      runtime_state_snapshot: {},
-      bundle_snapshot: {},
-      assessment_payload: {}
-    )
-
-    message = ConversationObservationMessage.new(
-      installation: context[:installation],
-      target_conversation: conversation,
-      conversation_observation_session: session,
-      conversation_observation_frame: frame,
-      role: "user",
-      content: "Mismatch",
-      metadata: "not a hash"
-    )
-
-    assert_not message.valid?
-    assert_includes message.errors[:metadata], "must be a hash"
-  end
 end

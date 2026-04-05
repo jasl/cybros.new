@@ -57,23 +57,22 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
         wait_state: fixture.fetch(:frame).wait_state,
         wait_reason_kind: fixture.fetch(:frame).wait_reason_kind,
         active_subagent_session_public_ids: fixture.fetch(:frame).active_subagent_session_public_ids,
-        runtime_state_snapshot: fixture.fetch(:frame).runtime_state_snapshot,
         bundle_snapshot: fixture.fetch(:frame).bundle_snapshot,
         assessment_payload: {}
       )
-      fixture.fetch(:session).conversation_observation_messages.create!(
-        installation: fixture.fetch(:session).installation,
-        target_conversation: fixture.fetch(:session).target_conversation,
-        conversation_observation_frame: previous_frame,
-        role: "observer_agent",
-        content: "Previous summary",
-        metadata: {
-          "supervisor_status" => {
-            "overall_state" => "running",
-            "current_activity" => "Running provider_round_1 (running)",
-            "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
-            "transcript_refs" => [],
-          },
+      previous_frame.update!(
+        assessment_payload: {
+          "observation_session_id" => fixture.fetch(:session).public_id,
+          "observation_frame_id" => previous_frame.public_id,
+          "conversation_id" => fixture.fetch(:session).target_conversation.public_id,
+          "overall_state" => "running",
+          "current_activity" => "Running provider_round_1 (running)",
+          "workflow_run_id" => fixture.fetch(:frame).active_workflow_run_public_id,
+          "workflow_node_id" => fixture.fetch(:frame).active_workflow_node_public_id,
+          "stall_for_ms" => 0,
+          "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
+          "transcript_refs" => [],
+          "proof_refs" => { "conversation_id" => fixture.fetch(:session).target_conversation.public_id }
         }
       )
 

@@ -510,7 +510,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.jsonb "runtime_state_snapshot", default: {}, null: false
     t.bigint "target_conversation_id", null: false
     t.datetime "updated_at", null: false
     t.string "wait_reason_kind"
@@ -528,7 +527,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.bigint "conversation_observation_session_id", null: false
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
-    t.jsonb "metadata", default: {}, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "role", null: false
     t.bigint "target_conversation_id", null: false

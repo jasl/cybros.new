@@ -236,7 +236,6 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       :target_conversation,
       :role,
       :content,
-      :metadata,
       :created_at
     ).new(
       "user_msg_123",
@@ -245,7 +244,6 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       session.target_conversation,
       "user",
       "Summarize current progress",
-      {},
       nil
     )
     observer_message = Struct.new(
@@ -255,7 +253,6 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       :target_conversation,
       :role,
       :content,
-      :metadata,
       :created_at
     ).new(
       "observer_msg_123",
@@ -264,7 +261,6 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       session.target_conversation,
       "observer_agent",
       "Right now the conversation is running.",
-      { "proof_refs" => { "conversation_id" => "conversation_123" } },
       nil
     )
     captured = nil
