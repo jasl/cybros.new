@@ -58,6 +58,34 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     assert_predicate response.body.bytesize, :positive?
   end
 
+  test "show and download treat missing succeeded debug bundles as unavailable" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    attach_selected_output!(context[:turn], content: "Missing debug export output")
+    request = ConversationDebugExportRequest.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      conversation: context[:conversation],
+      user: context[:user],
+      lifecycle_state: "queued",
+      expires_at: 2.hours.from_now,
+      request_payload: { "bundle_kind" => "conversation_debug_export" }
+    )
+    ConversationDebugExports::ExecuteRequest.call(request: request)
+    request.bundle_file.purge
+
+    get "/app_api/conversation_debug_export_requests/#{request.public_id}",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :success
+    assert_equal false, JSON.parse(response.body).dig("debug_export_request", "bundle_available")
+
+    get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :gone
+  end
+
   test "show and download treat past ttl debug bundles as unavailable even before expiry cleanup runs" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)

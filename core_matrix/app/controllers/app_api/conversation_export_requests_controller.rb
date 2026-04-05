@@ -27,11 +27,14 @@ module AppAPI
     def download
       request = find_export_request!(params.fetch(:id))
       return head :gone unless bundle_available?(request)
+      bundle_file = request.bundle_file
+      bundle_blob = bundle_file.blob
+      return head :gone if bundle_blob.blank?
 
       send_data(
-        request.bundle_file.download,
-        filename: request.bundle_file.filename.to_s,
-        type: request.bundle_file.blob.content_type,
+        bundle_file.download,
+        filename: bundle_file.filename.to_s,
+        type: bundle_blob.content_type,
         disposition: "attachment"
       )
     end
@@ -64,7 +67,11 @@ module AppAPI
     end
 
     def bundle_available?(request)
-      request.bundle_file.attached? && request.expires_at.present? && request.expires_at.future? && !request.expired?
+      request.bundle_file.attached? &&
+        request.bundle_file.blob.present? &&
+        request.expires_at.present? &&
+        request.expires_at.future? &&
+        !request.expired?
     end
   end
 end
