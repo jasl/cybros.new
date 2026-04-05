@@ -265,4 +265,65 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert_equal conversation.workspace, workflow_run.workspace
     assert_equal turn.feature_policy_snapshot, workflow_run.feature_policy_snapshot
   end
+
+  test "maps wait reasons into waiting and blocked supervision helpers" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+
+    blocked_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Blocked workflow",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    blocked_run = WorkflowRun.new(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: blocked_turn,
+      lifecycle_state: "active",
+      wait_state: "waiting",
+      wait_reason_kind: "external_dependency_blocked",
+      wait_reason_payload: {},
+      wait_failure_kind: "provider_credits_exhausted",
+      wait_retry_scope: "step",
+      wait_retry_strategy: "manual",
+      wait_attempt_no: 1,
+      waiting_since_at: Time.current
+    )
+
+    retry_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Retry workflow",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    retry_run = WorkflowRun.new(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: retry_turn,
+      lifecycle_state: "active",
+      wait_state: "waiting",
+      wait_reason_kind: "retryable_failure",
+      wait_reason_payload: {},
+      wait_failure_kind: "provider_error",
+      wait_retry_scope: "step",
+      wait_retry_strategy: "manual",
+      wait_attempt_no: 1,
+      waiting_since_at: Time.current
+    )
+
+    assert blocked_run.valid?
+    assert blocked_run.waiting?
+    assert blocked_run.blocked?
+
+    assert retry_run.valid?
+    assert retry_run.waiting?
+    assert_not retry_run.blocked?
+  end
 end

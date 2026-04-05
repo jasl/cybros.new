@@ -103,4 +103,87 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     refute_includes AgentTaskRun.column_names, "feature_policy_snapshot"
     assert_equal context[:turn].feature_policy_snapshot, agent_task_run.feature_policy_snapshot
   end
+
+  test "validates supervision state fields and requires progress timestamps once supervision has started" do
+    context = build_agent_control_context!
+
+    assert_includes AgentTaskRun.column_names, "supervision_state"
+    assert_includes AgentTaskRun.column_names, "focus_kind"
+    assert_includes AgentTaskRun.column_names, "request_summary"
+    assert_includes AgentTaskRun.column_names, "current_focus_summary"
+    assert_includes AgentTaskRun.column_names, "recent_progress_summary"
+    assert_includes AgentTaskRun.column_names, "waiting_summary"
+    assert_includes AgentTaskRun.column_names, "blocked_summary"
+    assert_includes AgentTaskRun.column_names, "next_step_hint"
+    assert_includes AgentTaskRun.column_names, "last_progress_at"
+    assert_includes AgentTaskRun.column_names, "supervision_sequence"
+    assert_includes AgentTaskRun.column_names, "supervision_payload"
+
+    queued_task = create_agent_task_run!(workflow_node: context[:workflow_node])
+    assert queued_task.valid?
+
+    running_task = AgentTaskRun.new(
+      create_agent_task_run!(workflow_node: context[:workflow_node]).attributes.slice(
+        "installation_id",
+        "agent_program_id",
+        "workflow_run_id",
+        "workflow_node_id",
+        "conversation_id",
+        "turn_id",
+        "kind",
+        "logical_work_id",
+        "attempt_no",
+        "task_payload",
+        "progress_payload",
+        "terminal_payload",
+        "close_state",
+        "close_outcome_payload"
+      ).merge(
+        "lifecycle_state" => "running",
+        "started_at" => Time.current,
+        "supervision_state" => "running",
+        "focus_kind" => "implementation",
+        "request_summary" => "Refactor supervision status",
+        "current_focus_summary" => "Adding user-facing rollout fields",
+        "recent_progress_summary" => "Reviewed the runtime models",
+        "waiting_summary" => nil,
+        "blocked_summary" => nil,
+        "next_step_hint" => "Wire in the shared concern",
+        "supervision_payload" => {}
+      )
+    )
+
+    assert_not running_task.valid?
+    assert_includes running_task.errors[:last_progress_at], "must exist when supervision has started"
+
+    running_task.last_progress_at = Time.current
+    assert running_task.valid?
+
+    running_task.focus_kind = "unsupported"
+    assert_not running_task.valid?
+    assert_includes running_task.errors[:focus_kind], "is not included in the list"
+
+    running_task.focus_kind = "implementation"
+    running_task.request_summary = "x" * 256
+    assert_not running_task.valid?
+    assert_includes running_task.errors[:request_summary], "is too long (maximum is 255 characters)"
+  end
+
+  test "advances the supervision sequence when semantic progress changes" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      supervision_state: "queued",
+      focus_kind: "general",
+      supervision_sequence: 0,
+      supervision_payload: {}
+    )
+
+    assert_equal 0, agent_task_run.supervision_sequence
+
+    agent_task_run.advance_supervision_sequence!
+
+    assert_equal 1, agent_task_run.reload.supervision_sequence
+    assert agent_task_run.last_progress_at.present?
+  end
 end

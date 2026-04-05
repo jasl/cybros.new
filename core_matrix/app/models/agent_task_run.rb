@@ -1,6 +1,7 @@
 class AgentTaskRun < ApplicationRecord
   include HasPublicId
   include ClosableRuntimeResource
+  include SupervisionStateFields
 
   enum :kind,
     {

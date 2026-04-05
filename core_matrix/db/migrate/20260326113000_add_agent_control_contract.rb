@@ -117,6 +117,17 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :kind, null: false
       t.string :lifecycle_state, null: false, default: "queued"
+      t.string :supervision_state, null: false, default: "queued"
+      t.string :focus_kind, null: false, default: "general"
+      t.string :request_summary
+      t.string :current_focus_summary
+      t.string :recent_progress_summary
+      t.string :waiting_summary
+      t.string :blocked_summary
+      t.string :next_step_hint
+      t.datetime :last_progress_at
+      t.integer :supervision_sequence, null: false, default: 0
+      t.jsonb :supervision_payload, null: false, default: {}
       t.string :logical_work_id, null: false
       t.integer :attempt_no, null: false, default: 1
       t.jsonb :task_payload, null: false, default: {}
@@ -209,6 +220,16 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
 
     change_table :subagent_sessions, bulk: true do |t|
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
+      t.string :supervision_state, null: false, default: "queued"
+      t.string :focus_kind, null: false, default: "general"
+      t.string :request_summary
+      t.string :current_focus_summary
+      t.string :recent_progress_summary
+      t.string :waiting_summary
+      t.string :blocked_summary
+      t.string :next_step_hint
+      t.datetime :last_progress_at
+      t.jsonb :supervision_payload, null: false, default: {}
       t.string :close_state, null: false, default: "open"
       t.string :close_reason_kind
       t.datetime :close_requested_at

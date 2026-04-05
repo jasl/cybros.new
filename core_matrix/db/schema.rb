@@ -200,6 +200,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093110) do
   create_table "agent_task_runs", force: :cascade do |t|
     t.bigint "agent_program_id", null: false
     t.integer "attempt_no", default: 1, null: false
+    t.string "blocked_summary"
     t.datetime "close_acknowledged_at"
     t.datetime "close_force_deadline_at"
     t.datetime "close_grace_deadline_at"
@@ -210,22 +211,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093110) do
     t.string "close_state", default: "open", null: false
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.string "current_focus_summary"
     t.integer "expected_duration_seconds"
     t.datetime "finished_at"
+    t.string "focus_kind", default: "general", null: false
     t.bigint "holder_agent_session_id"
     t.bigint "installation_id", null: false
     t.string "kind", null: false
+    t.datetime "last_progress_at"
     t.string "lifecycle_state", default: "queued", null: false
     t.string "logical_work_id", null: false
+    t.string "next_step_hint"
     t.bigint "origin_turn_id"
     t.jsonb "progress_payload", default: {}, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "recent_progress_summary"
+    t.string "request_summary"
     t.datetime "started_at"
     t.bigint "subagent_session_id"
+    t.jsonb "supervision_payload", default: {}, null: false
+    t.integer "supervision_sequence", default: 0, null: false
+    t.string "supervision_state", default: "queued", null: false
     t.jsonb "task_payload", default: {}, null: false
     t.jsonb "terminal_payload", default: {}, null: false
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
+    t.string "waiting_summary"
     t.bigint "workflow_node_id", null: false
     t.bigint "workflow_run_id", null: false
     t.index ["agent_program_id"], name: "index_agent_task_runs_on_agent_program_id"
@@ -1214,6 +1225,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093110) do
   end
 
   create_table "subagent_sessions", force: :cascade do |t|
+    t.string "blocked_summary"
     t.datetime "close_acknowledged_at"
     t.datetime "close_force_deadline_at"
     t.datetime "close_grace_deadline_at"
@@ -1224,16 +1236,25 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093110) do
     t.string "close_state", default: "open", null: false
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.string "current_focus_summary"
     t.integer "depth", default: 0, null: false
+    t.string "focus_kind", default: "general", null: false
     t.bigint "installation_id", null: false
+    t.datetime "last_progress_at"
+    t.string "next_step_hint"
     t.string "observed_status", default: "idle", null: false
     t.bigint "origin_turn_id"
     t.bigint "owner_conversation_id", null: false
     t.bigint "parent_subagent_session_id"
     t.string "profile_key", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "recent_progress_summary"
+    t.string "request_summary"
     t.string "scope", default: "turn", null: false
+    t.jsonb "supervision_payload", default: {}, null: false
+    t.string "supervision_state", default: "queued", null: false
     t.datetime "updated_at", null: false
+    t.string "waiting_summary"
     t.index ["conversation_id"], name: "idx_subagent_sessions_conversation", unique: true
     t.index ["conversation_id"], name: "index_subagent_sessions_on_conversation_id"
     t.index ["installation_id"], name: "index_subagent_sessions_on_installation_id"

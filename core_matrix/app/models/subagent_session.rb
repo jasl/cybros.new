@@ -1,6 +1,7 @@
 class SubagentSession < ApplicationRecord
   include HasPublicId
   include ClosableRuntimeResource
+  include SupervisionStateFields
 
   TERMINAL_OBSERVED_STATUSES = %w[completed failed interrupted].freeze
   DERIVED_CLOSE_STATUS_BY_CLOSE_STATE = {

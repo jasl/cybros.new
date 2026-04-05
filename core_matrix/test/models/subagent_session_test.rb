@@ -439,6 +439,51 @@ class SubagentSessionTest < ActiveSupport::TestCase
     assert_equal "closed", failed_session.reload.derived_close_status
   end
 
+  test "stores supervision rollups without changing observed status semantics" do
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+
+    assert_includes SubagentSession.column_names, "supervision_state"
+    assert_includes SubagentSession.column_names, "focus_kind"
+    assert_includes SubagentSession.column_names, "request_summary"
+    assert_includes SubagentSession.column_names, "current_focus_summary"
+    assert_includes SubagentSession.column_names, "recent_progress_summary"
+    assert_includes SubagentSession.column_names, "waiting_summary"
+    assert_includes SubagentSession.column_names, "blocked_summary"
+    assert_includes SubagentSession.column_names, "next_step_hint"
+    assert_includes SubagentSession.column_names, "last_progress_at"
+    assert_includes SubagentSession.column_names, "supervision_payload"
+
+    session = build_subagent_session(
+      context:,
+      owner_conversation:,
+      observed_status: "idle",
+      supervision_state: "running",
+      focus_kind: "review",
+      current_focus_summary: "Checking the delegated worker output",
+      recent_progress_summary: "Received the first child update",
+      next_step_hint: "Wait for the worker to finish",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+
+    assert session.valid?
+    assert_equal "idle", session.observed_status
+
+    session.focus_kind = "invalid"
+    assert_not session.valid?
+    assert_includes session.errors[:focus_kind], "is not included in the list"
+
+    session.focus_kind = "review"
+    session.last_progress_at = nil
+    assert_not session.valid?
+    assert_includes session.errors[:last_progress_at], "must exist when supervision has started"
+  end
+
   private
 
   def build_subagent_session(context: create_workspace_context!, owner_conversation: nil, **overrides)

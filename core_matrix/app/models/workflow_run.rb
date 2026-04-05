@@ -1,6 +1,13 @@
 class WorkflowRun < ApplicationRecord
   include HasPublicId
 
+  BLOCKED_WAIT_REASON_KINDS = %w[
+    external_dependency_blocked
+    manual_recovery_required
+    human_interaction
+    agent_unavailable
+  ].freeze
+
   WAIT_DETAIL_ATTRIBUTE_NAMES = Workflows::WaitState::DETAIL_ATTRIBUTE_NAMES.map(&:to_s).freeze
 
   enum :lifecycle_state,
@@ -108,6 +115,10 @@ class WorkflowRun < ApplicationRecord
 
   def waiting_on_agent_unavailable?
     waiting? && wait_reason_kind == "agent_unavailable"
+  end
+
+  def blocked?
+    waiting? && BLOCKED_WAIT_REASON_KINDS.include?(wait_reason_kind)
   end
 
   def waiting_on_subagent_barrier?
