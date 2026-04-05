@@ -64,6 +64,79 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       state.status_payload.fetch("active_plan_items").map { |item| item.fetch("item_key") }
   end
 
+  test "appends semantic feed entries from supervision changes" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      request_summary: "Replace the observation schema",
+      current_focus_summary: "Adding the canonical supervision aggregates",
+      recent_progress_summary: "Finished reviewing the old models",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+    AgentTaskProgressEntry.create!(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 1,
+      entry_kind: "progress_recorded",
+      summary: "Finished reviewing the old models",
+      details_payload: {},
+      occurred_at: Time.current
+    )
+
+    Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+
+    assert_equal %w[turn_started progress_recorded], feed.map { |entry| entry.fetch("event_kind") }
+    assert_equal ["Finished reviewing the old models"], feed.select { |entry| entry.fetch("event_kind") == "progress_recorded" }.map { |entry| entry.fetch("summary") }
+    assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
+  end
+
+  test "does not append duplicate feed entries when the semantic supervision state is unchanged" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      request_summary: "Replace the observation schema",
+      current_focus_summary: "Adding the canonical supervision aggregates",
+      recent_progress_summary: "Finished reviewing the old models",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+    AgentTaskProgressEntry.create!(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 1,
+      entry_kind: "progress_recorded",
+      summary: "Finished reviewing the old models",
+      details_payload: {},
+      occurred_at: Time.current
+    )
+
+    Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+    initial_count = ConversationSupervisionFeedEntry.where(target_conversation: context[:conversation]).count
+
+    Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal initial_count,
+      ConversationSupervisionFeedEntry.where(target_conversation: context[:conversation]).count
+  end
+
   test "summarizes subagent barrier waits without leaking raw workflow tokens" do
     context = build_agent_control_context!
     child_conversation = create_conversation_record!(

@@ -6,9 +6,10 @@ module ConversationSupervision
       new(...).call
     end
 
-    def initialize(conversation_supervision_state:, previous_attributes:)
+    def initialize(conversation_supervision_state:, previous_attributes:, latest_feed_entry: nil)
       @conversation_supervision_state = conversation_supervision_state
       @previous_attributes = previous_attributes || {}
+      @latest_feed_entry = latest_feed_entry
     end
 
     def call
@@ -24,8 +25,9 @@ module ConversationSupervision
         "active_plan_item_count" => @conversation_supervision_state.active_plan_item_count,
         "completed_plan_item_count" => @conversation_supervision_state.completed_plan_item_count,
         "active_subagent_count" => @conversation_supervision_state.active_subagent_count,
-        "board_badges" => @conversation_supervision_state.board_badges
-      }
+        "board_badges" => @conversation_supervision_state.board_badges,
+        "latest_feed_entry" => serialized_feed_entry
+      }.compact
 
       ActiveSupport::Notifications.instrument(EVENT_NAME, payload)
       payload
@@ -53,6 +55,19 @@ module ConversationSupervision
         "board_badges",
         "retry_due_at"
       )
+    end
+
+    def serialized_feed_entry
+      return if @latest_feed_entry.blank?
+
+      {
+        "conversation_supervision_feed_entry_id" => @latest_feed_entry.public_id,
+        "turn_id" => @latest_feed_entry.target_turn&.public_id,
+        "sequence" => @latest_feed_entry.sequence,
+        "event_kind" => @latest_feed_entry.event_kind,
+        "summary" => @latest_feed_entry.summary,
+        "occurred_at" => @latest_feed_entry.occurred_at.iso8601
+      }.compact
     end
   end
 end

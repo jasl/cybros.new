@@ -3,6 +3,16 @@ require "test_helper"
 class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
   test "publishes material supervision changes and ignores cosmetic rewrites" do
     state = create_supervision_state!(board_lane: "active", current_focus_summary: "Project runtime state")
+    latest_feed_entry = ConversationSupervisionFeedEntry.create!(
+      installation: state.installation,
+      target_conversation: state.target_conversation,
+      target_turn: state.target_conversation.turns.first,
+      sequence: 1,
+      event_kind: "progress_recorded",
+      summary: "Reviewed the supervision board.",
+      details_payload: {},
+      occurred_at: Time.current
+    )
     events = []
     callback = lambda do |_name, _started, _finished, _id, payload|
       events << payload
@@ -11,6 +21,7 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.subscribed(callback, "conversation_supervision.updated") do
       ConversationSupervision::PublishUpdate.call(
         conversation_supervision_state: state,
+        latest_feed_entry: latest_feed_entry,
         previous_attributes: {
           "board_lane" => "queued",
           "current_focus_summary" => "Queue the work",
@@ -29,6 +40,7 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
       )
       ConversationSupervision::PublishUpdate.call(
         conversation_supervision_state: state,
+        latest_feed_entry: latest_feed_entry,
         previous_attributes: {
           "board_lane" => state.board_lane,
           "current_focus_summary" => state.current_focus_summary,
@@ -51,6 +63,7 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     assert_equal state.public_id, events.first.fetch("conversation_supervision_state_id")
     assert_equal "active", events.first.fetch("board_lane")
     assert_equal "completed", events.first.fetch("last_terminal_state")
+    assert_equal "progress_recorded", events.first.fetch("latest_feed_entry").fetch("event_kind")
   end
 
   private
@@ -62,6 +75,13 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
       installation: context[:installation],
       execution_runtime: context[:execution_runtime],
       agent_program: context[:agent_program]
+    )
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Summarize the recent work",
+      execution_runtime: context[:execution_runtime],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
     )
 
     ConversationSupervisionState.create!(

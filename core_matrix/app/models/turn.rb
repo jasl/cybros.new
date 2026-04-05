@@ -38,6 +38,10 @@ class Turn < ApplicationRecord
   has_many :messages, dependent: :restrict_with_exception
   has_many :conversation_events, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
+  has_many :conversation_supervision_feed_entries,
+    foreign_key: :target_turn_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :target_turn
   has_one :workflow_run, dependent: :restrict_with_exception
 
   validates :sequence, uniqueness: { scope: :conversation_id }

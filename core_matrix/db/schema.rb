@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_05_093300) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -623,6 +623,26 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093300) do
     t.index ["installation_id"], name: "index_conversation_summary_segments_on_installation_id"
     t.index ["start_message_id"], name: "index_conversation_summary_segments_on_start_message_id"
     t.index ["superseded_by_id"], name: "index_conversation_summary_segments_on_superseded_by_id"
+  end
+
+  create_table "conversation_supervision_feed_entries", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "details_payload", default: {}, null: false
+    t.string "event_kind", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "occurred_at", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.integer "sequence", null: false
+    t.string "summary", null: false
+    t.bigint "target_conversation_id", null: false
+    t.bigint "target_turn_id"
+    t.datetime "updated_at", null: false
+    t.index ["installation_id"], name: "index_conversation_supervision_feed_entries_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_supervision_feed_entries_on_public_id", unique: true
+    t.index ["target_conversation_id", "sequence"], name: "idx_conversation_supervision_feed_entries_sequence", unique: true
+    t.index ["target_conversation_id", "target_turn_id", "sequence"], name: "idx_conversation_supervision_feed_entries_turn_sequence"
+    t.index ["target_conversation_id"], name: "idx_on_target_conversation_id_5b93de306a"
+    t.index ["target_turn_id"], name: "index_conversation_supervision_feed_entries_on_target_turn_id"
   end
 
   create_table "conversation_supervision_messages", force: :cascade do |t|
@@ -1885,6 +1905,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093300) do
   add_foreign_key "conversation_summary_segments", "installations"
   add_foreign_key "conversation_summary_segments", "messages", column: "end_message_id"
   add_foreign_key "conversation_summary_segments", "messages", column: "start_message_id"
+  add_foreign_key "conversation_supervision_feed_entries", "conversations", column: "target_conversation_id"
+  add_foreign_key "conversation_supervision_feed_entries", "installations"
+  add_foreign_key "conversation_supervision_feed_entries", "turns", column: "target_turn_id"
   add_foreign_key "conversation_supervision_messages", "conversation_supervision_sessions"
   add_foreign_key "conversation_supervision_messages", "conversation_supervision_snapshots"
   add_foreign_key "conversation_supervision_messages", "conversations", column: "target_conversation_id"

@@ -20,20 +20,30 @@ module Conversations
           status_payload: {}
         )
       previous_attributes = state.new_record? ? {} : comparable_attributes(state)
-      next_attributes = projection_attributes(state:)
+      next_attributes = projection_attributes(state:).deep_stringify_keys
       changed = state.new_record? || previous_attributes != next_attributes
 
       if changed
-        state.assign_attributes(
-          next_attributes.merge(
-            projection_version: state.projection_version.to_i + 1
+        ApplicationRecord.transaction do
+          state.assign_attributes(
+            next_attributes.merge(
+              "projection_version" => state.projection_version.to_i + 1
+            )
           )
-        )
-        state.save!
-        ConversationSupervision::PublishUpdate.call(
-          conversation_supervision_state: state,
-          previous_attributes: previous_attributes
-        )
+          state.save!
+
+          changeset = semantic_changeset(previous_attributes:, current_attributes: next_attributes)
+          feed_entries = ConversationSupervision::AppendFeedEntries.call(
+            conversation: @conversation,
+            changeset: changeset,
+            occurred_at: @occurred_at
+          )
+          ConversationSupervision::PublishUpdate.call(
+            conversation_supervision_state: state,
+            previous_attributes: previous_attributes,
+            latest_feed_entry: feed_entries.last
+          )
+        end
       end
 
       state
@@ -400,6 +410,122 @@ module Conversations
 
     def workflow_terminal_at
       workflow_run.updated_at
+    end
+
+    def semantic_changeset(previous_attributes:, current_attributes:)
+      previous = previous_attributes.deep_stringify_keys
+      current = current_attributes.deep_stringify_keys
+      changes = []
+
+      if previous.blank? && feed_target_turn.present? && current["overall_state"] != "idle"
+        changes << semantic_change(
+          event_kind: "turn_started",
+          summary: current["request_summary"].presence || "Started the turn.",
+          current_attributes: current
+        )
+      end
+
+      if current["recent_progress_summary"].present? &&
+          current["recent_progress_summary"] != previous["recent_progress_summary"]
+        changes << semantic_change(
+          event_kind: "progress_recorded",
+          summary: current["recent_progress_summary"],
+          current_attributes: current
+        )
+      end
+
+      if current["overall_state"] == "waiting" && previous["overall_state"] != "waiting"
+        changes << semantic_change(
+          event_kind: "waiting_started",
+          summary: current["waiting_summary"].presence || "Waiting on follow-up work.",
+          current_attributes: current
+        )
+      elsif previous["overall_state"] == "waiting" && current["overall_state"] != "waiting"
+        changes << semantic_change(
+          event_kind: "waiting_cleared",
+          summary: "Cleared the waiting state.",
+          current_attributes: current
+        )
+      end
+
+      if current["overall_state"] == "blocked" && previous["overall_state"] != "blocked"
+        changes << semantic_change(
+          event_kind: "blocker_started",
+          summary: current["blocked_summary"].presence || "Hit a blocker.",
+          current_attributes: current
+        )
+      elsif previous["overall_state"] == "blocked" && current["overall_state"] != "blocked"
+        changes << semantic_change(
+          event_kind: "blocker_cleared",
+          summary: "Cleared the blocker.",
+          current_attributes: current
+        )
+      end
+
+      active_subagent_delta = current["active_subagent_count"].to_i - previous["active_subagent_count"].to_i
+      if active_subagent_delta.positive?
+        changes << semantic_change(
+          event_kind: "subagent_started",
+          summary: "#{active_subagent_delta} child task#{'s' unless active_subagent_delta == 1} started.",
+          current_attributes: current
+        )
+      elsif active_subagent_delta.negative?
+        completed_count = active_subagent_delta.abs
+        changes << semantic_change(
+          event_kind: "subagent_completed",
+          summary: "#{completed_count} child task#{'s' unless completed_count == 1} completed.",
+          current_attributes: current
+        )
+      end
+
+      if current["last_terminal_state"].present? &&
+          current["last_terminal_at"] != previous["last_terminal_at"]
+        event_kind =
+          case current["last_terminal_state"]
+          when "completed" then "turn_completed"
+          when "failed" then "turn_failed"
+          else "turn_interrupted"
+          end
+        changes << semantic_change(
+          event_kind: event_kind,
+          summary: terminal_feed_summary(current),
+          current_attributes: current
+        )
+      end
+
+      changes.compact.uniq
+    end
+
+    def semantic_change(event_kind:, summary:, current_attributes:)
+      return if feed_target_turn.blank?
+
+      {
+        "event_kind" => event_kind,
+        "summary" => summary,
+        "details_payload" => {
+          "overall_state" => current_attributes["overall_state"],
+          "board_lane" => current_attributes["board_lane"],
+          "current_owner_kind" => current_attributes["current_owner_kind"],
+          "current_owner_public_id" => current_attributes["current_owner_public_id"],
+          "active_subagent_count" => current_attributes["active_subagent_count"],
+          "last_terminal_state" => current_attributes["last_terminal_state"]
+        }.compact,
+        "occurred_at" => @occurred_at
+      }
+    end
+
+    def terminal_feed_summary(current_attributes)
+      current_attributes["recent_progress_summary"].presence ||
+        case current_attributes["last_terminal_state"]
+        when "completed" then "Completed the turn."
+        when "failed" then "The turn failed."
+        else "The turn was interrupted."
+        end
+    end
+
+    def feed_target_turn
+      @feed_target_turn ||= @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
+        @conversation.turns.order(sequence: :desc).first
     end
   end
 end

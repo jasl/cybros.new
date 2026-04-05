@@ -75,6 +75,10 @@ class Conversation < ApplicationRecord
     foreign_key: :target_conversation_id,
     dependent: :restrict_with_exception,
     inverse_of: :target_conversation
+  has_many :conversation_supervision_feed_entries,
+    foreign_key: :target_conversation_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :target_conversation
   has_many :conversation_supervision_sessions,
     foreign_key: :target_conversation_id,
     dependent: :restrict_with_exception,
