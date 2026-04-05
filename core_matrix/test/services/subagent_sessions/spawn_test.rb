@@ -120,6 +120,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     child_state = child_conversation.reload.conversation_supervision_state
 
     assert owner_state.present?
+    assert_not_equal "idle", owner_state.overall_state
     assert_includes owner_state.status_payload.fetch("active_subagents").map { |entry| entry.fetch("subagent_session_id") }, child_session.public_id
     assert_equal "running", child_state.overall_state
     assert_equal child_task_run.public_id, child_state.current_owner_public_id

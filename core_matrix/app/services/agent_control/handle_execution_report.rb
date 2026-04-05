@@ -52,13 +52,16 @@ module AgentControl
         lifecycle_state: "running",
         started_at: @occurred_at,
         holder_agent_session: resolved_agent_session,
-        expected_duration_seconds: @payload["expected_duration_seconds"]
+        expected_duration_seconds: @payload["expected_duration_seconds"],
+        supervision_state: "running",
+        last_progress_at: @occurred_at
       )
       agent_task_run.workflow_node.update!(
         lifecycle_state: "running",
         started_at: agent_task_run.workflow_node.started_at || @occurred_at,
         finished_at: nil
       )
+      sync_subagent_session_started_state!
 
       unless agent_task_run.execution_lease&.active?
         Leases::Acquire.call(
@@ -69,6 +72,7 @@ module AgentControl
       end
 
       mailbox_item.update!(status: "acked", acked_at: @occurred_at)
+      refresh_related_supervision_states!
       broadcast_runtime_event!(
         "runtime.agent_task.started",
         base_runtime_payload.merge(
@@ -161,15 +165,7 @@ module AgentControl
     end
 
     def append_terminal_progress_entry!(lifecycle_state:)
-      summary =
-        case lifecycle_state
-        when "completed"
-          terminal_payload_for_terminal_message["output"].presence || "Completed the assigned work."
-        when "failed"
-          terminal_payload_for_terminal_message["last_error_summary"].presence || "Execution failed."
-        else
-          "Execution was interrupted."
-        end
+      summary = terminal_summary_for(lifecycle_state:)
 
       agent_task_run.update!(
         supervision_state: lifecycle_state,
@@ -187,6 +183,17 @@ module AgentControl
         summary: summary,
         details_payload: {},
         occurred_at: @occurred_at
+      )
+    end
+
+    def sync_subagent_session_started_state!
+      session = agent_task_run.subagent_session
+      return if session.blank?
+
+      session.update!(
+        observed_status: "running",
+        supervision_state: "running",
+        last_progress_at: @occurred_at
       )
     end
 
@@ -209,6 +216,31 @@ module AgentControl
         blocked_summary: nil,
         last_progress_at: @occurred_at
       )
+    end
+
+    def terminal_summary_for(lifecycle_state:)
+      fallback =
+        case lifecycle_state
+        when "completed" then "Completed the assigned work."
+        when "failed" then "Execution failed."
+        else "Execution was interrupted."
+        end
+      candidate =
+        case lifecycle_state
+        when "completed"
+          terminal_payload_for_terminal_message["output"]
+        when "failed"
+          terminal_payload_for_terminal_message["last_error_summary"]
+        end
+
+      sanitize_terminal_summary(candidate, fallback:)
+    end
+
+    def sanitize_terminal_summary(candidate, fallback:)
+      summary = candidate.to_s.gsub(AgentTaskProgressEntry::INTERNAL_RUNTIME_TOKEN_PATTERN, " ").squish
+      summary = fallback if summary.blank?
+
+      summary.truncate(SupervisionStateFields::HUMAN_SUMMARY_MAX_LENGTH)
     end
 
     def refresh_related_supervision_states!

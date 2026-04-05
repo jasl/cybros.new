@@ -687,19 +687,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093300) do
   end
 
   create_table "conversation_supervision_states", force: :cascade do |t|
+    t.integer "active_plan_item_count", default: 0, null: false
+    t.integer "active_subagent_count", default: 0, null: false
     t.string "blocked_summary"
+    t.jsonb "board_badges", default: [], null: false
+    t.string "board_lane", default: "idle", null: false
+    t.integer "completed_plan_item_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.string "current_focus_summary"
     t.string "current_owner_kind"
     t.string "current_owner_public_id"
     t.bigint "installation_id", null: false
+    t.datetime "lane_changed_at"
     t.datetime "last_progress_at"
+    t.datetime "last_terminal_at"
+    t.string "last_terminal_state"
     t.string "next_step_hint"
-    t.string "overall_state", default: "running", null: false
+    t.string "overall_state", default: "idle", null: false
     t.integer "projection_version", default: 0, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "recent_progress_summary"
     t.string "request_summary"
+    t.datetime "retry_due_at"
     t.jsonb "status_payload", default: {}, null: false
     t.bigint "target_conversation_id", null: false
     t.datetime "updated_at", null: false

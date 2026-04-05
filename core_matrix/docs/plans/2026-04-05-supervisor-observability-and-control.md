@@ -193,7 +193,9 @@ read:
 
 ```ruby
 {
-  "overall_state" => "running|waiting|blocked|completed|failed",
+  "overall_state" => "idle|queued|running|waiting|blocked|completed|failed|interrupted|canceled",
+  "last_terminal_state" => "completed|failed|interrupted|canceled|nil",
+  "last_terminal_at" => "...iso8601...",
   "current_owner" => {
     "kind" => "agent_task_run|subagent_session|workflow_run",
     "id" => "...public_id..."
@@ -205,12 +207,22 @@ read:
   "blocked_summary" => "...",
   "next_step_hint" => "...",
   "last_progress_at" => "...iso8601...",
-  "board_lane" => "queued|active|waiting|blocked|handoff|done|failed",
+  "board_lane" => "idle|queued|active|waiting|blocked|handoff|done|failed",
   "board_badges" => [...],
   "active_plan_items" => [...],
   "active_subagents" => [...]
 }
 ```
+
+`overall_state` answers what the conversation is doing now. `last_terminal_state`
+and `last_terminal_at` answer how the previous work segment ended.
+
+When there is no active turn, no running workflow or task, no active subagent
+work, and no waiting or blocked state, the projector should emit `idle`. A
+conversation that just finished or failed should normally project as:
+
+- `overall_state = idle`
+- `last_terminal_state = completed|failed`
 
 That state is the source of truth for supervisor reads. Sidechat snapshots
 freeze it; they do not reconstruct it from raw workflow tokens.
@@ -464,7 +476,9 @@ create_table :conversation_supervision_states do |t|
   t.references :installation, null: false, foreign_key: true
   t.references :target_conversation, null: false, foreign_key: { to_table: :conversations }, index: { unique: true, name: "idx_conversation_supervision_states_target" }
   t.uuid :public_id, null: false, default: -> { "uuidv7()" }
-  t.string :overall_state, null: false, default: "running"
+  t.string :overall_state, null: false, default: "idle"
+  t.string :last_terminal_state
+  t.datetime :last_terminal_at
   t.string :current_owner_kind
   t.string :current_owner_public_id
   t.string :request_summary
@@ -913,6 +927,7 @@ Cover:
 
 Recommended lane taxonomy:
 
+- `idle`
 - `queued`
 - `active`
 - `waiting`
@@ -926,7 +941,7 @@ Recommended lane taxonomy:
 Amend the create migration to add fields such as:
 
 ```ruby
-t.string :board_lane, null: false, default: "queued"
+t.string :board_lane, null: false, default: "idle"
 t.datetime :lane_changed_at
 t.datetime :retry_due_at
 t.integer :active_plan_item_count, null: false, default: 0
@@ -954,12 +969,19 @@ strictly about stable projection seams.
 
 `Conversations::UpdateSupervisionState` should also maintain:
 
+- `last_terminal_state`
+- `last_terminal_at`
 - `board_lane`
 - `lane_changed_at`
 - `retry_due_at`
 - plan-item counts
 - active subagent count
 - `board_badges`
+
+`overall_state` should only remain terminal when the conversation is being
+presented as a terminal archived/deleted surface. Otherwise, once live work has
+stopped, the projector should fall back to `idle` and preserve the prior result
+in `last_terminal_state`.
 
 That keeps the single-card truth and future board truth aligned.
 

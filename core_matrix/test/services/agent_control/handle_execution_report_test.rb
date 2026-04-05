@@ -115,11 +115,39 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal "Adding the canonical supervision aggregates", supervision_state.current_focus_summary
   end
 
+  test "execution_started advances queued supervision and refreshes the conversation projection" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    assert_equal "queued", agent_task_run.supervision_state
+    assert_nil context[:conversation].reload.conversation_supervision_state
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run,
+      occurred_at: Time.current
+    )
+
+    agent_task_run.reload
+    supervision_state = context[:conversation].reload.conversation_supervision_state
+
+    assert_equal "running", agent_task_run.supervision_state
+    assert agent_task_run.last_progress_at.present?
+    assert_equal "running", supervision_state.overall_state
+    assert_equal "agent_task_run", supervision_state.current_owner_kind
+    assert_equal agent_task_run.public_id, supervision_state.current_owner_public_id
+  end
+
   test "execution_complete appends a semantic completion entry" do
     assert_terminal_execution_report!(
       method_id: "execution_complete",
       lifecycle_state: "completed",
       entry_kind: "execution_completed",
+      projected_overall_state: "queued",
+      projected_board_lane: "queued",
       terminal_payload: { "output" => "Shipped the projector" }
     )
   end
@@ -129,6 +157,8 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
       method_id: "execution_fail",
       lifecycle_state: "failed",
       entry_kind: "execution_failed",
+      projected_overall_state: "idle",
+      projected_board_lane: "idle",
       terminal_payload: { "last_error_summary" => "Provider timed out while saving the projection" }
     )
   end
@@ -138,13 +168,51 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
       method_id: "execution_interrupted",
       lifecycle_state: "interrupted",
       entry_kind: "execution_interrupted",
+      projected_overall_state: "queued",
+      projected_board_lane: "queued",
       terminal_payload: {}
     )
   end
 
+  test "execution_complete sanitizes unsafe terminal summaries before persisting them" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run
+    )
+
+    unsafe_output = (["provider_round_1_tool_1", "runtime.plan", "Delivered the patch."] * 40).join(" ")
+
+    AgentControl::HandleExecutionReport.call(
+      deployment: context[:deployment],
+      method_id: "execution_complete",
+      payload: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "agent_task_run_id" => agent_task_run.public_id,
+        "logical_work_id" => agent_task_run.logical_work_id,
+        "attempt_no" => agent_task_run.attempt_no,
+        "terminal_payload" => { "output" => unsafe_output }
+      },
+      occurred_at: Time.current
+    )
+
+    summary = agent_task_run.reload.recent_progress_summary
+    entry = agent_task_run.agent_task_progress_entries.order(:sequence).last
+
+    assert summary.present?
+    assert_operator summary.length, :<=, SupervisionStateFields::HUMAN_SUMMARY_MAX_LENGTH
+    refute_match(/provider_round_|runtime\./, summary)
+    assert_equal summary, entry.summary
+  end
+
   private
 
-  def assert_terminal_execution_report!(method_id:, lifecycle_state:, entry_kind:, terminal_payload:)
+  def assert_terminal_execution_report!(method_id:, lifecycle_state:, entry_kind:, projected_overall_state:, projected_board_lane:, terminal_payload:)
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
@@ -176,6 +244,9 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal entry_kind, entry.entry_kind
     assert entry.summary.present?
     refute_match(/provider_round_|runtime\.|subagent_barrier/, entry.summary)
-    assert_equal lifecycle_state, context[:conversation].reload.conversation_supervision_state.overall_state
+    supervision_state = context[:conversation].reload.conversation_supervision_state
+    assert_equal projected_overall_state, supervision_state.overall_state
+    assert_equal projected_board_lane, supervision_state.board_lane
+    assert_equal lifecycle_state, supervision_state.last_terminal_state
   end
 end

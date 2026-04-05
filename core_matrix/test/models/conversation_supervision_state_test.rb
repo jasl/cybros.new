@@ -13,7 +13,16 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     state = ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
-      overall_state: "running",
+      overall_state: "idle",
+      board_lane: "idle",
+      lane_changed_at: Time.current,
+      retry_due_at: 5.minutes.from_now,
+      active_plan_item_count: 1,
+      completed_plan_item_count: 1,
+      active_subagent_count: 2,
+      board_badges: ["2 child tasks"],
+      last_terminal_state: "completed",
+      last_terminal_at: 1.minute.ago,
       current_owner_kind: "agent_task_run",
       current_owner_public_id: "task_run_public_id",
       request_summary: "Replace the observation schema",
@@ -30,6 +39,13 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     assert_equal state, ConversationSupervisionState.find_by_public_id!(state.public_id)
     assert_equal conversation, state.target_conversation
     assert_equal "task_run_public_id", state.current_owner_public_id
+    assert_equal "idle", state.board_lane
+    assert_equal "completed", state.last_terminal_state
+    assert state.last_terminal_at.present?
+    assert_equal 1, state.active_plan_item_count
+    assert_equal 1, state.completed_plan_item_count
+    assert_equal 2, state.active_subagent_count
+    assert_equal ["2 child tasks"], state.board_badges
     assert_equal({ "current_owner_public_id" => "task_run_public_id" }, state.status_payload)
     assert_equal state, conversation.conversation_supervision_state
     assert_not_nil Conversation.reflect_on_association(:conversation_supervision_state)
@@ -54,9 +70,11 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     duplicate = ConversationSupervisionState.new(
       installation: context[:installation],
       target_conversation: conversation,
-      overall_state: "waiting",
+      overall_state: "idle",
+      board_lane: "idle",
       waiting_summary: "Waiting on review",
       last_progress_at: Time.current,
+      board_badges: [],
       status_payload: {}
     )
 
@@ -67,8 +85,10 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     mismatched = ConversationSupervisionState.new(
       installation: other_installation,
       target_conversation: conversation,
-      overall_state: "running",
+      overall_state: "idle",
+      board_lane: "idle",
       last_progress_at: Time.current,
+      board_badges: [],
       status_payload: {}
     )
 

@@ -84,21 +84,23 @@ module AgentControl
       session = @agent_task_run.subagent_session
       return if session.blank?
 
-      session.update!(
-        supervision_update.slice(
-          "supervision_state",
-          "focus_kind",
-          "request_summary",
-          "current_focus_summary",
-          "recent_progress_summary",
-          "waiting_summary",
-          "blocked_summary",
-          "next_step_hint"
-        ).merge(
-          "observed_status" => observed_status_for(supervision_update["supervision_state"]),
-          "last_progress_at" => @occurred_at
-        )
+      attributes = supervision_update.slice(
+        "supervision_state",
+        "focus_kind",
+        "request_summary",
+        "current_focus_summary",
+        "recent_progress_summary",
+        "waiting_summary",
+        "blocked_summary",
+        "next_step_hint"
+      ).merge(
+        "last_progress_at" => @occurred_at
       )
+      if supervision_update.key?("supervision_state")
+        attributes["observed_status"] = observed_status_for(supervision_update["supervision_state"])
+      end
+
+      session.update!(attributes)
     end
 
     def observed_status_for(supervision_state)
