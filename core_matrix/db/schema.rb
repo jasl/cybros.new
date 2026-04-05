@@ -761,6 +761,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.bigint "parent_conversation_id"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "purpose", null: false
+    t.text "summary"
+    t.string "summary_lock_state", default: "unlocked", null: false
+    t.string "summary_source", default: "none", null: false
+    t.datetime "summary_updated_at"
+    t.text "title"
+    t.string "title_lock_state", default: "unlocked", null: false
+    t.string "title_source", default: "none", null: false
+    t.datetime "title_updated_at"
     t.datetime "updated_at", null: false
     t.bigint "workspace_id", null: false
     t.index ["agent_program_id", "lifecycle_state"], name: "idx_conversations_program_lifecycle"
@@ -773,6 +781,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
     t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
     t.check_constraint "during_generation_input_policy::text = ANY (ARRAY['reject'::character varying, 'restart'::character varying, 'queue'::character varying]::text[])", name: "chk_conversations_during_generation_input_policy"
+    t.check_constraint "summary_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_summary_lock_state"
+    t.check_constraint "summary_source::text = ANY (ARRAY['none'::character varying, 'bootstrap'::character varying, 'generated'::character varying, 'agent'::character varying, 'user'::character varying]::text[])", name: "chk_conversations_summary_source"
+    t.check_constraint "title_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_title_lock_state"
+    t.check_constraint "title_source::text = ANY (ARRAY['none'::character varying, 'bootstrap'::character varying, 'generated'::character varying, 'agent'::character varying, 'user'::character varying]::text[])", name: "chk_conversations_title_source"
   end
 
   create_table "execution_capability_snapshots", force: :cascade do |t|

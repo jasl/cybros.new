@@ -44,6 +44,40 @@ class Conversation < ApplicationRecord
       deleted: "deleted",
     },
     validate: true
+  enum :title_source,
+    {
+      none: "none",
+      bootstrap: "bootstrap",
+      generated: "generated",
+      agent: "agent",
+      user: "user",
+    },
+    validate: true,
+    prefix: :title_source
+  enum :summary_source,
+    {
+      none: "none",
+      bootstrap: "bootstrap",
+      generated: "generated",
+      agent: "agent",
+      user: "user",
+    },
+    validate: true,
+    prefix: :summary_source
+  enum :title_lock_state,
+    {
+      unlocked: "unlocked",
+      user_locked: "user_locked",
+    },
+    validate: true,
+    prefix: :title_lock_state
+  enum :summary_lock_state,
+    {
+      unlocked: "unlocked",
+      user_locked: "user_locked",
+    },
+    validate: true,
+    prefix: :summary_lock_state
   enum :interactive_selector_mode,
     {
       auto: "auto",
@@ -142,6 +176,14 @@ class Conversation < ApplicationRecord
 
   def deleting?
     pending_delete? || deleted?
+  end
+
+  def title_locked?
+    title_lock_state_user_locked?
+  end
+
+  def summary_locked?
+    summary_lock_state_user_locked?
   end
 
   def unfinished_close_operation
