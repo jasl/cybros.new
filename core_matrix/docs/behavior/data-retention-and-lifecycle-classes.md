@@ -23,8 +23,8 @@ state, it should remain only while a durable owner still references it.
 
 ### Derived and observability data must be disposable
 
-Diagnostics, observation, export, and similar convenience rows must be safe to
-remove without corrupting product state.
+Diagnostics, supervision-sidechat artifacts, export, and similar convenience
+rows must be safe to remove without corrupting product state.
 
 ### Read paths must define missing-data behavior
 
@@ -125,7 +125,7 @@ Representative models:
 
 ### `ephemeral_observability`
 
-Observation and export artifacts that help humans or supervisor systems inspect
+Supervision and export artifacts that help humans or supervisor systems inspect
 runtime behavior.
 
 Deletion rule:
@@ -139,9 +139,9 @@ Missing-data rule:
 
 Representative models:
 
-- `ConversationObservationSession`
-- `ConversationObservationFrame`
-- `ConversationObservationMessage`
+- `ConversationSupervisionSession`
+- `ConversationSupervisionSnapshot`
+- `ConversationSupervisionMessage`
 - `ConversationExportRequest`
 - `ConversationDebugExportRequest`
 
@@ -159,6 +159,7 @@ Missing-data rule:
 
 Representative models:
 
+- `ConversationControlRequest`
 - `UsageEvent`
 
 ### `retained_aggregate`

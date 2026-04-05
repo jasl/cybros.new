@@ -178,7 +178,7 @@ module AgentControl
 
       AgentTaskRuns::AppendProgressEntry.call(
         agent_task_run: agent_task_run,
-        subagent_session: agent_task_run.subagent_session,
+        subagent_session: agent_task_run.progress_entry_subagent_session,
         entry_kind: "execution_#{lifecycle_state}",
         summary: summary,
         details_payload: {},

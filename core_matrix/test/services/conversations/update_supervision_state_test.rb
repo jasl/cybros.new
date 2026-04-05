@@ -219,6 +219,36 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal context[:workflow_run].public_id, state.current_owner_public_id
   end
 
+  test "projects running when an active workflow is already advancing without a task run projection" do
+    context = build_agent_control_context!
+    context[:workflow_node].update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago
+    )
+    create_workflow_node!(
+      workflow_run: context[:workflow_run],
+      installation: context[:installation],
+      node_key: "provider_round_2",
+      node_type: "turn_step",
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "running", state.overall_state
+    assert_equal "active", state.board_lane
+    assert_equal "workflow_run", state.current_owner_kind
+    assert_equal context[:workflow_run].public_id, state.current_owner_public_id
+  end
+
   test "projects idle with last terminal completed when the previous run finished and nothing is active" do
     context = build_agent_control_context!
     context[:workflow_run].update!(lifecycle_state: "completed")

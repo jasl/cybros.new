@@ -67,6 +67,12 @@ class AgentTaskRun < ApplicationRecord
     turn&.feature_policy_snapshot || {}
   end
 
+  def progress_entry_subagent_session
+    session = subagent_session
+    return if session.blank?
+    return session if session.owner_conversation_id == conversation_id
+  end
+
   private
 
   def task_payload_must_be_hash

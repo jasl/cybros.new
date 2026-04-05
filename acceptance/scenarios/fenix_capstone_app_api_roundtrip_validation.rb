@@ -12,13 +12,23 @@ require "timeout"
 require "uri"
 require "zip"
 require_relative "../lib/boot"
+require_relative "../lib/conversation_control_phrase_matrix"
 require_relative "../lib/conversation_runtime_validation"
 
 OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
 PLAYWRIGHT_VERSION = "1.59.1".freeze
 EXPECTED_SKILL_DAG_SHAPE = ["agent_turn_step"].freeze
-OBSERVATION_PROMPT = "Please tell a human supervisor what you are doing right now and what changed most recently.".freeze
+SUPERVISION_PROMPT = "Please tell a human supervisor what you are doing right now, what changed most recently, and which control actions are available.".freeze
+TERMINAL_WORK_SEGMENT_STATES = %w[completed failed interrupted canceled].freeze
+INTERNAL_HUMAN_VISIBLE_TOKEN_PATTERN = %r{
+  provider_round|
+  tool_[a-z0-9_]+|
+  runtime\.[a-z0-9_.]+|
+  subagent_barrier|
+  wait_reason_kind|
+  workflow_node
+}ix.freeze
 EXPECTED_SKILL_CONVERSATION_STATE = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
@@ -45,11 +55,18 @@ scenario_date = Date.current.iso8601
 capstone_phase = ENV.fetch("CAPSTONE_PHASE", "execute")
 bootstrap_state_path = Pathname.new(ENV.fetch("CAPSTONE_BOOTSTRAP_STATE_PATH", artifact_dir.join("capstone-runtime-bootstrap.json").to_s))
 runtime_worker_boot_path = Pathname.new(ENV.fetch("CAPSTONE_RUNTIME_WORKER_BOOT_PATH", artifact_dir.join("docker-runtime-worker.json").to_s))
-observation_poll_interval_seconds = Float(ENV.fetch("CAPSTONE_OBSERVATION_POLL_INTERVAL_SECONDS", "5"))
-observation_timeout_seconds = Integer(ENV.fetch("CAPSTONE_OBSERVATION_TIMEOUT_SECONDS", "3600"))
-observation_stall_threshold_ms = Integer(ENV.fetch("CAPSTONE_OBSERVATION_STALL_THRESHOLD_MS", (30 * 60 * 1000).to_s))
+supervision_poll_interval_seconds = Float(
+  ENV.fetch("CAPSTONE_SUPERVISION_POLL_INTERVAL_SECONDS", ENV.fetch("CAPSTONE_OBSERVATION_POLL_INTERVAL_SECONDS", "5"))
+)
+supervision_timeout_seconds = Integer(
+  ENV.fetch("CAPSTONE_SUPERVISION_TIMEOUT_SECONDS", ENV.fetch("CAPSTONE_OBSERVATION_TIMEOUT_SECONDS", "3600"))
+)
+supervision_stall_threshold_ms = Integer(
+  ENV.fetch("CAPSTONE_SUPERVISION_STALL_THRESHOLD_MS", ENV.fetch("CAPSTONE_OBSERVATION_STALL_THRESHOLD_MS", (30 * 60 * 1000).to_s))
+)
 max_turn_attempts = Integer(ENV.fetch("CAPSTONE_MAX_TURN_ATTEMPTS", "3"))
 validation_note_limit = Integer(ENV.fetch("CAPSTONE_VALIDATION_NOTE_LIMIT", "1200"))
+control_acceptance_enabled = ENV["CAPSTONE_ENABLE_CONTROL_ACCEPTANCE"] == "1"
 
 prompt = <<~PROMPT
 Use `$using-superpowers`.
@@ -134,58 +151,91 @@ def wait_for_tcp_port!(host:, port:, timeout_seconds:)
   end
 end
 
+def ensure_conversation_capability_policy!(conversation:, control_enabled:)
+  policy = conversation.conversation_capability_policy || ConversationCapabilityPolicy.new(
+    installation: conversation.installation,
+    target_conversation: conversation,
+    policy_payload: {}
+  )
+
+  policy.supervision_enabled = true
+  policy.side_chat_enabled = true
+  policy.control_enabled = control_enabled
+  policy.policy_payload = policy.policy_payload.presence || {}
+  policy.save! if policy.new_record? || policy.changed?
+
+  policy
+end
+
+def supervision_terminal_state?(machine_status)
+  overall_state = machine_status.fetch("overall_state")
+  return true if TERMINAL_WORK_SEGMENT_STATES.include?(overall_state)
+
+  overall_state == "idle" && TERMINAL_WORK_SEGMENT_STATES.include?(machine_status["last_terminal_state"])
+end
+
+def supervision_stalled?(machine_status:, stall_threshold_ms:)
+  return false if TERMINAL_WORK_SEGMENT_STATES.include?(machine_status.fetch("overall_state"))
+  return false if machine_status.fetch("overall_state") == "idle"
+
+  last_progress_at = machine_status["last_progress_at"]
+  return false if last_progress_at.blank?
+
+  ((Time.current - Time.iso8601(last_progress_at)) * 1000).to_i >= stall_threshold_ms
+rescue ArgumentError
+  false
+end
+
 def supervise_conversation_progress!(
   conversation_id:,
   actor:,
-  prompt: OBSERVATION_PROMPT,
+  prompt: SUPERVISION_PROMPT,
   timeout_seconds:,
   poll_interval_seconds:,
   stall_threshold_ms:
 )
-  session_payload = ManualAcceptanceSupport.create_conversation_observation_session!(
+  session_payload = ManualAcceptanceSupport.create_conversation_supervision_session!(
     conversation_id: conversation_id,
     actor: actor
   )
-  observation_session_id = session_payload.dig("conversation_observation_session", "observation_session_id")
+  supervision_session_id = session_payload.dig("conversation_supervision_session", "supervision_session_id")
   deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
   polls = []
 
   loop do
-    response = ManualAcceptanceSupport.append_conversation_observation_message!(
-      observation_session_id: observation_session_id,
+    response = ManualAcceptanceSupport.append_conversation_supervision_message!(
+      supervision_session_id: supervision_session_id,
       content: prompt,
       actor: actor
     )
-    supervisor_status = response.fetch("supervisor_status")
+    machine_status = response.fetch("machine_status")
     human_sidechat = response.fetch("human_sidechat")
 
     polls << {
-      "assessment" => response.fetch("assessment"),
-      "supervisor_status" => supervisor_status,
+      "machine_status" => machine_status,
       "human_sidechat" => human_sidechat,
       "user_message" => response.fetch("user_message"),
-      "observer_message" => response.fetch("observer_message"),
+      "supervisor_message" => response.fetch("supervisor_message"),
     }
 
-    overall_state = supervisor_status.fetch("overall_state")
     return {
       "session" => session_payload,
       "polls" => polls,
       "final_response" => response,
-    } if %w[completed failed].include?(overall_state)
+    } if supervision_terminal_state?(machine_status)
 
-    if supervisor_status.fetch("stall_for_ms").to_i >= stall_threshold_ms
+    if supervision_stalled?(machine_status:, stall_threshold_ms:)
       raise <<~MSG
-        observation supervisor detected a stall after #{stall_threshold_ms}ms
-        last supervisor response:
+        conversation supervision detected a stall after #{stall_threshold_ms}ms
+        last supervision response:
         #{JSON.pretty_generate(response)}
       MSG
     end
 
     if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
       raise <<~MSG
-        timed out supervising conversation #{conversation_id} through observation
-        last supervisor response:
+        timed out supervising conversation #{conversation_id} through supervision
+        last supervision response:
         #{JSON.pretty_generate(response)}
       MSG
     end
@@ -532,6 +582,12 @@ def suspicious_internal_tokens(text)
   text.scan(/\b\d{6,}\b/).uniq
 end
 
+def internal_runtime_tokens(text)
+  return [] if text.blank?
+
+  text.scan(INTERNAL_HUMAN_VISIBLE_TOKEN_PATTERN).uniq
+end
+
 def public_id_tokens(text)
   return [] if text.blank?
 
@@ -539,37 +595,35 @@ def public_id_tokens(text)
 end
 
 def human_visible_leak_tokens(text)
-  (suspicious_internal_tokens(text) + public_id_tokens(text)).uniq
+  (suspicious_internal_tokens(text) + public_id_tokens(text) + internal_runtime_tokens(text)).uniq
 end
 
-def observation_public_id_boundary_failures(poll)
+def supervision_public_id_boundary_failures(poll)
   failures = []
+  machine_status = poll.fetch("machine_status")
 
   scalar_checks = [
-    ["assessment.observation_session_id", poll.dig("assessment", "observation_session_id")],
-    ["assessment.observation_frame_id", poll.dig("assessment", "observation_frame_id")],
-    ["assessment.conversation_id", poll.dig("assessment", "conversation_id")],
-    ["assessment.workflow_run_id", poll.dig("assessment", "workflow_run_id")],
-    ["assessment.workflow_node_id", poll.dig("assessment", "workflow_node_id")],
-    ["supervisor_status.observation_session_id", poll.dig("supervisor_status", "observation_session_id")],
-    ["supervisor_status.observation_frame_id", poll.dig("supervisor_status", "observation_frame_id")],
-    ["supervisor_status.conversation_id", poll.dig("supervisor_status", "conversation_id")],
-    ["supervisor_status.workflow_run_id", poll.dig("supervisor_status", "workflow_run_id")],
-    ["supervisor_status.workflow_node_id", poll.dig("supervisor_status", "workflow_node_id")],
-    ["human_sidechat.observation_session_id", poll.dig("human_sidechat", "observation_session_id")],
-    ["human_sidechat.observation_frame_id", poll.dig("human_sidechat", "observation_frame_id")],
+    ["machine_status.supervision_session_id", machine_status["supervision_session_id"]],
+    ["machine_status.supervision_snapshot_id", machine_status["supervision_snapshot_id"]],
+    ["machine_status.conversation_id", machine_status["conversation_id"]],
+    ["machine_status.current_owner_public_id", machine_status["current_owner_public_id"]],
+    ["human_sidechat.supervision_session_id", poll.dig("human_sidechat", "supervision_session_id")],
+    ["human_sidechat.supervision_snapshot_id", poll.dig("human_sidechat", "supervision_snapshot_id")],
     ["human_sidechat.conversation_id", poll.dig("human_sidechat", "conversation_id")],
-    ["user_message.observation_message_id", poll.dig("user_message", "observation_message_id")],
-    ["user_message.observation_session_id", poll.dig("user_message", "observation_session_id")],
-    ["user_message.observation_frame_id", poll.dig("user_message", "observation_frame_id")],
+    ["user_message.supervision_message_id", poll.dig("user_message", "supervision_message_id")],
+    ["user_message.supervision_session_id", poll.dig("user_message", "supervision_session_id")],
+    ["user_message.supervision_snapshot_id", poll.dig("user_message", "supervision_snapshot_id")],
     ["user_message.target_conversation_id", poll.dig("user_message", "target_conversation_id")],
-    ["observer_message.observation_message_id", poll.dig("observer_message", "observation_message_id")],
-    ["observer_message.observation_session_id", poll.dig("observer_message", "observation_session_id")],
-    ["observer_message.observation_frame_id", poll.dig("observer_message", "observation_frame_id")],
-    ["observer_message.target_conversation_id", poll.dig("observer_message", "target_conversation_id")],
-    ["proof_refs.conversation_id", poll.dig("human_sidechat", "proof_refs", "conversation_id")],
-    ["proof_refs.workflow_run_id", poll.dig("human_sidechat", "proof_refs", "workflow_run_id")],
-    ["proof_refs.workflow_node_id", poll.dig("human_sidechat", "proof_refs", "workflow_node_id")],
+    ["supervisor_message.supervision_message_id", poll.dig("supervisor_message", "supervision_message_id")],
+    ["supervisor_message.supervision_session_id", poll.dig("supervisor_message", "supervision_session_id")],
+    ["supervisor_message.supervision_snapshot_id", poll.dig("supervisor_message", "supervision_snapshot_id")],
+    ["supervisor_message.target_conversation_id", poll.dig("supervisor_message", "target_conversation_id")],
+    ["proof_debug.conversation_id", machine_status.dig("proof_debug", "conversation_id")],
+    ["proof_debug.anchor_turn_id", machine_status.dig("proof_debug", "anchor_turn_id")],
+    ["proof_debug.workflow_run_id", machine_status.dig("proof_debug", "workflow_run_id")],
+    ["proof_debug.workflow_node_id", machine_status.dig("proof_debug", "workflow_node_id")],
+    ["proof_debug.conversation_supervision_state_id", machine_status.dig("proof_debug", "conversation_supervision_state_id")],
+    ["proof_debug.conversation_capability_policy_id", machine_status.dig("proof_debug", "conversation_capability_policy_id")],
   ]
 
   scalar_checks.each do |label, value|
@@ -580,12 +634,18 @@ def observation_public_id_boundary_failures(poll)
   end
 
   array_checks = [
-    ["proof_refs.transcript_message_ids", Array(poll.dig("human_sidechat", "proof_refs", "transcript_message_ids"))],
-    ["proof_refs.subagent_session_ids", Array(poll.dig("human_sidechat", "proof_refs", "subagent_session_ids"))],
+    ["activity_feed.feed_entry_ids", Array(machine_status["activity_feed"]).map { |entry| entry["conversation_supervision_feed_entry_id"] }],
+    ["activity_feed.turn_ids", Array(machine_status["activity_feed"]).map { |entry| entry["turn_id"] }],
+    ["conversation_context.message_ids", Array(machine_status.dig("conversation_context", "message_ids"))],
+    ["conversation_context.turn_ids", Array(machine_status.dig("conversation_context", "turn_ids"))],
+    ["active_subagents.subagent_session_ids", Array(machine_status["active_subagents"]).map { |entry| entry["subagent_session_id"] }],
+    ["active_plan_items.delegated_subagent_session_ids", Array(machine_status["active_plan_items"]).map { |entry| entry["delegated_subagent_session_id"] }],
+    ["proof_debug.context_message_ids", Array(machine_status.dig("proof_debug", "context_message_ids"))],
+    ["proof_debug.feed_entry_ids", Array(machine_status.dig("proof_debug", "feed_entry_ids"))],
   ]
 
   array_checks.each do |label, values|
-    values.each do |value|
+    values.compact.each do |value|
       failures << "#{label}=#{value.inspect}" unless public_id_like?(value)
     end
   end
@@ -593,29 +653,70 @@ def observation_public_id_boundary_failures(poll)
   failures
 end
 
-def append_observation_proof_ref_lines(lines, proof_refs)
-  lines << "- Proof refs:"
-  lines << "  - Conversation: `#{proof_refs["conversation_id"] || "none"}`"
-  lines << "  - Workflow run: `#{proof_refs["workflow_run_id"] || "none"}`"
-  lines << "  - Workflow node: `#{proof_refs["workflow_node_id"] || "none"}`"
-  lines << "  - Transcript refs: `#{Array(proof_refs["transcript_message_ids"]).join("`, `")}`" if Array(proof_refs["transcript_message_ids"]).any?
-  lines << "  - Subagent refs: `#{Array(proof_refs["subagent_session_ids"]).join("`, `")}`" if Array(proof_refs["subagent_session_ids"]).any?
-  lines << "  - Activity projection sequences: `#{Array(proof_refs["activity_projection_sequences"]).join("`, `")}`" if Array(proof_refs["activity_projection_sequences"]).any?
+def append_supervision_control_lines(lines, machine_status)
+  control = machine_status.fetch("control", {})
+  available_verbs = Array(control["available_control_verbs"])
+
+  lines << "- Control capability:"
+  lines << "  - Supervision enabled: `#{control["supervision_enabled"]}`"
+  lines << "  - Side chat enabled: `#{control["side_chat_enabled"]}`"
+  lines << "  - Control enabled: `#{control["control_enabled"]}`"
+  lines << "  - Available control actions: `#{available_verbs.any? ? available_verbs.join("`, `") : "none"}`"
 end
 
-def append_observation_grounding_lines(lines, proof_refs)
-  lines << "- Evidence grounding:"
-  lines << "  - Workflow state available: `#{proof_refs["workflow_run_id"].present?}`"
-  lines << "  - Workflow node available: `#{proof_refs["workflow_node_id"].present?}`"
-  lines << "  - Transcript reference count: `#{Array(proof_refs["transcript_message_ids"]).length}`"
-  lines << "  - Subagent reference count: `#{Array(proof_refs["subagent_session_ids"]).length}`"
-  lines << "  - Activity event count: `#{Array(proof_refs["activity_projection_sequences"]).length}`"
+def append_supervision_plan_item_lines(lines, machine_status)
+  plan_items = Array(machine_status["active_plan_items"])
+  lines << "- Active plan items: `#{plan_items.length}`"
+  return if plan_items.empty?
+
+  plan_items.each do |item|
+    lines << "  - `#{item["status"]}` #{item["title"]}"
+  end
 end
 
-def write_observation_conversation_md(path:, observation_trace:, prompt:)
-  polls = observation_trace.fetch("polls")
+def append_supervision_subagent_lines(lines, machine_status)
+  subagents = Array(machine_status["active_subagents"])
+  lines << "- Active child tasks: `#{subagents.length}`"
+  return if subagents.empty?
+
+  subagents.each do |subagent|
+    summary = subagent["current_focus_summary"] || subagent["waiting_summary"] || subagent["blocked_summary"] || "no summary"
+    lines << "  - `#{subagent["observed_status"] || subagent["supervision_state"] || "unknown"}` #{summary}"
+  end
+end
+
+def append_supervision_grounding_lines(lines, machine_status)
+  lines << "- Grounding:"
+  lines << "  - Board lane: `#{machine_status["board_lane"]}`"
+  lines << "  - Last terminal state: `#{machine_status["last_terminal_state"] || "none"}`"
+  lines << "  - Recent feed entries: `#{Array(machine_status["activity_feed"]).length}`"
+  lines << "  - Conversation facts: `#{Array(machine_status.dig("conversation_context", "facts")).length}`"
+  lines << "  - Waiting summary present: `#{machine_status["waiting_summary"].present?}`"
+  lines << "  - Blocked summary present: `#{machine_status["blocked_summary"].present?}`"
+end
+
+def append_supervision_proof_debug_lines(lines, machine_status)
+  proof_debug = machine_status.fetch("proof_debug", {})
+
+  lines << "- Proof and debug refs:"
+  lines << "  - Conversation: `#{proof_debug["conversation_id"] || "none"}`"
+  lines << "  - Anchor turn: `#{proof_debug["anchor_turn_id"] || "none"}`"
+  lines << "  - Workflow run: `#{proof_debug["workflow_run_id"] || "none"}`"
+  lines << "  - Workflow node: `#{proof_debug["workflow_node_id"] || "none"}`"
+  lines << "  - Supervision state: `#{proof_debug["conversation_supervision_state_id"] || "none"}`"
+  lines << "  - Capability policy: `#{proof_debug["conversation_capability_policy_id"] || "none"}`"
+  if Array(proof_debug["context_message_ids"]).any?
+    lines << "  - Context message ids: `#{Array(proof_debug["context_message_ids"]).join("`, `")}`"
+  end
+  if Array(proof_debug["feed_entry_ids"]).any?
+    lines << "  - Feed entry ids: `#{Array(proof_debug["feed_entry_ids"]).join("`, `")}`"
+  end
+end
+
+def write_supervision_sidechat_md(path:, supervision_trace:, prompt:)
+  polls = supervision_trace.fetch("polls")
   lines = [
-    "# Observation Conversation",
+    "# Supervision Sidechat",
     "",
     "- Poll count: `#{polls.length}`",
     "- Supervisor question template:",
@@ -627,7 +728,8 @@ def write_observation_conversation_md(path:, observation_trace:, prompt:)
   ]
 
   polls.each_with_index do |poll, index|
-    boundary_failures = observation_public_id_boundary_failures(poll)
+    machine_status = poll.fetch("machine_status")
+    boundary_failures = supervision_public_id_boundary_failures(poll)
     human_sidechat = poll.fetch("human_sidechat")
     user_message = poll.fetch("user_message")
     suspicious_tokens = human_visible_leak_tokens(human_sidechat.fetch("content")) +
@@ -635,8 +737,9 @@ def write_observation_conversation_md(path:, observation_trace:, prompt:)
 
     lines << "## Exchange #{index + 1}"
     lines << ""
-    lines << "- Overall state: `#{poll.dig("supervisor_status", "overall_state")}`"
-    lines << "- Current activity: `#{poll.dig("supervisor_status", "current_activity")}`"
+    lines << "- Overall state: `#{machine_status.fetch("overall_state")}`"
+    lines << "- Board lane: `#{machine_status["board_lane"]}`"
+    lines << "- Current focus: `#{machine_status["current_focus_summary"] || machine_status["request_summary"] || "none"}`"
     lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
     lines << "- Human-visible leak scan: `#{suspicious_tokens.empty? ? "pass" : "fail"}`"
     lines << ""
@@ -660,51 +763,167 @@ def write_observation_conversation_md(path:, observation_trace:, prompt:)
       lines << "- Suspicious human-visible leak tokens:"
       suspicious_tokens.uniq.each { |token| lines << "  - `#{token}`" }
     end
-    append_observation_grounding_lines(lines, human_sidechat.fetch("proof_refs"))
+    append_supervision_grounding_lines(lines, machine_status)
+    append_supervision_control_lines(lines, machine_status)
     lines << ""
   end
 
   write_text(path, lines.join("\n").rstrip + "\n")
 end
 
-def write_observation_supervisor_md(path:, observation_trace:)
-  session_id = observation_trace.dig("session", "conversation_observation_session", "observation_session_id")
-  final_response = observation_trace.fetch("final_response")
-  polls = observation_trace.fetch("polls")
+def write_supervision_status_md(path:, supervision_trace:)
+  session_id = supervision_trace.dig("session", "conversation_supervision_session", "supervision_session_id")
+  final_response = supervision_trace.fetch("final_response")
+  polls = supervision_trace.fetch("polls")
+  final_status = final_response.fetch("machine_status")
   lines = [
-    "# Observation Supervisor Status",
+    "# Supervision Status",
     "",
-    "- Observation session `public_id`: `#{session_id}`",
-    "- Final overall state: `#{final_response.dig("supervisor_status", "overall_state")}`",
-    "- Final current activity: `#{final_response.dig("supervisor_status", "current_activity")}`",
+    "- Supervision session `public_id`: `#{session_id}`",
+    "- Final overall state: `#{final_status.fetch("overall_state")}`",
+    "- Final board lane: `#{final_status["board_lane"]}`",
+    "- Final last terminal state: `#{final_status["last_terminal_state"] || "none"}`",
     "- Poll count: `#{polls.length}`",
     "",
   ]
 
   polls.each_with_index do |poll, index|
-    supervisor_status = poll.fetch("supervisor_status")
-    boundary_failures = observation_public_id_boundary_failures(poll)
-    latest_activity = Array(supervisor_status["recent_activity_items"]).last || {}
+    machine_status = poll.fetch("machine_status")
+    boundary_failures = supervision_public_id_boundary_failures(poll)
+    latest_activity = Array(machine_status["activity_feed"]).last || {}
 
     lines << "## Poll #{index + 1}"
     lines << ""
-    lines << "- Observation frame `public_id`: `#{supervisor_status.fetch("observation_frame_id")}`"
-    lines << "- Overall state: `#{supervisor_status.fetch("overall_state")}`"
-    lines << "- Current activity: `#{supervisor_status.fetch("current_activity")}`"
-    lines << "- Blocking reason: `#{supervisor_status["blocking_reason"] || "none"}`"
-    lines << "- Stall for ms: `#{supervisor_status.fetch("stall_for_ms")}`"
-    lines << "- Last progress at: `#{supervisor_status["last_progress_at"] || "unknown"}`"
-    lines << "- Workflow run `public_id`: `#{supervisor_status["workflow_run_id"] || "none"}`"
-    lines << "- Workflow node `public_id`: `#{supervisor_status["workflow_node_id"] || "none"}`"
-    lines << "- Transcript refs: `#{Array(supervisor_status["transcript_refs"]).join("`, `")}`"
+    lines << "- Supervision snapshot `public_id`: `#{machine_status.fetch("supervision_snapshot_id")}`"
+    lines << "- Overall state: `#{machine_status.fetch("overall_state")}`"
+    lines << "- Board lane: `#{machine_status["board_lane"]}`"
+    lines << "- Last terminal state: `#{machine_status["last_terminal_state"] || "none"}`"
+    lines << "- Last terminal at: `#{machine_status["last_terminal_at"] || "unknown"}`"
+    lines << "- Current focus: `#{machine_status["current_focus_summary"] || machine_status["request_summary"] || "none"}`"
+    lines << "- Recent progress: `#{machine_status["recent_progress_summary"] || "none"}`"
+    lines << "- Waiting summary: `#{machine_status["waiting_summary"] || "none"}`"
+    lines << "- Blocked summary: `#{machine_status["blocked_summary"] || "none"}`"
+    lines << "- Next step hint: `#{machine_status["next_step_hint"] || "none"}`"
+    lines << "- Last progress at: `#{machine_status["last_progress_at"] || "unknown"}`"
     lines << "- Latest activity event: `#{latest_activity["event_kind"] || "none"}`"
-    lines << "- Latest activity projection sequence: `#{latest_activity["projection_sequence"] || "none"}`"
+    lines << "- Latest activity sequence: `#{latest_activity["sequence"] || "none"}`"
     lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
-    append_observation_proof_ref_lines(lines, supervisor_status.fetch("proof_refs"))
+    append_supervision_plan_item_lines(lines, machine_status)
+    append_supervision_subagent_lines(lines, machine_status)
+    append_supervision_control_lines(lines, machine_status)
+    append_supervision_proof_debug_lines(lines, machine_status)
     lines << ""
   end
 
   write_text(path, lines.join("\n").rstrip + "\n")
+end
+
+def write_supervision_feed_md(path:, supervision_trace:)
+  final_status = supervision_trace.fetch("final_response").fetch("machine_status")
+  activity_feed = Array(final_status["activity_feed"])
+  lines = [
+    "# Supervision Feed",
+    "",
+    "- Feed entry count: `#{activity_feed.length}`",
+    "- Feed source turn: `#{activity_feed.last&.fetch("turn_id", "none") || "none"}`",
+    "",
+  ]
+
+  activity_feed.each do |entry|
+    lines << "## Entry #{entry.fetch("sequence")}"
+    lines << ""
+    lines << "- Event kind: `#{entry.fetch("event_kind")}`"
+    lines << "- Occurred at: `#{entry.fetch("occurred_at")}`"
+    lines << "- Summary: #{entry.fetch("summary")}"
+    lines << ""
+  end
+
+  write_text(path, lines.join("\n").rstrip + "\n")
+end
+
+def evaluate_control_intent_case!(category:, entry:, supervision_session_id:, actor:, conversation:)
+  response = ManualAcceptanceSupport.append_conversation_supervision_message!(
+    supervision_session_id: supervision_session_id,
+    actor: actor,
+    content: entry.fetch("utterance")
+  )
+  human_sidechat = response.fetch("human_sidechat")
+  machine_status = response.fetch("machine_status")
+  conversation_control_request_id = human_sidechat["conversation_control_request_id"]
+  control_request = conversation_control_request_id.present? ? ConversationControlRequest.find_by_public_id!(conversation_control_request_id) : nil
+  actual_request_kind = human_sidechat["classified_intent"]
+  refreshed_state = Conversations::UpdateSupervisionState.call(
+    conversation: conversation.reload,
+    occurred_at: Time.current
+  )
+
+  expectation_passed =
+    case category
+    when "positive"
+      actual_request_kind == entry["expected_request_kind"]
+    else
+      actual_request_kind.blank? && human_sidechat["intent"] != "control_request"
+    end
+
+  {
+    "category" => category,
+    "utterance" => entry.fetch("utterance"),
+    "expected_request_kind" => entry["expected_request_kind"],
+    "actual_request_kind" => actual_request_kind,
+    "human_sidechat_intent" => human_sidechat["intent"],
+    "response_kind" => human_sidechat["response_kind"] || "sidechat",
+    "dispatch_state" => human_sidechat["dispatch_state"] || "not_dispatched",
+    "conversation_control_request_id" => conversation_control_request_id,
+    "capability_state" => machine_status.fetch("control"),
+    "authority_decision" => human_sidechat["response_kind"] || "not_requested",
+    "final_runtime_effect" => {
+      "conversation_lifecycle_state" => conversation.reload.lifecycle_state,
+      "overall_state" => refreshed_state.overall_state,
+      "last_terminal_state" => refreshed_state.last_terminal_state,
+      "last_terminal_at" => refreshed_state.last_terminal_at&.iso8601(6)
+    }.compact,
+    "human_sidechat" => human_sidechat.fetch("content"),
+    "human_visible_leak_tokens" => human_visible_leak_tokens(human_sidechat.fetch("content")),
+    "expectation_passed" => expectation_passed,
+    "request_result_payload" => control_request&.result_payload,
+  }
+end
+
+def run_control_intent_matrix!(artifact_dir:, supervision_session_id:, actor:, conversation:)
+  matrix = ConversationControlPhraseMatrix.load!
+  cases = %w[negative ambiguous positive].flat_map do |category|
+    Array(matrix.fetch(category)).map { |entry| [category, entry] }
+  end
+
+  results = cases.map do |category, entry|
+    evaluate_control_intent_case!(
+      category: category,
+      entry: entry,
+      supervision_session_id: supervision_session_id,
+      actor: actor,
+      conversation: conversation
+    )
+  end
+
+  payload = {
+    "enabled" => true,
+    "conversation_id" => conversation.public_id,
+    "supervision_session_id" => supervision_session_id,
+    "fixture_path" => ConversationControlPhraseMatrix::FIXTURE_PATH.to_s,
+    "summary" => {
+      "case_count" => results.length,
+      "classified_count" => results.count { |entry| entry["actual_request_kind"].present? },
+      "successful_dispatch_count" => results.count { |entry| entry["dispatch_state"] == "completed" },
+      "ambiguous_passthrough_count" => results.count do |entry|
+        %w[negative ambiguous].include?(entry["category"]) && entry["actual_request_kind"].blank?
+      end,
+      "expectation_passed" => results.all? { |entry| entry["expectation_passed"] },
+    },
+    "cases" => results,
+  }
+
+  write_json(artifact_dir.join("control-intent-matrix.json"), payload)
+  payload
 end
 
 def write_turns_md(path:, scenario_date:, conversation:, turn:, workflow_run:, agent_program_version:, execution_runtime:, selector:, diagnostics_turn:, source_transcript:, provider_breakdown:, subagent_sessions:, proof_artifacts:)
@@ -1559,7 +1778,7 @@ def host_validation_passed?(host_validation:, playwright_validation:)
     playwright_validation["result"].present?
 end
 
-def evaluate_workspace_validation(generated_app_dir:, artifact_dir:, preview_port:, persist_artifacts: true)
+def evaluate_workspace_validation(generated_app_dir:, artifact_dir:, preview_port:, runtime_validation:, persist_artifacts: true)
   host_validation_notes = []
   host_validation = {}
   playwright_validation = {}
@@ -1646,7 +1865,7 @@ def evaluate_workspace_validation(generated_app_dir:, artifact_dir:, preview_por
         playability_result: playwright_validation["result"],
         generated_app_dir: generated_app_dir,
         preview_port: preview_port,
-        runtime_validation: nil,
+        runtime_validation: runtime_validation,
         preview_validation: {
           "reachable" => preview_http&.fetch("status", nil) == 200,
           "contains_2048" => preview_http&.fetch("contains_2048", false) || false,
@@ -1666,7 +1885,7 @@ def evaluate_workspace_validation(generated_app_dir:, artifact_dir:, preview_por
       playability_result: nil,
       generated_app_dir: generated_app_dir,
       preview_port: preview_port,
-      runtime_validation: nil,
+      runtime_validation: runtime_validation,
       preview_validation: {
         "reachable" => false,
         "contains_2048" => false,
@@ -1820,10 +2039,14 @@ skills_validation = install_and_validate_skills!(
 
 conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
 conversation = conversation_context.fetch(:conversation).reload
+ensure_conversation_capability_policy!(
+  conversation: conversation,
+  control_enabled: true
+)
 run = nil
 turn = nil
 workflow_run = nil
-observation_trace = nil
+supervision_trace = nil
 host_validation_bundle = nil
 repair_prompt = prompt
 attempt_history = []
@@ -1842,12 +2065,12 @@ attempt_history = []
   dispatched_node = Workflows::ExecuteRun.call(workflow_run: run.fetch(:workflow_run))
   ManualAcceptanceSupport.execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
 
-  observation_trace = supervise_conversation_progress!(
+  supervision_trace = supervise_conversation_progress!(
     conversation_id: conversation.public_id,
     actor: conversation_context.fetch(:actor),
-    timeout_seconds: observation_timeout_seconds,
-    poll_interval_seconds: observation_poll_interval_seconds,
-    stall_threshold_ms: observation_stall_threshold_ms
+    timeout_seconds: supervision_timeout_seconds,
+    poll_interval_seconds: supervision_poll_interval_seconds,
+    stall_threshold_ms: supervision_stall_threshold_ms
   )
 
   turn = run.fetch(:turn).reload
@@ -1865,6 +2088,7 @@ attempt_history = []
     generated_app_dir: generated_app_dir,
     artifact_dir: artifact_dir,
     preview_port: preview_port,
+    runtime_validation: runtime_validation,
     persist_artifacts: true
   )
   host_validation = host_validation_bundle.fetch("host_validation")
@@ -2010,17 +2234,21 @@ write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
 })
 write_json(artifact_dir.join("attempt-history.json"), attempt_history)
 write_json(artifact_dir.join("skills-validation.json"), skills_validation)
-write_json(artifact_dir.join("observation-session.json"), observation_trace.fetch("session"))
-write_json(artifact_dir.join("observation-polls.json"), observation_trace.fetch("polls"))
-write_json(artifact_dir.join("observation-final.json"), observation_trace.fetch("final_response"))
-write_observation_conversation_md(
-  path: artifact_dir.join("observation-conversation.md"),
-  observation_trace: observation_trace,
-  prompt: OBSERVATION_PROMPT
+write_json(artifact_dir.join("supervision-session.json"), supervision_trace.fetch("session"))
+write_json(artifact_dir.join("supervision-polls.json"), supervision_trace.fetch("polls"))
+write_json(artifact_dir.join("supervision-final.json"), supervision_trace.fetch("final_response"))
+write_supervision_sidechat_md(
+  path: artifact_dir.join("supervision-sidechat.md"),
+  supervision_trace: supervision_trace,
+  prompt: SUPERVISION_PROMPT
 )
-write_observation_supervisor_md(
-  path: artifact_dir.join("observation-supervisor.md"),
-  observation_trace: observation_trace
+write_supervision_status_md(
+  path: artifact_dir.join("supervision-status.md"),
+  supervision_trace: supervision_trace
+)
+write_supervision_feed_md(
+  path: artifact_dir.join("supervision-feed.md"),
+  supervision_trace: supervision_trace
 )
 write_json(artifact_dir.join("source-transcript.json"), source_transcript)
 write_json(artifact_dir.join("source-diagnostics-show.json"), source_diagnostics_show)
@@ -2054,9 +2282,9 @@ write_text(artifact_dir.join("export-roundtrip.md"), <<~MD)
   - `#{imported_conversation_id}`
 
   Results:
-  - observation session: `#{observation_trace.dig("session", "conversation_observation_session", "observation_session_id")}`
-  - observation poll count: `#{observation_trace.fetch("polls").length}`
-  - final observation state: `#{observation_trace.dig("final_response", "supervisor_status", "overall_state")}`
+  - supervision session: `#{supervision_trace.dig("session", "conversation_supervision_session", "supervision_session_id")}`
+  - supervision poll count: `#{supervision_trace.fetch("polls").length}`
+  - final supervision state: `#{supervision_trace.dig("final_response", "machine_status", "overall_state")}`
   - `ConversationExport` succeeded through `/app_api/conversation_export_requests`
   - `ConversationDebugExport` succeeded through `/app_api/conversation_debug_export_requests`
   - `ConversationImport` succeeded through `/app_api/conversation_bundle_import_requests`
@@ -2072,6 +2300,16 @@ host_validation = host_validation_bundle.fetch("host_validation")
 playwright_validation = host_validation_bundle.fetch("playwright_validation")
 preview_http = host_validation_bundle.fetch("preview_http")
 host_playability_skip_reason = host_validation_bundle.fetch("host_playability_skip_reason")
+control_intent_matrix = nil
+
+if control_acceptance_enabled
+  control_intent_matrix = run_control_intent_matrix!(
+    artifact_dir: artifact_dir,
+    supervision_session_id: supervision_trace.dig("session", "conversation_supervision_session", "supervision_session_id"),
+    actor: conversation_context.fetch(:actor),
+    conversation: conversation
+  )
+end
 
 write_conversation_transcript_md(artifact_dir.join("conversation-transcript.md"), source_transcript)
 main_diagnostics_turn = source_diagnostics_turns.fetch("items").fetch(0)
@@ -2093,11 +2331,13 @@ write_turns_md(
     "capstone-run-bootstrap.json",
     "skills-validation.json",
     "workspace-validation.md",
-    "observation-session.json",
-    "observation-polls.json",
-    "observation-final.json",
-    "observation-conversation.md",
-    "observation-supervisor.md",
+    "supervision-session.json",
+    "supervision-polls.json",
+    "supervision-final.json",
+    "supervision-sidechat.md",
+    "supervision-status.md",
+    "supervision-feed.md",
+    ("control-intent-matrix.json" if control_intent_matrix.present?),
     ("host-preview.json" if preview_http.present?),
     ("host-playwright-verification.json" if playwright_validation.present?),
     ("host-playability.png" if playwright_validation.present?),
@@ -2158,10 +2398,10 @@ summary = {
   "selector" => selector,
   "workflow_state" => workflow_run.lifecycle_state,
   "turn_state" => turn.lifecycle_state,
-  "observation_session_id" => observation_trace.dig("session", "conversation_observation_session", "observation_session_id"),
-  "observation_poll_count" => observation_trace.fetch("polls").length,
-  "observation_final_state" => observation_trace.dig("final_response", "supervisor_status", "overall_state"),
-  "observation_human_sidechat" => observation_trace.dig("final_response", "human_sidechat", "content"),
+  "supervision_session_id" => supervision_trace.dig("session", "conversation_supervision_session", "supervision_session_id"),
+  "supervision_poll_count" => supervision_trace.fetch("polls").length,
+  "supervision_final_state" => supervision_trace.dig("final_response", "machine_status", "overall_state"),
+  "supervision_human_sidechat" => supervision_trace.dig("final_response", "human_sidechat", "content"),
   "user_bundle_path" => user_bundle_path.to_s,
   "debug_bundle_path" => debug_bundle_path.to_s,
   "imported_conversation_id" => imported_conversation_id,
@@ -2176,6 +2416,7 @@ summary = {
   "subagent_session_count" => subagent_sessions.length,
   "skills_validation_path" => artifact_dir.join("skills-validation.json").to_s,
   "host_playability_artifact" => (artifact_dir.join("host-playwright-verification.json").to_s if playwright_validation.present?),
+  "control_intent_matrix_path" => (artifact_dir.join("control-intent-matrix.json").to_s if control_intent_matrix.present?),
   "conversation_validation" => conversation_validation,
   "workspace_validation" => {
     "generated_app_dir_exists" => generated_app_dir.exist?,
@@ -2187,6 +2428,7 @@ summary = {
     "playwright_verification_passed" => playwright_validation["result"].present?,
   },
 }
+summary["control_intent_matrix"] = control_intent_matrix.fetch("summary") if control_intent_matrix.present?
 
 evaluation = build_agent_evaluation(
   summary: summary,

@@ -67,29 +67,37 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     refute_includes scenario, 'ARTIFACT_STAMP = "2026-04-03-core-matrix-loop-fenix-2048-final".freeze'
   end
 
-  test "capstone scenario writes human-readable observation markdown artifacts" do
+  test "capstone scenario writes human-readable supervision markdown artifacts" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, "write_observation_conversation_md("
-    assert_includes scenario, "write_observation_supervisor_md("
-    assert_includes scenario, 'artifact_dir.join("observation-conversation.md")'
-    assert_includes scenario, 'artifact_dir.join("observation-supervisor.md")'
-    assert_includes scenario, '"observation-conversation.md"'
-    assert_includes scenario, '"observation-supervisor.md"'
+    assert_includes scenario, "write_supervision_sidechat_md("
+    assert_includes scenario, "write_supervision_status_md("
+    assert_includes scenario, "write_supervision_feed_md("
+    assert_includes scenario, 'artifact_dir.join("supervision-sidechat.md")'
+    assert_includes scenario, 'artifact_dir.join("supervision-status.md")'
+    assert_includes scenario, 'artifact_dir.join("supervision-feed.md")'
+    assert_includes scenario, '"supervision-sidechat.md"'
+    assert_includes scenario, '"supervision-status.md"'
+    assert_includes scenario, '"supervision-feed.md"'
   end
 
-  test "observation conversation artifact keeps human sidechat separate from raw proof refs" do
+  test "supervision sidechat artifact keeps human sidechat separate from proof and debug refs" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, "append_observation_grounding_lines("
-    refute_includes scenario, 'append_observation_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))'
+    assert_includes scenario, "append_supervision_grounding_lines("
+    refute_includes scenario, 'append_supervision_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))'
   end
 
-  test "capstone scenario uses a natural-language observation prompt for the supervisor side channel" do
+  test "capstone scenario uses supervision naming and helper entrypoints" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'OBSERVATION_PROMPT = "Please tell a human supervisor what you are doing right now and what changed most recently."'
-    refute_includes scenario, 'OBSERVATION_PROMPT = "Summarize current progress for supervisor_status"'
+    assert_includes scenario, 'SUPERVISION_PROMPT = "Please tell a human supervisor what you are doing right now, what changed most recently, and which control actions are available."'
+    assert_includes scenario, "ManualAcceptanceSupport.create_conversation_supervision_session!("
+    assert_includes scenario, "ManualAcceptanceSupport.append_conversation_supervision_message!("
+    assert_includes scenario, 'response.fetch("machine_status")'
+    refute_includes scenario, "conversation_observation"
+    refute_includes scenario, "supervisor_status"
+    refute_includes scenario, "observation-"
   end
 
   test "acceptance harness owns its own gemfile" do

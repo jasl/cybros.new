@@ -6,6 +6,10 @@ Core Matrix keeps one structured current wait state on `WorkflowRun` and now
 also defines how interrupt, retry, archive, and delete interact with active
 workflow work.
 
+Conversation supervision reads these wait fields as canonical runtime truth
+when it classifies `overall_state`, `board_lane`, and the last settled
+terminal segment.
+
 ## Status
 
 This document reflects the landed scheduler and close-fence behavior.
@@ -49,6 +53,9 @@ job. No automatic retention policy is implemented here yet.
 - `ready` must not retain stale wait fields or blocking-resource references
 - because these fields are canonical runtime state, future cleanup work must
   not delete them independently from the owning workflow run
+- once work is no longer active, conversation supervision should fall back to
+  `overall_state = idle` and preserve the previous result in
+  `last_terminal_state` and `last_terminal_at`
 
 ## Scheduler Behavior
 

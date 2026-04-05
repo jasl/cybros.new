@@ -7,6 +7,7 @@ Core Matrix exposes two machine-facing runtime resource planes for:
 - canonical transcript listing
 - conversation-local lineage store reads and writes
 - workspace-scoped canonical variable reads and writes
+- conversation-scoped supervision status refresh and bounded control dispatch
 - workflow-owned human interaction request creation
 - workflow-owned `ToolInvocation` creation on the program plane
 - workflow-owned `CommandRun` and `ProcessRun` creation on the execution plane
@@ -21,6 +22,11 @@ Runtime pairing manifests remain registration metadata only. Product execution
 and close control do not use a separate runtime callback endpoint such as
 `/runtime/executions`; they ride the mailbox-first control plane described
 here.
+
+Conversation supervision side chat does not talk to these runtime endpoints
+directly. It creates `ConversationControlRequest` rows, and the control plane
+then reuses the same mailbox substrate for the subset of verbs that require
+agent-runtime delivery.
 
 ## Status
 
@@ -58,6 +64,8 @@ orchestration are still defined in:
   kernel
 - `POST /execution_api/control/report` carries execution-plane reports for
   execution-owned resources such as `ProcessRun`
+- conversation-scoped status refresh and guidance requests are serialized into
+  the same mailbox envelope after `ConversationControl::DispatchRequest`
 - `/cable` may stream the same mailbox-item envelope over `AgentControlChannel`
 - poll responses, realtime broadcasts, and report-response piggyback all use
   the same mailbox item envelope:

@@ -19,7 +19,7 @@ module ConversationSupervision
 
         normalized_changeset.map do |change|
           entry = ConversationSupervisionFeedEntry.create!(
-            installation: @conversation.installation,
+            installation_id: @conversation.installation_id,
             target_conversation: @conversation,
             target_turn: target_turn,
             sequence: next_sequence,

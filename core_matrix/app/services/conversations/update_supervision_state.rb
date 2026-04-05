@@ -16,7 +16,7 @@ module Conversations
     def call
       state = @conversation.conversation_supervision_state ||
         @conversation.build_conversation_supervision_state(
-          installation: @conversation.installation,
+          installation_id: @conversation.installation_id,
           status_payload: {}
         )
       previous_attributes = state.new_record? ? {} : comparable_attributes(state)
@@ -53,7 +53,7 @@ module Conversations
 
     def projection_attributes(state:)
       {
-        installation: @conversation.installation,
+        installation_id: @conversation.installation_id,
         target_conversation: @conversation,
         overall_state: overall_state,
         last_terminal_state: last_terminal_state,
@@ -109,6 +109,7 @@ module Conversations
       return current_task_run.supervision_state if current_task_run.present?
       return active_conversation_subagent_session.supervision_state if active_conversation_subagent_session.present?
       return owned_subagent_overall_state if active_owned_subagent_sessions.any?
+      return "running" if workflow_progressing_without_task?
       return "queued" if active_workflow?
 
       "idle"
@@ -199,9 +200,11 @@ module Conversations
         current_task_run&.last_progress_at,
         active_conversation_subagent_session&.last_progress_at,
         active_owned_subagent_sessions.filter_map(&:last_progress_at).max,
+        workflow_activity_at,
         latest_task_run&.last_progress_at,
         last_terminal_at,
-        workflow_run&.waiting_since_at
+        workflow_run&.waiting_since_at,
+        workflow_run&.created_at
       ].compact.max || @occurred_at
     end
 
@@ -225,15 +228,11 @@ module Conversations
     end
 
     def active_plan_item_count
-      return 0 if current_task_run.blank?
-
-      current_task_run.agent_task_plan_items.where.not(status: %w[completed canceled]).count
+      current_task_plan_items.count { |item| !%w[completed canceled].include?(item.status) }
     end
 
     def completed_plan_item_count
-      return 0 if current_task_run.blank?
-
-      current_task_run.agent_task_plan_items.where(status: "completed").count
+      current_task_plan_items.count { |item| item.status == "completed" }
     end
 
     def active_subagent_count
@@ -257,9 +256,7 @@ module Conversations
     end
 
     def active_plan_items_payload
-      return [] if current_task_run.blank?
-
-      current_task_run.agent_task_plan_items.order(:position).map do |item|
+      current_task_plan_items.map do |item|
         {
           "item_key" => item.item_key,
           "title" => item.title,
@@ -310,22 +307,32 @@ module Conversations
     end
 
     def workflow_run
-      @workflow_run ||= @conversation.workflow_runs.order(created_at: :desc).first
+      return @workflow_run if instance_variable_defined?(:@workflow_run)
+
+      @workflow_run = @conversation.workflow_runs.order(created_at: :desc).first
     end
 
     def current_task_run
-      @current_task_run ||= AgentTaskRun
+      return @current_task_run if instance_variable_defined?(:@current_task_run)
+
+      @current_task_run = AgentTaskRun
         .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
+        .includes(:agent_task_plan_items, :agent_task_progress_entries)
         .order(created_at: :desc)
         .first
     end
 
     def latest_task_run
-      @latest_task_run ||= AgentTaskRun.where(conversation: @conversation).order(created_at: :desc).first
+      return @latest_task_run if instance_variable_defined?(:@latest_task_run)
+
+      @latest_task_run = current_task_run ||
+        AgentTaskRun.where(conversation: @conversation).order(created_at: :desc).first
     end
 
     def latest_terminal_task_run
-      @latest_terminal_task_run ||= AgentTaskRun
+      return @latest_terminal_task_run if instance_variable_defined?(:@latest_terminal_task_run)
+
+      @latest_terminal_task_run = AgentTaskRun
         .where(conversation: @conversation, lifecycle_state: TERMINAL_TASK_LIFECYCLE_STATES)
         .where.not(finished_at: nil)
         .order(finished_at: :desc, created_at: :desc)
@@ -333,15 +340,28 @@ module Conversations
     end
 
     def latest_progress_entry
-      @latest_progress_entry ||= latest_task_run&.agent_task_progress_entries&.order(sequence: :desc)&.first
+      return @latest_progress_entry if instance_variable_defined?(:@latest_progress_entry)
+
+      @latest_progress_entry =
+        if latest_task_run.blank?
+          nil
+        elsif latest_task_run == current_task_run
+          current_task_progress_entry
+        else
+          latest_task_run.agent_task_progress_entries.order(sequence: :desc).first
+        end
     end
 
     def current_task_progress_entry
-      @current_task_progress_entry ||= current_task_run&.agent_task_progress_entries&.order(sequence: :desc)&.first
+      return @current_task_progress_entry if instance_variable_defined?(:@current_task_progress_entry)
+
+      @current_task_progress_entry = current_task_progress_entries.first
     end
 
     def conversation_subagent_session
-      @conversation_subagent_session ||= @conversation.subagent_session
+      return @conversation_subagent_session if instance_variable_defined?(:@conversation_subagent_session)
+
+      @conversation_subagent_session = @conversation.subagent_session
     end
 
     def active_conversation_subagent_session
@@ -357,6 +377,28 @@ module Conversations
         .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
         .order(:created_at)
         .to_a
+    end
+
+    def current_task_plan_items
+      return @current_task_plan_items if instance_variable_defined?(:@current_task_plan_items)
+
+      @current_task_plan_items =
+        if current_task_run.present?
+          current_task_run.agent_task_plan_items.sort_by(&:position)
+        else
+          []
+        end
+    end
+
+    def current_task_progress_entries
+      return @current_task_progress_entries if instance_variable_defined?(:@current_task_progress_entries)
+
+      @current_task_progress_entries =
+        if current_task_run.present?
+          current_task_run.agent_task_progress_entries.sort_by { |entry| -entry.sequence }
+        else
+          []
+        end
     end
 
     def barrier_subagent_sessions
@@ -400,6 +442,10 @@ module Conversations
       workflow_run&.active?
     end
 
+    def workflow_progressing_without_task?
+      active_workflow? && running_workflow_node.present?
+    end
+
     def workflow_terminal_state
       case workflow_run.lifecycle_state
       when "completed" then "completed"
@@ -410,6 +456,38 @@ module Conversations
 
     def workflow_terminal_at
       workflow_run.updated_at
+    end
+
+    def workflow_activity_at
+      latest_workflow_activity_node&.updated_at || workflow_run&.updated_at
+    end
+
+    def latest_workflow_activity_node
+      return @latest_workflow_activity_node if instance_variable_defined?(:@latest_workflow_activity_node)
+
+      @latest_workflow_activity_node = begin
+        run = workflow_run
+        if run.present?
+          run.workflow_nodes
+            .where.not(lifecycle_state: %w[pending queued])
+            .order(updated_at: :desc, ordinal: :desc)
+            .first
+        end
+      end
+    end
+
+    def running_workflow_node
+      return @running_workflow_node if instance_variable_defined?(:@running_workflow_node)
+
+      @running_workflow_node = begin
+        run = workflow_run
+        if run.present?
+          run.workflow_nodes
+            .where(lifecycle_state: "running")
+            .order(updated_at: :desc, ordinal: :desc)
+            .first
+        end
+      end
     end
 
     def semantic_changeset(previous_attributes:, current_attributes:)

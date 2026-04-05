@@ -210,7 +210,63 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal summary, entry.summary
   end
 
+  test "execution_complete on a child subagent task records terminal progress without linking the owner session" do
+    context = build_agent_control_context!
+    child_scenario = spawn_child_subagent_execution!(context:)
+    mailbox_item = child_scenario.fetch(:mailbox_item)
+    agent_task_run = child_scenario.fetch(:agent_task_run)
+    subagent_session = child_scenario.fetch(:subagent_session)
+
+    report_execution_started!(
+      deployment: context.fetch(:deployment),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run
+    )
+
+    AgentControl::HandleExecutionReport.call(
+      deployment: context[:deployment],
+      method_id: "execution_complete",
+      payload: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "agent_task_run_id" => agent_task_run.public_id,
+        "logical_work_id" => agent_task_run.logical_work_id,
+        "attempt_no" => agent_task_run.attempt_no,
+        "terminal_payload" => { "output" => "Subagent work finished cleanly" }
+      },
+      occurred_at: Time.current
+    )
+
+    entry = agent_task_run.reload.agent_task_progress_entries.order(:sequence).last
+
+    assert_equal "execution_completed", entry.entry_kind
+    assert_nil entry.subagent_session
+    assert_equal "completed", subagent_session.reload.observed_status
+    assert_equal "completed", subagent_session.supervision_state
+  end
+
   private
+
+  def spawn_child_subagent_execution!(context:)
+    promote_subagent_runtime_context!(context)
+
+    result = SubagentSessions::Spawn.call(
+      conversation: context.fetch(:conversation),
+      origin_turn: context.fetch(:turn),
+      content: "Investigate the failing branch",
+      scope: "conversation",
+      profile_key: "researcher"
+    )
+    agent_task_run = AgentTaskRun.find_by!(public_id: result.fetch("agent_task_run_id"))
+
+    {
+      agent_task_run: agent_task_run,
+      mailbox_item: AgentControlMailboxItem.find_by!(
+        agent_task_run: agent_task_run,
+        item_type: "execution_assignment"
+      ),
+      subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+    }
+  end
 
   def assert_terminal_execution_report!(method_id:, lifecycle_state:, entry_kind:, projected_overall_state:, projected_board_lane:, terminal_payload:)
     context = build_agent_control_context!

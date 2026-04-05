@@ -41,4 +41,56 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     refute_includes bundle.to_json, "We already agreed to add tests before refactoring."
     refute_includes bundle.to_json, "The 2048 acceptance flow is already wired."
   end
+
+  test "refreshes an existing supervision state before freezing the snapshot" do
+    context = build_agent_control_context!
+    policy = ConversationCapabilityPolicy.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      supervision_enabled: true,
+      side_chat_enabled: true,
+      control_enabled: false,
+      policy_payload: {}
+    )
+    stale_state = Conversations::UpdateSupervisionState.call(
+      conversation: context.fetch(:conversation),
+      occurred_at: 2.minutes.ago
+    )
+    assert_equal "queued", stale_state.overall_state
+
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "completed",
+      started_at: 90.seconds.ago,
+      finished_at: 60.seconds.ago
+    )
+    create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2",
+      node_type: "turn_step",
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+    session = ConversationSupervisionSession.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      initiator: context.fetch(:user),
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: supervision_policy_snapshot_for(policy)
+    )
+
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: context.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    assert_equal "running", snapshot.machine_status_payload.fetch("overall_state")
+    assert_equal "active", snapshot.machine_status_payload.fetch("board_lane")
+    assert_equal "workflow_run", snapshot.machine_status_payload.fetch("current_owner_kind")
+    assert_equal "running", context.fetch(:conversation).reload.conversation_supervision_state.overall_state
+  end
 end

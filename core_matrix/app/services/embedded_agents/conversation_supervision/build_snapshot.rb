@@ -21,8 +21,10 @@ module EmbeddedAgents
         raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless authority.side_chat_enabled?
         raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless authority.allowed?
 
-        state = @conversation.conversation_supervision_state ||
-          Conversations::UpdateSupervisionState.call(conversation: @conversation, occurred_at: Time.current)
+        state = Conversations::UpdateSupervisionState.call(
+          conversation: @conversation,
+          occurred_at: Time.current
+        )
         policy = @conversation.conversation_capability_policy
         bundle_payload = build_bundle_payload(authority:, state:, policy:)
 

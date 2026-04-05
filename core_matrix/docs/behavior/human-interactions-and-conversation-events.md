@@ -15,10 +15,10 @@ hatches, or runtime-private wait state. It establishes:
 - append-only `ConversationEvent` rows as the user-visible projection surface
 - default same-workflow resume for blocking human-interaction resolution
 
-Conversation observation and supervisor-facing status now build on this same
+Conversation supervision and supervisor-facing status now build on this same
 operational projection layer. See
-[`core_matrix/docs/behavior/conversation-observation-and-supervisor-status.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/conversation-observation-and-supervisor-status.md)
-for the observation-specific contract.
+[`core_matrix/docs/behavior/conversation-supervision-and-control.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/conversation-supervision-and-control.md)
+for the living supervision and control contract.
 
 ## Human Interaction Requests
 
@@ -131,11 +131,11 @@ for the observation-specific contract.
 - The first consumer surface is `PublicationRuntimeChannel`, which allows
   `external_public` publications with a valid `publication_token` to subscribe
   to the owning conversation runtime stream.
-- Observation and supervisor status reuse the durable projection side of these
+- Conversation supervision and supervisor status reuse the durable projection side of these
   runtime events through `ConversationEvent.live_projection`, rather than
   reading raw runtime transport output directly.
 
-## Runtime Projection For Observation
+## Runtime Projection For Supervision
 
 - Runtime broadcast and durable projection now share the same application
   writer through `ConversationRuntime::PublishEvent`.
@@ -143,7 +143,7 @@ for the observation-specific contract.
   project compact operational facts into `ConversationEvent` when the payload
   carries a stable runtime resource public id.
 - The compact durable runtime families currently used by conversation
-  observation are:
+  supervision are:
   - `runtime.workflow_node.*`
   - `runtime.agent_task.*`
   - `runtime.process_run.*`
@@ -156,7 +156,7 @@ for the observation-specific contract.
 - Large textual payloads remain transport-oriented:
   - assistant output deltas still do not persist into `ConversationEvent`
   - process/tool output events redact bulk `text` fields before projection
-- `ConversationObservation` reuses this compact durable projection through
+- `ConversationSupervision` reuses this compact durable projection through
   `ConversationEvent.live_projection` instead of introducing another runtime
   event store.
 

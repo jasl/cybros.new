@@ -13,6 +13,9 @@ The landed model separates concerns cleanly:
 - `AgentTaskRun(kind = "subagent_step")` owns execution of delegated work
 - `ExecutionLease` tracks accepted holders for leasable runtime resources
 
+Conversation supervision reads child-task status from `SubagentSession`
+instead of scraping child workflow internals after the fact.
+
 ## Subagent Sessions
 
 - `SubagentSession` is the durable subagent control aggregate
@@ -54,6 +57,9 @@ The landed model separates concerns cleanly:
   `interrupted` as terminal for parent barrier resolution; `waiting` is
   intentionally non-terminal because the child workflow still owns live work
   even when it is paused on its own blocker
+- normalized supervision summaries such as `current_focus_summary`,
+  `waiting_summary`, `blocked_summary`, and `next_step_hint` are the operator
+  surface consumed by conversation supervision and side chat
 - close-control metadata also comes from `ClosableRuntimeResource`
 - `SubagentSessions::RequestClose` writes `close_state = requested` plus close
   request metadata; terminal close reports then settle `close_state` into
