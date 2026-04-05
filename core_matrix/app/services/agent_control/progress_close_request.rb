@@ -6,8 +6,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item:, occurred_at: Time.current)
+    def initialize(mailbox_item:, resource: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
+      @resource = resource
       @occurred_at = occurred_at
     end
 
@@ -16,16 +17,12 @@ module AgentControl
       return @mailbox_item unless ACTIVE_STATUSES.include?(@mailbox_item.status)
 
       @mailbox_item.with_lock do
-        @mailbox_item.reload
         return @mailbox_item unless ACTIVE_STATUSES.include?(@mailbox_item.status)
 
-        resource = closable_resource
+        resource = @resource || closable_resource
         return @mailbox_item if resource.blank?
 
         resource.with_lock do
-          @mailbox_item.reload
-          resource.reload
-
           return @mailbox_item unless ACTIVE_STATUSES.include?(@mailbox_item.status)
           return @mailbox_item if resource.close_closed? || resource.close_failed?
 
@@ -53,13 +50,14 @@ module AgentControl
     private
 
     def escalate_to_forced!
-      @mailbox_item.update!(
+      @mailbox_item.update_columns(
         status: "queued",
         available_at: @occurred_at,
         leased_at: nil,
         lease_expires_at: nil,
         completed_at: nil,
-        payload: @mailbox_item.payload.merge("strictness" => "forced")
+        payload: @mailbox_item.payload.merge("strictness" => "forced"),
+        updated_at: Time.current
       )
       @mailbox_item
     end

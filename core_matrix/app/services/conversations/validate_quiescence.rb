@@ -38,6 +38,13 @@ module Conversations
     end
 
     def ensure_owned_subagent_sessions_closed!
+      if @blocker_snapshot.present?
+        return if @blocker_snapshot.close_pending_or_open_subagent_count.zero?
+
+        qualifier = @stage == "archival" ? "open" : "open or close-pending"
+        raise_invalid!(:base, "must not have #{qualifier} subagent sessions before #{@stage}")
+      end
+
       session_ids = SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation)
       return if session_ids.empty?
 

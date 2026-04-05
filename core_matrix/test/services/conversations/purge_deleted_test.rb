@@ -476,7 +476,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       Conversations::PurgeDeleted.call(conversation: conversation.reload)
     end
 
-    assert_operator queries.length, :<=, 115, "Expected purge deleted flow to stay under 115 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_operator queries.length, :<=, 109, "Expected purge deleted flow to stay under 109 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
     assert_not Conversation.exists?(conversation.id)
   end
 

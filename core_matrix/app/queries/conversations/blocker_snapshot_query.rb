@@ -17,6 +17,7 @@ module Conversations
       process_counts = aggregate_process_counts
       subagent_counts = aggregate_subagent_counts
       execution_lease_counts = aggregate_execution_lease_counts
+      dependency_flags = aggregate_dependency_flags
 
       ConversationBlockerSnapshot.new(
         retained: @conversation.retained?,
@@ -33,14 +34,15 @@ module Conversations
         running_background_process_count: process_counts.fetch(:running_background_process_count),
         detached_tool_process_count: 0,
         running_subagent_count: subagent_counts.fetch(:running_subagent_count),
+        close_pending_or_open_subagent_count: subagent_counts.fetch(:close_pending_or_open_subagent_count),
         active_execution_lease_count: execution_lease_counts.fetch(:active_execution_lease_count),
         degraded_close_count: process_counts.fetch(:process_close_failures) +
           subagent_counts.fetch(:subagent_close_failures) +
           agent_task_counts.fetch(:task_close_failures),
         descendant_lineage_blockers: descendant_lineage_blockers,
-        root_lineage_store_blocker: root_lineage_store_blocker?,
-        variable_provenance_blocker: variable_provenance_blocker?,
-        import_provenance_blocker: import_provenance_blocker?
+        root_lineage_store_blocker: dependency_flags.fetch(:root_lineage_store_blocker),
+        variable_provenance_blocker: dependency_flags.fetch(:variable_provenance_blocker),
+        import_provenance_blocker: dependency_flags.fetch(:import_provenance_blocker)
       )
     end
 
@@ -73,11 +75,9 @@ module Conversations
     end
 
     def descendant_lineage_blockers
-      descendant_conversation_ids = @conversation.descendant_closures.where.not(
-        descendant_conversation_id: @conversation.id
-      ).pluck(:descendant_conversation_id)
-
-      (descendant_conversation_ids - owned_subagent_conversation_ids).size
+      scope = @conversation.descendant_closures.where.not(descendant_conversation_id: @conversation.id)
+      scope = scope.where.not(descendant_conversation_id: owned_subagent_conversation_ids) if owned_subagent_conversation_ids.any?
+      scope.count
     end
 
     def aggregate_turn_counts
@@ -124,6 +124,7 @@ module Conversations
     def aggregate_subagent_counts
       @aggregate_subagent_counts ||= {
         running_subagent_count: owned_subagent_sessions.count(&:running_for_barriers?),
+        close_pending_or_open_subagent_count: owned_subagent_sessions.count(&:close_pending_or_open?),
         subagent_close_failures: owned_subagent_sessions.count(&:close_failed?),
       }
     end
@@ -135,16 +136,22 @@ module Conversations
       )
     end
 
-    def root_lineage_store_blocker?
-      LineageStore.where(root_conversation: @conversation).exists?
-    end
+    def aggregate_dependency_flags
+      @aggregate_dependency_flags ||= begin
+        values = Conversation.where(id: @conversation.id).pick(
+          Arel.sql("EXISTS (SELECT 1 FROM lineage_stores WHERE root_conversation_id = conversations.id)"),
+          Arel.sql("EXISTS (SELECT 1 FROM canonical_variables WHERE source_conversation_id = conversations.id)"),
+          Arel.sql("EXISTS (SELECT 1 FROM conversation_imports WHERE source_conversation_id = conversations.id)")
+        )
+        root_lineage_store_blocker, variable_provenance_blocker, import_provenance_blocker =
+          values.is_a?(Array) ? values : [values]
 
-    def variable_provenance_blocker?
-      CanonicalVariable.where(source_conversation: @conversation).exists?
-    end
-
-    def import_provenance_blocker?
-      ConversationImport.where(source_conversation: @conversation).exists?
+        {
+          root_lineage_store_blocker: ActiveRecord::Type::Boolean.new.cast(root_lineage_store_blocker),
+          variable_provenance_blocker: ActiveRecord::Type::Boolean.new.cast(variable_provenance_blocker),
+          import_provenance_blocker: ActiveRecord::Type::Boolean.new.cast(import_provenance_blocker),
+        }
+      end
     end
 
     def owned_subagent_session_ids

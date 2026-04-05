@@ -80,6 +80,7 @@ class ConversationBlockerSnapshot
     :running_background_process_count,
     :detached_tool_process_count,
     :running_subagent_count,
+    :close_pending_or_open_subagent_count,
     :active_execution_lease_count,
     :degraded_close_count,
     :descendant_lineage_blockers,
@@ -102,6 +103,7 @@ class ConversationBlockerSnapshot
     running_background_process_count: 0,
     detached_tool_process_count: 0,
     running_subagent_count: 0,
+    close_pending_or_open_subagent_count: 0,
     active_execution_lease_count: 0,
     degraded_close_count: 0,
     descendant_lineage_blockers: 0,
@@ -123,6 +125,7 @@ class ConversationBlockerSnapshot
     @running_background_process_count = running_background_process_count
     @detached_tool_process_count = detached_tool_process_count
     @running_subagent_count = running_subagent_count
+    @close_pending_or_open_subagent_count = close_pending_or_open_subagent_count
     @active_execution_lease_count = active_execution_lease_count
     @degraded_close_count = degraded_close_count
     @descendant_lineage_blockers = descendant_lineage_blockers

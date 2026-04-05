@@ -12,13 +12,21 @@ module Conversations
     end
 
     def call
-      pending_resource_relations.each do |relation|
-        relation.find_each do |resource|
-          mailbox_item = open_close_request_for(resource)
+      pending_resource_groups.each do |resources|
+        next if resources.empty?
+
+        mailbox_items_by_resource_id = open_close_requests_for(
+          resource_type: resources.first.class.name,
+          resource_public_ids: resources.map(&:public_id)
+        )
+
+        resources.each do |resource|
+          mailbox_item = mailbox_items_by_resource_id[resource.public_id]
           next if mailbox_item.blank?
 
           AgentControl::ProgressCloseRequest.call(
             mailbox_item: mailbox_item,
+            resource: resource,
             occurred_at: @occurred_at
           )
         end
@@ -27,27 +35,29 @@ module Conversations
 
     private
 
-    def pending_resource_relations
+    def pending_resource_groups
       [
-        AgentTaskRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
-        ProcessRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES),
-        SubagentSession.where(
-          id: SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation),
-          close_state: CLOSE_PENDING_STATES
-        ),
+        AgentTaskRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES).to_a,
+        ProcessRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES).to_a,
+        SubagentSessions::OwnedTree.sessions_for(owner_conversation: @conversation).select do |session|
+          CLOSE_PENDING_STATES.include?(session.close_state)
+        end,
       ]
     end
 
-    def open_close_request_for(resource)
+    def open_close_requests_for(resource_type:, resource_public_ids:)
       AgentControlMailboxItem
         .where(
           installation_id: @conversation.installation_id,
           item_type: "resource_close_request",
           status: AgentControl::ProgressCloseRequest::ACTIVE_STATUSES
         )
-        .where("payload ->> 'resource_type' = ? AND payload ->> 'resource_id' = ?", resource.class.name, resource.public_id)
+        .where("payload ->> 'resource_type' = ? AND payload ->> 'resource_id' IN (?)", resource_type, resource_public_ids)
         .order(id: :desc)
-        .first
+        .each_with_object({}) do |mailbox_item, index|
+          resource_id = mailbox_item.payload["resource_id"]
+          index[resource_id] ||= mailbox_item
+        end
     end
   end
 end

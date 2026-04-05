@@ -75,7 +75,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
       Conversations::BlockerSnapshotQuery.call(conversation: root)
     end
 
-    assert_operator queries.length, :<=, 13, "Expected blocker snapshot query to stay under 13 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_operator queries.length, :<=, 11, "Expected blocker snapshot query to stay under 11 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
   private
