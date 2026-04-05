@@ -101,4 +101,39 @@ class AppApiConversationObservationSessionsTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "returns gone for closed observation sessions and not found when the target conversation is missing" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    post "/app_api/conversation_observation_sessions",
+      params: {
+        conversation_id: context[:conversation].public_id,
+        responder_strategy: "builtin",
+      },
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :created
+    session_id = JSON.parse(response.body).dig("conversation_observation_session", "observation_session_id")
+
+    session = ConversationObservationSession.find_by!(public_id: session_id)
+    session.update!(lifecycle_state: "closed")
+
+    get "/app_api/conversation_observation_sessions/#{session_id}",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :gone
+
+    ActiveRecord::Base.connection_pool.with_connection do |connection|
+      connection.disable_referential_integrity do
+        Conversation.unscoped.where(id: context[:conversation].id).delete_all
+      end
+    end
+
+    get "/app_api/conversation_observation_sessions/#{session_id}",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
+  end
 end

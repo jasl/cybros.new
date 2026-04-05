@@ -6,5 +6,6 @@ module EmbeddedAgents
     class InvalidTargetIdentifier < Error; end
     class UnauthorizedObservation < Error; end
     class ClosedObservationSession < Error; end
+    class UnavailableObservationArtifact < Error; end
   end
 end

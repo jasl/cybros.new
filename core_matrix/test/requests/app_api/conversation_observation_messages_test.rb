@@ -78,7 +78,7 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
     assert_response :not_found
   end
 
-  test "keeps closed observation history readable while rejecting new messages" do
+  test "treats closed observation sessions as gone" do
     fixture = build_observation_fixture!
     registration = register_machine_api_for_context!(fixture)
     fixture.fetch(:session).update!(lifecycle_state: "closed")
@@ -86,8 +86,7 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
     get "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
       headers: app_api_headers(registration[:machine_credential])
 
-    assert_response :success
-    assert_equal fixture.fetch(:session).public_id, JSON.parse(response.body).fetch("observation_session_id")
+    assert_response :gone
 
     post "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
       params: {
@@ -104,14 +103,33 @@ class AppApiConversationObservationMessagesTest < ActionDispatch::IntegrationTes
     registration = register_machine_api_for_context!(fixture)
     frame = fixture.fetch(:session).conversation_observation_frames.order(:created_at).last
 
-    ActiveRecord::Base.connection.disable_referential_integrity do
-      ConversationObservationFrame.unscoped.where(id: frame.id).delete_all
+    ActiveRecord::Base.connection_pool.with_connection do |connection|
+      connection.disable_referential_integrity do
+        ConversationObservationFrame.unscoped.where(id: frame.id).delete_all
+      end
     end
 
     get "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
       headers: app_api_headers(registration[:machine_credential])
 
     assert_response :gone
+  end
+
+  test "returns not found when observation history target conversation is missing" do
+    fixture = build_observation_fixture!
+    registration = register_machine_api_for_context!(fixture)
+    conversation = fixture.fetch(:conversation)
+
+    ActiveRecord::Base.connection_pool.with_connection do |connection|
+      connection.disable_referential_integrity do
+        Conversation.unscoped.where(id: conversation.id).delete_all
+      end
+    end
+
+    get "/app_api/conversation_observation_sessions/#{fixture.fetch(:session).public_id}/messages",
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :not_found
   end
 
   private

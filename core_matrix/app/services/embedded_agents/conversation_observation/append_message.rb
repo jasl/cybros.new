@@ -13,7 +13,9 @@ module EmbeddedAgents
 
       def call
         @conversation_observation_session = @conversation_observation_session.reload
-        target_conversation = @conversation_observation_session.target_conversation.reload
+        target_conversation = @conversation_observation_session.target_conversation
+        raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
+        target_conversation = target_conversation.reload
         authority = Authority.call(
           actor: @actor,
           conversation_id: target_conversation.public_id

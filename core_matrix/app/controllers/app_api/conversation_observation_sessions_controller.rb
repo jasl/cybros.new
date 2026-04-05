@@ -1,5 +1,7 @@
 module AppAPI
   class ConversationObservationSessionsController < BaseController
+    rescue_from EmbeddedAgents::Errors::UnauthorizedObservation, with: :render_not_found
+
     rescue_from EmbeddedAgents::ConversationObservation::CreateSession::UnsupportedResponderStrategy,
       with: :render_unprocessable_entity
 
@@ -11,21 +13,24 @@ module AppAPI
         responder_strategy: params[:responder_strategy]
       )
 
-      render_observation_session!(
+      render json: {
         method_id: "conversation_observation_session_create",
-        session: session,
         conversation_id: conversation.public_id,
-        status: :created
-      )
+        conversation_observation_session: serialize_observation_session(session),
+      }, status: :created
     end
 
     def show
       session = find_observation_session!(params.fetch(:id))
+      target_conversation = session.target_conversation
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
+      return head :gone if session.closed?
 
-      render_observation_session!(
+      render json: {
         method_id: "conversation_observation_session_show",
-        session: session
-      )
+        conversation_id: target_conversation.public_id,
+        conversation_observation_session: serialize_observation_session(session),
+      }
     end
 
     private
@@ -52,19 +57,6 @@ module AppAPI
         "last_observed_at" => session.last_observed_at&.iso8601(6),
         "created_at" => session.created_at&.iso8601(6),
       }.compact
-    end
-
-    def render_observation_session!(method_id:, session:, status: :ok, conversation_id: nil)
-      conversation_id ||= session.target_conversation&.public_id
-      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if conversation_id.blank?
-
-      render json: {
-        method_id: method_id,
-        conversation_id: conversation_id,
-        conversation_observation_session: serialize_observation_session(session),
-      }, status: status
-    rescue ActiveRecord::RecordNotFound
-      head :gone
     end
   end
 end
