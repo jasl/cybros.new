@@ -36,7 +36,8 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
       assert_equal assessment.fetch("proof_refs"), human_sidechat.fetch("proof_refs")
       assert_equal assessment.fetch("overall_state"), supervisor_status.fetch("overall_state")
       assert_equal assessment.fetch("current_activity"), human_sidechat.fetch("current_activity")
-      refute_equal assessment.fetch("human_summary"), human_sidechat.fetch("content")
+      refute assessment.key?("human_summary")
+      assert_predicate human_sidechat.fetch("content"), :present?
       refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, human_sidechat.fetch("content"))
       assert_match(/\ARight now the conversation is /, human_sidechat.fetch("content"))
       assert_equal assessment, fixture.fetch(:frame).reload.assessment_payload
@@ -169,7 +170,7 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
     workflow_run.update!(
       wait_state: "waiting",
       wait_reason_kind: "subagent_barrier",
-      wait_reason_payload: { "subagent_session_ids" => [subagent_session.public_id] },
+      wait_reason_payload: {},
       waiting_since_at: 2.minutes.ago
     )
     ConversationRuntime::PublishEvent.call(

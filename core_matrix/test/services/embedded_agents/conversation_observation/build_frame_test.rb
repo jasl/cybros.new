@@ -61,7 +61,7 @@ class EmbeddedAgents::ConversationObservation::BuildFrameTest < ActiveSupport::T
     workflow_run.update!(
       wait_state: "waiting",
       wait_reason_kind: "subagent_barrier",
-      wait_reason_payload: { "subagent_session_ids" => [subagent_session.public_id] },
+      wait_reason_payload: {},
       waiting_since_at: 1.minute.ago
     )
     ConversationRuntime::PublishEvent.call(

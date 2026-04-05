@@ -183,6 +183,36 @@ class WorkflowRun < ApplicationRecord
     }.compact
   end
 
+  def subagent_barrier_artifact
+    return if blocking_resource_type != "SubagentBarrier"
+    return if blocking_resource_id.blank?
+
+    workflow_artifacts.find_by(
+      artifact_kind: "intent_batch_barrier",
+      artifact_key: blocking_resource_id
+    )
+  end
+
+  def subagent_barrier_spawn_nodes
+    artifact = subagent_barrier_artifact
+    return WorkflowNode.none if artifact.blank?
+
+    batch_id = artifact.payload["batch_id"]
+    stage_index = artifact.payload.dig("stage", "stage_index")
+    return WorkflowNode.none if batch_id.blank? || stage_index.nil?
+
+    scope = workflow_nodes
+      .where(intent_batch_id: batch_id, stage_index: stage_index)
+      .where.not(spawned_subagent_session_id: nil)
+      .order(:ordinal)
+    scope = scope.where(yielding_workflow_node_id: artifact.workflow_node_id) if artifact.workflow_node_id.present?
+    scope
+  end
+
+  def subagent_barrier_sessions
+    subagent_barrier_spawn_nodes.includes(:spawned_subagent_session).filter_map(&:spawned_subagent_session)
+  end
+
   private
 
   def conversation_installation_match

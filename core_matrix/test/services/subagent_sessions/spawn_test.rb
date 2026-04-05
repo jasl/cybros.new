@@ -49,7 +49,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal 2, sessions.size
     assert workflow_run.waiting?
     assert_equal "subagent_barrier", workflow_run.wait_reason_kind
-    assert_equal sessions.map(&:public_id).sort, workflow_run.wait_reason_payload.fetch("subagent_session_ids").sort
+    assert_equal({}, workflow_run.wait_reason_payload)
     assert_equal "SubagentBarrier", workflow_run.blocking_resource_type
     assert_equal %w[root agent_turn_step subagent_alpha subagent_beta], workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
     assert_equal sessions.map(&:public_id).sort,

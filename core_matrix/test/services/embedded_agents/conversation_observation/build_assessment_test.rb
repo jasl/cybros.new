@@ -29,8 +29,7 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
         ],
         assessment.fetch("transcript_refs")
       )
-      assert_equal "The conversation is currently waiting. It is waiting for a running subagent before work on implement can continue. The latest tracked activity was a runtime.process_run.output event. This summary is grounded in workflow state, transcript context, recent activity, and subagent status.", assessment.fetch("human_summary")
-      refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, assessment.fetch("human_summary"))
+      refute assessment.key?("human_summary")
       refute assessment.key?("proof_text")
       refute assessment.fetch("recent_activity_items").any? { |item| item.key?("payload") }
       assert assessment.fetch("stall_for_ms") >= 0
@@ -180,7 +179,7 @@ class EmbeddedAgents::ConversationObservation::BuildAssessmentTest < ActiveSuppo
     workflow_run.update!(
       wait_state: "waiting",
       wait_reason_kind: "subagent_barrier",
-      wait_reason_payload: { "subagent_session_ids" => [subagent_session.public_id] },
+      wait_reason_payload: {},
       waiting_since_at: 2.minutes.ago
     )
     process_run = create_process_run!(

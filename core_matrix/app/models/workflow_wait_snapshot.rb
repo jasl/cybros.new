@@ -124,15 +124,8 @@ class WorkflowWaitSnapshot
     when "external_dependency_blocked"
       blocked_workflow_node_resolved_for?(workflow_run)
     when "subagent_barrier"
-      subagent_session_ids = Array(wait_reason_payload["subagent_session_ids"]).map(&:to_s)
-      return true if subagent_session_ids.empty?
-
-      sessions = SubagentSession.where(
-        owner_conversation: workflow_run.conversation,
-        public_id: subagent_session_ids
-      ).to_a
-
-      return false unless sessions.size == subagent_session_ids.size
+      sessions = workflow_run.subagent_barrier_sessions
+      return false if sessions.empty?
 
       sessions.none? { |session| !session.terminal_for_wait? }
     when "policy_gate"

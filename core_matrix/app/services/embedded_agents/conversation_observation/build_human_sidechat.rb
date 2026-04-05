@@ -86,7 +86,7 @@ module EmbeddedAgents
       private
 
       def content
-        return @assessment.fetch("human_summary") if requested_topics.empty?
+        return BuildHumanSummary.call(assessment: @assessment) if requested_topics.empty?
 
         segments = requested_topics.filter_map do |topic|
           case topic
