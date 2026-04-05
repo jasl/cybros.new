@@ -8,11 +8,12 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, execution_session: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
+    def initialize(deployment:, agent_session: nil, execution_session: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
       raw_payload = payload.presence || kwargs
       @deployment = deployment
       @agent_session = agent_session
       @execution_session = execution_session
+      @resource = resource
       @payload = raw_payload.deep_stringify_keys
       @method_id = method_id || @payload.fetch("method_id")
       @protocol_message_id = protocol_message_id || @payload.fetch("protocol_message_id")
@@ -20,10 +21,11 @@ module AgentControl
     end
 
     def call
-      TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
-
-      existing_receipt = find_existing_receipt
-      return duplicate_result_for(existing_receipt) if existing_receipt.present?
+      @resolved_agent_session = TouchDeploymentActivity.call(
+        deployment: @deployment,
+        agent_session: @agent_session,
+        occurred_at: @occurred_at
+      )
 
       result_code = nil
 
@@ -32,10 +34,10 @@ module AgentControl
 
         begin
           process_report!(receipt)
-          receipt.update!(result_code: "accepted")
+          receipt.update_columns(result_code: "accepted", updated_at: Time.current)
           result_code = "accepted"
         rescue StaleReportError
-          receipt.update!(result_code: "stale")
+          receipt.update_columns(result_code: "stale", updated_at: Time.current)
           result_code = "stale"
         end
       end
@@ -61,8 +63,8 @@ module AgentControl
     end
 
     def create_receipt!
-      AgentControlReportReceipt.create!(
-        installation: @deployment.installation,
+      receipt = AgentControlReportReceipt.new(
+        installation_id: @deployment.installation_id,
         agent_session: resolved_agent_session,
         execution_session: @execution_session,
         protocol_message_id: @protocol_message_id,
@@ -70,8 +72,11 @@ module AgentControl
         logical_work_id: @payload["logical_work_id"],
         attempt_no: @payload["attempt_no"],
         result_code: "processing",
-        payload: @payload
       )
+      receipt.payload = @payload
+      receipt.send(:materialize_pending_payload)
+      receipt.save!(validate: false)
+      receipt
     end
 
     def find_existing_receipt
@@ -80,7 +85,7 @@ module AgentControl
 
     def process_report!(receipt)
       handler = report_handler
-      receipt.update!(handler.receipt_attributes.compact) if handler.receipt_attributes.present?
+      persist_receipt_attributes!(receipt, handler.receipt_attributes)
       handler.call
     end
 
@@ -89,6 +94,7 @@ module AgentControl
         deployment: @deployment,
         agent_session: resolved_agent_session,
         execution_session: @execution_session,
+        resource: @resource,
         method_id: @method_id,
         payload: @payload,
         occurred_at: @occurred_at
@@ -97,6 +103,24 @@ module AgentControl
 
     def resolved_agent_session
       @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
+    end
+
+    def persist_receipt_attributes!(receipt, attrs)
+      normalized_attrs = normalize_receipt_attributes(attrs)
+      return if normalized_attrs.blank?
+
+      receipt.update_columns(normalized_attrs.merge(updated_at: Time.current))
+    end
+
+    def normalize_receipt_attributes(attrs)
+      attrs.to_h.compact.each_with_object({}) do |(key, value), normalized|
+        reflection = AgentControlReportReceipt.reflect_on_association(key)
+        if reflection.present?
+          normalized[reflection.foreign_key] = value&.id
+        else
+          normalized[key] = value
+        end
+      end
     end
 
     def follow_up_mailbox_items
@@ -108,7 +132,7 @@ module AgentControl
       if @execution_session.present?
         Poll.call(execution_session: @execution_session, **poll_arguments)
       else
-        Poll.call(deployment: @deployment, **poll_arguments)
+        Poll.call(deployment: @deployment, agent_session: resolved_agent_session, **poll_arguments)
       end
     end
   end

@@ -330,6 +330,32 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     assert_equal "mailbox_timeout", error.code
   end
 
+  test "uses capped exponential backoff when polling for terminal receipts" do
+    exchange = ProviderExecution::ProgramMailboxExchange.new(
+      agent_program_version: build_agent_control_context!.fetch(:deployment),
+      poll_interval: 0.05,
+      sleeper: ->(_duration) { },
+    )
+
+    assert_in_delta 0.05, exchange.send(:poll_interval_for_attempt, 1), 0.0001
+    assert_in_delta 0.1, exchange.send(:poll_interval_for_attempt, 2), 0.0001
+    assert_in_delta 0.2, exchange.send(:poll_interval_for_attempt, 3), 0.0001
+    assert_in_delta 0.4, exchange.send(:poll_interval_for_attempt, 4), 0.0001
+    assert_in_delta 0.8, exchange.send(:poll_interval_for_attempt, 5), 0.0001
+    assert_in_delta 0.8, exchange.send(:poll_interval_for_attempt, 6), 0.0001
+  end
+
+  test "keeps zero poll intervals disabled for deterministic tests" do
+    exchange = ProviderExecution::ProgramMailboxExchange.new(
+      agent_program_version: build_agent_control_context!.fetch(:deployment),
+      poll_interval: 0.0,
+      sleeper: ->(_duration) { },
+    )
+
+    assert_equal 0.0, exchange.send(:poll_interval_for_attempt, 1)
+    assert_equal 0.0, exchange.send(:poll_interval_for_attempt, 10)
+  end
+
   test "sees terminal reports that arrive after the first poll even when query cache is enabled" do
     context = build_agent_control_context!
     original_creator = AgentControl::CreateAgentProgramRequest.method(:call)

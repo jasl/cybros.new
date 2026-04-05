@@ -4,10 +4,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, execution_session: nil, method_id:, payload:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, execution_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
       @deployment = deployment
       @agent_session = agent_session
       @execution_session = execution_session
+      @resource = resource
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -22,9 +23,6 @@ module AgentControl
         resource = closable_resource
 
         resource.with_lock do
-          mailbox_item.reload
-          resource.reload
-
           ValidateCloseReportFreshness.call(
             deployment: @deployment,
             execution_session: @execution_session,
@@ -86,7 +84,7 @@ module AgentControl
     end
 
     def closable_resource
-      ClosableResourceRegistry.find!(
+      @resource ||= ClosableResourceRegistry.find!(
         installation_id: @deployment.installation_id,
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")

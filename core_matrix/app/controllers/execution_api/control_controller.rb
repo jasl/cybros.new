@@ -22,9 +22,11 @@ module ExecutionAPI
 
     def report
       payload = request_payload
+      target = resolve_target!(payload)
       result = AgentControl::Report.call(
-        deployment: resolve_deployment!(payload),
+        deployment: target.fetch(:deployment),
         execution_session: current_execution_session,
+        resource: target[:resource],
         payload: payload
       )
 
@@ -36,7 +38,7 @@ module ExecutionAPI
 
     private
 
-    def resolve_deployment!(payload)
+    def resolve_target!(payload)
       method_id = payload.fetch("method_id")
       raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless EXECUTION_REPORT_METHODS.include?(method_id)
 
@@ -49,7 +51,10 @@ module ExecutionAPI
         raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.is_a?(ProcessRun)
         raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.execution_runtime_id == current_execution_runtime.id
 
-        return current_deployment_for_turn(process_run.turn)
+        return {
+          deployment: current_deployment_for_turn(process_run.turn),
+          resource: process_run,
+        }
       end
 
       raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless payload.fetch("resource_type") == "ProcessRun"
@@ -61,7 +66,10 @@ module ExecutionAPI
       )
       raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.execution_runtime_id == current_execution_runtime.id
 
-      current_deployment_for_turn(process_run.turn)
+      {
+        deployment: current_deployment_for_turn(process_run.turn),
+        resource: process_run,
+      }
     end
   end
 end

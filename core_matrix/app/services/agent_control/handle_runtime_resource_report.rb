@@ -4,10 +4,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, execution_session: nil, method_id:, payload:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, execution_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
       @deployment = deployment
       @agent_session = agent_session
       @execution_session = execution_session
+      @resource = resource
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -97,7 +98,7 @@ module AgentControl
     end
 
     def process_run
-      @process_run ||= AgentControl::ClosableResourceRegistry.find!(
+      @process_run ||= @resource || AgentControl::ClosableResourceRegistry.find!(
         installation_id: @deployment.installation_id,
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
@@ -113,9 +114,6 @@ module AgentControl
 
       mailbox_item.with_lock do
         process_run.with_lock do
-          mailbox_item.reload
-          process_run.reload
-
           return unless ProgressCloseRequest::ACTIVE_STATUSES.include?(mailbox_item.status)
           return if process_run.close_closed? || process_run.close_failed?
 

@@ -7,6 +7,7 @@ module ProviderExecution
     DEFAULT_TOOL_TIMEOUT_BUFFER = 30.seconds
     DEFAULT_LEASE_GRACE = 10.seconds
     DEFAULT_POLL_INTERVAL = 0.05
+    MAX_POLL_INTERVAL = 1.0
 
     class ExchangeError < StandardError
       attr_reader :code, :details, :retryable
@@ -110,10 +111,11 @@ module ProviderExecution
 
     def wait_for_terminal_receipt!(mailbox_item, timeout:)
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout.to_f
+      poll_attempt = 0
 
       loop do
         receipt = AgentControlReportReceipt.uncached do
-          AgentControlReportReceipt.find_by(mailbox_item: mailbox_item, method_id: TERMINAL_METHODS)
+          AgentControlReportReceipt.find_by(mailbox_item_id: mailbox_item.id, method_id: TERMINAL_METHODS)
         end
         return receipt if receipt.present?
 
@@ -126,7 +128,8 @@ module ProviderExecution
           )
         end
 
-        @sleeper.call(@poll_interval)
+        poll_attempt += 1
+        @sleeper.call(poll_interval_for_attempt(poll_attempt))
       end
     end
 
@@ -140,6 +143,13 @@ module ProviderExecution
     def validate_prepare_round_response!(response)
       raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include messages") unless response["messages"].is_a?(Array)
       raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include visible_tool_names") unless response["visible_tool_names"].is_a?(Array)
+    end
+
+    def poll_interval_for_attempt(poll_attempt)
+      return @poll_interval if @poll_interval.to_f <= 0
+
+      exponent = [poll_attempt - 1, 4].min
+      [@poll_interval * (2**exponent), MAX_POLL_INTERVAL].min
     end
   end
 end

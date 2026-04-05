@@ -38,20 +38,26 @@ class AgentControlReportReceipt < ApplicationRecord
 
   def payload=(value)
     @pending_payload = value
+    @pending_payload_requires_materialization = true
   end
 
   private
 
   def materialize_pending_payload
-    return unless defined?(@pending_payload)
-    return if installation.blank? || @pending_payload.blank?
+    return unless @pending_payload_requires_materialization
+    return if installation_id.blank? || @pending_payload.blank?
     return unless @pending_payload.is_a?(Hash)
 
-    self.report_document = JsonDocuments::Store.call(
-      installation: installation,
-      document_kind: "agent_control_report",
-      payload: compact_payload_for_storage(@pending_payload)
-    )
+    compact_payload = compact_payload_for_storage(@pending_payload)
+    self.report_document =
+      if compact_payload.present?
+        JsonDocuments::Store.call(
+          installation_id: installation_id,
+          document_kind: "agent_control_report",
+          payload: compact_payload
+        )
+      end
+    @pending_payload_requires_materialization = false
   end
 
   def payload_must_be_hash_when_provided

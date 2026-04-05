@@ -89,7 +89,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    assert_operator queries.length, :<=, 45, "Expected resource_close_acknowledged report to stay under 45 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_operator queries.length, :<=, 35, "Expected resource_close_acknowledged report to stay under 35 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
   test "duplicate resource_closed is idempotent by protocol_message_id" do

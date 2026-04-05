@@ -4,22 +4,23 @@ module JsonDocuments
       new(...).call
     end
 
-    def initialize(installation:, document_kind:, payload:)
+    def initialize(installation: nil, installation_id: nil, document_kind:, payload:)
       @installation = installation
+      @installation_id = installation_id || installation&.id
       @document_kind = document_kind
       @payload = normalize_payload(payload)
     end
 
     def call
       candidate = JsonDocument.new(
-        installation: @installation,
+        installation_id: @installation_id,
         document_kind: @document_kind,
         payload: @payload
       )
       candidate.valid?
 
-      JsonDocument.find_or_create_by!(
-        installation: @installation,
+      JsonDocument.create_or_find_by!(
+        installation_id: @installation_id,
         document_kind: @document_kind,
         content_sha256: candidate.content_sha256
       ) do |document|

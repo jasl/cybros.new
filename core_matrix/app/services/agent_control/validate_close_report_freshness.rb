@@ -28,7 +28,12 @@ module AgentControl
       resource_environment = ClosableResourceRouting.execution_runtime_for(@resource)
       stale! if resource_environment.blank?
       stale! unless @mailbox_item.target_execution_runtime_id == resource_environment.id
-      stale! unless ExecutionSessions::ResolveActiveSession.call(execution_runtime: resource_environment).present?
+
+      if @execution_session.present?
+        stale! unless @execution_session.execution_runtime_id == resource_environment.id
+      else
+        stale! unless ExecutionSessions::ResolveActiveSession.call(execution_runtime: resource_environment).present?
+      end
     end
 
     private
