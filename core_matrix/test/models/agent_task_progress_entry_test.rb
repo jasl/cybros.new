@@ -1,0 +1,42 @@
+require "test_helper"
+
+class AgentTaskProgressEntryTest < ActiveSupport::TestCase
+  test "stores append-only semantic progress entries and rejects internal token summaries" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      focus_kind: "implementation",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+
+    entry = AgentTaskProgressEntry.create!(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 1,
+      entry_kind: "progress_recorded",
+      summary: "Projected the new supervision fields onto the task",
+      details_payload: {},
+      occurred_at: Time.current
+    )
+
+    assert entry.public_id.present?
+    assert_equal entry, AgentTaskProgressEntry.find_by_public_id!(entry.public_id)
+
+    invalid_entry = AgentTaskProgressEntry.new(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 2,
+      entry_kind: "progress_recorded",
+      summary: "provider_round_3_tool_1",
+      details_payload: {},
+      occurred_at: Time.current
+    )
+
+    assert_not invalid_entry.valid?
+    assert_includes invalid_entry.errors[:summary], "must not expose internal runtime tokens"
+  end
+end

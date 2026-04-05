@@ -43,6 +43,12 @@ class SubagentSession < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :parent_subagent_session
   has_many :agent_task_runs, dependent: :restrict_with_exception
+  has_many :delegated_agent_task_plan_items,
+    class_name: "AgentTaskPlanItem",
+    foreign_key: :delegated_subagent_session_id,
+    dependent: :restrict_with_exception,
+    inverse_of: :delegated_subagent_session
+  has_many :agent_task_progress_entries, dependent: :restrict_with_exception
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
   scope :close_pending_or_open, -> { where(close_state: %w[open requested acknowledged]) }
