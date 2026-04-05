@@ -35,9 +35,23 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
       workflow_node: context.fetch(:workflow_run).reload.workflow_nodes.find_by!(node_key: "human_gate")
     )
     workflow_run = context.fetch(:workflow_run).reload
+    human_gate = workflow_run.workflow_nodes.find_by!(node_key: "human_gate")
 
     assert request.open?
     assert_equal "Collect the operator confirmation.", request.request_payload["instructions"]
+    assert_equal "batch-human-1", human_gate.intent_batch_id
+    assert_equal "batch-human-1:human", human_gate.intent_id
+    assert_equal(
+      {
+        "request_type" => "HumanTaskRequest",
+        "blocking" => true,
+        "request_payload" => {
+          "instructions" => "Collect the operator confirmation.",
+        },
+      },
+      human_gate.intent_payload
+    )
+    refute human_gate.metadata.key?("payload")
     assert workflow_run.waiting?
     assert_equal "human_interaction", workflow_run.wait_reason_kind
     assert_equal request.public_id, workflow_run.blocking_resource_id

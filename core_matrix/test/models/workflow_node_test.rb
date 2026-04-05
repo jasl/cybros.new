@@ -163,4 +163,73 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     assert workflow_node.valid?
     refute workflow_node.terminal?
   end
+
+  test "resolves intent payloads through the yielding batch manifest instead of inline metadata" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Input",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    yielding_node = create_workflow_node!(
+      workflow_run: workflow_run,
+      ordinal: 0,
+      node_key: "agent_step_1",
+      node_type: "agent_task_run"
+    )
+
+    WorkflowArtifact.create!(
+      installation: workflow_run.installation,
+      workflow_run: workflow_run,
+      workflow_node: yielding_node,
+      artifact_key: "batch-1",
+      artifact_kind: "intent_batch_manifest",
+      storage_mode: "json_document",
+      payload: {
+        "batch_id" => "batch-1",
+        "stages" => [
+          {
+            "stage_index" => 0,
+            "dispatch_mode" => "serial",
+            "completion_barrier" => "none",
+            "intents" => [
+              {
+                "intent_id" => "intent-1",
+                "intent_kind" => "conversation_title_update",
+                "payload" => { "title" => "Retitled" },
+              },
+            ],
+          },
+        ],
+      }
+    )
+
+    node = WorkflowNode.create!(
+      installation: workflow_run.installation,
+      workflow_run: workflow_run,
+      workspace: conversation.workspace,
+      conversation: conversation,
+      turn: turn,
+      yielding_workflow_node: yielding_node,
+      ordinal: 1,
+      node_key: "title-update",
+      node_type: "conversation_title_update",
+      intent_kind: "conversation_title_update",
+      intent_batch_id: "batch-1",
+      intent_id: "intent-1",
+      presentation_policy: "internal_only",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+
+    assert_equal({ "title" => "Retitled" }, node.intent_payload)
+  end
 end

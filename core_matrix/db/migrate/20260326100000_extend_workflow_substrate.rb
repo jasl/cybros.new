@@ -2,7 +2,10 @@ class ExtendWorkflowSubstrate < ActiveRecord::Migration[8.2]
   def change
     change_table :workflow_runs, bulk: true do |t|
       t.string :resume_policy
-      t.jsonb :resume_metadata, null: false, default: {}
+      t.string :resume_batch_id
+      t.string :resume_yielding_node_key
+      t.string :resume_successor_node_key
+      t.string :resume_successor_node_type
     end
 
     add_check_constraint :workflow_runs,

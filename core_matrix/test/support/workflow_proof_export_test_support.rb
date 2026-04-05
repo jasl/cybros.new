@@ -32,11 +32,16 @@ module WorkflowProofExportTestSupport
       ordinal: 1,
       node_key: "governed_tool",
       node_type: "conversation_title_update",
+      intent_kind: "conversation_title_update",
+      intent_batch_id: "batch-1",
+      intent_id: "intent-1",
+      intent_requirement: "required",
+      intent_conflict_scope: "conversation_metadata",
+      intent_idempotency_key: "intent-1",
+      yielding_workflow_node: yielding_node,
       decision_source: "system",
       presentation_policy: "ops_trackable",
-      metadata: {
-        "payload" => { "title" => "Retitled" },
-      }
+      metadata: {}
     )
     successor_node = create_workflow_node!(
       workflow_run: workflow_run,
@@ -104,6 +109,35 @@ module WorkflowProofExportTestSupport
       installation: workflow_run.installation,
       workflow_run: workflow_run,
       workflow_node: yielding_node,
+      artifact_key: "batch-1",
+      artifact_kind: "intent_batch_manifest",
+      storage_mode: "json_document",
+      payload: {
+        "batch_id" => "batch-1",
+        "accepted_intent_count" => 1,
+        "rejected_intent_count" => 0,
+        "stages" => [
+          {
+            "stage_index" => 0,
+            "dispatch_mode" => "serial",
+            "completion_barrier" => "wait_all",
+            "intents" => [
+              {
+                "intent_id" => "intent-1",
+                "intent_kind" => "conversation_title_update",
+                "node_key" => durable_node.node_key,
+                "payload" => { "title" => "Retitled" },
+              },
+            ],
+          },
+        ],
+      }
+    )
+
+    WorkflowArtifact.create!(
+      installation: workflow_run.installation,
+      workflow_run: workflow_run,
+      workflow_node: yielding_node,
       artifact_key: "batch-1:stage:0",
       artifact_kind: "intent_batch_barrier",
       storage_mode: "json_document",
@@ -118,13 +152,10 @@ module WorkflowProofExportTestSupport
 
     workflow_run.update!(
       resume_policy: "re_enter_agent",
-      resume_metadata: {
-        "batch_id" => "batch-1",
-        "successor" => {
-          "node_key" => "agent_step_2",
-          "node_type" => "turn_step",
-        },
-      }
+      resume_batch_id: "batch-1",
+      resume_yielding_node_key: yielding_node.node_key,
+      resume_successor_node_key: "agent_step_2",
+      resume_successor_node_type: "turn_step"
     )
 
     {

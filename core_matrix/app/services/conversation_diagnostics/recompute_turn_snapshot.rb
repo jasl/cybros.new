@@ -78,7 +78,7 @@ module ConversationDiagnostics
       snapshot.estimated_cost_missing_event_count = usage_metrics.fetch("estimated_cost_missing_event_count")
       snapshot.attributed_user_estimated_cost_event_count = attributed_usage_metrics.fetch("estimated_cost_event_count")
       snapshot.attributed_user_estimated_cost_missing_event_count = attributed_usage_metrics.fetch("estimated_cost_missing_event_count")
-      snapshot.pause_state = turn.workflow_run&.wait_reason_payload&.[]("recovery_state")
+      snapshot.pause_state = turn.workflow_run&.recovery_state
       snapshot.metadata = compact_metadata(
         {
         "provider_usage_breakdown" => provider_usage_breakdown(usage_scope),

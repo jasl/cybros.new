@@ -17,9 +17,12 @@ class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
     assert_equal fixture.fetch(:conversation).public_id, bundle.workflow_run.fetch("conversation_id")
     assert_equal fixture.fetch(:turn).public_id, bundle.workflow_run.fetch("turn_id")
     assert_equal %w[agent_step_1 governed_tool agent_step_2], bundle.nodes.map(&:node_key)
+    governed_tool = bundle.nodes.find { |node| node.node_key == "governed_tool" }
     assert_equal fixture.fetch(:expected_dag_shape), bundle.observed_dag_shape
     assert_equal ["batch-1"], bundle.event_summaries_by_node_key.fetch("agent_step_1").filter_map(&:batch_id)
     assert_equal ["wait_all"], bundle.artifact_summaries_by_node_key.fetch("agent_step_1").filter_map(&:barrier_kind)
+    assert_equal "intent-1", governed_tool.metadata.dig("intent", "intent_id")
+    assert_equal({ "title" => "Retitled" }, governed_tool.metadata.dig("intent", "payload"))
     assert_raises(FrozenError) { bundle.nodes << :extra }
   end
 end

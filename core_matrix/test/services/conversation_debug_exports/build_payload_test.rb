@@ -48,7 +48,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       profile_key: "worker",
       depth: 0
     )
-    workflow_node = create_workflow_node!(
+    yielding_node = create_workflow_node!(
       workflow_run: workflow_run,
       node_key: "provider_round_1",
       node_type: "provider_round",
@@ -57,10 +57,51 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       finished_at: 90.seconds.ago,
       presentation_policy: "ops_trackable"
     )
+    workflow_node = create_workflow_node!(
+      workflow_run: workflow_run,
+      node_key: "debug_intent_1",
+      node_type: "conversation_title_update",
+      intent_kind: "conversation_title_update",
+      intent_batch_id: "batch-debug-1",
+      intent_id: "intent-debug-1",
+      intent_requirement: "required",
+      intent_conflict_scope: "debug",
+      intent_idempotency_key: "intent-debug-1",
+      yielding_workflow_node: yielding_node,
+      lifecycle_state: "completed",
+      started_at: 80.seconds.ago,
+      finished_at: 70.seconds.ago,
+      presentation_policy: "ops_trackable"
+    )
+    WorkflowArtifact.create!(
+      installation: context[:installation],
+      workflow_run: workflow_run,
+      workflow_node: yielding_node,
+      artifact_key: "batch-debug-1",
+      artifact_kind: "intent_batch_manifest",
+      storage_mode: "json_document",
+      payload: {
+        "batch_id" => "batch-debug-1",
+        "stages" => [
+          {
+            "stage_index" => 0,
+            "dispatch_mode" => "serial",
+            "completion_barrier" => "none",
+            "intents" => [
+              {
+                "intent_id" => "intent-debug-1",
+                "intent_kind" => "conversation_title_update",
+                "payload" => { "summary" => "debug intent" },
+              },
+            ],
+          },
+        ],
+      }
+    )
     WorkflowNodeEvent.create!(
       installation: context[:installation],
       workflow_run: workflow_run,
-      workflow_node: workflow_node,
+      workflow_node: yielding_node,
       event_kind: "started",
       ordinal: 0,
       payload: { "state" => "started" }
@@ -90,7 +131,10 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_equal conversation.public_id, payload.dig("conversation_payload", "conversation", "public_id")
     assert_equal conversation.public_id, payload.dig("diagnostics", "conversation", "conversation_id")
     assert_equal 1, payload.fetch("workflow_runs").length
-    assert_equal "provider_round_1", payload.fetch("workflow_nodes").first.fetch("node_key")
+    assert_equal %w[provider_round_1 debug_intent_1], payload.fetch("workflow_nodes").map { |node| node.fetch("node_key") }
+    intent_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "debug_intent_1" }
+    assert_equal "batch-debug-1", intent_node_payload.fetch("intent_batch_id")
+    assert_equal({ "summary" => "debug intent" }, intent_node_payload.fetch("intent_payload"))
     assert_equal 1, payload.fetch("workflow_node_events").length
     assert_equal subagent_session.public_id, payload.fetch("subagent_sessions").first.fetch("subagent_session_id")
     assert_not payload.fetch("subagent_sessions").first.key?("summary")

@@ -51,8 +51,8 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
-    assert_equal "paused_agent_unavailable", workflow_run.wait_reason_payload["recovery_state"]
-    assert_equal "capability_contract_drift", workflow_run.wait_reason_payload["drift_reason"]
+    assert_equal "paused_agent_unavailable", workflow_run.recovery_state
+    assert_equal "capability_contract_drift", workflow_run.recovery_drift_reason
   end
 
   test "ignores waiting workflows whose conversations are pending delete" do
@@ -151,7 +151,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert_equal context[:agent_program], context[:conversation].reload.agent_program
     assert_equal context[:agent_program_version], context[:turn].reload.agent_program_version
     assert_equal "manual_recovery_required", context[:workflow_run].reload.wait_reason_kind
-    assert_equal "execution_runtime_drift", context[:workflow_run].wait_reason_payload["drift_reason"]
+    assert_equal "execution_runtime_drift", context[:workflow_run].recovery_drift_reason
   end
 
   test "restores the original human-interaction blocker after auto resume" do

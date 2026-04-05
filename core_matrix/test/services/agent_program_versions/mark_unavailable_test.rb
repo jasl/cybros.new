@@ -14,11 +14,11 @@ class AgentProgramVersions::MarkUnavailableTest < ActiveSupport::TestCase
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?
     assert_equal "agent_unavailable", workflow_run.wait_reason_kind
-    assert_equal "transient_outage", workflow_run.wait_reason_payload["recovery_state"]
+    assert_equal "transient_outage", workflow_run.recovery_state
+    assert_equal "heartbeat_missed", workflow_run.recovery_reason
     assert_equal context[:agent_program_version].public_id, workflow_run.blocking_resource_id
     assert_equal "AgentProgramVersion", workflow_run.blocking_resource_type
-    assert_equal context[:agent_program_version].fingerprint, workflow_run.wait_reason_payload["pinned_program_version_fingerprint"]
-    assert_equal 1, workflow_run.wait_reason_payload["pinned_capability_version"]
+    assert_equal({}, workflow_run.wait_reason_payload)
 
     deployment = context[:agent_program_version].reload
     assert deployment.degraded?
@@ -47,8 +47,8 @@ class AgentProgramVersions::MarkUnavailableTest < ActiveSupport::TestCase
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
-    assert_equal "paused_agent_unavailable", workflow_run.wait_reason_payload["recovery_state"]
-    assert_equal "runtime_offline", workflow_run.wait_reason_payload["reason"]
+    assert_equal "paused_agent_unavailable", workflow_run.recovery_state
+    assert_equal "runtime_offline", workflow_run.recovery_reason
 
     deployment = context[:agent_program_version].reload
     assert deployment.offline?
@@ -76,7 +76,7 @@ class AgentProgramVersions::MarkUnavailableTest < ActiveSupport::TestCase
     )
 
     workflow_run = context[:workflow_run].reload
-    snapshot = workflow_run.wait_reason_payload["paused_wait_snapshot"]
+    snapshot = workflow_run.wait_snapshot_document.payload
 
     assert workflow_run.waiting?
     assert_equal "agent_unavailable", workflow_run.wait_reason_kind

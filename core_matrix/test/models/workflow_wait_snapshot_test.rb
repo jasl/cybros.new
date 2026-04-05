@@ -44,6 +44,15 @@ class WorkflowWaitSnapshotTest < ActiveSupport::TestCase
     assert snapshot.resolved_for?(context[:workflow_run].reload)
   end
 
+  test "loads a paused wait snapshot from the workflow wait snapshot document" do
+    context = build_waiting_human_interaction_recovery_context!
+
+    snapshot = WorkflowWaitSnapshot.from_workflow_run(context[:workflow_run])
+
+    assert_equal context[:request].public_id, snapshot.blocking_resource_id
+    assert_equal context[:request].public_id, snapshot.wait_reason_payload["request_id"]
+  end
+
   test "recognizes when a blocked workflow node is still unresolved" do
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")

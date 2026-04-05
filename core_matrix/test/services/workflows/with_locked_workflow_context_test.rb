@@ -5,7 +5,8 @@ class Workflows::WithLockedWorkflowContextTest < ActiveSupport::TestCase
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
     refreshed_at = Time.zone.parse("2026-03-29 16:00:00 UTC")
     WorkflowRun.find(workflow_run.id).update!(
-      resume_metadata: { "checkpoint" => "fresh" },
+      resume_policy: "re_enter_agent",
+      resume_batch_id: "checkpoint-fresh",
       updated_at: refreshed_at
     )
     Turn.find(workflow_run.turn_id).update!(origin_payload: { "lock_state" => "fresh" })
@@ -17,7 +18,7 @@ class Workflows::WithLockedWorkflowContextTest < ActiveSupport::TestCase
 
     assert_equal workflow_run.id, yielded[0].id
     assert_equal workflow_run.turn_id, yielded[1].id
-    assert_equal({ "checkpoint" => "fresh" }, yielded[0].resume_metadata)
+    assert_equal "checkpoint-fresh", yielded[0].resume_batch_id
     assert_equal({ "lock_state" => "fresh" }, yielded[1].origin_payload)
   end
 end

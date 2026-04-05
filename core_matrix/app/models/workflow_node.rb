@@ -84,6 +84,7 @@ class WorkflowNode < ApplicationRecord
   validate :yielding_workflow_integrity
   validate :execution_timestamps_consistency
   validate :metadata_must_be_hash
+  validate :intent_state_consistency
 
   def terminal?
     completed? || failed? || canceled?
@@ -91,6 +92,24 @@ class WorkflowNode < ApplicationRecord
 
   def tool_call_payload
     tool_call_document&.payload
+  end
+
+  def intent_payload
+    return {} if intent_batch_id.blank? || intent_id.blank? || yielding_workflow_node.blank?
+
+    @intent_payload ||= begin
+      manifest = workflow_run.workflow_artifacts.find_by(
+        workflow_node: yielding_workflow_node,
+        artifact_kind: "intent_batch_manifest",
+        artifact_key: intent_batch_id
+      )
+      manifest_payload = manifest&.payload || {}
+
+      Array(manifest_payload["stages"])
+        .flat_map { |stage| Array(stage["intents"]) }
+        .find { |intent| intent["intent_id"] == intent_id }
+        &.fetch("payload", {}) || {}
+    end
   end
 
   private
@@ -186,5 +205,22 @@ class WorkflowNode < ApplicationRecord
 
   def metadata_must_be_hash
     errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
+  end
+
+  def intent_state_consistency
+    if [intent_id, intent_batch_id].any?(&:present?) && intent_kind.blank?
+      errors.add(:intent_kind, "must be present when intent tracking columns are populated")
+    end
+
+    if intent_batch_id.present? ^ intent_id.present?
+      errors.add(:intent_batch_id, "must be paired with intent_id")
+    end
+
+    return unless metadata.is_a?(Hash)
+    return if intent_kind.blank?
+
+    %w[payload intent_kind idempotency_key requirement conflict_scope].each do |key|
+      errors.add(:metadata, "must not inline #{key} for intent-backed workflow nodes") if metadata.key?(key)
+    end
   end
 end

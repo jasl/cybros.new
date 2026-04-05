@@ -24,6 +24,8 @@ class Workflows::ResumePausedTurnTest < ActiveSupport::TestCase
     assert_equal "turn_resume", new_task.task_payload["delivery_kind"]
     assert_equal 1, new_task.task_payload["previous_attempt_no"]
     assert_equal context[:agent_task_run].public_id, new_task.task_payload["paused_agent_task_run_id"]
+    assert_equal({ "step" => "running", "percent" => 45 }, new_task.task_payload["paused_progress_payload"])
+    assert_equal context[:agent_task_run].reload.terminal_payload, new_task.task_payload["paused_terminal_payload"]
 
     assignment = AgentControlMailboxItem.find_by!(agent_task_run: new_task)
     assert_equal "execution_assignment", assignment.item_type
@@ -49,6 +51,17 @@ class Workflows::ResumePausedTurnTest < ActiveSupport::TestCase
     assert_equal "paused_retry", new_task.task_payload["delivery_kind"]
     assert_equal 1, new_task.task_payload["previous_attempt_no"]
     assert_equal context[:agent_task_run].public_id, new_task.task_payload["paused_agent_task_run_id"]
+  end
+
+  test "pause keeps recovery state on workflow columns instead of embedding paused task payloads" do
+    context = build_paused_turn_context!
+    workflow_run = context[:workflow_run].reload
+
+    assert_equal "paused_turn", workflow_run.recovery_state
+    assert_equal "user_requested", workflow_run.recovery_reason
+    assert_equal context[:agent_task_run], workflow_run.recovery_agent_task_run
+    assert_equal({}, workflow_run.wait_reason_payload)
+    assert_nil workflow_run.wait_snapshot_document
   end
 
   test "resume rebuilds the execution snapshot from paused steering input" do
@@ -94,7 +107,9 @@ class Workflows::ResumePausedTurnTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: Time.current,
       logical_work_id: "pause-work-#{next_test_sequence}",
-      task_payload: { "step" => "mainline" }
+      task_payload: { "step" => "mainline" },
+      progress_payload: { "step" => "running", "percent" => 45 },
+      terminal_payload: { "reason" => "operator_requested" }
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,

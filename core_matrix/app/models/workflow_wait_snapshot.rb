@@ -1,5 +1,5 @@
 class WorkflowWaitSnapshot
-  SNAPSHOT_KEY = "paused_wait_snapshot".freeze
+  DOCUMENT_KIND = "workflow_wait_snapshot".freeze
 
   def self.capture(workflow_run)
     return if workflow_run.blank?
@@ -17,11 +17,23 @@ class WorkflowWaitSnapshot
 
   def self.from_workflow_run(workflow_run)
     return if workflow_run.blank?
+    return if workflow_run.wait_snapshot_document.blank?
 
-    snapshot = workflow_run.wait_reason_payload[SNAPSHOT_KEY]
+    new(workflow_run.wait_snapshot_document.payload)
+  end
+
+  def self.document_for_pause(workflow_run)
+    return if workflow_run.blank?
+    return workflow_run.wait_snapshot_document if workflow_run.wait_snapshot_document.present?
+
+    snapshot = capture(workflow_run)
     return if snapshot.blank?
 
-    new(snapshot)
+    JsonDocuments::Store.call(
+      installation: workflow_run.installation,
+      document_kind: DOCUMENT_KIND,
+      payload: snapshot.to_h
+    )
   end
 
   attr_reader :wait_reason_kind, :blocking_resource_type, :blocking_resource_id

@@ -7,6 +7,11 @@ class CreateWorkflowNodes < ActiveRecord::Migration[8.2]
       t.integer :ordinal, null: false
       t.string :node_key, null: false
       t.string :node_type, null: false
+      t.string :intent_id
+      t.string :intent_batch_id
+      t.string :intent_requirement
+      t.string :intent_conflict_scope
+      t.string :intent_idempotency_key
       t.string :lifecycle_state, null: false, default: "pending"
       t.datetime :started_at
       t.datetime :finished_at

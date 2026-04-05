@@ -70,13 +70,14 @@ module Workflows
       node_key_by_id = node_rows.to_h { |row| [row.fetch(:id), row.fetch(:node_key)] }
       tool_call_payloads_by_document_id = load_tool_call_payloads(node_rows)
       event_summaries_by_node_key = build_event_summaries_by_node_key
-      artifact_summaries_by_node_key = build_artifact_summaries_by_node_key
+      artifact_result = build_artifact_summaries_by_node_key
       node_summaries = build_node_summaries(
         node_rows: node_rows,
         node_key_by_id: node_key_by_id,
         workflow_run_summary: workflow_run_summary,
         event_summaries_by_node_key: event_summaries_by_node_key,
-        tool_call_payloads_by_document_id: tool_call_payloads_by_document_id
+        tool_call_payloads_by_document_id: tool_call_payloads_by_document_id,
+        manifest_payloads_by_yield_node_and_batch_id: artifact_result.fetch(:manifest_payloads_by_yield_node_and_batch_id)
       )
       edge_summaries = build_edge_summaries(node_key_by_id: node_key_by_id)
 
@@ -85,7 +86,7 @@ module Workflows
         nodes: node_summaries.freeze,
         edges: edge_summaries.freeze,
         event_summaries_by_node_key: event_summaries_by_node_key.freeze,
-        artifact_summaries_by_node_key: artifact_summaries_by_node_key.freeze,
+        artifact_summaries_by_node_key: artifact_result.fetch(:artifact_summaries_by_node_key).freeze,
         observed_dag_shape: edge_summaries.map { |edge| "#{edge.from_node_key}->#{edge.to_node_key}" }.freeze
       ).freeze
     end
@@ -103,7 +104,10 @@ module Workflows
         workflow_wait_state,
         wait_reason_kind,
         resume_policy,
-        resume_metadata,
+        resume_batch_id,
+        resume_yielding_node_key,
+        resume_successor_node_key,
+        resume_successor_node_type,
         resolved_model_selection_snapshot = WorkflowRun
         .joins(:turn)
         .joins(conversation: :workspace)
@@ -119,11 +123,18 @@ module Workflows
           "workflow_runs.wait_state",
           "workflow_runs.wait_reason_kind",
           "workflow_runs.resume_policy",
-          "workflow_runs.resume_metadata",
+          "workflow_runs.resume_batch_id",
+          "workflow_runs.resume_yielding_node_key",
+          "workflow_runs.resume_successor_node_key",
+          "workflow_runs.resume_successor_node_type",
           "turns.resolved_model_selection_snapshot"
         )
       provider_handle = resolved_model_selection_snapshot&.fetch("resolved_provider_handle", nil)
       model_ref = resolved_model_selection_snapshot&.fetch("resolved_model_ref", nil)
+      successor = {
+        "node_key" => resume_successor_node_key,
+        "node_type" => resume_successor_node_type,
+      }.compact
 
       deep_freeze(
         {
@@ -137,7 +148,11 @@ module Workflows
           "workflow_wait_state" => workflow_wait_state,
           "wait_reason_kind" => wait_reason_kind,
           "resume_policy" => resume_policy,
-          "resume_metadata" => resume_metadata || {},
+          "resume_metadata" => {
+            "batch_id" => resume_batch_id,
+            "yielding_node_key" => resume_yielding_node_key,
+            "successor" => successor.presence,
+          }.compact,
           "provider_handle" => provider_handle,
           "model_ref" => model_ref,
         }
@@ -159,10 +174,15 @@ module Workflows
           :yielding_workflow_node_id,
           :stage_index,
           :stage_position,
+          :intent_id,
+          :intent_batch_id,
+          :intent_requirement,
+          :intent_conflict_scope,
+          :intent_idempotency_key,
           :tool_call_document_id,
           :metadata
         )
-        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, tool_call_document_id, metadata|
+        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, intent_id, intent_batch_id, intent_requirement, intent_conflict_scope, intent_idempotency_key, tool_call_document_id, metadata|
           {
             id: id,
             public_id: public_id,
@@ -174,6 +194,11 @@ module Workflows
             yielding_workflow_node_id: yielding_workflow_node_id,
             stage_index: stage_index,
             stage_position: stage_position,
+            intent_id: intent_id,
+            intent_batch_id: intent_batch_id,
+            intent_requirement: intent_requirement,
+            intent_conflict_scope: intent_conflict_scope,
+            intent_idempotency_key: intent_idempotency_key,
             tool_call_document_id: tool_call_document_id,
             metadata: metadata || {},
           }
@@ -187,7 +212,7 @@ module Workflows
       JsonDocument.where(id: document_ids).pluck(:id, :payload).to_h
     end
 
-    def build_node_summaries(node_rows:, node_key_by_id:, workflow_run_summary:, event_summaries_by_node_key:, tool_call_payloads_by_document_id:)
+    def build_node_summaries(node_rows:, node_key_by_id:, workflow_run_summary:, event_summaries_by_node_key:, tool_call_payloads_by_document_id:, manifest_payloads_by_yield_node_and_batch_id:)
       successor_node_key = workflow_run_summary.dig("resume_metadata", "successor", "node_key")
 
       node_rows.map do |row|
@@ -196,6 +221,8 @@ module Workflows
         metadata = row.fetch(:metadata).dup
         tool_call_payload = tool_call_payloads_by_document_id[row[:tool_call_document_id]]
         metadata["tool_call"] = tool_call_payload if tool_call_payload.present?
+        intent = build_intent_metadata(row, manifest_payloads_by_yield_node_and_batch_id)
+        metadata["intent"] = intent if intent.present?
         NodeSummary.new(
           public_id: row.fetch(:public_id),
           node_key: node_key,
@@ -212,6 +239,29 @@ module Workflows
           resume_successor: successor_node_key.present? && successor_node_key == node_key
         ).freeze
       end
+    end
+
+    def build_intent_metadata(row, manifest_payloads_by_yield_node_and_batch_id)
+      return if row[:intent_id].blank? && row[:intent_batch_id].blank?
+
+      payload = resolve_intent_payload(row, manifest_payloads_by_yield_node_and_batch_id)
+      {
+        "intent_id" => row[:intent_id],
+        "batch_id" => row[:intent_batch_id],
+        "requirement" => row[:intent_requirement],
+        "conflict_scope" => row[:intent_conflict_scope],
+        "idempotency_key" => row[:intent_idempotency_key],
+        "payload" => payload.presence,
+      }.compact
+    end
+
+    def resolve_intent_payload(row, manifest_payloads_by_yield_node_and_batch_id)
+      manifest_payload = manifest_payloads_by_yield_node_and_batch_id[[row[:yielding_workflow_node_id], row[:intent_batch_id]]] || {}
+
+      Array(manifest_payload["stages"])
+        .flat_map { |stage| Array(stage["intents"]) }
+        .find { |intent| intent["intent_id"] == row[:intent_id] }
+        &.fetch("payload", {}) || {}
     end
 
     def build_edge_summaries(node_key_by_id:)
@@ -278,19 +328,30 @@ module Workflows
     end
 
     def build_artifact_summaries_by_node_key
+      summaries_by_node_key = Hash.new { |hash, key| hash[key] = [] }
+      manifest_payloads_by_yield_node_and_batch_id = {}
+
       WorkflowArtifact
         .where(workflow_run_id: @workflow_run.id)
         .order(:workflow_node_ordinal, :artifact_kind, :artifact_key)
         .left_outer_joins(:json_document)
-        .pluck(:workflow_node_key, :artifact_key, :artifact_kind, Arel.sql("json_documents.payload"))
-        .each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(workflow_node_key, artifact_key, artifact_kind, payload), grouped|
-          grouped[workflow_node_key] << build_artifact_summary(
+        .pluck(:workflow_node_id, :workflow_node_key, :artifact_key, :artifact_kind, Arel.sql("json_documents.payload"))
+        .each do |workflow_node_id, workflow_node_key, artifact_key, artifact_kind, payload|
+          payload ||= {}
+          summaries_by_node_key[workflow_node_key] << build_artifact_summary(
             artifact_key: artifact_key,
             artifact_kind: artifact_kind,
-            payload: payload || {}
+            payload: payload
           )
+          if artifact_kind == "intent_batch_manifest"
+            manifest_payloads_by_yield_node_and_batch_id[[workflow_node_id, artifact_key]] = payload
+          end
         end
-        .transform_values { |entries| entries.freeze }
+
+      {
+        artifact_summaries_by_node_key: summaries_by_node_key.transform_values(&:freeze),
+        manifest_payloads_by_yield_node_and_batch_id: manifest_payloads_by_yield_node_and_batch_id.freeze,
+      }
     end
 
     def build_artifact_summary(artifact_key:, artifact_kind:, payload:)

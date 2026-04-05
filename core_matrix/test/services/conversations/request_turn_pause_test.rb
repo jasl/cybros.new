@@ -15,9 +15,11 @@ class Conversations::RequestTurnPauseTest < ActiveSupport::TestCase
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
-    assert_equal "pause_requested", workflow_run.wait_reason_payload["recovery_state"]
-    assert_equal context[:agent_task_run].public_id, workflow_run.wait_reason_payload["paused_agent_task_run_id"]
-    assert_equal context[:workflow_node].public_id, workflow_run.wait_reason_payload["paused_workflow_node_id"]
+    assert_equal "pause_requested", workflow_run.recovery_state
+    assert_equal "user_requested", workflow_run.recovery_reason
+    assert_equal context[:agent_task_run], workflow_run.recovery_agent_task_run
+    assert_equal({}, workflow_run.wait_reason_payload)
+    assert_nil workflow_run.wait_snapshot_document
 
     close_request = AgentControlMailboxItem.find_by!(
       item_type: "resource_close_request",

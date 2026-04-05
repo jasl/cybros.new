@@ -10,20 +10,24 @@ class AgentProgramVersions::UnavailablePauseStateTest < ActiveSupport::TestCase
       request_payload: { "instructions" => "Need operator input" }
     )
     paused_since = Time.zone.parse("2026-03-29 12:00:00 UTC")
+    snapshot_document = JsonDocuments::Store.call(
+      installation: context[:workflow_run].installation,
+      document_kind: WorkflowWaitSnapshot::DOCUMENT_KIND,
+      payload: {
+        "wait_reason_kind" => "human_interaction",
+        "wait_reason_payload" => { "request_id" => request.public_id },
+        "waiting_since_at" => paused_since.iso8601,
+        "blocking_resource_type" => "HumanInteractionRequest",
+        "blocking_resource_id" => request.public_id,
+      }
+    )
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "agent_unavailable",
-      wait_reason_payload: {
-        "recovery_state" => "transient_outage",
-        "reason" => "heartbeat_missed",
-        WorkflowWaitSnapshot::SNAPSHOT_KEY => {
-          "wait_reason_kind" => "human_interaction",
-          "wait_reason_payload" => { "request_id" => request.public_id },
-          "waiting_since_at" => paused_since.iso8601,
-          "blocking_resource_type" => "HumanInteractionRequest",
-          "blocking_resource_id" => request.public_id,
-        },
-      },
+      wait_reason_payload: {},
+      recovery_state: "transient_outage",
+      recovery_reason: "heartbeat_missed",
+      wait_snapshot_document: snapshot_document,
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentProgramVersion",
       blocking_resource_id: context[:agent_program_version].public_id
@@ -38,6 +42,11 @@ class AgentProgramVersions::UnavailablePauseStateTest < ActiveSupport::TestCase
         wait_state: "waiting",
         wait_reason_kind: "human_interaction",
         wait_reason_payload: { "request_id" => request.public_id },
+        recovery_state: nil,
+        recovery_reason: nil,
+        recovery_drift_reason: nil,
+        recovery_agent_task_run_public_id: nil,
+        wait_snapshot_document: nil,
         waiting_since_at: paused_since,
         blocking_resource_type: "HumanInteractionRequest",
         blocking_resource_id: request.public_id,
@@ -54,19 +63,23 @@ class AgentProgramVersions::UnavailablePauseStateTest < ActiveSupport::TestCase
       blocking: true,
       request_payload: { "instructions" => "Need operator input" }
     )
+    snapshot_document = JsonDocuments::Store.call(
+      installation: context[:workflow_run].installation,
+      document_kind: WorkflowWaitSnapshot::DOCUMENT_KIND,
+      payload: {
+        "wait_reason_kind" => "human_interaction",
+        "wait_reason_payload" => { "request_id" => request.public_id },
+        "blocking_resource_type" => "HumanInteractionRequest",
+        "blocking_resource_id" => request.public_id,
+      }
+    )
     context[:workflow_run].update!(
       wait_state: "waiting",
       wait_reason_kind: "agent_unavailable",
-      wait_reason_payload: {
-        "recovery_state" => "transient_outage",
-        "reason" => "heartbeat_missed",
-        WorkflowWaitSnapshot::SNAPSHOT_KEY => {
-          "wait_reason_kind" => "human_interaction",
-          "wait_reason_payload" => { "request_id" => request.public_id },
-          "blocking_resource_type" => "HumanInteractionRequest",
-          "blocking_resource_id" => request.public_id,
-        },
-      },
+      wait_reason_payload: {},
+      recovery_state: "transient_outage",
+      recovery_reason: "heartbeat_missed",
+      wait_snapshot_document: snapshot_document,
       waiting_since_at: Time.current,
       blocking_resource_type: "AgentProgramVersion",
       blocking_resource_id: context[:agent_program_version].public_id

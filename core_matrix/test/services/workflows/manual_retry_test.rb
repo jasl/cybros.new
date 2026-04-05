@@ -240,14 +240,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
           next if injected
 
           injected = true
-          workflow_run.update!(
-            wait_state: "ready",
-            wait_reason_kind: nil,
-            wait_reason_payload: {},
-            waiting_since_at: nil,
-            blocking_resource_type: nil,
-            blocking_resource_id: nil
-          )
+          workflow_run.update!(Workflows::WaitState.ready_attributes)
         end
       end
     end)

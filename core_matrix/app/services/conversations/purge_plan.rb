@@ -105,6 +105,7 @@ module Conversations
       ids.concat AgentControlReportReceipt.where(id: @report_receipt_ids).where.not(report_document_id: nil).pluck(:report_document_id)
       ids.concat AgentControlMailboxItem.where(id: @mailbox_item_ids).where.not(payload_document_id: nil).pluck(:payload_document_id)
       ids.concat ExecutionCapabilitySnapshot.where(id: @execution_capability_snapshot_ids).where.not(tool_surface_document_id: nil).pluck(:tool_surface_document_id)
+      ids.concat WorkflowRun.where(id: @workflow_run_ids).where.not(wait_snapshot_document_id: nil).pluck(:wait_snapshot_document_id)
 
       ids.compact.uniq
     end
@@ -268,6 +269,7 @@ module Conversations
       referenced_ids.concat AgentControlReportReceipt.where(report_document_id: @json_document_ids).pluck(:report_document_id)
       referenced_ids.concat AgentControlMailboxItem.where(payload_document_id: @json_document_ids).pluck(:payload_document_id)
       referenced_ids.concat ExecutionCapabilitySnapshot.where(tool_surface_document_id: @json_document_ids).pluck(:tool_surface_document_id)
+      referenced_ids.concat WorkflowRun.where(wait_snapshot_document_id: @json_document_ids).pluck(:wait_snapshot_document_id)
 
       JsonDocument.where(id: @json_document_ids - referenced_ids.compact.uniq)
     end

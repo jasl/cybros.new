@@ -103,11 +103,13 @@ module Workflows
     end
 
     def successor_node_metadata(workflow_run, predecessor_nodes)
+      yielding_node_public_id = yielding_node_public_id_for(workflow_run)
+
       {
-        "resume_batch_id" => workflow_run.resume_metadata["batch_id"],
+        "resume_batch_id" => workflow_run.resume_batch_id,
         "resume_reason" => @resume_reason,
-        "yielding_node_id" => workflow_run.resume_metadata["yielding_node_id"],
-        "yielding_node_key" => workflow_run.resume_metadata["yielding_node_key"],
+        "yielding_node_id" => yielding_node_public_id,
+        "yielding_node_key" => workflow_run.resume_yielding_node_key,
         "predecessor_node_keys" => predecessor_nodes.map(&:node_key),
         "wait_context" => @wait_context.presence,
       }.compact
@@ -131,11 +133,13 @@ module Workflows
     end
 
     def successor_task_payload(workflow_run, predecessor_nodes)
+      yielding_node_public_id = yielding_node_public_id_for(workflow_run)
+
       {
-        "resume_batch_id" => workflow_run.resume_metadata["batch_id"],
+        "resume_batch_id" => workflow_run.resume_batch_id,
         "resume_reason" => @resume_reason,
-        "yielding_node_id" => workflow_run.resume_metadata["yielding_node_id"],
-        "yielding_node_key" => workflow_run.resume_metadata["yielding_node_key"],
+        "yielding_node_id" => yielding_node_public_id,
+        "yielding_node_key" => workflow_run.resume_yielding_node_key,
         "predecessor_node_keys" => predecessor_nodes.map(&:node_key),
         "wait_context" => @wait_context.presence,
       }.compact
@@ -143,6 +147,13 @@ module Workflows
 
     def existing_task(successor_node, workflow_run)
       AgentTaskRun.find_by(workflow_run: workflow_run, workflow_node: successor_node)
+    end
+
+    def yielding_node_public_id_for(workflow_run)
+      workflow_run
+        .workflow_nodes
+        .find_by(node_key: workflow_run.resume_yielding_node_key)
+        &.public_id
     end
 
     def raise_invalid!(record, attribute, message)

@@ -84,10 +84,9 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       wait_state: "waiting",
       wait_reason_kind: "manual_recovery_required",
       waiting_since_at: Time.current,
-      wait_reason_payload: {
-        "recovery_state" => "paused_turn",
-        "paused_agent_task_run_id" => running_task.public_id,
-      }
+      wait_reason_payload: {},
+      recovery_state: "paused_turn",
+      recovery_agent_task_run_public_id: running_task.public_id
     )
 
     record_usage_event!(

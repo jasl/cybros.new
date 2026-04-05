@@ -51,11 +51,12 @@ module Workflows
 
     def materialize_stage!(stage, stage_nodes, batch_id:)
       stage_nodes.select { |node| human_interaction_node?(node) }.each do |node|
+        payload = node.intent_payload
         request = HumanInteractions::Request.call(
-          request_type: node.metadata.fetch("payload").fetch("request_type"),
+          request_type: payload.fetch("request_type"),
           workflow_node: node,
-          blocking: node.metadata.fetch("payload").fetch("blocking", true),
-          request_payload: node.metadata.fetch("payload").fetch("request_payload", {})
+          blocking: payload.fetch("blocking", true),
+          request_payload: payload.fetch("request_payload", {})
         )
         node.update!(
           metadata: node.metadata.merge(
@@ -67,13 +68,14 @@ module Workflows
       return if @workflow_run.reload.waiting?
 
       spawned_sessions = stage_nodes.select { |node| subagent_spawn_node?(node) }.map do |node|
+        payload = node.intent_payload
         result = SubagentSessions::Spawn.call(
           conversation: @workflow_run.conversation,
           origin_turn: @workflow_run.turn,
-          content: node.metadata.fetch("payload").fetch("content"),
-          scope: node.metadata.fetch("payload").fetch("scope", "conversation"),
-          profile_key: node.metadata.fetch("payload")["profile_key"],
-          task_payload: node.metadata.fetch("payload").fetch("task_payload", {})
+          content: payload.fetch("content"),
+          scope: payload.fetch("scope", "conversation"),
+          profile_key: payload["profile_key"],
+          task_payload: payload.fetch("task_payload", {})
         )
         node.update!(
           metadata: node.metadata.merge(

@@ -110,5 +110,4 @@ class ConversationObservationMessageTest < ActiveSupport::TestCase
     assert_not message.valid?
     assert_includes message.errors[:target_conversation], "must match the observation session target conversation"
   end
-
 end

@@ -42,6 +42,7 @@ class WorkflowRun < ApplicationRecord
   belongs_to :installation
   belongs_to :conversation
   belongs_to :turn
+  belongs_to :wait_snapshot_document, class_name: "JsonDocument", optional: true
 
   has_many :workflow_nodes, dependent: :restrict_with_exception
   has_many :workflow_edges, dependent: :restrict_with_exception
@@ -92,13 +93,14 @@ class WorkflowRun < ApplicationRecord
   end
 
   validate :wait_reason_payload_must_be_hash
-  validate :resume_metadata_must_be_hash
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :turn_conversation_match
   validate :one_active_workflow_per_conversation
   validate :wait_state_consistency
   validate :cancellation_request_pairing
+  validate :recovery_state_consistency
+  validate :resume_state_consistency
 
   validates :turn_id, uniqueness: true
 
@@ -113,23 +115,51 @@ class WorkflowRun < ApplicationRecord
   def paused_agent_unavailable?
     waiting? &&
       wait_reason_kind == "manual_recovery_required" &&
-      wait_reason_payload["recovery_state"] == "paused_agent_unavailable"
+      recovery_state == "paused_agent_unavailable"
   end
 
   def pause_requested?
     waiting? &&
       wait_reason_kind == "manual_recovery_required" &&
-      wait_reason_payload["recovery_state"] == Workflows::TurnPauseState::RECOVERY_STATE_PENDING
+      recovery_state == Workflows::TurnPauseState::RECOVERY_STATE_PENDING
   end
 
   def paused_turn?
     waiting? &&
       wait_reason_kind == "manual_recovery_required" &&
-      wait_reason_payload["recovery_state"] == Workflows::TurnPauseState::RECOVERY_STATE_PAUSED
+      recovery_state == Workflows::TurnPauseState::RECOVERY_STATE_PAUSED
   end
 
   def paused_wait_snapshot
     WorkflowWaitSnapshot.from_workflow_run(self)
+  end
+
+  def recovery_agent_task_run
+    return if recovery_agent_task_run_public_id.blank?
+
+    AgentTaskRun.find_by(
+      workflow_run: self,
+      public_id: recovery_agent_task_run_public_id
+    )
+  end
+
+  def resume_yielding_workflow_node
+    return if resume_yielding_node_key.blank?
+
+    workflow_nodes.find_by(node_key: resume_yielding_node_key)
+  end
+
+  def resume_metadata
+    successor = {
+      "node_key" => resume_successor_node_key,
+      "node_type" => resume_successor_node_type,
+    }.compact
+
+    {
+      "batch_id" => resume_batch_id,
+      "yielding_node_key" => resume_yielding_node_key,
+      "successor" => successor.presence,
+    }.compact
   end
 
   private
@@ -171,10 +201,6 @@ class WorkflowRun < ApplicationRecord
     errors.add(:wait_reason_payload, "must be a hash") unless wait_reason_payload.is_a?(Hash)
   end
 
-  def resume_metadata_must_be_hash
-    errors.add(:resume_metadata, "must be a hash") unless resume_metadata.is_a?(Hash)
-  end
-
   def wait_state_consistency
     if waiting?
       errors.add(:wait_reason_kind, "must exist when workflow run is waiting") if wait_reason_kind.blank?
@@ -182,6 +208,11 @@ class WorkflowRun < ApplicationRecord
     else
       errors.add(:wait_reason_payload, "must be empty when workflow run is ready") if wait_reason_payload.present?
       errors.add(:wait_reason_kind, "must be blank when workflow run is ready") if wait_reason_kind.present?
+      errors.add(:recovery_state, "must be blank when workflow run is ready") if recovery_state.present?
+      errors.add(:recovery_reason, "must be blank when workflow run is ready") if recovery_reason.present?
+      errors.add(:recovery_drift_reason, "must be blank when workflow run is ready") if recovery_drift_reason.present?
+      errors.add(:recovery_agent_task_run_public_id, "must be blank when workflow run is ready") if recovery_agent_task_run_public_id.present?
+      errors.add(:wait_snapshot_document, "must be blank when workflow run is ready") if wait_snapshot_document_id.present?
       errors.add(:waiting_since_at, "must be blank when workflow run is ready") if waiting_since_at.present?
       errors.add(:blocking_resource_type, "must be blank when workflow run is ready") if blocking_resource_type.present?
       errors.add(:blocking_resource_id, "must be blank when workflow run is ready") if blocking_resource_id.present?
@@ -189,6 +220,35 @@ class WorkflowRun < ApplicationRecord
 
     if blocking_resource_type.present? ^ blocking_resource_id.present?
       errors.add(:blocking_resource_id, "must be paired with blocking resource type")
+    end
+  end
+
+  def recovery_state_consistency
+    recovery_fields_present = recovery_state.present? ||
+      recovery_reason.present? ||
+      recovery_drift_reason.present? ||
+      recovery_agent_task_run_public_id.present? ||
+      wait_snapshot_document_id.present?
+    return unless recovery_fields_present
+
+    return if waiting? && wait_reason_kind.in?(%w[manual_recovery_required agent_unavailable])
+
+    errors.add(:recovery_state, "must belong to a recovery wait state")
+  end
+
+  def resume_state_consistency
+    resume_fields_present = resume_batch_id.present? ||
+      resume_yielding_node_key.present? ||
+      resume_successor_node_key.present? ||
+      resume_successor_node_type.present?
+
+    if resume_policy.blank?
+      errors.add(:resume_policy, "must exist when resume state is present") if resume_fields_present
+      return
+    end
+
+    if resume_successor_node_key.present? ^ resume_successor_node_type.present?
+      errors.add(:resume_successor_node_type, "must be paired with resume successor node key")
     end
   end
 

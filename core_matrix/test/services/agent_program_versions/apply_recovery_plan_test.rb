@@ -37,8 +37,8 @@ class AgentProgramVersions::ApplyRecoveryPlanTest < ActiveSupport::TestCase
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
-    assert_equal "paused_agent_unavailable", workflow_run.wait_reason_payload["recovery_state"]
-    assert_equal "capability_contract_drift", workflow_run.wait_reason_payload["drift_reason"]
+    assert_equal "paused_agent_unavailable", workflow_run.recovery_state
+    assert_equal "capability_contract_drift", workflow_run.recovery_drift_reason
   end
 
   test "does not apply a resume with rebind plan after the replacement deployment stops being schedulable" do

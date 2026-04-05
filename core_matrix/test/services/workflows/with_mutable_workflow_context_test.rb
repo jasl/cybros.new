@@ -4,7 +4,10 @@ class Workflows::WithMutableWorkflowContextTest < ActiveSupport::TestCase
   test "yields the mutable conversation alongside refreshed workflow context" do
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
     Conversation.find(workflow_run.conversation_id).update!(override_payload: { "mode" => "fresh" })
-    WorkflowRun.find(workflow_run.id).update!(resume_metadata: { "checkpoint" => "fresh" })
+    WorkflowRun.find(workflow_run.id).update!(
+      resume_policy: "re_enter_agent",
+      resume_batch_id: "checkpoint-fresh"
+    )
     Turn.find(workflow_run.turn_id).update!(origin_payload: { "lock_state" => "fresh" })
     yielded = nil
 
@@ -19,7 +22,7 @@ class Workflows::WithMutableWorkflowContextTest < ActiveSupport::TestCase
 
     assert_equal workflow_run.conversation_id, yielded[0].id
     assert_equal({ "mode" => "fresh" }, yielded[0].override_payload)
-    assert_equal({ "checkpoint" => "fresh" }, yielded[1].resume_metadata)
+    assert_equal "checkpoint-fresh", yielded[1].resume_batch_id
     assert_equal({ "lock_state" => "fresh" }, yielded[2].origin_payload)
   end
 

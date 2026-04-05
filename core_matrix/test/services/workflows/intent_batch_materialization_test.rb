@@ -68,14 +68,23 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
 
     assert_equal [accepted_node], result.accepted_nodes
     assert_equal "re_enter_agent", workflow_run.resume_policy
-    assert_equal "batch-1", workflow_run.resume_metadata["batch_id"]
-    assert_equal "agent_step_2", workflow_run.resume_metadata.dig("successor", "node_key")
+    assert_equal "batch-1", workflow_run.resume_batch_id
+    assert_equal yielding_node, workflow_run.resume_yielding_workflow_node
+    assert_equal "agent_step_2", workflow_run.resume_successor_node_key
+    assert_equal "agent_task_run", workflow_run.resume_successor_node_type
     assert_equal yielding_node, accepted_node.yielding_workflow_node
     assert_equal 0, accepted_node.stage_index
     assert_equal 0, accepted_node.stage_position
     assert_equal "conversation_title_update", accepted_node.intent_kind
-    assert_equal({ "title" => "Retitled" }, accepted_node.metadata["payload"])
-    assert_equal "intent-1", accepted_node.metadata["idempotency_key"]
+    assert_equal "batch-1", accepted_node.intent_batch_id
+    assert_equal "intent-1", accepted_node.intent_id
+    assert_equal "required", accepted_node.intent_requirement
+    assert_equal "conversation_metadata", accepted_node.intent_conflict_scope
+    assert_equal "intent-1", accepted_node.intent_idempotency_key
+    assert_equal({ "title" => "Retitled" }, accepted_node.intent_payload)
+    refute accepted_node.metadata.key?("payload")
+    refute accepted_node.metadata.key?("intent_kind")
+    refute accepted_node.metadata.key?("idempotency_key")
     assert_equal "batch-1", batch_manifest.payload["batch_id"]
     assert_equal 1, batch_manifest.payload["accepted_intent_count"]
     assert_equal 0, batch_manifest.payload["rejected_intent_count"]
@@ -148,6 +157,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     assert_nil workflow_run.workflow_nodes.find_by(node_key: "subagent-1")
     assert_equal "intent-rejected", rejection_event.payload["intent_id"]
     assert_equal "parallel_conflict", rejection_event.payload["reason"]
+    refute rejection_event.payload.key?("payload")
   end
 
   test "materializes multi-stage batches while only creating barrier artifacts for blocking stages" do

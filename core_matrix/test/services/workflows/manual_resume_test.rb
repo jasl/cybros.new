@@ -451,6 +451,11 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
         "stage_index" => 0,
         "subagent_session_ids" => sessions.map(&:public_id),
       },
+      recovery_state: nil,
+      recovery_reason: nil,
+      recovery_drift_reason: nil,
+      recovery_agent_task_run_public_id: nil,
+      wait_snapshot_document: nil,
       waiting_since_at: Time.current,
       blocking_resource_type: "SubagentBarrier",
       blocking_resource_id: blocking_resource_id
@@ -522,14 +527,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
           next if injected
 
           injected = true
-          workflow_run.update!(
-            wait_state: "ready",
-            wait_reason_kind: nil,
-            wait_reason_payload: {},
-            waiting_since_at: nil,
-            blocking_resource_type: nil,
-            blocking_resource_id: nil
-          )
+          workflow_run.update!(Workflows::WaitState.ready_attributes)
         end
       end
     end)

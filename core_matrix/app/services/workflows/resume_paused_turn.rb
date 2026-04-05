@@ -44,8 +44,8 @@ module Workflows
     end
 
     def paused_task_run(workflow_run)
-      paused_task_run_id = workflow_run.wait_reason_payload["paused_agent_task_run_id"]
-      raise_invalid!(workflow_run, :wait_reason_payload, "must include a paused agent task run") if paused_task_run_id.blank?
+      paused_task_run_id = workflow_run.recovery_agent_task_run_public_id
+      raise_invalid!(workflow_run, :recovery_agent_task_run_public_id, "must include a paused agent task run") if paused_task_run_id.blank?
 
       AgentTaskRun.find_by!(
         workflow_run: workflow_run,
@@ -96,14 +96,12 @@ module Workflows
     end
 
     def next_task_payload(paused_task, workflow_run:)
-      workflow_payload = workflow_run.wait_reason_payload.deep_stringify_keys
-
       paused_task.task_payload.deep_stringify_keys.merge(
         "delivery_kind" => @delivery_kind,
         "previous_attempt_no" => paused_task.attempt_no,
         "paused_agent_task_run_id" => paused_task.public_id,
-        "paused_progress_payload" => workflow_payload["paused_progress_payload"] || paused_task.progress_payload.deep_stringify_keys,
-        "paused_terminal_payload" => workflow_payload["paused_terminal_payload"] || paused_task.terminal_payload.deep_stringify_keys
+        "paused_progress_payload" => paused_task.progress_payload.deep_stringify_keys,
+        "paused_terminal_payload" => paused_task.terminal_payload.deep_stringify_keys
       )
     end
 

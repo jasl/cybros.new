@@ -1,16 +1,15 @@
 module AgentProgramVersions
   module UnavailablePauseState
-    SNAPSHOT_KEY = WorkflowWaitSnapshot::SNAPSHOT_KEY
-
     def self.pause_attributes(workflow_run:, deployment:, recovery_state:, reason:, occurred_at:, wait_reason_kind:)
       {
         wait_state: "waiting",
         wait_reason_kind: wait_reason_kind,
-        wait_reason_payload: pause_payload(
-          workflow_run: workflow_run,
-          recovery_state: recovery_state,
-          reason: reason
-        ),
+        wait_reason_payload: {},
+        recovery_state: recovery_state,
+        recovery_reason: reason,
+        recovery_drift_reason: nil,
+        recovery_agent_task_run_public_id: nil,
+        wait_snapshot_document: wait_snapshot_document_for_pause(workflow_run),
         waiting_since_at: occurred_at,
         blocking_resource_type: "AgentProgramVersion",
         blocking_resource_id: deployment.public_id,
@@ -19,36 +18,26 @@ module AgentProgramVersions
 
     def self.resume_attributes(workflow_run:)
       snapshot = WorkflowWaitSnapshot.from_workflow_run(workflow_run)
-      return ready_attributes if snapshot.blank?
-      return ready_attributes if snapshot.resolved_for?(workflow_run)
+      cleared_recovery = {
+        recovery_state: nil,
+        recovery_reason: nil,
+        recovery_drift_reason: nil,
+        recovery_agent_task_run_public_id: nil,
+        wait_snapshot_document: nil,
+      }
+      return ready_attributes.merge(cleared_recovery) if snapshot.blank?
+      return ready_attributes.merge(cleared_recovery) if snapshot.resolved_for?(workflow_run)
 
-      snapshot.restore_attributes.transform_keys(&:to_sym)
+      snapshot.restore_attributes.transform_keys(&:to_sym).merge(cleared_recovery)
     end
 
     def self.ready_attributes
       Workflows::WaitState.ready_attributes
     end
 
-    def self.pause_payload(workflow_run:, recovery_state:, reason:)
-      payload = {
-        "recovery_state" => recovery_state,
-        "reason" => reason,
-        "pinned_program_version_fingerprint" => workflow_run.turn.pinned_program_version_fingerprint,
-        "pinned_capability_version" => workflow_run.turn.pinned_capability_snapshot_version,
-      }
-
-      snapshot = snapshot_for_pause(workflow_run)
-      payload[SNAPSHOT_KEY] = snapshot.to_h if snapshot.present?
-      payload
+    def self.wait_snapshot_document_for_pause(workflow_run)
+      WorkflowWaitSnapshot.document_for_pause(workflow_run)
     end
-    private_class_method :pause_payload
-
-    def self.snapshot_for_pause(workflow_run)
-      existing_snapshot = WorkflowWaitSnapshot.from_workflow_run(workflow_run)
-      return existing_snapshot if existing_snapshot.present?
-
-      WorkflowWaitSnapshot.capture(workflow_run)
-    end
-    private_class_method :snapshot_for_pause
+    private_class_method :wait_snapshot_document_for_pause
   end
 end

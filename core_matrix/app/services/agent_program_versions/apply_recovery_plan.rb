@@ -38,11 +38,10 @@ module AgentProgramVersions
 
           current_workflow_run.update!(
             wait_reason_kind: "manual_recovery_required",
-            wait_reason_payload: current_workflow_run.wait_reason_payload.merge(
-              "recovery_state" => "paused_agent_unavailable",
-              "drift_reason" => @recovery_plan.drift_reason,
-              "reason" => @deployment.unavailability_reason.presence || current_workflow_run.wait_reason_payload["reason"]
-            )
+            wait_reason_payload: {},
+            recovery_state: "paused_agent_unavailable",
+            recovery_reason: @deployment.unavailability_reason.presence || current_workflow_run.recovery_reason,
+            recovery_drift_reason: @recovery_plan.drift_reason
           )
 
           AuditLog.record!(
@@ -50,7 +49,7 @@ module AgentProgramVersions
             action: "agent_program_version.paused_agent_unavailable",
             subject: @deployment,
             metadata: {
-              "reason" => current_workflow_run.wait_reason_payload["reason"],
+              "reason" => current_workflow_run.recovery_reason,
               "drift_reason" => @recovery_plan.drift_reason,
               "workflow_run_ids" => [current_workflow_run.id],
             }

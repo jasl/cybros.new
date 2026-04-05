@@ -26,7 +26,7 @@ module Workflows
         manifest_artifact = persist_manifest_artifact!
         barrier_artifacts = persist_barrier_artifacts!
         persist_yield_event!(accepted_nodes:, rejected_events:, barrier_artifacts:)
-        update_resume_metadata!
+        update_resume_state!
 
         Result.new(
           workflow_run: @workflow_run.reload,
@@ -48,20 +48,17 @@ module Workflows
           node_key: intent.fetch("node_key"),
           node_type: intent.fetch("node_type"),
           intent_kind: intent.fetch("intent_kind"),
+          intent_id: intent.fetch("intent_id"),
+          intent_batch_id: batch_id,
+          intent_requirement: intent.fetch("requirement"),
+          intent_conflict_scope: intent["conflict_scope"],
+          intent_idempotency_key: intent["idempotency_key"],
           stage_index: intent.fetch("stage_index"),
           stage_position: intent.fetch("stage_position"),
           yielding_node_key: @yielding_node.node_key,
           presentation_policy: intent.fetch("presentation_policy"),
           decision_source: "agent_program",
-          metadata: {
-            "batch_id" => batch_id,
-            "intent_id" => intent.fetch("intent_id"),
-            "intent_kind" => intent.fetch("intent_kind"),
-            "requirement" => intent.fetch("requirement"),
-            "conflict_scope" => intent["conflict_scope"],
-            "payload" => intent.fetch("payload"),
-            "idempotency_key" => intent["idempotency_key"],
-          },
+          metadata: {},
         }
 
         Workflows::Mutate.call(
@@ -94,8 +91,6 @@ module Workflows
             "intent_id" => intent.fetch("intent_id"),
             "intent_kind" => intent.fetch("intent_kind"),
             "reason" => intent.fetch("rejection_reason"),
-            "requirement" => intent.fetch("requirement"),
-            "payload" => intent.fetch("payload"),
           }
         )
       end
@@ -154,15 +149,15 @@ module Workflows
       )
     end
 
-    def update_resume_metadata!
+    def update_resume_state!
+      successor = @batch_manifest["successor"].presence || {}
+
       @workflow_run.update!(
         resume_policy: resume_policy,
-        resume_metadata: {
-          "batch_id" => batch_id,
-          "yielding_node_key" => @yielding_node.node_key,
-          "yielding_node_id" => @yielding_node.public_id,
-          "successor" => @batch_manifest["successor"],
-        }.compact
+        resume_batch_id: batch_id,
+        resume_yielding_node_key: @yielding_node.node_key,
+        resume_successor_node_key: successor["node_key"],
+        resume_successor_node_type: successor["node_type"]
       )
     end
 

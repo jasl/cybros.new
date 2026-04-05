@@ -72,7 +72,7 @@ class EmbeddedAgents::ConversationObservation::Responders::BuiltinTest < ActiveS
           "stall_for_ms" => 0,
           "recent_activity_items" => [{ "projection_sequence" => 1, "event_kind" => "runtime.workflow_node.started" }],
           "transcript_refs" => [],
-          "proof_refs" => { "conversation_id" => fixture.fetch(:session).target_conversation.public_id }
+          "proof_refs" => { "conversation_id" => fixture.fetch(:session).target_conversation.public_id },
         }
       )
 

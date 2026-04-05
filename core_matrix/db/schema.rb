@@ -1511,7 +1511,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.string "decision_source", null: false
     t.datetime "finished_at"
     t.bigint "installation_id", null: false
+    t.string "intent_batch_id"
+    t.string "intent_conflict_scope"
+    t.string "intent_id"
+    t.string "intent_idempotency_key"
     t.string "intent_kind"
+    t.string "intent_requirement"
     t.string "lifecycle_state", default: "pending", null: false
     t.jsonb "metadata", default: {}, null: false
     t.string "node_key", null: false
@@ -1554,12 +1559,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.jsonb "resume_metadata", default: {}, null: false
+    t.string "recovery_agent_task_run_public_id"
+    t.string "recovery_drift_reason"
+    t.string "recovery_reason"
+    t.string "recovery_state"
+    t.string "resume_batch_id"
     t.string "resume_policy"
+    t.string "resume_successor_node_key"
+    t.string "resume_successor_node_type"
+    t.string "resume_yielding_node_key"
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
     t.string "wait_reason_kind"
     t.jsonb "wait_reason_payload", default: {}, null: false
+    t.bigint "wait_snapshot_document_id"
     t.string "wait_state", default: "ready", null: false
     t.datetime "waiting_since_at"
     t.index ["conversation_id"], name: "index_workflow_runs_on_conversation_id"
@@ -1567,6 +1580,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["installation_id"], name: "index_workflow_runs_on_installation_id"
     t.index ["public_id"], name: "index_workflow_runs_on_public_id", unique: true
     t.index ["turn_id"], name: "index_workflow_runs_on_turn_id", unique: true
+    t.index ["wait_snapshot_document_id"], name: "index_workflow_runs_on_wait_snapshot_document_id"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
     t.check_constraint "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))", name: "chk_workflow_runs_cancellation_reason_kind"
     t.check_constraint "resume_policy IS NULL OR resume_policy::text = 're_enter_agent'::text", name: "chk_workflow_runs_resume_policy"
@@ -1835,6 +1849,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "workflow_nodes", "workspaces"
   add_foreign_key "workflow_runs", "conversations"
   add_foreign_key "workflow_runs", "installations"
+  add_foreign_key "workflow_runs", "json_documents", column: "wait_snapshot_document_id"
   add_foreign_key "workflow_runs", "turns"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "user_program_bindings"
