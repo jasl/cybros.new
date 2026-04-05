@@ -10,8 +10,8 @@ class ConversationSupervisionSession < ApplicationRecord
     validate: true
   enum :responder_strategy,
     {
+      summary_model: "summary_model",
       builtin: "builtin",
-      program_contract: "program_contract",
     },
     validate: true
 

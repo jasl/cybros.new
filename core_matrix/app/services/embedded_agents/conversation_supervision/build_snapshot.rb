@@ -56,14 +56,15 @@ module EmbeddedAgents
       private
 
       def build_bundle_payload(authority:, state:, policy:)
-        context_view = conversation_context_view
-        activity_feed = ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation)
+        detailed_progress_enabled = authority.detailed_progress_enabled?
+        context_view = detailed_progress_enabled ? conversation_context_view : empty_context_view
+        activity_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
 
         {
           "conversation_context_view" => context_view,
           "activity_feed" => activity_feed,
-          "active_plan_items" => Array(state.status_payload["active_plan_items"]),
-          "active_subagents" => Array(state.status_payload["active_subagents"]),
+          "active_plan_items" => detailed_progress_enabled ? Array(state.status_payload["active_plan_items"]) : [],
+          "active_subagents" => detailed_progress_enabled ? Array(state.status_payload["active_subagents"]) : [],
           "proof_debug" => proof_debug_payload(
             context_view: context_view,
             activity_feed: activity_feed,
@@ -72,6 +73,7 @@ module EmbeddedAgents
           ),
           "capability_authority" => {
             "supervision_enabled" => authority.supervision_enabled?,
+            "detailed_progress_enabled" => authority.detailed_progress_enabled?,
             "side_chat_enabled" => authority.side_chat_enabled?,
             "control_enabled" => authority.control_enabled?,
             "available_control_verbs" => authority.available_control_verbs,
@@ -132,6 +134,14 @@ module EmbeddedAgents
           "feed_entry_ids" => activity_feed.map { |entry| entry.fetch("conversation_supervision_feed_entry_id") },
           "feed_event_kinds" => activity_feed.map { |entry| entry.fetch("event_kind") },
         }.compact
+      end
+
+      def empty_context_view
+        {
+          "message_ids" => [],
+          "turn_ids" => [],
+          "facts" => []
+        }
       end
 
       def active_subagent_session_public_ids(bundle_payload)

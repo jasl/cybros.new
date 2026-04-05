@@ -161,6 +161,7 @@ module Fenix
         },
         "model_slots" => {
           "research" => { "selector" => "role:researcher" },
+          "summary" => { "selector" => "role:summary" },
         },
         "subagents" => {
           "enabled" => true,

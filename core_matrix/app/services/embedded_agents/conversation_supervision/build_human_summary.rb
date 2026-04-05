@@ -10,7 +10,7 @@ module EmbeddedAgents
       end
 
       def call
-        [current_work_sentence, recent_change_sentence, grounding_sentence].compact.join(" ")
+        [current_work_sentence, recent_change_sentence].compact.join(" ")
       end
 
       private
@@ -39,11 +39,27 @@ module EmbeddedAgents
       end
 
       def recent_change_sentence
-        latest_entry = Array(@machine_status["activity_feed"]).last
-        summary = @machine_status["recent_progress_summary"] || latest_entry&.fetch("summary", nil)
+        summary = @machine_status["recent_progress_summary"].presence || latest_meaningful_feed_summary
         return if summary.blank?
 
         "Most recently, #{summary.downcase}."
+      end
+
+      def latest_meaningful_feed_summary
+        Array(@machine_status["activity_feed"]).reverse_each do |entry|
+          next if generic_turn_start_entry?(entry)
+
+          return entry.fetch("summary", nil)
+        end
+
+        nil
+      end
+
+      def generic_turn_start_entry?(entry)
+        summary = entry.to_h.fetch("summary", "")
+        event_kind = entry.to_h.fetch("event_kind", nil)
+
+        summary.match?(/\AStarted the turn\.?\z/i) && (event_kind.blank? || event_kind == "turn_started")
       end
 
       def waiting_sentence
@@ -75,18 +91,6 @@ module EmbeddedAgents
 
       def activity_phrase?(text)
         text.to_s.match?(/\A(?:build|building|render|rendering|check|checking|verify|verifying|report|reporting|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing)\b/i)
-      end
-
-      def grounding_sentence
-        parts = ["the frozen supervision state"]
-        parts << "recent activity" if Array(@machine_status["activity_feed"]).any?
-        parts << "compact context facts" if Array(@machine_status.dig("conversation_context", "facts")).any?
-
-        if parts.one?
-          "Grounded in #{parts.first}."
-        else
-          "Grounded in #{parts[0...-1].join(", ")} and #{parts.last}."
-        end
       end
     end
   end

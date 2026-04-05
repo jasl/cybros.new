@@ -405,6 +405,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
   create_table "conversation_capability_policies", force: :cascade do |t|
     t.boolean "control_enabled", default: false, null: false
     t.datetime "created_at", null: false
+    t.boolean "detailed_progress_enabled", default: false, null: false
     t.bigint "installation_id", null: false
     t.jsonb "policy_payload", default: {}, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
@@ -672,7 +673,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.datetime "last_snapshot_at"
     t.string "lifecycle_state", default: "open", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "responder_strategy", default: "builtin", null: false
+    t.string "responder_strategy", default: "summary_model", null: false
     t.bigint "target_conversation_id", null: false
     t.datetime "updated_at", null: false
     t.index ["initiator_type", "initiator_id"], name: "index_conversation_supervision_sessions_on_initiator"

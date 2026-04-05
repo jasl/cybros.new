@@ -3,13 +3,13 @@ module EmbeddedAgents
     class CreateSession
       class UnsupportedResponderStrategy < StandardError; end
 
-      SUPPORTED_RESPONDER_STRATEGIES = %w[builtin].freeze
+      SUPPORTED_RESPONDER_STRATEGIES = %w[summary_model builtin].freeze
 
       def self.call(...)
         new(...).call
       end
 
-      def initialize(actor:, conversation:, responder_strategy: "builtin")
+      def initialize(actor:, conversation:, responder_strategy: "summary_model")
         @actor = actor
         @conversation = conversation
         @responder_strategy = normalize_responder_strategy(responder_strategy)
@@ -29,6 +29,7 @@ module EmbeddedAgents
           responder_strategy: @responder_strategy,
           capability_policy_snapshot: {
             "supervision_enabled" => authority.supervision_enabled?,
+            "detailed_progress_enabled" => authority.detailed_progress_enabled?,
             "side_chat_enabled" => authority.side_chat_enabled?,
             "control_enabled" => authority.control_enabled?,
           }
@@ -38,7 +39,7 @@ module EmbeddedAgents
       private
 
       def normalize_responder_strategy(responder_strategy)
-        normalized = responder_strategy.presence || "builtin"
+        normalized = responder_strategy.presence || "summary_model"
         return normalized if SUPPORTED_RESPONDER_STRATEGIES.include?(normalized)
 
         raise UnsupportedResponderStrategy, "unsupported supervision responder strategy #{normalized.inspect}"

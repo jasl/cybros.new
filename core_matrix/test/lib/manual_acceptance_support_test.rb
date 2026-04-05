@@ -191,7 +191,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       "User",
       actor,
       "open",
-      "builtin",
+      "summary_model",
       { "supervision_enabled" => true, "side_chat_enabled" => true, "control_enabled" => false },
       nil,
       nil
@@ -217,7 +217,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         )
 
         assert_equal "obs_session_123", result.dig("conversation_supervision_session", "supervision_session_id")
-        assert_equal [actor, "conversation_123", "builtin"], captured
+        assert_equal [actor, "conversation_123", "summary_model"], captured
       end
     end
   end

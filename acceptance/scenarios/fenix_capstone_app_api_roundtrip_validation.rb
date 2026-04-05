@@ -159,6 +159,7 @@ def ensure_conversation_capability_policy!(conversation:, control_enabled:)
   )
 
   policy.supervision_enabled = true
+  policy.detailed_progress_enabled = true
   policy.side_chat_enabled = true
   policy.control_enabled = control_enabled
   policy.policy_payload = policy.policy_payload.presence || {}

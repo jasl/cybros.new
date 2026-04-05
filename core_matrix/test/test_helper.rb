@@ -311,6 +311,7 @@ module ActiveSupport
         "interactive" => { "selector" => "role:main" },
         "model_slots" => {
           "research" => { "selector" => "role:researcher" },
+          "summary" => { "selector" => "role:summary" },
         },
       }
     end

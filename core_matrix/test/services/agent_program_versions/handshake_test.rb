@@ -31,6 +31,7 @@ class AgentProgramVersions::HandshakeTest < ActiveSupport::TestCase
     assert_equal 1, result.capability_snapshot.version
     assert_equal "workspace-write", result.capability_snapshot.default_config_snapshot["sandbox"]
     assert_equal "role:researcher", result.capability_snapshot.default_config_snapshot.dig("model_slots", "research", "selector")
+    assert_equal "role:summary", result.capability_snapshot.default_config_snapshot.dig("model_slots", "summary", "selector")
     assert_equal default_profile_catalog, result.capability_snapshot.profile_catalog
     assert_equal({}, result.reconciliation_report)
     assert_equal result.capability_snapshot, registration[:deployment].reload

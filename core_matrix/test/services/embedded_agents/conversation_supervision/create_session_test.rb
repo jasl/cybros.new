@@ -14,7 +14,7 @@ class EmbeddedAgents::ConversationSupervision::CreateSessionTest < ActiveSupport
     assert_equal fixture.fetch(:conversation), session.target_conversation
     assert_equal fixture.fetch(:user), session.initiator
     assert_equal "open", session.lifecycle_state
-    assert_equal "builtin", session.responder_strategy
+    assert_equal "summary_model", session.responder_strategy
     assert_equal supervision_policy_snapshot_for(fixture.fetch(:policy)), session.capability_policy_snapshot
   end
 

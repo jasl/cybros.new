@@ -31,6 +31,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     assert_predicate response.dig("human_sidechat", "content"), :present?
     refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, response.dig("human_sidechat", "content"))
     refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, response.dig("human_sidechat", "content"))
+    refute_match(/Grounded in/i, response.dig("human_sidechat", "content"))
   end
 
   test "answers status progress blocker next-step subagent and conversation-fact questions without leaking raw tokens" do
@@ -108,6 +109,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     assert_match(/most recently/i, content)
     assert_match(/rendering the frozen supervision snapshot/i, content)
     assert_match(/replaced the old observation bundle with structured supervision data/i, content)
+    refute_match(/Grounded in/i, content)
   end
 
   test "falls back to contextual work summary when the snapshot has no explicit focus summary" do
@@ -150,9 +152,9 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     content = response.dig("human_sidechat", "content")
 
     assert_match(/right now/i, content)
-    assert_match(/most recently/i, content)
     assert_match(/react 2048 game/i, content)
-    assert_match(/started the turn/i, content)
+    refute_match(/started the turn/i, content)
+    refute_match(/Grounded in/i, content)
   end
 
   test "renders human-readable confirmation for dispatched control intents" do

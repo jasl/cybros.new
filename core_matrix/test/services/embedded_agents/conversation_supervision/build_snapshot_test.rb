@@ -27,6 +27,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal "waiting", snapshot.machine_status_payload.fetch("overall_state")
     assert_equal "handoff", snapshot.machine_status_payload.fetch("board_lane")
     assert_equal true, bundle.dig("capability_authority", "supervision_enabled")
+    assert_equal true, bundle.dig("capability_authority", "detailed_progress_enabled")
     assert_equal false, bundle.dig("capability_authority", "control_enabled")
     assert_equal [], bundle.dig("capability_authority", "available_control_verbs")
     assert_equal ["Freeze the supervision snapshot", "Render the human supervisor reply"],
@@ -40,6 +41,26 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
       "Context already references the 2048 acceptance flow."
     refute_includes bundle.to_json, "We already agreed to add tests before refactoring."
     refute_includes bundle.to_json, "The 2048 acceptance flow is already wired."
+  end
+
+  test "omits detailed progress artifacts when the conversation is configured for coarse supervision only" do
+    fixture = prepare_conversation_supervision_context!(detailed_progress_enabled: false)
+    session = create_conversation_supervision_session!(fixture)
+
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    bundle = snapshot.bundle_payload
+
+    assert_equal false, bundle.dig("capability_authority", "detailed_progress_enabled")
+    assert_empty bundle.fetch("activity_feed")
+    assert_empty bundle.dig("conversation_context_view", "facts")
+    assert_nil snapshot.machine_status_payload["request_summary"]
+    assert_nil snapshot.machine_status_payload["current_focus_summary"]
+    assert_nil snapshot.machine_status_payload["recent_progress_summary"]
+    assert_nil snapshot.machine_status_payload["next_step_hint"]
   end
 
   test "refreshes an existing supervision state before freezing the snapshot" do

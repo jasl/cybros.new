@@ -35,6 +35,51 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, result.dig("human_sidechat", "content"))
   end
 
+  test "uses the summary model responder when the session strategy requests it" do
+    fixture = prepare_conversation_supervision_context!(summary_slot_selector: "role:summary")
+    session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-supervision-summary-append-1",
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "Right now I'm rebuilding the supervision sidechat. Most recently, I replaced the old observation bundle with structured supervision data."
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 32,
+          completion_tokens: 18,
+          total_tokens: 50,
+        },
+      }
+    )
+
+    result = nil
+
+    original_call = ProviderExecution::BuildHttpAdapter.method(:call)
+    ProviderExecution::BuildHttpAdapter.singleton_class.send(:define_method, :call) do |*_, **_kwargs|
+      adapter
+    end
+
+    begin
+      result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+        actor: fixture.fetch(:user),
+        conversation_supervision_session: session,
+        content: "Please tell me what you are doing right now and what changed most recently."
+      )
+    ensure
+      ProviderExecution::BuildHttpAdapter.singleton_class.send(:define_method, :call, original_call)
+    end
+
+    assert_equal "summary_model", result.fetch("responder_kind")
+    assert_match(/Right now I'm rebuilding the supervision sidechat/i, result.dig("human_sidechat", "content"))
+    assert_equal result.dig("human_sidechat", "content"), session.conversation_supervision_messages.order(:created_at).last.content
+  end
+
   test "requires the session initiator and rejects closed supervision sessions" do
     fixture = prepare_conversation_supervision_context!
     session = create_conversation_supervision_session!(fixture)

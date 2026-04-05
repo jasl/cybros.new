@@ -44,6 +44,12 @@ module EmbeddedAgents
         supervision_enabled? && policy&.side_chat_enabled?
       end
 
+      def detailed_progress_enabled?
+        return false unless supervision_enabled?
+
+        policy&.detailed_progress_enabled?
+      end
+
       def control_enabled?
         side_chat_enabled? && policy&.control_enabled?
       end

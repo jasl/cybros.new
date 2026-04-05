@@ -16,6 +16,7 @@ class AgentProgramVersions::ReconcileConfigTest < ActiveSupport::TestCase
 
     assert_equal "workspace-read", result.reconciled_config["sandbox"]
     assert_equal "role:researcher", result.reconciled_config.dig("model_slots", "research", "selector")
+    assert_equal "role:summary", result.reconciled_config.dig("model_slots", "summary", "selector")
     assert_equal ["model_slots"], result.report["retained_keys"]
     assert_equal "reconciled", result.report["status"]
   end

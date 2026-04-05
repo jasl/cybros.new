@@ -74,6 +74,8 @@ The manifest now declares runtime-owned profile and subagent defaults:
 
 - `default_config_snapshot.interactive.profile` is fixed to `main` for root
   interactive conversations in this batch
+- `default_config_snapshot.model_slots.summary`
+  - points supervision sidechat summarization at `role:summary`
 - `default_config_snapshot.subagents.enabled`
 - `default_config_snapshot.subagents.allow_nested`
 - `default_config_snapshot.subagents.max_depth`

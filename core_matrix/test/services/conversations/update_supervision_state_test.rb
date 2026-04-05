@@ -99,6 +99,52 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
   end
 
+  test "suppresses detailed summaries and semantic feed when the conversation only allows coarse supervision" do
+    context = build_agent_control_context!
+    ConversationCapabilityPolicy.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      supervision_enabled: true,
+      detailed_progress_enabled: false,
+      side_chat_enabled: true,
+      control_enabled: false,
+      policy_payload: {}
+    )
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      request_summary: "Replace the observation schema",
+      current_focus_summary: "Adding the canonical supervision aggregates",
+      recent_progress_summary: "Finished reviewing the old models",
+      next_step_hint: "Rewrite the migrations",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+    AgentTaskProgressEntry.create!(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 1,
+      entry_kind: "progress_recorded",
+      summary: "Finished reviewing the old models",
+      details_payload: {},
+      occurred_at: Time.current
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "running", state.overall_state
+    assert_nil state.request_summary
+    assert_nil state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_nil state.next_step_hint
+    assert_empty ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+  end
+
   test "does not append duplicate feed entries when the semantic supervision state is unchanged" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(
@@ -217,6 +263,21 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "queued", state.board_lane
     assert_equal "workflow_run", state.current_owner_kind
     assert_equal context[:workflow_run].public_id, state.current_owner_public_id
+  end
+
+  test "derives a contextual focus summary from the active turn when no task summary exists yet" do
+    context = build_agent_control_context!
+    context[:turn].selected_input_message.update!(
+      content: "Build a complete browser-playable React 2048 game and add automated tests."
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "queued", state.overall_state
+    assert_equal "building the React 2048 game", state.current_focus_summary
   end
 
   test "projects running when an active workflow is already advancing without a task run projection" do

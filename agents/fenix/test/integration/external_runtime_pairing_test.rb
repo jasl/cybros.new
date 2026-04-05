@@ -55,6 +55,7 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert body.fetch("effective_tool_catalog").any? { |entry| entry.fetch("tool_name") == "compact_context" }
     assert body.fetch("effective_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" }
     assert_equal "main", body.dig("default_config_snapshot", "interactive", "profile")
+    assert_equal "role:summary", body.dig("default_config_snapshot", "model_slots", "summary", "selector")
     assert_equal true, body.dig("default_config_snapshot", "subagents", "enabled")
     assert_equal true, body.dig("default_config_snapshot", "subagents", "allow_nested")
     assert_equal 3, body.dig("default_config_snapshot", "subagents", "max_depth")

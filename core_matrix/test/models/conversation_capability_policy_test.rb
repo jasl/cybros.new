@@ -14,6 +14,7 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
       installation: context[:installation],
       target_conversation: conversation,
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
       control_enabled: false,
       policy_payload: { "default_surface" => "side_chat" }
@@ -23,6 +24,7 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
     assert_equal policy, ConversationCapabilityPolicy.find_by_public_id!(policy.public_id)
     assert_equal conversation, policy.target_conversation
     assert_predicate policy, :supervision_enabled?
+    assert_predicate policy, :detailed_progress_enabled?
     assert_predicate policy, :side_chat_enabled?
     assert_not policy.control_enabled?
     assert_equal 1, conversation.conversation_capability_policy ? 1 : 0
@@ -41,6 +43,7 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
       installation: context[:installation],
       target_conversation: conversation,
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
       control_enabled: true,
       policy_payload: {}
@@ -50,6 +53,7 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
       installation: context[:installation],
       target_conversation: conversation,
       supervision_enabled: false,
+      detailed_progress_enabled: false,
       side_chat_enabled: false,
       control_enabled: false,
       policy_payload: {}
@@ -63,6 +67,7 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
       installation: other_installation,
       target_conversation: conversation,
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
       control_enabled: false,
       policy_payload: {}

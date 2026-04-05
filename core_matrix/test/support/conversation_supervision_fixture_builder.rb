@@ -1,5 +1,5 @@
 module ConversationSupervisionFixtureBuilder
-  def prepare_conversation_supervision_context!(waiting: true, side_chat_enabled: true, control_enabled: false)
+  def prepare_conversation_supervision_context!(waiting: true, detailed_progress_enabled: true, side_chat_enabled: true, control_enabled: false, summary_slot_selector: nil)
     context = build_canonical_variable_context!
     conversation = context.fetch(:conversation)
     previous_turn = context.fetch(:turn)
@@ -14,6 +14,29 @@ module ConversationSupervisionFixtureBuilder
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
+    if summary_slot_selector.present?
+      ProviderEntitlement.create!(
+        installation: context.fetch(:installation),
+        provider_handle: "dev",
+        entitlement_key: "mock-runtime",
+        window_kind: "rolling_five_hours",
+        window_seconds: 5.hours.to_i,
+        quota_limit: 200_000,
+        active: true,
+        metadata: {}
+      )
+      capability_snapshot = create_capability_snapshot!(
+        agent_program_version: context.fetch(:agent_program_version),
+        config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
+        default_config_snapshot: default_default_config_snapshot(include_selector_slots: true).deep_merge(
+          "model_slots" => {
+            "summary" => { "selector" => summary_slot_selector }
+          }
+        )
+      )
+      adopt_agent_program_version!(context, capability_snapshot, turn: current_turn)
+      current_turn = current_turn.reload
+    end
     current_output = attach_selected_output!(current_turn, content: "The 2048 acceptance flow is already wired.")
     workflow_run = create_workflow_run!(turn: current_turn, wait_state: "ready", wait_reason_payload: {})
     workflow_node = create_workflow_node!(
@@ -97,6 +120,7 @@ module ConversationSupervisionFixtureBuilder
       installation: context.fetch(:installation),
       target_conversation: conversation,
       supervision_enabled: true,
+      detailed_progress_enabled: detailed_progress_enabled,
       side_chat_enabled: side_chat_enabled,
       control_enabled: control_enabled,
       policy_payload: {}
@@ -150,6 +174,7 @@ module ConversationSupervisionFixtureBuilder
   def supervision_policy_snapshot_for(policy)
     {
       "supervision_enabled" => policy.supervision_enabled,
+      "detailed_progress_enabled" => policy.detailed_progress_enabled,
       "side_chat_enabled" => policy.side_chat_enabled,
       "control_enabled" => policy.control_enabled,
     }

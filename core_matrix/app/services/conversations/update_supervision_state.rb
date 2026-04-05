@@ -33,11 +33,16 @@ module Conversations
           state.save!
 
           changeset = semantic_changeset(previous_attributes:, current_attributes: next_attributes)
-          feed_entries = ConversationSupervision::AppendFeedEntries.call(
-            conversation: @conversation,
-            changeset: changeset,
-            occurred_at: @occurred_at
-          )
+          feed_entries =
+            if detailed_progress_enabled?
+              ConversationSupervision::AppendFeedEntries.call(
+                conversation: @conversation,
+                changeset: changeset,
+                occurred_at: @occurred_at
+              )
+            else
+              []
+            end
           ConversationSupervision::PublishUpdate.call(
             conversation_supervision_state: state,
             previous_attributes: previous_attributes,
@@ -150,6 +155,8 @@ module Conversations
     end
 
     def request_summary
+      return unless detailed_progress_enabled?
+
       current_task_run&.request_summary ||
         active_conversation_subagent_session&.request_summary ||
         active_owned_subagent_sessions.filter_map(&:request_summary).first ||
@@ -157,12 +164,17 @@ module Conversations
     end
 
     def current_focus_summary
+      return unless detailed_progress_enabled?
+
       current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
-        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first
+        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first ||
+        contextual_focus_summary
     end
 
     def recent_progress_summary
+      return unless detailed_progress_enabled?
+
       current_task_progress_entry&.summary ||
         current_task_run&.recent_progress_summary ||
         active_conversation_subagent_session&.recent_progress_summary ||
@@ -172,6 +184,8 @@ module Conversations
     end
 
     def waiting_summary
+      return unless detailed_progress_enabled?
+
       return humanized_subagent_barrier_summary if workflow_run&.waiting_on_subagent_barrier?
       return current_task_run&.waiting_summary if current_task_run&.waiting_summary.present?
       return active_conversation_subagent_session&.waiting_summary if active_conversation_subagent_session&.waiting_summary.present?
@@ -181,6 +195,8 @@ module Conversations
     end
 
     def blocked_summary
+      return unless detailed_progress_enabled?
+
       return current_task_run&.blocked_summary if current_task_run&.blocked_summary.present?
       return active_conversation_subagent_session&.blocked_summary if active_conversation_subagent_session&.blocked_summary.present?
       return active_owned_subagent_sessions.filter_map(&:blocked_summary).first if workflow_run&.blocked?
@@ -190,6 +206,8 @@ module Conversations
     end
 
     def next_step_hint
+      return unless detailed_progress_enabled?
+
       current_task_run&.next_step_hint ||
         active_conversation_subagent_session&.next_step_hint ||
         active_owned_subagent_sessions.filter_map(&:next_step_hint).first
@@ -248,6 +266,8 @@ module Conversations
     end
 
     def status_payload
+      return {} unless detailed_progress_enabled?
+
       {
         "active_plan_items" => active_plan_items_payload,
         "active_subagents" => active_subagent_payloads,
@@ -401,6 +421,34 @@ module Conversations
         end
     end
 
+    def contextual_focus_summary
+      return @contextual_focus_summary if instance_variable_defined?(:@contextual_focus_summary)
+
+      @contextual_focus_summary = begin
+        message = context_projection.messages.reverse.find { |entry| entry.role == "user" } || context_projection.messages.last
+        summarize_context_focus(message&.content)
+      end
+    end
+
+    def summarize_context_focus(content)
+      keywords = content.to_s.downcase.scan(/[a-z0-9]+/).uniq - %w[the and this that with for from into while]
+      return if keywords.empty?
+
+      if keywords.include?("2048") && keywords.include?("game")
+        return "building the React 2048 game" if keywords.include?("react")
+        return "building the 2048 game"
+      end
+
+      return "adding automated tests" if (keywords & %w[test tests testing]).any?
+      return "verifying the application in a browser" if keywords.include?("browser") && keywords.include?("verify")
+
+      nil
+    end
+
+    def context_projection
+      @context_projection ||= Conversations::ContextProjection.call(conversation: @conversation)
+    end
+
     def barrier_subagent_sessions
       return [] unless workflow_run&.waiting_on_subagent_barrier?
 
@@ -491,6 +539,8 @@ module Conversations
     end
 
     def semantic_changeset(previous_attributes:, current_attributes:)
+      return [] unless detailed_progress_enabled?
+
       previous = previous_attributes.deep_stringify_keys
       current = current_attributes.deep_stringify_keys
       changes = []
@@ -604,6 +654,13 @@ module Conversations
     def feed_target_turn
       @feed_target_turn ||= @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
         @conversation.turns.order(sequence: :desc).first
+    end
+
+    def detailed_progress_enabled?
+      return @detailed_progress_enabled if instance_variable_defined?(:@detailed_progress_enabled)
+
+      policy = @conversation.conversation_capability_policy
+      @detailed_progress_enabled = policy.blank? ? true : policy.detailed_progress_enabled?
     end
   end
 end

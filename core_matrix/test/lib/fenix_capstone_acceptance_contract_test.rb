@@ -40,6 +40,12 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     refute_includes scenario, "runtime_validation: nil"
   end
 
+  test "acceptance scenario enables detailed supervision progress for sidechat validation" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "policy.detailed_progress_enabled = true"
+  end
+
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
     redirect_doc = Rails.root.join("docs/behavior/conversation-observation-and-supervisor-status.md")
     supervision_doc = Rails.root.join("docs/behavior/conversation-supervision-and-control.md")

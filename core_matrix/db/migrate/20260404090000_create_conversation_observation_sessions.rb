@@ -6,7 +6,7 @@ class CreateConversationObservationSessions < ActiveRecord::Migration[8.2]
       t.references :initiator, null: false, polymorphic: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :lifecycle_state, null: false, default: "open"
-      t.string :responder_strategy, null: false, default: "builtin"
+      t.string :responder_strategy, null: false, default: "summary_model"
       t.jsonb :capability_policy_snapshot, null: false, default: {}
       t.datetime :last_snapshot_at
       t.timestamps

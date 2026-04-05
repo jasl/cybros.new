@@ -68,6 +68,14 @@ module EmbeddedAgents
 
       def respond(snapshot, control_decision:)
         case @conversation_supervision_session.responder_strategy
+        when "summary_model"
+          Responders::SummaryModel.call(
+            actor: @actor,
+            conversation_supervision_session: @conversation_supervision_session,
+            conversation_supervision_snapshot: snapshot,
+            question: @content,
+            control_decision:
+          )
         when "builtin"
           Responders::Builtin.call(
             actor: @actor,
