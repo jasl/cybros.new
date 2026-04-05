@@ -49,6 +49,35 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     assert snapshot.dependency_blocked?
   end
 
+  test "projects blocker facts without count-query explosion" do
+    context = build_agent_control_context!
+    root = context[:conversation]
+
+    HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:workflow_node],
+      blocking: true,
+      request_payload: { "instructions" => "Need operator input" }
+    )
+    create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current
+    )
+    create_process_run!(
+      workflow_node: context[:workflow_node],
+      execution_runtime: context[:execution_runtime],
+      kind: "background_service",
+      timeout_seconds: nil
+    )
+
+    queries = capture_sql_queries do
+      Conversations::BlockerSnapshotQuery.call(conversation: root)
+    end
+
+    assert_operator queries.length, :<=, 13, "Expected blocker snapshot query to stay under 13 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
+
   private
 
   def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_program_version:)

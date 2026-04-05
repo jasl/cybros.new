@@ -10,23 +10,33 @@ module Conversations
     end
 
     def call
+      turn_counts = aggregate_turn_counts
+      workflow_counts = aggregate_workflow_counts
+      agent_task_counts = aggregate_agent_task_counts
+      interaction_counts = aggregate_interaction_counts
+      process_counts = aggregate_process_counts
+      subagent_counts = aggregate_subagent_counts
+      execution_lease_counts = aggregate_execution_lease_counts
+
       ConversationBlockerSnapshot.new(
         retained: @conversation.retained?,
         active: @conversation.active?,
         closing: @conversation.closing?,
-        queued_turn_count: turn_scope.where(lifecycle_state: "queued").count,
-        active_turn_count: turn_scope.where(lifecycle_state: "active").count,
-        active_workflow_count: workflow_run_scope.where(lifecycle_state: "active").count,
-        queued_agent_task_count: agent_task_scope.where(lifecycle_state: "queued").count,
-        active_agent_task_count: agent_task_scope.where(lifecycle_state: "running").count,
-        open_interaction_count: interaction_scope.where(lifecycle_state: "open").count,
-        open_blocking_interaction_count: interaction_scope.where(lifecycle_state: "open", blocking: true).count,
-        running_process_count: process_scope.where(lifecycle_state: "running").count,
-        running_background_process_count: process_scope.where(lifecycle_state: "running", kind: "background_service").count,
+        queued_turn_count: turn_counts.fetch(:queued_turn_count),
+        active_turn_count: turn_counts.fetch(:active_turn_count),
+        active_workflow_count: workflow_counts.fetch(:active_workflow_count),
+        queued_agent_task_count: agent_task_counts.fetch(:queued_agent_task_count),
+        active_agent_task_count: agent_task_counts.fetch(:active_agent_task_count),
+        open_interaction_count: interaction_counts.fetch(:open_interaction_count),
+        open_blocking_interaction_count: interaction_counts.fetch(:open_blocking_interaction_count),
+        running_process_count: process_counts.fetch(:running_process_count),
+        running_background_process_count: process_counts.fetch(:running_background_process_count),
         detached_tool_process_count: 0,
-        running_subagent_count: subagent_scope.merge(SubagentSession.running_for_barriers).count,
-        active_execution_lease_count: execution_lease_scope.where(released_at: nil).count,
-        degraded_close_count: degraded_close_count,
+        running_subagent_count: subagent_counts.fetch(:running_subagent_count),
+        active_execution_lease_count: execution_lease_counts.fetch(:active_execution_lease_count),
+        degraded_close_count: process_counts.fetch(:process_close_failures) +
+          subagent_counts.fetch(:subagent_close_failures) +
+          agent_task_counts.fetch(:task_close_failures),
         descendant_lineage_blockers: descendant_lineage_blockers,
         root_lineage_store_blocker: root_lineage_store_blocker?,
         variable_provenance_blocker: variable_provenance_blocker?,
@@ -56,10 +66,6 @@ module Conversations
       @process_scope ||= ProcessRun.where(conversation_id: @conversation.id, turn_id: turn_scope.select(:id))
     end
 
-    def subagent_scope
-      @subagent_scope ||= SubagentSession.where(id: owned_subagent_session_ids)
-    end
-
     def execution_lease_scope
       @execution_lease_scope ||= ExecutionLease
         .joins(:workflow_run)
@@ -74,6 +80,61 @@ module Conversations
       (descendant_conversation_ids - owned_subagent_conversation_ids).size
     end
 
+    def aggregate_turn_counts
+      @aggregate_turn_counts ||= aggregate_counts(
+        turn_scope,
+        queued_turn_count: "SUM(CASE WHEN lifecycle_state = 'queued' THEN 1 ELSE 0 END)",
+        active_turn_count: "SUM(CASE WHEN lifecycle_state = 'active' THEN 1 ELSE 0 END)"
+      )
+    end
+
+    def aggregate_workflow_counts
+      @aggregate_workflow_counts ||= aggregate_counts(
+        workflow_run_scope,
+        active_workflow_count: "SUM(CASE WHEN lifecycle_state = 'active' THEN 1 ELSE 0 END)"
+      )
+    end
+
+    def aggregate_agent_task_counts
+      @aggregate_agent_task_counts ||= aggregate_counts(
+        agent_task_scope,
+        queued_agent_task_count: "SUM(CASE WHEN lifecycle_state = 'queued' THEN 1 ELSE 0 END)",
+        active_agent_task_count: "SUM(CASE WHEN lifecycle_state = 'running' THEN 1 ELSE 0 END)",
+        task_close_failures: "SUM(CASE WHEN close_state = 'failed' THEN 1 ELSE 0 END)"
+      )
+    end
+
+    def aggregate_interaction_counts
+      @aggregate_interaction_counts ||= aggregate_counts(
+        interaction_scope,
+        open_interaction_count: "SUM(CASE WHEN lifecycle_state = 'open' THEN 1 ELSE 0 END)",
+        open_blocking_interaction_count: "SUM(CASE WHEN lifecycle_state = 'open' AND blocking IS TRUE THEN 1 ELSE 0 END)"
+      )
+    end
+
+    def aggregate_process_counts
+      @aggregate_process_counts ||= aggregate_counts(
+        process_scope,
+        running_process_count: "SUM(CASE WHEN lifecycle_state = 'running' THEN 1 ELSE 0 END)",
+        running_background_process_count: "SUM(CASE WHEN lifecycle_state = 'running' AND kind = 'background_service' THEN 1 ELSE 0 END)",
+        process_close_failures: "SUM(CASE WHEN close_state IN ('failed', 'closed') AND close_outcome_kind IN ('residual_abandoned', 'timed_out_forced') THEN 1 ELSE 0 END)"
+      )
+    end
+
+    def aggregate_subagent_counts
+      @aggregate_subagent_counts ||= {
+        running_subagent_count: owned_subagent_sessions.count(&:running_for_barriers?),
+        subagent_close_failures: owned_subagent_sessions.count(&:close_failed?),
+      }
+    end
+
+    def aggregate_execution_lease_counts
+      @aggregate_execution_lease_counts ||= aggregate_counts(
+        execution_lease_scope,
+        active_execution_lease_count: "SUM(CASE WHEN released_at IS NULL THEN 1 ELSE 0 END)"
+      )
+    end
+
     def root_lineage_store_blocker?
       LineageStore.where(root_conversation: @conversation).exists?
     end
@@ -86,31 +147,31 @@ module Conversations
       ConversationImport.where(source_conversation: @conversation).exists?
     end
 
-    def degraded_close_count
-      process_close_failures + subagent_close_failures + task_close_failures
-    end
-
-    def process_close_failures
-      process_scope
-        .where(close_state: %w[failed closed])
-        .where(close_outcome_kind: %w[residual_abandoned timed_out_forced])
-        .count
-    end
-
-    def subagent_close_failures
-      subagent_scope.where(close_state: "failed").count
-    end
-
     def owned_subagent_session_ids
-      @owned_subagent_session_ids ||= SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation)
+      @owned_subagent_session_ids ||= owned_subagent_tree.session_ids
     end
 
     def owned_subagent_conversation_ids
-      @owned_subagent_conversation_ids ||= SubagentSessions::OwnedTree.conversation_ids_for(owner_conversation: @conversation)
+      @owned_subagent_conversation_ids ||= owned_subagent_tree.conversation_ids
     end
 
-    def task_close_failures
-      agent_task_scope.where(close_state: "failed").count
+    def owned_subagent_sessions
+      @owned_subagent_sessions ||= owned_subagent_tree.sessions
+    end
+
+    def owned_subagent_tree
+      @owned_subagent_tree ||= SubagentSessions::OwnedTree.new(owner_conversation: @conversation)
+    end
+
+    def aggregate_counts(scope, aggregates)
+      values = relation_for_aggregate(scope).pick(*aggregates.values.map { |expression| Arel.sql(expression) })
+      normalized_values = values.is_a?(Array) ? values : [values]
+      normalized_values.map! { |value| value.to_i }
+      aggregates.keys.zip(normalized_values).to_h
+    end
+
+    def relation_for_aggregate(scope)
+      scope.except(:select, :order, :includes, :preload, :eager_load)
     end
   end
 end
