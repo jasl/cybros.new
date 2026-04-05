@@ -44,6 +44,37 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
     assert_equal "running", session.observed_status
   end
 
+  test "wait returns semantic supervision rollups for active child work" do
+    session = create_terminal_subagent_session!(
+      observed_status: "waiting",
+      close_state: "open",
+      close_outcome_kind: nil,
+      close_requested_at: nil,
+      close_acknowledged_at: nil
+    )
+    session.update!(
+      supervision_state: "waiting",
+      current_focus_summary: "Waiting for alpha review",
+      recent_progress_summary: "Handed validation to a child worker",
+      waiting_summary: "Waiting for alpha review",
+      next_step_hint: "Resume once the review lands",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+
+    result = SubagentSessions::Wait.call(
+      subagent_session: session,
+      timeout_seconds: 0,
+      poll_interval_seconds: 0.01
+    )
+
+    assert_equal "waiting", result.fetch("supervision_state")
+    assert_equal "Waiting for alpha review", result.fetch("current_focus_summary")
+    assert_equal "Handed validation to a child worker", result.fetch("recent_progress_summary")
+    assert_equal "Waiting for alpha review", result.fetch("waiting_summary")
+    assert_equal "Resume once the review lands", result.fetch("next_step_hint")
+  end
+
   private
 
   def create_terminal_subagent_session!(observed_status:, close_state:, close_outcome_kind:, close_requested_at: Time.current, close_acknowledged_at: Time.current)

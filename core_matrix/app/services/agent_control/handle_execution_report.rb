@@ -88,6 +88,7 @@ module AgentControl
         )
       )
       apply_tool_invocation_progress!(progress_payload)
+      apply_supervision_update!(progress_payload)
     end
 
     def handle_execution_terminal!
@@ -113,6 +114,8 @@ module AgentControl
       apply_tool_invocation_terminal_events!
       terminalize_running_command_runs!(lifecycle_state: lifecycle_state)
       workflow_follow_up.apply!(lifecycle_state: lifecycle_state)
+      append_terminal_progress_entry!(lifecycle_state: lifecycle_state)
+      refresh_related_supervision_states!
 
       if agent_task_run.execution_lease&.active?
         Leases::Release.call(
@@ -143,8 +146,78 @@ module AgentControl
       tool_invocation_reconciler.apply_progress!(progress_payload)
     end
 
+    def apply_supervision_update!(progress_payload)
+      return if progress_payload["supervision_update"].blank?
+
+      AgentControl::ApplySupervisionUpdate.call(
+        agent_task_run: agent_task_run,
+        payload: progress_payload,
+        occurred_at: @occurred_at
+      )
+    end
+
     def apply_tool_invocation_terminal_events!
       tool_invocation_reconciler.apply_terminal!(agent_task_run.terminal_payload)
+    end
+
+    def append_terminal_progress_entry!(lifecycle_state:)
+      summary =
+        case lifecycle_state
+        when "completed"
+          terminal_payload_for_terminal_message["output"].presence || "Completed the assigned work."
+        when "failed"
+          terminal_payload_for_terminal_message["last_error_summary"].presence || "Execution failed."
+        else
+          "Execution was interrupted."
+        end
+
+      agent_task_run.update!(
+        supervision_state: lifecycle_state,
+        recent_progress_summary: summary,
+        waiting_summary: nil,
+        blocked_summary: nil,
+        last_progress_at: @occurred_at
+      )
+      sync_subagent_session_terminal_state!(lifecycle_state:, summary:)
+
+      AgentTaskRuns::AppendProgressEntry.call(
+        agent_task_run: agent_task_run,
+        subagent_session: agent_task_run.subagent_session,
+        entry_kind: "execution_#{lifecycle_state}",
+        summary: summary,
+        details_payload: {},
+        occurred_at: @occurred_at
+      )
+    end
+
+    def sync_subagent_session_terminal_state!(lifecycle_state:, summary:)
+      session = agent_task_run.subagent_session
+      return if session.blank?
+
+      observed_status =
+        case lifecycle_state
+        when "completed" then "completed"
+        when "failed" then "failed"
+        else "interrupted"
+        end
+
+      session.update!(
+        supervision_state: lifecycle_state,
+        observed_status: observed_status,
+        recent_progress_summary: summary,
+        waiting_summary: nil,
+        blocked_summary: nil,
+        last_progress_at: @occurred_at
+      )
+    end
+
+    def refresh_related_supervision_states!
+      [agent_task_run.conversation, agent_task_run.subagent_session&.owner_conversation].compact.uniq.each do |conversation|
+        Conversations::UpdateSupervisionState.call(
+          conversation: conversation,
+          occurred_at: @occurred_at
+        )
+      end
     end
 
     def resolved_agent_session

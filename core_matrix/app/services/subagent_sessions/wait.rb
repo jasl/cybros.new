@@ -37,6 +37,12 @@ module SubagentSessions
         "derived_close_status" => session.derived_close_status,
         "observed_status" => session.observed_status,
         "close_state" => session.close_state,
+        "supervision_state" => session.supervision_state,
+        "current_focus_summary" => session.current_focus_summary,
+        "recent_progress_summary" => session.recent_progress_summary,
+        "waiting_summary" => session.waiting_summary,
+        "blocked_summary" => session.blocked_summary,
+        "next_step_hint" => session.next_step_hint,
       }
     end
   end

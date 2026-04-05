@@ -75,6 +75,8 @@ module SubagentSessions
             subagent_session: session,
             origin_turn: @origin_turn
           )
+          initialize_supervision_state!(session:, agent_task_run:)
+          refresh_supervision_states!(owner_conversation: conversation, child_conversation: child_conversation)
 
           serialize(
             session: session,
@@ -168,6 +170,36 @@ module SubagentSessions
         "parent_subagent_session_id" => session.parent_subagent_session&.public_id,
         "subagent_depth" => session.depth,
       }.compact
+    end
+
+    def initialize_supervision_state!(session:, agent_task_run:)
+      summary = @content.to_s.strip.tr("\n", " ").truncate(SupervisionStateFields::HUMAN_SUMMARY_MAX_LENGTH)
+
+      session.update!(
+        supervision_state: "running",
+        focus_kind: "general",
+        request_summary: summary,
+        current_focus_summary: summary,
+        last_progress_at: Time.current,
+        supervision_payload: {}
+      )
+      agent_task_run.update!(
+        supervision_state: "running",
+        focus_kind: "general",
+        request_summary: summary,
+        current_focus_summary: summary,
+        last_progress_at: Time.current,
+        supervision_payload: {}
+      )
+    end
+
+    def refresh_supervision_states!(owner_conversation:, child_conversation:)
+      [owner_conversation, child_conversation].uniq.each do |conversation|
+        Conversations::UpdateSupervisionState.call(
+          conversation: conversation,
+          occurred_at: Time.current
+        )
+      end
     end
 
     def raise_invalid!(record, attribute, message)

@@ -64,6 +64,7 @@ module AgentControl
         close_outcome_payload: @payload.fetch("close_outcome_payload", {}),
         occurred_at: @occurred_at
       )
+      refresh_related_supervision_states!(resource)
     end
 
     def broadcast_process_output_chunks!(resource)
@@ -89,6 +90,26 @@ module AgentControl
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
       )
+    end
+
+    def refresh_related_supervision_states!(resource)
+      related_conversations_for(resource).each do |conversation|
+        Conversations::UpdateSupervisionState.call(
+          conversation: conversation,
+          occurred_at: @occurred_at
+        )
+      end
+    end
+
+    def related_conversations_for(resource)
+      case resource
+      when AgentTaskRun
+        [resource.conversation, resource.subagent_session&.owner_conversation].compact.uniq
+      when SubagentSession
+        [resource.conversation, resource.owner_conversation].compact.uniq
+      else
+        []
+      end
     end
   end
 end

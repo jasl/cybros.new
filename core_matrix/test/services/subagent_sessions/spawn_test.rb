@@ -112,6 +112,17 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal "researcher", result.fetch("profile_key")
     assert_equal 0, result.fetch("subagent_depth")
     assert AgentControlMailboxItem.exists?(agent_task_run: child_task_run, item_type: "execution_assignment")
+    assert_equal "running", child_session.supervision_state
+    assert_equal "Investigate this", child_session.request_summary
+    assert child_session.last_progress_at.present?
+
+    owner_state = owner_conversation.reload.conversation_supervision_state
+    child_state = child_conversation.reload.conversation_supervision_state
+
+    assert owner_state.present?
+    assert_includes owner_state.status_payload.fetch("active_subagents").map { |entry| entry.fetch("subagent_session_id") }, child_session.public_id
+    assert_equal "running", child_state.overall_state
+    assert_equal child_task_run.public_id, child_state.current_owner_public_id
   end
 
   test "conversation scoped spawn resolves explicit or default profile for reusable sessions" do
