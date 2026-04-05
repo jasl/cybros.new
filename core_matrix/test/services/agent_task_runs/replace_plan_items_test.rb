@@ -161,4 +161,31 @@ class AgentTaskRuns::ReplacePlanItemsTest < ActiveSupport::TestCase
       )
     end
   end
+
+  test "accepts key aliases from the supervision update contract" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      focus_kind: "planning",
+      last_progress_at: 5.minutes.ago,
+      supervision_payload: {}
+    )
+
+    AgentTaskRuns::ReplacePlanItems.call(
+      agent_task_run: agent_task_run,
+      plan_items: [
+        {
+          "key" => "projection",
+          "title" => "Add conversation supervision state",
+          "status" => "in_progress",
+          "position" => 0
+        }
+      ]
+    )
+
+    assert_equal ["projection"], agent_task_run.reload.agent_task_plan_items.order(:position).pluck(:item_key)
+  end
 end

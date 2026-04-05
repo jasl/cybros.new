@@ -20,5 +20,10 @@ class CreateAgentTaskPlanItems < ActiveRecord::Migration[8.2]
       [:agent_task_run_id, :item_key],
       unique: true,
       name: "idx_agent_task_plan_items_task_key"
+    add_index :agent_task_plan_items,
+      :agent_task_run_id,
+      unique: true,
+      where: "status = 'in_progress'",
+      name: "idx_agent_task_plan_items_single_in_progress"
   end
 end

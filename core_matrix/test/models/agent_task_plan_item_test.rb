@@ -102,4 +102,14 @@ class AgentTaskPlanItemTest < ActiveSupport::TestCase
     assert_not item.valid?
     assert_includes item.errors[:delegated_subagent_session], "must be owned by the task conversation"
   end
+
+  test "database enforces one in-progress item per task" do
+    index = ApplicationRecord.connection.indexes(:agent_task_plan_items).find do |candidate|
+      candidate.unique && candidate.columns == ["agent_task_run_id"] && candidate.where.present?
+    end
+
+    assert_not_nil index
+    assert_match(/status/i, index.where)
+    assert_match(/in_progress/i, index.where)
+  end
 end

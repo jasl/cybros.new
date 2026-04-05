@@ -6,7 +6,7 @@ module AgentTaskRuns
 
     def initialize(agent_task_run:, plan_items:, occurred_at: Time.current)
       @agent_task_run = agent_task_run
-      @plan_items = Array(plan_items).map { |entry| entry.deep_stringify_keys }
+      @plan_items = Array(plan_items).map { |entry| normalize_entry(entry) }
       @occurred_at = occurred_at
     end
 
@@ -58,6 +58,12 @@ module AgentTaskRuns
       return if public_id.blank?
 
       @agent_task_run.conversation.owned_subagent_sessions.find_by!(public_id: public_id)
+    end
+
+    def normalize_entry(entry)
+      entry = entry.deep_stringify_keys
+      item_key = entry["item_key"].presence || entry["key"].presence
+      entry.merge("item_key" => item_key)
     end
 
     def next_pending_title_after(in_progress_item)
