@@ -1,12 +1,15 @@
 class AgentControlReportReceipt < ApplicationRecord
   STRUCTURED_PAYLOAD_KEYS = %w[
     attempt_no
+    conversation_id
     logical_work_id
     mailbox_item_id
     method_id
     protocol_message_id
     request_kind
     runtime_plane
+    turn_id
+    workflow_node_id
   ].freeze
 
   before_validation :materialize_pending_payload
@@ -65,13 +68,25 @@ class AgentControlReportReceipt < ApplicationRecord
       "mailbox_item_id" => mailbox_item&.public_id,
       "runtime_plane" => mailbox_item&.runtime_plane,
       "request_kind" => mailbox_item&.payload&.fetch("request_kind", nil),
-      "conversation_id" => resolved_agent_task_run&.conversation&.public_id,
-      "turn_id" => resolved_agent_task_run&.turn&.public_id,
-      "workflow_node_id" => resolved_agent_task_run&.workflow_node&.public_id,
+      "conversation_id" => resolved_conversation&.public_id,
+      "turn_id" => resolved_turn&.public_id,
+      "workflow_node_id" => resolved_workflow_node&.public_id,
     }.compact
   end
 
   def resolved_agent_task_run
     agent_task_run || mailbox_item&.agent_task_run
+  end
+
+  def resolved_workflow_node
+    resolved_agent_task_run&.workflow_node || mailbox_item&.workflow_node
+  end
+
+  def resolved_turn
+    resolved_agent_task_run&.turn || resolved_workflow_node&.turn
+  end
+
+  def resolved_conversation
+    resolved_agent_task_run&.conversation || resolved_workflow_node&.conversation
   end
 end

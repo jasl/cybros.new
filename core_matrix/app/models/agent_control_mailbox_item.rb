@@ -29,6 +29,7 @@ class AgentControlMailboxItem < ApplicationRecord
   belongs_to :target_agent_program_version, class_name: "AgentProgramVersion", optional: true
   belongs_to :target_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :agent_task_run, optional: true
+  belongs_to :workflow_node, optional: true
   belongs_to :execution_contract, optional: true
   belongs_to :payload_document, class_name: "JsonDocument", optional: true
   belongs_to :leased_to_agent_session, class_name: "AgentSession", optional: true
@@ -48,6 +49,7 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :target_program_version_match
   validate :target_execution_runtime_match
   validate :agent_task_run_match
+  validate :workflow_node_match
   validate :lease_holder_match
   validate :runtime_plane_contract
 
@@ -123,6 +125,20 @@ class AgentControlMailboxItem < ApplicationRecord
     payload = payload_document.payload.deep_dup
     payload.merge!(payload_body)
 
+    task = payload["task"].is_a?(Hash) ? payload["task"].deep_dup : {}
+    if workflow_node.present?
+      task["kind"] ||= workflow_node.node_type
+      task["workflow_node_id"] = workflow_node.public_id
+      task["workflow_run_id"] = workflow_node.workflow_run.public_id
+      task["conversation_id"] = workflow_node.conversation.public_id
+      task["turn_id"] = workflow_node.turn.public_id
+    end
+    payload["task"] = task if task.present?
+
+    if execution_contract.present? && !payload.key?("provider_context")
+      payload["provider_context"] = execution_contract.provider_context
+    end
+
     runtime_context = payload["runtime_context"].is_a?(Hash) ? payload["runtime_context"].deep_dup : {}
     runtime_context["logical_work_id"] = logical_work_id
     runtime_context["attempt_no"] = attempt_no
@@ -162,6 +178,17 @@ class AgentControlMailboxItem < ApplicationRecord
 
     errors.add(:agent_task_run, "must belong to the same installation") if agent_task_run.installation_id != installation_id
     errors.add(:agent_task_run, "must belong to the targeted agent program") if agent_task_run.agent_program_id != target_agent_program_id
+  end
+
+  def workflow_node_match
+    return if workflow_node.blank?
+
+    errors.add(:workflow_node, "must belong to the same installation") if workflow_node.installation_id != installation_id
+    errors.add(:workflow_node, "must belong to the targeted agent program") if workflow_node.conversation&.agent_program_id != target_agent_program_id
+
+    return if execution_contract.blank? || workflow_node.turn_id == execution_contract.turn_id
+
+    errors.add(:execution_contract, "must belong to the workflow node turn")
   end
 
   def lease_holder_match

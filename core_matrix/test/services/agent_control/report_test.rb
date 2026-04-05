@@ -75,6 +75,62 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal context[:deployment].public_id, agent_task_run.execution_lease.holder_key
   end
 
+  test "report stores only the report body in the receipt document and reconstructs structured control fields on read" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    protocol_message_id = "agent-progress-#{next_test_sequence}"
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "execution_progress",
+      protocol_message_id: protocol_message_id,
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      control: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "runtime_plane" => mailbox_item.runtime_plane,
+        "request_kind" => mailbox_item.payload.fetch("request_kind"),
+      },
+      progress_payload: {
+        "state" => "running",
+      }
+    )
+
+    receipt = AgentControlReportReceipt.find_by!(
+      installation: context[:installation],
+      protocol_message_id: protocol_message_id
+    )
+    stored_payload = receipt.report_document.payload
+
+    refute stored_payload.key?("protocol_message_id")
+    refute stored_payload.key?("method_id")
+    refute stored_payload.key?("logical_work_id")
+    refute stored_payload.key?("attempt_no")
+    refute stored_payload.key?("conversation_id")
+    refute stored_payload.key?("turn_id")
+    refute stored_payload.key?("workflow_node_id")
+    refute stored_payload.key?("control")
+    assert_equal({ "state" => "running" }, stored_payload.fetch("progress_payload"))
+
+    payload = receipt.payload
+
+    assert_equal protocol_message_id, payload.fetch("protocol_message_id")
+    assert_equal "execution_progress", payload.fetch("method_id")
+    assert_equal agent_task_run.logical_work_id, payload.fetch("logical_work_id")
+    assert_equal agent_task_run.attempt_no, payload.fetch("attempt_no")
+    assert_equal mailbox_item.public_id, payload.fetch("mailbox_item_id")
+    assert_equal mailbox_item.runtime_plane, payload.fetch("runtime_plane")
+    assert_equal mailbox_item.payload.fetch("request_kind"), payload.fetch("request_kind")
+    assert_equal agent_task_run.conversation.public_id, payload.fetch("conversation_id")
+    assert_equal agent_task_run.turn.public_id, payload.fetch("turn_id")
+    assert_equal agent_task_run.workflow_node.public_id, payload.fetch("workflow_node_id")
+    assert_equal({ "state" => "running" }, payload.fetch("progress_payload"))
+  end
+
   test "execution reports materialize a succeeded agent-owned tool invocation from progress and terminal payloads" do
     context = build_calculator_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -145,6 +201,60 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal call_id, invocation.idempotency_key
     assert_equal "2 + 2", invocation.request_payload.dig("arguments", "expression")
     assert_equal "The calculator returned 4.", invocation.response_payload.fetch("content")
+  end
+
+  test "agent program terminal reports store only the response body and reconstruct workflow refs on read" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+      },
+      logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    protocol_message_id = "agent-program-complete-#{next_test_sequence}"
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "agent_program_completed",
+      protocol_message_id: protocol_message_id,
+      mailbox_item_id: mailbox_item.public_id,
+      logical_work_id: mailbox_item.logical_work_id,
+      attempt_no: mailbox_item.attempt_no,
+      conversation_id: context.fetch(:conversation).public_id,
+      turn_id: context.fetch(:turn).public_id,
+      workflow_node_id: context.fetch(:workflow_node).public_id,
+      response_payload: {
+        "status" => "ok",
+      }
+    )
+
+    receipt = AgentControlReportReceipt.find_by!(
+      installation: context[:installation],
+      protocol_message_id: protocol_message_id
+    )
+    stored_payload = receipt.report_document.payload
+
+    refute stored_payload.key?("conversation_id")
+    refute stored_payload.key?("turn_id")
+    refute stored_payload.key?("workflow_node_id")
+    assert_equal({ "status" => "ok" }, stored_payload.fetch("response_payload"))
+
+    payload = receipt.payload
+
+    assert_equal context.fetch(:conversation).public_id, payload.fetch("conversation_id")
+    assert_equal context.fetch(:turn).public_id, payload.fetch("turn_id")
+    assert_equal context.fetch(:workflow_node).public_id, payload.fetch("workflow_node_id")
+    assert_equal({ "status" => "ok" }, payload.fetch("response_payload"))
   end
 
   test "execution reports broadcast runtime progress and tool invocation events on the conversation stream" do

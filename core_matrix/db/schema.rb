@@ -74,6 +74,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.bigint "target_agent_program_version_id"
     t.bigint "target_execution_runtime_id"
     t.datetime "updated_at", null: false
+    t.bigint "workflow_node_id"
     t.index ["agent_task_run_id"], name: "index_agent_control_mailbox_items_on_agent_task_run_id"
     t.index ["execution_contract_id"], name: "index_agent_control_mailbox_items_on_execution_contract_id"
     t.index ["installation_id", "protocol_message_id"], name: "idx_agent_control_mailbox_items_protocol_message", unique: true
@@ -88,6 +89,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.index ["target_agent_program_version_id"], name: "idx_on_target_agent_program_version_id_a8e4deca40"
     t.index ["target_execution_runtime_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_execution_delivery"
     t.index ["target_execution_runtime_id"], name: "idx_on_target_execution_runtime_id_d79214996d"
+    t.index ["workflow_node_id"], name: "index_agent_control_mailbox_items_on_workflow_node_id"
   end
 
   create_table "agent_control_report_receipts", force: :cascade do |t|
@@ -1647,6 +1649,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "agent_control_mailbox_items", "execution_sessions", column: "leased_to_execution_session_id"
   add_foreign_key "agent_control_mailbox_items", "installations"
   add_foreign_key "agent_control_mailbox_items", "json_documents", column: "payload_document_id"
+  add_foreign_key "agent_control_mailbox_items", "workflow_nodes"
   add_foreign_key "agent_control_report_receipts", "agent_control_mailbox_items", column: "mailbox_item_id"
   add_foreign_key "agent_control_report_receipts", "agent_sessions"
   add_foreign_key "agent_control_report_receipts", "agent_task_runs"

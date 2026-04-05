@@ -70,11 +70,7 @@ module AgentControl
         logical_work_id: @payload["logical_work_id"],
         attempt_no: @payload["attempt_no"],
         result_code: "processing",
-        report_document: JsonDocuments::Store.call(
-          installation: @deployment.installation,
-          document_kind: "agent_control_report",
-          payload: @payload
-        )
+        payload: @payload
       )
     end
 

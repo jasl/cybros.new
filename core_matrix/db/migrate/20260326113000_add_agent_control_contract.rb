@@ -144,6 +144,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :target_agent_program_version, foreign_key: { to_table: :agent_program_versions }
       t.references :target_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.references :agent_task_run, foreign_key: true
+      t.references :workflow_node, foreign_key: true
       t.references :execution_contract, foreign_key: true
       t.references :payload_document, foreign_key: { to_table: :json_documents }
       t.references :leased_to_agent_session, foreign_key: { to_table: :agent_sessions }
