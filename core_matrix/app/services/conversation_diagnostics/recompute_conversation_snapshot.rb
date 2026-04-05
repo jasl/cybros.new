@@ -42,24 +42,24 @@ module ConversationDiagnostics
       snapshot.output_variant_count = sum(turn_snapshots, :output_variant_count)
       snapshot.resume_attempt_count = sum(turn_snapshots, :resume_attempt_count)
       snapshot.retry_attempt_count = sum(turn_snapshots, :retry_attempt_count)
+      snapshot.estimated_cost_event_count = sum(turn_snapshots, :estimated_cost_event_count)
+      snapshot.estimated_cost_missing_event_count = sum(turn_snapshots, :estimated_cost_missing_event_count)
+      snapshot.attributed_user_estimated_cost_event_count = sum(turn_snapshots, :attributed_user_estimated_cost_event_count)
+      snapshot.attributed_user_estimated_cost_missing_event_count = sum(turn_snapshots, :attributed_user_estimated_cost_missing_event_count)
       snapshot.most_expensive_turn = turn_snapshots.max_by { |item| [item.estimated_cost_total.to_d, item.turn_id] }&.turn
       snapshot.most_rounds_turn = turn_snapshots.max_by { |item| [item.provider_round_count.to_i, item.turn_id] }&.turn
       snapshot.metadata = compact_metadata(
         {
-        "provider_usage_breakdown" => merge_provider_breakdowns(turn_snapshots),
-        "attributed_user_provider_usage_breakdown" => merge_provider_breakdowns(
-          turn_snapshots,
-          key: "attributed_user_provider_usage_breakdown"
+        "provider_usage_breakdown" => provider_usage_breakdown(
+          UsageEvent.where(conversation_id: conversation.id)
+        ),
+        "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(
+          UsageEvent.where(conversation_id: conversation.id, user_id: conversation.workspace.user_id)
         ),
         "workflow_node_type_counts" => merge_count_hashes(turn_snapshots, "workflow_node_type_counts"),
         "tool_breakdown" => merge_nested_counts(turn_snapshots, "tool_breakdown"),
         "command_classification_counts" => merge_nested_counts(turn_snapshots, "command_classification_counts"),
         "subagent_status_counts" => merge_count_hashes(turn_snapshots, "subagent_status_counts"),
-        "cost_summary" => merge_cost_summary(turn_snapshots),
-        "attributed_user_cost_summary" => merge_cost_summary(
-          turn_snapshots,
-          key: "attributed_user_cost_summary"
-        ),
         }
       )
       snapshot.save!
@@ -76,53 +76,45 @@ module ConversationDiagnostics
       items.sum(BigDecimal("0")) { |item| item.public_send(attribute).to_d }
     end
 
-    def merge_provider_breakdowns(items, key: "provider_usage_breakdown")
-      grouped = {}
-
-      items.each do |item|
-        Array(item.metadata[key]).each do |entry|
-          group_key = [entry["provider_handle"], entry["model_ref"], entry["operation_kind"]]
-          grouped[group_key] ||= {
-            "provider_handle" => entry["provider_handle"],
-            "model_ref" => entry["model_ref"],
-            "operation_kind" => entry["operation_kind"],
-            "event_count" => 0,
-            "success_count" => 0,
-            "failure_count" => 0,
-            "input_tokens_total" => 0,
-            "output_tokens_total" => 0,
-            "estimated_cost_total" => BigDecimal("0"),
-            "estimated_cost_event_count" => 0,
-            "estimated_cost_missing_event_count" => 0,
-            "latency_event_count" => 0,
-            "total_latency_ms" => 0,
-            "max_latency_ms" => 0,
-          }
-
-          grouped[group_key]["event_count"] += entry["event_count"].to_i
-          grouped[group_key]["success_count"] += entry["success_count"].to_i
-          grouped[group_key]["failure_count"] += entry["failure_count"].to_i
-          grouped[group_key]["input_tokens_total"] += entry["input_tokens_total"].to_i
-          grouped[group_key]["output_tokens_total"] += entry["output_tokens_total"].to_i
-          grouped[group_key]["estimated_cost_total"] += entry["estimated_cost_total"].to_d
-          grouped[group_key]["estimated_cost_event_count"] += entry["estimated_cost_event_count"].to_i
-          grouped[group_key]["estimated_cost_missing_event_count"] += entry["estimated_cost_missing_event_count"].to_i
-          grouped[group_key]["latency_event_count"] += entry["latency_event_count"].to_i
-          grouped[group_key]["total_latency_ms"] += entry["total_latency_ms"].to_i
-          grouped[group_key]["max_latency_ms"] = [grouped[group_key]["max_latency_ms"], entry["max_latency_ms"].to_i].max
-        end
-      end
-
-      grouped.values.map do |entry|
-        latency_event_count = entry["latency_event_count"]
-
-        entry.merge(
-          "avg_latency_ms" => latency_event_count.zero? ? 0 : (entry["total_latency_ms"].to_f / latency_event_count).round,
-          "estimated_cost_total" => entry["estimated_cost_total"].to_s("F"),
-          "cost_data_available" => entry["estimated_cost_event_count"].positive?,
-          "cost_data_complete" => entry["event_count"].positive? && entry["estimated_cost_missing_event_count"].zero?
+    def provider_usage_breakdown(scope)
+      scope
+        .group(:provider_handle, :model_ref, :operation_kind)
+        .order(:provider_handle, :model_ref, :operation_kind)
+        .pluck(
+          :provider_handle,
+          :model_ref,
+          :operation_kind,
+          Arel.sql("COUNT(*)"),
+          Arel.sql("SUM(CASE WHEN success THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN success THEN 0 ELSE 1 END)"),
+          Arel.sql("SUM(COALESCE(input_tokens, 0))"),
+          Arel.sql("SUM(COALESCE(output_tokens, 0))"),
+          Arel.sql("SUM(COALESCE(estimated_cost, 0))"),
+          Arel.sql("SUM(CASE WHEN estimated_cost IS NULL THEN 0 ELSE 1 END)"),
+          Arel.sql("SUM(COALESCE(latency_ms, 0))"),
+          Arel.sql("SUM(CASE WHEN latency_ms IS NULL THEN 0 ELSE 1 END)"),
+          Arel.sql("MAX(COALESCE(latency_ms, 0))")
         )
-      end.sort_by { |entry| [entry["provider_handle"], entry["model_ref"], entry["operation_kind"]] }
+        .map do |provider_handle, model_ref, operation_kind, event_count, success_count, failure_count, input_tokens_total, output_tokens_total, estimated_cost_total, estimated_cost_event_count, total_latency_ms, latency_event_count, max_latency_ms|
+          estimated_cost_missing_event_count = event_count.to_i - estimated_cost_event_count.to_i
+
+          {
+            "provider_handle" => provider_handle,
+            "model_ref" => model_ref,
+            "operation_kind" => operation_kind,
+            "event_count" => event_count.to_i,
+            "success_count" => success_count.to_i,
+            "failure_count" => failure_count.to_i,
+            "input_tokens_total" => input_tokens_total.to_i,
+            "output_tokens_total" => output_tokens_total.to_i,
+            "estimated_cost_total" => estimated_cost_total.to_d.to_s("F"),
+            "estimated_cost_event_count" => estimated_cost_event_count.to_i,
+            "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
+            "latency_event_count" => latency_event_count.to_i,
+            "avg_latency_ms" => latency_event_count.to_i.zero? ? 0 : (total_latency_ms.to_f / latency_event_count.to_i).round,
+            "max_latency_ms" => max_latency_ms.to_i,
+          }
+        end
     end
 
     def merge_count_hashes(items, key)
@@ -141,26 +133,6 @@ module ConversationDiagnostics
           result[name]["failures"] += payload["failures"].to_i
         end
       end.sort.to_h
-    end
-
-    def merge_cost_summary(items, key: "cost_summary")
-      summary = items.each_with_object(
-        {
-          "estimated_cost_event_count" => 0,
-          "estimated_cost_missing_event_count" => 0,
-        }
-      ) do |item, result|
-        payload = item.metadata.fetch(key, {})
-        result["estimated_cost_event_count"] += payload["estimated_cost_event_count"].to_i
-        result["estimated_cost_missing_event_count"] += payload["estimated_cost_missing_event_count"].to_i
-      end
-
-      total_events = summary["estimated_cost_event_count"] + summary["estimated_cost_missing_event_count"]
-
-      summary.merge(
-        "cost_data_available" => summary["estimated_cost_event_count"].positive?,
-        "cost_data_complete" => total_events.positive? && summary["estimated_cost_missing_event_count"].zero?
-      )
     end
 
     def compact_metadata(value)

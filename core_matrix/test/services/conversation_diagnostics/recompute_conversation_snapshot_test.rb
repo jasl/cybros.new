@@ -89,6 +89,10 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     assert_equal BigDecimal("0.028"), snapshot.attributed_user_estimated_cost_total
     assert_equal 2, snapshot.provider_round_count
     assert_equal 3, snapshot.input_variant_count
+    assert_equal 2, snapshot.estimated_cost_event_count
+    assert_equal 0, snapshot.estimated_cost_missing_event_count
+    assert_equal 2, snapshot.attributed_user_estimated_cost_event_count
+    assert_equal 0, snapshot.attributed_user_estimated_cost_missing_event_count
     assert_equal second_turn.id, snapshot.most_expensive_turn_id
     assert_equal second_turn.id, snapshot.most_rounds_turn_id
 
@@ -96,16 +100,6 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     assert_equal 2, snapshot.metadata.fetch("attributed_user_provider_usage_breakdown").first.fetch("event_count")
     assert_equal 2, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_event_count")
     assert_equal 0, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_missing_event_count")
-    assert_equal true, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("cost_data_complete")
-    assert_equal(
-      {
-        "estimated_cost_event_count" => 2,
-        "estimated_cost_missing_event_count" => 0,
-        "cost_data_available" => true,
-        "cost_data_complete" => true,
-      },
-      snapshot.metadata.fetch("cost_summary")
-    )
     assert_nil snapshot.metadata["outlier_refs"]
   end
 end

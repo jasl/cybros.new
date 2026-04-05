@@ -384,6 +384,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
 
   create_table "conversation_diagnostics_snapshots", force: :cascade do |t|
     t.integer "active_turn_count", default: 0, null: false
+    t.integer "attributed_user_estimated_cost_event_count", default: 0, null: false
+    t.integer "attributed_user_estimated_cost_missing_event_count", default: 0, null: false
     t.decimal "attributed_user_estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
     t.integer "attributed_user_input_tokens_total", default: 0, null: false
     t.integer "attributed_user_output_tokens_total", default: 0, null: false
@@ -394,6 +396,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.integer "completed_turn_count", default: 0, null: false
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.integer "estimated_cost_event_count", default: 0, null: false
+    t.integer "estimated_cost_missing_event_count", default: 0, null: false
     t.decimal "estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
     t.integer "failed_turn_count", default: 0, null: false
     t.integer "input_tokens_total", default: 0, null: false
@@ -1255,22 +1259,29 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   end
 
   create_table "turn_diagnostics_snapshots", force: :cascade do |t|
+    t.integer "attributed_user_estimated_cost_event_count", default: 0, null: false
+    t.integer "attributed_user_estimated_cost_missing_event_count", default: 0, null: false
     t.decimal "attributed_user_estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
     t.integer "attributed_user_input_tokens_total", default: 0, null: false
     t.integer "attributed_user_output_tokens_total", default: 0, null: false
     t.integer "attributed_user_usage_event_count", default: 0, null: false
+    t.integer "avg_latency_ms", default: 0, null: false
     t.integer "command_failure_count", default: 0, null: false
     t.integer "command_run_count", default: 0, null: false
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.integer "estimated_cost_event_count", default: 0, null: false
+    t.integer "estimated_cost_missing_event_count", default: 0, null: false
     t.decimal "estimated_cost_total", precision: 12, scale: 6, default: "0.0", null: false
     t.integer "input_tokens_total", default: 0, null: false
     t.integer "input_variant_count", default: 0, null: false
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", null: false
+    t.integer "max_latency_ms", default: 0, null: false
     t.jsonb "metadata", default: {}, null: false
     t.integer "output_tokens_total", default: 0, null: false
     t.integer "output_variant_count", default: 0, null: false
+    t.string "pause_state"
     t.integer "process_failure_count", default: 0, null: false
     t.integer "process_run_count", default: 0, null: false
     t.integer "provider_round_count", default: 0, null: false

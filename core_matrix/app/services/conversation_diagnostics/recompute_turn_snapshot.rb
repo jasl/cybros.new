@@ -72,6 +72,13 @@ module ConversationDiagnostics
       snapshot.output_variant_count = turn.messages.where(slot: "output").count
       snapshot.resume_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' = 'turn_resume'").count
       snapshot.retry_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' IN (?)", RETRY_DELIVERY_KINDS).count
+      snapshot.avg_latency_ms = usage_metrics.fetch("avg_latency_ms")
+      snapshot.max_latency_ms = usage_metrics.fetch("max_latency_ms")
+      snapshot.estimated_cost_event_count = usage_metrics.fetch("estimated_cost_event_count")
+      snapshot.estimated_cost_missing_event_count = usage_metrics.fetch("estimated_cost_missing_event_count")
+      snapshot.attributed_user_estimated_cost_event_count = attributed_usage_metrics.fetch("estimated_cost_event_count")
+      snapshot.attributed_user_estimated_cost_missing_event_count = attributed_usage_metrics.fetch("estimated_cost_missing_event_count")
+      snapshot.pause_state = turn.workflow_run&.wait_reason_payload&.[]("recovery_state")
       snapshot.metadata = compact_metadata(
         {
         "provider_usage_breakdown" => provider_usage_breakdown(usage_scope),
@@ -80,10 +87,6 @@ module ConversationDiagnostics
         "tool_breakdown" => tool_breakdown(tool_invocations),
         "command_classification_counts" => command_classification_counts(command_runs),
         "subagent_status_counts" => stringify_hash(subagent_sessions.group(:observed_status).count),
-        "latency_summary" => usage_metrics.fetch("latency_summary"),
-        "cost_summary" => usage_metrics.fetch("cost_summary"),
-        "attributed_user_cost_summary" => attributed_usage_metrics.fetch("cost_summary"),
-        "pause_state" => turn.workflow_run&.wait_reason_payload&.[]("recovery_state"),
         }
       )
       snapshot.save!
@@ -122,16 +125,10 @@ module ConversationDiagnostics
         "input_tokens_total" => input_tokens_total.to_i,
         "output_tokens_total" => output_tokens_total.to_i,
         "estimated_cost_total" => estimated_cost_total.to_d,
-        "latency_summary" => {
-          "avg_latency_ms" => event_count.zero? ? 0 : latencies.average(:latency_ms).to_f.round,
-          "max_latency_ms" => latencies.maximum(:latency_ms).to_i,
-        },
-        "cost_summary" => {
-          "estimated_cost_event_count" => estimated_cost_event_count,
-          "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
-          "cost_data_available" => estimated_cost_event_count.positive?,
-          "cost_data_complete" => event_count.positive? && estimated_cost_missing_event_count.zero?,
-        },
+        "avg_latency_ms" => event_count.zero? ? 0 : latencies.average(:latency_ms).to_f.round,
+        "max_latency_ms" => latencies.maximum(:latency_ms).to_i,
+        "estimated_cost_event_count" => estimated_cost_event_count,
+        "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
       }
     end
 
@@ -169,10 +166,7 @@ module ConversationDiagnostics
             "estimated_cost_total" => estimated_cost_total.to_d.to_s("F"),
             "estimated_cost_event_count" => estimated_cost_event_count.to_i,
             "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
-            "cost_data_available" => estimated_cost_event_count.to_i.positive?,
-            "cost_data_complete" => event_count.to_i.positive? && estimated_cost_missing_event_count.zero?,
             "latency_event_count" => latency_event_count.to_i,
-            "total_latency_ms" => total_latency_ms.to_i,
             "avg_latency_ms" => latency_event_count.to_i.zero? ? 0 : (total_latency_ms.to_f / latency_event_count.to_i).round,
             "max_latency_ms" => max_latency_ms.to_i,
           }

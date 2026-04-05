@@ -137,6 +137,13 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal 2, snapshot.output_variant_count
     assert_equal 1, snapshot.resume_attempt_count
     assert_equal 2, snapshot.retry_attempt_count
+    assert_equal 900, snapshot.avg_latency_ms
+    assert_equal 1300, snapshot.max_latency_ms
+    assert_equal 2, snapshot.estimated_cost_event_count
+    assert_equal 0, snapshot.estimated_cost_missing_event_count
+    assert_equal 1, snapshot.attributed_user_estimated_cost_event_count
+    assert_equal 0, snapshot.attributed_user_estimated_cost_missing_event_count
+    assert_equal "paused_turn", snapshot.pause_state
 
     provider_breakdown = snapshot.metadata.fetch("provider_usage_breakdown")
     assert_equal 1, provider_breakdown.length
@@ -145,10 +152,9 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal 2, provider_breakdown.first.fetch("event_count")
     assert_equal 2, provider_breakdown.first.fetch("estimated_cost_event_count")
     assert_equal 0, provider_breakdown.first.fetch("estimated_cost_missing_event_count")
-    assert_equal true, provider_breakdown.first.fetch("cost_data_available")
-    assert_equal true, provider_breakdown.first.fetch("cost_data_complete")
     assert_equal 2, provider_breakdown.first.fetch("latency_event_count")
-    assert_equal 1800, provider_breakdown.first.fetch("total_latency_ms")
+    assert_equal 900, provider_breakdown.first.fetch("avg_latency_ms")
+    assert_equal 1300, provider_breakdown.first.fetch("max_latency_ms")
 
     attributed_provider_breakdown = snapshot.metadata.fetch("attributed_user_provider_usage_breakdown")
     assert_equal 1, attributed_provider_breakdown.length
@@ -170,31 +176,9 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     )
     assert_equal({ "completed" => 1 }, snapshot.metadata.fetch("subagent_status_counts"))
     assert_equal(
-      {
-        "avg_latency_ms" => 900,
-        "max_latency_ms" => 1300,
-      },
-      snapshot.metadata.fetch("latency_summary")
+      900,
+      snapshot.avg_latency_ms
     )
-    assert_equal(
-      {
-        "estimated_cost_event_count" => 2,
-        "estimated_cost_missing_event_count" => 0,
-        "cost_data_available" => true,
-        "cost_data_complete" => true,
-      },
-      snapshot.metadata.fetch("cost_summary")
-    )
-    assert_equal(
-      {
-        "estimated_cost_event_count" => 1,
-        "estimated_cost_missing_event_count" => 0,
-        "cost_data_available" => true,
-        "cost_data_complete" => true,
-      },
-      snapshot.metadata.fetch("attributed_user_cost_summary")
-    )
-    assert_equal "paused_turn", snapshot.metadata.fetch("pause_state")
     assert_nil snapshot.metadata["evidence_refs"]
   end
 
@@ -217,15 +201,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     snapshot = ConversationDiagnostics::RecomputeTurnSnapshot.call(turn: turn)
 
     assert_equal BigDecimal("0"), snapshot.estimated_cost_total
-    assert_equal(
-      {
-        "estimated_cost_event_count" => 0,
-        "estimated_cost_missing_event_count" => 1,
-        "cost_data_available" => false,
-        "cost_data_complete" => false,
-      },
-      snapshot.metadata.fetch("cost_summary")
-    )
+    assert_equal 0, snapshot.estimated_cost_event_count
+    assert_equal 1, snapshot.estimated_cost_missing_event_count
     assert_equal 0, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_event_count")
     assert_equal 1, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_missing_event_count")
   end

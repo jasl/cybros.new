@@ -25,6 +25,13 @@ class CreateConversationDiagnosticsSnapshots < ActiveRecord::Migration[8.0]
       t.integer :output_variant_count, null: false, default: 0
       t.integer :resume_attempt_count, null: false, default: 0
       t.integer :retry_attempt_count, null: false, default: 0
+      t.integer :avg_latency_ms, null: false, default: 0
+      t.integer :max_latency_ms, null: false, default: 0
+      t.integer :estimated_cost_event_count, null: false, default: 0
+      t.integer :estimated_cost_missing_event_count, null: false, default: 0
+      t.integer :attributed_user_estimated_cost_event_count, null: false, default: 0
+      t.integer :attributed_user_estimated_cost_missing_event_count, null: false, default: 0
+      t.string :pause_state
       t.jsonb :metadata, null: false, default: {}
       t.timestamps
     end
@@ -58,6 +65,10 @@ class CreateConversationDiagnosticsSnapshots < ActiveRecord::Migration[8.0]
       t.integer :output_variant_count, null: false, default: 0
       t.integer :resume_attempt_count, null: false, default: 0
       t.integer :retry_attempt_count, null: false, default: 0
+      t.integer :estimated_cost_event_count, null: false, default: 0
+      t.integer :estimated_cost_missing_event_count, null: false, default: 0
+      t.integer :attributed_user_estimated_cost_event_count, null: false, default: 0
+      t.integer :attributed_user_estimated_cost_missing_event_count, null: false, default: 0
       t.references :most_expensive_turn, foreign_key: { to_table: :turns }
       t.references :most_rounds_turn, foreign_key: { to_table: :turns }
       t.jsonb :metadata, null: false, default: {}
