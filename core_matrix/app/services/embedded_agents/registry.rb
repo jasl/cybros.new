@@ -1,7 +1,7 @@
 module EmbeddedAgents
   class Registry
     AGENTS = {
-      "conversation_observation" => "EmbeddedAgents::ConversationObservation::Invoke",
+      "conversation_supervision" => "EmbeddedAgents::ConversationSupervision::Invoke",
     }.freeze
 
     def self.fetch(agent_key)

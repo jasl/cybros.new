@@ -4,7 +4,7 @@ module EmbeddedAgents
 end
 
 class EmbeddedAgents::InvokeTest < ActiveSupport::TestCase
-  test "dispatches conversation observation requests and returns a consistent result" do
+  test "dispatches conversation supervision requests and returns a consistent result" do
     context = create_workspace_context!
     conversation = create_conversation_record!(
       workspace: context[:workspace],
@@ -12,18 +12,27 @@ class EmbeddedAgents::InvokeTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_program: context[:agent_program]
     )
+    ConversationCapabilityPolicy.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      supervision_enabled: true,
+      side_chat_enabled: true,
+      control_enabled: false,
+      policy_payload: {}
+    )
 
     result = EmbeddedAgents::Invoke.call(
-      agent_key: "conversation_observation",
+      agent_key: "conversation_supervision",
       actor: context[:user],
       target: { "conversation_id" => conversation.public_id },
       input: { "question" => "What are you doing?" }
     )
 
     assert_instance_of EmbeddedAgents::Result, result
-    assert_equal "conversation_observation", result.agent_key
+    assert_equal "conversation_supervision", result.agent_key
     assert_equal "ok", result.status
     assert_equal conversation.public_id, result.output.fetch("conversation_id")
+    assert_equal true, result.output.fetch("conversation_supervision_allowed")
     assert_equal "builtin", result.responder_kind
   end
 
@@ -32,7 +41,7 @@ class EmbeddedAgents::InvokeTest < ActiveSupport::TestCase
 
     error = assert_raises(EmbeddedAgents::Errors::InvalidTargetIdentifier) do
       EmbeddedAgents::Invoke.call(
-        agent_key: "conversation_observation",
+        agent_key: "conversation_supervision",
         actor: context[:user],
         target: context[:workspace].id,
         input: { "question" => "What are you doing?" }

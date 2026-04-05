@@ -49,10 +49,10 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationDiagnosticsSnapshot
   end
 
-  test "reset_backend_state! includes conversation observation tables" do
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationObservationSession
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationObservationFrame
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationObservationMessage
+  test "reset_backend_state! includes conversation supervision tables" do
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationSupervisionSession
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationSupervisionSnapshot
+    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationSupervisionMessage
   end
 
   test "register_external_runtime! returns the execution machine credential from the registration payload" do
@@ -173,7 +173,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal "execution-secret", captured_execution_machine_credential
   end
 
-  test "create_conversation_observation_session! calls the create-session service and serializes the result" do
+  test "create_conversation_supervision_session! calls the create-session service and serializes the result" do
     actor = Struct.new(:public_id).new("user-public-id")
     session_double = Struct.new(
       :public_id,
@@ -183,7 +183,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       :lifecycle_state,
       :responder_strategy,
       :capability_policy_snapshot,
-      :last_observed_at,
+      :last_snapshot_at,
       :created_at
     ).new(
       "obs_session_123",
@@ -192,7 +192,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       actor,
       "open",
       "builtin",
-      { "observe" => true },
+      { "supervision_enabled" => true, "side_chat_enabled" => true, "control_enabled" => false },
       nil,
       nil
     )
@@ -204,35 +204,35 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       ->(public_id) { Struct.new(:public_id).new(public_id) }
     ) do
       with_redefined_singleton_method(
-        EmbeddedAgents::ConversationObservation::CreateSession,
+        EmbeddedAgents::ConversationSupervision::CreateSession,
         :call,
         lambda do |actor:, conversation:, responder_strategy:|
           captured = [actor, conversation.public_id, responder_strategy]
           session_double
         end
       ) do
-        result = ManualAcceptanceSupport.create_conversation_observation_session!(
+        result = ManualAcceptanceSupport.create_conversation_supervision_session!(
           conversation_id: "conversation_123",
           actor: actor
         )
 
-        assert_equal "obs_session_123", result.dig("conversation_observation_session", "observation_session_id")
+        assert_equal "obs_session_123", result.dig("conversation_supervision_session", "supervision_session_id")
         assert_equal [actor, "conversation_123", "builtin"], captured
       end
     end
   end
 
-  test "append_conversation_observation_message! calls the append-message service and serializes the exchange" do
+  test "append_conversation_supervision_message! calls the append-message service and serializes the exchange" do
     actor = Struct.new(:public_id).new("user-public-id")
     session = Struct.new(:public_id, :target_conversation).new(
       "obs_session_123",
       Struct.new(:public_id).new("conversation_123")
     )
-    frame = Struct.new(:public_id).new("obs_frame_123")
+    snapshot = Struct.new(:public_id).new("obs_snapshot_123")
     user_message = Struct.new(
       :public_id,
-      :conversation_observation_session,
-      :conversation_observation_frame,
+      :conversation_supervision_session,
+      :conversation_supervision_snapshot,
       :target_conversation,
       :role,
       :content,
@@ -240,7 +240,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     ).new(
       "user_msg_123",
       session,
-      frame,
+      snapshot,
       session.target_conversation,
       "user",
       "Summarize current progress",
@@ -248,8 +248,8 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     )
     observer_message = Struct.new(
       :public_id,
-      :conversation_observation_session,
-      :conversation_observation_frame,
+      :conversation_supervision_session,
+      :conversation_supervision_snapshot,
       :target_conversation,
       :role,
       :content,
@@ -257,16 +257,16 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     ).new(
       "observer_msg_123",
       session,
-      frame,
+      snapshot,
       session.target_conversation,
-      "observer_agent",
+      "supervisor_agent",
       "Right now the conversation is running.",
       nil
     )
     captured = nil
 
     with_redefined_singleton_method(
-      ConversationObservationSession,
+      ConversationSupervisionSession,
       :find_by_public_id!,
       lambda do |public_id|
         raise "unexpected session id #{public_id.inspect}" unless public_id == "obs_session_123"
@@ -275,29 +275,28 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       end
     ) do
       with_redefined_singleton_method(
-        EmbeddedAgents::ConversationObservation::AppendMessage,
+        EmbeddedAgents::ConversationSupervision::AppendMessage,
         :call,
-        lambda do |actor:, conversation_observation_session:, content:|
-          captured = [actor, conversation_observation_session.public_id, content]
+        lambda do |actor:, conversation_supervision_session:, content:|
+          captured = [actor, conversation_supervision_session.public_id, content]
           {
-            "assessment" => { "observation_frame_id" => "obs_frame_123" },
-            "supervisor_status" => { "proof_refs" => { "conversation_id" => "conversation_123" } },
-            "human_sidechat" => { "content" => "Right now the conversation is running.", "proof_refs" => { "conversation_id" => "conversation_123" } },
+            "machine_status" => { "supervision_snapshot_id" => "obs_snapshot_123", "overall_state" => "running" },
+            "human_sidechat" => { "content" => "Right now the conversation is running.", "supervision_snapshot_id" => "obs_snapshot_123" },
             "user_message" => user_message,
-            "observer_message" => observer_message,
+            "supervisor_message" => observer_message,
           }
         end
       ) do
-        result = ManualAcceptanceSupport.append_conversation_observation_message!(
-          observation_session_id: "obs_session_123",
+        result = ManualAcceptanceSupport.append_conversation_supervision_message!(
+          supervision_session_id: "obs_session_123",
           actor: actor,
           content: "Summarize current progress"
         )
 
-        assert_equal "obs_frame_123", result.dig("assessment", "observation_frame_id")
+        assert_equal "obs_snapshot_123", result.dig("machine_status", "supervision_snapshot_id")
         assert_equal [actor, "obs_session_123", "Summarize current progress"], captured
         assert_equal "user", result.dig("user_message", "role")
-        assert_equal "observer_agent", result.dig("observer_message", "role")
+        assert_equal "supervisor_agent", result.dig("supervisor_message", "role")
       end
     end
   end

@@ -17,9 +17,14 @@ module ManualAcceptanceSupport
   CONTROL_BASE_URL = ENV.fetch("CORE_MATRIX_BASE_URL", "http://127.0.0.1:3000")
 
   RESET_MODELS = [
-    ConversationObservationMessage,
-    ConversationObservationFrame,
-    ConversationObservationSession,
+    ConversationControlRequest,
+    ConversationSupervisionFeedEntry,
+    ConversationSupervisionMessage,
+    ConversationSupervisionSnapshot,
+    ConversationSupervisionSession,
+    ConversationSupervisionState,
+    ConversationCapabilityGrant,
+    ConversationCapabilityPolicy,
     ConversationDiagnosticsSnapshot,
     TurnDiagnosticsSnapshot,
     PublicationAccessEvent,
@@ -260,38 +265,37 @@ module ManualAcceptanceSupport
     )
   end
 
-  def create_conversation_observation_session!(conversation_id:, actor:, responder_strategy: "builtin")
+  def create_conversation_supervision_session!(conversation_id:, actor:, responder_strategy: "builtin")
     conversation = Conversation.find_by_public_id!(conversation_id)
-    session = EmbeddedAgents::ConversationObservation::CreateSession.call(
+    session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
       actor: actor,
       conversation: conversation,
       responder_strategy: responder_strategy
     )
 
     {
-      "method_id" => "conversation_observation_session_create",
+      "method_id" => "conversation_supervision_session_create",
       "conversation_id" => conversation.public_id,
-      "conversation_observation_session" => serialize_observation_session(session),
+      "conversation_supervision_session" => serialize_supervision_session(session),
     }
   end
 
-  def append_conversation_observation_message!(observation_session_id:, actor:, content:)
-    session = ConversationObservationSession.find_by_public_id!(observation_session_id)
-    result = EmbeddedAgents::ConversationObservation::AppendMessage.call(
+  def append_conversation_supervision_message!(supervision_session_id:, actor:, content:)
+    session = ConversationSupervisionSession.find_by_public_id!(supervision_session_id)
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
       actor: actor,
-      conversation_observation_session: session,
+      conversation_supervision_session: session,
       content: content
     )
 
     {
-      "method_id" => "conversation_observation_message_create",
+      "method_id" => "conversation_supervision_message_create",
       "conversation_id" => session.target_conversation.public_id,
-      "observation_session_id" => session.public_id,
-      "assessment" => result.fetch("assessment"),
-      "supervisor_status" => result.fetch("supervisor_status"),
+      "supervision_session_id" => session.public_id,
+      "machine_status" => result.fetch("machine_status"),
       "human_sidechat" => result.fetch("human_sidechat"),
-      "user_message" => serialize_observation_message(result.fetch("user_message")),
-      "observer_message" => serialize_observation_message(result.fetch("observer_message")),
+      "user_message" => serialize_supervision_message(result.fetch("user_message")),
+      "supervisor_message" => serialize_supervision_message(result.fetch("supervisor_message")),
     }
   end
 
@@ -911,25 +915,25 @@ module ManualAcceptanceSupport
     false
   end
 
-  def serialize_observation_session(session)
+  def serialize_supervision_session(session)
     {
-      "observation_session_id" => session.public_id,
+      "supervision_session_id" => session.public_id,
       "target_conversation_id" => session.target_conversation.public_id,
       "initiator_type" => session.initiator_type,
       "initiator_id" => session.initiator.respond_to?(:public_id) ? session.initiator.public_id : nil,
       "lifecycle_state" => session.lifecycle_state,
       "responder_strategy" => session.responder_strategy,
       "capability_policy_snapshot" => session.capability_policy_snapshot,
-      "last_observed_at" => session.last_observed_at&.iso8601(6),
+      "last_snapshot_at" => session.last_snapshot_at&.iso8601(6),
       "created_at" => session.created_at&.iso8601(6),
     }.compact
   end
 
-  def serialize_observation_message(message)
+  def serialize_supervision_message(message)
     {
-      "observation_message_id" => message.public_id,
-      "observation_session_id" => message.conversation_observation_session.public_id,
-      "observation_frame_id" => message.conversation_observation_frame.public_id,
+      "supervision_message_id" => message.public_id,
+      "supervision_session_id" => message.conversation_supervision_session.public_id,
+      "supervision_snapshot_id" => message.conversation_supervision_snapshot.public_id,
       "target_conversation_id" => message.target_conversation.public_id,
       "role" => message.role,
       "content" => message.content,
