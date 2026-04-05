@@ -53,7 +53,8 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal "SubagentBarrier", workflow_run.blocking_resource_type
     assert_equal %w[root agent_turn_step subagent_alpha subagent_beta], workflow_run.workflow_nodes.order(:ordinal).pluck(:node_key)
     assert_equal sessions.map(&:public_id).sort,
-      spawned_nodes.map { |node| node.metadata.fetch("subagent_session_id") }.sort
+      spawned_nodes.map { |node| node.spawned_subagent_session&.public_id }.sort
+    assert spawned_nodes.none? { |node| node.metadata.key?("subagent_session_id") }
     assert_equal %w[completed completed], spawned_nodes.map(&:lifecycle_state)
     status_sequences = spawned_nodes.map do |node|
       workflow_run.workflow_node_events.where(workflow_node: node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }

@@ -51,10 +51,7 @@ module HumanInteractions
           expires_at: @expires_at
         )
         workflow_node.update!(
-          metadata: workflow_node.metadata.merge(
-            "human_interaction_request_id" => request.public_id,
-            "blocking" => request.blocking
-          )
+          opened_human_interaction_request: request
         )
         Workflows::CompleteNode.call(
           workflow_node: workflow_node,

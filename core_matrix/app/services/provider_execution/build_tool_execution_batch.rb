@@ -19,12 +19,8 @@ module ProviderExecution
         "successor" => {
           "node_key" => successor_node_key,
           "node_type" => "turn_step",
-          "metadata" => {
-            "provider_round_index" => current_round_index + 1,
-            "prior_tool_node_keys" => cumulative_prior_tool_node_keys,
-            "resume_batch_id" => batch_id,
-            "yielding_node_key" => @workflow_node.node_key,
-          },
+          "provider_round_index" => current_round_index + 1,
+          "prior_tool_node_keys" => cumulative_prior_tool_node_keys,
         },
       }
     end
@@ -36,10 +32,7 @@ module ProviderExecution
     end
 
     def current_round_index
-      @current_round_index ||= begin
-        value = @workflow_node.metadata["provider_round_index"]
-        value.present? ? value.to_i : 1
-      end
+      @current_round_index ||= @workflow_node.provider_round_index.presence || 1
     end
 
     def ordered_tool_node_keys
@@ -47,7 +40,7 @@ module ProviderExecution
     end
 
     def cumulative_prior_tool_node_keys
-      @cumulative_prior_tool_node_keys ||= Array(@workflow_node.metadata["prior_tool_node_keys"]) + ordered_tool_node_keys
+      @cumulative_prior_tool_node_keys ||= Array(@workflow_node.prior_tool_node_keys) + ordered_tool_node_keys
     end
 
     def successor_node_key

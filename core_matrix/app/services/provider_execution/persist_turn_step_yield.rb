@@ -158,7 +158,6 @@ module ProviderExecution
             tool_call_payload: entry.fetch("tool_call"),
             metadata: {
               "batch_id" => @tool_batch_result.fetch("batch_id"),
-              "provider_round_index" => @tool_batch_result.fetch("provider_round_index"),
               "source_tool_binding_id" => entry.fetch("source_tool_binding_id"),
             },
           }
@@ -198,7 +197,9 @@ module ProviderExecution
         yielding_node_key: current_node.node_key,
         presentation_policy: "internal_only",
         decision_source: "system",
-        metadata: @tool_batch_result.fetch("successor").fetch("metadata"),
+        provider_round_index: @tool_batch_result.fetch("successor").fetch("provider_round_index"),
+        prior_tool_node_keys: @tool_batch_result.fetch("successor").fetch("prior_tool_node_keys"),
+        metadata: {},
       }
       edges << {
         from_node_key: predecessor_node_key,

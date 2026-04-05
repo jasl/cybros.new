@@ -41,6 +41,8 @@ module WorkflowProofExportTestSupport
       yielding_workflow_node: yielding_node,
       decision_source: "system",
       presentation_policy: "ops_trackable",
+      blocked_retry_failure_kind: "provider_rate_limited",
+      blocked_retry_attempt_no: 2,
       metadata: {}
     )
     successor_node = create_workflow_node!(
@@ -50,6 +52,9 @@ module WorkflowProofExportTestSupport
       node_type: "turn_step",
       decision_source: "agent_program",
       presentation_policy: "internal_only",
+      provider_round_index: 2,
+      prior_tool_node_keys: ["governed_tool"],
+      transcript_side_effect_committed: true,
       metadata: {
         "resumed_from" => "agent_step_1",
       }

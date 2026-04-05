@@ -1506,6 +1506,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   end
 
   create_table "workflow_nodes", force: :cascade do |t|
+    t.integer "blocked_retry_attempt_no"
+    t.string "blocked_retry_failure_kind"
     t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.string "decision_source", null: false
@@ -1521,13 +1523,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.jsonb "metadata", default: {}, null: false
     t.string "node_key", null: false
     t.string "node_type", null: false
+    t.bigint "opened_human_interaction_request_id"
     t.integer "ordinal", null: false
     t.string "presentation_policy"
+    t.text "prior_tool_node_keys", default: [], null: false, array: true
+    t.integer "provider_round_index"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "spawned_subagent_session_id"
     t.integer "stage_index"
     t.integer "stage_position"
     t.datetime "started_at"
     t.bigint "tool_call_document_id"
+    t.boolean "transcript_side_effect_committed", default: false, null: false
     t.bigint "turn_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_run_id", null: false
@@ -1535,7 +1542,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
     t.bigint "yielding_workflow_node_id"
     t.index ["conversation_id"], name: "index_workflow_nodes_on_conversation_id"
     t.index ["installation_id"], name: "index_workflow_nodes_on_installation_id"
+    t.index ["opened_human_interaction_request_id"], name: "index_workflow_nodes_on_opened_human_interaction_request_id"
     t.index ["public_id"], name: "index_workflow_nodes_on_public_id", unique: true
+    t.index ["spawned_subagent_session_id"], name: "index_workflow_nodes_on_spawned_subagent_session_id"
     t.index ["tool_call_document_id"], name: "index_workflow_nodes_on_tool_call_document_id"
     t.index ["turn_id"], name: "index_workflow_nodes_on_turn_id"
     t.index ["workflow_run_id", "lifecycle_state", "ordinal"], name: "index_workflow_nodes_on_run_state_order"
@@ -1841,8 +1850,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_04_090200) do
   add_foreign_key "workflow_node_events", "workflow_runs"
   add_foreign_key "workflow_node_events", "workspaces"
   add_foreign_key "workflow_nodes", "conversations"
+  add_foreign_key "workflow_nodes", "human_interaction_requests", column: "opened_human_interaction_request_id"
   add_foreign_key "workflow_nodes", "installations"
   add_foreign_key "workflow_nodes", "json_documents", column: "tool_call_document_id"
+  add_foreign_key "workflow_nodes", "subagent_sessions", column: "spawned_subagent_session_id"
   add_foreign_key "workflow_nodes", "turns"
   add_foreign_key "workflow_nodes", "workflow_nodes", column: "yielding_workflow_node_id"
   add_foreign_key "workflow_nodes", "workflow_runs"

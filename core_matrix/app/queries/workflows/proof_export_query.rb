@@ -179,10 +179,15 @@ module Workflows
           :intent_requirement,
           :intent_conflict_scope,
           :intent_idempotency_key,
+          :provider_round_index,
+          :prior_tool_node_keys,
+          :blocked_retry_failure_kind,
+          :blocked_retry_attempt_no,
+          :transcript_side_effect_committed,
           :tool_call_document_id,
           :metadata
         )
-        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, intent_id, intent_batch_id, intent_requirement, intent_conflict_scope, intent_idempotency_key, tool_call_document_id, metadata|
+        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, intent_id, intent_batch_id, intent_requirement, intent_conflict_scope, intent_idempotency_key, provider_round_index, prior_tool_node_keys, blocked_retry_failure_kind, blocked_retry_attempt_no, transcript_side_effect_committed, tool_call_document_id, metadata|
           {
             id: id,
             public_id: public_id,
@@ -199,6 +204,11 @@ module Workflows
             intent_requirement: intent_requirement,
             intent_conflict_scope: intent_conflict_scope,
             intent_idempotency_key: intent_idempotency_key,
+            provider_round_index: provider_round_index,
+            prior_tool_node_keys: prior_tool_node_keys,
+            blocked_retry_failure_kind: blocked_retry_failure_kind,
+            blocked_retry_attempt_no: blocked_retry_attempt_no,
+            transcript_side_effect_committed: transcript_side_effect_committed,
             tool_call_document_id: tool_call_document_id,
             metadata: metadata || {},
           }
@@ -223,6 +233,15 @@ module Workflows
         metadata["tool_call"] = tool_call_payload if tool_call_payload.present?
         intent = build_intent_metadata(row, manifest_payloads_by_yield_node_and_batch_id)
         metadata["intent"] = intent if intent.present?
+        metadata["provider_round_index"] = row[:provider_round_index] if row[:provider_round_index].present?
+        metadata["prior_tool_node_keys"] = row[:prior_tool_node_keys] if Array(row[:prior_tool_node_keys]).any?
+        if row[:blocked_retry_failure_kind].present? && row[:blocked_retry_attempt_no].present?
+          metadata["blocked_retry_state"] = {
+            "failure_kind" => row[:blocked_retry_failure_kind],
+            "attempt_no" => row[:blocked_retry_attempt_no],
+          }
+        end
+        metadata["transcript_side_effect_committed"] = true if row[:transcript_side_effect_committed]
         NodeSummary.new(
           public_id: row.fetch(:public_id),
           node_key: node_key,

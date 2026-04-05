@@ -127,6 +127,7 @@ module Conversations
 
     def purge_runtime_rows!
       ProcessRun.where(conversation_id: @owned_conversation_ids).delete_all
+      nullify_workflow_node_subagent_references!
       SubagentSession.where(id: @subagent_session_ids).delete_all
       WorkflowNodeEvent.where(workflow_run_id: @workflow_run_ids).delete_all
       WorkflowEdge.where(workflow_run_id: @workflow_run_ids).delete_all
@@ -146,6 +147,7 @@ module Conversations
       ConversationCloseOperation.where(conversation_id: @owned_conversation_ids).delete_all
       ConversationMessageVisibility.where(conversation_id: @owned_conversation_ids).delete_all
       ConversationEvent.where(conversation_id: @owned_conversation_ids).delete_all
+      nullify_workflow_node_human_interaction_references!
       HumanInteractionRequest.where(conversation_id: @owned_conversation_ids).delete_all
       ConversationImport.where(conversation_id: @owned_conversation_ids).delete_all
       ConversationSummarySegment.where(conversation_id: @owned_conversation_ids).delete_all
@@ -194,6 +196,20 @@ module Conversations
 
     def purge_message_attachments!
       MessageAttachment.where(id: @message_attachment_ids).find_each(&:destroy!)
+    end
+
+    def nullify_workflow_node_human_interaction_references!
+      WorkflowNode
+        .where(workflow_run_id: @workflow_run_ids)
+        .where.not(opened_human_interaction_request_id: nil)
+        .update_all(opened_human_interaction_request_id: nil, updated_at: Time.current)
+    end
+
+    def nullify_workflow_node_subagent_references!
+      WorkflowNode
+        .where(workflow_run_id: @workflow_run_ids)
+        .where.not(spawned_subagent_session_id: nil)
+        .update_all(spawned_subagent_session_id: nil, updated_at: Time.current)
     end
 
     def purge_structural_rows!

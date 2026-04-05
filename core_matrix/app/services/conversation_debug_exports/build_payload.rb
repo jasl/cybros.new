@@ -44,7 +44,10 @@ module ConversationDebugExports
     end
 
     def workflow_nodes
-      @workflow_nodes ||= WorkflowNode.where(workflow_run: workflow_runs).order(:created_at, :id)
+      @workflow_nodes ||= WorkflowNode
+        .where(workflow_run: workflow_runs)
+        .includes(:opened_human_interaction_request, :spawned_subagent_session)
+        .order(:created_at, :id)
     end
 
     def workflow_node_events
@@ -219,6 +222,13 @@ module ConversationDebugExports
         "intent_conflict_scope" => workflow_node.intent_conflict_scope,
         "intent_idempotency_key" => workflow_node.intent_idempotency_key,
         "intent_payload" => workflow_node.intent_payload.presence,
+        "opened_human_interaction_request_id" => workflow_node.opened_human_interaction_request&.public_id,
+        "spawned_subagent_session_id" => workflow_node.spawned_subagent_session&.public_id,
+        "provider_round_index" => workflow_node.provider_round_index,
+        "prior_tool_node_keys" => workflow_node.prior_tool_node_keys.presence,
+        "blocked_retry_failure_kind" => workflow_node.blocked_retry_failure_kind,
+        "blocked_retry_attempt_no" => workflow_node.blocked_retry_attempt_no,
+        "transcript_side_effect_committed" => workflow_node.transcript_side_effect_committed? ? true : nil,
         "ordinal" => workflow_node.ordinal,
         "stage_index" => workflow_node.stage_index,
         "stage_position" => workflow_node.stage_position,

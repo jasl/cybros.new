@@ -52,6 +52,8 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       workflow_run: workflow_run,
       node_key: "provider_round_1",
       node_type: "provider_round",
+      provider_round_index: 1,
+      transcript_side_effect_committed: true,
       lifecycle_state: "completed",
       started_at: 2.minutes.ago,
       finished_at: 90.seconds.ago,
@@ -68,6 +70,9 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       intent_conflict_scope: "debug",
       intent_idempotency_key: "intent-debug-1",
       yielding_workflow_node: yielding_node,
+      spawned_subagent_session: subagent_session,
+      blocked_retry_failure_kind: "provider_rate_limited",
+      blocked_retry_attempt_no: 2,
       lifecycle_state: "completed",
       started_at: 80.seconds.ago,
       finished_at: 70.seconds.ago,
@@ -135,6 +140,12 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     intent_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "debug_intent_1" }
     assert_equal "batch-debug-1", intent_node_payload.fetch("intent_batch_id")
     assert_equal({ "summary" => "debug intent" }, intent_node_payload.fetch("intent_payload"))
+    assert_equal subagent_session.public_id, intent_node_payload.fetch("spawned_subagent_session_id")
+    assert_equal "provider_rate_limited", intent_node_payload.fetch("blocked_retry_failure_kind")
+    assert_equal 2, intent_node_payload.fetch("blocked_retry_attempt_no")
+    round_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "provider_round_1" }
+    assert_equal 1, round_node_payload.fetch("provider_round_index")
+    assert_equal true, round_node_payload.fetch("transcript_side_effect_committed")
     assert_equal 1, payload.fetch("workflow_node_events").length
     assert_equal subagent_session.public_id, payload.fetch("subagent_sessions").first.fetch("subagent_session_id")
     assert_not payload.fetch("subagent_sessions").first.key?("summary")

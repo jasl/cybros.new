@@ -24,7 +24,8 @@ class ProviderExecution::BuildToolExecutionBatchTest < ActiveSupport::TestCase
     assert_equal 1, batch.fetch("stages").length
     assert_equal "parallel", batch.fetch("stages").first.fetch("dispatch_mode")
     assert_equal %w[provider_round_1_tool_1 provider_round_1_tool_2], batch.fetch("ordered_tool_node_keys")
-    assert_equal %w[provider_round_1_tool_1 provider_round_1_tool_2], batch.fetch("successor").fetch("metadata").fetch("prior_tool_node_keys")
+    assert_equal 2, batch.fetch("successor").fetch("provider_round_index")
+    assert_equal %w[provider_round_1_tool_1 provider_round_1_tool_2], batch.fetch("successor").fetch("prior_tool_node_keys")
   end
 
   test "splits unsafe tool calls into separate serial stages" do

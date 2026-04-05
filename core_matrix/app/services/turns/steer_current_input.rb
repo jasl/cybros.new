@@ -54,9 +54,7 @@ module Turns
       workflow_run = turn.workflow_run
       return false if workflow_run.blank?
 
-      WorkflowNode.where(workflow_run: workflow_run).any? do |node|
-        node.metadata["transcript_side_effect_committed"]
-      end
+      WorkflowNode.where(workflow_run: workflow_run, transcript_side_effect_committed: true).exists?
     end
 
     def paused_turn_resume_guidance?(turn)

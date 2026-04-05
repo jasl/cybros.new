@@ -91,7 +91,8 @@ module Workflows
         lifecycle_state: "failed",
         started_at: workflow_node.started_at || @occurred_at,
         finished_at: @occurred_at,
-        metadata: blocked_retry_metadata(workflow_node.metadata, attempt_no: nil)
+        blocked_retry_failure_kind: nil,
+        blocked_retry_attempt_no: nil
       )
       append_status_event!(
         workflow_node: workflow_node,
@@ -130,7 +131,8 @@ module Workflows
         lifecycle_state: "waiting",
         started_at: workflow_node.started_at || @occurred_at,
         finished_at: nil,
-        metadata: blocked_retry_metadata(workflow_node.metadata, attempt_no: attempt_no)
+        blocked_retry_failure_kind: @failure_kind,
+        blocked_retry_attempt_no: attempt_no
       )
       turn.update!(lifecycle_state: "waiting")
       workflow_run.update!(
@@ -182,7 +184,7 @@ module Workflows
     end
 
     def next_attempt_no_for(workflow_node)
-      retry_state = workflow_node.metadata.fetch("blocked_retry_state", {})
+      retry_state = workflow_node.blocked_retry_state || {}
       if retry_state["failure_kind"] == @failure_kind
         retry_state["attempt_no"].to_i + 1
       else
@@ -215,19 +217,6 @@ module Workflows
       else
         nil
       end
-    end
-
-    def blocked_retry_metadata(metadata, attempt_no:)
-      normalized = metadata.deep_dup
-      if attempt_no.present?
-        normalized["blocked_retry_state"] = {
-          "failure_kind" => @failure_kind,
-          "attempt_no" => attempt_no,
-        }
-      else
-        normalized.delete("blocked_retry_state")
-      end
-      normalized
     end
 
     def append_status_event!(workflow_node:, workflow_run:, state:, **payload)

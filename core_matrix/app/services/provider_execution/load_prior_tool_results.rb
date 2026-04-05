@@ -30,7 +30,7 @@ module ProviderExecution
     private
 
     def ordered_tool_nodes
-      node_keys = Array(@workflow_node.metadata["prior_tool_node_keys"])
+      node_keys = Array(@workflow_node.prior_tool_node_keys)
       return [] if node_keys.empty?
 
       nodes_by_key = @workflow_node.workflow_run.workflow_nodes.where(node_key: node_keys).includes(:tool_invocations).index_by(&:node_key)

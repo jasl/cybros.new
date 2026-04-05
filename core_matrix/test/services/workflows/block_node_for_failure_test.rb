@@ -30,6 +30,8 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     assert_equal "provider_rate_limited", workflow_run.wait_reason_payload["failure_kind"]
     assert_equal "automatic", workflow_run.wait_reason_payload["retry_strategy"]
     assert_equal 1, workflow_run.wait_reason_payload["attempt_no"]
+    assert_equal "provider_rate_limited", workflow_node.reload.blocked_retry_failure_kind
+    assert_equal 1, workflow_node.blocked_retry_attempt_no
     refute result.terminal?
   end
 
@@ -58,12 +60,8 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     workflow_node.update!(
       lifecycle_state: "running",
       started_at: Time.current,
-      metadata: {
-        "blocked_retry_state" => {
-          "failure_kind" => "provider_rate_limited",
-          "attempt_no" => 2,
-        },
-      }
+      blocked_retry_failure_kind: "provider_rate_limited",
+      blocked_retry_attempt_no: 2
     )
 
     result = Workflows::BlockNodeForFailure.call(

@@ -23,6 +23,17 @@ class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
     assert_equal ["wait_all"], bundle.artifact_summaries_by_node_key.fetch("agent_step_1").filter_map(&:barrier_kind)
     assert_equal "intent-1", governed_tool.metadata.dig("intent", "intent_id")
     assert_equal({ "title" => "Retitled" }, governed_tool.metadata.dig("intent", "payload"))
+    assert_equal(
+      {
+        "failure_kind" => "provider_rate_limited",
+        "attempt_no" => 2,
+      },
+      governed_tool.metadata["blocked_retry_state"]
+    )
+    successor = bundle.nodes.find { |node| node.node_key == "agent_step_2" }
+    assert_equal 2, successor.metadata["provider_round_index"]
+    assert_equal ["governed_tool"], successor.metadata["prior_tool_node_keys"]
+    assert_equal true, successor.metadata["transcript_side_effect_committed"]
     assert_raises(FrozenError) { bundle.nodes << :extra }
   end
 end

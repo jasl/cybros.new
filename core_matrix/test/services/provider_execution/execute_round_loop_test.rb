@@ -417,10 +417,9 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           node_key: "provider_round_2",
           node_type: "turn_step",
           decision_source: "system",
-          metadata: {
-            "provider_round_index" => 2,
-            "prior_tool_node_keys" => ["provider_round_1_tool_1"],
-          },
+          provider_round_index: 2,
+          prior_tool_node_keys: ["provider_round_1_tool_1"],
+          metadata: {},
         },
       ],
       edges: [

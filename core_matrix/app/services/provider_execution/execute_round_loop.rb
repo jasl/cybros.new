@@ -268,7 +268,7 @@ module ProviderExecution
     end
 
     def current_round_index
-      value = @workflow_node.metadata["provider_round_index"]
+      value = @workflow_node.provider_round_index
       value.present? ? value.to_i : 1
     end
 

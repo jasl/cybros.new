@@ -61,10 +61,7 @@ module SubagentSessions
             root_node_key: "subagent_step_1",
             root_node_type: "agent_task_run",
             decision_source: "system",
-            metadata: {
-              "subagent_session_id" => session.public_id,
-              "origin_turn_id" => @origin_turn.public_id,
-            },
+            metadata: {},
             selector_source: @origin_turn.resolved_model_selection_snapshot["selector_source"] || "conversation",
             selector: @origin_turn.normalized_selector,
             initial_kind: "subagent_step",

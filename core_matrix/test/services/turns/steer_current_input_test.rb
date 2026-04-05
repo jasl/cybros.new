@@ -78,7 +78,8 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     create_workflow_node!(
       workflow_run: workflow_run,
       node_key: "first_side_effect",
-      metadata: { "transcript_side_effect_committed" => true }
+      transcript_side_effect_committed: true,
+      metadata: {}
     )
 
     queued = Turns::SteerCurrentInput.call(
@@ -112,7 +113,8 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     create_workflow_node!(
       workflow_run: workflow_run,
       node_key: "first_side_effect",
-      metadata: { "transcript_side_effect_committed" => true }
+      transcript_side_effect_committed: true,
+      metadata: {}
     )
 
     queued = Turns::SteerCurrentInput.call(
@@ -275,7 +277,8 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     create_workflow_node!(
       workflow_run: context[:workflow_run],
       node_key: "tool_side_effect",
-      metadata: { "transcript_side_effect_committed" => true }
+      transcript_side_effect_committed: true,
+      metadata: {}
     )
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],

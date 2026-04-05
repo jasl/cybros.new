@@ -55,8 +55,8 @@ module Workflows
         Array(request&.workflow_node)
       when "subagent_barrier"
         session_ids = Array(snapshot.wait_reason_payload["subagent_session_ids"]).map(&:to_s)
-        workflow_run.workflow_nodes.order(:ordinal).select do |node|
-          session_ids.include?(node.metadata["subagent_session_id"])
+        workflow_run.workflow_nodes.includes(:spawned_subagent_session).order(:ordinal).select do |node|
+          session_ids.include?(node.spawned_subagent_session&.public_id)
         end
       else
         []

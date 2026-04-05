@@ -52,17 +52,11 @@ module Workflows
     def materialize_stage!(stage, stage_nodes, batch_id:)
       stage_nodes.select { |node| human_interaction_node?(node) }.each do |node|
         payload = node.intent_payload
-        request = HumanInteractions::Request.call(
+        HumanInteractions::Request.call(
           request_type: payload.fetch("request_type"),
           workflow_node: node,
           blocking: payload.fetch("blocking", true),
           request_payload: payload.fetch("request_payload", {})
-        )
-        node.update!(
-          metadata: node.metadata.merge(
-            "human_interaction_request_id" => request.public_id,
-            "blocking" => request.blocking
-          )
         )
       end
       return if @workflow_run.reload.waiting?
@@ -78,13 +72,7 @@ module Workflows
           task_payload: payload.fetch("task_payload", {})
         )
         node.update!(
-          metadata: node.metadata.merge(
-            "subagent_session_id" => result.fetch("subagent_session_id"),
-            "subagent_conversation_id" => result.fetch("conversation_id"),
-            "subagent_turn_id" => result.fetch("turn_id"),
-            "subagent_workflow_run_id" => result.fetch("workflow_run_id"),
-            "subagent_agent_task_run_id" => result.fetch("agent_task_run_id")
-          )
+          spawned_subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
         )
         Workflows::CompleteNode.call(
           workflow_node: node,
@@ -92,8 +80,7 @@ module Workflows
             "subagent_session_id" => result.fetch("subagent_session_id"),
           }
         )
-
-        SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+        node.spawned_subagent_session
       end
 
       return unless stage.fetch("completion_barrier") == "wait_all"

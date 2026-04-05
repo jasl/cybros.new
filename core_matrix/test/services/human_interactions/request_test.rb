@@ -41,6 +41,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_equal "Collect the operator confirmation.", request.request_payload["instructions"]
     assert_equal "batch-human-1", human_gate.intent_batch_id
     assert_equal "batch-human-1:human", human_gate.intent_id
+    assert_equal request, human_gate.opened_human_interaction_request
     assert_equal(
       {
         "request_type" => "HumanTaskRequest",
@@ -52,6 +53,8 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
       human_gate.intent_payload
     )
     refute human_gate.metadata.key?("payload")
+    refute human_gate.metadata.key?("human_interaction_request_id")
+    refute human_gate.metadata.key?("blocking")
     assert workflow_run.waiting?
     assert_equal "human_interaction", workflow_run.wait_reason_kind
     assert_equal request.public_id, workflow_run.blocking_resource_id
@@ -138,6 +141,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_equal "HumanInteractionRequest", workflow_run.blocking_resource_type
     assert_equal request.public_id, workflow_run.blocking_resource_id
     assert_equal request.public_id, workflow_run.wait_reason_payload["request_id"]
+    assert_equal request, context[:workflow_node].reload.opened_human_interaction_request
 
     event = ConversationEvent.find_by!(source: request, event_kind: "human_interaction.opened")
     assert_equal 0, event.projection_sequence

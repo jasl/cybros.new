@@ -1,6 +1,20 @@
 class WorkflowNode < ApplicationRecord
   include HasPublicId
 
+  NORMALIZED_METADATA_KEYS = %w[
+    blocking
+    blocked_retry_state
+    human_interaction_request_id
+    prior_tool_node_keys
+    provider_round_index
+    subagent_agent_task_run_id
+    subagent_conversation_id
+    subagent_session_id
+    subagent_turn_id
+    subagent_workflow_run_id
+    transcript_side_effect_committed
+  ].freeze
+
   attribute :lifecycle_state, :string
 
   enum :decision_source,
@@ -36,6 +50,8 @@ class WorkflowNode < ApplicationRecord
   belongs_to :conversation
   belongs_to :turn
   belongs_to :yielding_workflow_node, class_name: "WorkflowNode", optional: true
+  belongs_to :opened_human_interaction_request, class_name: "HumanInteractionRequest", optional: true
+  belongs_to :spawned_subagent_session, class_name: "SubagentSession", optional: true
   belongs_to :tool_call_document, class_name: "JsonDocument", optional: true
 
   has_many :outgoing_edges,
@@ -80,11 +96,16 @@ class WorkflowNode < ApplicationRecord
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :tool_call_document_installation_match
+  validate :opened_human_interaction_request_installation_match
+  validate :spawned_subagent_session_installation_match
   validate :workflow_projection_match
   validate :yielding_workflow_integrity
   validate :execution_timestamps_consistency
   validate :metadata_must_be_hash
+  validate :metadata_must_not_duplicate_structured_state
   validate :intent_state_consistency
+  validate :provider_round_state_consistency
+  validate :blocked_retry_state_consistency
 
   def terminal?
     completed? || failed? || canceled?
@@ -110,6 +131,15 @@ class WorkflowNode < ApplicationRecord
         .find { |intent| intent["intent_id"] == intent_id }
         &.fetch("payload", {}) || {}
     end
+  end
+
+  def blocked_retry_state
+    return if blocked_retry_failure_kind.blank? || blocked_retry_attempt_no.blank?
+
+    {
+      "failure_kind" => blocked_retry_failure_kind,
+      "attempt_no" => blocked_retry_attempt_no,
+    }
   end
 
   private
@@ -157,6 +187,20 @@ class WorkflowNode < ApplicationRecord
     errors.add(:tool_call_document, "must belong to the same installation")
   end
 
+  def opened_human_interaction_request_installation_match
+    return if opened_human_interaction_request.blank?
+    return if opened_human_interaction_request.installation_id == installation_id
+
+    errors.add(:opened_human_interaction_request, "must belong to the same installation")
+  end
+
+  def spawned_subagent_session_installation_match
+    return if spawned_subagent_session.blank?
+    return if spawned_subagent_session.installation_id == installation_id
+
+    errors.add(:spawned_subagent_session, "must belong to the same installation")
+  end
+
   def workflow_projection_match
     return if workflow_run.blank?
 
@@ -168,6 +212,12 @@ class WorkflowNode < ApplicationRecord
     end
     if turn.present? && workflow_run.turn_id != turn_id
       errors.add(:turn, "must match the workflow run turn")
+    end
+    if opened_human_interaction_request.present? && opened_human_interaction_request.workflow_run_id != workflow_run_id
+      errors.add(:opened_human_interaction_request, "must belong to the same workflow run")
+    end
+    if spawned_subagent_session.present? && spawned_subagent_session.owner_conversation_id != conversation_id
+      errors.add(:spawned_subagent_session, "must belong to the same owner conversation")
     end
   end
 
@@ -207,6 +257,15 @@ class WorkflowNode < ApplicationRecord
     errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
   end
 
+  def metadata_must_not_duplicate_structured_state
+    return unless metadata.is_a?(Hash)
+
+    duplicated_keys = NORMALIZED_METADATA_KEYS.select { |key| metadata.key?(key) }
+    return if duplicated_keys.empty?
+
+    errors.add(:metadata, "must not inline normalized workflow node state: #{duplicated_keys.join(", ")}")
+  end
+
   def intent_state_consistency
     if [intent_id, intent_batch_id].any?(&:present?) && intent_kind.blank?
       errors.add(:intent_kind, "must be present when intent tracking columns are populated")
@@ -222,5 +281,21 @@ class WorkflowNode < ApplicationRecord
     %w[payload intent_kind idempotency_key requirement conflict_scope].each do |key|
       errors.add(:metadata, "must not inline #{key} for intent-backed workflow nodes") if metadata.key?(key)
     end
+  end
+
+  def provider_round_state_consistency
+    return if provider_round_index.blank? && prior_tool_node_keys.blank?
+
+    errors.add(:provider_round_index, "must be present when prior_tool_node_keys are tracked") if provider_round_index.blank?
+    unless prior_tool_node_keys.is_a?(Array) && prior_tool_node_keys.all? { |value| value.is_a?(String) }
+      errors.add(:prior_tool_node_keys, "must be an array of strings")
+    end
+  end
+
+  def blocked_retry_state_consistency
+    return if blocked_retry_failure_kind.blank? && blocked_retry_attempt_no.blank?
+    return if blocked_retry_failure_kind.present? && blocked_retry_attempt_no.present?
+
+    errors.add(:blocked_retry_failure_kind, "must be paired with blocked_retry_attempt_no")
   end
 end

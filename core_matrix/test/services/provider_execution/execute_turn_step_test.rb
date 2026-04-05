@@ -275,7 +275,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "queued", tool_node.reload.lifecycle_state
     assert_equal "pending", join_node.reload.lifecycle_state
     assert_equal "pending", successor.reload.lifecycle_state
-    assert_equal ["provider_round_1_tool_1"], successor.metadata.fetch("prior_tool_node_keys")
+    assert_equal ["provider_round_1_tool_1"], successor.prior_tool_node_keys
+    assert_equal 2, successor.provider_round_index
     assert_equal [], program_exchange.execute_program_tool_requests
   end
 
