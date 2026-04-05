@@ -52,7 +52,11 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :runtime_plane_contract
 
   def payload
-    return payload_document.payload.deep_dup if payload_document.present?
+    if payload_document.present?
+      return reconstructed_agent_program_request_payload if agent_program_request?
+
+      return payload_document.payload.deep_dup
+    end
     return payload_body unless execution_assignment? && execution_contract.present?
 
     AgentControl::SerializeMailboxItem.serialized_payload(self, compact_payload: payload_body)
@@ -114,6 +118,20 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   private
+
+  def reconstructed_agent_program_request_payload
+    payload = payload_document.payload.deep_dup
+    payload.merge!(payload_body)
+
+    runtime_context = payload["runtime_context"].is_a?(Hash) ? payload["runtime_context"].deep_dup : {}
+    runtime_context["logical_work_id"] = logical_work_id
+    runtime_context["attempt_no"] = attempt_no
+    runtime_context["runtime_plane"] = runtime_plane
+    runtime_context["agent_program_version_id"] = target_agent_program_version.public_id if target_agent_program_version.present?
+    payload["runtime_context"] = runtime_context if runtime_context.present?
+
+    payload
+  end
 
   def payload_must_be_hash
     errors.add(:payload, "must be a hash") unless payload_body.is_a?(Hash)

@@ -56,7 +56,31 @@ module AgentControl
     private
 
     def request_payload
-      @payload.merge("request_kind" => @request_kind)
+      compact_request_payload(@payload)
+    end
+
+    def compact_request_payload(payload)
+      compact = payload.deep_dup
+      compact.delete("request_kind")
+
+      runtime_context = compact["runtime_context"]
+      return compact unless runtime_context.is_a?(Hash)
+
+      compact_runtime_context =
+        runtime_context.deep_stringify_keys.except(
+          "logical_work_id",
+          "attempt_no",
+          "runtime_plane",
+          "agent_program_version_id"
+        )
+
+      if compact_runtime_context.present?
+        compact["runtime_context"] = compact_runtime_context
+      else
+        compact.delete("runtime_context")
+      end
+
+      compact
     end
   end
 end

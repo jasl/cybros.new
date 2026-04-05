@@ -66,8 +66,13 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       payload: { "request_kind" => "prepare_round" }
     )
 
-    assert_equal payload_document.payload, mailbox_item.payload
+    assert_equal payload_document.payload.fetch("conversation_projection"), mailbox_item.payload.fetch("conversation_projection")
     assert_equal({ "request_kind" => "prepare_round" }, mailbox_item.payload_body)
+    assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
+    assert_equal mailbox_item.logical_work_id, mailbox_item.payload.dig("runtime_context", "logical_work_id")
+    assert_equal mailbox_item.attempt_no, mailbox_item.payload.dig("runtime_context", "attempt_no")
+    assert_equal mailbox_item.runtime_plane, mailbox_item.payload.dig("runtime_context", "runtime_plane")
+    assert_equal context[:deployment].public_id, mailbox_item.payload.dig("runtime_context", "agent_program_version_id")
   end
 
   test "requires deployment targeting to remain inside the targeted agent program" do
