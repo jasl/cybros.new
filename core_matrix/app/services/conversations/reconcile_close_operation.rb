@@ -4,9 +4,11 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, occurred_at: Time.current)
+    def initialize(conversation:, occurred_at: Time.current, owned_subagent_session_ids: nil, owned_subagent_conversation_ids: nil)
       @conversation = conversation
       @occurred_at = occurred_at
+      @owned_subagent_session_ids = owned_subagent_session_ids
+      @owned_subagent_conversation_ids = owned_subagent_conversation_ids
     end
 
     def call
@@ -20,9 +22,14 @@ module Conversations
 
           Conversations::ProgressCloseRequests.call(
             conversation: locked_conversation,
-            occurred_at: @occurred_at
+            occurred_at: @occurred_at,
+            owned_subagent_session_ids: @owned_subagent_session_ids
           )
-          blocker_snapshot = Conversations::BlockerSnapshotQuery.call(conversation: locked_conversation)
+          blocker_snapshot = Conversations::BlockerSnapshotQuery.call(
+            conversation: locked_conversation,
+            owned_subagent_session_ids: @owned_subagent_session_ids,
+            owned_subagent_conversation_ids: @owned_subagent_conversation_ids
+          )
           archive_if_mainline_cleared!(conversation: locked_conversation, close_operation:, blocker_snapshot:)
           close_operation.update!(reconciled_attributes(conversation: locked_conversation, close_operation:, blocker_snapshot:))
         end

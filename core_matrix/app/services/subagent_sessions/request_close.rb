@@ -7,11 +7,12 @@ module SubagentSessions
       new(...).call
     end
 
-    def initialize(subagent_session:, request_kind:, reason_kind:, strictness:, occurred_at: Time.current)
+    def initialize(subagent_session:, request_kind:, reason_kind:, strictness:, publish_delivery_endpoint: nil, occurred_at: Time.current)
       @subagent_session = subagent_session
       @request_kind = request_kind
       @reason_kind = reason_kind
       @strictness = strictness
+      @publish_delivery_endpoint = publish_delivery_endpoint
       @occurred_at = occurred_at
     end
 
@@ -23,6 +24,7 @@ module SubagentSessions
         request_kind: @request_kind,
         reason_kind: @reason_kind,
         strictness: @strictness,
+        publish_delivery_endpoint: @publish_delivery_endpoint,
         grace_deadline_at: anchor_time + GRACE_PERIOD,
         force_deadline_at: anchor_time + FORCE_PERIOD
       )

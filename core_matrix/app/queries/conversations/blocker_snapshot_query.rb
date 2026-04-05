@@ -4,9 +4,11 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, turns: conversation.turns)
+    def initialize(conversation:, turns: conversation.turns, owned_subagent_session_ids: nil, owned_subagent_conversation_ids: nil)
       @conversation = conversation
       @turns = turns
+      @explicit_owned_subagent_session_ids = owned_subagent_session_ids
+      @explicit_owned_subagent_conversation_ids = owned_subagent_conversation_ids
     end
 
     def call
@@ -122,11 +124,12 @@ module Conversations
     end
 
     def aggregate_subagent_counts
-      @aggregate_subagent_counts ||= {
-        running_subagent_count: owned_subagent_sessions.count(&:running_for_barriers?),
-        close_pending_or_open_subagent_count: owned_subagent_sessions.count(&:close_pending_or_open?),
-        subagent_close_failures: owned_subagent_sessions.count(&:close_failed?),
-      }
+      @aggregate_subagent_counts ||= aggregate_counts(
+        owned_subagent_scope,
+        running_subagent_count: "SUM(CASE WHEN close_state IN ('open', 'requested', 'acknowledged') AND observed_status = 'running' THEN 1 ELSE 0 END)",
+        close_pending_or_open_subagent_count: "SUM(CASE WHEN close_state IN ('open', 'requested', 'acknowledged') THEN 1 ELSE 0 END)",
+        subagent_close_failures: "SUM(CASE WHEN close_state = 'failed' THEN 1 ELSE 0 END)"
+      )
     end
 
     def aggregate_execution_lease_counts
@@ -155,19 +158,19 @@ module Conversations
     end
 
     def owned_subagent_session_ids
-      @owned_subagent_session_ids ||= owned_subagent_tree.session_ids
+      @owned_subagent_session_ids ||= @explicit_owned_subagent_session_ids || owned_subagent_tree.session_ids
     end
 
     def owned_subagent_conversation_ids
-      @owned_subagent_conversation_ids ||= owned_subagent_tree.conversation_ids
-    end
-
-    def owned_subagent_sessions
-      @owned_subagent_sessions ||= owned_subagent_tree.sessions
+      @owned_subagent_conversation_ids ||= @explicit_owned_subagent_conversation_ids || owned_subagent_tree.conversation_ids
     end
 
     def owned_subagent_tree
       @owned_subagent_tree ||= SubagentSessions::OwnedTree.new(owner_conversation: @conversation)
+    end
+
+    def owned_subagent_scope
+      @owned_subagent_scope ||= SubagentSession.where(id: owned_subagent_session_ids)
     end
 
     def aggregate_counts(scope, aggregates)

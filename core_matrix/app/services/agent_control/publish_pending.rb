@@ -4,11 +4,12 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, execution_session: nil, occurred_at: Time.current)
+    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, execution_session: nil, resolved_delivery_endpoint: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
       @deployment = deployment
       @agent_session = agent_session
       @execution_session = execution_session
+      @resolved_delivery_endpoint = resolved_delivery_endpoint
       @occurred_at = occurred_at
     end
 
@@ -46,8 +47,7 @@ module AgentControl
     end
 
     def connected_target_for(mailbox_item)
-      resolution = routing_resolution_for(mailbox_item)
-      delivery_endpoint = resolution.delivery_endpoint
+      delivery_endpoint = @resolved_delivery_endpoint || routing_resolution_for(mailbox_item).delivery_endpoint
       return if delivery_endpoint.blank? || !delivery_endpoint.realtime_link_connected?
 
       case delivery_endpoint

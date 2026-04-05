@@ -78,14 +78,67 @@ class Conversations::RequestCloseTest < ActiveSupport::TestCase
     assert_equal occurred_at, close_operation.requested_at
   end
 
+  test "keeps nested owned subagent close orchestration under query budget" do
+    context = create_workspace_context!
+    conversation = create_root_conversation!(context: context)
+    first_session = create_owned_subagent_session!(
+      context: context,
+      owner_conversation: conversation
+    )
+    second_session = create_owned_subagent_session!(
+      context: context,
+      owner_conversation: first_session.conversation
+    )
+    create_owned_subagent_session!(
+      context: context,
+      owner_conversation: second_session.conversation
+    )
+
+    queries = capture_sql_queries do
+      Conversations::RequestClose.call(
+        conversation: conversation,
+        intent_kind: "delete",
+        occurred_at: Time.zone.parse("2026-03-29 08:00:00 UTC")
+      )
+    end
+
+    assert_operator queries.length, :<=, 70, "Expected request close to stay under 70 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+  end
+
   private
 
   def create_conversation!
     context = create_workspace_context!
+    create_root_conversation!(context: context)
+  end
+
+  def create_root_conversation!(context:)
     Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
       agent_program_version: context[:agent_program_version]
+    )
+  end
+
+  def create_owned_subagent_session!(context:, owner_conversation:)
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: owner_conversation,
+      kind: "fork",
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
+      addressability: "agent_addressable"
+    )
+
+    SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: owner_conversation,
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      observed_status: "running"
     )
   end
 end

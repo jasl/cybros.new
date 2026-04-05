@@ -6,7 +6,7 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(resource:, request_kind:, reason_kind:, strictness:, grace_deadline_at:, force_deadline_at:, protocol_message_id: nil, causation_id: nil)
+    def initialize(resource:, request_kind:, reason_kind:, strictness:, grace_deadline_at:, force_deadline_at:, protocol_message_id: nil, causation_id: nil, publish_delivery_endpoint: nil)
       @resource = resource
       @request_kind = request_kind
       @reason_kind = reason_kind
@@ -15,6 +15,7 @@ module AgentControl
       @force_deadline_at = force_deadline_at
       @protocol_message_id = protocol_message_id || "kernel-close-#{SecureRandom.uuid}"
       @causation_id = causation_id
+      @publish_delivery_endpoint = publish_delivery_endpoint
     end
 
     def call
@@ -24,7 +25,10 @@ module AgentControl
         create_mailbox_item!
       end
 
-      PublishPending.call(mailbox_item: mailbox_item)
+      PublishPending.call(
+        mailbox_item: mailbox_item,
+        resolved_delivery_endpoint: @publish_delivery_endpoint
+      )
       mailbox_item
     end
 

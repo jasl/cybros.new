@@ -26,15 +26,19 @@ module Conversations
     def call
       conversation = current_conversation
       config = INTENT_CONFIG.fetch(@intent_kind)
+      owned_subagent_tree = nil
 
       ApplicationRecord.transaction do
         with_close_lock(conversation) do |locked_conversation|
+          owned_subagent_tree = SubagentSessions::OwnedTree.new(owner_conversation: locked_conversation)
+          publish_delivery_endpoint = active_agent_session_for(locked_conversation)
           find_or_create_close_operation!(locked_conversation)
           apply_immediate_state!(locked_conversation)
           cancel_queued_turns!(locked_conversation, reason_kind: config.fetch(:queued_turn_reason))
           request_turn_interrupts!(locked_conversation)
           request_owned_subagent_session_closes!(
-            locked_conversation,
+            owned_subagent_tree,
+            publish_delivery_endpoint: publish_delivery_endpoint,
             request_kind: config.fetch(:background_request_kind),
             reason_kind: config.fetch(:close_reason_kind)
           )
@@ -47,7 +51,9 @@ module Conversations
 
         Conversations::ReconcileCloseOperation.call(
           conversation: conversation,
-          occurred_at: @occurred_at
+          occurred_at: @occurred_at,
+          owned_subagent_session_ids: owned_subagent_tree.session_ids,
+          owned_subagent_conversation_ids: owned_subagent_tree.conversation_ids
         )
       end
 
@@ -133,8 +139,8 @@ module Conversations
       )
     end
 
-    def request_owned_subagent_session_closes!(conversation, request_kind:, reason_kind:)
-      SubagentSessions::OwnedTree.sessions_for(owner_conversation: conversation).each do |session|
+    def request_owned_subagent_session_closes!(owned_subagent_tree, publish_delivery_endpoint:, request_kind:, reason_kind:)
+      closeable_owned_subagent_sessions(owned_subagent_tree).each do |session|
         next unless session.close_open?
 
         SubagentSessions::RequestClose.call(
@@ -142,9 +148,26 @@ module Conversations
           request_kind: request_kind,
           reason_kind: reason_kind,
           strictness: "graceful",
+          publish_delivery_endpoint: publish_delivery_endpoint,
           occurred_at: @occurred_at
         )
       end
+    end
+
+    def closeable_owned_subagent_sessions(owned_subagent_tree)
+      return [] if owned_subagent_tree.session_ids.empty?
+
+      SubagentSession
+        .where(id: owned_subagent_tree.session_ids)
+        .includes(:installation, :conversation, :execution_lease, owner_conversation: :agent_program)
+        .order(:created_at, :id)
+    end
+
+    def active_agent_session_for(conversation)
+      AgentSession.find_by(
+        agent_program: conversation.agent_program,
+        lifecycle_state: "active"
+      )
     end
 
     def raise_invalid!(record, attribute, message)

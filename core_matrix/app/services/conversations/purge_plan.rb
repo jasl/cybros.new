@@ -34,10 +34,11 @@ module Conversations
     def collect_owned_rows!
       return if @collected
 
+      owned_subagent_tree = SubagentSessions::OwnedTree.new(owner_conversation: @conversation)
       @subagent_session_ids, @subagent_session_public_ids = pluck_ids_and_public_ids(
-        SubagentSession.where(id: SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation))
+        SubagentSession.where(id: owned_subagent_tree.session_ids)
       )
-      @owned_subagent_conversation_ids = SubagentSessions::OwnedTree.conversation_ids_for(owner_conversation: @conversation)
+      @owned_subagent_conversation_ids = owned_subagent_tree.conversation_ids
       @owned_conversation_ids = [@conversation.id] + @owned_subagent_conversation_ids
       @workflow_run_ids = WorkflowRun.where(conversation_id: @owned_conversation_ids).pluck(:id)
       @workflow_node_ids = WorkflowNode.where(workflow_run_id: @workflow_run_ids).pluck(:id)

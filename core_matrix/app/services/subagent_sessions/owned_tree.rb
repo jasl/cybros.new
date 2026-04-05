@@ -18,24 +18,38 @@ module SubagentSessions
 
     def sessions
       @sessions ||= begin
-        collected = []
-        frontier_owner_ids = [@owner_conversation.id]
-        seen_session_ids = {}
+        sql = SubagentSession.send(
+          :sanitize_sql_array,
+          [
+            <<~SQL.squish,
+            WITH RECURSIVE owned_sessions AS (
+              SELECT subagent_sessions.id,
+                     subagent_sessions.conversation_id
+              FROM subagent_sessions
+              WHERE subagent_sessions.installation_id = :installation_id
+                AND subagent_sessions.owner_conversation_id = :owner_conversation_id
+              UNION
+              SELECT child_sessions.id,
+                     child_sessions.conversation_id
+              FROM subagent_sessions child_sessions
+              INNER JOIN owned_sessions
+                ON child_sessions.owner_conversation_id = owned_sessions.conversation_id
+              WHERE child_sessions.installation_id = :installation_id
+            )
+            SELECT subagent_sessions.*
+            FROM subagent_sessions
+            INNER JOIN owned_sessions
+              ON owned_sessions.id = subagent_sessions.id
+            ORDER BY subagent_sessions.created_at ASC, subagent_sessions.id ASC
+            SQL
+            {
+              installation_id: @owner_conversation.installation_id,
+              owner_conversation_id: @owner_conversation.id,
+            },
+          ]
+        )
 
-        while frontier_owner_ids.any?
-          batch = SubagentSession.where(owner_conversation_id: frontier_owner_ids).to_a
-          frontier_owner_ids = []
-
-          batch.each do |session|
-            next if seen_session_ids[session.id]
-
-            seen_session_ids[session.id] = true
-            collected << session
-            frontier_owner_ids << session.conversation_id
-          end
-        end
-
-        collected
+        SubagentSession.find_by_sql(sql)
       end
     end
 
