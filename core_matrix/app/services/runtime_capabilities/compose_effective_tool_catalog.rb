@@ -140,6 +140,41 @@ module RuntimeCapabilities
           "parallel_safe" => true,
         },
       },
+      {
+        "tool_name" => "conversation_metadata_update",
+        "tool_kind" => "effect_intent",
+        "implementation_source" => "core_matrix",
+        "implementation_ref" => "core_matrix/conversation_metadata_update",
+        "input_schema" => {
+          "type" => "object",
+          "properties" => {
+            "title" => { "type" => "string" },
+            "summary" => { "type" => "string" },
+          },
+        },
+        "result_schema" => {
+          "type" => "object",
+          "properties" => {
+            "conversation_id" => { "type" => "string" },
+            "accepted" => {
+              "type" => "object",
+              "properties" => {
+                "title" => { "type" => "string" },
+                "summary" => { "type" => "string" },
+              },
+            },
+            "rejected" => {
+              "type" => "object",
+              "properties" => {
+                "title" => { "type" => "string" },
+                "summary" => { "type" => "string" },
+              },
+            },
+          },
+        },
+        "streaming_support" => false,
+        "idempotency_policy" => "best_effort",
+      },
     ].freeze
 
     def self.call(...)

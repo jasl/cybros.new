@@ -57,6 +57,8 @@ module ProviderExecution
         {
           "entries" => SubagentSessions::ListForConversation.call(conversation: @conversation),
         }
+      when "conversation_metadata_update"
+        conversation_metadata_update
       else
         raise ArgumentError, "unsupported core matrix tool #{@tool_call.fetch("tool_name")}"
       end
@@ -72,6 +74,47 @@ module ProviderExecution
       @conversation.owned_subagent_sessions.find_by!(
         public_id: arguments.fetch("subagent_session_id")
       )
+    end
+
+    def conversation_metadata_update
+      accepted_attributes = {}
+      rejected_attributes = {}
+
+      if arguments.key?("title")
+        if @conversation.title_locked?
+          rejected_attributes["title"] = "is locked by user"
+        else
+          accepted_attributes["title"] = arguments.fetch("title")
+        end
+      end
+
+      if arguments.key?("summary")
+        if @conversation.summary_locked?
+          rejected_attributes["summary"] = "is locked by user"
+        else
+          accepted_attributes["summary"] = arguments.fetch("summary")
+        end
+      end
+
+      if accepted_attributes.empty? && rejected_attributes.present?
+        return {
+          "conversation_id" => @conversation.public_id,
+          "accepted" => {},
+          "rejected" => rejected_attributes,
+        }
+      end
+
+      updated_conversation = Conversations::Metadata::AgentUpdate.call(
+        conversation: @conversation,
+        **accepted_attributes.symbolize_keys
+      )
+
+      result = {
+        "conversation_id" => updated_conversation.public_id,
+        "accepted" => accepted_attributes,
+      }
+      result["rejected"] = rejected_attributes if rejected_attributes.present?
+      result
     end
   end
 end

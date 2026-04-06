@@ -2,6 +2,10 @@ require "test_helper"
 
 class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
   setup do
+    Installation.destroy_all
+  end
+
+  setup do
     @mcp_server = FakeStreamableHttpMcpServer.new.start
   end
 
@@ -592,6 +596,53 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "subagent_list", invocation.tool_definition.tool_name
+    assert_equal [], program_exchange.execute_program_tool_requests
+  end
+
+  test "routes conversation metadata updates without delegating back to the program mailbox exchange" do
+    context = build_governed_tool_context!(
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
+        }
+      )
+    )
+    workflow_node = context.fetch(:workflow_node)
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+
+    result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "call-conversation-metadata-update-1",
+        "tool_name" => "conversation_metadata_update",
+        "arguments" => {
+          "title" => "Agent title",
+          "summary" => "Agent summary",
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: program_exchange
+    )
+
+    invocation = result.tool_invocation.reload
+
+    assert_equal(
+      {
+        "conversation_id" => workflow_node.conversation.public_id,
+        "accepted" => {
+          "title" => "Agent title",
+          "summary" => "Agent summary",
+        },
+      },
+      result.result
+    )
+    assert_equal "succeeded", invocation.status
+    assert_equal workflow_node, invocation.workflow_node
+    assert_equal "conversation_metadata_update", invocation.tool_definition.tool_name
     assert_equal [], program_exchange.execute_program_tool_requests
   end
 

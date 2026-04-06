@@ -1,6 +1,10 @@
 require "test_helper"
 
 class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::TestCase
+  setup do
+    Installation.destroy_all
+  end
+
   RESERVED_SUBAGENT_TOOLS = %w[
     subagent_spawn
     subagent_send
@@ -56,6 +60,25 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     assert_equal "core_matrix", effective_catalog.first.fetch("implementation_source")
     assert_equal true,
       effective_catalog.find { |entry| entry.fetch("tool_name") == "subagent_list" }.dig("execution_policy", "parallel_safe")
+  end
+
+  test "exposes conversation_metadata_update in the core matrix catalog" do
+    registration = register_agent_runtime!(
+      execution_tool_catalog: [],
+      tool_catalog: default_tool_catalog("exec_command")
+    )
+
+    entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
+      execution_runtime: registration[:execution_runtime],
+      agent_program_version: registration[:deployment]
+    ).find { |candidate| candidate.fetch("tool_name") == "conversation_metadata_update" }
+
+    assert_equal "core_matrix", entry.fetch("implementation_source")
+    assert_equal "core_matrix/conversation_metadata_update", entry.fetch("implementation_ref")
+    assert_equal %w[summary title], entry.fetch("input_schema").fetch("properties").keys.sort
+    assert_equal "string", entry.dig("input_schema", "properties", "title", "type")
+    assert_equal "string", entry.dig("input_schema", "properties", "summary", "type")
+    refute entry.fetch("input_schema").key?("required")
   end
 
   test "reserved subagent tool names cannot be overridden by runtime tools" do
