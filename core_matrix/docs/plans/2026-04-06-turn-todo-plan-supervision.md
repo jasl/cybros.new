@@ -26,8 +26,15 @@
   insufficient if exported supervision artifacts still look generic or fail to
   reflect the actual work that happened during the turn.
 - Acceptance artifact rendering is part of this implementation scope. Do not
-  defer `acceptance/` bundle updates until after the core model and projection
-  work is "done".
+  defer the acceptance contract itself until the end.
+- Create a feature branch before Task 1. Do not start this implementation on
+  `main`.
+- Execute a small Batch 0 before Task 1:
+  - pull forward Task 10 Step 1 and Step 2
+  - add explicit failing `2048` bundle-quality assertions
+  - run the acceptance scenario once to capture the expected failing baseline
+- Treat the `2048` hard gate as "wired in from the start and required to pass
+  at the end," not as "already passing before Task 1 begins."
 
 ### Task 1: Add the `TurnTodoPlan` schema and model contract
 
@@ -845,6 +852,12 @@ git commit -m "refactor: delete legacy supervision plan path"
 
 **Step 1: Write failing bundle-quality assertions**
 
+Batching note:
+
+- execute this step in Batch 0 before Task 1
+- the goal is to establish the acceptance quality contract immediately, not to
+  finish the acceptance rendering before core implementation starts
+
 Update the `2048` acceptance scenario so it fails when the exported bundle:
 
 - renders `Current focus: none` / `Recent progress: none` / `Active plan items: 0`
@@ -859,6 +872,12 @@ manual post-run inspection.
 
 **Step 2: Run the acceptance scenario to verify it fails**
 
+Batching note:
+
+- execute this step in Batch 0 immediately after Step 1
+- this is the expected red baseline that proves the hard gate is active before
+  the main implementation work begins
+
 Run:
 
 ```bash
@@ -870,6 +889,13 @@ Expected: FAIL because the exported bundle still reflects the legacy
 supervision contract and low-value content.
 
 **Step 3: Rebuild the acceptance bundle around the new supervision contract**
+
+Batching note:
+
+- leave this step in its current place after the core `TurnTodoPlan`,
+  supervision, feed, API, and cleanup work
+- only the failing assertion baseline moves forward; the acceptance rendering
+  rebuild stays here
 
 - update `ConversationArtifacts` to read plan-centric machine status and
   canonical turn feed data instead of `active_plan_items`
