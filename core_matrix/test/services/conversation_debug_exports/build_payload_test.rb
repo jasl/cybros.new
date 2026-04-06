@@ -30,7 +30,15 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_equal 1, payload.fetch("workflow_node_events").length
     assert_equal subagent_session.public_id, payload.fetch("subagent_sessions").first.fetch("subagent_session_id")
     assert_not payload.fetch("subagent_sessions").first.key?("summary")
-    assert_equal 123, payload.fetch("usage_events").first.fetch("input_tokens")
+    assert_equal 120, payload.fetch("usage_events").first.fetch("input_tokens")
+    assert_equal "available", payload.fetch("usage_events").first.fetch("prompt_cache_status")
+    assert_equal 60, payload.fetch("usage_events").first.fetch("cached_input_tokens")
+    assert_equal 60, payload.dig("diagnostics", "conversation", "cached_input_tokens_total")
+    assert_equal 1, payload.dig("diagnostics", "conversation", "prompt_cache_available_event_count")
+    assert_equal 0.5, payload.dig("diagnostics", "conversation", "prompt_cache_hit_rate")
+    assert_equal 60, payload.dig("diagnostics", "turns", 0, "cached_input_tokens_total")
+    assert_equal 1, payload.dig("diagnostics", "turns", 0, "prompt_cache_available_event_count")
+    assert_equal 0.5, payload.dig("diagnostics", "turns", 0, "prompt_cache_hit_rate")
     refute_includes JSON.generate(payload), %("#{conversation.id}")
     refute_includes JSON.generate(payload), %("#{fixture.fetch(:turn).id}")
   end
@@ -169,8 +177,10 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
       success: true,
-      input_tokens: 123,
+      input_tokens: 120,
       output_tokens: 45,
+      prompt_cache_status: "available",
+      cached_input_tokens: 60,
       latency_ms: 800,
       occurred_at: Time.current
     )

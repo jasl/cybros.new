@@ -168,6 +168,15 @@ module ConversationDebugExports
         "usage_event_count" => snapshot.usage_event_count,
         "input_tokens_total" => snapshot.input_tokens_total,
         "output_tokens_total" => snapshot.output_tokens_total,
+        "cached_input_tokens_total" => snapshot.cached_input_tokens_total,
+        "prompt_cache_available_event_count" => snapshot.prompt_cache_available_event_count,
+        "prompt_cache_unknown_event_count" => snapshot.prompt_cache_unknown_event_count,
+        "prompt_cache_unsupported_event_count" => snapshot.prompt_cache_unsupported_event_count,
+        "prompt_cache_hit_rate" => prompt_cache_hit_rate(
+          cached_input_tokens_total: snapshot.cached_input_tokens_total,
+          available_event_count: snapshot.prompt_cache_available_event_count,
+          available_input_tokens_total: conversation_prompt_cache_available_input_tokens_total
+        ),
         "estimated_cost_total" => snapshot.estimated_cost_total.to_s("F"),
         "estimated_cost_event_count" => snapshot.estimated_cost_event_count,
         "estimated_cost_missing_event_count" => snapshot.estimated_cost_missing_event_count,
@@ -197,6 +206,15 @@ module ConversationDebugExports
         "usage_event_count" => snapshot.usage_event_count,
         "input_tokens_total" => snapshot.input_tokens_total,
         "output_tokens_total" => snapshot.output_tokens_total,
+        "cached_input_tokens_total" => snapshot.cached_input_tokens_total,
+        "prompt_cache_available_event_count" => snapshot.prompt_cache_available_event_count,
+        "prompt_cache_unknown_event_count" => snapshot.prompt_cache_unknown_event_count,
+        "prompt_cache_unsupported_event_count" => snapshot.prompt_cache_unsupported_event_count,
+        "prompt_cache_hit_rate" => prompt_cache_hit_rate(
+          cached_input_tokens_total: snapshot.cached_input_tokens_total,
+          available_event_count: snapshot.prompt_cache_available_event_count,
+          available_input_tokens_total: prompt_cache_available_input_tokens_total_by_turn.fetch(snapshot.turn_id, 0)
+        ),
         "estimated_cost_total" => snapshot.estimated_cost_total.to_s("F"),
         "estimated_cost_event_count" => snapshot.estimated_cost_event_count,
         "estimated_cost_missing_event_count" => snapshot.estimated_cost_missing_event_count,
@@ -428,6 +446,8 @@ module ConversationDebugExports
         "success" => event.success,
         "input_tokens" => event.input_tokens,
         "output_tokens" => event.output_tokens,
+        "prompt_cache_status" => event.prompt_cache_status,
+        "cached_input_tokens" => event.cached_input_tokens,
         "media_units" => event.media_units,
         "estimated_cost" => event.estimated_cost&.to_s("F"),
         "latency_ms" => event.latency_ms,
@@ -436,6 +456,28 @@ module ConversationDebugExports
         "created_at" => event.created_at&.iso8601(6),
         "updated_at" => event.updated_at&.iso8601(6),
       }.compact
+    end
+
+    def prompt_cache_available_input_tokens_total_by_turn
+      @prompt_cache_available_input_tokens_total_by_turn ||= usage_events.each_with_object(Hash.new(0)) do |event, totals|
+        next unless event.prompt_cache_status == "available"
+        next if event.turn_id.nil?
+
+        totals[event.turn_id] += event.input_tokens.to_i
+      end
+    end
+
+    def conversation_prompt_cache_available_input_tokens_total
+      @conversation_prompt_cache_available_input_tokens_total ||= usage_events.sum do |event|
+        event.prompt_cache_status == "available" ? event.input_tokens.to_i : 0
+      end
+    end
+
+    def prompt_cache_hit_rate(cached_input_tokens_total:, available_event_count:, available_input_tokens_total:)
+      return nil if available_event_count.to_i.zero?
+      return nil if available_input_tokens_total.to_i.zero?
+
+      cached_input_tokens_total.to_f / available_input_tokens_total.to_f
     end
   end
 end
