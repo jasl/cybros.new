@@ -56,9 +56,22 @@ class TestOpenAIHelpers < Minitest::Test
         "prompt_tokens" => 1,
         "completion_tokens" => 2,
         "total_tokens" => 3,
+        "prompt_tokens_details" => {
+          "cached_tokens" => 4,
+        },
       },
     }
 
-    assert_equal({ prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 }, SimpleInference::OpenAI.chat_completion_usage(body))
+    assert_equal(
+      {
+        prompt_tokens: 1,
+        completion_tokens: 2,
+        total_tokens: 3,
+        prompt_tokens_details: {
+          cached_tokens: 4,
+        },
+      },
+      SimpleInference::OpenAI.chat_completion_usage(body)
+    )
   end
 end

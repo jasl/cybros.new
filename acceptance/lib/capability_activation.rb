@@ -2,6 +2,22 @@ module Acceptance
   module CapabilityActivation
     module_function
 
+    MEANINGFUL_WORKSPACE_GLOBS = [
+      "package.json",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "yarn.lock",
+      "tsconfig*.json",
+      "vite.config.*",
+      "vitest.config.*",
+      "index.html",
+      "public/**/*",
+      "src/**/*",
+      "test/**/*",
+      "tests/**/*",
+      "__tests__/**/*",
+    ].freeze
+
     # Example:
     #   report = Acceptance::CapabilityActivation.build(
     #     contract: {
@@ -66,10 +82,14 @@ module Acceptance
       when "workspace_editing"
         workspace_tools = select_tool_invocations(tool_invocations, /\Aworkspace_(write|patch|delete|mkdir|move)\z/)
         generated_app_dir = path_for(workspace_paths["generated_app_dir"])
-        generated_files = file_count(generated_app_dir)
+        meaningful_files = meaningful_workspace_files(generated_app_dir)
         db_evidence.concat(public_ids_for(workspace_tools))
-        artifact_evidence << generated_app_dir.to_s if generated_files.positive?
-        notes << "generated_file_count=#{generated_files}" if generated_files.positive?
+        artifact_evidence << generated_app_dir.to_s if meaningful_files.any?
+        artifact_evidence << artifact_paths.fetch("workspace_validation").to_s if path_present?(artifact_paths["workspace_validation"])
+        if meaningful_files.any?
+          notes << "meaningful_file_count=#{meaningful_files.length}"
+          notes << "meaningful_file_samples=#{meaningful_files.first(5).join(",")}"
+        end
       when "command_execution"
         db_evidence.concat(public_ids_for(command_runs))
         artifact_evidence.concat(existing_paths(
@@ -167,6 +187,18 @@ module Acceptance
       Dir.glob(expanded.join("**", "*").to_s, File::FNM_DOTMATCH).count do |entry|
         File.file?(entry)
       end
+    end
+
+    def meaningful_workspace_files(path)
+      expanded = path_for(path)
+      return [] unless expanded&.directory?
+
+      MEANINGFUL_WORKSPACE_GLOBS.flat_map do |pattern|
+        Dir.glob(expanded.join(pattern).to_s, File::FNM_DOTMATCH)
+      end.select { |entry| File.file?(entry) }
+        .map { |entry| Pathname(entry).relative_path_from(expanded).to_s }
+        .uniq
+        .sort
     end
 
     def stringify_keys(value)

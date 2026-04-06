@@ -100,11 +100,7 @@ module SimpleInference
       usage = body.is_a?(Hash) ? body["usage"] : nil
       return nil unless usage.is_a?(Hash)
 
-      {
-        prompt_tokens: usage["prompt_tokens"],
-        completion_tokens: usage["completion_tokens"],
-        total_tokens: usage["total_tokens"],
-      }.compact
+      symbolize_usage(usage)
     end
 
     # Extract logprobs (if present) from a non-streaming chat completion.
@@ -174,5 +170,20 @@ module SimpleInference
       choice0
     end
     private_class_method :first_choice
+
+    def symbolize_usage(value)
+      case value
+      when Hash
+        value.each_with_object({}) do |(key, entry), out|
+          normalized_key = key.respond_to?(:to_sym) ? key.to_sym : key
+          out[normalized_key] = symbolize_usage(entry)
+        end
+      when Array
+        value.map { |entry| symbolize_usage(entry) }
+      else
+        value
+      end
+    end
+    private_class_method :symbolize_usage
   end
 end

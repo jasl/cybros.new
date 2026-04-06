@@ -18,6 +18,63 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 NODE_VERSION="${FENIX_NODE_VERSION:-22.22.2}"
 NPM_VERSION="${FENIX_NPM_VERSION:-11.12.1}"
+BOOTSTRAP_STAMP="${FENIX_RUNTIME_BOOTSTRAP_STAMP:-/usr/local/share/fenix/runtime-bootstrap/state.env}"
+BOOTSTRAP_SCRIPT_SHA="$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')"
+
+current_version() {
+  local command_name="$1"
+  shift
+
+  if ! command -v "${command_name}" >/dev/null 2>&1; then
+    return 1
+  fi
+
+  "$@" 2>/dev/null | head -n 1 | tr -d '\r'
+}
+
+runtime_bootstrap_current() {
+  [[ -r "${BOOTSTRAP_STAMP}" ]] || return 1
+
+  # shellcheck disable=SC1090
+  source "${BOOTSTRAP_STAMP}"
+
+  [[ "${stamp_script_sha:-}" == "${BOOTSTRAP_SCRIPT_SHA}" ]] || return 1
+  [[ "${stamp_node_version:-}" == "${NODE_VERSION}" ]] || return 1
+  [[ "${stamp_npm_version:-}" == "${NPM_VERSION}" ]] || return 1
+  [[ "${stamp_node_actual:-}" == "$(current_version node node --version || true)" ]] || return 1
+  [[ "${stamp_npm_actual:-}" == "$(current_version npm npm --version || true)" ]] || return 1
+  [[ "${stamp_pnpm_actual:-}" == "$(current_version pnpm pnpm --version || true)" ]] || return 1
+  [[ "${stamp_python3_actual:-}" == "$(current_version python3 python3 --version || true)" ]] || return 1
+  [[ "${stamp_uv_actual:-}" == "$(current_version uv uv --version || true)" ]] || return 1
+  [[ "${stamp_caddy_actual:-}" == "$(current_version caddy caddy version || true)" ]] || return 1
+}
+
+write_bootstrap_stamp() {
+  local node_actual="$1"
+  local npm_actual="$2"
+  local pnpm_actual="$3"
+  local python3_actual="$4"
+  local uv_actual="$5"
+  local caddy_actual="$6"
+
+  mkdir -p "$(dirname "${BOOTSTRAP_STAMP}")"
+  {
+    printf 'stamp_script_sha=%q\n' "${BOOTSTRAP_SCRIPT_SHA}"
+    printf 'stamp_node_version=%q\n' "${NODE_VERSION}"
+    printf 'stamp_npm_version=%q\n' "${NPM_VERSION}"
+    printf 'stamp_node_actual=%q\n' "${node_actual}"
+    printf 'stamp_npm_actual=%q\n' "${npm_actual}"
+    printf 'stamp_pnpm_actual=%q\n' "${pnpm_actual}"
+    printf 'stamp_python3_actual=%q\n' "${python3_actual}"
+    printf 'stamp_uv_actual=%q\n' "${uv_actual}"
+    printf 'stamp_caddy_actual=%q\n' "${caddy_actual}"
+  } > "${BOOTSTRAP_STAMP}"
+}
+
+if runtime_bootstrap_current; then
+  echo "bootstrap-runtime-deps.sh: runtime dependencies already satisfied"
+  exit 0
+fi
 
 apt-get update -qq
 apt-get install --no-install-recommends -y \
@@ -101,5 +158,13 @@ if ! command -v uv >/dev/null 2>&1; then
   curl -LsSf https://astral.sh/uv/install.sh | sh
   ln -sf /root/.local/bin/uv /usr/local/bin/uv
 fi
+
+write_bootstrap_stamp \
+  "$(node --version)" \
+  "$(npm --version)" \
+  "$(pnpm --version)" \
+  "$(python3 --version)" \
+  "$(uv --version)" \
+  "$(caddy version)"
 
 rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*

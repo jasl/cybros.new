@@ -24,4 +24,13 @@ class RuntimeFoundationTest < ActionDispatch::IntegrationTest
     assert_includes script, "lsof"
     assert_includes script, "iproute2"
   end
+
+  test "linux bootstrap script is idempotent across repeated activations" do
+    script = File.read(Rails.root.join("scripts", "bootstrap-runtime-deps.sh"))
+
+    assert_includes script, "FENIX_RUNTIME_BOOTSTRAP_STAMP"
+    assert_includes script, "sha256sum"
+    assert_includes script, "runtime dependencies already satisfied"
+    assert_includes script, "write_bootstrap_stamp"
+  end
 end

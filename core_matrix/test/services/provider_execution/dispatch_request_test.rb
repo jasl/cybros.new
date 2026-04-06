@@ -73,6 +73,9 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
           prompt_tokens: 12,
           completion_tokens: 8,
           total_tokens: 20,
+          prompt_tokens_details: {
+            cached_tokens: 4,
+          },
         },
       }
     )
@@ -105,11 +108,62 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
         "input_tokens" => 12,
         "output_tokens" => 8,
         "total_tokens" => 20,
-        "prompt_cache_status" => "unknown",
+        "prompt_cache_status" => "available",
+        "cached_input_tokens" => 4,
       },
       result.usage
     )
     assert_operator result.duration_ms, :>=, 0
+  end
+
+  test "preserves chat-completions prompt cache details in normalized usage" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-direct-cache-1",
+        choices: [
+          {
+            message: { role: "assistant", content: "Direct provider result" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 8,
+          total_tokens: 20,
+          prompt_tokens_details: {
+            cached_tokens: 4,
+          },
+        },
+      }
+    )
+
+    result = ProviderExecution::DispatchRequest.call(
+      workflow_run: workflow_run,
+      request_context: request_context,
+      messages: turn_step_messages_for(workflow_run),
+      adapter: adapter,
+      catalog: catalog,
+      provider_request_id: "provider-request-chat-cache-1"
+    )
+
+    assert_equal(
+      {
+        "input_tokens" => 12,
+        "output_tokens" => 8,
+        "total_tokens" => 20,
+        "prompt_cache_status" => "available",
+        "cached_input_tokens" => 4,
+      },
+      result.usage
+    )
   end
 
   test "normalizes internal agent transcript roles to assistant before provider dispatch" do
@@ -154,6 +208,56 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
     request_body = JSON.parse(adapter.last_request.fetch(:body))
 
     assert_equal ["user", "assistant", "user"], request_body.fetch("messages").map { |entry| entry.fetch("role") }
+  end
+
+  test "captures chat-completions prompt cache details when the provider returns them" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-direct-step-cache-1",
+        choices: [
+          {
+            message: { role: "assistant", content: "Direct provider result" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 8,
+          total_tokens: 20,
+          prompt_tokens_details: {
+            cached_tokens: 6,
+          },
+        },
+      }
+    )
+
+    result = ProviderExecution::DispatchRequest.call(
+      workflow_run: workflow_run,
+      request_context: request_context,
+      messages: turn_step_messages_for(workflow_run),
+      adapter: adapter,
+      catalog: catalog,
+      provider_request_id: "provider-request-cache-1"
+    )
+
+    assert_equal(
+      {
+        "input_tokens" => 12,
+        "output_tokens" => 8,
+        "total_tokens" => 20,
+        "prompt_cache_status" => "available",
+        "cached_input_tokens" => 6,
+      },
+      result.usage
+    )
   end
 
   test "streams provider chat requests and yields output deltas while returning the aggregated result" do

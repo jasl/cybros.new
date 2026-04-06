@@ -415,6 +415,19 @@ def prepare_skill_sources!(skill_source_root:)
   }
 end
 
+def runtime_visible_workspace_path(host_path:, workspace_root:, runtime_worker_boot:)
+  return host_path.to_s if runtime_worker_boot.blank?
+
+  host_path = Pathname.new(host_path).expand_path
+  workspace_root = Pathname.new(workspace_root).expand_path
+  docker_workspace_root = Pathname.new(ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace"))
+
+  relative_path = host_path.relative_path_from(workspace_root)
+  docker_workspace_root.join(relative_path).to_s
+rescue ArgumentError
+  raise "#{host_path} is outside workspace root #{workspace_root}"
+end
+
 def serialize_skill_validation_run(run)
   {
     "conversation_id" => run.fetch(:conversation).public_id,
@@ -477,12 +490,23 @@ def execute_runtime_worker_skill_turn!(agent_program_version:, content:, mode:, 
   )
 end
 
-def install_and_validate_skills!(agent_program_version:, skill_sources:)
+def install_and_validate_skills!(agent_program_version:, skill_sources:, workspace_root:, runtime_worker_boot:)
+  using_superpowers_source_path = runtime_visible_workspace_path(
+    host_path: skill_sources.fetch("using_superpowers_dir"),
+    workspace_root: workspace_root,
+    runtime_worker_boot: runtime_worker_boot
+  )
+  find_skills_source_path = runtime_visible_workspace_path(
+    host_path: skill_sources.fetch("find_skills_dir"),
+    workspace_root: workspace_root,
+    runtime_worker_boot: runtime_worker_boot
+  )
+
   using_superpowers_install = execute_runtime_worker_skill_turn!(
     agent_program_version: agent_program_version,
     content: "Install using-superpowers from the staged GitHub source.",
     mode: "skills_install",
-    extra_payload: { "source_path" => skill_sources.fetch("using_superpowers_dir") }
+    extra_payload: { "source_path" => using_superpowers_source_path }
   )
   using_superpowers_load = execute_runtime_worker_skill_turn!(
     agent_program_version: agent_program_version,
@@ -503,7 +527,7 @@ def install_and_validate_skills!(agent_program_version:, skill_sources:)
     agent_program_version: agent_program_version,
     content: "Install find-skills from the staged GitHub source.",
     mode: "skills_install",
-    extra_payload: { "source_path" => skill_sources.fetch("find_skills_dir") }
+    extra_payload: { "source_path" => find_skills_source_path }
   )
   find_skills_load = execute_runtime_worker_skill_turn!(
     agent_program_version: agent_program_version,
@@ -516,6 +540,8 @@ def install_and_validate_skills!(agent_program_version:, skill_sources:)
     "install" => serialize_skill_validation_run(using_superpowers_install),
     "load" => serialize_skill_validation_run(using_superpowers_load),
     "read" => serialize_skill_validation_run(using_superpowers_read),
+    "host_source_path" => skill_sources.fetch("using_superpowers_dir"),
+    "runtime_source_path" => using_superpowers_source_path,
     "install_activation_state" => using_superpowers_install.fetch(:execution).dig("output", "activation_state"),
     "loaded_name" => using_superpowers_load.fetch(:execution).dig("output", "name"),
     "read_relative_path" => "skills/brainstorming/SKILL.md",
@@ -524,6 +550,8 @@ def install_and_validate_skills!(agent_program_version:, skill_sources:)
   find_skills_payload = {
     "install" => serialize_skill_validation_run(find_skills_install),
     "load" => serialize_skill_validation_run(find_skills_load),
+    "host_source_path" => skill_sources.fetch("find_skills_dir"),
+    "runtime_source_path" => find_skills_source_path,
     "install_activation_state" => find_skills_install.fetch(:execution).dig("output", "activation_state"),
     "loaded_name" => find_skills_load.fetch(:execution).dig("output", "name"),
   }
@@ -1480,21 +1508,39 @@ def build_rescue_history_entry(attempt_no:, workflow_run:, runtime_validation:, 
 end
 
 def build_failure_timeline(attempt_history:, terminal_failure_message:)
-  timeline = Array(attempt_history).map do |attempt|
+  timeline = Array(attempt_history).filter_map do |attempt|
     host_validation = attempt.fetch("host_validation")
+    runtime_validation = attempt.fetch("runtime_validation")
+    workflow_completed = attempt.fetch("workflow_state") == "completed"
+    host_failed = host_validation.values.any?(false)
+    runtime_failed = runtime_validation.values.any?(false)
+
+    next if workflow_completed && !host_failed && !runtime_failed
+
     suspected_category =
-      if host_validation.values.any?(false)
+      if host_failed
         "environment_defect"
-      elsif attempt.fetch("workflow_state") != "completed"
+      elsif runtime_failed
+        "agent_design_gap"
+      elsif !workflow_completed
         "model_variance"
       else
-        "agent_design_gap"
+        "unknown"
+      end
+
+    symptom =
+      if host_failed
+        host_validation.select { |_key, value| value == false }.keys
+      elsif runtime_failed
+        runtime_validation.select { |_key, value| value == false }.keys
+      else
+        ["workflow_state=#{attempt.fetch("workflow_state")}"]
       end
 
     {
       "phase" => "attempt_#{attempt.fetch("attempt_no")}",
       "status" => attempt.fetch("workflow_state"),
-      "symptom" => host_validation.select { |_key, value| value == false }.keys.presence || ["workflow_state=#{attempt.fetch("workflow_state")}"],
+      "symptom" => symptom,
       "evidence" => ["attempt-history.json", "workspace-validation.md", "diagnostics.json"],
       "suspected_category" => suspected_category,
     }
@@ -2207,8 +2253,36 @@ end
 skill_sources = prepare_skill_sources!(skill_source_root:)
 skills_validation = install_and_validate_skills!(
   agent_program_version: agent_program_version,
-  skill_sources:
+  skill_sources:,
+  workspace_root:,
+  runtime_worker_boot:
 )
+
+write_json(artifact_dir.join("acceptance-registration.json"), {
+  "agent_program_id" => agent_program.public_id,
+  "agent_program_display_name" => agent_program.display_name,
+  "agent_program_version_id" => agent_program_version.public_id,
+  "execution_runtime_id" => execution_runtime.public_id,
+  "execution_runtime_display_name" => execution_runtime.display_name,
+  "agent_session_id" => agent_session.public_id,
+  "execution_session_id" => execution_session.public_id,
+  "runtime_fingerprint" => execution_runtime.runtime_fingerprint,
+  "program_fingerprint" => agent_program_version.fingerprint,
+  "machine_credential_redacted" => machine_credential.to_s.sub(/:.+\z/, ":REDACTED"),
+})
+write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
+  "scenario_date" => scenario_date,
+  "operator" => OPERATOR_NAME,
+  "selector" => selector,
+  "attempt_count" => 0,
+  "workspace_root" => workspace_root.to_s,
+  "generated_app_dir" => generated_app_dir.to_s,
+  "skill_source_manifest_path" => skill_sources.fetch("manifest_path"),
+  "prompt" => prompt,
+})
+write_json(artifact_dir.join("skills-validation.json"), skills_validation)
+write_json(artifact_dir.join("attempt-history.json"), [])
+write_json(artifact_dir.join("rescue-history.json"), [])
 
 conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
 conversation = conversation_context.fetch(:conversation).reload
@@ -2283,6 +2357,23 @@ terminal_failure_message = nil
       "playwright_verification_passed" => playwright_validation["result"].present?,
     },
   }
+  write_json(artifact_dir.join("attempt-history.json"), attempt_history)
+  write_json(artifact_dir.join("supervision-session.json"), supervision_trace.fetch("session"))
+  write_json(artifact_dir.join("supervision-polls.json"), supervision_trace.fetch("polls"))
+  write_json(artifact_dir.join("supervision-final.json"), supervision_trace.fetch("final_response"))
+  write_supervision_sidechat_md(
+    path: artifact_dir.join("supervision-sidechat.md"),
+    supervision_trace: supervision_trace,
+    prompt: SUPERVISION_PROMPT
+  )
+  write_supervision_status_md(
+    path: artifact_dir.join("supervision-status.md"),
+    supervision_trace: supervision_trace
+  )
+  write_supervision_feed_md(
+    path: artifact_dir.join("supervision-feed.md"),
+    supervision_trace: supervision_trace
+  )
 
   break if workflow_run.lifecycle_state == "completed" &&
     runtime_validation_passed?(runtime_validation) &&
@@ -2297,6 +2388,7 @@ terminal_failure_message = nil
       last host validation:
       #{JSON.pretty_generate(host_validation_bundle)}
     MSG
+    write_text(artifact_dir.join("terminal-failure.txt"), terminal_failure_message)
     break
   end
 
@@ -2320,6 +2412,7 @@ terminal_failure_message = nil
     host_playability_skip_reason: host_validation_bundle.fetch("host_playability_skip_reason"),
     repair_prompt: repair_prompt
   )
+  write_json(artifact_dir.join("rescue-history.json"), rescue_history)
 end
 
 source_transcript = ManualAcceptanceSupport.app_api_conversation_transcript!(
@@ -2395,18 +2488,6 @@ end) do |entry, memo|
   bucket["output_tokens_total"] += entry["output_tokens"].to_i
 end.values.sort_by { |entry| [entry["provider_handle"], entry["model_ref"], entry["operation_kind"]] }
 
-write_json(artifact_dir.join("acceptance-registration.json"), {
-  "agent_program_id" => agent_program.public_id,
-  "agent_program_display_name" => agent_program.display_name,
-  "agent_program_version_id" => agent_program_version.public_id,
-  "execution_runtime_id" => execution_runtime.public_id,
-  "execution_runtime_display_name" => execution_runtime.display_name,
-  "agent_session_id" => agent_session.public_id,
-  "execution_session_id" => execution_session.public_id,
-  "runtime_fingerprint" => execution_runtime.runtime_fingerprint,
-  "program_fingerprint" => agent_program_version.fingerprint,
-  "machine_credential_redacted" => machine_credential.to_s.sub(/:.+\z/, ":REDACTED"),
-})
 write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
   "scenario_date" => scenario_date,
   "operator" => OPERATOR_NAME,
@@ -2418,7 +2499,7 @@ write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
   "prompt" => prompt,
 })
 write_json(artifact_dir.join("attempt-history.json"), attempt_history)
-write_json(artifact_dir.join("skills-validation.json"), skills_validation)
+write_json(artifact_dir.join("rescue-history.json"), rescue_history)
 write_json(artifact_dir.join("supervision-session.json"), supervision_trace.fetch("session"))
 write_json(artifact_dir.join("supervision-polls.json"), supervision_trace.fetch("polls"))
 write_json(artifact_dir.join("supervision-final.json"), supervision_trace.fetch("final_response"))
@@ -2515,6 +2596,8 @@ write_turns_md(
     "acceptance-registration.json",
     "capstone-run-bootstrap.json",
     "skills-validation.json",
+    "attempt-history.json",
+    "rescue-history.json",
     "workspace-validation.md",
     "supervision-session.json",
     "supervision-polls.json",
@@ -2526,6 +2609,7 @@ write_turns_md(
     "capability-activation.md",
     "failure-classification.json",
     "failure-classification.md",
+    ("terminal-failure.txt" if terminal_failure_message.present?),
     ("control-intent-matrix.json" if control_intent_matrix.present?),
     ("host-preview.json" if preview_http.present?),
     ("host-playwright-verification.json" if playwright_validation.present?),

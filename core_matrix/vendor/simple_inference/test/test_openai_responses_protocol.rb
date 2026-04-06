@@ -141,7 +141,7 @@ class TestOpenAIResponsesProtocol < Minitest::Test
           sse = +""
           sse << %(data: {"type":"response.output_text.delta","delta":"a"}\n\n)
           sse << %(data: {"type":"response.output_text.delta","delta":"b"}\n\n)
-          sse << %(data: {"type":"response.completed","response":{"usage":{"input_tokens":3,"output_tokens":4}}}\n\n)
+          sse << %(data: {"type":"response.completed","response":{"usage":{"input_tokens":3,"output_tokens":4,"input_tokens_details":{"cached_tokens":2}}}}\n\n)
           sse << "data: [DONE]\n\n"
 
           yield sse
@@ -164,7 +164,16 @@ class TestOpenAIResponsesProtocol < Minitest::Test
 
     assert_equal ["a", "b"], deltas
     assert_equal "ab", result.output_text
-    assert_equal({ "input_tokens" => 3, "output_tokens" => 4 }, result.usage)
+    assert_equal(
+      {
+        "input_tokens" => 3,
+        "output_tokens" => 4,
+        "input_tokens_details" => {
+          "cached_tokens" => 2,
+        },
+      },
+      result.usage
+    )
   end
 
   def test_responses_high_level_streaming_falls_back_to_non_sse_json_success_response

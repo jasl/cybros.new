@@ -514,10 +514,15 @@ module SimpleInference
       end
 
       def stringify_usage(usage)
-        return usage unless usage.is_a?(Hash)
-
-        usage.each_with_object({}) do |(key, value), out|
-          out[key.to_s] = value
+        case usage
+        when Hash
+          usage.each_with_object({}) do |(key, value), out|
+            out[key.to_s] = stringify_usage(value)
+          end
+        when Array
+          usage.map { |entry| stringify_usage(entry) }
+        else
+          usage
         end
       end
 

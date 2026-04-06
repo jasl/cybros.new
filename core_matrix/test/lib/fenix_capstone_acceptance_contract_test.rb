@@ -65,6 +65,30 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::FailureClassification"
   end
 
+  test "acceptance scenario maps staged skill sources into the docker workspace mount" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "def runtime_visible_workspace_path"
+    assert_includes scenario, 'ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace")'
+    assert_includes scenario, '"runtime_source_path"'
+  end
+
+  test "clean benchmark runs do not emit false failure categories" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "next if workflow_completed && !host_failed && !runtime_failed"
+    assert_includes scenario, 'runtime_validation.select { |_key, value| value == false }.keys'
+  end
+
+  test "acceptance scenario checkpoints benchmark artifacts before the final export phase" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, 'write_json(artifact_dir.join("skills-validation.json"), skills_validation)'
+    assert_includes scenario, 'write_json(artifact_dir.join("attempt-history.json"), attempt_history)'
+    assert_includes scenario, 'write_json(artifact_dir.join("rescue-history.json"), rescue_history)'
+    assert_includes scenario, 'write_text(artifact_dir.join("terminal-failure.txt"), terminal_failure_message)'
+  end
+
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
     redirect_doc = Rails.root.join("docs/behavior/conversation-observation-and-supervisor-status.md")
     supervision_doc = Rails.root.join("docs/behavior/conversation-supervision-and-control.md")

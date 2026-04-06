@@ -48,6 +48,8 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_match(/FENIX_NODE_VERSION:-22\./, bootstrap_script)
     assert_match(%r{https://nodejs\.org/dist/}, bootstrap_script)
     assert_match(%r{https://registry\.npmjs\.org/npm/-/npm-}, bootstrap_script)
+    assert_match(/FENIX_RUNTIME_BOOTSTRAP_STAMP/, bootstrap_script)
+    assert_match(/runtime dependencies already satisfied/, bootstrap_script)
     assert_match(/npm-cli\.js/, bootstrap_script)
     assert_match(/npm install --global pnpm/, bootstrap_script)
     refute_match(/deb\.nodesource\.com/, bootstrap_script)

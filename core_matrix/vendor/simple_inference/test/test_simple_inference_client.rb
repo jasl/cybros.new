@@ -440,7 +440,7 @@ class TestSimpleInferenceClient < Minitest::Test
         sse << %(data: {"id":"evt1","choices":[{"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"workspace_tree","arguments":""}}]}}]}\n\n)
         sse << %(data: {"id":"evt1","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"path\\":\\"."}}]}}]}\n\n)
         sse << %(data: {"id":"evt1","choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\",\\"limit\\":200}"}}]}}]}\n\n)
-        sse << %(data: {"id":"evt1","choices":[{"delta":{"content":""},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":11,"completion_tokens":5,"total_tokens":16}}\n\n)
+        sse << %(data: {"id":"evt1","choices":[{"delta":{"content":""},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":11,"completion_tokens":5,"total_tokens":16,"prompt_tokens_details":{"cached_tokens":6}}}\n\n)
         sse << "data: [DONE]\n\n"
 
         yield sse
@@ -459,11 +459,22 @@ class TestSimpleInferenceClient < Minitest::Test
 
     assert_equal "", result.content
     assert_equal "tool_calls", result.finish_reason
-    assert_equal({ prompt_tokens: 11, completion_tokens: 5, total_tokens: 16 }, result.usage)
+    assert_equal(
+      {
+        prompt_tokens: 11,
+        completion_tokens: 5,
+        total_tokens: 16,
+        prompt_tokens_details: {
+          cached_tokens: 6,
+        },
+      },
+      result.usage
+    )
     assert_equal "assistant", result.response.body.dig("choices", 0, "message", "role")
     assert_equal "call_1", result.response.body.dig("choices", 0, "message", "tool_calls", 0, "id")
     assert_equal "workspace_tree", result.response.body.dig("choices", 0, "message", "tool_calls", 0, "function", "name")
     assert_equal "{\"path\":\".\",\"limit\":200}", result.response.body.dig("choices", 0, "message", "tool_calls", 0, "function", "arguments")
+    assert_equal 6, result.response.body.dig("usage", "prompt_tokens_details", "cached_tokens")
   end
 
   def test_chat_returns_content_and_usage_for_non_streaming
@@ -477,7 +488,14 @@ class TestSimpleInferenceClient < Minitest::Test
               choices: [
                 { message: { role: "assistant", content: "hi" }, finish_reason: "stop" },
               ],
-              usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+              usage: {
+                prompt_tokens: 1,
+                completion_tokens: 2,
+                total_tokens: 3,
+                prompt_tokens_details: {
+                  cached_tokens: 1,
+                },
+              },
             }
           ),
         }
@@ -488,7 +506,17 @@ class TestSimpleInferenceClient < Minitest::Test
     result = client.chat(model: "foo", messages: [])
 
     assert_equal "hi", result.content
-    assert_equal({ prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 }, result.usage)
+    assert_equal(
+      {
+        prompt_tokens: 1,
+        completion_tokens: 2,
+        total_tokens: 3,
+        prompt_tokens_details: {
+          cached_tokens: 1,
+        },
+      },
+      result.usage
+    )
     assert_equal "stop", result.finish_reason
     assert_equal 200, result.response.status
   end
