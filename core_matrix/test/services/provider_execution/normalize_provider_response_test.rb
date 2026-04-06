@@ -44,6 +44,23 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
   end
 
   test "normalizes responses-api function_call output items into a shared shape" do
+    request_context = ProviderRequestContext.new(
+      "provider_handle" => "dev",
+      "model_ref" => "mock-model",
+      "api_model" => "mock-model",
+      "wire_api" => "responses",
+      "transport" => "http",
+      "tokenizer_hint" => "o200k_base",
+      "execution_settings" => {},
+      "hard_limits" => {},
+      "advisory_hints" => {},
+      "provider_metadata" => {
+        "usage_capabilities" => {
+          "prompt_cache_details" => false,
+        },
+      },
+      "model_metadata" => {}
+    )
     provider_result = SimpleInference::Protocols::OpenAIResponses::ResponsesResult.new(
       output_text: "",
       output_items: [
@@ -59,13 +76,24 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
       response: nil
     )
 
-    normalized = ProviderExecution::NormalizeProviderResponse.call(provider_result:)
+    normalized = ProviderExecution::NormalizeProviderResponse.call(
+      provider_result: provider_result,
+      request_context: request_context
+    )
 
     assert_equal "", normalized.fetch("output_text")
     assert_equal 1, normalized.fetch("tool_calls").length
     assert_equal "call_1", normalized.fetch("tool_calls").first.fetch("call_id")
     assert_equal "workspace_write_file", normalized.fetch("tool_calls").first.fetch("tool_name")
     assert_equal({ "path" => "notes.txt" }, normalized.fetch("tool_calls").first.fetch("arguments"))
-    assert_equal 7, normalized.fetch("usage").fetch("total_tokens")
+    assert_equal(
+      {
+        "input_tokens" => 5,
+        "output_tokens" => 2,
+        "total_tokens" => 7,
+        "prompt_cache_status" => "unsupported",
+      },
+      normalized.fetch("usage")
+    )
   end
 end

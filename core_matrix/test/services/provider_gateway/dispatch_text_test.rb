@@ -153,12 +153,97 @@ class ProviderGateway::DispatchTextTest < ActiveSupport::TestCase
 
     assert_equal "Draft release notes", result.content
     assert_equal "provider-gateway-request-1", result.provider_request_id
-    assert_equal({ "input_tokens" => 5, "output_tokens" => 2, "total_tokens" => 7 }, result.usage)
+    assert_equal(
+      {
+        "input_tokens" => 5,
+        "output_tokens" => 2,
+        "total_tokens" => 7,
+        "prompt_cache_status" => "unknown",
+      },
+      result.usage
+    )
     assert_operator FakeGovernor.acquire_calls.length, :>=, 1
     assert_operator FakeGovernor.renew_calls.length, :>=, 1
     assert_equal installation, FakeGovernor.acquire_calls.last.fetch(:installation)
     assert_equal "dev", FakeGovernor.acquire_calls.last.fetch(:provider_handle)
     assert_equal "lease-123", FakeGovernor.release_calls.last.fetch(:lease_token)
+  end
+
+  test "marks prompt cache details unsupported when the catalog metadata opts out" do
+    installation = fresh_installation!
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: "dev",
+      entitlement_key: "dev_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+
+    catalog_definition = test_provider_catalog_definition.deep_dup
+    catalog_definition[:providers][:dev][:metadata] = {
+      usage_capabilities: {
+        prompt_cache_details: false,
+      },
+    }
+    catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(
+      display_name: "Mock Model",
+      api_model: "mock-model",
+      tokenizer_hint: "o200k_base",
+      context_window_tokens: 100,
+      max_output_tokens: 24,
+      context_soft_limit_ratio: 0.5,
+      request_defaults: {
+        temperature: 0.7,
+      }
+    )
+    catalog_definition[:model_roles]["conversation_title"] = ["dev/mock-model"]
+    catalog = build_test_provider_catalog_from(catalog_definition)
+    adapter = FlakyChatAdapter.new(
+      response_body: {
+        id: "chatcmpl-gateway-cache-unsupported-1",
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "Draft release notes",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 2,
+          total_tokens: 7,
+        },
+      }
+    )
+
+    result = ProviderGateway::DispatchText.call(
+      installation: installation,
+      selector: "role:conversation_title",
+      messages: [
+        { "role" => "system", "content" => "Write a concise title." },
+        { "role" => "user", "content" => "Draft release notes for the new retry flow." },
+      ],
+      max_output_tokens: 24,
+      adapter: adapter,
+      catalog: catalog,
+      governor: FakeGovernor,
+      lease_renew_interval_seconds: 0.01
+    )
+
+    assert_equal(
+      {
+        "input_tokens" => 5,
+        "output_tokens" => 2,
+        "total_tokens" => 7,
+        "prompt_cache_status" => "unsupported",
+      },
+      result.usage
+    )
   end
 
   private

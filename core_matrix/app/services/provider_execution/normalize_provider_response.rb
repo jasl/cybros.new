@@ -6,8 +6,9 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(provider_result:)
+    def initialize(provider_result:, request_context: nil)
       @provider_result = provider_result
+      @request_context = request_context.present? ? ProviderRequestContext.wrap(request_context) : nil
     end
 
     def call
@@ -75,13 +76,7 @@ module ProviderExecution
     end
 
     def normalize_usage(usage)
-      payload = usage.is_a?(Hash) ? usage : {}
-
-      {
-        "input_tokens" => payload[:prompt_tokens] || payload["prompt_tokens"] || payload[:input_tokens] || payload["input_tokens"],
-        "output_tokens" => payload[:completion_tokens] || payload["completion_tokens"] || payload[:output_tokens] || payload["output_tokens"],
-        "total_tokens" => payload[:total_tokens] || payload["total_tokens"],
-      }.compact
+      ProviderUsage::NormalizeMetrics.call(usage:, request_context: @request_context)
     end
   end
 end

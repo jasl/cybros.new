@@ -146,13 +146,7 @@ module ProviderExecution
     end
 
     def normalize_usage(usage)
-      payload = usage.is_a?(Hash) ? usage : {}
-
-      {
-        "input_tokens" => payload[:prompt_tokens] || payload["prompt_tokens"] || payload[:input_tokens] || payload["input_tokens"],
-        "output_tokens" => payload[:completion_tokens] || payload["completion_tokens"] || payload[:output_tokens] || payload["output_tokens"],
-        "total_tokens" => payload[:total_tokens] || payload["total_tokens"],
-      }.compact
+      ProviderUsage::NormalizeMetrics.call(usage:, request_context: @request_context)
     end
 
     def dispatch_chat_request

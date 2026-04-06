@@ -105,6 +105,7 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
         "input_tokens" => 12,
         "output_tokens" => 8,
         "total_tokens" => 20,
+        "prompt_cache_status" => "unknown",
       },
       result.usage
     )
@@ -191,6 +192,7 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
         "input_tokens" => 12,
         "output_tokens" => 8,
         "total_tokens" => 20,
+        "prompt_cache_status" => "unknown",
       },
       result.usage
     )
@@ -455,6 +457,9 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
           "input_tokens" => 5,
           "output_tokens" => 3,
           "total_tokens" => 8,
+          "input_tokens_details" => {
+            "cached_tokens" => 2,
+          },
         },
       }
     )
@@ -481,7 +486,16 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
     assert_equal turn_step_messages_for(workflow_run), request_body.fetch("input")
     assert_equal "auto", request_body.fetch("tool_choice")
     assert_equal "calculator", request_body.fetch("tools").first.fetch("name")
-    assert_equal 8, result.usage.fetch("total_tokens")
+    assert_equal(
+      {
+        "input_tokens" => 5,
+        "output_tokens" => 3,
+        "total_tokens" => 8,
+        "prompt_cache_status" => "available",
+        "cached_input_tokens" => 2,
+      },
+      result.usage
+    )
   end
 
   test "uses the provider adapter selected from the catalog when no adapter is injected" do

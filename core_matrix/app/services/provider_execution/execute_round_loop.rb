@@ -98,7 +98,8 @@ module ProviderExecution
         on_delta: ->(delta) { round_deltas << delta }
       )
       normalized_response = ProviderExecution::NormalizeProviderResponse.call(
-        provider_result: dispatch_result.provider_result
+        provider_result: dispatch_result.provider_result,
+        request_context: @request_context
       )
 
       return Result.new(
