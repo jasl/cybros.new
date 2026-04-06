@@ -76,10 +76,10 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   end
 
   test "clean benchmark runs do not emit false failure categories" do
-    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/benchmark_reporting.rb").read
 
-    assert_includes scenario, "next if workflow_completed && !host_failed && !runtime_failed"
-    assert_includes scenario, "runtime_validation.select { |_key, value| value == false }.keys"
+    assert_includes helper, "next if workflow_completed && host_failed_keys.empty? && runtime_failed_keys.empty?"
+    assert_includes helper, 'stringify_keys(validation_hash).select { |_key, value| value == false }.keys'
   end
 
   test "acceptance scenario checkpoints benchmark artifacts before the final export phase" do
@@ -136,6 +136,20 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::HostValidation.host_validation_passed?"
     assert_includes scenario, "Acceptance::HostValidation.command_result_excerpt"
     assert_includes helper, "def write_playability_verification!"
+  end
+
+  test "acceptance scenario uses shared benchmark reporting helper" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/benchmark_reporting.rb")
+
+    assert helper.exist?, "expected shared benchmark reporting helper to exist"
+    assert_includes scenario, "Acceptance::BenchmarkReporting"
+    assert_includes scenario, "Acceptance::BenchmarkReporting.determine_workload_outcome"
+    assert_includes scenario, "Acceptance::BenchmarkReporting.build_failure_timeline"
+    assert_includes scenario, "Acceptance::BenchmarkReporting.build_agent_evaluation"
+    assert_includes scenario, "Acceptance::BenchmarkReporting.capability_activation_markdown"
+    assert_includes scenario, "Acceptance::BenchmarkReporting.failure_classification_markdown"
+    assert_includes scenario, "Acceptance::BenchmarkReporting.agent_evaluation_markdown"
   end
 
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do

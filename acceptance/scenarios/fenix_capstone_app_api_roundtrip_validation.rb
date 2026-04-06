@@ -1189,140 +1189,6 @@ def build_conversation_runtime_validation(tool_invocations:)
   ManualAcceptance::ConversationRuntimeValidation.build(tool_invocations:)
 end
 
-def build_agent_evaluation(summary:, diagnostics_turn:)
-  result_quality =
-    if summary.fetch("transcript_roundtrip_match") &&
-        summary.fetch("workflow_state") == "completed" &&
-        summary.fetch("turn_state") == "completed" &&
-        summary.dig("conversation_validation", "runtime_test_passed") &&
-        summary.dig("conversation_validation", "runtime_build_passed") &&
-        summary.dig("conversation_validation", "runtime_browser_loaded") &&
-        summary.dig("workspace_validation", "preview_reachable") &&
-        summary.dig("workspace_validation", "playwright_verification_passed")
-      "strong"
-    else
-      "fail"
-    end
-
-  runtime_health =
-    if diagnostics_turn.fetch("tool_failure_count").to_i <= 3 &&
-        diagnostics_turn.fetch("command_failure_count").to_i <= 1 &&
-        summary.fetch("workflow_state") == "completed"
-      "acceptable"
-    else
-      "weak"
-    end
-
-  convergence =
-    case diagnostics_turn.fetch("provider_round_count").to_i
-    when 0..40
-      "strong"
-    when 41..80
-      "acceptable"
-    else
-      "weak"
-    end
-
-  cost_efficiency =
-    case diagnostics_turn.fetch("provider_round_count").to_i
-    when 0..40
-      "strong"
-    when 41..80
-      "acceptable"
-    else
-      "weak"
-    end
-
-  {
-    "result_quality" => {
-      "rating" => result_quality,
-      "summary" => "Conversation/runtime-side test, build, browser evidence, and transcript roundtrip established whether the benchmark outcome was met; host portability checks are reported separately as diagnostics.",
-      "evidence" => [
-        "run-summary.json",
-        "playability-verification.md",
-        "workspace-validation.md",
-        "host-preview.json",
-        "host-playwright-verification.json",
-        "host-npm-test.json",
-        "host-npm-build.json",
-        "export-roundtrip.md",
-      ],
-    },
-    "runtime_health" => {
-      "rating" => runtime_health,
-      "summary" => "The run completed through the real provider-backed loop, but the exported diagnostics still showed some tool and command failures worth monitoring.",
-      "evidence" => [
-        "diagnostics.json",
-        "tool_invocations.json",
-        "command_runs.json",
-        "process_runs.json",
-      ],
-    },
-    "convergence" => {
-      "rating" => convergence,
-      "summary" => "Provider round count and tool churn were acceptable for a real coding-agent capstone, but not yet especially lean.",
-      "evidence" => [
-        "run-summary.json",
-        "diagnostics.json",
-        "tool_invocations.json",
-        "subagent_sessions.json",
-      ],
-    },
-    "cost_efficiency" => {
-      "rating" => cost_efficiency,
-      "summary" => "Token and tool usage were proportional to the difficulty of a real 2048 build, though the run still carried noticeable iteration cost.",
-      "evidence" => [
-        "run-summary.json",
-        "diagnostics.json",
-        "usage_events.json",
-      ],
-    },
-  }
-end
-
-def write_agent_evaluation_md(path, evaluation)
-  lines = ["# Agent Evaluation", ""]
-
-  evaluation.each do |dimension, payload|
-    lines << "## #{dimension.tr("_", " ").split.map(&:capitalize).join(" ")}"
-    lines << ""
-    lines << "- Rating: `#{payload.fetch("rating")}`"
-    lines << "- Summary: #{payload.fetch("summary")}"
-    lines << "- Evidence:"
-    payload.fetch("evidence").each do |entry|
-      lines << "  - `#{entry}`"
-    end
-    lines << ""
-  end
-
-  write_text(path, lines.join("\n"))
-end
-
-def determine_workload_outcome(workflow_run:, runtime_validation:, host_validation:, playwright_validation:, generated_app_dir:)
-  return "complete" if workflow_run.lifecycle_state == "completed" &&
-    Acceptance::HostValidation.runtime_validation_passed?(runtime_validation) &&
-    Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
-
-  if workflow_run.lifecycle_state != "completed"
-    return "blocked" if generated_app_dir.exist? || runtime_validation.values.any?(true)
-
-    return "failed"
-  end
-
-  runtime_progress = runtime_validation.values.any?(true)
-  host_progress = [
-    host_validation.dig("npm_install", "success"),
-    host_validation.dig("npm_test", "success"),
-    host_validation.dig("npm_build", "success"),
-    host_validation.dig("preview_http", "status") == 200,
-    playwright_validation["result"].present?,
-  ].any?
-
-  return "partial" if generated_app_dir.exist? || runtime_progress || host_progress
-
-  "failed"
-end
-
 def build_rescue_history_entry(attempt_no:, workflow_run:, runtime_validation:, host_validation:, playwright_validation:, host_playability_skip_reason:, repair_prompt:)
   reasons = []
   reasons << "workflow_not_completed" unless workflow_run.lifecycle_state == "completed"
@@ -1338,143 +1204,6 @@ def build_rescue_history_entry(attempt_no:, workflow_run:, runtime_validation:, 
     "host_playability_skip_reason" => host_playability_skip_reason,
     "repair_prompt_excerpt" => repair_prompt.lines.first(12).join,
   }
-end
-
-def build_failure_timeline(attempt_history:, terminal_failure_message:)
-  timeline = Array(attempt_history).filter_map do |attempt|
-    host_validation = attempt.fetch("host_validation")
-    runtime_validation = attempt.fetch("runtime_validation")
-    workflow_completed = attempt.fetch("workflow_state") == "completed"
-    host_failed = host_validation.values.any?(false)
-    runtime_failed = runtime_validation.values.any?(false)
-
-    next if workflow_completed && !host_failed && !runtime_failed
-
-    suspected_category =
-      if host_failed
-        "environment_defect"
-      elsif runtime_failed
-        "agent_design_gap"
-      elsif !workflow_completed
-        "model_variance"
-      else
-        "unknown"
-      end
-
-    symptom =
-      if host_failed
-        host_validation.select { |_key, value| value == false }.keys
-      elsif runtime_failed
-        runtime_validation.select { |_key, value| value == false }.keys
-      else
-        ["workflow_state=#{attempt.fetch("workflow_state")}"]
-      end
-
-    {
-      "phase" => "attempt_#{attempt.fetch("attempt_no")}",
-      "status" => attempt.fetch("workflow_state"),
-      "symptom" => symptom,
-      "evidence" => ["attempt-history.json", "workspace-validation.md", "diagnostics.json"],
-      "suspected_category" => suspected_category,
-    }
-  end
-
-  if terminal_failure_message.present?
-    timeline << {
-      "phase" => "terminal_failure",
-      "status" => "failed",
-      "symptom" => terminal_failure_message.lines.first.to_s.strip,
-      "evidence" => ["run-summary.json", "failure-classification.json"],
-      "suspected_category" => "unknown",
-    }
-  end
-
-  timeline
-end
-
-def write_capability_activation_md(path:, capability_report:)
-  rows = Array(capability_report.fetch("required_capabilities"))
-  lines = [
-    "# Capability Activation",
-    "",
-    "- Scenario: `#{capability_report.fetch("scenario")}`",
-    "- Required capabilities passed: `#{capability_report.dig("summary", "required_passed_count")}` / `#{capability_report.dig("summary", "required_count")}`",
-    "- Optional capabilities activated: `#{capability_report.dig("summary", "optional_activated_count")}`",
-    "- Expectation passed: `#{capability_report.dig("summary", "expectation_passed")}`",
-    "",
-  ]
-
-  rows.each do |row|
-    lines << "## #{row.fetch("key")}"
-    lines << ""
-    lines << "- Required: `#{row.fetch("required")}`"
-    lines << "- Activated: `#{row.fetch("activated")}`"
-    lines << "- Evidence level: `#{row.fetch("evidence_level")}`"
-    if row.fetch("db_evidence").any?
-      lines << "- DB evidence:"
-      row.fetch("db_evidence").each { |entry| lines << "  - `#{entry}`" }
-    end
-    if row.fetch("artifact_evidence").any?
-      lines << "- Artifact evidence:"
-      row.fetch("artifact_evidence").each { |entry| lines << "  - `#{entry}`" }
-    end
-    if row.fetch("notes").any?
-      lines << "- Notes:"
-      row.fetch("notes").each { |entry| lines << "  - #{entry}" }
-    end
-    lines << ""
-  end
-
-  write_text(path, lines.join("\n").rstrip + "\n")
-end
-
-def write_failure_classification_md(path:, failure_report:)
-  lines = [
-    "# Failure Classification",
-    "",
-    "- Scenario: `#{failure_report.fetch("scenario")}`",
-    "- Benchmark outcome: `#{failure_report.fetch("outcome")}`",
-    "- Workload outcome: `#{failure_report.fetch("workload_outcome")}`",
-    "- System behavior outcome: `#{failure_report.fetch("system_behavior_outcome")}`",
-    "",
-  ]
-
-  primary = failure_report.dig("classification", "primary")
-  confidence = failure_report.dig("classification", "confidence")
-  lines << "- Primary classification: `#{primary}`" if primary.present?
-  lines << "- Confidence: `#{confidence}`" unless confidence.nil?
-  lines << "" if primary.present? || !confidence.nil?
-
-  secondary = Array(failure_report.dig("classification", "secondary"))
-  if secondary.any?
-    lines << "- Secondary classifications: `#{secondary.join("`, `")}`"
-    lines << ""
-  end
-
-  Array(failure_report.fetch("timeline")).each do |entry|
-    symptom = Array(entry["symptom"]).join(", ")
-    lines << "## #{entry.fetch("phase")}"
-    lines << ""
-    lines << "- Status: `#{entry.fetch("status")}`"
-    lines << "- Suspected category: `#{entry["suspected_category"]}`" if entry["suspected_category"].present?
-    lines << "- Symptom: #{symptom}" if symptom.present?
-    if Array(entry["evidence"]).any?
-      lines << "- Evidence:"
-      Array(entry["evidence"]).each { |artifact| lines << "  - `#{artifact}`" }
-    end
-    lines << ""
-  end
-
-  if Array(failure_report.fetch("recommended_actions")).any?
-    lines << "## Recommended Actions"
-    lines << ""
-    Array(failure_report.fetch("recommended_actions")).each do |action|
-      lines << "- #{action}"
-    end
-    lines << ""
-  end
-
-  write_text(path, lines.join("\n").rstrip + "\n")
 end
 
 
@@ -2188,12 +1917,14 @@ capability_report = Acceptance::CapabilityActivation.build(
   supervision_trace: supervision_trace
 )
 write_json(artifact_dir.join("capability-activation.json"), capability_report)
-write_capability_activation_md(
-  path: artifact_dir.join("capability-activation.md"),
-  capability_report: capability_report
+write_text(
+  artifact_dir.join("capability-activation.md"),
+  Acceptance::BenchmarkReporting.capability_activation_markdown(
+    capability_report: capability_report
+  )
 )
 
-workload_outcome = determine_workload_outcome(
+workload_outcome = Acceptance::BenchmarkReporting.determine_workload_outcome(
   workflow_run: workflow_run,
   runtime_validation: conversation_validation,
   host_validation: host_validation,
@@ -2219,16 +1950,18 @@ failure_report = Acceptance::FailureClassification.build(
     },
   },
   rescue_history: rescue_history,
-  timeline: build_failure_timeline(
+  timeline: Acceptance::BenchmarkReporting.build_failure_timeline(
     attempt_history: attempt_history,
     terminal_failure_message: terminal_failure_message
   ),
   notes: [terminal_failure_message].compact
 )
 write_json(artifact_dir.join("failure-classification.json"), failure_report)
-write_failure_classification_md(
-  path: artifact_dir.join("failure-classification.md"),
-  failure_report: failure_report
+write_text(
+  artifact_dir.join("failure-classification.md"),
+  Acceptance::BenchmarkReporting.failure_classification_markdown(
+    failure_report: failure_report
+  )
 )
 
 summary = {
@@ -2287,13 +2020,16 @@ summary = {
 }
 summary["control_intent_matrix"] = control_intent_matrix.fetch("summary") if control_intent_matrix.present?
 
-evaluation = build_agent_evaluation(
+evaluation = Acceptance::BenchmarkReporting.build_agent_evaluation(
   summary: summary,
   diagnostics_turn: main_diagnostics_turn
 )
 summary["agent_evaluation"] = evaluation.transform_values { |payload| payload.fetch("rating") }
 
-write_agent_evaluation_md(artifact_dir.join("agent-evaluation.md"), evaluation)
+write_text(
+  artifact_dir.join("agent-evaluation.md"),
+  Acceptance::BenchmarkReporting.agent_evaluation_markdown(evaluation)
+)
 write_json(artifact_dir.join("agent-evaluation.json"), evaluation)
 write_json(artifact_dir.join("run-summary.json"), summary)
 write_json(artifact_dir.join("evidence", "run-summary.json"), summary)
