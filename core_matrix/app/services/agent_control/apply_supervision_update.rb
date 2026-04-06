@@ -9,7 +9,6 @@ module AgentControl
       waiting_summary
       blocked_summary
       next_step_hint
-      plan_items
     ].freeze
 
     def self.call(...)
@@ -23,14 +22,11 @@ module AgentControl
     end
 
     def call
-      supervision_update = @payload.fetch("supervision_update").deep_stringify_keys.slice(*ALLOWED_FIELDS)
+      supervision_update = @payload.fetch("supervision_update").deep_stringify_keys
+      reject_legacy_plan_items!(supervision_update)
+      supervision_update = supervision_update.slice(*ALLOWED_FIELDS)
       validate_supervision_update!(supervision_update)
 
-      AgentTaskRuns::ReplacePlanItems.call(
-        agent_task_run: @agent_task_run,
-        plan_items: supervision_update.fetch("plan_items"),
-        occurred_at: @occurred_at
-      ) if supervision_update.key?("plan_items")
       AgentTaskRuns::AppendProgressEntry.call(
         agent_task_run: @agent_task_run,
         subagent_session: @agent_task_run.progress_entry_subagent_session,
@@ -46,6 +42,12 @@ module AgentControl
     end
 
     private
+
+    def reject_legacy_plan_items!(supervision_update)
+      return unless supervision_update.key?("plan_items")
+
+      raise ArgumentError, "supervision_update.plan_items is no longer supported"
+    end
 
     def validate_supervision_update!(supervision_update)
       summary_fields = %w[

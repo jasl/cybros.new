@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -195,29 +195,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["public_id"], name: "index_agent_sessions_on_public_id", unique: true
     t.index ["session_credential_digest"], name: "index_agent_sessions_on_session_credential_digest", unique: true
     t.index ["session_token_digest"], name: "index_agent_sessions_on_session_token_digest", unique: true
-  end
-
-  create_table "agent_task_plan_items", force: :cascade do |t|
-    t.bigint "agent_task_run_id", null: false
-    t.datetime "created_at", null: false
-    t.bigint "delegated_subagent_session_id"
-    t.jsonb "details_payload", default: {}, null: false
-    t.bigint "installation_id", null: false
-    t.string "item_key", null: false
-    t.datetime "last_status_changed_at"
-    t.bigint "parent_plan_item_id"
-    t.integer "position", default: 0, null: false
-    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "status", default: "pending", null: false
-    t.string "title", null: false
-    t.datetime "updated_at", null: false
-    t.index ["agent_task_run_id", "item_key"], name: "idx_agent_task_plan_items_task_key", unique: true
-    t.index ["agent_task_run_id"], name: "idx_agent_task_plan_items_single_in_progress", unique: true, where: "((status)::text = 'in_progress'::text)"
-    t.index ["agent_task_run_id"], name: "index_agent_task_plan_items_on_agent_task_run_id"
-    t.index ["delegated_subagent_session_id"], name: "index_agent_task_plan_items_on_delegated_subagent_session_id"
-    t.index ["installation_id"], name: "index_agent_task_plan_items_on_installation_id"
-    t.index ["parent_plan_item_id"], name: "index_agent_task_plan_items_on_parent_plan_item_id"
-    t.index ["public_id"], name: "index_agent_task_plan_items_on_public_id", unique: true
   end
 
   create_table "agent_task_progress_entries", force: :cascade do |t|
@@ -1904,10 +1881,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "agent_sessions", "agent_program_versions"
   add_foreign_key "agent_sessions", "agent_programs"
   add_foreign_key "agent_sessions", "installations"
-  add_foreign_key "agent_task_plan_items", "agent_task_plan_items", column: "parent_plan_item_id"
-  add_foreign_key "agent_task_plan_items", "agent_task_runs", on_delete: :cascade
-  add_foreign_key "agent_task_plan_items", "installations"
-  add_foreign_key "agent_task_plan_items", "subagent_sessions", column: "delegated_subagent_session_id"
   add_foreign_key "agent_task_progress_entries", "agent_task_runs", on_delete: :cascade
   add_foreign_key "agent_task_progress_entries", "installations"
   add_foreign_key "agent_task_progress_entries", "subagent_sessions"

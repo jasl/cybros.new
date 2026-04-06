@@ -78,20 +78,6 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
             "current_focus_summary" => "Adding the canonical supervision aggregates",
             "recent_progress_summary" => "Finished reviewing the old models",
             "next_step_hint" => "Rewrite the migrations",
-            "plan_items" => [
-              {
-                "item_key" => "projection",
-                "title" => "Add conversation supervision state",
-                "status" => "completed",
-                "position" => 0,
-              },
-              {
-                "item_key" => "renderer",
-                "title" => "Rebuild sidechat renderer",
-                "status" => "in_progress",
-                "position" => 1,
-              },
-            ],
           },
         },
       },
@@ -105,7 +91,6 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal "Adding the canonical supervision aggregates", agent_task_run.current_focus_summary
     assert_equal "Finished reviewing the old models", agent_task_run.recent_progress_summary
     assert_equal "Rewrite the migrations", agent_task_run.next_step_hint
-    assert_equal %w[projection renderer], agent_task_run.agent_task_plan_items.order(:position).pluck(:item_key)
     assert_equal "Finished reviewing the old models", agent_task_run.agent_task_progress_entries.order(:sequence).last.summary
 
     supervision_state = context[:conversation].reload.conversation_supervision_state

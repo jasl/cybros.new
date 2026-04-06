@@ -62,9 +62,17 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     )
     machine_status = snapshot.machine_status_payload.deep_dup
     machine_status["overall_state"] = "running"
+    machine_status["primary_turn_todo_plan_view"] = nil
     machine_status["request_summary"] = nil
     machine_status["current_focus_summary"] = nil
     machine_status["recent_progress_summary"] = nil
+    machine_status["turn_feed"] = [
+      {
+        "event_kind" => "turn_started",
+        "summary" => "Started the turn.",
+        "occurred_at" => Time.current.iso8601(6),
+      },
+    ]
     machine_status["activity_feed"] = [
       {
         "event_kind" => "turn_started",

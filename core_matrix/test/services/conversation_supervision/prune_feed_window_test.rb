@@ -36,7 +36,7 @@ class ConversationSupervision::PruneFeedWindowTest < ActiveSupport::TestCase
       target_conversation: context[:conversation],
       target_turn: turn,
       sequence: sequence,
-      event_kind: "progress_recorded",
+      event_kind: "turn_todo_item_started",
       summary: summary,
       details_payload: {},
       occurred_at: Time.current

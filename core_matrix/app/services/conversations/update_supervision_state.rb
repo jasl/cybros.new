@@ -275,14 +275,9 @@ module Conversations
       {
         "current_turn_plan_summary" => current_task_plan_summary,
         "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
-        "active_plan_items" => active_plan_items_payload,
         "active_subagents" => active_subagent_payloads,
         "latest_progress_entry" => latest_progress_entry_payload,
       }.compact
-    end
-
-    def active_plan_items_payload
-      Array(current_task_plan_view&.fetch("items", nil))
     end
 
     def active_subagent_payloads
@@ -398,13 +393,6 @@ module Conversations
         .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
         .order(:created_at)
         .to_a
-    end
-
-    def current_task_plan_items
-      return @current_task_plan_items if instance_variable_defined?(:@current_task_plan_items)
-
-      @current_task_plan_items =
-        Array(current_task_plan_view&.fetch("items", nil))
     end
 
     def current_task_progress_entries

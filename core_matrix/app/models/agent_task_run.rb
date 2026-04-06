@@ -33,7 +33,6 @@ class AgentTaskRun < ApplicationRecord
 
   has_many :agent_control_mailbox_items, dependent: :restrict_with_exception
   has_many :agent_control_report_receipts, dependent: :restrict_with_exception
-  has_many :agent_task_plan_items, dependent: :delete_all
   has_many :agent_task_progress_entries, dependent: :delete_all
   has_many :tool_bindings, dependent: :destroy
   has_many :tool_invocations, dependent: :destroy

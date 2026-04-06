@@ -62,23 +62,29 @@ module ConversationSupervisionFixtureBuilder
       last_progress_at: 1.minute.ago,
       supervision_payload: {}
     )
-    AgentTaskPlanItem.create!(
-      installation: context.fetch(:installation),
+    TurnTodoPlans::ApplyUpdate.call(
       agent_task_run: agent_task_run,
-      item_key: "projection",
-      title: "Freeze the supervision snapshot",
-      status: "completed",
-      position: 0,
-      details_payload: {}
-    )
-    AgentTaskPlanItem.create!(
-      installation: context.fetch(:installation),
-      agent_task_run: agent_task_run,
-      item_key: "renderer",
-      title: "Render the human supervisor reply",
-      status: "in_progress",
-      position: 1,
-      details_payload: {}
+      payload: {
+        "goal_summary" => "Rebuild the supervision sidechat surface",
+        "current_item_key" => "render-snapshot",
+        "items" => [
+          {
+            "item_key" => "freeze-snapshot",
+            "title" => "Freeze the supervision snapshot",
+            "status" => "completed",
+            "position" => 0,
+            "kind" => "implementation",
+          },
+          {
+            "item_key" => "render-snapshot",
+            "title" => "Rendering the frozen supervision snapshot",
+            "status" => "in_progress",
+            "position" => 1,
+            "kind" => "implementation",
+          },
+        ],
+      },
+      occurred_at: 1.minute.ago
     )
     AgentTaskProgressEntry.create!(
       installation: context.fetch(:installation),
@@ -182,32 +188,6 @@ module ConversationSupervisionFixtureBuilder
 
   def prepare_conversation_supervision_context_with_turn_todo_plan!(**kwargs)
     fixture = prepare_conversation_supervision_context!(**kwargs)
-    parent_task_run = fixture.fetch(:agent_task_run)
-
-    TurnTodoPlans::ApplyUpdate.call(
-      agent_task_run: parent_task_run,
-      payload: {
-        "goal_summary" => "Rebuild the supervision sidechat surface",
-        "current_item_key" => "render-snapshot",
-        "items" => [
-          {
-            "item_key" => "freeze-snapshot",
-            "title" => "Freeze the supervision snapshot",
-            "status" => "completed",
-            "position" => 0,
-            "kind" => "implementation",
-          },
-          {
-            "item_key" => "render-snapshot",
-            "title" => "Rendering the frozen supervision snapshot",
-            "status" => "in_progress",
-            "position" => 1,
-            "kind" => "implementation",
-          },
-        ],
-      },
-      occurred_at: 1.minute.ago
-    )
 
     child_conversation = fixture.fetch(:subagent_session).conversation
     child_turn = Turns::StartAgentTurn.call(

@@ -47,6 +47,8 @@ module Conversations
       @publication_ids = Publication.where(conversation_id: @owned_conversation_ids).pluck(:id)
       @process_run_ids, @process_run_public_ids = pluck_ids_and_public_ids(ProcessRun.where(conversation_id: @owned_conversation_ids))
       @agent_task_run_ids = AgentTaskRun.where(conversation_id: @owned_conversation_ids).pluck(:id)
+      @turn_todo_plan_ids = TurnTodoPlan.where(agent_task_run_id: @agent_task_run_ids).pluck(:id)
+      @turn_todo_plan_item_ids = TurnTodoPlanItem.where(turn_todo_plan_id: @turn_todo_plan_ids).pluck(:id)
       @tool_binding_ids = ToolBinding.where(agent_task_run_id: @agent_task_run_ids).pluck(:id)
       @tool_invocation_ids = ToolInvocation.where(agent_task_run_id: @agent_task_run_ids).pluck(:id)
       @workflow_artifact_ids = WorkflowArtifact.where(workflow_run_id: @workflow_run_ids).pluck(:id)
@@ -126,6 +128,8 @@ module Conversations
       ExecutionLease.where(workflow_run_id: @workflow_run_ids).delete_all
       ToolInvocation.where(id: @tool_invocation_ids).delete_all
       ToolBinding.where(id: @tool_binding_ids).delete_all
+      TurnTodoPlanItem.where(id: @turn_todo_plan_item_ids).delete_all
+      TurnTodoPlan.where(id: @turn_todo_plan_ids).delete_all
       AgentTaskRun.where(id: @agent_task_run_ids).delete_all
     end
 
@@ -163,6 +167,7 @@ module Conversations
     end
 
     def purge_supervision_rows!
+      ConversationSupervisionFeedEntry.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationSupervisionMessage.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationSupervisionSnapshot.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationControlRequest.where(target_conversation_id: @owned_conversation_ids).delete_all
@@ -262,6 +267,8 @@ module Conversations
         ExecutionLease.where(workflow_run_id: @workflow_run_ids),
         ToolInvocation.where(id: @tool_invocation_ids),
         ToolBinding.where(id: @tool_binding_ids),
+        TurnTodoPlanItem.where(id: @turn_todo_plan_item_ids),
+        TurnTodoPlan.where(id: @turn_todo_plan_ids),
         AgentTaskRun.where(id: @agent_task_run_ids),
         ProcessRun.where(id: @process_run_ids),
         SubagentSession.where(id: @subagent_session_ids),
@@ -282,6 +289,7 @@ module Conversations
         ConversationSummarySegment.where(conversation_id: @owned_conversation_ids),
         TurnDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids),
         ConversationDiagnosticsSnapshot.where(conversation_id: @owned_conversation_ids),
+        ConversationSupervisionFeedEntry.where(target_conversation_id: @owned_conversation_ids),
         ConversationSupervisionMessage.where(target_conversation_id: @owned_conversation_ids),
         ConversationSupervisionSnapshot.where(target_conversation_id: @owned_conversation_ids),
         ConversationControlRequest.where(target_conversation_id: @owned_conversation_ids),

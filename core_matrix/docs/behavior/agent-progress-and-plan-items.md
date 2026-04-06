@@ -24,8 +24,11 @@ workflow nodes, and tool calls change internally.
 
 Structured plan and progress rows live beside that state:
 
-- `AgentTaskPlanItem`
-  - explicit item key, title, status, and order
+- `TurnTodoPlan`
+  - one active plan head per task
+  - captures goal summary, current item key, and status counts
+- `TurnTodoPlanItem`
+  - explicit item key, title, kind, status, and order
   - may reference a delegated child task when relevant
 - `AgentTaskProgressEntry`
   - explicit progress sequence, kind, summary, and timestamp
@@ -75,6 +78,6 @@ not re-derive operator language from raw workflow event names.
 Human-visible content should therefore be written from:
 
 - normalized progress fields
-- explicit plan items
+- explicit turn todo plan views
 - explicit child-task summaries
 - feed summaries that already passed internal-token filtering

@@ -93,7 +93,7 @@ module AgentControl
       )
       apply_tool_invocation_progress!(progress_payload)
       apply_turn_todo_plan_update!(progress_payload)
-      apply_supervision_update!(supervision_progress_payload(progress_payload))
+      apply_supervision_update!(progress_payload)
     end
 
     def handle_execution_terminal!
@@ -170,15 +170,6 @@ module AgentControl
         occurred_at: @occurred_at
       )
       refresh_related_supervision_states!
-    end
-
-    def supervision_progress_payload(progress_payload)
-      return progress_payload unless progress_payload["turn_todo_plan_update"].present?
-      return progress_payload if progress_payload["supervision_update"].blank?
-
-      progress_payload.deep_dup.tap do |sanitized_payload|
-        sanitized_payload["supervision_update"] = sanitized_payload.fetch("supervision_update").except("plan_items")
-      end
     end
 
     def apply_tool_invocation_terminal_events!

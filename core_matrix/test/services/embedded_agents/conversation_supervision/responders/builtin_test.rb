@@ -124,11 +124,19 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
       machine_status_payload: snapshot.machine_status_payload.merge(
         "overall_state" => "running",
         "board_lane" => "active",
+        "primary_turn_todo_plan_view" => nil,
         "current_focus_summary" => nil,
         "request_summary" => nil,
         "recent_progress_summary" => nil,
+        "turn_feed" => [
+          {
+            "event_kind" => "turn_started",
+            "summary" => "Started the turn.",
+          },
+        ],
         "activity_feed" => [
           {
+            "event_kind" => "turn_started",
             "summary" => "Started the turn.",
           },
         ],
