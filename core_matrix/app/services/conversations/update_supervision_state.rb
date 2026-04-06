@@ -168,8 +168,7 @@ module Conversations
 
       current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
-        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first ||
-        contextual_focus_summary
+        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first
     end
 
     def recent_progress_summary
@@ -419,34 +418,6 @@ module Conversations
         else
           []
         end
-    end
-
-    def contextual_focus_summary
-      return @contextual_focus_summary if instance_variable_defined?(:@contextual_focus_summary)
-
-      @contextual_focus_summary = begin
-        message = context_projection.messages.reverse.find { |entry| entry.role == "user" } || context_projection.messages.last
-        summarize_context_focus(message&.content)
-      end
-    end
-
-    def summarize_context_focus(content)
-      keywords = content.to_s.downcase.scan(/[a-z0-9]+/).uniq - %w[the and this that with for from into while]
-      return if keywords.empty?
-
-      if keywords.include?("2048") && keywords.include?("game")
-        return "building the React 2048 game" if keywords.include?("react")
-        return "building the 2048 game"
-      end
-
-      return "adding automated tests" if (keywords & %w[test tests testing]).any?
-      return "verifying the application in a browser" if keywords.include?("browser") && keywords.include?("verify")
-
-      nil
-    end
-
-    def context_projection
-      @context_projection ||= Conversations::ContextProjection.call(conversation: @conversation)
     end
 
     def barrier_subagent_sessions

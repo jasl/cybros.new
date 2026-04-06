@@ -265,7 +265,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal context[:workflow_run].public_id, state.current_owner_public_id
   end
 
-  test "derives a contextual focus summary from the active turn when no task summary exists yet" do
+  test "leaves contextual focus summary for lazy sidechat rendering when no task summary exists yet" do
     context = build_agent_control_context!
     context[:turn].selected_input_message.update!(
       content: "Build a complete browser-playable React 2048 game and add automated tests."
@@ -277,7 +277,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     )
 
     assert_equal "queued", state.overall_state
-    assert_equal "building the React 2048 game", state.current_focus_summary
+    assert_nil state.current_focus_summary
   end
 
   test "projects running when an active workflow is already advancing without a task run projection" do
