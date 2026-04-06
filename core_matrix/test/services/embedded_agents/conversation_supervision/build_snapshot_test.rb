@@ -4,7 +4,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
   include ConversationSupervisionFixtureBuilder
 
   test "freezes supervision state policy context feed and authority without storing raw transcript text" do
-    fixture = prepare_conversation_supervision_context!
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     session = create_conversation_supervision_session!(fixture)
 
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
@@ -20,7 +20,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal [fixture.fetch(:subagent_session).public_id], snapshot.active_subagent_session_public_ids
 
     bundle = snapshot.bundle_payload
-    assert_equal %w[active_plan_items active_subagents activity_feed capability_authority conversation_context_view proof_debug],
+    assert_equal %w[active_subagent_turn_todo_plan_views active_subagents activity_feed capability_authority conversation_context_view primary_turn_todo_plan_view proof_debug turn_feed],
       bundle.keys.sort
     assert_equal "Rebuild the supervision sidechat surface",
       snapshot.machine_status_payload.fetch("request_summary")
@@ -30,10 +30,13 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal true, bundle.dig("capability_authority", "detailed_progress_enabled")
     assert_equal false, bundle.dig("capability_authority", "control_enabled")
     assert_equal [], bundle.dig("capability_authority", "available_control_verbs")
-    assert_equal ["Freeze the supervision snapshot", "Render the human supervisor reply"],
-      bundle.fetch("active_plan_items").map { |item| item.fetch("title") }
+    assert_equal ["Freeze the supervision snapshot", "Rendering the frozen supervision snapshot"],
+      bundle.fetch("primary_turn_todo_plan_view").fetch("items").map { |item| item.fetch("title") }
+    assert_equal ["Checking the 2048 acceptance flow"],
+      bundle.fetch("active_subagent_turn_todo_plan_views").map { |item| item.dig("current_item", "title") }
     assert_equal ["Checking the 2048 acceptance flow"],
       bundle.fetch("active_subagents").map { |item| item.fetch("current_focus_summary") }
+    assert_nil snapshot.machine_status_payload["active_plan_items"]
     assert_includes bundle.dig("proof_debug", "feed_event_kinds"), "waiting_started"
     assert_includes bundle.dig("conversation_context_view", "facts").map { |fact| fact.fetch("summary") },
       "Context already references adding tests."
@@ -113,5 +116,23 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal "active", snapshot.machine_status_payload.fetch("board_lane")
     assert_equal "workflow_run", snapshot.machine_status_payload.fetch("current_owner_kind")
     assert_equal "running", context.fetch(:conversation).reload.conversation_supervision_state.overall_state
+  end
+
+  test "freezes turn todo plan views and turn feed in the snapshot bundle" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    session = create_conversation_supervision_session!(fixture)
+
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    bundle = snapshot.bundle_payload
+
+    assert_equal "render-snapshot", bundle.fetch("primary_turn_todo_plan_view").fetch("current_item_key")
+    assert_equal ["check-hard-gate"],
+      bundle.fetch("active_subagent_turn_todo_plan_views").map { |entry| entry.fetch("current_item_key") }
+    assert_equal bundle.fetch("turn_feed"), snapshot.machine_status_payload.fetch("turn_feed")
+    assert_nil snapshot.machine_status_payload["active_plan_items"]
   end
 end

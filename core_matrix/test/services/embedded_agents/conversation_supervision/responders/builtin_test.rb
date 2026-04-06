@@ -185,4 +185,22 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
       response.dig("human_sidechat", "conversation_control_request_id")
     refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, response.dig("human_sidechat", "content"))
   end
+
+  test "answers from frozen turn todo plan views instead of legacy plan item payloads" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What are you doing right now?"
+    )
+
+    assert_match(/rendering the frozen supervision snapshot/i, response.dig("human_sidechat", "content"))
+    assert_nil response.fetch("machine_status")["active_plan_items"]
+  end
 end

@@ -17,7 +17,12 @@ module EmbeddedAgents
 
       def current_work_sentence
         overall_state = @machine_status.fetch("overall_state")
-        focus = @machine_status["current_focus_summary"] || @machine_status["request_summary"] || contextual_focus_summary
+        focus =
+          @machine_status["current_focus_summary"] ||
+          @machine_status.dig("primary_turn_todo_plan_view", "current_item", "title") ||
+          @machine_status["request_summary"] ||
+          @machine_status.dig("primary_turn_todo_plan_view", "goal_summary") ||
+          contextual_focus_summary
 
         case overall_state
         when "idle"
@@ -46,7 +51,7 @@ module EmbeddedAgents
       end
 
       def latest_meaningful_feed_summary
-        Array(@machine_status["activity_feed"]).reverse_each do |entry|
+        turn_feed_entries.reverse_each do |entry|
           next if generic_turn_start_entry?(entry)
 
           return entry.fetch("summary", nil)
@@ -91,6 +96,10 @@ module EmbeddedAgents
 
       def activity_phrase?(text)
         text.to_s.match?(/\A(?:build|building|render|rendering|check|checking|verify|verifying|report|reporting|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing)\b/i)
+      end
+
+      def turn_feed_entries
+        Array(@machine_status["turn_feed"].presence || @machine_status["activity_feed"])
       end
     end
   end

@@ -130,7 +130,7 @@ module EmbeddedAgents
       end
 
       def latest_meaningful_feed_summary
-        Array(@machine_status["activity_feed"]).reverse_each do |entry|
+        turn_feed_entries.reverse_each do |entry|
           next if generic_turn_start_entry?(entry)
 
           return entry.fetch("summary", nil)
@@ -171,14 +171,20 @@ module EmbeddedAgents
       end
 
       def subagent_sentence
-        active_subagents = Array(@machine_status["active_subagents"])
-        return "There is no active child task in this snapshot." if active_subagents.empty?
+        plan_views = Array(@machine_status["active_subagent_turn_todo_plan_views"])
+        summaries =
+          if plan_views.any?
+            plan_views.filter_map { |entry| entry.dig("current_item", "title") || entry["goal_summary"] }.uniq
+          else
+            Array(@machine_status["active_subagents"]).filter_map { |entry| entry["current_focus_summary"] }.uniq
+          end
+        active_count = plan_views.any? ? plan_views.length : Array(@machine_status["active_subagents"]).length
+        return "There is no active child task in this snapshot." if active_count.zero?
 
-        summaries = active_subagents.filter_map { |entry| entry["current_focus_summary"] }.uniq
         if summaries.any?
           "A child task is currently #{summaries.first.downcase}."
         else
-          "There is currently #{active_subagents.length} active child task."
+          "There is currently #{active_count} active child task."
         end
       end
 
@@ -208,8 +214,14 @@ module EmbeddedAgents
 
       def current_focus_summary
         @machine_status["current_focus_summary"] ||
+          @machine_status.dig("primary_turn_todo_plan_view", "current_item", "title") ||
           @machine_status["request_summary"] ||
+          @machine_status.dig("primary_turn_todo_plan_view", "goal_summary") ||
           contextual_focus_summary
+      end
+
+      def turn_feed_entries
+        Array(@machine_status["turn_feed"].presence || @machine_status["activity_feed"])
       end
 
       def contextual_focus_summary

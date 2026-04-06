@@ -159,10 +159,30 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     end
   end
 
+  test "returns plan-centric machine status when the snapshot freezes turn todo plan views" do
+    fixture = fresh_turn_todo_plan_fixture!
+    session = create_conversation_supervision_session!(fixture)
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "What are you doing right now?"
+    )
+
+    assert_equal "render-snapshot",
+      result.dig("machine_status", "primary_turn_todo_plan_view", "current_item_key")
+    assert_nil result.dig("machine_status", "active_plan_items")
+  end
+
   private
 
   def fresh_fixture!(**kwargs)
     delete_all_table_rows!
     prepare_conversation_supervision_context!(**kwargs)
+  end
+
+  def fresh_turn_todo_plan_fixture!(**kwargs)
+    delete_all_table_rows!
+    prepare_conversation_supervision_context_with_turn_todo_plan!(**kwargs)
   end
 end

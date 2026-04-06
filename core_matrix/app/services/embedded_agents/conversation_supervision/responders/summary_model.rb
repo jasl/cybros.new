@@ -127,7 +127,9 @@ module EmbeddedAgents
           machine_status = @conversation_supervision_snapshot.machine_status_payload.deep_stringify_keys
           focus_summary =
             machine_status["current_focus_summary"].presence ||
+            machine_status.dig("primary_turn_todo_plan_view", "current_item", "title").presence ||
             machine_status["request_summary"].presence ||
+            machine_status.dig("primary_turn_todo_plan_view", "goal_summary").presence ||
             contextual_focus_summary(machine_status)
 
           {
@@ -142,13 +144,11 @@ module EmbeddedAgents
             "waiting_summary" => machine_status["waiting_summary"],
             "blocked_summary" => machine_status["blocked_summary"],
             "next_step_hint" => machine_status["next_step_hint"],
-            "active_plan_items" => Array(machine_status["active_plan_items"]).map do |item|
-              item.slice("title", "status", "position")
+            "primary_turn_todo_plan" => compact_turn_todo_plan(machine_status["primary_turn_todo_plan_view"]),
+            "active_subagent_turn_todo_plans" => Array(machine_status["active_subagent_turn_todo_plan_views"]).map do |entry|
+              compact_subagent_turn_todo_plan(entry)
             end,
-            "active_subagents" => Array(machine_status["active_subagents"]).map do |entry|
-              entry.slice("observed_status", "supervision_state", "profile_key", "current_focus_summary", "waiting_summary", "blocked_summary", "next_step_hint")
-            end,
-            "activity_feed" => meaningful_activity_feed(machine_status).last(3).map do |entry|
+            "turn_feed" => meaningful_turn_feed(machine_status).last(3).map do |entry|
               entry.slice("event_kind", "summary", "occurred_at")
             end,
             "conversation_context" => {
@@ -178,10 +178,30 @@ module EmbeddedAgents
             .presence
         end
 
-        def meaningful_activity_feed(machine_status)
-          Array(machine_status["activity_feed"]).reject do |entry|
+        def meaningful_turn_feed(machine_status)
+          Array(machine_status["turn_feed"].presence || machine_status["activity_feed"]).reject do |entry|
             generic_turn_start_entry?(entry) && machine_status["recent_progress_summary"].blank?
           end
+        end
+
+        def compact_turn_todo_plan(plan_view)
+          return if plan_view.blank?
+
+          {
+            "goal_summary" => plan_view["goal_summary"],
+            "current_item_key" => plan_view["current_item_key"],
+            "current_item_title" => plan_view.dig("current_item", "title"),
+            "current_item_status" => plan_view.dig("current_item", "status"),
+          }.compact
+        end
+
+        def compact_subagent_turn_todo_plan(plan_view)
+          compact_turn_todo_plan(plan_view).to_h.merge(
+            "subagent_session_id" => plan_view["subagent_session_id"],
+            "profile_key" => plan_view["profile_key"],
+            "observed_status" => plan_view["observed_status"],
+            "supervision_state" => plan_view["supervision_state"],
+          ).compact
         end
 
         def generic_turn_start_entry?(entry)

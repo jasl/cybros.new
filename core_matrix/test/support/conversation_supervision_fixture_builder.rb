@@ -179,4 +179,107 @@ module ConversationSupervisionFixtureBuilder
       "control_enabled" => policy.control_enabled,
     }
   end
+
+  def prepare_conversation_supervision_context_with_turn_todo_plan!(**kwargs)
+    fixture = prepare_conversation_supervision_context!(**kwargs)
+    parent_task_run = fixture.fetch(:agent_task_run)
+
+    TurnTodoPlans::ApplyUpdate.call(
+      agent_task_run: parent_task_run,
+      payload: {
+        "goal_summary" => "Rebuild the supervision sidechat surface",
+        "current_item_key" => "render-snapshot",
+        "items" => [
+          {
+            "item_key" => "freeze-snapshot",
+            "title" => "Freeze the supervision snapshot",
+            "status" => "completed",
+            "position" => 0,
+            "kind" => "implementation",
+          },
+          {
+            "item_key" => "render-snapshot",
+            "title" => "Rendering the frozen supervision snapshot",
+            "status" => "in_progress",
+            "position" => 1,
+            "kind" => "implementation",
+          },
+        ],
+      },
+      occurred_at: 1.minute.ago
+    )
+
+    child_conversation = fixture.fetch(:subagent_session).conversation
+    child_turn = Turns::StartAgentTurn.call(
+      conversation: child_conversation,
+      content: "Verify the capstone acceptance path",
+      sender_kind: "owner_agent",
+      sender_conversation: fixture.fetch(:conversation),
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_workflow_run = create_workflow_run!(
+      installation: fixture.fetch(:installation),
+      conversation: child_conversation,
+      turn: child_turn,
+      lifecycle_state: "active"
+    )
+    child_workflow_node = create_workflow_node!(
+      workflow_run: child_workflow_run,
+      installation: fixture.fetch(:installation),
+      node_key: "subagent_step",
+      node_type: "subagent_step",
+      lifecycle_state: "running",
+      started_at: 90.seconds.ago
+    )
+    child_agent_task_run = create_agent_task_run!(
+      installation: fixture.fetch(:installation),
+      workflow_run: child_workflow_run,
+      workflow_node: child_workflow_node,
+      conversation: child_conversation,
+      turn: child_turn,
+      agent_program: fixture.fetch(:agent_task_run).agent_program,
+      subagent_session: fixture.fetch(:subagent_session),
+      origin_turn: fixture.fetch(:current_turn),
+      kind: "subagent_step",
+      lifecycle_state: "running",
+      started_at: 90.seconds.ago,
+      supervision_state: "running",
+      request_summary: "Verify the capstone acceptance path",
+      current_focus_summary: "Stale child focus summary",
+      recent_progress_summary: "Confirmed the control acceptance wiring",
+      next_step_hint: "Report the acceptance status back to the parent task",
+      last_progress_at: 30.seconds.ago,
+      supervision_payload: {}
+    )
+    TurnTodoPlans::ApplyUpdate.call(
+      agent_task_run: child_agent_task_run,
+      payload: {
+        "goal_summary" => "Verify the capstone acceptance path",
+        "current_item_key" => "check-hard-gate",
+        "items" => [
+          {
+            "item_key" => "check-hard-gate",
+            "title" => "Checking the 2048 acceptance flow",
+            "status" => "in_progress",
+            "position" => 0,
+            "kind" => "verification",
+          },
+        ],
+      },
+      occurred_at: 30.seconds.ago
+    )
+
+    Conversations::UpdateSupervisionState.call(
+      conversation: fixture.fetch(:conversation),
+      occurred_at: Time.current
+    )
+
+    fixture.merge(
+      child_turn: child_turn.reload,
+      child_workflow_run: child_workflow_run.reload,
+      child_workflow_node: child_workflow_node.reload,
+      child_agent_task_run: child_agent_task_run.reload,
+    )
+  end
 end

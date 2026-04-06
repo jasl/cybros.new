@@ -2,6 +2,8 @@ module EmbeddedAgents
   module ConversationSupervision
     class BuildSnapshot
       CONTEXT_MESSAGE_LIMIT = 8
+      ACTIVE_TASK_LIFECYCLE_STATES = %w[queued running].freeze
+      ACTIVE_SUBAGENT_OBSERVED_STATUSES = %w[running waiting].freeze
 
       def self.call(...)
         new(...).call
@@ -58,16 +60,18 @@ module EmbeddedAgents
       def build_bundle_payload(authority:, state:, policy:)
         detailed_progress_enabled = authority.detailed_progress_enabled?
         context_view = detailed_progress_enabled ? conversation_context_view : empty_context_view
-        activity_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
+        turn_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
 
         {
           "conversation_context_view" => context_view,
-          "activity_feed" => activity_feed,
-          "active_plan_items" => detailed_progress_enabled ? Array(state.status_payload["active_plan_items"]) : [],
+          "turn_feed" => turn_feed,
+          "activity_feed" => turn_feed,
+          "primary_turn_todo_plan_view" => detailed_progress_enabled ? primary_turn_todo_plan_view : nil,
+          "active_subagent_turn_todo_plan_views" => detailed_progress_enabled ? active_subagent_turn_todo_plan_views : [],
           "active_subagents" => detailed_progress_enabled ? Array(state.status_payload["active_subagents"]) : [],
           "proof_debug" => proof_debug_payload(
             context_view: context_view,
-            activity_feed: activity_feed,
+            turn_feed: turn_feed,
             policy: policy,
             state: state
           ),
@@ -122,7 +126,7 @@ module EmbeddedAgents
         content.to_s.downcase.scan(/[a-z0-9]+/).uniq - %w[the and this that already with for from into while]
       end
 
-      def proof_debug_payload(context_view:, activity_feed:, policy:, state:)
+      def proof_debug_payload(context_view:, turn_feed:, policy:, state:)
         {
           "conversation_id" => @conversation.public_id,
           "anchor_turn_id" => anchor_turn&.public_id,
@@ -131,8 +135,10 @@ module EmbeddedAgents
           "conversation_supervision_state_id" => state.public_id,
           "conversation_capability_policy_id" => policy&.public_id,
           "context_message_ids" => context_view.fetch("message_ids"),
-          "feed_entry_ids" => activity_feed.map { |entry| entry.fetch("conversation_supervision_feed_entry_id") },
-          "feed_event_kinds" => activity_feed.map { |entry| entry.fetch("event_kind") },
+          "feed_entry_ids" => turn_feed.map { |entry| entry.fetch("conversation_supervision_feed_entry_id") },
+          "feed_event_kinds" => turn_feed.map { |entry| entry.fetch("event_kind") },
+          "primary_turn_todo_plan_id" => primary_turn_todo_plan_view&.fetch("turn_todo_plan_id", nil),
+          "active_subagent_turn_todo_plan_ids" => active_subagent_turn_todo_plan_views.map { |entry| entry.fetch("turn_todo_plan_id", nil) }.compact,
         }.compact
       end
 
@@ -145,7 +151,81 @@ module EmbeddedAgents
       end
 
       def active_subagent_session_public_ids(bundle_payload)
-        Array(bundle_payload["active_subagents"]).filter_map { |entry| entry["subagent_session_id"] }
+        Array(bundle_payload["active_subagent_turn_todo_plan_views"]).filter_map { |entry| entry["subagent_session_id"] }.presence ||
+          Array(bundle_payload["active_subagents"]).filter_map { |entry| entry["subagent_session_id"] }
+      end
+
+      def primary_turn_todo_plan_view
+        return @primary_turn_todo_plan_view if instance_variable_defined?(:@primary_turn_todo_plan_view)
+
+        @primary_turn_todo_plan_view =
+          if current_agent_task_run&.turn_todo_plan.present?
+            TurnTodoPlans::BuildView.call(turn_todo_plan: current_agent_task_run.turn_todo_plan)
+          end
+      end
+
+      def active_subagent_turn_todo_plan_views
+        return @active_subagent_turn_todo_plan_views if instance_variable_defined?(:@active_subagent_turn_todo_plan_views)
+
+        @active_subagent_turn_todo_plan_views = active_subagent_sessions.filter_map do |session|
+          active_subagent_turn_todo_plan_view_for(session)
+        end
+      end
+
+      def active_subagent_turn_todo_plan_view_for(session)
+        agent_task_run = AgentTaskRun
+          .where(conversation: session.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
+          .includes(turn_todo_plan: :turn_todo_plan_items)
+          .order(created_at: :desc)
+          .first
+
+        view =
+          if agent_task_run&.turn_todo_plan.present?
+            TurnTodoPlans::BuildView.call(turn_todo_plan: agent_task_run.turn_todo_plan)
+          else
+            {
+              "goal_summary" => agent_task_run&.request_summary || session.request_summary,
+              "current_item" => fallback_subagent_current_item(session),
+              "items" => [],
+              "counts" => {},
+            }.compact
+          end
+
+        view.merge(
+          "subagent_session_id" => session.public_id,
+          "profile_key" => session.profile_key,
+          "observed_status" => session.observed_status,
+          "supervision_state" => session.supervision_state,
+        )
+      end
+
+      def fallback_subagent_current_item(session)
+        return if session.current_focus_summary.blank?
+
+        {
+          "title" => session.current_focus_summary,
+          "status" => session.supervision_state,
+        }
+      end
+
+      def current_agent_task_run
+        return @current_agent_task_run if instance_variable_defined?(:@current_agent_task_run)
+
+        @current_agent_task_run = AgentTaskRun
+          .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
+          .includes(turn_todo_plan: :turn_todo_plan_items)
+          .order(created_at: :desc)
+          .first
+      end
+
+      def active_subagent_sessions
+        return @active_subagent_sessions if instance_variable_defined?(:@active_subagent_sessions)
+
+        @active_subagent_sessions = @conversation.owned_subagent_sessions
+          .close_pending_or_open
+          .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
+          .order(:created_at)
+          .to_a
       end
 
       def anchor_turn
