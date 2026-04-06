@@ -89,8 +89,8 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
       )
     )
     workflow_node = context.fetch(:workflow_node)
-    original_title = workflow_node.conversation.title
-    original_title_source = workflow_node.conversation.title_source
+    existing_title = workflow_node.conversation.title
+    existing_title_source = workflow_node.conversation.title_source
 
     result = ProviderExecution::ExecuteCoreMatrixTool.call(
       workflow_node: workflow_node,
@@ -108,8 +108,8 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
     assert_equal conversation.public_id, result.fetch("conversation_id")
     assert_equal({ "summary" => "Agent summary" }, result.fetch("accepted"))
     assert_equal({ "title" => "contains internal metadata content" }, result.fetch("rejected"))
-    assert_equal original_title, conversation.title
-    assert_equal original_title_source, conversation.title_source
+    assert_equal existing_title, conversation.title
+    assert_equal existing_title_source, conversation.title_source
     assert_equal "Agent summary", conversation.summary
     assert_equal "agent", conversation.summary_source
   end

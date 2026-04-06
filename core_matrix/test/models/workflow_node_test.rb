@@ -85,7 +85,7 @@ class WorkflowNodeTest < ActiveSupport::TestCase
       presentation_policy: "ops_trackable"
     )
 
-    title_update_node = WorkflowNode.create!(
+    annotation_node = WorkflowNode.create!(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
       workspace: conversation.workspace,
@@ -93,9 +93,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
       turn: turn,
       yielding_workflow_node: yielding_node,
       ordinal: 1,
-      node_key: "title-update",
-      node_type: "conversation_title_update",
-      intent_kind: "conversation_title_update",
+      node_key: "ops-annotation",
+      node_type: "ops_annotation",
+      intent_kind: "ops_annotation",
       stage_index: 0,
       stage_position: 0,
       presentation_policy: "internal_only",
@@ -110,9 +110,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
       turn: turn,
       yielding_workflow_node: yielding_node,
       ordinal: 2,
-      node_key: "title-update-ops",
-      node_type: "conversation_title_update",
-      intent_kind: "conversation_title_update",
+      node_key: "ops-annotation-ops",
+      node_type: "ops_annotation",
+      intent_kind: "ops_annotation",
       stage_index: 0,
       stage_position: 1,
       presentation_policy: "ops_trackable",
@@ -120,12 +120,12 @@ class WorkflowNodeTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    assert title_update_node.internal_only?
+    assert annotation_node.internal_only?
     assert operator_node.ops_trackable?
-    assert_equal yielding_node, title_update_node.yielding_workflow_node
-    assert_equal conversation.workspace, title_update_node.workspace
-    assert_equal conversation, title_update_node.conversation
-    assert_equal turn, title_update_node.turn
+    assert_equal yielding_node, annotation_node.yielding_workflow_node
+    assert_equal conversation.workspace, annotation_node.workspace
+    assert_equal conversation, annotation_node.conversation
+    assert_equal turn, annotation_node.turn
   end
 
   test "allows a waiting node to retain started_at without requiring finished_at" do
@@ -203,8 +203,8 @@ class WorkflowNodeTest < ActiveSupport::TestCase
             "intents" => [
               {
                 "intent_id" => "intent-1",
-                "intent_kind" => "conversation_title_update",
-                "payload" => { "title" => "Retitled" },
+                "intent_kind" => "ops_annotation",
+                "payload" => { "note" => "Retitled" },
               },
             ],
           },
@@ -220,9 +220,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
       turn: turn,
       yielding_workflow_node: yielding_node,
       ordinal: 1,
-      node_key: "title-update",
-      node_type: "conversation_title_update",
-      intent_kind: "conversation_title_update",
+      node_key: "ops-annotation",
+      node_type: "ops_annotation",
+      intent_kind: "ops_annotation",
       intent_batch_id: "batch-1",
       intent_id: "intent-1",
       presentation_policy: "internal_only",
@@ -230,6 +230,6 @@ class WorkflowNodeTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    assert_equal({ "title" => "Retitled" }, node.intent_payload)
+    assert_equal({ "note" => "Retitled" }, node.intent_payload)
   end
 end

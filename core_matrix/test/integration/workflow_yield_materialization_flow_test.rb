@@ -42,14 +42,14 @@ class WorkflowYieldMaterializationFlowTest < ActionDispatch::IntegrationTest
             "intents" => [
               {
                 "intent_id" => "intent-1",
-                "intent_kind" => "conversation_title_update",
-                "node_key" => "title-update",
-                "node_type" => "conversation_title_update",
+                "intent_kind" => "ops_annotation",
+                "node_key" => "ops-annotation-1",
+                "node_type" => "ops_annotation",
                 "requirement" => "required",
-                "conflict_scope" => "conversation_metadata",
+                "conflict_scope" => "workflow_annotation",
                 "presentation_policy" => "internal_only",
                 "durable_outcome" => "accepted",
-                "payload" => { "title" => "Retitled" },
+                "payload" => { "note" => "Retitled" },
                 "idempotency_key" => "intent-1",
               },
               {
@@ -77,7 +77,7 @@ class WorkflowYieldMaterializationFlowTest < ActionDispatch::IntegrationTest
     end
 
     assert_operator queries.size, :<=, 5
-    assert_equal %w[agent_step_1 title-update], projection.nodes.map(&:node_key)
+    assert_equal %w[agent_step_1 ops-annotation-1], projection.nodes.map(&:node_key)
     assert_equal %w[intent_batch_barrier intent_batch_manifest], projection.artifacts_by_node_key.fetch("agent_step_1").map(&:artifact_kind).sort
     assert_equal %w[intent_rejected yield_requested], projection.events_by_node_key.fetch("agent_step_1").map(&:event_kind).sort
     assert_equal "re_enter_agent", projection.workflow_run.resume_policy

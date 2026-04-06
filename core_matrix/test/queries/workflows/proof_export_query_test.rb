@@ -22,7 +22,7 @@ class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
     assert_equal ["batch-1"], bundle.event_summaries_by_node_key.fetch("agent_step_1").filter_map(&:batch_id)
     assert_equal ["wait_all"], bundle.artifact_summaries_by_node_key.fetch("agent_step_1").filter_map(&:barrier_kind)
     assert_equal "intent-1", governed_tool.metadata.dig("intent", "intent_id")
-    assert_equal({ "title" => "Retitled" }, governed_tool.metadata.dig("intent", "payload"))
+    assert_equal({ "note" => "Retitled" }, governed_tool.metadata.dig("intent", "payload"))
     assert_equal(
       {
         "failure_kind" => "provider_rate_limited",
