@@ -66,9 +66,9 @@ module Acceptance
           "outcome" => recovered ? "pass_recovered" : "pass_clean",
           "system_behavior_outcome" => recovered ? "healthy_with_recovery" : "healthy",
           "classification" => {
-            "primary" => "unknown",
+            "primary" => nil,
             "secondary" => [],
-            "confidence" => recovered ? 0.7 : 0.95,
+            "confidence" => nil,
           },
           "recommended_actions" => recovered ? ["review rescue steps and reduce manual interventions"] : [],
         }

@@ -15,6 +15,9 @@ require_relative "../lib/boot"
 require_relative "../lib/conversation_control_phrase_matrix"
 require_relative "../lib/conversation_runtime_validation"
 
+$stdout.sync = true
+$stderr.sync = true
+
 OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
 PLAYWRIGHT_VERSION = "1.59.1".freeze
@@ -120,6 +123,21 @@ end
 def write_text(path, contents)
   FileUtils.mkdir_p(File.dirname(path))
   File.binwrite(path, contents)
+end
+
+def append_jsonl(path, payload)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.open(path, "a") { |file| file.puts(JSON.generate(payload)) }
+end
+
+def log_capstone_phase(artifact_dir:, phase:, details: {})
+  payload = {
+    "timestamp" => Time.current.iso8601,
+    "phase" => phase,
+  }.merge(details.transform_keys(&:to_s))
+
+  append_jsonl(artifact_dir.join("phase-events.jsonl"), payload)
+  puts "[capstone] #{JSON.generate(payload)}"
 end
 
 def read_json(path)
@@ -1251,6 +1269,7 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
   lines << "- Benchmark summaries:"
   lines << "  - `capability-activation.md`"
   lines << "  - `failure-classification.md`"
+  lines << "  - `phase-events.jsonl`"
   lines << ""
 
   write_text(path, lines.join("\n"))
@@ -1603,10 +1622,14 @@ def write_failure_classification_md(path:, failure_report:)
     "- Benchmark outcome: `#{failure_report.fetch("outcome")}`",
     "- Workload outcome: `#{failure_report.fetch("workload_outcome")}`",
     "- System behavior outcome: `#{failure_report.fetch("system_behavior_outcome")}`",
-    "- Primary classification: `#{failure_report.dig("classification", "primary")}`",
-    "- Confidence: `#{failure_report.dig("classification", "confidence")}`",
     "",
   ]
+
+  primary = failure_report.dig("classification", "primary")
+  confidence = failure_report.dig("classification", "confidence")
+  lines << "- Primary classification: `#{primary}`" if primary.present?
+  lines << "- Confidence: `#{confidence}`" unless confidence.nil?
+  lines << "" if primary.present? || !confidence.nil?
 
   secondary = Array(failure_report.dig("classification", "secondary"))
   if secondary.any?
@@ -2251,11 +2274,27 @@ else
 end
 
 skill_sources = prepare_skill_sources!(skill_source_root:)
+log_capstone_phase(
+  artifact_dir: artifact_dir,
+  phase: "skill_sources_prepared",
+  details: {
+    "workspace_root" => workspace_root.to_s,
+    "skill_source_manifest_path" => skill_sources.fetch("manifest_path"),
+  }
+)
 skills_validation = install_and_validate_skills!(
   agent_program_version: agent_program_version,
   skill_sources:,
   workspace_root:,
   runtime_worker_boot:
+)
+log_capstone_phase(
+  artifact_dir: artifact_dir,
+  phase: "skills_validated",
+  details: {
+    "passed" => skills_validation.fetch("passed"),
+    "skill_count" => skills_validation.fetch("skill_sources").size,
+  }
 )
 
 write_json(artifact_dir.join("acceptance-registration.json"), {
@@ -2286,6 +2325,14 @@ write_json(artifact_dir.join("rescue-history.json"), [])
 
 conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
 conversation = conversation_context.fetch(:conversation).reload
+log_capstone_phase(
+  artifact_dir: artifact_dir,
+  phase: "conversation_initialized",
+  details: {
+    "conversation_id" => conversation.public_id,
+    "workspace_id" => conversation.workspace.public_id,
+  }
+)
 ensure_conversation_capability_policy!(
   conversation: conversation,
   control_enabled: true
@@ -2301,6 +2348,14 @@ rescue_history = []
 terminal_failure_message = nil
 
 1.upto(max_turn_attempts) do |attempt_no|
+  log_capstone_phase(
+    artifact_dir: artifact_dir,
+    phase: "attempt_started",
+    details: {
+      "attempt_no" => attempt_no,
+      "max_turn_attempts" => max_turn_attempts,
+    }
+  )
   run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
     agent_program_version: agent_program_version,
@@ -2321,6 +2376,15 @@ terminal_failure_message = nil
     poll_interval_seconds: supervision_poll_interval_seconds,
     stall_threshold_ms: supervision_stall_threshold_ms
   )
+  log_capstone_phase(
+    artifact_dir: artifact_dir,
+    phase: "supervision_complete",
+    details: {
+      "attempt_no" => attempt_no,
+      "poll_count" => supervision_trace.fetch("polls").length,
+      "overall_state" => supervision_trace.dig("final_response", "machine_status", "overall_state"),
+    }
+  )
 
   turn = run.fetch(:turn).reload
   workflow_run = ManualAcceptanceSupport.wait_for_workflow_run_terminal!(
@@ -2333,6 +2397,15 @@ terminal_failure_message = nil
   runtime_validation = build_conversation_runtime_validation(
     tool_invocations: debug_payload.fetch("tool_invocations")
   )
+  log_capstone_phase(
+    artifact_dir: artifact_dir,
+    phase: "host_validation_started",
+    details: {
+      "attempt_no" => attempt_no,
+      "workflow_run_id" => workflow_run.public_id,
+      "workflow_state" => workflow_run.lifecycle_state,
+    }
+  )
   host_validation_bundle = evaluate_workspace_validation(
     generated_app_dir: generated_app_dir,
     artifact_dir: artifact_dir,
@@ -2342,6 +2415,18 @@ terminal_failure_message = nil
   )
   host_validation = host_validation_bundle.fetch("host_validation")
   playwright_validation = host_validation_bundle.fetch("playwright_validation")
+  log_capstone_phase(
+    artifact_dir: artifact_dir,
+    phase: "host_validation_complete",
+    details: {
+      "attempt_no" => attempt_no,
+      "npm_install_passed" => host_validation.dig("npm_install", "success"),
+      "npm_test_passed" => host_validation.dig("npm_test", "success"),
+      "npm_build_passed" => host_validation.dig("npm_build", "success"),
+      "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
+      "playwright_verification_passed" => playwright_validation["result"].present?,
+    }
+  )
 
   attempt_history << {
     "attempt_no" => attempt_no,
@@ -2375,9 +2460,19 @@ terminal_failure_message = nil
     supervision_trace: supervision_trace
   )
 
-  break if workflow_run.lifecycle_state == "completed" &&
-    runtime_validation_passed?(runtime_validation) &&
-    host_validation_passed?(host_validation:, playwright_validation:)
+  if workflow_run.lifecycle_state == "completed" &&
+      runtime_validation_passed?(runtime_validation) &&
+      host_validation_passed?(host_validation:, playwright_validation:)
+    log_capstone_phase(
+      artifact_dir: artifact_dir,
+      phase: "attempt_succeeded",
+      details: {
+        "attempt_no" => attempt_no,
+        "workflow_run_id" => workflow_run.public_id,
+      }
+    )
+    break
+  end
 
   if attempt_no >= max_turn_attempts
     terminal_failure_message = <<~MSG
@@ -2389,6 +2484,14 @@ terminal_failure_message = nil
       #{JSON.pretty_generate(host_validation_bundle)}
     MSG
     write_text(artifact_dir.join("terminal-failure.txt"), terminal_failure_message)
+    log_capstone_phase(
+      artifact_dir: artifact_dir,
+      phase: "terminal_failure_recorded",
+      details: {
+        "attempt_no" => attempt_no,
+        "workflow_run_id" => workflow_run.public_id,
+      }
+    )
     break
   end
 
@@ -2413,7 +2516,25 @@ terminal_failure_message = nil
     repair_prompt: repair_prompt
   )
   write_json(artifact_dir.join("rescue-history.json"), rescue_history)
+  log_capstone_phase(
+    artifact_dir: artifact_dir,
+    phase: "repair_prompt_prepared",
+    details: {
+      "attempt_no" => attempt_no,
+      "next_attempt_no" => attempt_no + 1,
+      "trigger_reasons" => rescue_history.last.fetch("trigger_reasons"),
+    }
+  )
 end
+
+log_capstone_phase(
+  artifact_dir: artifact_dir,
+  phase: "export_roundtrip_started",
+  details: {
+    "attempt_count" => attempt_history.length,
+    "rescue_count" => rescue_history.length,
+  }
+)
 
 source_transcript = ManualAcceptanceSupport.app_api_conversation_transcript!(
   conversation_id: conversation.public_id,
@@ -2595,6 +2716,7 @@ write_turns_md(
   proof_artifacts: [
     "acceptance-registration.json",
     "capstone-run-bootstrap.json",
+    "phase-events.jsonl",
     "skills-validation.json",
     "attempt-history.json",
     "rescue-history.json",
@@ -2623,6 +2745,15 @@ write_collaboration_notes_md(
   selector: selector,
   host_validation_notes: host_validation_notes,
   subagent_sessions: subagent_sessions
+)
+
+log_capstone_phase(
+  artifact_dir: artifact_dir,
+  phase: "benchmark_reporting_started",
+  details: {
+    "tool_call_count" => tool_invocations.length,
+    "subagent_session_count" => subagent_sessions.length,
+  }
 )
 write_runtime_and_bindings_md(
   path: artifact_dir.join("runtime-and-bindings.md"),
@@ -2763,6 +2894,7 @@ summary = {
   "skills_validation_path" => artifact_dir.join("skills-validation.json").to_s,
   "capability_activation_path" => artifact_dir.join("capability-activation.json").to_s,
   "failure_classification_path" => artifact_dir.join("failure-classification.json").to_s,
+  "phase_events_path" => artifact_dir.join("phase-events.jsonl").to_s,
   "host_playability_artifact" => (artifact_dir.join("host-playwright-verification.json").to_s if playwright_validation.present?),
   "control_intent_matrix_path" => (artifact_dir.join("control-intent-matrix.json").to_s if control_intent_matrix.present?),
   "benchmark_outcome" => failure_report.fetch("outcome"),
@@ -2795,6 +2927,15 @@ summary["agent_evaluation"] = evaluation.transform_values { |payload| payload.fe
 write_agent_evaluation_md(artifact_dir.join("agent-evaluation.md"), evaluation)
 write_json(artifact_dir.join("agent-evaluation.json"), evaluation)
 write_json(artifact_dir.join("run-summary.json"), summary)
+log_capstone_phase(
+  artifact_dir: artifact_dir,
+  phase: "benchmark_reporting_complete",
+  details: {
+    "benchmark_outcome" => summary.fetch("benchmark_outcome"),
+    "workload_outcome" => summary.fetch("workload_outcome"),
+    "system_behavior_outcome" => summary.fetch("system_behavior_outcome"),
+  }
+)
 
 puts JSON.pretty_generate(summary)
 raise terminal_failure_message if terminal_failure_message.present?

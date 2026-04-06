@@ -89,6 +89,15 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, 'write_text(artifact_dir.join("terminal-failure.txt"), terminal_failure_message)'
   end
 
+  test "acceptance scenario emits phase progress events during long benchmark runs" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "def log_capstone_phase"
+    assert_includes scenario, 'artifact_dir.join("phase-events.jsonl")'
+    assert_includes scenario, 'phase: "host_validation_started"'
+    assert_includes scenario, 'phase: "benchmark_reporting_complete"'
+  end
+
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
     redirect_doc = Rails.root.join("docs/behavior/conversation-observation-and-supervisor-status.md")
     supervision_doc = Rails.root.join("docs/behavior/conversation-supervision-and-control.md")
