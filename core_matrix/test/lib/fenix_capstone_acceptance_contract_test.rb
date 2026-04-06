@@ -46,6 +46,25 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "policy.detailed_progress_enabled = true"
   end
 
+  test "acceptance scenario writes capability activation benchmark output" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, 'artifact_dir.join("capability-activation.json")'
+  end
+
+  test "acceptance scenario writes failure classification benchmark output" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, 'artifact_dir.join("failure-classification.json")'
+  end
+
+  test "acceptance scenario uses shared capability benchmark helpers" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "Acceptance::CapabilityActivation"
+    assert_includes scenario, "Acceptance::FailureClassification"
+  end
+
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
     redirect_doc = Rails.root.join("docs/behavior/conversation-observation-and-supervisor-status.md")
     supervision_doc = Rails.root.join("docs/behavior/conversation-supervision-and-control.md")
