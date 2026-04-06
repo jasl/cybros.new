@@ -16,6 +16,16 @@
   use a polymorphic owner column.
 - Add database-level cascading cleanup from `agent_task_runs` to
   `turn_todo_plans` and from `turn_todo_plans` to `turn_todo_plan_items`.
+- This repo's Rails commands do not accept combined forms like
+  `bin/rails db:test:prepare test ...`; run `db:test:prepare` and `test`
+  as separate commands.
+- When a task adds or edits migrations, run `bin/rails db:migrate` before the
+  focused test command so pending development migrations do not block test
+  boot.
+- This is a multi-database Rails app. If you need to replay an already-applied
+  migration while iterating locally, use the namespaced task such as
+  `bin/rails db:migrate:redo:primary VERSION=...`.
+- Stage `core_matrix/db/schema.rb` in the same commit as any migration change.
 - Do not switch canonical feed kinds until supervision projection, snapshot,
   machine status, and summary responders have all stopped reading
   `active_plan_items`.
@@ -119,8 +129,9 @@ Model rules:
 - counts payload must be a hash
 - database foreign key should cascade on task deletion
 
-Add the corresponding `has_one :turn_todo_plan, dependent: :delete_all` to
-`AgentTaskRun`.
+Add the corresponding `has_one :turn_todo_plan, dependent: :delete` to
+`AgentTaskRun`, while keeping the database foreign key cascade as the source of
+truth for owner cleanup.
 
 **Step 4: Run the model test to verify it passes**
 
@@ -128,7 +139,9 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/models/turn_todo_plan_test.rb
+bin/rails db:migrate
+bin/rails db:test:prepare
+bin/rails test test/models/turn_todo_plan_test.rb
 ```
 
 Expected: PASS.
@@ -137,7 +150,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add db/migrate/20260406110000_create_turn_todo_plans.rb app/models/turn_todo_plan.rb app/models/agent_task_run.rb test/models/turn_todo_plan_test.rb
+git add db/migrate/20260406110000_create_turn_todo_plans.rb db/schema.rb app/models/turn_todo_plan.rb app/models/agent_task_run.rb test/models/turn_todo_plan_test.rb
 git commit -m "feat: add turn todo plan model"
 ```
 
@@ -148,6 +161,7 @@ adding the plan domain. This task is only about the explicit turn todo plan.
 
 **Files:**
 - Modify: `core_matrix/db/migrate/20260406110000_create_turn_todo_plans.rb`
+- Modify: `core_matrix/app/models/turn_todo_plan.rb`
 - Create: `core_matrix/app/models/turn_todo_plan_item.rb`
 - Test: `core_matrix/test/models/turn_todo_plan_item_test.rb`
 
@@ -231,7 +245,9 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/models/turn_todo_plan_item_test.rb
+bin/rails db:migrate:redo:primary VERSION=20260406110000
+bin/rails db:test:prepare
+bin/rails test test/models/turn_todo_plan_item_test.rb
 ```
 
 Expected: PASS.
@@ -240,7 +256,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add db/migrate/20260406110000_create_turn_todo_plans.rb app/models/turn_todo_plan_item.rb test/models/turn_todo_plan_item_test.rb
+git add db/migrate/20260406110000_create_turn_todo_plans.rb db/schema.rb app/models/turn_todo_plan.rb app/models/turn_todo_plan_item.rb test/models/turn_todo_plan_item_test.rb
 git commit -m "feat: add turn todo plan items"
 ```
 
@@ -319,7 +335,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/services/turn_todo_plans/apply_update_test.rb
+bin/rails db:test:prepare
+bin/rails test test/services/turn_todo_plans/apply_update_test.rb
 ```
 
 Expected: PASS.
@@ -413,7 +430,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/services/agent_control/handle_execution_report_turn_todo_plan_test.rb
+bin/rails db:test:prepare
+bin/rails test test/services/agent_control/handle_execution_report_turn_todo_plan_test.rb
 ```
 
 Expected: PASS.
@@ -483,7 +501,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/services/conversations/update_supervision_state_test.rb test/services/turn_todo_plans/build_view_test.rb
+bin/rails db:test:prepare
+bin/rails test test/services/conversations/update_supervision_state_test.rb test/services/turn_todo_plans/build_view_test.rb
 ```
 
 Expected: PASS.
@@ -564,7 +583,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
+bin/rails db:test:prepare
+bin/rails test test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
 ```
 
 Expected: PASS.
@@ -657,7 +677,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/models/conversation_supervision_feed_entry_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb test/services/conversation_supervision/build_activity_feed_test.rb test/services/conversation_supervision/publish_update_test.rb
+bin/rails db:test:prepare
+bin/rails test test/models/conversation_supervision_feed_entry_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb test/services/conversation_supervision/build_activity_feed_test.rb test/services/conversation_supervision/publish_update_test.rb
 ```
 
 Expected: PASS.
@@ -725,7 +746,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_feeds_controller_test.rb
+bin/rails db:test:prepare
+bin/rails test test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_feeds_controller_test.rb
 ```
 
 Expected: PASS.
@@ -827,7 +849,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/integration/turn_todo_plan_cleanup_contract_test.rb test/services/agent_control/handle_execution_report_test.rb test/services/conversation_supervision/publish_update_test.rb
+bin/rails db:test:prepare
+bin/rails test test/integration/turn_todo_plan_cleanup_contract_test.rb test/services/agent_control/handle_execution_report_test.rb test/services/conversation_supervision/publish_update_test.rb
 ```
 
 Expected: PASS.
@@ -836,7 +859,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add db/migrate/20260406120000_drop_agent_task_plan_items.rb app/services/agent_control/apply_supervision_update.rb app/models/agent_task_run.rb app/models/subagent_session.rb app/services/conversations/purge_plan.rb docs/behavior/agent-progress-and-plan-items.md test/services/agent_control/handle_execution_report_test.rb test/support/conversation_supervision_fixture_builder.rb test/services/conversation_supervision/publish_update_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
+git add db/migrate/20260406120000_drop_agent_task_plan_items.rb db/schema.rb app/services/agent_control/apply_supervision_update.rb app/models/agent_task_run.rb app/models/subagent_session.rb app/services/conversations/purge_plan.rb docs/behavior/agent-progress-and-plan-items.md test/services/agent_control/handle_execution_report_test.rb test/support/conversation_supervision_fixture_builder.rb test/services/conversation_supervision/publish_update_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
 git rm app/models/agent_task_plan_item.rb app/services/agent_task_runs/replace_plan_items.rb
 git commit -m "refactor: delete legacy supervision plan path"
 ```
@@ -957,8 +980,9 @@ bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
 bun run lint:js
-bin/rails db:test:prepare test
-bin/rails db:test:prepare test:system
+bin/rails db:test:prepare
+bin/rails test
+bin/rails test:system
 ```
 
 Expected: PASS.

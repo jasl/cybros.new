@@ -39,7 +39,8 @@ cd agents/fenix
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
-bin/rails db:test:prepare test
+bin/rails db:test:prepare
+bin/rails test
 ```
 
 ### `core_matrix`
@@ -50,8 +51,9 @@ bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
 bun run lint:js
-bin/rails db:test:prepare test
-bin/rails db:test:prepare test:system
+bin/rails db:test:prepare
+bin/rails test
+bin/rails test:system
 ```
 
 ### `core_matrix/vendor/simple_inference`
