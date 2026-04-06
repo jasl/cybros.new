@@ -126,6 +126,8 @@ class AcceptanceBenchmarkReportingTest < ActiveSupport::TestCase
     assert_equal "acceptable", evaluation.dig("runtime_health", "rating")
     assert_equal "strong", evaluation.dig("convergence", "rating")
     assert_equal "strong", evaluation.dig("cost_efficiency", "rating")
+    assert_includes evaluation.dig("result_quality", "evidence"), "evidence/run-summary.json"
+    assert_includes evaluation.dig("result_quality", "evidence"), "review/playability-verification.md"
   end
 
   test "markdown renderers expose benchmark reporting sections" do

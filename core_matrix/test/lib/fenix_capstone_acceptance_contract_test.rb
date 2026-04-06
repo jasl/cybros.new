@@ -140,6 +140,17 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ConversationArtifacts.capture_subagent_runtime_snapshots!"
   end
 
+  test "acceptance scenario uses shared review artifacts helper" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/review_artifacts.rb")
+
+    assert helper.exist?, "expected shared review artifacts helper to exist"
+    assert_includes scenario, "Acceptance::ReviewArtifacts.write_turns!"
+    assert_includes scenario, "Acceptance::ReviewArtifacts.write_collaboration_notes!"
+    assert_includes scenario, "Acceptance::ReviewArtifacts.write_runtime_and_bindings!"
+    assert_includes scenario, "Acceptance::ReviewArtifacts.write_workspace_artifacts!"
+  end
+
   test "acceptance scenario uses shared host validation helper" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
@@ -171,7 +182,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert helper.exist?, "expected shared live progress helper to exist"
     assert_includes scenario, "Acceptance::LiveProgressFeed.capture!"
-    assert_includes scenario, 'artifact_dir.join("live-progress-events.jsonl")'
+    assert_includes scenario, 'artifact_dir.join("logs", "live-progress-events.jsonl")'
   end
 
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do

@@ -275,6 +275,7 @@ def supervise_conversation_progress!(
     Acceptance::LiveProgressFeed.capture!(
       artifact_dir: artifact_dir,
       workflow_run: workflow_run.reload,
+      owner_conversation: workflow_run.conversation,
       seen_event_keys: seen_live_progress_event_keys
     )
 
@@ -606,296 +607,6 @@ def run_control_intent_matrix!(artifact_dir:, supervision_session_id:, actor:, c
 
   write_json(artifact_dir.join("control-intent-matrix.json"), payload)
   payload
-end
-
-def write_turns_md(path:, scenario_date:, conversation:, turn:, workflow_run:, agent_program_version:, execution_runtime:, selector:, diagnostics_turn:, source_transcript:, provider_breakdown:, subagent_sessions:, proof_artifacts:)
-  workflow_node_type_counts = diagnostics_turn.dig("metadata", "workflow_node_type_counts") || {}
-  evidence_refs = diagnostics_turn.dig("metadata", "evidence_refs") || {}
-  provider_entry = provider_breakdown.first || {}
-  subagent_entry = Array(subagent_sessions).first || {}
-  message_roles = source_transcript.fetch("items").map { |item| item.fetch("role") }.uniq
-
-  lines = [
-    "# Capstone Turns",
-    "",
-    "## Turn 1",
-    "",
-    "- Scenario date: `#{scenario_date}`",
-    "- Operator: `#{OPERATOR_NAME}`",
-    "- Conversation `public_id`: `#{conversation.public_id}`",
-    "- Turn `public_id`: `#{turn.public_id}`",
-    "- Workflow-run `public_id`: `#{workflow_run.public_id}`",
-    "- Agent program version `public_id`: `#{agent_program_version.public_id}`",
-    "- Execution runtime `public_id`: `#{execution_runtime&.public_id || "none"}`",
-    "- Runtime mode: `#{RUNTIME_MODE}`",
-    "- Provider handle: `#{provider_entry["provider_handle"] || "n/a"}`",
-    "- Model ref: `#{provider_entry["model_ref"] || "n/a"}`",
-    "- API model: `#{turn.resolved_model_ref || "n/a"}`",
-    "- Selector: `#{selector}`",
-    "- Expected DAG shape: provider-backed `turn_step` with repeated `tool_call` and `barrier_join` expansion until completion",
-    "- Observed DAG shape:",
-    "  - `turn_step`: `#{workflow_node_type_counts["turn_step"].to_i}`",
-    "  - `tool_call`: `#{workflow_node_type_counts["tool_call"].to_i}`",
-    "  - `barrier_join`: `#{workflow_node_type_counts["barrier_join"].to_i}`",
-    "  - Total workflow nodes: `#{workflow_run.workflow_nodes.count}`",
-    "  - Highest observed provider round: `#{diagnostics_turn["provider_round_count"]}`",
-    "- Expected conversation state: one user request followed by one completed agent response",
-    "- Observed conversation state:",
-    "  - Conversation lifecycle: `#{conversation.lifecycle_state}`",
-    "  - Turn lifecycle: `#{turn.lifecycle_state}`",
-    "  - Message roles: `#{message_roles.join("`, `")}`",
-    "  - Output message `public_id`: `#{evidence_refs["selected_output_message_id"] || turn.selected_output_message&.public_id || "none"}`",
-    "- Subagent work expected: `yes`",
-    "- Subagent work observed: `#{subagent_sessions.any? ? "yes" : "no"}`",
-  ]
-
-  if subagent_sessions.any?
-    lines << "  - Observed subagent session `public_id`: `#{subagent_entry["subagent_session_id"] || subagent_entry["id"] || "unknown"}`"
-    lines << "  - Observed subagent profile: `#{subagent_entry["profile_name"] || subagent_entry["profile_id"] || "unknown"}`"
-  end
-
-  lines << "- Proof artifacts:"
-  proof_artifacts.each do |artifact|
-    lines << "  - `#{artifact}`"
-  end
-  lines << "- Outcome: `pass`"
-  lines << ""
-
-  write_text(path, lines.join("\n"))
-end
-
-def write_collaboration_notes_md(path:, selector:, host_validation_notes:, subagent_sessions:)
-  lines = [
-    "# Collaboration Notes",
-    "",
-    "## What Worked Well",
-    "",
-    "- The provider-backed loop stayed autonomous after the initial user turn and completed without manual mid-turn steering.",
-    "- The run exercised the real `Core Matrix` plus Dockerized `Fenix` path instead of a debug-only shortcut.",
-    "- The final product landed in the mounted host workspace and was independently runnable from the host.",
-  ]
-
-  if subagent_sessions.any?
-    lines << "- Real subagent work surfaced during the run through at least one exported subagent session."
-  else
-    lines << "- The tool surface stayed stable, but this run did not export subagent evidence, so subagent capability should be probed again on the next capstone rerun."
-  end
-
-  lines.concat([
-    "",
-    "## Where Operator Intervention Was Still Needed",
-    "",
-    "- For realistic coding-agent capstone runs, the smaller live-acceptance selector was not sufficient. The full-window selector `#{selector}` was the correct operational choice.",
-  ])
-  if host_validation_notes.any?
-    host_validation_notes.each do |note|
-      lines << "- #{note}"
-    end
-  else
-    lines << "- Host-side validation ran without extra operator intervention beyond the normal preview start."
-  end
-
-  lines.concat([
-    "",
-    "## Collaboration Guidance",
-    "",
-    "- Keep the workspace disposable and expect a host-side dependency reinstall when the container writes platform-specific JavaScript dependencies into a shared mount.",
-    "- Treat the provider-backed loop as the truth for acceptance. The agent message alone was not enough; the durable workflow, subagent session, export bundle, and host playability checks were needed to close the run.",
-    "- Keep the staged GitHub skill sources in the mounted workspace so the runtime can install and inspect them through the normal tool surface.",
-    "",
-  ])
-
-  write_text(path, lines.join("\n"))
-end
-
-def write_runtime_and_bindings_md(path:, workspace_root:, machine_credential:, agent_program:, agent_program_version:, execution_runtime:, skill_source_manifest_path:, docker_container:, runtime_base_url:, runtime_worker_boot:)
-  redacted_credential = machine_credential.to_s.sub(/:.+\z/, ":REDACTED")
-  worker_commands = Array(runtime_worker_boot&.fetch("worker_commands", nil))
-  standalone_solid_queue = runtime_worker_boot&.fetch("standalone_solid_queue", false)
-  activation_command = <<~CMD.chomp
-    FENIX_MACHINE_CREDENTIAL=#{redacted_credential} \
-    FENIX_EXECUTION_MACHINE_CREDENTIAL=#{redacted_credential} \
-    DOCKER_CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
-    bash acceptance/bin/activate_fenix_docker_runtime.sh
-  CMD
-  worker_summary =
-    if standalone_solid_queue
-      "The runtime worker booted through `bin/runtime-worker`, which in standalone mode also started the separate Solid Queue worker process."
-    else
-      "The runtime worker booted through `bin/runtime-worker`, which reused Puma's embedded Solid Queue supervisor and only started the persistent control loop."
-    end
-  worker_command_lines =
-    if worker_commands.present?
-      worker_commands.map { |command| "- `#{command}`" }.join("\n")
-    else
-      "- `bin/runtime-worker`"
-    end
-
-  contents = <<~MD
-    # Runtime And Bindings
-
-    ## Reset
-
-    - Reset disposable workspace:
-      - `#{workspace_root}`
-    - Reset `Core Matrix` development database with:
-
-    ```bash
-    cd #{Rails.root}
-    bin/rails db:drop
-    rm db/schema.rb
-    bin/rails db:create
-    bin/rails db:migrate
-    bin/rails db:reset
-    ```
-
-    ## Core Matrix
-
-    Started host-side services with:
-
-    ```bash
-    cd #{Rails.root}
-    bin/rails server -b 127.0.0.1 -p 3000
-    bin/jobs start
-    ```
-
-    Health check:
-
-    ```bash
-    curl -fsS http://127.0.0.1:3000/up
-    ```
-
-    ## Dockerized Fenix
-
-    Fresh-start automation rebuilt and recreated the Dockerized `Fenix`
-    runtime container from the current local `agents/fenix` checkout.
-
-    - Container: `#{docker_container}`
-    - Public runtime base URL: `#{runtime_base_url}`
-
-    The top-level automation reset the Dockerized runtime by removing the
-    `fenix_capstone_storage` volume before boot so no in-run database reset was
-    needed.
-
-    ```bash
-    docker volume rm -f fenix_capstone_storage
-    bash acceptance/bin/fresh_start_stack.sh
-    ```
-
-    Manifest probe:
-
-    ```bash
-    curl -fsS #{runtime_base_url}/runtime/manifest
-    ```
-
-    ## Registration And Worker Start
-
-    Registered the bundled runtime from the published manifest and issued a new machine credential. Public bindings:
-
-    - Agent program `public_id`: `#{agent_program.public_id}`
-    - Agent program version `public_id`: `#{agent_program_version.public_id}`
-    - Execution runtime `public_id`: `#{execution_runtime.public_id}`
-    - Skill source manifest: `#{skill_source_manifest_path}`
-
-    After runtime registration, the top-level automation recreated the
-    Dockerized `Fenix` container with the issued machine credentials in its
-    environment, then started the persistent runtime worker:
-
-    ```bash
-    #{activation_command}
-    ```
-
-    #{worker_summary}
-
-    Worker entrypoint(s):
-
-    #{worker_command_lines}
-  MD
-
-  write_text(path, contents)
-end
-
-def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, host_validation_notes:, preview_port:)
-  unless generated_app_dir.exist?
-    return write_text(path, <<~MD)
-      # Workspace Artifacts
-
-      Generated application directory was not created:
-
-      - Mounted host workspace root:
-        - `#{workspace_root}`
-      - Expected application path:
-        - `#{generated_app_dir}`
-    MD
-  end
-
-  relative_files = Dir.chdir(generated_app_dir) do
-    Dir.glob([
-      "src/**/*",
-      "public/**/*",
-      "package.json",
-      "vite.config.*",
-      "tsconfig*.json",
-      "index.html",
-      "dist/**/*",
-    ]).select { |entry| File.file?(entry) }.sort.first(20)
-  end
-
-  lines = [
-    "# Workspace Artifacts",
-    "",
-    "- Mounted host workspace root:",
-    "  - `#{workspace_root}`",
-    "- Final application path:",
-    "  - `#{generated_app_dir}`",
-    "- Final source tree includes:",
-  ]
-  relative_files.each do |entry|
-    lines << "  - `#{entry}`"
-  end
-  lines << ""
-  lines << "## Host-Side Commands"
-  lines << ""
-  lines << "Primary host usability verification uses the exported `dist/` output:"
-  lines << ""
-  lines << "```bash"
-  lines << "cd #{generated_app_dir}/dist"
-  lines << "python3 -m http.server #{preview_port} --bind 127.0.0.1"
-  lines << "```"
-  lines << ""
-  lines << "Source portability diagnostics remain separate and may require reinstalling host-native dependencies:"
-  lines << ""
-  if host_validation_notes.any?
-    lines << "Because the mounted workspace contained container-built dependencies, source-portability diagnostics first normalized those artifacts:"
-    lines << ""
-    lines << "```bash"
-    lines << "cd #{generated_app_dir}"
-    lines << "rm -rf node_modules dist coverage"
-    lines << "npm install"
-    lines << "```"
-    lines << ""
-  end
-  lines << "Host-side verification commands:"
-  lines << ""
-  lines << "```bash"
-  lines << "cd #{generated_app_dir}"
-  lines << "npm test"
-  lines << "npm run build"
-  lines << "```"
-  lines << ""
-  lines << "## Run URL"
-  lines << ""
-  lines << "- Preview URL:"
-  lines << "  - `http://127.0.0.1:#{preview_port}/`"
-  lines << ""
-  lines << "Host preview reachability is recorded separately in `workspace-validation.md` and `host-preview.json` when available."
-  lines << "- Benchmark summaries:"
-  lines << "  - `capability-activation.md`"
-  lines << "  - `failure-classification.md`"
-  lines << "  - `phase-events.jsonl`"
-  lines << ""
-
-  write_text(path, lines.join("\n"))
 end
 
 def build_conversation_runtime_validation(tool_invocations:)
@@ -1418,9 +1129,11 @@ write_jsonl(
   artifact_dir.join("logs", "turn-runtime-events.jsonl"),
   turn_runtime_report.fetch("timeline")
 )
-write_turns_md(
+Acceptance::ReviewArtifacts.write_turns!(
   path: artifact_dir.join("turns.md"),
   scenario_date: scenario_date,
+  operator_name: OPERATOR_NAME,
+  runtime_mode: RUNTIME_MODE,
   conversation: conversation,
   turn: turn,
   workflow_run: workflow_run,
@@ -1432,34 +1145,38 @@ write_turns_md(
   provider_breakdown: provider_breakdown,
   subagent_sessions: subagent_sessions,
   proof_artifacts: [
-    "acceptance-registration.json",
-    "capstone-run-bootstrap.json",
-    "phase-events.jsonl",
-    "live-progress-events.jsonl",
-    "skills-validation.json",
-    "attempt-history.json",
-    "rescue-history.json",
-    "workspace-validation.md",
-    "supervision-session.json",
-    "supervision-polls.json",
-    "supervision-final.json",
-    "supervision-sidechat.md",
-    "supervision-status.md",
-    "supervision-feed.md",
-    "capability-activation.json",
-    "capability-activation.md",
-    "failure-classification.json",
-    "failure-classification.md",
-    ("terminal-failure.txt" if terminal_failure_message.present?),
-    ("control-intent-matrix.json" if control_intent_matrix.present?),
-    ("host-preview.json" if preview_http.present?),
-    ("host-playwright-verification.json" if playwright_validation.present?),
-    ("host-playability.png" if playwright_validation.present?),
-    "playability-verification.md",
-    "export-roundtrip.md",
+    "review/conversation-transcript.md",
+    "review/turn-runtime-transcript.md",
+    "review/supervision-sidechat.md",
+    "review/supervision-status.md",
+    "review/supervision-feed.md",
+    "review/workspace-validation.md",
+    "review/playability-verification.md",
+    "review/export-roundtrip.md",
+    "review/capability-activation.md",
+    "review/failure-classification.md",
+    "evidence/run-summary.json",
+    "evidence/agent-evaluation.json",
+    "evidence/capability-activation.json",
+    "evidence/failure-classification.json",
+    "evidence/turn-runtime-evidence.json",
+    "evidence/subagent-runtime-snapshots.json",
+    "evidence/attempt-history.json",
+    "evidence/rescue-history.json",
+    "evidence/skills-validation.json",
+    "logs/phase-events.jsonl",
+    "logs/live-progress-events.jsonl",
+    "logs/supervision-session.json",
+    "logs/supervision-polls.json",
+    "logs/supervision-final.json",
+    ("evidence/terminal-failure.txt" if terminal_failure_message.present?),
+    ("evidence/control-intent-matrix.json" if control_intent_matrix.present?),
+    ("playable/host-preview.json" if preview_http.present?),
+    ("playable/host-playwright-verification.json" if playwright_validation.present?),
+    ("playable/host-playability.png" if playwright_validation.present?),
   ].compact
 )
-write_collaboration_notes_md(
+Acceptance::ReviewArtifacts.write_collaboration_notes!(
   path: artifact_dir.join("collaboration-notes.md"),
   selector: selector,
   host_validation_notes: host_validation_notes,
@@ -1474,7 +1191,7 @@ log_capstone_phase(
     "subagent_session_count" => subagent_sessions.length,
   }
 )
-write_runtime_and_bindings_md(
+Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
   path: artifact_dir.join("runtime-and-bindings.md"),
   workspace_root: workspace_root,
   machine_credential: machine_credential,
@@ -1486,7 +1203,7 @@ write_runtime_and_bindings_md(
   runtime_base_url: runtime_base_url,
   runtime_worker_boot: runtime_worker_boot
 )
-write_workspace_artifacts_md(
+Acceptance::ReviewArtifacts.write_workspace_artifacts!(
   path: artifact_dir.join("workspace-artifacts.md"),
   workspace_root: workspace_root,
   generated_app_dir: generated_app_dir,
@@ -1615,19 +1332,19 @@ summary = {
   "tool_call_count" => tool_invocations.length,
   "subagent_session_count" => subagent_sessions.length,
   "subagent_runtime_snapshot_count" => subagent_runtime_snapshots.length,
-  "skills_validation_path" => artifact_dir.join("skills-validation.json").to_s,
-  "capability_activation_path" => artifact_dir.join("capability-activation.json").to_s,
-  "failure_classification_path" => artifact_dir.join("failure-classification.json").to_s,
-  "phase_events_path" => artifact_dir.join("phase-events.jsonl").to_s,
-  "live_progress_events_path" => artifact_dir.join("live-progress-events.jsonl").to_s,
+  "skills_validation_path" => artifact_dir.join("evidence", "skills-validation.json").to_s,
+  "capability_activation_path" => artifact_dir.join("evidence", "capability-activation.json").to_s,
+  "failure_classification_path" => artifact_dir.join("evidence", "failure-classification.json").to_s,
+  "phase_events_path" => artifact_dir.join("logs", "phase-events.jsonl").to_s,
+  "live_progress_events_path" => artifact_dir.join("logs", "live-progress-events.jsonl").to_s,
   "review_index_path" => artifact_dir.join("review", "index.md").to_s,
   "review_turn_runtime_transcript_path" => artifact_dir.join("review", "turn-runtime-transcript.md").to_s,
   "evidence_manifest_path" => artifact_dir.join("evidence", "artifact-manifest.json").to_s,
   "evidence_run_summary_path" => artifact_dir.join("evidence", "run-summary.json").to_s,
   "evidence_turn_runtime_path" => artifact_dir.join("evidence", "turn-runtime-evidence.json").to_s,
   "subagent_runtime_snapshots_path" => artifact_dir.join("evidence", "subagent-runtime-snapshots.json").to_s,
-  "host_playability_artifact" => (artifact_dir.join("host-playwright-verification.json").to_s if playwright_validation.present?),
-  "control_intent_matrix_path" => (artifact_dir.join("control-intent-matrix.json").to_s if control_intent_matrix.present?),
+  "host_playability_artifact" => (artifact_dir.join("playable", "host-playwright-verification.json").to_s if playwright_validation.present?),
+  "control_intent_matrix_path" => (artifact_dir.join("evidence", "control-intent-matrix.json").to_s if control_intent_matrix.present?),
   "benchmark_outcome" => failure_report.fetch("outcome"),
   "workload_outcome" => failure_report.fetch("workload_outcome"),
   "system_behavior_outcome" => failure_report.fetch("system_behavior_outcome"),

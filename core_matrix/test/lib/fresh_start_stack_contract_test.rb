@@ -75,9 +75,9 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes helper, "def supervision_sidechat_markdown"
     assert_includes helper, "def supervision_status_markdown"
     assert_includes helper, "def supervision_feed_markdown"
-    assert_includes scenario, '"supervision-sidechat.md"'
-    assert_includes scenario, '"supervision-status.md"'
-    assert_includes scenario, '"supervision-feed.md"'
+    assert_includes helper, '"supervision-sidechat.md"'
+    assert_includes helper, '"supervision-status.md"'
+    assert_includes helper, '"supervision-feed.md"'
   end
 
   test "supervision sidechat artifact keeps human sidechat separate from proof and debug refs" do

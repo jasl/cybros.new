@@ -94,4 +94,48 @@ class AcceptanceLiveProgressFeedTest < ActiveSupport::TestCase
     assert_equal 1, first_entries.length
     assert_equal 1, second_entries.length
   end
+
+  test "build_entries preserves actor metadata for subagent lanes" do
+    entries = Acceptance::LiveProgressFeed.build_entries(
+      workflow_node_events: [
+        {
+          "created_at" => "2026-04-06T14:05:10Z",
+          "workflow_run_public_id" => "wr_sub_123",
+          "workflow_node_key" => "provider_round_2_tool_1",
+          "workflow_node_ordinal" => 7,
+          "ordinal" => 1,
+          "event_kind" => "status",
+          "node_type" => "tool_call",
+          "actor_type" => "subagent",
+          "actor_label" => "researcher#1",
+          "actor_public_id" => "sub_123",
+          "payload" => { "state" => "completed", "tool_name" => "workspace_tree" },
+        },
+        {
+          "created_at" => "2026-04-06T14:05:11Z",
+          "workflow_run_public_id" => "wr_sub_123",
+          "workflow_node_key" => "subagent:sub_123:progress:4",
+          "workflow_node_ordinal" => 1,
+          "ordinal" => 2,
+          "event_kind" => "subagent_progress",
+          "node_type" => "subagent_session",
+          "actor_type" => "subagent",
+          "actor_label" => "researcher#1",
+          "actor_public_id" => "sub_123",
+          "state" => "running",
+          "summary" => "researcher#1: Finished reducer audit",
+          "detail" => "Next: verify keyboard bindings",
+        },
+      ],
+      seen_event_keys: Set.new
+    )
+
+    assert_equal 2, entries.length
+    assert_equal "subagent", entries.first.fetch("actor_type")
+    assert_equal "researcher#1", entries.first.fetch("actor_label")
+    assert_equal "sub_123", entries.first.fetch("actor_public_id")
+    assert_includes entries.first.fetch("detail"), "workspace_tree"
+    assert_equal "researcher#1: Finished reducer audit", entries.second.fetch("summary")
+    assert_equal "subagent_live_progress", entries.second.fetch("kind")
+  end
 end
