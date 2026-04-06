@@ -48,6 +48,7 @@ module Acceptance
       ],
       "logs" => [
         "phase-events.jsonl",
+        "live-progress-events.jsonl",
         "supervision-session.json",
         "supervision-polls.json",
         "supervision-final.json",
@@ -117,6 +118,7 @@ module Acceptance
         "- [Capability Activation](../evidence/capability-activation.json)",
         "- [Failure Classification](../evidence/failure-classification.json)",
         "- [Phase Events](../logs/phase-events.jsonl)",
+        "- [Live Progress Feed](../logs/live-progress-events.jsonl)",
         "- [Turn Runtime Events](../logs/turn-runtime-events.jsonl)",
         "- [Conversation Export](../exports/conversation-export.zip)",
         "- [Conversation Debug Export](../exports/conversation-debug-export.zip)",
@@ -141,6 +143,7 @@ module Acceptance
         "- [Turn runtime transcript](review/turn-runtime-transcript.md)",
         "- [Benchmark summary](evidence/run-summary.json)",
         "- [Phase events](logs/phase-events.jsonl)",
+        "- [Live progress feed](logs/live-progress-events.jsonl)",
         "- [Playable artifacts](playable/)",
         "",
         "## Layout",

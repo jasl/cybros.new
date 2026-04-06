@@ -11,6 +11,7 @@ require "time"
 require "timeout"
 require "uri"
 require "zip"
+require "set"
 require_relative "../lib/boot"
 require_relative "../lib/conversation_control_phrase_matrix"
 require_relative "../lib/conversation_runtime_validation"
@@ -225,6 +226,8 @@ end
 
 def supervise_conversation_progress!(
   artifact_dir:,
+  workflow_run:,
+  seen_live_progress_event_keys:,
   conversation_id:,
   actor:,
   prompt: SUPERVISION_PROMPT,
@@ -277,6 +280,12 @@ def supervise_conversation_progress!(
       )
       last_progress_signature = progress_signature
     end
+
+    Acceptance::LiveProgressFeed.capture!(
+      artifact_dir: artifact_dir,
+      workflow_run: workflow_run.reload,
+      seen_event_keys: seen_live_progress_event_keys
+    )
 
     return {
       "session" => session_payload,
@@ -1435,6 +1444,7 @@ repair_prompt = prompt
 attempt_history = []
 rescue_history = []
 terminal_failure_message = nil
+seen_live_progress_event_keys = Set.new
 
 1.upto(max_turn_attempts) do |attempt_no|
   log_capstone_phase(
@@ -1460,6 +1470,8 @@ terminal_failure_message = nil
 
   supervision_trace = supervise_conversation_progress!(
     artifact_dir: artifact_dir,
+    workflow_run: run.fetch(:workflow_run),
+    seen_live_progress_event_keys: seen_live_progress_event_keys,
     conversation_id: conversation.public_id,
     actor: conversation_context.fetch(:actor),
     timeout_seconds: supervision_timeout_seconds,
@@ -1839,6 +1851,7 @@ write_turns_md(
     "acceptance-registration.json",
     "capstone-run-bootstrap.json",
     "phase-events.jsonl",
+    "live-progress-events.jsonl",
     "skills-validation.json",
     "attempt-history.json",
     "rescue-history.json",
@@ -2021,6 +2034,7 @@ summary = {
   "capability_activation_path" => artifact_dir.join("capability-activation.json").to_s,
   "failure_classification_path" => artifact_dir.join("failure-classification.json").to_s,
   "phase_events_path" => artifact_dir.join("phase-events.jsonl").to_s,
+  "live_progress_events_path" => artifact_dir.join("live-progress-events.jsonl").to_s,
   "host_playability_artifact" => (artifact_dir.join("host-playwright-verification.json").to_s if playwright_validation.present?),
   "control_intent_matrix_path" => (artifact_dir.join("control-intent-matrix.json").to_s if control_intent_matrix.present?),
   "benchmark_outcome" => failure_report.fetch("outcome"),
