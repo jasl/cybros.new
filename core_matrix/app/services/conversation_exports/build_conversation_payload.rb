@@ -33,8 +33,11 @@ module ConversationExports
         "lifecycle_state" => @conversation.lifecycle_state,
         "created_at" => @conversation.created_at&.iso8601(6),
         "updated_at" => @conversation.updated_at&.iso8601(6),
-        "original_title" => original_title,
-      }.compact
+        "title" => @conversation.title,
+        "summary" => @conversation.summary,
+        "title_source" => @conversation.title_source,
+        "summary_source" => @conversation.summary_source,
+      }
     end
 
     def message_payload(message)
@@ -86,13 +89,6 @@ module ConversationExports
         ).call
         messages
       end
-    end
-
-    def original_title
-      first_content = transcript_messages.find(&:user?)&.content.to_s.strip
-      return "Conversation #{@conversation.public_id}" if first_content.blank?
-
-      first_content.gsub(/\s+/, " ").truncate(80)
     end
 
     def sha256_for(attachment)

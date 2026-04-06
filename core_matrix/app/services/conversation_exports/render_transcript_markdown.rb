@@ -10,7 +10,7 @@ module ConversationExports
 
     def call
       lines = []
-      lines << "# #{@conversation_payload.dig("conversation", "original_title")}"
+      lines << "# #{display_title}"
       lines << ""
 
       @conversation_payload.fetch("messages").each do |message|
@@ -30,6 +30,12 @@ module ConversationExports
       end
 
       lines.join("\n")
+    end
+
+    private
+
+    def display_title
+      @conversation_payload.dig("conversation", "title").presence || "Untitled conversation"
     end
   end
 end

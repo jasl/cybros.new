@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Workflows::ProjectionTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
   test "reads yielded workflow state through projection metadata without graph reconstruction queries" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
@@ -42,14 +46,14 @@ class Workflows::ProjectionTest < ActiveSupport::TestCase
             "intents" => [
               {
                 "intent_id" => "intent-1",
-                "intent_kind" => "conversation_title_update",
-                "node_key" => "title-update",
-                "node_type" => "conversation_title_update",
+                "intent_kind" => "ops_annotation",
+                "node_key" => "ops-annotation-1",
+                "node_type" => "ops_annotation",
                 "requirement" => "required",
-                "conflict_scope" => "conversation_metadata",
+                "conflict_scope" => "workflow_annotation",
                 "presentation_policy" => "internal_only",
                 "durable_outcome" => "accepted",
-                "payload" => { "title" => "Retitled" },
+                "payload" => { "note" => "Retitled" },
                 "idempotency_key" => "intent-1",
               },
               {
@@ -77,7 +81,7 @@ class Workflows::ProjectionTest < ActiveSupport::TestCase
     end
 
     assert_operator queries.size, :<=, 5
-    assert_equal %w[agent_step_1 title-update], projection.nodes.map(&:node_key)
+    assert_equal %w[agent_step_1 ops-annotation-1], projection.nodes.map(&:node_key)
     assert_equal %w[intent_batch_barrier intent_batch_manifest], projection.artifacts_by_node_key.fetch("agent_step_1").map(&:artifact_kind).sort
     assert_equal %w[intent_rejected yield_requested], projection.events_by_node_key.fetch("agent_step_1").map(&:event_kind).sort
     assert_equal "re_enter_agent", projection.workflow_run.resume_policy

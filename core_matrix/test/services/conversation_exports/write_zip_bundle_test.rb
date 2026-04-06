@@ -2,6 +2,10 @@ require "test_helper"
 require "zip"
 
 class ConversationExportsWriteZipBundleTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
   test "writes the expected bundle files and attachment payloads into a zip archive" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

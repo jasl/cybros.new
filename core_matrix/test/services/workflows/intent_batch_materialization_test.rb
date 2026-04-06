@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
   test "materializes accepted intents and batch summaries onto workflow-owned rows" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
@@ -42,14 +46,14 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
             "intents" => [
               {
                 "intent_id" => "intent-1",
-                "intent_kind" => "conversation_title_update",
-                "node_key" => "title-update",
-                "node_type" => "conversation_title_update",
+                "intent_kind" => "ops_annotation",
+                "node_key" => "ops-annotation-1",
+                "node_type" => "ops_annotation",
                 "requirement" => "required",
-                "conflict_scope" => "conversation_metadata",
+                "conflict_scope" => "workflow_annotation",
                 "presentation_policy" => "internal_only",
                 "durable_outcome" => "accepted",
-                "payload" => { "title" => "Retitled" },
+                "payload" => { "note" => "Retitled" },
                 "idempotency_key" => "intent-1",
               },
             ],
@@ -58,7 +62,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
       }
     )
 
-    accepted_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "title-update")
+    accepted_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "ops-annotation-1")
     batch_manifest = workflow_run.workflow_artifacts.find_by!(artifact_kind: "intent_batch_manifest")
     barrier_summary = workflow_run.workflow_artifacts.find_by!(artifact_kind: "intent_batch_barrier")
     yield_event = workflow_run.workflow_node_events.find_by!(
@@ -75,13 +79,13 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     assert_equal yielding_node, accepted_node.yielding_workflow_node
     assert_equal 0, accepted_node.stage_index
     assert_equal 0, accepted_node.stage_position
-    assert_equal "conversation_title_update", accepted_node.intent_kind
+    assert_equal "ops_annotation", accepted_node.intent_kind
     assert_equal "batch-1", accepted_node.intent_batch_id
     assert_equal "intent-1", accepted_node.intent_id
     assert_equal "required", accepted_node.intent_requirement
-    assert_equal "conversation_metadata", accepted_node.intent_conflict_scope
+    assert_equal "workflow_annotation", accepted_node.intent_conflict_scope
     assert_equal "intent-1", accepted_node.intent_idempotency_key
-    assert_equal({ "title" => "Retitled" }, accepted_node.intent_payload)
+    assert_equal({ "note" => "Retitled" }, accepted_node.intent_payload)
     refute accepted_node.metadata.key?("payload")
     refute accepted_node.metadata.key?("intent_kind")
     refute accepted_node.metadata.key?("idempotency_key")
@@ -91,7 +95,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     assert_equal yielding_node.node_key, batch_manifest.workflow_node_key
     assert_equal "wait_all", barrier_summary.payload.dig("stage", "completion_barrier")
     assert_equal "batch-1", yield_event.payload["batch_id"]
-    assert_equal ["title-update"], yield_event.payload["accepted_node_keys"]
+    assert_equal ["ops-annotation-1"], yield_event.payload["accepted_node_keys"]
     assert_equal [barrier_summary.artifact_key], yield_event.payload["barrier_artifact_keys"]
   end
 
@@ -197,14 +201,14 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
             "intents" => [
               {
                 "intent_id" => "intent-accepted-1",
-                "intent_kind" => "conversation_title_update",
-                "node_key" => "title-update-1",
-                "node_type" => "conversation_title_update",
+                "intent_kind" => "ops_annotation",
+                "node_key" => "ops-annotation-1",
+                "node_type" => "ops_annotation",
                 "requirement" => "required",
-                "conflict_scope" => "conversation_metadata",
+                "conflict_scope" => "workflow_annotation",
                 "presentation_policy" => "internal_only",
                 "durable_outcome" => "accepted",
-                "payload" => { "title" => "Stage one" },
+                "payload" => { "note" => "Stage one" },
                 "idempotency_key" => "intent-accepted-1",
               },
               {
@@ -229,14 +233,14 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
             "intents" => [
               {
                 "intent_id" => "intent-accepted-2",
-                "intent_kind" => "conversation_title_update",
-                "node_key" => "title-update-2",
-                "node_type" => "conversation_title_update",
+                "intent_kind" => "ops_annotation",
+                "node_key" => "ops-annotation-2",
+                "node_type" => "ops_annotation",
                 "requirement" => "required",
-                "conflict_scope" => "conversation_metadata",
+                "conflict_scope" => "workflow_annotation",
                 "presentation_policy" => "internal_only",
                 "durable_outcome" => "accepted",
-                "payload" => { "title" => "Stage two" },
+                "payload" => { "note" => "Stage two" },
                 "idempotency_key" => "intent-accepted-2",
               },
             ],
@@ -250,7 +254,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
       event_kind: "yield_requested"
     )
 
-    assert_equal %w[title-update-1 title-update-2], result.accepted_nodes.map(&:node_key)
+    assert_equal %w[ops-annotation-1 ops-annotation-2], result.accepted_nodes.map(&:node_key)
     assert_equal ["batch-3:stage:1"], result.barrier_artifacts.map(&:artifact_key)
     assert_equal 2, result.manifest_artifact.payload["accepted_intent_count"]
     assert_equal 1, result.manifest_artifact.payload["rejected_intent_count"]

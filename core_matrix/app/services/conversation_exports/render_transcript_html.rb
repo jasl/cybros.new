@@ -30,16 +30,22 @@ module ConversationExports
         <html lang="en">
           <head>
             <meta charset="utf-8">
-            <title>#{ERB::Util.html_escape(@conversation_payload.dig("conversation", "original_title"))}</title>
+            <title>#{ERB::Util.html_escape(display_title)}</title>
           </head>
           <body>
             <main>
-              <h1>#{ERB::Util.html_escape(@conversation_payload.dig("conversation", "original_title"))}</h1>
+              <h1>#{ERB::Util.html_escape(display_title)}</h1>
               #{body}
             </main>
           </body>
         </html>
       HTML
+    end
+
+    private
+
+    def display_title
+      @conversation_payload.dig("conversation", "title").presence || "Untitled conversation"
     end
   end
 end

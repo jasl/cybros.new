@@ -4,6 +4,10 @@ require "zip"
 class ConversationExportsExecuteRequestTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
+  setup do
+    truncate_all_tables!
+  end
+
   test "attaches the export bundle and records summary metadata on the request" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

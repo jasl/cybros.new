@@ -1,6 +1,10 @@
 require "test_helper"
 
 class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
   test "builds a debug payload with diagnostics workflow traces and usage data" do
     fixture = build_debug_export_fixture!
     conversation = fixture.fetch(:conversation)
@@ -104,8 +108,8 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     create_workflow_node!(
       workflow_run: workflow_run,
       node_key: "debug_intent_1",
-      node_type: "conversation_title_update",
-      intent_kind: "conversation_title_update",
+      node_type: "ops_annotation",
+      intent_kind: "ops_annotation",
       intent_batch_id: "batch-debug-1",
       intent_id: "intent-debug-1",
       intent_requirement: "required",
@@ -137,7 +141,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
             "intents" => [
               {
                 "intent_id" => "intent-debug-1",
-                "intent_kind" => "conversation_title_update",
+                "intent_kind" => "ops_annotation",
                 "payload" => { "summary" => "debug intent" },
               },
             ],

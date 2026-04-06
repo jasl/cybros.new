@@ -1,6 +1,10 @@
 require "test_helper"
 
 class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
   test "builds a public-id-only payload with message-bound attachments" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -26,12 +30,20 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
       filename: "output.txt",
       body: "output attachment"
     )
+    conversation.update!(
+      summary: "Export summary",
+      summary_source: "agent"
+    )
 
     payload = ConversationExports::BuildConversationPayload.call(conversation: conversation)
 
     assert_equal "conversation_export", payload.fetch("bundle_kind")
     assert_equal "2026-04-02", payload.fetch("bundle_version")
     assert_equal conversation.public_id, payload.dig("conversation", "public_id")
+    assert_equal "Export me", payload.dig("conversation", "title")
+    assert_equal "Export summary", payload.dig("conversation", "summary")
+    assert_equal "bootstrap", payload.dig("conversation", "title_source")
+    assert_equal "agent", payload.dig("conversation", "summary_source")
     assert_equal 2, payload.fetch("messages").length
 
     input_message = payload.fetch("messages").find { |message| message.fetch("message_public_id") == turn.selected_input_message.public_id }
