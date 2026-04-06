@@ -2,6 +2,8 @@ module Conversations
   module Metadata
     class AgentUpdate
       UNSET = Object.new
+      INTERNAL_TOKEN_PATTERN = /\b(?:workflow_run|workflow_node|agent_task_run|tool_invocation|subagent_session|provider_request_id|command_run|process_run|public_id)\b/i
+      STANDALONE_BIGINT_PATTERN = /\b\d{10,}\b/
 
       def self.call(...)
         new(...).call
@@ -25,8 +27,10 @@ module Conversations
           ) do |conversation|
             raise_missing_edit!(conversation) unless title_provided? || summary_provided?
 
-            reject_locked_fields!(conversation)
-            conversation.update!(update_attributes)
+            attributes, rejections = update_plan_for(conversation)
+            raise_rejections!(conversation, rejections) if attributes.empty?
+
+            conversation.update!(attributes)
             conversation
           end
         end
@@ -42,37 +46,68 @@ module Conversations
         @summary != UNSET
       end
 
-      def reject_locked_fields!(conversation)
-        raise_invalid!(conversation, :title, "is locked by user") if title_provided? && conversation.title_locked?
-        raise_invalid!(conversation, :summary, "is locked by user") if summary_provided? && conversation.summary_locked?
-      end
-
-      def update_attributes
+      def update_plan_for(conversation)
         attributes = {}
+        rejections = {}
 
         if title_provided?
-          attributes[:title] = normalize_value!(:title, @title)
-          attributes[:title_source] = "agent"
-          attributes[:title_updated_at] = @occurred_at
+          title_value, title_rejection = normalize_updatable_value(
+            conversation: conversation,
+            attribute: :title,
+            value: @title
+          )
+          if title_rejection.present?
+            rejections[:title] = title_rejection
+          else
+            attributes[:title] = title_value
+            attributes[:title_source] = "agent"
+            attributes[:title_updated_at] = @occurred_at
+          end
         end
 
         if summary_provided?
-          attributes[:summary] = normalize_value!(:summary, @summary)
-          attributes[:summary_source] = "agent"
-          attributes[:summary_updated_at] = @occurred_at
+          summary_value, summary_rejection = normalize_updatable_value(
+            conversation: conversation,
+            attribute: :summary,
+            value: @summary
+          )
+          if summary_rejection.present?
+            rejections[:summary] = summary_rejection
+          else
+            attributes[:summary] = summary_value
+            attributes[:summary_source] = "agent"
+            attributes[:summary_updated_at] = @occurred_at
+          end
         end
 
-        attributes
+        [attributes, rejections]
       end
 
-      def normalize_value!(attribute, value)
-        return value if value.nil? || value.is_a?(String)
+      def normalize_updatable_value(conversation:, attribute:, value:)
+        return [nil, "is locked by user"] if attribute == :title && conversation.title_locked?
+        return [nil, "is locked by user"] if attribute == :summary && conversation.summary_locked?
+        return [nil, "must be a string"] unless value.nil? || value.is_a?(String)
+        return [nil, "contains internal metadata content"] if internal_metadata_content?(value)
 
-        raise_invalid!(@conversation, attribute, "must be a string")
+        [value, nil]
+      end
+
+      def internal_metadata_content?(value)
+        return false unless value.is_a?(String)
+        return true if value.match?(STANDALONE_BIGINT_PATTERN)
+
+        value.match?(INTERNAL_TOKEN_PATTERN)
       end
 
       def raise_missing_edit!(conversation)
         raise_invalid!(conversation, :base, "must include title and/or summary")
+      end
+
+      def raise_rejections!(conversation, rejections)
+        rejections.each do |attribute, message|
+          conversation.errors.add(attribute, message)
+        end
+        raise ActiveRecord::RecordInvalid, conversation
       end
 
       def raise_invalid!(record, attribute, message)
