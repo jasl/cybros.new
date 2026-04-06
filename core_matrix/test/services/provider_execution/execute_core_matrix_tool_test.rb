@@ -2,7 +2,7 @@ require "test_helper"
 
 class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
   setup do
-    Installation.destroy_all
+    delete_all_table_rows!
   end
 
   test "updates conversation metadata and returns accepted fields" do
@@ -77,6 +77,40 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
     assert_equal "Pinned title", conversation.title
     assert_equal "Agent summary", conversation.summary
     assert_equal "user", conversation.title_source
+    assert_equal "agent", conversation.summary_source
+  end
+
+  test "reports only actually accepted fields when another submitted field is rejected by metadata policy" do
+    context = build_governed_tool_context!(
+      profile_catalog: governed_profile_catalog.deep_merge(
+        "main" => {
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
+        }
+      )
+    )
+    workflow_node = context.fetch(:workflow_node)
+    original_title = workflow_node.conversation.title
+    original_title_source = workflow_node.conversation.title_source
+
+    result = ProviderExecution::ExecuteCoreMatrixTool.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "tool_name" => "conversation_metadata_update",
+        "arguments" => {
+          "title" => "workflow_run_id stale",
+          "summary" => "Agent summary",
+        },
+      }
+    )
+
+    conversation = workflow_node.conversation.reload
+
+    assert_equal conversation.public_id, result.fetch("conversation_id")
+    assert_equal({ "summary" => "Agent summary" }, result.fetch("accepted"))
+    assert_equal({ "title" => "contains internal metadata content" }, result.fetch("rejected"))
+    assert_equal original_title, conversation.title
+    assert_equal original_title_source, conversation.title_source
+    assert_equal "Agent summary", conversation.summary
     assert_equal "agent", conversation.summary_source
   end
 end

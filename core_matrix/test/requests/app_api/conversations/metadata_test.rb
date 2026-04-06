@@ -143,7 +143,7 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
   private
 
   def fresh_canonical_variable_context!
-    Installation.destroy_all
+    delete_all_table_rows!
     build_canonical_variable_context!
   end
 end

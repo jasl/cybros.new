@@ -2,7 +2,7 @@ require "test_helper"
 
 class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
   setup do
-    Installation.destroy_all
+    delete_all_table_rows!
   end
 
   setup do

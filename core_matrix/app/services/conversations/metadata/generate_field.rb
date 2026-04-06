@@ -75,6 +75,7 @@ module Conversations
 
         generated_content = response.content.to_s.strip
         raise_invalid!(@field, "generation returned blank content") if generated_content.blank?
+        raise_invalid!(@field, "contains internal metadata content") if InternalContentGuard.internal_metadata_content?(generated_content)
 
         generated_content
       end

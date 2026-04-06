@@ -164,7 +164,7 @@ class ProviderGateway::DispatchTextTest < ActiveSupport::TestCase
   private
 
   def fresh_installation!
-    Installation.destroy_all
+    delete_all_table_rows!
     create_installation!
   end
 end

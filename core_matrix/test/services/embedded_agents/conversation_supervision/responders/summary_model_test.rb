@@ -189,7 +189,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
   private
 
   def fresh_fixture!(**kwargs)
-    Installation.destroy_all
+    delete_all_table_rows!
     prepare_conversation_supervision_context!(**kwargs)
   end
 end

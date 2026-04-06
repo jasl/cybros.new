@@ -44,7 +44,7 @@ class Conversations::Metadata::UserEditTest < ActiveSupport::TestCase
   private
 
   def fresh_workspace_context!
-    Installation.destroy_all
+    delete_all_table_rows!
     create_workspace_context!
   end
 end

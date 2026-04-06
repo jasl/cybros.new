@@ -149,10 +149,41 @@ class Conversations::Metadata::GenerateFieldTest < ActiveSupport::TestCase
     refute_includes prompt_payload.to_json, "message 7"
   end
 
+  test "rejects generated metadata that contains internal identifier content" do
+    context = fresh_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**_kwargs|
+      GatewayResult.new(
+        content: "workflow_run_id: 1234567890123",
+        usage: {
+          "input_tokens" => 10,
+          "output_tokens" => 4,
+          "total_tokens" => 14,
+        },
+        provider_request_id: "provider-gateway-title-internal-1"
+      )
+    end
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::Metadata::GenerateField.call(
+        conversation: conversation,
+        field: :title,
+        occurred_at: Time.zone.parse("2026-04-06 11:30:00")
+      )
+    end
+
+    assert_includes error.record.errors[:title], "contains internal metadata content"
+    assert_nil conversation.reload.title
+  ensure
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+  end
+
   private
 
   def fresh_workspace_context!
-    Installation.destroy_all
+    delete_all_table_rows!
     create_workspace_context!
   end
 end

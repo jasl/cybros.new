@@ -77,31 +77,32 @@ module ProviderExecution
     end
 
     def conversation_metadata_update
+      requested_attributes = arguments.slice("title", "summary")
       accepted_attributes = {}
       rejected_attributes = {}
 
-      if arguments.key?("title")
-        if @conversation.title_locked?
-          rejected_attributes["title"] = "is locked by user"
+      requested_attributes.each do |attribute, value|
+        normalized_value, rejection = normalize_metadata_argument(attribute:, value:)
+        if rejection.present?
+          rejected_attributes[attribute] = rejection
         else
-          accepted_attributes["title"] = arguments.fetch("title")
-        end
-      end
-
-      if arguments.key?("summary")
-        if @conversation.summary_locked?
-          rejected_attributes["summary"] = "is locked by user"
-        else
-          accepted_attributes["summary"] = arguments.fetch("summary")
+          accepted_attributes[attribute] = normalized_value
         end
       end
 
       if accepted_attributes.empty? && rejected_attributes.present?
-        return {
-          "conversation_id" => @conversation.public_id,
-          "accepted" => {},
-          "rejected" => rejected_attributes,
-        }
+        begin
+          Conversations::Metadata::AgentUpdate.call(
+            conversation: @conversation,
+            **requested_attributes.symbolize_keys
+          )
+        rescue ActiveRecord::RecordInvalid
+          return {
+            "conversation_id" => @conversation.public_id,
+            "accepted" => {},
+            "rejected" => rejected_attributes,
+          }
+        end
       end
 
       updated_conversation = Conversations::Metadata::AgentUpdate.call(
@@ -115,6 +116,16 @@ module ProviderExecution
       }
       result["rejected"] = rejected_attributes if rejected_attributes.present?
       result
+    end
+
+    def normalize_metadata_argument(attribute:, value:)
+      field = attribute.to_s
+      return [nil, "is locked by user"] if field == "title" && @conversation.title_locked?
+      return [nil, "is locked by user"] if field == "summary" && @conversation.summary_locked?
+      return [nil, "must be a string"] unless value.nil? || value.is_a?(String)
+      return [nil, "contains internal metadata content"] if Conversations::Metadata::InternalContentGuard.internal_metadata_content?(value)
+
+      [value, nil]
     end
   end
 end

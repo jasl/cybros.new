@@ -2,7 +2,7 @@ require "test_helper"
 
 class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::TestCase
   setup do
-    Installation.destroy_all
+    delete_all_table_rows!
   end
 
   RESERVED_SUBAGENT_TOOLS = %w[
@@ -78,7 +78,13 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     assert_equal %w[summary title], entry.fetch("input_schema").fetch("properties").keys.sort
     assert_equal "string", entry.dig("input_schema", "properties", "title", "type")
     assert_equal "string", entry.dig("input_schema", "properties", "summary", "type")
-    refute entry.fetch("input_schema").key?("required")
+    assert_equal(
+      [
+        { "required" => ["title"] },
+        { "required" => ["summary"] },
+      ],
+      entry.fetch("input_schema").fetch("anyOf")
+    )
   end
 
   test "reserved subagent tool names cannot be overridden by runtime tools" do
