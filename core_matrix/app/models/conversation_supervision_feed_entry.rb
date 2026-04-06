@@ -4,13 +4,15 @@ class ConversationSupervisionFeedEntry < ApplicationRecord
 
   EVENT_KINDS = %w[
     turn_started
-    progress_recorded
+    turn_todo_item_started
+    turn_todo_item_completed
+    turn_todo_item_blocked
+    turn_todo_item_canceled
+    turn_todo_item_failed
     waiting_started
     waiting_cleared
     blocker_started
     blocker_cleared
-    subagent_started
-    subagent_completed
     control_requested
     control_completed
     control_failed

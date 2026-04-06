@@ -3,12 +3,12 @@ require "test_helper"
 class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
   test "returns the active turn feed when the conversation has active work" do
     context = build_agent_control_context!
-    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "progress_recorded", summary: "Reviewed the board projection.")
+    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_todo_item_started", summary: "Started the board projection.")
 
     feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
 
     assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
-    assert_equal ["Reviewed the board projection."], feed.map { |entry| entry.fetch("summary") }
+    assert_equal ["Started the board projection."], feed.map { |entry| entry.fetch("summary") }
   end
 
   test "returns the latest completed turn feed when no newer turn has started" do

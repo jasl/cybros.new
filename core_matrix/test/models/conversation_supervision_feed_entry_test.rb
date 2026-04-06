@@ -9,8 +9,8 @@ class ConversationSupervisionFeedEntryTest < ActiveSupport::TestCase
       target_conversation: context[:conversation],
       target_turn: context[:turn],
       sequence: 1,
-      event_kind: "progress_recorded",
-      summary: "Reviewed the board projection changes.",
+      event_kind: "turn_todo_item_started",
+      summary: "Started reviewing the board projection changes.",
       details_payload: {},
       occurred_at: Time.current
     )
@@ -27,8 +27,8 @@ class ConversationSupervisionFeedEntryTest < ActiveSupport::TestCase
       target_conversation: context[:conversation],
       target_turn: context[:turn],
       sequence: 1,
-      event_kind: "progress_recorded",
-      summary: "Reviewed the feed writer.",
+      event_kind: "turn_todo_item_started",
+      summary: "Started the feed writer.",
       details_payload: {},
       occurred_at: Time.current
     )
@@ -46,6 +46,7 @@ class ConversationSupervisionFeedEntryTest < ActiveSupport::TestCase
 
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:sequence], "has already been taken"
+    assert_includes duplicate.errors[:event_kind], "is not included in the list"
     assert_includes duplicate.errors[:summary], "must not expose internal runtime tokens"
   end
 end

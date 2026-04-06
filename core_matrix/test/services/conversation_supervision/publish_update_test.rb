@@ -8,8 +8,8 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
       target_conversation: state.target_conversation,
       target_turn: state.target_conversation.turns.first,
       sequence: 1,
-      event_kind: "progress_recorded",
-      summary: "Reviewed the supervision board.",
+      event_kind: "turn_todo_item_started",
+      summary: "Started the supervision board.",
       details_payload: {},
       occurred_at: Time.current
     )
@@ -63,7 +63,7 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     assert_equal state.public_id, events.first.fetch("conversation_supervision_state_id")
     assert_equal "active", events.first.fetch("board_lane")
     assert_equal "completed", events.first.fetch("last_terminal_state")
-    assert_equal "progress_recorded", events.first.fetch("latest_feed_entry").fetch("event_kind")
+    assert_equal "turn_todo_item_started", events.first.fetch("latest_feed_entry").fetch("event_kind")
   end
 
   private

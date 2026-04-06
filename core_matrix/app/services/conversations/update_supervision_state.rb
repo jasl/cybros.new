@@ -585,15 +585,6 @@ module Conversations
         )
       end
 
-      if current["recent_progress_summary"].present? &&
-          current["recent_progress_summary"] != previous["recent_progress_summary"]
-        changes << semantic_change(
-          event_kind: "progress_recorded",
-          summary: current["recent_progress_summary"],
-          current_attributes: current
-        )
-      end
-
       if current["overall_state"] == "waiting" && previous["overall_state"] != "waiting"
         changes << semantic_change(
           event_kind: "waiting_started",
@@ -618,22 +609,6 @@ module Conversations
         changes << semantic_change(
           event_kind: "blocker_cleared",
           summary: "Cleared the blocker.",
-          current_attributes: current
-        )
-      end
-
-      active_subagent_delta = current["active_subagent_count"].to_i - previous["active_subagent_count"].to_i
-      if active_subagent_delta.positive?
-        changes << semantic_change(
-          event_kind: "subagent_started",
-          summary: "#{active_subagent_delta} child task#{"s" unless active_subagent_delta == 1} started.",
-          current_attributes: current
-        )
-      elsif active_subagent_delta.negative?
-        completed_count = active_subagent_delta.abs
-        changes << semantic_change(
-          event_kind: "subagent_completed",
-          summary: "#{completed_count} child task#{"s" unless completed_count == 1} completed.",
           current_attributes: current
         )
       end

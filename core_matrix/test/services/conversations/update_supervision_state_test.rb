@@ -122,8 +122,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
 
     feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
 
-    assert_equal %w[turn_started progress_recorded], feed.map { |entry| entry.fetch("event_kind") }
-    assert_equal ["Finished reviewing the old models"], feed.select { |entry| entry.fetch("event_kind") == "progress_recorded" }.map { |entry| entry.fetch("summary") }
+    assert_equal ["turn_started"], feed.map { |entry| entry.fetch("event_kind") }
     assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
   end
 

@@ -14,9 +14,11 @@ module TurnTodoPlans
       ApplicationRecord.transaction do
         @agent_task_run.with_lock do
           @agent_task_run.reload
+          previous_plan = TurnTodoPlans::BuildView.call(turn_todo_plan: @agent_task_run.turn_todo_plan)
           plan = upsert_plan_head!
           replace_plan_items!(plan)
           plan.update!(counts_payload: TurnTodoPlans::BuildCounts.call(items: plan.turn_todo_plan_items))
+          append_feed_entries!(previous_plan:, current_plan: TurnTodoPlans::BuildView.call(turn_todo_plan: plan))
           plan
         end
       end
@@ -72,6 +74,21 @@ module TurnTodoPlans
       return if public_id.blank?
 
       @agent_task_run.conversation.owned_subagent_sessions.find_by!(public_id: public_id)
+    end
+
+    def append_feed_entries!(previous_plan:, current_plan:)
+      changeset = TurnTodoPlans::BuildFeedChangeset.call(
+        previous_plan: previous_plan,
+        current_plan: current_plan,
+        occurred_at: @occurred_at
+      )
+      return if changeset.empty?
+
+      ConversationSupervision::AppendFeedEntries.call(
+        conversation: @agent_task_run.conversation,
+        changeset: changeset,
+        occurred_at: @occurred_at
+      )
     end
   end
 end

@@ -13,9 +13,9 @@ class ConversationSupervision::AppendFeedEntriesTest < ActiveSupport::TestCase
           "details_payload" => { "overall_state" => "queued" },
         },
         {
-          "event_kind" => "progress_recorded",
-          "summary" => "Reviewed the new supervision schema.",
-          "details_payload" => { "overall_state" => "running" },
+          "event_kind" => "turn_todo_item_started",
+          "summary" => "Started the new supervision schema.",
+          "details_payload" => { "current_item_key" => "schema" },
         },
       ],
       occurred_at: Time.current
@@ -23,6 +23,6 @@ class ConversationSupervision::AppendFeedEntriesTest < ActiveSupport::TestCase
 
     assert_equal [1, 2], entries.map(&:sequence)
     assert_equal [context[:turn].id, context[:turn].id], entries.map(&:target_turn_id)
-    assert_equal %w[turn_started progress_recorded], entries.map(&:event_kind)
+    assert_equal %w[turn_started turn_todo_item_started], entries.map(&:event_kind)
   end
 end
