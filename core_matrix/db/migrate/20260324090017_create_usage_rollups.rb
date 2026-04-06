@@ -19,10 +19,14 @@ class CreateUsageRollups < ActiveRecord::Migration[8.2]
       t.integer :success_count, null: false, default: 0
       t.integer :failure_count, null: false, default: 0
       t.integer :input_tokens_total, null: false, default: 0
+      t.integer :cached_input_tokens_total, null: false, default: 0
       t.integer :output_tokens_total, null: false, default: 0
       t.integer :media_units_total, null: false, default: 0
       t.integer :total_latency_ms, null: false, default: 0
       t.decimal :estimated_cost_total, precision: 12, scale: 6, null: false, default: 0
+      t.integer :prompt_cache_available_event_count, null: false, default: 0
+      t.integer :prompt_cache_unknown_event_count, null: false, default: 0
+      t.integer :prompt_cache_unsupported_event_count, null: false, default: 0
 
       t.timestamps
     end

@@ -16,6 +16,8 @@ class CreateUsageEvents < ActiveRecord::Migration[8.2]
       t.integer :output_tokens
       t.integer :media_units
       t.integer :latency_ms
+      t.string :prompt_cache_status, null: false, default: "unknown"
+      t.integer :cached_input_tokens
       t.decimal :estimated_cost, precision: 12, scale: 6
       t.boolean :success, null: false
       t.string :entitlement_window_key
