@@ -102,10 +102,24 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
     assert_includes scenario, "Acceptance::TurnRuntimeTranscript"
-    assert_includes scenario, 'review/index.md'
-    assert_includes scenario, 'turn-runtime-transcript.md'
-    assert_includes scenario, 'turn-runtime-evidence.json'
-    assert_includes scenario, 'turn-runtime-events.jsonl'
+    assert_includes scenario, 'artifact_dir.join("review", "turn-runtime-transcript.md")'
+    assert_includes scenario, 'artifact_dir.join("evidence", "turn-runtime-evidence.json")'
+    assert_includes scenario, 'artifact_dir.join("logs", "turn-runtime-events.jsonl")'
+    assert_includes scenario, "Acceptance::ArtifactBundle.write_review_index!"
+  end
+
+  test "acceptance scenario copies host playwright setup outputs into playable artifacts" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, '"host-playwright-install.json"'
+    assert_includes scenario, '"host-playwright-test.json"'
+  end
+
+  test "acceptance scenario uses shared artifact bundle helper" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "Acceptance::ArtifactBundle"
+    assert_includes scenario, "DEFAULT_LAYOUT"
   end
 
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
