@@ -142,6 +142,70 @@ def read_json(path)
   JSON.parse(File.read(path))
 end
 
+def assert_2048_bundle_quality_contract!(artifact_dir:)
+  status_markdown = File.read(artifact_dir.join("review", "supervision-status.md"))
+  feed_markdown = File.read(artifact_dir.join("review", "supervision-feed.md"))
+  runtime_transcript_markdown = File.read(artifact_dir.join("review", "turn-runtime-transcript.md"))
+  final_status = read_json(artifact_dir.join("logs", "supervision-final.json")).fetch("machine_status")
+  turn_runtime_evidence = read_json(artifact_dir.join("evidence", "turn-runtime-evidence.json"))
+
+  primary_plan_summary = final_status["current_turn_plan_summary"]
+  canonical_feed_entries = Array(final_status["activity_feed"]).select do |entry|
+    entry["event_kind"].to_s.start_with?("turn_todo_")
+  end
+  dominant_fallback_markers = [
+    "- Current focus: `none`",
+    "- Recent progress: `none`",
+    "- Active plan items: `0`",
+  ].select { |marker| status_markdown.include?(marker) }
+
+  errors = []
+  unless primary_plan_summary.is_a?(Hash) && primary_plan_summary["current_item_key"].present?
+    errors << "supervision-final.json is missing current_turn_plan_summary.current_item_key"
+  end
+  if dominant_fallback_markers.length >= 2
+    errors << "supervision-status.md still centers fallback supervision lines: #{dominant_fallback_markers.join(', ')}"
+  end
+  if canonical_feed_entries.empty?
+    errors << "machine_status.activity_feed does not include canonical turn_todo_* events"
+  end
+
+  if primary_plan_summary.is_a?(Hash)
+    current_item_key = primary_plan_summary["current_item_key"].to_s
+    current_item_title = primary_plan_summary["current_item_title"].presence || current_item_key
+
+    unless status_markdown.include?(current_item_title) || status_markdown.include?(current_item_key)
+      errors << "supervision-status.md is not grounded in the primary turn todo plan item #{current_item_key.inspect}"
+    end
+    unless runtime_transcript_markdown.include?(current_item_title) || runtime_transcript_markdown.include?(current_item_key)
+      errors << "turn-runtime-transcript.md is not grounded in the primary turn todo plan item #{current_item_key.inspect}"
+    end
+  end
+
+  canonical_feed_entries.each do |entry|
+    summary = entry["summary"].to_s.strip
+    next if summary.blank?
+
+    unless feed_markdown.include?(summary)
+      errors << "supervision-feed.md is missing canonical feed summary #{summary.inspect}"
+    end
+
+    timeline_match = Array(turn_runtime_evidence["timeline"]).any? do |event|
+      event["summary"].to_s == summary
+    end
+    unless timeline_match
+      errors << "turn-runtime-evidence.json does not correlate canonical feed summary #{summary.inspect}"
+    end
+  end
+
+  return if errors.empty?
+
+  raise <<~MSG
+    2048 bundle quality contract failed:
+    #{errors.map { |error| "- #{error}" }.join("\n")}
+  MSG
+end
+
 def capture_command(*command, chdir:, env: {})
   stdout, stderr, status = Open3.capture3(env, *command, chdir: chdir.to_s)
   {
@@ -1425,6 +1489,7 @@ Acceptance::ArtifactBundle.write_root_readme!(
   artifact_stamp: artifact_stamp,
   summary: summary
 )
+assert_2048_bundle_quality_contract!(artifact_dir:)
 
 puts JSON.pretty_generate(summary)
 raise terminal_failure_message if terminal_failure_message.present?
