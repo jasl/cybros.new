@@ -10,10 +10,10 @@ and the retained acceptance operator path.
 - Manual backend validation is expected to be reproducible from shell commands,
   Rails runner scripts, HTTP requests, and
   `script/manual/dummy_agent_runtime.rb`, not browser UI flows.
-- Development-state resets must use
-  `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`
-  and delete the current dependency order from the checklist. Older ad-hoc
-  `delete_all` chains became stale once more foreign-key roots were added.
+- Development-state resets now rebuild the database through
+  `bin/rails db:reset` before reapplying the acceptance seed baseline. This
+  replaced the older in-process `delete_all` chains once foreign-key roots
+  started changing too frequently to keep a static reset list reliable.
 - `script/manual/dummy_agent_runtime.rb register` is part of the supported
   registry validation path and must send the enrollment token plus a stable
   `runtime_fingerprint`. The manual checklist currently drives that through

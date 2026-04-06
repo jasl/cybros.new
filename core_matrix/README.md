@@ -78,8 +78,9 @@ claims real loop behavior, validation must include:
   logs and artifacts are written under `../acceptance/logs/` and
   `../acceptance/artifacts/` and are intentionally not committed.
 - The checklist now standardizes on a reusable
-  `core_matrix_reset_backend_state` helper built on
-  `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`.
+  `core_matrix_reset_backend_state` helper that rebuilds the development
+  database through `bin/rails db:reset` before reapplying the acceptance seed
+  baseline.
 - The reusable manual-validation harness now lives in
   `script/manual/manual_acceptance_support.rb`.
 - Acceptance operator scenario scripts now live under

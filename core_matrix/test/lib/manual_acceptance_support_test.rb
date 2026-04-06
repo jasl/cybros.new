@@ -44,15 +44,60 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal 42, captured_timeout
   end
 
-  test "reset_backend_state! includes conversation diagnostics snapshots" do
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, TurnDiagnosticsSnapshot
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationDiagnosticsSnapshot
+  test "reset_backend_state! disconnects, rebuilds, and reconnects the database" do
+    calls = []
+
+    with_redefined_singleton_method(ManualAcceptanceSupport, :disconnect_application_record!, -> { calls << :disconnect }) do
+      with_redefined_singleton_method(ManualAcceptanceSupport, :run_database_reset_command!, -> { calls << :reset }) do
+        with_redefined_singleton_method(ManualAcceptanceSupport, :reconnect_application_record!, -> { calls << :reconnect }) do
+          ManualAcceptanceSupport.reset_backend_state!
+        end
+      end
+    end
+
+    assert_equal [:disconnect, :reset, :reconnect], calls
   end
 
-  test "reset_backend_state! includes conversation supervision tables" do
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationSupervisionSession
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationSupervisionSnapshot
-    assert_includes ManualAcceptanceSupport::RESET_MODELS, ConversationSupervisionMessage
+  test "reset_backend_state! surfaces the database reset failure before reconnecting" do
+    calls = []
+    error = RuntimeError.new("database reset failed")
+
+    with_redefined_singleton_method(ManualAcceptanceSupport, :disconnect_application_record!, -> { calls << :disconnect }) do
+      with_redefined_singleton_method(ManualAcceptanceSupport, :run_database_reset_command!, lambda {
+        calls << :reset
+        raise error
+      }) do
+        with_redefined_singleton_method(ManualAcceptanceSupport, :reconnect_application_record!, -> { calls << :reconnect }) do
+          raised = assert_raises(RuntimeError) { ManualAcceptanceSupport.reset_backend_state! }
+
+          assert_same error, raised
+        end
+      end
+    end
+
+    assert_equal [:disconnect, :reset], calls
+  end
+
+  test "run_database_reset_command! invokes rails db:reset with the drop safety override" do
+    captured = nil
+
+    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
+      with_redefined_singleton_method(Open3, :capture3, lambda { |*args, **kwargs|
+        captured = { args:, kwargs: }
+        ["reset stdout", "", Struct.new(:success?, :exitstatus).new(true, 0)]
+      }) do
+        result = ManualAcceptanceSupport.run_database_reset_command!
+
+        assert_equal "reset stdout", result.fetch(:stdout)
+      end
+    end
+
+    env, command, task = captured.fetch(:args)
+    assert_equal "bin/rails", command
+    assert_equal "db:reset", task
+    assert_equal ENV.fetch("RAILS_ENV", "development"), env.fetch("RAILS_ENV")
+    assert_equal "1", env.fetch("DISABLE_DATABASE_ENVIRONMENT_CHECK")
+    assert_equal Rails.root.to_s, captured.fetch(:kwargs).fetch(:chdir)
   end
 
   test "register_external_runtime! returns the execution machine credential from the registration payload" do

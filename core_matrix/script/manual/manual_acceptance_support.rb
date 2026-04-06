@@ -16,69 +16,10 @@ module ManualAcceptanceSupport
 
   CONTROL_BASE_URL = ENV.fetch("CORE_MATRIX_BASE_URL", "http://127.0.0.1:3000")
 
-  RESET_MODELS = [
-    ConversationControlRequest,
-    ConversationSupervisionFeedEntry,
-    ConversationSupervisionMessage,
-    ConversationSupervisionSnapshot,
-    ConversationSupervisionSession,
-    ConversationSupervisionState,
-    ConversationCapabilityGrant,
-    ConversationCapabilityPolicy,
-    ConversationDiagnosticsSnapshot,
-    TurnDiagnosticsSnapshot,
-    PublicationAccessEvent,
-    Publication,
-    ExecutionLease,
-    ToolInvocation,
-    ToolBinding,
-    ToolImplementation,
-    ToolDefinition,
-    ImplementationSource,
-    SubagentSession,
-    ProcessRun,
-    WorkflowArtifact,
-    WorkflowNodeEvent,
-    WorkflowEdge,
-    WorkflowNode,
-    HumanInteractionRequest,
-    WorkflowRun,
-    ConversationEvent,
-    ConversationImport,
-    ConversationSummarySegment,
-    ConversationMessageVisibility,
-    MessageAttachment,
-    Message,
-    Turn,
-    ConversationClosure,
-    Conversation,
-    CanonicalVariable,
-    AgentProgramVersion,
-    AgentEnrollment,
-    ExecutionRuntime,
-    AgentProgram,
-    Workspace,
-    UserProgramBinding,
-    ProviderEntitlement,
-    ProviderPolicy,
-    ProviderCredential,
-    UsageRollup,
-    UsageEvent,
-    ExecutionProfileFact,
-    AuditLog,
-    Session,
-    Invitation,
-    User,
-    Identity,
-    Installation,
-  ].freeze
-
   def reset_backend_state!
-    ApplicationRecord.with_connection do |conn|
-      conn.disable_referential_integrity do
-        RESET_MODELS.each(&:delete_all)
-      end
-    end
+    disconnect_application_record!
+    run_database_reset_command!
+    reconnect_application_record!
   end
 
   def bootstrap_and_seed!(bundled_agent_configuration: { enabled: false })
@@ -469,6 +410,37 @@ module ManualAcceptanceSupport
 
   def fenix_project_root
     Pathname.new(ENV.fetch("FENIX_PROJECT_ROOT", Rails.root.join("..", "agents", "fenix").to_s))
+  end
+
+  def disconnect_application_record!
+    ActiveRecord::Base.connection_handler.clear_all_connections!
+  end
+
+  def run_database_reset_command!
+    stdout = nil
+    stderr = nil
+    status = nil
+
+    Bundler.with_unbundled_env do
+      stdout, stderr, status = Open3.capture3(
+        {
+          "RAILS_ENV" => ENV.fetch("RAILS_ENV", "development"),
+          "DISABLE_DATABASE_ENVIRONMENT_CHECK" => "1",
+        },
+        "bin/rails",
+        "db:reset",
+        chdir: Rails.root.to_s
+      )
+    end
+
+    raise "database reset failed: #{stderr.presence || stdout}" unless status.success?
+
+    { stdout:, stderr: }
+  end
+
+  def reconnect_application_record!
+    ApplicationRecord.establish_connection
+    ApplicationRecord.connection
   end
 
   def wait_for_agent_task_terminal!(agent_task_run:, timeout_seconds: 10, poll_interval_seconds: 0.1)

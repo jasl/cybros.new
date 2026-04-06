@@ -26,10 +26,9 @@ Current backend baseline was rerun on `2026-03-25`.
   rotation, revocation, and retirement, selector resolution, manual recovery,
   conversation structure and rewrite flows, human interaction resolution, and
   publication access logging.
-- Reusable reset now uses
-  `ApplicationRecord.with_connection { |conn| conn.disable_referential_integrity { ... } }`
-  because direct `ApplicationRecord.connection` access is deprecated in the
-  current Rails line used here.
+- Reusable reset now rebuilds the development database through
+  `DISABLE_DATABASE_ENVIRONMENT_CHECK=1 bin/rails db:reset` before reapplying
+  the acceptance seed baseline.
 - `script/manual/dummy_agent_runtime.rb register` now sends a stable
   `environment_fingerprint`; this checklist exports it through
   `CORE_MATRIX_ENVIRONMENT_FINGERPRINT`.
@@ -849,59 +848,7 @@ core_matrix_json_field() {
 }
 
 core_matrix_reset_backend_state() {
-  bin/rails runner - <<'RUBY'
-ApplicationRecord.with_connection do |conn|
-  conn.disable_referential_integrity do
-    [
-      PublicationAccessEvent,
-      Publication,
-      ExecutionLease,
-      ToolInvocation,
-      ToolBinding,
-      ToolImplementation,
-      ToolDefinition,
-      ImplementationSource,
-      SubagentSession,
-      ProcessRun,
-      WorkflowArtifact,
-      WorkflowNodeEvent,
-      WorkflowEdge,
-      WorkflowNode,
-      HumanInteractionRequest,
-      WorkflowRun,
-      ConversationEvent,
-      ConversationImport,
-      ConversationSummarySegment,
-      ConversationMessageVisibility,
-      MessageAttachment,
-      Message,
-      Turn,
-      ConversationClosure,
-      Conversation,
-      CanonicalVariable,
-      CapabilitySnapshot,
-      AgentDeployment,
-      AgentEnrollment,
-      ExecutionEnvironment,
-      AgentInstallation,
-      Workspace,
-      UserAgentBinding,
-      ProviderEntitlement,
-      ProviderPolicy,
-      ProviderCredential,
-      UsageRollup,
-      UsageEvent,
-      ExecutionProfileFact,
-      AuditLog,
-      Session,
-      Invitation,
-      User,
-      Identity,
-      Installation,
-    ].each(&:delete_all)
-  end
-end
-RUBY
+  DISABLE_DATABASE_ENVIRONMENT_CHECK=1 bin/rails db:reset
 }
 ```
 
