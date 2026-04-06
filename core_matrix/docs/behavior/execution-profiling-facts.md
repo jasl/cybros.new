@@ -40,6 +40,10 @@ questions about how work executed, not how providers billed for it.
   - hard execution limits and advisory hints frozen from the turn snapshot
   - post-run provider-usage evaluation, including whether the advisory
     compaction threshold was crossed using authoritative provider usage
+- prompt-cache accounting stays outside profiling facts:
+  - `prompt_cache_status`
+  - `cached_input_tokens`
+  - prompt-cache aggregate counters and hit-rate math
 - `count_value`, `duration_ms`, and `success` remain optional because different
   fact kinds project different telemetry shapes.
 - `metadata` stores structured detail for a fact and must remain a hash.
@@ -66,6 +70,8 @@ questions about how work executed, not how providers billed for it.
   modeled as provider billing rows
 - provider correlation ids, request settings, and advisory threshold evaluation
   live in profiling facts rather than overloading `UsageEvent`
+- prompt-cache usage accounting remains in `UsageEvent` / `UsageRollup`; it is
+  not duplicated into `ExecutionProfileFact`
 - this task does not hard-couple to future runtime-resource tables from
   Milestone 3
 - cross-installation user and workspace references are rejected

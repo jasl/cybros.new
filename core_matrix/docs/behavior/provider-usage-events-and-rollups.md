@@ -38,9 +38,19 @@ reporting.
   - `turn_id`
   - `workflow_node_key`
   - provider-returned input and output tokens when available
+  - `prompt_cache_status`
+  - `cached_input_tokens` when the provider explicitly returns cache detail
   - observed end-to-end latency for the provider call
 - `UsageEvent#total_tokens` remains a convenience helper over the stored input
   and output token columns; the durable truth stays in the row itself.
+- Prompt-cache semantics are tri-state:
+  - `available`
+  - `unknown`
+  - `unsupported`
+- `unknown` means the provider response omitted cache detail; it must not be
+  treated as `cached_input_tokens = 0`.
+- `unsupported` is only used when provider or model metadata explicitly opts
+  out via `usage_capabilities.prompt_cache_details = false`.
 
 ## Rollup Behavior
 
@@ -51,6 +61,11 @@ reporting.
   - explicit rolling-window identifier
 - Rollups preserve the same usage dimensions as the originating event so later
   reporting and quota logic can stay scoped.
+- Rollups also project prompt-cache aggregates:
+  - `cached_input_tokens_total`
+  - `prompt_cache_available_event_count`
+  - `prompt_cache_unknown_event_count`
+  - `prompt_cache_unsupported_event_count`
 - Rollup uniqueness is enforced by installation, bucket, and a dimension digest
   instead of a giant nullable-column unique index.
 - Long-horizon reporting should prefer rollups rather than depending on raw
@@ -69,6 +84,12 @@ reporting.
   `entitlement_window_key`.
 - Re-projecting the same event again increments the same rollup rows; the
   projection service is additive, not idempotent by event identifier.
+- `cached_input_tokens_total` sums only `available` events.
+- Prompt-cache hit rate is derived, not stored:
+  - numerator: `cached_input_tokens_total`
+  - denominator: input tokens from `available` events only
+  - `unknown` and `unsupported` events are excluded from the denominator
+  - when there are no `available` events, hit rate is `null`
 
 ## Invariants
 
