@@ -59,6 +59,12 @@ Rails.application.routes.draw do
   end
 
   namespace :app_api do
+    resources :conversations, only: [] do
+      resource :metadata, only: [:show, :update], controller: "conversations/metadata" do
+        post :regenerate
+      end
+    end
+
     resources :conversation_transcripts, only: :index
     resources :conversation_diagnostics, only: [] do
       collection do
