@@ -2,9 +2,9 @@ require "test_helper"
 
 class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "host playability script treats hyphenated game-over status as terminal" do
-    script = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    script = Rails.root.join("../acceptance/lib/host_validation.rb").read
 
-    assert_includes script, "/game(?:\\s|-)?over/i",
+    assert_includes script, "gameOverStatusPattern = /game(?:\\\\s|-)?over/i",
       "expected host playability verification to accept both 'game over' and 'game-over' status text"
   end
 
@@ -34,10 +34,12 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
   test "acceptance scenario threads runtime validation into playability artifacts" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
 
-    assert_includes scenario,
-      "def evaluate_workspace_validation(generated_app_dir:, artifact_dir:, preview_port:, runtime_validation:, persist_artifacts: true)"
-    refute_includes scenario, "runtime_validation: nil"
+    assert_includes scenario, "Acceptance::HostValidation.run!("
+    assert_includes helper,
+      "def run!(generated_app_dir:, artifact_dir:, preview_port:, runtime_validation:, persist_artifacts: true)"
+    refute_includes helper, "runtime_validation: nil"
   end
 
   test "acceptance scenario enables detailed supervision progress for sidechat validation" do
@@ -109,10 +111,13 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   end
 
   test "acceptance scenario copies host playwright setup outputs into playable artifacts" do
-    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
+    artifact_bundle = Rails.root.join("../acceptance/lib/artifact_bundle.rb").read
 
-    assert_includes scenario, '"host-playwright-install.json"'
-    assert_includes scenario, '"host-playwright-test.json"'
+    assert_includes helper, '"host-playwright-install.json"'
+    assert_includes helper, '"host-playwright-test.json"'
+    assert_includes artifact_bundle, '"host-playwright-install.json"'
+    assert_includes artifact_bundle, '"host-playwright-test.json"'
   end
 
   test "acceptance scenario uses shared artifact bundle helper" do
@@ -120,6 +125,17 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, "Acceptance::ArtifactBundle"
     assert_includes scenario, "DEFAULT_LAYOUT"
+  end
+
+  test "acceptance scenario uses shared host validation helper" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
+
+    assert_includes scenario, "Acceptance::HostValidation.run!"
+    assert_includes scenario, "Acceptance::HostValidation.runtime_validation_passed?"
+    assert_includes scenario, "Acceptance::HostValidation.host_validation_passed?"
+    assert_includes scenario, "Acceptance::HostValidation.command_result_excerpt"
+    assert_includes helper, "def write_playability_verification!"
   end
 
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
