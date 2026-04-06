@@ -15,6 +15,7 @@ module Acceptance
 
       timeline = []
       timeline.concat(build_phase_events(Array(phase_events)))
+      timeline.concat(build_workflow_node_progress_events(Array(workflow_node_events)))
       timeline.concat(build_subagent_events(Array(subagent_sessions), subagent_labels:))
       timeline.concat(
         build_tool_events(
@@ -142,6 +143,57 @@ module Acceptance
           "detail" => phase_detail(phase, entry),
           "source_refs" => ["phase-events.jsonl"],
           "sort_order" => 10,
+        }
+      end
+    end
+
+    private_class_method def build_workflow_node_progress_events(workflow_node_events)
+      Array(workflow_node_events).filter_map do |entry|
+        event_kind = entry["event_kind"].to_s
+        workflow_node_key = entry["workflow_node_key"].to_s
+        next if workflow_node_key.blank?
+        next unless %w[status yield_requested node_started node_completed].include?(event_kind)
+
+        payload = entry["payload"] || {}
+        state = payload["state"].presence || event_kind
+        summary =
+          case event_kind
+          when "yield_requested"
+            "Queued follow-up work after #{workflow_node_key}"
+          when "status", "node_started", "node_completed"
+            state =
+              case event_kind
+              when "node_started" then "running"
+              when "node_completed" then "completed"
+              else state
+              end
+            "#{state.capitalize} #{node_kind_label(entry["node_type"])} node #{workflow_node_key}"
+          end
+
+        detail =
+          if event_kind == "yield_requested"
+            accepted_node_keys = Array(payload["accepted_node_keys"])
+            accepted_detail = accepted_node_keys.any? ? "Accepted nodes: #{accepted_node_keys.join(", ")}." : nil
+            [accepted_detail].compact.join(" ")
+          else
+            detail_parts = []
+            detail_parts << "tool invocation `#{payload["tool_invocation_id"]}`." if payload["tool_invocation_id"].present?
+            detail_parts << "provider request `#{payload["provider_request_id"]}`." if payload["provider_request_id"].present?
+            detail_parts.presence&.join(" ")
+          end
+
+        {
+          "timestamp" => entry["created_at"] || entry["updated_at"],
+          "actor_type" => "main_agent",
+          "actor_label" => "main",
+          "actor_public_id" => nil,
+          "phase" => workflow_node_phase(entry),
+          "kind" => "workflow_node_event",
+          "status" => state,
+          "summary" => summary,
+          "detail" => detail,
+          "source_refs" => ["workflow_node_events.json"],
+          "sort_order" => 30,
         }
       end
     end
@@ -422,7 +474,7 @@ module Acceptance
       case phase
       when /\Ahost_validation/, "attempt_succeeded"
         "host_validator"
-      when "supervision_complete"
+      when "supervision_progress", "supervision_complete"
         "supervisor"
       else
         "acceptance_harness"
@@ -433,7 +485,7 @@ module Acceptance
       case phase
       when /\Ahost_validation/, "attempt_succeeded"
         "host"
-      when "supervision_complete"
+      when "supervision_progress", "supervision_complete"
         "supervisor"
       else
         "harness"
@@ -444,6 +496,8 @@ module Acceptance
       case phase
       when "skill_sources_prepared", "skills_validated", "conversation_initialized", "attempt_started"
         "plan"
+      when "supervision_progress"
+        "build"
       when "supervision_complete"
         "deliver"
       when "host_validation_started", "host_validation_complete", "attempt_succeeded"
@@ -459,6 +513,8 @@ module Acceptance
 
     private_class_method def phase_status(phase, entry)
       case phase
+      when "supervision_progress"
+        "updated"
       when "host_validation_complete"
         host_validation_passed_event?(entry) ? "completed" : "failed"
       when "benchmark_reporting_complete", "attempt_succeeded"
@@ -470,6 +526,9 @@ module Acceptance
 
     private_class_method def phase_summary(phase, entry)
       case phase
+      when "supervision_progress"
+        focus = entry["current_focus_summary"].presence || entry["recent_progress_summary"].presence || "No additional focus summary"
+        "Supervisor checkpoint: #{focus}"
       when "skill_sources_prepared"
         "Prepared staged skill sources"
       when "skills_validated"
@@ -507,6 +566,12 @@ module Acceptance
 
     private_class_method def phase_detail(phase, entry)
       case phase
+      when "supervision_progress"
+        parts = []
+        parts << "Machine state `#{entry["overall_state"]}`." if entry["overall_state"].present?
+        parts << "Recent progress: #{entry["recent_progress_summary"]}." if entry["recent_progress_summary"].present?
+        parts << "Active subagents: #{entry["active_subagent_count"]}." if entry["active_subagent_count"].present?
+        parts.join(" ").presence
       when "host_validation_complete"
         passed_checks = host_validation_passed_checks(entry)
         failed_checks = host_validation_failed_checks(entry)
@@ -533,6 +598,30 @@ module Acceptance
 
     private_class_method def provider_phase(workflow_node_key)
       workflow_node_key.to_s.match?(/\Aprovider_round_(1|2|3)\z/) || workflow_node_key == "turn_step" ? "plan" : "build"
+    end
+
+    private_class_method def workflow_node_phase(entry)
+      workflow_node_key = entry["workflow_node_key"].to_s
+      node_type = entry["node_type"].to_s
+
+      return provider_phase(workflow_node_key) if workflow_node_key == "turn_step" || workflow_node_key.match?(/\Aprovider_round_\d+\z/)
+      return "build" if node_type == "tool_call" || workflow_node_key.include?("_tool_")
+      return "build" if node_type == "barrier_join" || workflow_node_key.include?("_join_")
+
+      "build"
+    end
+
+    private_class_method def node_kind_label(node_type)
+      case node_type.to_s
+      when "tool_call"
+        "tool"
+      when "barrier_join"
+        "join"
+      when "turn_step"
+        "provider"
+      else
+        node_type.to_s.presence || "workflow"
+      end
     end
 
     private_class_method def host_validation_checks(entry)

@@ -96,6 +96,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, "def log_capstone_phase"
     assert_includes scenario, 'artifact_dir.join("phase-events.jsonl")'
+    assert_includes scenario, 'phase: "supervision_progress"'
     assert_includes scenario, 'phase: "host_validation_started"'
     assert_includes scenario, 'phase: "benchmark_reporting_complete"'
   end

@@ -224,6 +224,7 @@ rescue ArgumentError
 end
 
 def supervise_conversation_progress!(
+  artifact_dir:,
   conversation_id:,
   actor:,
   prompt: SUPERVISION_PROMPT,
@@ -238,6 +239,7 @@ def supervise_conversation_progress!(
   supervision_session_id = session_payload.dig("conversation_supervision_session", "supervision_session_id")
   deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
   polls = []
+  last_progress_signature = nil
 
   loop do
     response = ManualAcceptanceSupport.append_conversation_supervision_message!(
@@ -254,6 +256,27 @@ def supervise_conversation_progress!(
       "user_message" => response.fetch("user_message"),
       "supervisor_message" => response.fetch("supervisor_message"),
     }
+
+    progress_signature = [
+      machine_status["overall_state"],
+      machine_status["current_focus_summary"],
+      machine_status["recent_progress_summary"],
+      Array(machine_status["active_subagents"]).map { |entry| entry.is_a?(Hash) ? entry["subagent_session_id"] || entry["profile_key"] : entry.to_s },
+    ]
+    if progress_signature != last_progress_signature
+      log_capstone_phase(
+        artifact_dir: artifact_dir,
+        phase: "supervision_progress",
+        details: {
+          "poll_index" => polls.length,
+          "overall_state" => machine_status["overall_state"],
+          "current_focus_summary" => machine_status["current_focus_summary"],
+          "recent_progress_summary" => machine_status["recent_progress_summary"],
+          "active_subagent_count" => Array(machine_status["active_subagents"]).length,
+        }
+      )
+      last_progress_signature = progress_signature
+    end
 
     return {
       "session" => session_payload,
@@ -1436,6 +1459,7 @@ terminal_failure_message = nil
   ManualAcceptanceSupport.execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
 
   supervision_trace = supervise_conversation_progress!(
+    artifact_dir: artifact_dir,
     conversation_id: conversation.public_id,
     actor: conversation_context.fetch(:actor),
     timeout_seconds: supervision_timeout_seconds,

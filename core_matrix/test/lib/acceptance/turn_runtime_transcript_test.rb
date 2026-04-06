@@ -22,8 +22,24 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
           "preview_reachable" => true,
           "playwright_verification_passed" => true,
         },
+        {
+          "timestamp" => "2026-04-06T08:49:20Z",
+          "phase" => "supervision_progress",
+          "poll_index" => 2,
+          "overall_state" => "working",
+          "current_focus_summary" => "Applying merge logic to the board reducer",
+          "recent_progress_summary" => "Finished wiring keyboard controls",
+        },
       ],
-      workflow_node_events: [],
+      workflow_node_events: [
+        {
+          "workflow_node_key" => "provider_round_3_tool_1",
+          "event_kind" => "node_completed",
+          "occurred_at" => "2026-04-06T08:49:10Z",
+          "node_type" => "tool_call",
+          "payload" => { "tool_name" => "workspace_write" },
+        },
+      ],
       usage_events: [
         {
           "occurred_at" => "2026-04-06T08:48:30Z",
@@ -97,6 +113,8 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
 
     summaries = report.fetch("timeline").map { |entry| entry.fetch("summary") }
     assert_includes summaries, "Started attempt 1 of 3"
+    assert_includes summaries, "Supervisor checkpoint: Applying merge logic to the board reducer"
+    assert_includes summaries, "Completed tool node provider_round_3_tool_1"
     assert_includes summaries, "Inspected the workspace tree"
     assert_includes summaries, "Spawned subagent researcher#1"
     assert_includes summaries, "researcher#1 completed its assigned work"
@@ -109,6 +127,8 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes markdown, "## Build"
     assert_includes markdown, "## Validate"
     assert_includes markdown, "[researcher#1]"
+    assert_includes markdown, "[supervisor]"
+    assert_includes markdown, "Completed tool node provider_round_3_tool_1"
     assert_includes markdown, "Host validation passed: tests, build, preview, and Playwright"
   end
 end
