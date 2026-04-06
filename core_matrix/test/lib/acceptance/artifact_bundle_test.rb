@@ -6,6 +6,7 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
     assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("playable"), "host-playwright-install.json"
     assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("playable"), "host-playwright-test.json"
     assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("logs"), "live-progress-events.jsonl"
+    assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("evidence"), "artifact-manifest.json"
 
     Dir.mktmpdir do |dir|
       path = Pathname(dir).join("review-index.md")
@@ -25,8 +26,32 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
       body = path.read
       assert_includes body, "[Turn Runtime Transcript](turn-runtime-transcript.md)"
       assert_includes body, "[Turn Runtime Evidence](../evidence/turn-runtime-evidence.json)"
+      assert_includes body, "[Subagent Runtime Snapshots](../evidence/subagent-runtime-snapshots.json)"
       assert_includes body, "[Live Progress Feed](../logs/live-progress-events.jsonl)"
       assert_includes body, "[Playable Outputs](../playable/)"
+    end
+  end
+
+  test "manifest exposes canonical review and evidence entrypoints" do
+    Dir.mktmpdir do |dir|
+      path = Pathname(dir).join("artifact-manifest.json")
+
+      Acceptance::ArtifactBundle.write_manifest!(
+        path: path,
+        artifact_stamp: "stamp_123",
+        summary: {
+          "benchmark_outcome" => "pass_clean",
+          "workload_outcome" => "complete",
+          "system_behavior_outcome" => "healthy",
+        }
+      )
+
+      payload = JSON.parse(path.read)
+      assert_equal "stamp_123", payload.fetch("artifact_stamp")
+      assert_equal "review/index.md", payload.dig("entry_points", "review_index")
+      assert_equal "evidence/run-summary.json", payload.dig("entry_points", "benchmark_summary")
+      assert_equal "evidence/subagent-runtime-snapshots.json", payload.dig("entry_points", "subagent_runtime_snapshots")
+      assert_equal "logs/live-progress-events.jsonl", payload.dig("entry_points", "live_progress_feed")
     end
   end
 end

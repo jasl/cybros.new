@@ -4,7 +4,7 @@ module Acceptance
 
     SEGMENT_ORDER = %w[plan build validate deliver].freeze
 
-    def build(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_sessions:, agent_task_runs:, supervision_trace:, summary:)
+    def build(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_sessions:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
       subagent_labels = build_subagent_labels(subagent_sessions)
       agent_task_runs_by_id = Array(agent_task_runs).each_with_object({}) do |task_run, memo|
         memo[task_run["agent_task_run_id"]] = task_run
@@ -17,6 +17,12 @@ module Acceptance
       timeline.concat(build_phase_events(Array(phase_events)))
       timeline.concat(build_workflow_node_progress_events(Array(workflow_node_events)))
       timeline.concat(build_subagent_events(Array(subagent_sessions), subagent_labels:))
+      timeline.concat(
+        build_subagent_runtime_snapshot_events(
+          Array(subagent_runtime_snapshots),
+          subagent_labels:
+        )
+      )
       timeline.concat(
         build_tool_events(
           Array(tool_invocations),
@@ -89,6 +95,7 @@ module Acceptance
           "process_event_count" => Array(process_runs).length,
           "provider_round_count" => Array(usage_events).count { |event| event["workflow_node_key"].to_s.match?(/\A(provider_round_|turn_step\z)/) },
           "subagent_session_count" => Array(subagent_sessions).length,
+          "subagent_runtime_snapshot_count" => Array(subagent_runtime_snapshots).length,
           "has_subagent_lane" => lanes.any? { |lane| lane["actor_type"] == "subagent" },
         },
         "lanes" => lanes,
@@ -234,6 +241,69 @@ module Acceptance
           end
 
         [created_event, completed_event].compact
+      end
+    end
+
+    private_class_method def build_subagent_runtime_snapshot_events(subagent_runtime_snapshots, subagent_labels:)
+      Array(subagent_runtime_snapshots).flat_map do |snapshot|
+        actor_label = subagent_labels.fetch(snapshot["subagent_session_id"], snapshot["profile_key"].presence || "subagent")
+        actor_public_id = snapshot["subagent_session_id"]
+
+        events = []
+        events.concat(
+          build_provider_round_events(Array(snapshot["usage_events"])).map do |event|
+            event.merge(
+              "actor_type" => "subagent",
+              "actor_label" => actor_label,
+              "actor_public_id" => actor_public_id,
+              "source_refs" => ["subagent-runtime-snapshots.json", *Array(event["source_refs"])].uniq
+            )
+          end
+        )
+        events.concat(
+          build_tool_events(
+            Array(snapshot["tool_invocations"]),
+            subagent_labels: {},
+            agent_task_runs_by_id: {}
+          ).map do |event|
+            event.merge(
+              "actor_type" => "subagent",
+              "actor_label" => actor_label,
+              "actor_public_id" => actor_public_id,
+              "source_refs" => ["subagent-runtime-snapshots.json", *Array(event["source_refs"])].uniq
+            )
+          end
+        )
+        events.concat(
+          build_command_events(
+            Array(snapshot["command_runs"]),
+            tool_invocations_by_id: {},
+            subagent_labels: {},
+            agent_task_runs_by_id: {}
+          ).map do |event|
+            event.merge(
+              "actor_type" => "subagent",
+              "actor_label" => actor_label,
+              "actor_public_id" => actor_public_id,
+              "source_refs" => ["subagent-runtime-snapshots.json", *Array(event["source_refs"])].uniq
+            )
+          end
+        )
+        events.concat(
+          build_process_events(
+            Array(snapshot["process_runs"]),
+            subagent_labels: {},
+            agent_task_runs_by_id: {}
+          ).map do |event|
+            event.merge(
+              "actor_type" => "subagent",
+              "actor_label" => actor_label,
+              "actor_public_id" => actor_public_id,
+              "source_refs" => ["subagent-runtime-snapshots.json", *Array(event["source_refs"])].uniq
+            )
+          end
+        )
+        events
       end
     end
 

@@ -1,4 +1,5 @@
 require "fileutils"
+require "json"
 
 module Acceptance
   module ArtifactBundle
@@ -22,6 +23,7 @@ module Acceptance
         "agent-evaluation.md",
       ],
       "evidence" => [
+        "artifact-manifest.json",
         "capstone-run-bootstrap.json",
         "skills-validation.json",
         "attempt-history.json",
@@ -30,6 +32,7 @@ module Acceptance
         "source-diagnostics-show.json",
         "source-diagnostics-turns.json",
         "diagnostics.json",
+        "subagent-runtime-snapshots.json",
         "export-request-create.json",
         "export-request-show.json",
         "debug-export-request-create.json",
@@ -115,6 +118,7 @@ module Acceptance
         "## Supporting Evidence",
         "",
         "- [Turn Runtime Evidence](../evidence/turn-runtime-evidence.json)",
+        "- [Subagent Runtime Snapshots](../evidence/subagent-runtime-snapshots.json)",
         "- [Capability Activation](../evidence/capability-activation.json)",
         "- [Failure Classification](../evidence/failure-classification.json)",
         "- [Phase Events](../logs/phase-events.jsonl)",
@@ -155,10 +159,37 @@ module Acceptance
         "- `playable/`: host-side build, preview, and browser-verification outputs",
         "- `tmp/`: unpacked debug bundle and scratch files",
         "",
+        "Canonical machine-readable entrypoints live under `review/`, `evidence/`, and `logs/`.",
+        "- `evidence/artifact-manifest.json` lists the preferred paths for callers.",
+        "",
         "Legacy root-level files are retained for compatibility with existing acceptance tooling.",
       ]
 
       write_text(path, lines.join("\n") + "\n")
+    end
+
+    def write_manifest!(path:, artifact_stamp:, summary:)
+      write_json(path, {
+        "artifact_stamp" => artifact_stamp,
+        "entry_points" => {
+          "review_index" => "review/index.md",
+          "turn_runtime_transcript" => "review/turn-runtime-transcript.md",
+          "conversation_transcript" => "review/conversation-transcript.md",
+          "benchmark_summary" => "evidence/run-summary.json",
+          "turn_runtime_evidence" => "evidence/turn-runtime-evidence.json",
+          "subagent_runtime_snapshots" => "evidence/subagent-runtime-snapshots.json",
+          "capability_activation" => "evidence/capability-activation.json",
+          "failure_classification" => "evidence/failure-classification.json",
+          "phase_events" => "logs/phase-events.jsonl",
+          "live_progress_feed" => "logs/live-progress-events.jsonl",
+          "playable_outputs" => "playable/",
+        },
+        "summary" => {
+          "benchmark_outcome" => summary.fetch("benchmark_outcome"),
+          "workload_outcome" => summary.fetch("workload_outcome"),
+          "system_behavior_outcome" => summary.fetch("system_behavior_outcome"),
+        },
+      })
     end
 
     def copy_entry(source:, destination:)
@@ -180,5 +211,11 @@ module Acceptance
       File.binwrite(path, contents)
     end
     private_class_method :write_text
+
+    def write_json(path, payload)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, JSON.pretty_generate(payload) + "\n")
+    end
+    private_class_method :write_json
   end
 end

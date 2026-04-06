@@ -69,23 +69,22 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
 
   test "capstone scenario writes human-readable supervision markdown artifacts" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/conversation_artifacts.rb").read
 
-    assert_includes scenario, "write_supervision_sidechat_md("
-    assert_includes scenario, "write_supervision_status_md("
-    assert_includes scenario, "write_supervision_feed_md("
-    assert_includes scenario, 'artifact_dir.join("supervision-sidechat.md")'
-    assert_includes scenario, 'artifact_dir.join("supervision-status.md")'
-    assert_includes scenario, 'artifact_dir.join("supervision-feed.md")'
+    assert_includes scenario, "Acceptance::ConversationArtifacts.write_supervision_artifacts!"
+    assert_includes helper, "def supervision_sidechat_markdown"
+    assert_includes helper, "def supervision_status_markdown"
+    assert_includes helper, "def supervision_feed_markdown"
     assert_includes scenario, '"supervision-sidechat.md"'
     assert_includes scenario, '"supervision-status.md"'
     assert_includes scenario, '"supervision-feed.md"'
   end
 
   test "supervision sidechat artifact keeps human sidechat separate from proof and debug refs" do
-    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/conversation_artifacts.rb").read
 
-    assert_includes scenario, "append_supervision_grounding_lines("
-    refute_includes scenario, 'append_supervision_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))'
+    assert_includes helper, "append_supervision_grounding_lines"
+    refute_includes helper, 'append_supervision_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))'
   end
 
   test "capstone scenario uses supervision naming and helper entrypoints" do

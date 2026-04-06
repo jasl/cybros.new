@@ -126,6 +126,18 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, "Acceptance::ArtifactBundle"
     assert_includes scenario, "DEFAULT_LAYOUT"
+    assert_includes scenario, "Acceptance::ArtifactBundle.write_manifest!"
+    assert_includes scenario, 'artifact_dir.join("evidence", "artifact-manifest.json")'
+  end
+
+  test "acceptance scenario uses shared conversation artifacts helper" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/conversation_artifacts.rb")
+
+    assert helper.exist?, "expected shared conversation artifacts helper to exist"
+    assert_includes scenario, "Acceptance::ConversationArtifacts.capture_export_roundtrip!"
+    assert_includes scenario, "Acceptance::ConversationArtifacts.write_supervision_artifacts!"
+    assert_includes scenario, "Acceptance::ConversationArtifacts.capture_subagent_runtime_snapshots!"
   end
 
   test "acceptance scenario uses shared host validation helper" do

@@ -89,6 +89,41 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
           "updated_at" => "2026-04-06T08:49:45Z",
         },
       ],
+      subagent_runtime_snapshots: [
+        {
+          "subagent_session_id" => "sub_1",
+          "profile_key" => "researcher",
+          "usage_events" => [
+            {
+              "occurred_at" => "2026-04-06T08:49:05Z",
+              "workflow_node_key" => "provider_round_1",
+              "output_tokens" => 42,
+              "input_tokens" => 512,
+              "provider_handle" => "openrouter",
+              "model_ref" => "openai-gpt-5.4",
+            },
+          ],
+          "tool_invocations" => [
+            {
+              "tool_name" => "workspace_tree",
+              "status" => "succeeded",
+              "started_at" => "2026-04-06T08:49:06Z",
+              "finished_at" => "2026-04-06T08:49:07Z",
+              "request_payload" => { "arguments" => { "path" => "/workspace/game-2048" } },
+              "response_payload" => {},
+            },
+          ],
+          "command_runs" => [
+            {
+              "command_line" => "cd /workspace/game-2048 && npm test",
+              "lifecycle_state" => "completed",
+              "started_at" => "2026-04-06T08:49:08Z",
+              "ended_at" => "2026-04-06T08:49:11Z",
+            },
+          ],
+          "process_runs" => [],
+        },
+      ],
       agent_task_runs: [],
       supervision_trace: {
         "final_response" => {
@@ -118,6 +153,7 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes summaries, "Inspected the workspace tree"
     assert_includes summaries, "Spawned subagent researcher#1"
     assert_includes summaries, "researcher#1 completed its assigned work"
+    assert_includes summaries, "Completed provider round 1"
     assert_includes summaries, "Host validation passed: tests, build, preview, and Playwright"
 
     markdown = Acceptance::TurnRuntimeTranscript.to_markdown(report)
@@ -128,6 +164,8 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes markdown, "## Validate"
     assert_includes markdown, "[researcher#1]"
     assert_includes markdown, "[supervisor]"
+    assert_includes markdown, "[researcher#1] Inspected the workspace tree"
+    assert_includes markdown, "[researcher#1] Ran automated tests"
     assert_includes markdown, "Completed tool node provider_round_3_tool_1"
     assert_includes markdown, "Host validation passed: tests, build, preview, and Playwright"
   end
