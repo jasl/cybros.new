@@ -58,6 +58,11 @@ module Turns
           content: @content
         )
 
+        Conversations::Metadata::BootstrapTitle.call(
+          conversation: conversation,
+          message: message
+        )
+
         turn.update!(selected_input_message: message)
         turn
       end

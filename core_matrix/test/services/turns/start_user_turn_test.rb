@@ -34,6 +34,25 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_nil turn.selected_output_message
   end
 
+  test "bootstraps conversation title through the start user turn path" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "  \nPlan migration timeline.\nTrack dependencies.",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    conversation.reload
+    assert_equal "Plan migration timeline.", conversation.title
+    assert_equal "bootstrap", conversation.title_source
+    assert_not_nil conversation.title_updated_at
+  end
+
   test "freezes the active agent session version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
