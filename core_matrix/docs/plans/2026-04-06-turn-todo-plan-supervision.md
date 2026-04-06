@@ -22,6 +22,12 @@
 - Legacy cleanup must include code, tests, purge/lifecycle paths, and behavior
   docs. The implementation is not complete while
   `AgentTaskPlanItem`-centric docs remain.
+- The `2048` full acceptance bundle is a hard gate. Internal tests passing is
+  insufficient if exported supervision artifacts still look generic or fail to
+  reflect the actual work that happened during the turn.
+- Acceptance artifact rendering is part of this implementation scope. Do not
+  defer `acceptance/` bundle updates until after the core model and projection
+  work is "done".
 
 ### Task 1: Add the `TurnTodoPlan` schema and model contract
 
@@ -828,7 +834,77 @@ git rm app/models/agent_task_plan_item.rb app/services/agent_task_runs/replace_p
 git commit -m "refactor: delete legacy supervision plan path"
 ```
 
-### Task 10: Run verification and close the documentation loop
+### Task 10: Rebuild acceptance artifact rendering and add the `2048` hard gate
+
+**Files:**
+- Modify: `acceptance/lib/conversation_artifacts.rb`
+- Modify: `acceptance/lib/turn_runtime_transcript.rb`
+- Modify: `acceptance/lib/artifact_bundle.rb`
+- Modify: `acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb`
+- Modify as needed: `acceptance/README.md`
+
+**Step 1: Write failing bundle-quality assertions**
+
+Update the `2048` acceptance scenario so it fails when the exported bundle:
+
+- renders `Current focus: none` / `Recent progress: none` / `Active plan items: 0`
+  as the dominant supervision story
+- renders only generic lifecycle feed events instead of canonical plan-driven
+  events
+- fails to correlate supervision-facing markdown with underlying exported
+  JSON/JSONL logs
+
+Prefer explicit assertions in the scenario or a shared acceptance helper over
+manual post-run inspection.
+
+**Step 2: Run the acceptance scenario to verify it fails**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
+```
+
+Expected: FAIL because the exported bundle still reflects the legacy
+supervision contract and low-value content.
+
+**Step 3: Rebuild the acceptance bundle around the new supervision contract**
+
+- update `ConversationArtifacts` to read plan-centric machine status and
+  canonical turn feed data instead of `active_plan_items`
+- update the supervision markdown renderers so status, feed, and child work
+  sections describe the current `TurnTodoPlan` truth
+- keep `turn_runtime_transcript` runtime-first, but make its supervision
+  sections line up with the same plan/focus/feed facts as the bundle review
+  markdown
+- update the bundle index/README wiring if the rendered artifacts or their
+  descriptions need to change
+- keep the export evidence grounded in raw JSON/JSONL logs rather than in
+  regenerated prose
+
+**Step 4: Run the acceptance scenario to verify it passes**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
+```
+
+Expected: PASS, producing a fresh `2048` full bundle whose supervision status,
+feed, and runtime transcript contain meaningful plan-driven evidence of the
+actual turn work.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add acceptance/lib/conversation_artifacts.rb acceptance/lib/turn_runtime_transcript.rb acceptance/lib/artifact_bundle.rb acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb acceptance/README.md
+git commit -m "feat: harden acceptance bundle supervision evidence"
+```
+
+### Task 11: Run verification and close the documentation loop
 
 **Files:**
 - Modify: `core_matrix/docs/plans/2026-04-06-turn-todo-plan-supervision-design.md`
@@ -861,14 +937,33 @@ bin/rails db:test:prepare test:system
 
 Expected: PASS.
 
-**Step 3: Refresh the design doc if implementation changed a contract**
+**Step 3: Re-run the `2048` acceptance hard gate**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
+```
+
+Expected: PASS, and the newly generated bundle must show:
+
+- supervision status with meaningful current focus and plan progress
+- supervision feed with canonical plan-driven events
+- runtime transcript entries that line up with the supervision story
+- raw exported logs that back the rendered markdown
+
+If the command passes but the bundle remains low-information, the plan is not
+complete and execution must continue.
+
+**Step 4: Refresh the design doc if implementation changed a contract**
 
 Update the design doc only if the implementation forced a contract change.
 
-**Step 4: Commit the verification or doc follow-up**
+**Step 5: Commit the verification or doc follow-up**
 
 ```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add docs/plans/2026-04-06-turn-todo-plan-supervision-design.md
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/docs/plans/2026-04-06-turn-todo-plan-supervision-design.md acceptance/README.md
 git commit -m "docs: finalize turn todo plan supervision design"
 ```

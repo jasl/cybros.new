@@ -48,6 +48,23 @@ The target product behavior is closer to the Codex task checklist UI:
 This is a UI and UX feature, not a new audit log. Workflow and runtime events
 remain the stronger audit substrate.
 
+The redesign is not complete unless the exported acceptance artifacts also
+become useful. The `2048` full bundle is a hard product gate for this work:
+
+- `review/supervision-status.md` must reflect actual current focus, child-plan
+  context, and meaningful plan progress instead of long stretches of `none`
+  or zero-item placeholders
+- `review/supervision-feed.md` must surface canonical plan-driven changes
+  rather than only generic lifecycle events
+- `review/turn-runtime-transcript.md` must correlate with the supervision
+  story and show what actually happened during the turn
+- the underlying exported JSON/JSONL logs must preserve the facts needed to
+  justify the rendered markdown
+
+If the new plan architecture passes internal tests but still exports
+low-information supervision bundles, the redesign has not met its product
+goal.
+
 ## Non-Goals
 
 This redesign does not introduce a second structured execution-state domain
@@ -349,6 +366,26 @@ Examples:
 
 The older strategy of guessing plan state from summary text should be removed.
 
+## Acceptance Artifact Contract
+
+Acceptance bundle rendering is part of the feature, not downstream polish.
+
+The exported bundle should present the same plan-centric truth as the UI and
+supervision conversation:
+
+- `review/supervision-status.md` should render the primary turn plan summary,
+  child turn plan summaries, and meaningful current focus / recent change text
+- `review/supervision-feed.md` should render canonical turn feed entries and
+  stop relying on removed legacy feed kinds
+- `review/turn-runtime-transcript.md` should remain runtime-first, but the
+  supervision sections should visibly line up with the same plan/focus/feed
+  facts shown elsewhere in the bundle
+- `logs/supervision-*.json` and `logs/turn-runtime-events.jsonl` should expose
+  the raw facts that justify the rendered review documents
+
+This bundle contract is how the feature proves user-visible value in the `2048`
+acceptance scenario.
+
 ## API And UI Contract
 
 ## `TurnTodoPlanView`
@@ -524,3 +561,5 @@ At the end of this redesign, Core Matrix should have:
 - stable plan-centric API and UI contracts
 - supervision conversation answers grounded in frozen plan views
 - deleted legacy plan pathways and deleted weak feed types that no longer fit
+- exported acceptance bundles whose supervision status, feed, and runtime
+  transcript reflect the actual work that happened during the turn
