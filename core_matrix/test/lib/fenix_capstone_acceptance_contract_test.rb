@@ -77,7 +77,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
     assert_includes scenario, "next if workflow_completed && !host_failed && !runtime_failed"
-    assert_includes scenario, 'runtime_validation.select { |_key, value| value == false }.keys'
+    assert_includes scenario, "runtime_validation.select { |_key, value| value == false }.keys"
   end
 
   test "acceptance scenario checkpoints benchmark artifacts before the final export phase" do
