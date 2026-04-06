@@ -135,4 +135,25 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal bundle.fetch("turn_feed"), snapshot.machine_status_payload.fetch("turn_feed")
     assert_nil snapshot.machine_status_payload["active_plan_items"]
   end
+
+  test "freezes fallback turn todo plan and canonical feed for provider-backed turns without an agent task run" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    session = create_conversation_supervision_session!(fixture)
+
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    bundle = snapshot.bundle_payload
+    primary_turn_todo_plan_view = bundle.fetch("primary_turn_todo_plan_view")
+
+    assert primary_turn_todo_plan_view.fetch("turn_todo_plan_id").present?
+    assert primary_turn_todo_plan_view.fetch("current_item_key").present?
+    assert primary_turn_todo_plan_view.dig("current_item", "title").present?
+    assert_equal fixture.fetch(:turn).public_id, primary_turn_todo_plan_view.fetch("turn_id")
+    assert bundle.fetch("turn_feed").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_equal primary_turn_todo_plan_view,
+      snapshot.machine_status_payload.fetch("primary_turn_todo_plan_view")
+  end
 end

@@ -18,14 +18,7 @@ module AppAPI
     private
 
     def primary_turn_todo_plan_view(conversation)
-      agent_task_run = AgentTaskRun
-        .where(conversation: conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-        .includes(turn_todo_plan: :turn_todo_plan_items)
-        .order(created_at: :desc)
-        .first
-      return if agent_task_run&.turn_todo_plan.blank?
-
-      TurnTodoPlans::BuildView.call(turn_todo_plan: agent_task_run.turn_todo_plan)
+      ConversationSupervision::BuildCurrentTurnTodo.call(conversation: conversation).fetch("plan_view")
     end
 
     def active_subagent_turn_todo_plan_views(conversation)

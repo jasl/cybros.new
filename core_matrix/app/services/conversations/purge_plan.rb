@@ -117,31 +117,33 @@ module Conversations
     end
 
     def purge_publication_rows!
+      return if @publication_ids.empty?
+
       PublicationAccessEvent.where(publication_id: @publication_ids).delete_all
       Publication.where(id: @publication_ids).delete_all
     end
 
     def purge_agent_control_rows!
-      AgentControlReportReceipt.where(id: @report_receipt_ids).delete_all
-      AgentControlMailboxItem.where(id: @mailbox_item_ids).delete_all
-      ExecutionLease.where(id: @session_execution_lease_ids).delete_all
-      ExecutionLease.where(workflow_run_id: @workflow_run_ids).delete_all
-      ToolInvocation.where(id: @tool_invocation_ids).delete_all
-      ToolBinding.where(id: @tool_binding_ids).delete_all
-      TurnTodoPlanItem.where(id: @turn_todo_plan_item_ids).delete_all
-      TurnTodoPlan.where(id: @turn_todo_plan_ids).delete_all
-      AgentTaskRun.where(id: @agent_task_run_ids).delete_all
+      AgentControlReportReceipt.where(id: @report_receipt_ids).delete_all if @report_receipt_ids.any?
+      AgentControlMailboxItem.where(id: @mailbox_item_ids).delete_all if @mailbox_item_ids.any?
+      ExecutionLease.where(id: @session_execution_lease_ids).delete_all if @session_execution_lease_ids.any?
+      ExecutionLease.where(workflow_run_id: @workflow_run_ids).delete_all if @workflow_run_ids.any?
+      ToolInvocation.where(id: @tool_invocation_ids).delete_all if @tool_invocation_ids.any?
+      ToolBinding.where(id: @tool_binding_ids).delete_all if @tool_binding_ids.any?
+      TurnTodoPlanItem.where(id: @turn_todo_plan_item_ids).delete_all if @turn_todo_plan_item_ids.any?
+      TurnTodoPlan.where(id: @turn_todo_plan_ids).delete_all if @turn_todo_plan_ids.any?
+      AgentTaskRun.where(id: @agent_task_run_ids).delete_all if @agent_task_run_ids.any?
     end
 
     def purge_runtime_rows!
       ProcessRun.where(conversation_id: @owned_conversation_ids).delete_all
       nullify_workflow_node_subagent_references!
-      SubagentSession.where(id: @subagent_session_ids).delete_all
-      WorkflowNodeEvent.where(workflow_run_id: @workflow_run_ids).delete_all
-      WorkflowEdge.where(workflow_run_id: @workflow_run_ids).delete_all
+      SubagentSession.where(id: @subagent_session_ids).delete_all if @subagent_session_ids.any?
+      WorkflowNodeEvent.where(workflow_run_id: @workflow_run_ids).delete_all if @workflow_run_ids.any?
+      WorkflowEdge.where(workflow_run_id: @workflow_run_ids).delete_all if @workflow_run_ids.any?
       purge_workflow_artifacts!
-      WorkflowNode.where(id: @workflow_node_ids).delete_all
-      WorkflowRun.where(id: @workflow_run_ids).delete_all
+      WorkflowNode.where(id: @workflow_node_ids).delete_all if @workflow_node_ids.any?
+      WorkflowRun.where(id: @workflow_run_ids).delete_all if @workflow_run_ids.any?
     end
 
     def purge_workflow_artifacts!
@@ -202,12 +204,14 @@ module Conversations
         execution_contract_id: nil,
         updated_at: Time.current
       )
-      ExecutionContract.where(id: @execution_contract_ids).update_all(
-        selected_input_message_id: nil,
-        selected_output_message_id: nil,
-        updated_at: Time.current
-      )
-      ExecutionContract.where(id: @execution_contract_ids).delete_all
+      if @execution_contract_ids.any?
+        ExecutionContract.where(id: @execution_contract_ids).update_all(
+          selected_input_message_id: nil,
+          selected_output_message_id: nil,
+          updated_at: Time.current
+        )
+        ExecutionContract.where(id: @execution_contract_ids).delete_all
+      end
 
       Message.where(id: @message_ids).delete_all
       Turn.where(id: @turn_ids).delete_all

@@ -53,7 +53,7 @@ class AcceptanceFailureClassificationTest < ActiveSupport::TestCase
         },
       },
       rescue_history: [
-        { "attempt_no" => 1 }
+        { "attempt_no" => 1 },
       ],
       timeline: []
     )

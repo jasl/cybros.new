@@ -273,7 +273,7 @@ module Acceptance
         lines << ""
         lines << "- Overall state: `#{machine_status.fetch("overall_state")}`"
         lines << "- Board lane: `#{machine_status["board_lane"]}`"
-        lines << "- Current focus: `#{machine_status["current_focus_summary"] || machine_status["request_summary"] || "none"}`"
+        lines << "- Current focus: `#{preferred_focus_summary(machine_status)}`"
         lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
         lines << "- Human-visible leak scan: `#{suspicious_tokens.empty? ? "pass" : "fail"}`"
         lines << ""
@@ -324,7 +324,7 @@ module Acceptance
       polls.each_with_index do |poll, index|
         machine_status = poll.fetch("machine_status")
         boundary_failures = supervision_public_id_boundary_failures(poll)
-        latest_activity = Array(machine_status["activity_feed"]).last || {}
+        latest_activity = latest_turn_feed_entry(machine_status)
 
         lines << "## Poll #{index + 1}"
         lines << ""
@@ -333,14 +333,14 @@ module Acceptance
         lines << "- Board lane: `#{machine_status["board_lane"]}`"
         lines << "- Last terminal state: `#{machine_status["last_terminal_state"] || "none"}`"
         lines << "- Last terminal at: `#{machine_status["last_terminal_at"] || "unknown"}`"
-        lines << "- Current focus: `#{machine_status["current_focus_summary"] || machine_status["request_summary"] || "none"}`"
-        lines << "- Recent progress: `#{machine_status["recent_progress_summary"] || "none"}`"
+        lines << "- Current focus: `#{preferred_focus_summary(machine_status)}`"
+        lines << "- Recent progress: `#{preferred_progress_summary(machine_status)}`"
         lines << "- Waiting summary: `#{machine_status["waiting_summary"] || "none"}`"
         lines << "- Blocked summary: `#{machine_status["blocked_summary"] || "none"}`"
         lines << "- Next step hint: `#{machine_status["next_step_hint"] || "none"}`"
         lines << "- Last progress at: `#{machine_status["last_progress_at"] || "unknown"}`"
-        lines << "- Latest activity event: `#{latest_activity["event_kind"] || "none"}`"
-        lines << "- Latest activity sequence: `#{latest_activity["sequence"] || "none"}`"
+        lines << "- Latest turn-feed event: `#{latest_activity["event_kind"] || "none"}`"
+        lines << "- Latest turn-feed sequence: `#{latest_activity["sequence"] || "none"}`"
         lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
         append_supervision_plan_item_lines(lines, machine_status)
         append_supervision_subagent_lines(lines, machine_status)
@@ -354,21 +354,26 @@ module Acceptance
 
     def supervision_feed_markdown(supervision_trace:)
       final_status = supervision_trace.fetch("final_response").fetch("machine_status")
-      activity_feed = Array(final_status["activity_feed"])
+      turn_feed = turn_feed_entries(final_status)
+      canonical_turn_feed = canonical_turn_feed_entries(final_status)
       lines = [
         "# Supervision Feed",
         "",
-        "- Feed entry count: `#{activity_feed.length}`",
-        "- Feed source turn: `#{activity_feed.last&.fetch("turn_id", "none") || "none"}`",
+        "- Feed entry count: `#{turn_feed.length}`",
+        "- Canonical plan event count: `#{canonical_turn_feed.length}`",
+        "- Feed source turn: `#{turn_feed.last&.fetch("turn_id", "none") || "none"}`",
         "",
       ]
 
-      activity_feed.each do |entry|
+      turn_feed.each do |entry|
         lines << "## Entry #{entry.fetch("sequence")}"
         lines << ""
         lines << "- Event kind: `#{entry.fetch("event_kind")}`"
         lines << "- Occurred at: `#{entry.fetch("occurred_at")}`"
         lines << "- Summary: #{entry.fetch("summary")}"
+        if entry.dig("details_payload", "title").present? || entry.dig("details_payload", "item_key").present?
+          lines << "- Plan item: `#{entry.dig("details_payload", "title") || entry.dig("details_payload", "item_key")}`"
+        end
         lines << ""
       end
 
@@ -461,12 +466,18 @@ module Acceptance
       end
 
       array_checks = [
-        ["activity_feed.feed_entry_ids", Array(machine_status["activity_feed"]).map { |entry| entry["conversation_supervision_feed_entry_id"] }],
-        ["activity_feed.turn_ids", Array(machine_status["activity_feed"]).map { |entry| entry["turn_id"] }],
+        ["turn_feed.feed_entry_ids", turn_feed_entries(machine_status).map { |entry| entry["conversation_supervision_feed_entry_id"] }],
+        ["turn_feed.turn_ids", turn_feed_entries(machine_status).map { |entry| entry["turn_id"] }],
         ["conversation_context.message_ids", Array(machine_status.dig("conversation_context", "message_ids"))],
         ["conversation_context.turn_ids", Array(machine_status.dig("conversation_context", "turn_ids"))],
         ["active_subagents.subagent_session_ids", Array(machine_status["active_subagents"]).map { |entry| entry["subagent_session_id"] }],
-        ["active_plan_items.delegated_subagent_session_ids", Array(machine_status["active_plan_items"]).map { |entry| entry["delegated_subagent_session_id"] }],
+        ["primary_turn_todo_plan.ids", [primary_turn_todo_plan_view(machine_status)["turn_todo_plan_id"], primary_turn_todo_plan_view(machine_status)["agent_task_run_id"], primary_turn_todo_plan_view(machine_status)["turn_id"]]],
+        ["primary_turn_todo_plan.item_ids", Array(primary_turn_todo_plan_view(machine_status)["items"]).map { |entry| entry["turn_todo_plan_item_id"] }],
+        ["primary_turn_todo_plan.delegated_subagent_session_ids", Array(primary_turn_todo_plan_view(machine_status)["items"]).map { |entry| entry["delegated_subagent_session_id"] }],
+        ["active_subagent_turn_todo_plan.session_ids", active_subagent_turn_todo_plan_views(machine_status).map { |entry| entry["subagent_session_id"] }],
+        ["active_subagent_turn_todo_plan.plan_ids", active_subagent_turn_todo_plan_views(machine_status).map { |entry| entry["turn_todo_plan_id"] }],
+        ["active_subagent_turn_todo_plan.item_ids", active_subagent_turn_todo_plan_views(machine_status).flat_map { |entry| Array(entry["items"]).map { |item| item["turn_todo_plan_item_id"] } }],
+        ["active_subagent_turn_todo_plan.delegated_subagent_session_ids", active_subagent_turn_todo_plan_views(machine_status).flat_map { |entry| Array(entry["items"]).map { |item| item["delegated_subagent_session_id"] } }],
         ["proof_debug.context_message_ids", Array(machine_status.dig("proof_debug", "context_message_ids"))],
         ["proof_debug.feed_entry_ids", Array(machine_status.dig("proof_debug", "feed_entry_ids"))],
       ]
@@ -492,23 +503,37 @@ module Acceptance
     end
 
     private_class_method def append_supervision_plan_item_lines(lines, machine_status)
-      plan_items = Array(machine_status["active_plan_items"])
-      lines << "- Active plan items: `#{plan_items.length}`"
-      return if plan_items.empty?
+      plan_view = primary_turn_todo_plan_view(machine_status)
+      lines << "- Primary turn todo plan: `#{plan_view["turn_todo_plan_id"] || "none"}`"
+      return if plan_view.blank?
 
-      plan_items.each do |item|
+      current_item = plan_view["current_item"].to_h
+      items = Array(plan_view["items"]).sort_by { |item| item["position"].to_i }
+      visible_items = items.reject { |item| %w[completed canceled].include?(item["status"]) }.first(3)
+      visible_items = items.first(3) if visible_items.empty?
+
+      lines << "  - Goal summary: `#{plan_view["goal_summary"] || "none"}`"
+      lines << "  - Plan status: `#{plan_view["status"] || "unknown"}`"
+      lines << "  - Current item: `#{current_item["title"] || plan_view["current_item_key"] || "none"}`"
+      lines << "  - Current item key: `#{plan_view["current_item_key"] || "none"}`"
+      lines << "  - Counts: `#{format_turn_todo_counts(plan_view["counts"])}`"
+      visible_items.each do |item|
         lines << "  - `#{item["status"]}` #{item["title"]}"
       end
     end
 
     private_class_method def append_supervision_subagent_lines(lines, machine_status)
-      subagents = Array(machine_status["active_subagents"])
-      lines << "- Active child tasks: `#{subagents.length}`"
-      return if subagents.empty?
+      subagent_plan_views = active_subagent_turn_todo_plan_views(machine_status)
+      lines << "- Active child tasks: `#{subagent_plan_views.length}`"
+      return if subagent_plan_views.empty?
 
-      subagents.each do |subagent|
-        summary = subagent["current_focus_summary"] || subagent["waiting_summary"] || subagent["blocked_summary"] || "no summary"
-        lines << "  - `#{subagent["observed_status"] || subagent["supervision_state"] || "unknown"}` #{summary}"
+      subagent_plan_views.each do |plan_view|
+        summary =
+          plan_view.dig("current_item", "title") ||
+          plan_view["goal_summary"] ||
+          "no summary"
+
+        lines << "  - `#{plan_view["profile_key"] || "subagent"}` `#{plan_view["observed_status"] || plan_view["supervision_state"] || "unknown"}` #{summary}"
       end
     end
 
@@ -516,10 +541,63 @@ module Acceptance
       lines << "- Grounding:"
       lines << "  - Board lane: `#{machine_status["board_lane"]}`"
       lines << "  - Last terminal state: `#{machine_status["last_terminal_state"] || "none"}`"
-      lines << "  - Recent feed entries: `#{Array(machine_status["activity_feed"]).length}`"
+      lines << "  - Recent turn-feed entries: `#{turn_feed_entries(machine_status).length}`"
+      lines << "  - Primary turn todo plan present: `#{primary_turn_todo_plan_view(machine_status).present?}`"
+      lines << "  - Active child turn todo plans: `#{active_subagent_turn_todo_plan_views(machine_status).length}`"
       lines << "  - Conversation facts: `#{Array(machine_status.dig("conversation_context", "facts")).length}`"
       lines << "  - Waiting summary present: `#{machine_status["waiting_summary"].present?}`"
       lines << "  - Blocked summary present: `#{machine_status["blocked_summary"].present?}`"
+    end
+
+    private_class_method def preferred_focus_summary(machine_status)
+      primary_turn_todo_plan_view(machine_status).dig("current_item", "title") ||
+        machine_status["current_focus_summary"] ||
+        machine_status["request_summary"] ||
+        "none"
+    end
+
+    private_class_method def preferred_progress_summary(machine_status)
+      latest_turn_feed_entry(machine_status)&.fetch("summary", nil) ||
+        machine_status["recent_progress_summary"] ||
+        machine_status["waiting_summary"] ||
+        machine_status["blocked_summary"] ||
+        "none"
+    end
+
+    private_class_method def primary_turn_todo_plan_view(machine_status)
+      machine_status.fetch("primary_turn_todo_plan_view", {}).to_h
+    end
+
+    private_class_method def active_subagent_turn_todo_plan_views(machine_status)
+      Array(machine_status["active_subagent_turn_todo_plan_views"]).map { |entry| entry.to_h }
+    end
+
+    private_class_method def turn_feed_entries(machine_status)
+      Array(machine_status["turn_feed"].presence || machine_status["activity_feed"]).map { |entry| entry.to_h }
+    end
+
+    private_class_method def canonical_turn_feed_entries(machine_status)
+      turn_feed_entries(machine_status).select do |entry|
+        entry["event_kind"].to_s.start_with?("turn_todo_")
+      end
+    end
+
+    private_class_method def latest_turn_feed_entry(machine_status)
+      canonical_turn_feed_entries(machine_status).last || turn_feed_entries(machine_status).last || {}
+    end
+
+    private_class_method def format_turn_todo_counts(counts)
+      counts = counts.to_h
+      return "none" if counts.empty?
+
+      ordered_statuses = %w[pending in_progress blocked failed completed canceled]
+      visible_counts = ordered_statuses.filter_map do |status|
+        count = counts.fetch(status, 0).to_i
+        "#{status}=#{count}" if count.positive?
+      end
+      total_count = counts.values.sum(&:to_i)
+
+      [*visible_counts, "total=#{total_count}"].join(", ")
     end
 
     private_class_method def append_supervision_proof_debug_lines(lines, machine_status)

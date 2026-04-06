@@ -89,7 +89,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     helper = Rails.root.join("../acceptance/lib/benchmark_reporting.rb").read
 
     assert_includes helper, "next if workflow_completed && host_failed_keys.empty? && runtime_failed_keys.empty?"
-    assert_includes helper, 'stringify_keys(validation_hash).select { |_key, value| value == false }.keys'
+    assert_includes helper, "stringify_keys(validation_hash).select { |_key, value| value == false }.keys"
   end
 
   test "acceptance scenario checkpoints benchmark artifacts before the final export phase" do

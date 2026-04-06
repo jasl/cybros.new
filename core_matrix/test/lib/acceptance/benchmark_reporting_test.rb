@@ -21,7 +21,7 @@ class AcceptanceBenchmarkReportingTest < ActiveSupport::TestCase
     }
     playwright_validation = {
       "test" => { "success" => true },
-      "result" => { "restartResetScore" => true }
+      "result" => { "restartResetScore" => true },
     }
 
     Dir.mktmpdir("benchmark-reporting-complete") do |tmpdir|

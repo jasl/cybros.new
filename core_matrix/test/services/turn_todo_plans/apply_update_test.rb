@@ -14,7 +14,7 @@ module TurnTodoPlans
           "current_item_key" => "old-item",
           "items" => [
             { "item_key" => "old-item", "title" => "Old item", "status" => "in_progress", "position" => 0, "kind" => "implementation" },
-          ]
+          ],
         },
         occurred_at: 2.minutes.ago
       )
@@ -27,7 +27,7 @@ module TurnTodoPlans
           "items" => [
             { "item_key" => "define-domain", "title" => "Define new plan model", "status" => "completed", "position" => 0, "kind" => "implementation" },
             { "item_key" => "remove-legacy", "title" => "Remove AgentTaskPlanItem", "status" => "in_progress", "position" => 1, "kind" => "implementation" },
-          ]
+          ],
         },
         occurred_at: Time.current
       )

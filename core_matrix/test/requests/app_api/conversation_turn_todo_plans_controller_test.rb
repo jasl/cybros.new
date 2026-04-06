@@ -32,4 +32,20 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
 
     assert_response :not_found
   end
+
+  test "lists a fallback turn todo plan view for provider-backed work without an agent task run" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+
+    get app_api_conversation_turn_todo_plans_path(
+      conversation_id: fixture.fetch(:conversation).public_id
+    ), headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    assert_equal fixture.fetch(:conversation).public_id, body.fetch("conversation_id")
+    assert body.fetch("primary_turn_todo_plan").fetch("turn_todo_plan_id").present?
+    assert body.fetch("primary_turn_todo_plan").fetch("current_item_key").present?
+  end
 end

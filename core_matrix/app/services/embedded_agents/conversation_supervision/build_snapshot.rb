@@ -158,10 +158,7 @@ module EmbeddedAgents
       def primary_turn_todo_plan_view
         return @primary_turn_todo_plan_view if instance_variable_defined?(:@primary_turn_todo_plan_view)
 
-        @primary_turn_todo_plan_view =
-          if current_agent_task_run&.turn_todo_plan.present?
-            TurnTodoPlans::BuildView.call(turn_todo_plan: current_agent_task_run.turn_todo_plan)
-          end
+        @primary_turn_todo_plan_view = current_turn_todo_projection.fetch("plan_view")
       end
 
       def active_subagent_turn_todo_plan_views
@@ -216,6 +213,16 @@ module EmbeddedAgents
           .includes(turn_todo_plan: :turn_todo_plan_items)
           .order(created_at: :desc)
           .first
+      end
+
+      def current_turn_todo_projection
+        return @current_turn_todo_projection if instance_variable_defined?(:@current_turn_todo_projection)
+
+        @current_turn_todo_projection = ::ConversationSupervision::BuildCurrentTurnTodo.call(
+          conversation: @conversation,
+          active_agent_task_run: current_agent_task_run,
+          workflow_run: workflow_run
+        )
       end
 
       def active_subagent_sessions

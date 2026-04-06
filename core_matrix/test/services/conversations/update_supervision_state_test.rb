@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
+  include ConversationSupervisionFixtureBuilder
+
   test "projects task rollups and active plan items into durable conversation supervision state" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(
@@ -335,6 +337,28 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "active", state.board_lane
     assert_equal "workflow_run", state.current_owner_kind
     assert_equal context[:workflow_run].public_id, state.current_owner_public_id
+  end
+
+  test "projects fallback turn todo summaries and canonical feed for provider-backed turns without an agent task run" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: fixture.fetch(:conversation),
+      occurred_at: Time.current
+    )
+
+    assert_equal "running", state.overall_state
+    assert_equal "workflow_run", state.current_owner_kind
+    assert state.request_summary.present?
+    assert state.current_focus_summary.present?
+    current_turn_plan_summary = state.status_payload.fetch("current_turn_plan_summary")
+    assert current_turn_plan_summary.fetch("turn_todo_plan_id").present?
+    assert current_turn_plan_summary.fetch("current_item_key").present?
+    assert_equal fixture.fetch(:turn).public_id, current_turn_plan_summary.fetch("turn_id")
+
+    feed = ConversationSupervision::BuildActivityFeed.call(conversation: fixture.fetch(:conversation))
+
+    assert feed.any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
   end
 
   test "projects idle with last terminal completed when the previous run finished and nothing is active" do

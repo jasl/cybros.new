@@ -158,6 +158,7 @@ module Conversations
       return unless detailed_progress_enabled?
 
       current_task_plan_summary&.fetch("goal_summary", nil) ||
+        workflow_turn_todo_plan_summary&.fetch("goal_summary", nil) ||
         current_task_run&.request_summary ||
         active_conversation_subagent_session&.request_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["goal_summary"] }.first ||
@@ -170,6 +171,7 @@ module Conversations
       return unless detailed_progress_enabled?
 
       current_task_plan_summary&.fetch("current_item_title", nil) ||
+        workflow_turn_todo_plan_summary&.fetch("current_item_title", nil) ||
         current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["current_item_title"] }.first ||
@@ -180,6 +182,7 @@ module Conversations
       return unless detailed_progress_enabled?
 
       current_task_progress_entry&.summary ||
+        workflow_turn_todo_latest_summary ||
         current_task_run&.recent_progress_summary ||
         active_conversation_subagent_session&.recent_progress_summary ||
         active_owned_subagent_sessions.filter_map(&:recent_progress_summary).first ||
@@ -250,11 +253,11 @@ module Conversations
     end
 
     def active_plan_item_count
-      current_task_plan_summary&.fetch("active_item_count", 0).to_i
+      current_turn_plan_summary&.fetch("active_item_count", 0).to_i
     end
 
     def completed_plan_item_count
-      current_task_plan_summary&.fetch("completed_item_count", 0).to_i
+      current_turn_plan_summary&.fetch("completed_item_count", 0).to_i
     end
 
     def active_subagent_count
@@ -273,7 +276,7 @@ module Conversations
       return {} unless detailed_progress_enabled?
 
       {
-        "current_turn_plan_summary" => current_task_plan_summary,
+        "current_turn_plan_summary" => current_turn_plan_summary,
         "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
         "active_subagents" => active_subagent_payloads,
         "latest_progress_entry" => latest_progress_entry_payload,
@@ -441,6 +444,10 @@ module Conversations
         end
     end
 
+    def current_turn_plan_summary
+      current_task_plan_summary || workflow_turn_todo_plan_summary
+    end
+
     def latest_task_plan_summary
       return @latest_task_plan_summary if instance_variable_defined?(:@latest_task_plan_summary)
 
@@ -448,6 +455,24 @@ module Conversations
         if latest_task_run&.turn_todo_plan.present?
           TurnTodoPlans::BuildCompactView.call(turn_todo_plan: latest_task_run.turn_todo_plan)
         end
+    end
+
+    def workflow_turn_todo_projection
+      return @workflow_turn_todo_projection if instance_variable_defined?(:@workflow_turn_todo_projection)
+
+      @workflow_turn_todo_projection = ConversationSupervision::BuildCurrentTurnTodo.call(
+        conversation: @conversation,
+        active_agent_task_run: current_task_run,
+        workflow_run: workflow_run
+      )
+    end
+
+    def workflow_turn_todo_plan_summary
+      workflow_turn_todo_projection.fetch("plan_summary")
+    end
+
+    def workflow_turn_todo_latest_summary
+      workflow_turn_todo_projection.fetch("synthetic_turn_feed").last&.fetch("summary", nil)
     end
 
     def active_owned_subagent_turn_plan_summaries

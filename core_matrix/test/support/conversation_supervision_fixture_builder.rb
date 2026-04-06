@@ -262,4 +262,74 @@ module ConversationSupervisionFixtureBuilder
       child_agent_task_run: child_agent_task_run.reload,
     )
   end
+
+  def prepare_provider_backed_conversation_supervision_context!
+    context = build_agent_control_context!
+    context.fetch(:turn).selected_input_message.update!(
+      content: "Build the 2048 acceptance supervision bundle and keep the supervisor informed."
+    )
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 90.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 1,
+      metadata: {}
+    )
+    exec_command_call = JsonDocuments::Store.call(
+      installation: context.fetch(:installation),
+      document_kind: "workflow_node_tool_call",
+      payload: {
+        "call_id" => "call-#{next_test_sequence}",
+        "tool_name" => "exec_command",
+      }
+    )
+    create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_1_tool_1",
+      node_type: "tool_call",
+      lifecycle_state: "completed",
+      started_at: 80.seconds.ago,
+      finished_at: 70.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      tool_call_document: exec_command_call,
+      provider_round_index: 1,
+      metadata: {}
+    )
+    current_node = create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2",
+      node_type: "turn_step",
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      metadata: {}
+    )
+    policy = ConversationCapabilityPolicy.create!(
+      installation: context.fetch(:installation),
+      target_conversation: context.fetch(:conversation),
+      supervision_enabled: true,
+      detailed_progress_enabled: true,
+      side_chat_enabled: true,
+      control_enabled: false,
+      policy_payload: {}
+    )
+
+    Conversations::UpdateSupervisionState.call(
+      conversation: context.fetch(:conversation),
+      occurred_at: Time.current
+    )
+
+    context.merge(
+      workflow_run: context.fetch(:workflow_run).reload,
+      workflow_node: current_node.reload,
+      policy: policy
+    )
+  end
 end

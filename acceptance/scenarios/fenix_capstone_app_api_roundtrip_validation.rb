@@ -149,8 +149,8 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   final_status = read_json(artifact_dir.join("logs", "supervision-final.json")).fetch("machine_status")
   turn_runtime_evidence = read_json(artifact_dir.join("evidence", "turn-runtime-evidence.json"))
 
-  primary_plan_summary = final_status["current_turn_plan_summary"]
-  canonical_feed_entries = Array(final_status["activity_feed"]).select do |entry|
+  primary_plan_view = final_status.fetch("primary_turn_todo_plan_view", {}).to_h
+  canonical_feed_entries = Array(final_status["turn_feed"].presence || final_status["activity_feed"]).select do |entry|
     entry["event_kind"].to_s.start_with?("turn_todo_")
   end
   dominant_fallback_markers = [
@@ -160,25 +160,29 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   ].select { |marker| status_markdown.include?(marker) }
 
   errors = []
-  unless primary_plan_summary.is_a?(Hash) && primary_plan_summary["current_item_key"].present?
-    errors << "supervision-final.json is missing current_turn_plan_summary.current_item_key"
+  unless primary_plan_view["turn_todo_plan_id"].present? && primary_plan_view["current_item_key"].present?
+    errors << "supervision-final.json is missing primary_turn_todo_plan_view.current_item_key"
   end
   if dominant_fallback_markers.length >= 2
     errors << "supervision-status.md still centers fallback supervision lines: #{dominant_fallback_markers.join(', ')}"
   end
   if canonical_feed_entries.empty?
-    errors << "machine_status.activity_feed does not include canonical turn_todo_* events"
+    errors << "machine_status.turn_feed does not include canonical turn_todo_* events"
   end
 
-  if primary_plan_summary.is_a?(Hash)
-    current_item_key = primary_plan_summary["current_item_key"].to_s
-    current_item_title = primary_plan_summary["current_item_title"].presence || current_item_key
+  if primary_plan_view.present?
+    current_item_key = primary_plan_view["current_item_key"].to_s
+    current_item_title = primary_plan_view.dig("current_item", "title").presence || current_item_key
+    goal_summary = primary_plan_view["goal_summary"].to_s
 
     unless status_markdown.include?(current_item_title) || status_markdown.include?(current_item_key)
       errors << "supervision-status.md is not grounded in the primary turn todo plan item #{current_item_key.inspect}"
     end
     unless runtime_transcript_markdown.include?(current_item_title) || runtime_transcript_markdown.include?(current_item_key)
       errors << "turn-runtime-transcript.md is not grounded in the primary turn todo plan item #{current_item_key.inspect}"
+    end
+    if goal_summary.present? && !status_markdown.include?(goal_summary)
+      errors << "supervision-status.md is missing primary turn todo plan goal #{goal_summary.inspect}"
     end
   end
 
@@ -315,11 +319,18 @@ def supervise_conversation_progress!(
       "supervisor_message" => response.fetch("supervisor_message"),
     }
 
+    primary_plan_view = machine_status.fetch("primary_turn_todo_plan_view", {}).to_h
+    latest_turn_feed_entry = Array(machine_status["turn_feed"].presence || machine_status["activity_feed"]).last || {}
     progress_signature = [
       machine_status["overall_state"],
+      primary_plan_view["current_item_key"],
+      primary_plan_view.dig("current_item", "status"),
+      latest_turn_feed_entry["sequence"] || latest_turn_feed_entry["summary"],
       machine_status["current_focus_summary"],
       machine_status["recent_progress_summary"],
-      Array(machine_status["active_subagents"]).map { |entry| entry.is_a?(Hash) ? entry["subagent_session_id"] || entry["profile_key"] : entry.to_s },
+      Array(machine_status["active_subagent_turn_todo_plan_views"]).map do |entry|
+        [entry["subagent_session_id"], entry["current_item_key"], entry.dig("current_item", "status")]
+      end,
     ]
     if progress_signature != last_progress_signature
       log_capstone_phase(
@@ -330,7 +341,11 @@ def supervise_conversation_progress!(
           "overall_state" => machine_status["overall_state"],
           "current_focus_summary" => machine_status["current_focus_summary"],
           "recent_progress_summary" => machine_status["recent_progress_summary"],
-          "active_subagent_count" => Array(machine_status["active_subagents"]).length,
+          "primary_turn_todo_plan_current_item_key" => primary_plan_view["current_item_key"],
+          "primary_turn_todo_plan_current_item_title" => primary_plan_view.dig("current_item", "title"),
+          "latest_turn_feed_event_kind" => latest_turn_feed_entry["event_kind"],
+          "latest_turn_feed_summary" => latest_turn_feed_entry["summary"],
+          "active_subagent_count" => Array(machine_status["active_subagent_turn_todo_plan_views"]).presence&.length || Array(machine_status["active_subagents"]).length,
         }
       )
       last_progress_signature = progress_signature
@@ -947,6 +962,9 @@ seen_live_progress_event_keys = Set.new
       "attempt_no" => attempt_no,
       "poll_count" => supervision_trace.fetch("polls").length,
       "overall_state" => supervision_trace.dig("final_response", "machine_status", "overall_state"),
+      "primary_turn_todo_plan_current_item_key" => supervision_trace.dig("final_response", "machine_status", "primary_turn_todo_plan_view", "current_item_key"),
+      "primary_turn_todo_plan_current_item_title" => supervision_trace.dig("final_response", "machine_status", "primary_turn_todo_plan_view", "current_item", "title"),
+      "latest_turn_feed_summary" => Array(supervision_trace.dig("final_response", "machine_status", "turn_feed")).last&.fetch("summary", nil),
     }
   )
 

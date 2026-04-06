@@ -30,4 +30,18 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "lists fallback canonical turn feed entries for provider-backed work without an agent task run" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+
+    get app_api_conversation_turn_feeds_path(
+      conversation_id: fixture.fetch(:conversation).public_id
+    ), headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    assert body.fetch("items").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+  end
 end

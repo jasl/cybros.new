@@ -408,8 +408,24 @@ module Acceptance
       machine_status = final_response&.dig("machine_status")
       return [] if machine_status.blank?
 
-      [{
-        "timestamp" => Time.current.iso8601,
+      feed_events = canonical_turn_feed_entries(machine_status).map do |entry|
+        {
+          "timestamp" => entry["occurred_at"] || supervision_snapshot_timestamp(machine_status: machine_status, supervision_trace: supervision_trace),
+          "actor_type" => "supervisor",
+          "actor_label" => "supervisor",
+          "actor_public_id" => final_response["supervision_session_id"],
+          "phase" => supervision_feed_phase(entry["event_kind"]),
+          "kind" => "supervision_feed",
+          "status" => supervision_feed_status(entry["event_kind"]),
+          "summary" => entry["summary"],
+          "detail" => supervision_feed_detail(entry),
+          "source_refs" => ["supervision-polls.json", "supervision-final.json"],
+          "sort_order" => 85,
+        }
+      end
+
+      feed_events << {
+        "timestamp" => supervision_snapshot_timestamp(machine_status: machine_status, supervision_trace: supervision_trace),
         "actor_type" => "supervisor",
         "actor_label" => "supervisor",
         "actor_public_id" => final_response["supervision_session_id"],
@@ -417,10 +433,12 @@ module Acceptance
         "kind" => "supervision_snapshot",
         "status" => machine_status["overall_state"],
         "summary" => "Supervisor observed final machine state `#{machine_status["overall_state"]}`",
-        "detail" => machine_status["current_focus_summary"].presence || machine_status["recent_progress_summary"].presence || "No additional focus summary.",
+        "detail" => supervision_snapshot_detail(machine_status),
         "source_refs" => ["supervision-polls.json", "supervision-final.json"],
         "sort_order" => 90,
-      }]
+      }
+
+      feed_events
     end
 
     private_class_method def summarize_tool_invocation(tool_invocation, subagent_labels:, agent_task_runs_by_id:)
@@ -597,7 +615,12 @@ module Acceptance
     private_class_method def phase_summary(phase, entry)
       case phase
       when "supervision_progress"
-        focus = entry["current_focus_summary"].presence || entry["recent_progress_summary"].presence || "No additional focus summary"
+        focus =
+          entry["primary_turn_todo_plan_current_item_title"].presence ||
+          entry["latest_turn_feed_summary"].presence ||
+          entry["current_focus_summary"].presence ||
+          entry["recent_progress_summary"].presence ||
+          "No additional focus summary"
         "Supervisor checkpoint: #{focus}"
       when "skill_sources_prepared"
         "Prepared staged skill sources"
@@ -639,6 +662,8 @@ module Acceptance
       when "supervision_progress"
         parts = []
         parts << "Machine state `#{entry["overall_state"]}`." if entry["overall_state"].present?
+        parts << "Current plan item: #{entry["primary_turn_todo_plan_current_item_title"]}." if entry["primary_turn_todo_plan_current_item_title"].present?
+        parts << "Latest turn-feed event: #{entry["latest_turn_feed_summary"]}." if entry["latest_turn_feed_summary"].present?
         parts << "Recent progress: #{entry["recent_progress_summary"]}." if entry["recent_progress_summary"].present?
         parts << "Active subagents: #{entry["active_subagent_count"]}." if entry["active_subagent_count"].present?
         parts.join(" ").presence
@@ -668,6 +693,69 @@ module Acceptance
 
     private_class_method def provider_phase(workflow_node_key)
       workflow_node_key.to_s.match?(/\Aprovider_round_(1|2|3)\z/) || workflow_node_key == "turn_step" ? "plan" : "build"
+    end
+
+    private_class_method def canonical_turn_feed_entries(machine_status)
+      Array(machine_status["turn_feed"].presence || machine_status["activity_feed"]).select do |entry|
+        entry.to_h.fetch("event_kind", "").start_with?("turn_todo_")
+      end
+    end
+
+    private_class_method def supervision_snapshot_timestamp(machine_status:, supervision_trace:)
+      machine_status["last_progress_at"] ||
+        machine_status["last_terminal_at"] ||
+        canonical_turn_feed_entries(machine_status).last&.fetch("occurred_at", nil) ||
+        Array(supervision_trace["polls"]).last&.dig("supervisor_message", "created_at") ||
+        Time.current.iso8601
+    end
+
+    private_class_method def supervision_snapshot_detail(machine_status)
+      parts = []
+      current_item_title = machine_status.dig("primary_turn_todo_plan_view", "current_item", "title")
+      current_item_key = machine_status.dig("primary_turn_todo_plan_view", "current_item_key")
+      current_goal = machine_status.dig("primary_turn_todo_plan_view", "goal_summary")
+      latest_feed_summary = canonical_turn_feed_entries(machine_status).last&.fetch("summary", nil)
+
+      parts << "Current plan item `#{current_item_title || current_item_key}`." if current_item_title.present? || current_item_key.present?
+      parts << "Goal summary: #{current_goal}." if current_goal.present?
+      parts << "Latest canonical feed summary: #{latest_feed_summary}." if latest_feed_summary.present?
+      parts << "Active child plans: #{Array(machine_status["active_subagent_turn_todo_plan_views"]).length}." if machine_status["active_subagent_turn_todo_plan_views"].present?
+      parts.join(" ").presence || "No additional focus summary."
+    end
+
+    private_class_method def supervision_feed_phase(event_kind)
+      case event_kind.to_s
+      when /\Aturn_todo_item_(started|completed|blocked|failed|canceled)\z/
+        "build"
+      else
+        "deliver"
+      end
+    end
+
+    private_class_method def supervision_feed_status(event_kind)
+      case event_kind.to_s
+      when "turn_todo_item_started"
+        "started"
+      when "turn_todo_item_completed"
+        "completed"
+      when "turn_todo_item_blocked"
+        "blocked"
+      when "turn_todo_item_failed"
+        "failed"
+      when "turn_todo_item_canceled"
+        "canceled"
+      else
+        "observed"
+      end
+    end
+
+    private_class_method def supervision_feed_detail(entry)
+      details_payload = entry.to_h.fetch("details_payload", {}).to_h
+      parts = []
+      parts << "Plan item `#{details_payload["title"] || details_payload["item_key"]}`." if details_payload["title"].present? || details_payload["item_key"].present?
+      parts << "Current item key `#{details_payload["current_item_key"]}`." if details_payload["current_item_key"].present?
+      parts << "Status `#{details_payload["previous_status"]}` -> `#{details_payload["current_status"]}`." if details_payload["previous_status"].present? || details_payload["current_status"].present?
+      parts.join(" ").presence
     end
 
     private_class_method def workflow_node_phase(entry)

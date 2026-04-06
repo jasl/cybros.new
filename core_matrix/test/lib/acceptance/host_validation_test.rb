@@ -18,7 +18,7 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
     }
     playwright_validation = {
       "test" => { "success" => true },
-      "result" => { "restartResetScore" => true }
+      "result" => { "restartResetScore" => true },
     }
 
     assert Acceptance::HostValidation.runtime_validation_passed?(runtime_validation)
@@ -40,7 +40,7 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
     }
     playwright_validation = {
       "test" => { "success" => false },
-      "result" => { "restartResetScore" => true, "gameOverReached" => false }
+      "result" => { "restartResetScore" => true, "gameOverReached" => false },
     }
 
     assert Acceptance::HostValidation.playwright_result_available?(playwright_validation)
