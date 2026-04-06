@@ -14,3 +14,7 @@ Move a document out of this directory when:
 - the design is approved as a stable baseline and belongs in `docs/design`
 - the design remains accepted but deferred and is better represented by a
   roadmap placeholder in `docs/future-plans`
+
+Current drafts:
+
+- [2026-04-06-fenix-app-ui-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/proposed-designs/2026-04-06-fenix-app-ui-contract.md)
