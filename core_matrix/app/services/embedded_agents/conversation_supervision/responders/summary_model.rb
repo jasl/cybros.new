@@ -125,12 +125,18 @@ module EmbeddedAgents
 
         def sanitized_supervision_payload
           machine_status = @conversation_supervision_snapshot.machine_status_payload.deep_stringify_keys
+          runtime_focus_hint = machine_status.fetch("runtime_focus_hint", {}).to_h
           focus_summary =
+            runtime_focus_hint["current_focus_summary"].presence ||
             machine_status["current_focus_summary"].presence ||
             machine_status.dig("primary_turn_todo_plan_view", "current_item", "title").presence ||
             machine_status["request_summary"].presence ||
             machine_status.dig("primary_turn_todo_plan_view", "goal_summary").presence ||
             contextual_focus_summary(machine_status)
+          waiting_summary =
+            runtime_focus_hint["waiting_summary"].presence ||
+            runtime_focus_sentence(runtime_focus_hint["summary"]).presence ||
+            machine_status["waiting_summary"].presence
 
           {
             "overall_state" => machine_status["overall_state"],
@@ -141,7 +147,8 @@ module EmbeddedAgents
             "request_summary" => machine_status["request_summary"],
             "current_focus_summary" => focus_summary,
             "recent_progress_summary" => machine_status["recent_progress_summary"],
-            "waiting_summary" => machine_status["waiting_summary"],
+            "runtime_focus_hint" => runtime_focus_hint.slice("kind", "summary", "command_run_public_id", "process_run_public_id"),
+            "waiting_summary" => waiting_summary,
             "blocked_summary" => machine_status["blocked_summary"],
             "next_step_hint" => machine_status["next_step_hint"],
             "primary_turn_todo_plan" => compact_turn_todo_plan(machine_status["primary_turn_todo_plan_view"]),
@@ -176,6 +183,16 @@ module EmbeddedAgents
             .sub(/\AContext already references\s+/i, "")
             .sub(/\.\z/, "")
             .presence
+        end
+
+        def runtime_focus_sentence(summary)
+          return if summary.blank?
+
+          if summary.match?(/\Awaiting for\b/i)
+            "Waiting for #{summary.delete_prefix("waiting for ").strip} to finish."
+          else
+            "Waiting for #{summary}."
+          end
         end
 
         def meaningful_turn_feed(machine_status)

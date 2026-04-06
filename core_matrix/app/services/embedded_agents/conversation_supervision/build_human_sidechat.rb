@@ -109,13 +109,21 @@ module EmbeddedAgents
             "Right now the conversation is idle with no active work."
           end
         when "waiting"
-          "Right now the conversation is currently waiting while working on #{focus&.downcase || "the current task"}. #{@machine_status["waiting_summary"]}"
+          waiting = semantic_waiting_summary
+          return "Right now the conversation is currently #{lowercase_initial(focus)}." if descriptive_focus?(focus)
+          return "Right now the conversation is #{trim_terminal_punctuation(lowercase_initial(waiting))}." if waiting.present? && waiting.match?(/\Awaiting\b/i)
+
+          "Right now the conversation is waiting. #{waiting || "It is waiting for a dependency to clear."}"
         when "blocked"
-          "Right now the conversation is currently blocked while working on #{focus&.downcase || "the current task"}. #{@machine_status["blocked_summary"]}"
+          blocked = @machine_status["blocked_summary"].presence
+          return "Right now the conversation is blocked. #{blocked}" if blocked.present?
+          return "Right now the conversation is currently #{lowercase_initial(focus)}." if descriptive_focus?(focus)
+
+          "Right now the conversation is blocked."
         else
           return "Right now the conversation is #{state}." if focus.blank?
 
-          return "Right now the conversation is #{focus.downcase}." if activity_phrase?(focus)
+          return "Right now the conversation is currently #{lowercase_initial(focus)}." if descriptive_focus?(focus)
 
           verb = state == "queued" ? "queued to work on" : "working on"
           "Right now the conversation is #{verb} #{focus.downcase}."
@@ -149,8 +157,12 @@ module EmbeddedAgents
       def blocker_sentence
         if @machine_status["blocked_summary"].present?
           "The current blocker is #{@machine_status["blocked_summary"].downcase}."
-        elsif @machine_status["waiting_summary"].present?
-          "The conversation is waiting because #{@machine_status["waiting_summary"].downcase}."
+        elsif semantic_waiting_summary.present?
+          if semantic_waiting_summary.match?(/\Awaiting\b/i)
+            "The conversation is #{trim_terminal_punctuation(lowercase_initial(semantic_waiting_summary))}."
+          else
+            "The conversation is waiting because #{semantic_waiting_summary.downcase}."
+          end
         else
           "There is no active blocker in this snapshot."
         end
@@ -213,11 +225,32 @@ module EmbeddedAgents
       end
 
       def current_focus_summary
-        @machine_status["current_focus_summary"] ||
+        runtime_focus_hint["current_focus_summary"] ||
+          @machine_status["current_focus_summary"] ||
           @machine_status.dig("primary_turn_todo_plan_view", "current_item", "title") ||
           @machine_status["request_summary"] ||
           @machine_status.dig("primary_turn_todo_plan_view", "goal_summary") ||
           contextual_focus_summary
+      end
+
+      def semantic_waiting_summary
+        runtime_focus_hint["waiting_summary"] ||
+          runtime_focus_sentence(runtime_focus_hint["summary"]) ||
+          @machine_status["waiting_summary"].presence
+      end
+
+      def runtime_focus_sentence(summary)
+        return if summary.blank?
+
+        if summary.match?(/\Awaiting for\b/i)
+          "Waiting for #{summary.delete_prefix("waiting for ").strip} to finish."
+        else
+          "Waiting for #{summary}."
+        end
+      end
+
+      def runtime_focus_hint
+        @runtime_focus_hint ||= @machine_status.fetch("runtime_focus_hint", {}).to_h
       end
 
       def turn_feed_entries
@@ -245,6 +278,23 @@ module EmbeddedAgents
 
       def activity_phrase?(text)
         text.to_s.match?(/\A(?:build|building|render|rendering|check|checking|verify|verifying|report|reporting|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing)\b/i)
+      end
+
+      def descriptive_focus?(text)
+        return false if text.blank?
+
+        activity_phrase?(text) ||
+          text.to_s.match?(/\A(?:wait|waiting|continue|continuing|review|reviewing|investigate|investigating|inspect|inspecting|monitor|monitoring)\b/i)
+      end
+
+      def lowercase_initial(text)
+        return text if text.blank?
+
+        text[0].downcase + text[1..]
+      end
+
+      def trim_terminal_punctuation(text)
+        text.to_s.sub(/[.。!?！？]+\z/, "")
       end
     end
   end
