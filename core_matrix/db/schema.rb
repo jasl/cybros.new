@@ -1503,6 +1503,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["turn_id"], name: "index_turn_diagnostics_snapshots_on_turn_id", unique: true
   end
 
+  create_table "turn_todo_plan_items", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "delegated_subagent_session_id"
+    t.jsonb "depends_on_item_keys", default: [], null: false
+    t.jsonb "details_payload", default: {}, null: false
+    t.bigint "installation_id", null: false
+    t.string "item_key", null: false
+    t.string "kind", null: false
+    t.datetime "last_status_changed_at"
+    t.integer "position", default: 0, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "status", default: "pending", null: false
+    t.string "title", null: false
+    t.bigint "turn_todo_plan_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["delegated_subagent_session_id"], name: "index_turn_todo_plan_items_on_delegated_subagent_session_id"
+    t.index ["installation_id"], name: "index_turn_todo_plan_items_on_installation_id"
+    t.index ["public_id"], name: "index_turn_todo_plan_items_on_public_id", unique: true
+    t.index ["turn_todo_plan_id", "item_key"], name: "idx_turn_todo_plan_items_plan_key", unique: true
+    t.index ["turn_todo_plan_id"], name: "index_turn_todo_plan_items_on_turn_todo_plan_id"
+  end
+
   create_table "turn_todo_plans", force: :cascade do |t|
     t.bigint "agent_task_run_id", null: false
     t.datetime "closed_at"
@@ -2072,6 +2094,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "turn_diagnostics_snapshots", "conversations"
   add_foreign_key "turn_diagnostics_snapshots", "installations"
   add_foreign_key "turn_diagnostics_snapshots", "turns"
+  add_foreign_key "turn_todo_plan_items", "installations"
+  add_foreign_key "turn_todo_plan_items", "subagent_sessions", column: "delegated_subagent_session_id"
+  add_foreign_key "turn_todo_plan_items", "turn_todo_plans", on_delete: :cascade
   add_foreign_key "turn_todo_plans", "agent_task_runs", on_delete: :cascade
   add_foreign_key "turn_todo_plans", "conversations"
   add_foreign_key "turn_todo_plans", "installations"

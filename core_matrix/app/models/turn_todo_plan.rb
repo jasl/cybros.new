@@ -10,6 +10,7 @@ class TurnTodoPlan < ApplicationRecord
   belongs_to :agent_task_run, inverse_of: :turn_todo_plan
   belongs_to :conversation
   belongs_to :turn
+  has_many :turn_todo_plan_items, dependent: :delete_all, inverse_of: :turn_todo_plan
 
   validates :status, :goal_summary, presence: true
   validates :status, inclusion: { in: STATUSES }
