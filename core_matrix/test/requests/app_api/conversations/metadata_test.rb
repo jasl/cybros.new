@@ -101,6 +101,18 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "does not route put metadata updates" do
+    context = fresh_canonical_variable_context!
+    conversation = context[:conversation]
+
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path(
+        "/app_api/conversations/#{conversation.public_id}/metadata",
+        method: :put
+      )
+    end
+  end
+
   private
 
   def fresh_canonical_variable_context!

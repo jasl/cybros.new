@@ -60,9 +60,9 @@ Rails.application.routes.draw do
 
   namespace :app_api do
     resources :conversations, only: [] do
-      resource :metadata, only: [:show, :update], controller: "conversations/metadata" do
-        post :regenerate
-      end
+      get "metadata", to: "conversations/metadata#show"
+      patch "metadata", to: "conversations/metadata#update"
+      post "metadata/regenerate", to: "conversations/metadata#regenerate"
     end
 
     resources :conversation_transcripts, only: :index
