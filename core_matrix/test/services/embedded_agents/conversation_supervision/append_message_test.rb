@@ -174,6 +174,22 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     assert_nil result.dig("machine_status", "active_plan_items")
   end
 
+  test "narrates provider-backed supervision exchanges without provider rounds or raw tool labels" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    content = result.dig("human_sidechat", "content")
+
+    assert_match(/2048|acceptance|supervisor informed/i, content)
+    refute_match(/provider round|exec_command|command_run_wait/i, content)
+  end
+
   private
 
   def fresh_fixture!(**kwargs)
@@ -184,5 +200,10 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   def fresh_turn_todo_plan_fixture!(**kwargs)
     delete_all_table_rows!
     prepare_conversation_supervision_context_with_turn_todo_plan!(**kwargs)
+  end
+
+  def fresh_provider_backed_fixture!
+    delete_all_table_rows!
+    prepare_provider_backed_conversation_supervision_context!
   end
 end

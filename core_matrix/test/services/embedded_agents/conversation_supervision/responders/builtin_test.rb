@@ -11,7 +11,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
   include ConversationSupervisionFixtureBuilder
 
   test "derives machine status and human sidechat from the same frozen snapshot" do
-    fixture = prepare_conversation_supervision_context!
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -35,7 +35,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
   end
 
   test "answers status progress blocker next-step subagent and conversation-fact questions without leaking raw tokens" do
-    fixture = prepare_conversation_supervision_context!
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -90,7 +90,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
   end
 
   test "answers the default supervision prompt with current work and recent change" do
-    fixture = prepare_conversation_supervision_context!(waiting: false)
+    fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -112,8 +112,62 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/Grounded in/i, content)
   end
 
+  test "answers provider-backed work semantically instead of narrating provider rounds or raw tool labels" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/2048|acceptance|supervisor informed/i, content)
+    refute_match(/provider round|exec_command/i, content)
+  end
+
+  test "prefers a semantic runtime focus hint for waiting answers over raw wait tokens" do
+    fixture = fresh_fixture!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    snapshot.update!(
+      machine_status_payload: snapshot.machine_status_payload.merge(
+        "overall_state" => "waiting",
+        "current_focus_summary" => "Run command_run_wait",
+        "recent_progress_summary" => "Started command_run_wait.",
+        "waiting_summary" => "command_run_wait is still running.",
+        "runtime_focus_hint" => {
+          "kind" => "command_wait",
+          "summary" => "waiting for the test-and-build check in /workspace/game-2048",
+          "command_run_public_id" => "cmd_public_123",
+        },
+      )
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What are you waiting on right now?"
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/test-and-build check/i, content)
+    refute_match(/command_run_wait/i, content)
+  end
+
   test "falls back to contextual work summary when the snapshot has no explicit focus summary" do
-    fixture = prepare_conversation_supervision_context!(waiting: false)
+    fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -166,7 +220,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
   end
 
   test "renders human-readable confirmation for dispatched control intents" do
-    fixture = prepare_conversation_supervision_context!(control_enabled: true)
+    fixture = fresh_fixture!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
     decision = EmbeddedAgents::ConversationSupervision::MaybeDispatchControlIntent.call(
       actor: fixture.fetch(:user),
@@ -195,7 +249,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
   end
 
   test "answers from frozen turn todo plan views instead of legacy plan item payloads" do
-    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    fixture = fresh_turn_todo_plan_fixture!
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -210,5 +264,22 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
 
     assert_match(/rendering the frozen supervision snapshot/i, response.dig("human_sidechat", "content"))
     assert_nil response.fetch("machine_status")["active_plan_items"]
+  end
+
+  private
+
+  def fresh_fixture!(**kwargs)
+    delete_all_table_rows!
+    prepare_conversation_supervision_context!(**kwargs)
+  end
+
+  def fresh_provider_backed_fixture!
+    delete_all_table_rows!
+    prepare_provider_backed_conversation_supervision_context!
+  end
+
+  def fresh_turn_todo_plan_fixture!(**kwargs)
+    delete_all_table_rows!
+    prepare_conversation_supervision_context_with_turn_todo_plan!(**kwargs)
   end
 end

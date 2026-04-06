@@ -78,6 +78,13 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
           "ended_at" => "2026-04-06T08:50:30Z",
           "tool_invocation_id" => "tool_1",
         },
+        {
+          "command_line" => "cd /workspace/game-2048 && npm run preview",
+          "lifecycle_state" => "running",
+          "started_at" => "2026-04-06T08:50:31Z",
+          "ended_at" => "2026-04-06T08:50:32Z",
+          "tool_invocation_id" => "tool_1",
+        },
       ],
       process_runs: [],
       subagent_sessions: [
@@ -149,7 +156,8 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     summaries = report.fetch("timeline").map { |entry| entry.fetch("summary") }
     assert_includes summaries, "Started attempt 1 of 3"
     assert_includes summaries, "Supervisor checkpoint: Applying merge logic to the board reducer"
-    assert_includes summaries, "Completed tool node provider_round_3_tool_1"
+    assert_includes summaries, "Ran the test-and-build check in /workspace/game-2048"
+    assert_includes summaries, "Started the preview server in /workspace/game-2048"
     assert_includes summaries, "Inspected the workspace tree"
     assert_includes summaries, "Spawned subagent researcher#1"
     assert_includes summaries, "researcher#1 completed its assigned work"
@@ -166,7 +174,8 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes markdown, "[supervisor]"
     assert_includes markdown, "[researcher#1] Inspected the workspace tree"
     assert_includes markdown, "[researcher#1] Ran automated tests"
-    assert_includes markdown, "Completed tool node provider_round_3_tool_1"
+    assert_includes markdown, "[main] Ran the test-and-build check in /workspace/game-2048"
+    assert_includes markdown, "[main] Started the preview server in /workspace/game-2048"
     assert_includes markdown, "Host validation passed: tests, build, preview, and Playwright"
   end
 end

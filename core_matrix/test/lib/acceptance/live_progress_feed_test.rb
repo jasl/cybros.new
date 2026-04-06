@@ -59,6 +59,59 @@ class AcceptanceLiveProgressFeedTest < ActiveSupport::TestCase
     assert_equal [], repeated
   end
 
+  test "build_entries emits semantic command-wait summaries instead of raw tool or provider labels" do
+    entries = Acceptance::LiveProgressFeed.build_entries(
+      workflow_node_events: [
+        {
+          "created_at" => "2026-04-06T14:03:10Z",
+          "workflow_run_public_id" => "wr_public_123",
+          "workflow_node_key" => "provider_round_3_tool_1",
+          "workflow_node_ordinal" => 4,
+          "ordinal" => 1,
+          "event_kind" => "status",
+          "node_type" => "tool_call",
+          "payload" => {
+            "state" => "running",
+            "tool_name" => "command_run_wait",
+            "command_run_public_id" => "cmd_public_123",
+            "command_summary" => "the test-and-build check in /workspace/game-2048",
+          },
+        },
+      ],
+      seen_event_keys: Set.new
+    )
+
+    assert_equal 1, entries.length
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048", entries.first.fetch("summary")
+    assert_equal "cmd_public_123", entries.first.fetch("command_run_public_id")
+    refute_match(/provider_round_|command_run_wait/, entries.first.fetch("summary"))
+  end
+
+  test "build_entries preserves exact refs for already-normalized semantic live-progress events" do
+    entries = Acceptance::LiveProgressFeed.build_entries(
+      workflow_node_events: [
+        {
+          "created_at" => "2026-04-06T14:03:10Z",
+          "workflow_run_public_id" => "wr_public_123",
+          "workflow_node_key" => "provider_round_3_tool_1",
+          "workflow_node_ordinal" => 4,
+          "ordinal" => 1,
+          "event_kind" => "status",
+          "node_type" => "tool_call",
+          "command_run_public_id" => "cmd_public_123",
+          "summary" => "Waiting for the test-and-build check in /workspace/game-2048",
+          "detail" => "The verification command is still running.",
+        },
+      ],
+      seen_event_keys: Set.new
+    )
+
+    assert_equal 1, entries.length
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048", entries.first.fetch("summary")
+    assert_equal "cmd_public_123", entries.first.fetch("command_run_public_id")
+    assert_equal "provider_round_3_tool_1", entries.first.fetch("workflow_node_key")
+  end
+
   test "build_entries scopes dedupe keys by workflow run public id" do
     seen_event_keys = Set.new
     first_run = [{

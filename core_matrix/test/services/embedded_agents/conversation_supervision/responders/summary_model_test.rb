@@ -143,6 +143,46 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     assert_match(/most recently/i, response.dig("human_sidechat", "content"))
   end
 
+  test "sanitizes provider-backed supervision payloads before sending them to the summary model" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+    dispatched = nil
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
+      dispatched = kwargs
+      GatewayResult.new(
+        content: "Right now I'm continuing the 2048 acceptance work.",
+        usage: {
+          "input_tokens" => 18,
+          "output_tokens" => 10,
+          "total_tokens" => 28,
+        },
+        provider_request_id: "provider-gateway-supervision-provider-backed"
+      )
+    end
+
+    begin
+      EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
+        conversation_supervision_session: session,
+        conversation_supervision_snapshot: snapshot,
+        question: "Please tell me what you are doing right now and what changed most recently."
+      )
+    ensure
+      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+    end
+
+    prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
+    focus_summary = prompt_payload.dig("supervision", "current_focus_summary").to_s
+
+    assert_match(/2048|acceptance|supervisor informed/i, focus_summary)
+    refute_match(/provider round|exec_command/i, focus_summary)
+  end
+
   test "omits generic turn-start feed entries from the modeled supervision payload" do
     fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
@@ -199,5 +239,10 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
   def fresh_fixture!(**kwargs)
     delete_all_table_rows!
     prepare_conversation_supervision_context!(**kwargs)
+  end
+
+  def fresh_provider_backed_fixture!
+    delete_all_table_rows!
+    prepare_provider_backed_conversation_supervision_context!
   end
 end
