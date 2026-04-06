@@ -20,6 +20,8 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       operation_kind: "text_generation",
       input_tokens: 90,
       output_tokens: 20,
+      prompt_cache_status: "available",
+      cached_input_tokens: 45,
       latency_ms: 900,
       estimated_cost: 0.008,
       success: true,
@@ -61,6 +63,7 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       operation_kind: "text_generation",
       input_tokens: 180,
       output_tokens: 60,
+      prompt_cache_status: "unknown",
       latency_ms: 1_800,
       estimated_cost: 0.020,
       success: true,
@@ -83,6 +86,10 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     assert_equal 270, snapshot.input_tokens_total
     assert_equal 80, snapshot.output_tokens_total
     assert_equal BigDecimal("0.028"), snapshot.estimated_cost_total
+    assert_equal 45, snapshot.cached_input_tokens_total
+    assert_equal 1, snapshot.prompt_cache_available_event_count
+    assert_equal 1, snapshot.prompt_cache_unknown_event_count
+    assert_equal 0, snapshot.prompt_cache_unsupported_event_count
     assert_equal 2, snapshot.attributed_user_usage_event_count
     assert_equal 270, snapshot.attributed_user_input_tokens_total
     assert_equal 80, snapshot.attributed_user_output_tokens_total
@@ -100,6 +107,8 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     assert_equal 2, snapshot.metadata.fetch("attributed_user_provider_usage_breakdown").first.fetch("event_count")
     assert_equal 2, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_event_count")
     assert_equal 0, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_missing_event_count")
+    assert_equal 45, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("cached_input_tokens_total")
+    assert_equal 0.5, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("prompt_cache_hit_rate")
     assert_nil snapshot.metadata["outlier_refs"]
 
     ConversationDiagnosticsSnapshot.where(conversation: conversation).delete_all

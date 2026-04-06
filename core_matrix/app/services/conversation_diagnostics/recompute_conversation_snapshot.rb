@@ -28,6 +28,10 @@ module ConversationDiagnostics
       snapshot.input_tokens_total = sum(turn_snapshots, :input_tokens_total)
       snapshot.output_tokens_total = sum(turn_snapshots, :output_tokens_total)
       snapshot.estimated_cost_total = decimal_sum(turn_snapshots, :estimated_cost_total)
+      snapshot.cached_input_tokens_total = sum(turn_snapshots, :cached_input_tokens_total)
+      snapshot.prompt_cache_available_event_count = sum(turn_snapshots, :prompt_cache_available_event_count)
+      snapshot.prompt_cache_unknown_event_count = sum(turn_snapshots, :prompt_cache_unknown_event_count)
+      snapshot.prompt_cache_unsupported_event_count = sum(turn_snapshots, :prompt_cache_unsupported_event_count)
       snapshot.attributed_user_usage_event_count = sum(turn_snapshots, :attributed_user_usage_event_count)
       snapshot.attributed_user_input_tokens_total = sum(turn_snapshots, :attributed_user_input_tokens_total)
       snapshot.attributed_user_output_tokens_total = sum(turn_snapshots, :attributed_user_output_tokens_total)
@@ -91,13 +95,18 @@ module ConversationDiagnostics
           Arel.sql("SUM(CASE WHEN success THEN 0 ELSE 1 END)"),
           Arel.sql("SUM(COALESCE(input_tokens, 0))"),
           Arel.sql("SUM(COALESCE(output_tokens, 0))"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'available' THEN COALESCE(cached_input_tokens, 0) ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'available' THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'unknown' THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'unsupported' THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'available' THEN COALESCE(input_tokens, 0) ELSE 0 END)"),
           Arel.sql("SUM(COALESCE(estimated_cost, 0))"),
           Arel.sql("SUM(CASE WHEN estimated_cost IS NULL THEN 0 ELSE 1 END)"),
           Arel.sql("SUM(COALESCE(latency_ms, 0))"),
           Arel.sql("SUM(CASE WHEN latency_ms IS NULL THEN 0 ELSE 1 END)"),
           Arel.sql("MAX(COALESCE(latency_ms, 0))")
         )
-        .map do |provider_handle, model_ref, operation_kind, event_count, success_count, failure_count, input_tokens_total, output_tokens_total, estimated_cost_total, estimated_cost_event_count, total_latency_ms, latency_event_count, max_latency_ms|
+        .map do |provider_handle, model_ref, operation_kind, event_count, success_count, failure_count, input_tokens_total, output_tokens_total, cached_input_tokens_total, prompt_cache_available_event_count, prompt_cache_unknown_event_count, prompt_cache_unsupported_event_count, prompt_cache_available_input_tokens_total, estimated_cost_total, estimated_cost_event_count, total_latency_ms, latency_event_count, max_latency_ms|
           estimated_cost_missing_event_count = event_count.to_i - estimated_cost_event_count.to_i
 
           {
@@ -109,6 +118,15 @@ module ConversationDiagnostics
             "failure_count" => failure_count.to_i,
             "input_tokens_total" => input_tokens_total.to_i,
             "output_tokens_total" => output_tokens_total.to_i,
+            "cached_input_tokens_total" => cached_input_tokens_total.to_i,
+            "prompt_cache_available_event_count" => prompt_cache_available_event_count.to_i,
+            "prompt_cache_unknown_event_count" => prompt_cache_unknown_event_count.to_i,
+            "prompt_cache_unsupported_event_count" => prompt_cache_unsupported_event_count.to_i,
+            "prompt_cache_hit_rate" => prompt_cache_hit_rate(
+              cached_input_tokens_total: cached_input_tokens_total,
+              available_event_count: prompt_cache_available_event_count,
+              available_input_tokens_total: prompt_cache_available_input_tokens_total
+            ),
             "estimated_cost_total" => estimated_cost_total.to_d.to_s("F"),
             "estimated_cost_event_count" => estimated_cost_event_count.to_i,
             "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
@@ -157,6 +175,13 @@ module ConversationDiagnostics
     def removable_metadata_value?(value)
       value.nil? ||
         (value.respond_to?(:empty?) && value.empty?)
+    end
+
+    def prompt_cache_hit_rate(cached_input_tokens_total:, available_event_count:, available_input_tokens_total:)
+      return nil if available_event_count.to_i.zero?
+      return nil if available_input_tokens_total.to_i.zero?
+
+      cached_input_tokens_total.to_f / available_input_tokens_total.to_f
     end
   end
 end

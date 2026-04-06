@@ -3,11 +3,18 @@ module AppAPI
     def show
       conversation = find_conversation!(params.fetch(:conversation_id))
       snapshot = ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: conversation)
+      available_prompt_cache_input_tokens_total = UsageEvent.where(
+        conversation_id: conversation.id,
+        prompt_cache_status: "available"
+      ).sum(:input_tokens)
 
       render json: {
         method_id: "conversation_diagnostics_show",
         conversation_id: conversation.public_id,
-        snapshot: serialize_conversation_diagnostics_snapshot(snapshot),
+        snapshot: serialize_conversation_diagnostics_snapshot(
+          snapshot,
+          available_prompt_cache_input_tokens_total: available_prompt_cache_input_tokens_total
+        ),
       }
     end
 
@@ -18,17 +25,26 @@ module AppAPI
         .where(conversation: conversation)
         .joins(:turn)
         .order("turns.sequence ASC")
+      available_prompt_cache_input_tokens_by_turn = UsageEvent
+        .where(turn_id: snapshots.map(&:turn_id), prompt_cache_status: "available")
+        .group(:turn_id)
+        .sum(:input_tokens)
 
       render json: {
         method_id: "conversation_diagnostics_turns",
         conversation_id: conversation.public_id,
-        items: snapshots.map { |snapshot| serialize_turn_diagnostics_snapshot(snapshot) },
+        items: snapshots.map do |snapshot|
+          serialize_turn_diagnostics_snapshot(
+            snapshot,
+            available_prompt_cache_input_tokens_total: available_prompt_cache_input_tokens_by_turn.fetch(snapshot.turn_id, 0)
+          )
+        end,
       }
     end
 
     private
 
-    def serialize_conversation_diagnostics_snapshot(snapshot)
+    def serialize_conversation_diagnostics_snapshot(snapshot, available_prompt_cache_input_tokens_total:)
       attributed_user = snapshot.conversation.workspace.user
 
       {
@@ -43,6 +59,15 @@ module AppAPI
         "input_tokens_total" => snapshot.input_tokens_total,
         "output_tokens_total" => snapshot.output_tokens_total,
         "total_tokens_total" => snapshot.input_tokens_total + snapshot.output_tokens_total,
+        "cached_input_tokens_total" => snapshot.cached_input_tokens_total,
+        "prompt_cache_available_event_count" => snapshot.prompt_cache_available_event_count,
+        "prompt_cache_unknown_event_count" => snapshot.prompt_cache_unknown_event_count,
+        "prompt_cache_unsupported_event_count" => snapshot.prompt_cache_unsupported_event_count,
+        "prompt_cache_hit_rate" => prompt_cache_hit_rate(
+          cached_input_tokens_total: snapshot.cached_input_tokens_total,
+          available_event_count: snapshot.prompt_cache_available_event_count,
+          available_input_tokens_total: available_prompt_cache_input_tokens_total
+        ),
         "estimated_cost_total" => snapshot.estimated_cost_total.to_s("F"),
         "estimated_cost_event_count" => snapshot.estimated_cost_event_count,
         "estimated_cost_missing_event_count" => snapshot.estimated_cost_missing_event_count,
@@ -77,7 +102,7 @@ module AppAPI
       }
     end
 
-    def serialize_turn_diagnostics_snapshot(snapshot)
+    def serialize_turn_diagnostics_snapshot(snapshot, available_prompt_cache_input_tokens_total:)
       attributed_user = snapshot.conversation.workspace.user
 
       {
@@ -88,6 +113,15 @@ module AppAPI
         "input_tokens_total" => snapshot.input_tokens_total,
         "output_tokens_total" => snapshot.output_tokens_total,
         "total_tokens_total" => snapshot.input_tokens_total + snapshot.output_tokens_total,
+        "cached_input_tokens_total" => snapshot.cached_input_tokens_total,
+        "prompt_cache_available_event_count" => snapshot.prompt_cache_available_event_count,
+        "prompt_cache_unknown_event_count" => snapshot.prompt_cache_unknown_event_count,
+        "prompt_cache_unsupported_event_count" => snapshot.prompt_cache_unsupported_event_count,
+        "prompt_cache_hit_rate" => prompt_cache_hit_rate(
+          cached_input_tokens_total: snapshot.cached_input_tokens_total,
+          available_event_count: snapshot.prompt_cache_available_event_count,
+          available_input_tokens_total: available_prompt_cache_input_tokens_total
+        ),
         "estimated_cost_total" => snapshot.estimated_cost_total.to_s("F"),
         "estimated_cost_event_count" => snapshot.estimated_cost_event_count,
         "estimated_cost_missing_event_count" => snapshot.estimated_cost_missing_event_count,
@@ -121,6 +155,13 @@ module AppAPI
         "pause_state" => snapshot.pause_state,
         "metadata" => snapshot.metadata,
       }
+    end
+
+    def prompt_cache_hit_rate(cached_input_tokens_total:, available_event_count:, available_input_tokens_total:)
+      return nil if available_event_count.to_i.zero?
+      return nil if available_input_tokens_total.to_i.zero?
+
+      cached_input_tokens_total.to_f / available_input_tokens_total.to_f
     end
   end
 end

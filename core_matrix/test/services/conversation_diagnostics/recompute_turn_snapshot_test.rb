@@ -94,6 +94,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       workflow_node: workflow_node,
       input_tokens: 120,
       output_tokens: 40,
+      prompt_cache_status: "available",
+      cached_input_tokens: 60,
       latency_ms: 1_300,
       estimated_cost: 0.010,
       success: true,
@@ -104,6 +106,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       workflow_node: workflow_node,
       input_tokens: 30,
       output_tokens: 10,
+      prompt_cache_status: "unknown",
       latency_ms: 500,
       estimated_cost: 0.002,
       success: false,
@@ -120,6 +123,10 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal 150, snapshot.input_tokens_total
     assert_equal 50, snapshot.output_tokens_total
     assert_equal BigDecimal("0.012"), snapshot.estimated_cost_total
+    assert_equal 60, snapshot.cached_input_tokens_total
+    assert_equal 1, snapshot.prompt_cache_available_event_count
+    assert_equal 1, snapshot.prompt_cache_unknown_event_count
+    assert_equal 0, snapshot.prompt_cache_unsupported_event_count
     assert_equal 1, snapshot.attributed_user_usage_event_count
     assert_equal 120, snapshot.attributed_user_input_tokens_total
     assert_equal 40, snapshot.attributed_user_output_tokens_total
@@ -154,6 +161,11 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal 2, provider_breakdown.first.fetch("latency_event_count")
     assert_equal 900, provider_breakdown.first.fetch("avg_latency_ms")
     assert_equal 1300, provider_breakdown.first.fetch("max_latency_ms")
+    assert_equal 60, provider_breakdown.first.fetch("cached_input_tokens_total")
+    assert_equal 1, provider_breakdown.first.fetch("prompt_cache_available_event_count")
+    assert_equal 1, provider_breakdown.first.fetch("prompt_cache_unknown_event_count")
+    assert_equal 0, provider_breakdown.first.fetch("prompt_cache_unsupported_event_count")
+    assert_equal 0.5, provider_breakdown.first.fetch("prompt_cache_hit_rate")
 
     attributed_provider_breakdown = snapshot.metadata.fetch("attributed_user_provider_usage_breakdown")
     assert_equal 1, attributed_provider_breakdown.length
@@ -163,6 +175,9 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal "0.01", attributed_provider_breakdown.first.fetch("estimated_cost_total")
     assert_equal 1, attributed_provider_breakdown.first.fetch("estimated_cost_event_count")
     assert_equal 0, attributed_provider_breakdown.first.fetch("estimated_cost_missing_event_count")
+    assert_equal 60, attributed_provider_breakdown.first.fetch("cached_input_tokens_total")
+    assert_equal 1, attributed_provider_breakdown.first.fetch("prompt_cache_available_event_count")
+    assert_equal 0.5, attributed_provider_breakdown.first.fetch("prompt_cache_hit_rate")
 
     assert_equal({ "turn_step" => 1, "turn_root" => 1 }, snapshot.metadata.fetch("workflow_node_type_counts"))
     assert_equal({ "exec_command" => { "count" => 2, "failures" => 1 } }, snapshot.metadata.fetch("tool_breakdown"))
@@ -198,6 +213,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       workflow_node: workflow_node,
       input_tokens: 50,
       output_tokens: 25,
+      prompt_cache_status: "unsupported",
       latency_ms: 800,
       estimated_cost: nil,
       success: true,
@@ -211,6 +227,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal 1, snapshot.estimated_cost_missing_event_count
     assert_equal 0, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_event_count")
     assert_equal 1, snapshot.metadata.fetch("provider_usage_breakdown").first.fetch("estimated_cost_missing_event_count")
+    assert_nil snapshot.metadata.fetch("provider_usage_breakdown").first["prompt_cache_hit_rate"]
   end
 
   private
@@ -284,7 +301,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     )
   end
 
-  def record_usage_event!(context:, workflow_node:, input_tokens:, output_tokens:, latency_ms:, estimated_cost:, success:, occurred_at:, user: context[:user])
+  def record_usage_event!(context:, workflow_node:, input_tokens:, output_tokens:, latency_ms:, estimated_cost:, success:, occurred_at:, user: context[:user], prompt_cache_status: nil, cached_input_tokens: nil)
     ProviderUsage::RecordEvent.call(
       installation: context[:installation],
       user: user,
@@ -299,6 +316,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       operation_kind: "text_generation",
       input_tokens: input_tokens,
       output_tokens: output_tokens,
+      prompt_cache_status: prompt_cache_status,
+      cached_input_tokens: cached_input_tokens,
       latency_ms: latency_ms,
       estimated_cost: estimated_cost,
       success: success,
