@@ -4,19 +4,32 @@
 
 **Goal:** Replace summary-derived supervision progress reporting with an explicit turn-scoped todo plan domain that powers UI checklist rendering, turn feed entries, and supervision conversation answers.
 
-**Architecture:** Introduce `TurnTodoPlan` and `TurnTodoPlanItem` as the only plan truth for active `AgentTaskRun` work, including child-agent work. Route execution-time plan updates through a dedicated `turn_todo_plan_update` payload, generate append-only turn feed entries from plan diffs, rebuild conversation supervision to consume plan views, and delete the old `AgentTaskPlanItem` and `supervision_update.plan_items` pathways. Do not introduce a second structured execution-item domain; any future Codex-style inline "worked for" or "explored files" affordances must render from existing workflow/runtime projections instead.
+**Architecture:** Introduce `TurnTodoPlan` and `TurnTodoPlanItem` as the only plan truth for active `AgentTaskRun` work, including child-agent work. Persist the plan head with an explicit `agent_task_run_id` foreign key, route execution-time plan updates through a dedicated `turn_todo_plan_update` payload, rebuild conversation supervision to consume plan views, then switch feed generation to canonical plan-diff events and delete the old `AgentTaskPlanItem` and `supervision_update.plan_items` pathways. Do not introduce a second structured execution-item domain; any future Codex-style inline "worked for" or "explored files" affordances must render from existing workflow/runtime projections instead.
 
 **Tech Stack:** Rails 8.2, Active Record/Postgres, JSONB/public-id boundaries, Minitest, app API request tests, supervision services under `app/services`
 
 ---
+
+## Execution Notes
+
+- Use an explicit `agent_task_run_id` foreign key for `TurnTodoPlan`; do not
+  use a polymorphic owner column.
+- Add database-level cascading cleanup from `agent_task_runs` to
+  `turn_todo_plans` and from `turn_todo_plans` to `turn_todo_plan_items`.
+- Do not switch canonical feed kinds until supervision projection, snapshot,
+  machine status, and summary responders have all stopped reading
+  `active_plan_items`.
+- Legacy cleanup must include code, tests, purge/lifecycle paths, and behavior
+  docs. The implementation is not complete while
+  `AgentTaskPlanItem`-centric docs remain.
 
 ### Task 1: Add the `TurnTodoPlan` schema and model contract
 
 **Files:**
 - Create: `core_matrix/db/migrate/20260406110000_create_turn_todo_plans.rb`
 - Create: `core_matrix/app/models/turn_todo_plan.rb`
+- Modify: `core_matrix/app/models/agent_task_run.rb`
 - Test: `core_matrix/test/models/turn_todo_plan_test.rb`
-- Modify later for deletion prep: `core_matrix/app/models/agent_task_run.rb`
 
 **Step 1: Write the failing model test**
 
@@ -35,7 +48,7 @@ test "validates owner alignment and one active plan per agent task run" do
 
   TurnTodoPlan.create!(
     installation: agent_task_run.installation,
-    owner: agent_task_run,
+    agent_task_run: agent_task_run,
     conversation: agent_task_run.conversation,
     turn: agent_task_run.turn,
     status: "active",
@@ -46,7 +59,7 @@ test "validates owner alignment and one active plan per agent task run" do
 
   duplicate = TurnTodoPlan.new(
     installation: agent_task_run.installation,
-    owner: agent_task_run,
+    agent_task_run: agent_task_run,
     conversation: agent_task_run.conversation,
     turn: agent_task_run.turn,
     status: "active",
@@ -56,7 +69,7 @@ test "validates owner alignment and one active plan per agent task run" do
   )
 
   assert_not duplicate.valid?
-  assert_includes duplicate.errors[:owner], "already has an active turn todo plan"
+  assert_includes duplicate.errors[:agent_task_run], "already has an active turn todo plan"
 end
 ```
 
@@ -76,7 +89,7 @@ Expected: FAIL because the model and table do not exist.
 Create `turn_todo_plans` with:
 
 - `installation_id`
-- `owner_type`, `owner_id`
+- `agent_task_run_id`
 - `conversation_id`
 - `turn_id`
 - `status`
@@ -88,10 +101,13 @@ Create `turn_todo_plans` with:
 
 Model rules:
 
-- polymorphic `belongs_to :owner`
-- owner must currently be `AgentTaskRun`
+- `belongs_to :agent_task_run`
 - unique active plan per owner
 - counts payload must be a hash
+- database foreign key should cascade on task deletion
+
+Add the corresponding `has_one :turn_todo_plan, dependent: :delete_all` to
+`AgentTaskRun`.
 
 **Step 4: Run the model test to verify it passes**
 
@@ -108,7 +124,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add db/migrate/20260406110000_create_turn_todo_plans.rb app/models/turn_todo_plan.rb test/models/turn_todo_plan_test.rb
+git add db/migrate/20260406110000_create_turn_todo_plans.rb app/models/turn_todo_plan.rb app/models/agent_task_run.rb test/models/turn_todo_plan_test.rb
 git commit -m "feat: add turn todo plan model"
 ```
 
@@ -194,6 +210,7 @@ Implement the validations from the test and add:
 - `belongs_to :turn_todo_plan`
 - `belongs_to :delegated_subagent_session, optional: true`
 - installation and conversation alignment checks
+- database foreign key should cascade on plan deletion
 
 **Step 4: Run the model test to verify it passes**
 
@@ -275,7 +292,7 @@ pipeline.
 
 Implement `TurnTodoPlans::ApplyUpdate` to:
 
-- load or create the current plan head for the owner task
+- load or create the current plan head for the target `AgentTaskRun`
 - validate the incoming payload
 - replace all current plan items
 - compute counts via `TurnTodoPlans::BuildCounts`
@@ -396,88 +413,7 @@ git add app/services/agent_control/handle_execution_report.rb test/services/agen
 git commit -m "feat: route execution reports through turn todo plan updates"
 ```
 
-### Task 5: Rebuild canonical feed generation around plan diffs
-
-**Files:**
-- Modify: `core_matrix/app/models/conversation_supervision_feed_entry.rb`
-- Modify: `core_matrix/app/services/conversation_supervision/append_feed_entries.rb`
-- Create: `core_matrix/app/services/turn_todo_plans/build_feed_changeset.rb`
-- Test: `core_matrix/test/services/turn_todo_plans/build_feed_changeset_test.rb`
-- Test: `core_matrix/test/services/conversation_supervision/append_feed_entries_test.rb`
-
-**Step 1: Write the failing feed diff test**
-
-Add a test that proves old/new plan heads produce canonical event kinds:
-
-- `turn_todo_item_started`
-- `turn_todo_item_completed`
-- `turn_todo_item_delegated`
-
-```ruby
-test "builds canonical feed entries from old and new plan snapshots" do
-  changeset = TurnTodoPlans::BuildFeedChangeset.call(
-    previous_plan: {
-      "goal_summary" => "Replace legacy plan paths",
-      "current_item_key" => "define-domain",
-      "items" => [
-        { "item_key" => "define-domain", "title" => "Define new plan", "status" => "in_progress", "position" => 0 }
-      ]
-    },
-    current_plan: {
-      "goal_summary" => "Replace legacy plan paths",
-      "current_item_key" => "wire-supervision",
-      "items" => [
-        { "item_key" => "define-domain", "title" => "Define new plan", "status" => "completed", "position" => 0 },
-        { "item_key" => "wire-supervision", "title" => "Wire supervision", "status" => "in_progress", "position" => 1 }
-      ]
-    },
-    occurred_at: Time.current
-  )
-
-  assert_equal %w[turn_todo_item_completed turn_todo_item_started], changeset.map { |entry| entry.fetch("event_kind") }
-end
-```
-
-**Step 2: Run the tests to verify they fail**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb
-```
-
-Expected: FAIL because the new canonical feed diff path does not exist.
-
-**Step 3: Implement the new feed path**
-
-- narrow `ConversationSupervisionFeedEntry::EVENT_KINDS` to the new canonical set
-- make `AppendFeedEntries` accept only canonical changesets
-- implement `TurnTodoPlans::BuildFeedChangeset`
-- invoke it from `TurnTodoPlans::ApplyUpdate`
-
-Do not keep `progress_recorded`, `subagent_started`, or `subagent_completed` in the new path.
-
-**Step 4: Run the tests to verify they pass**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb
-```
-
-Expected: PASS.
-
-**Step 5: Commit**
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add app/models/conversation_supervision_feed_entry.rb app/services/conversation_supervision/append_feed_entries.rb app/services/turn_todo_plans/build_feed_changeset.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb
-git commit -m "feat: generate canonical supervision feed entries from plan diffs"
-```
-
-### Task 6: Rebuild conversation supervision projection around plan views
+### Task 5: Rebuild conversation supervision projection around plan views
 
 **Files:**
 - Modify: `core_matrix/app/services/conversations/update_supervision_state.rb`
@@ -547,19 +483,21 @@ git add app/services/conversations/update_supervision_state.rb app/services/turn
 git commit -m "feat: project conversation supervision from turn todo plans"
 ```
 
-### Task 7: Rebuild snapshot, machine status, and sidechat payloads
+### Task 6: Rebuild snapshot, machine status, and responder payloads
 
 **Files:**
 - Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/build_snapshot.rb`
 - Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/build_machine_status.rb`
 - Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/build_human_sidechat.rb`
 - Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/build_human_summary.rb`
+- Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/responders/summary_model.rb`
+- Test: `core_matrix/test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb`
 - Test: `core_matrix/test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb`
 - Test: `core_matrix/test/services/embedded_agents/conversation_supervision/append_message_test.rb`
 
 **Step 1: Write the failing responder test**
 
-Add a test that proves snapshot and sidechat use frozen plan views:
+Add tests that prove snapshot and responders use frozen plan views:
 
 - current work comes from primary current item
 - subagent answers come from child plan views
@@ -592,10 +530,10 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
+bin/rails test test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
 ```
 
-Expected: FAIL because snapshot and sidechat still use legacy plan payloads.
+Expected: FAIL because snapshot and responders still use legacy plan payloads.
 
 **Step 3: Implement the new payloads**
 
@@ -604,6 +542,8 @@ Expected: FAIL because snapshot and sidechat still use legacy plan payloads.
 - freeze `turn_feed`
 - rebuild machine status to expose plan-centric payloads
 - rebuild human summary builders to answer from frozen plan views and feed
+- update `Responders::SummaryModel` so modeled replies consume plan-centric
+  machine status instead of `active_plan_items`
 
 **Step 4: Run the tests to verify they pass**
 
@@ -611,7 +551,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
+bin/rails db:test:prepare test test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
 ```
 
 Expected: PASS.
@@ -620,8 +560,101 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add app/services/embedded_agents/conversation_supervision/build_snapshot.rb app/services/embedded_agents/conversation_supervision/build_machine_status.rb app/services/embedded_agents/conversation_supervision/build_human_sidechat.rb app/services/embedded_agents/conversation_supervision/build_human_summary.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
+git add app/services/embedded_agents/conversation_supervision/build_snapshot.rb app/services/embedded_agents/conversation_supervision/build_machine_status.rb app/services/embedded_agents/conversation_supervision/build_human_sidechat.rb app/services/embedded_agents/conversation_supervision/build_human_summary.rb app/services/embedded_agents/conversation_supervision/responders/summary_model.rb test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb
 git commit -m "feat: freeze and render supervision from turn todo plan views"
+```
+
+### Task 7: Rebuild canonical feed generation and remove old emitters
+
+**Files:**
+- Modify: `core_matrix/app/models/conversation_supervision_feed_entry.rb`
+- Modify: `core_matrix/app/services/conversation_supervision/append_feed_entries.rb`
+- Modify: `core_matrix/app/services/agent_control/apply_supervision_update.rb`
+- Modify: `core_matrix/app/services/conversations/update_supervision_state.rb`
+- Create: `core_matrix/app/services/turn_todo_plans/build_feed_changeset.rb`
+- Test: `core_matrix/test/models/conversation_supervision_feed_entry_test.rb`
+- Test: `core_matrix/test/services/turn_todo_plans/build_feed_changeset_test.rb`
+- Test: `core_matrix/test/services/conversation_supervision/append_feed_entries_test.rb`
+- Test: `core_matrix/test/services/conversation_supervision/build_activity_feed_test.rb`
+- Test: `core_matrix/test/services/conversation_supervision/publish_update_test.rb`
+
+**Step 1: Write the failing feed diff tests**
+
+Add tests that prove:
+
+- old/new plan heads produce canonical event kinds
+- `progress_recorded`, `subagent_started`, and `subagent_completed` are no
+  longer accepted feed kinds
+- old emitters do not survive in `ApplySupervisionUpdate` or
+  `UpdateSupervisionState`
+
+```ruby
+test "builds canonical feed entries from old and new plan snapshots" do
+  changeset = TurnTodoPlans::BuildFeedChangeset.call(
+    previous_plan: {
+      "goal_summary" => "Replace legacy plan paths",
+      "current_item_key" => "define-domain",
+      "items" => [
+        { "item_key" => "define-domain", "title" => "Define new plan", "status" => "in_progress", "position" => 0 }
+      ]
+    },
+    current_plan: {
+      "goal_summary" => "Replace legacy plan paths",
+      "current_item_key" => "wire-supervision",
+      "items" => [
+        { "item_key" => "define-domain", "title" => "Define new plan", "status" => "completed", "position" => 0 },
+        { "item_key" => "wire-supervision", "title" => "Wire supervision", "status" => "in_progress", "position" => 1 }
+      ]
+    },
+    occurred_at: Time.current
+  )
+
+  assert_equal %w[turn_todo_item_completed turn_todo_item_started], changeset.map { |entry| entry.fetch("event_kind") }
+end
+```
+
+**Step 2: Run the tests to verify they fail**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/models/conversation_supervision_feed_entry_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb test/services/conversation_supervision/build_activity_feed_test.rb test/services/conversation_supervision/publish_update_test.rb
+```
+
+Expected: FAIL because the canonical feed diff path does not exist and the old
+feed kinds are still wired in.
+
+**Step 3: Implement the canonical feed cutover**
+
+- narrow `ConversationSupervisionFeedEntry::EVENT_KINDS` to the new canonical
+  set
+- make `AppendFeedEntries` accept only canonical changesets
+- implement `TurnTodoPlans::BuildFeedChangeset`
+- invoke it from `TurnTodoPlans::ApplyUpdate`
+- remove `progress_recorded` feed emission from `ApplySupervisionUpdate`
+- remove old semantic feed generation from `UpdateSupervisionState`
+
+Do not keep `progress_recorded`, `subagent_started`, or `subagent_completed`
+in the main path after this task.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare test test/models/conversation_supervision_feed_entry_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb test/services/conversation_supervision/build_activity_feed_test.rb test/services/conversation_supervision/publish_update_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+git add app/models/conversation_supervision_feed_entry.rb app/services/conversation_supervision/append_feed_entries.rb app/services/agent_control/apply_supervision_update.rb app/services/conversations/update_supervision_state.rb app/services/turn_todo_plans/build_feed_changeset.rb test/models/conversation_supervision_feed_entry_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversation_supervision/append_feed_entries_test.rb test/services/conversation_supervision/build_activity_feed_test.rb test/services/conversation_supervision/publish_update_test.rb
+git commit -m "feat: generate canonical supervision feed entries from plan diffs"
 ```
 
 ### Task 8: Add stable API contracts for plan views and turn feed
@@ -671,6 +704,7 @@ Expected: FAIL because the new API endpoints do not exist.
 - expose stable plan view JSON
 - expose turn feed JSON
 - keep supervision message/session controllers aligned with the new snapshot payload
+- return only `public_id` values at API boundaries
 
 **Step 4: Run the request tests to verify they pass**
 
@@ -694,11 +728,17 @@ git commit -m "feat: expose turn todo plan and feed api contracts"
 ### Task 9: Delete the legacy plan path and tighten anti-regression coverage
 
 **Files:**
+- Create: `core_matrix/db/migrate/20260406120000_drop_agent_task_plan_items.rb`
 - Delete: `core_matrix/app/models/agent_task_plan_item.rb`
 - Delete: `core_matrix/app/services/agent_task_runs/replace_plan_items.rb`
 - Modify: `core_matrix/app/services/agent_control/apply_supervision_update.rb`
 - Modify: `core_matrix/app/models/agent_task_run.rb`
+- Modify: `core_matrix/app/models/subagent_session.rb`
+- Modify: `core_matrix/app/services/conversations/purge_plan.rb`
+- Modify: `core_matrix/docs/behavior/agent-progress-and-plan-items.md`
 - Modify: `core_matrix/test/services/agent_control/handle_execution_report_test.rb`
+- Modify: `core_matrix/test/support/conversation_supervision_fixture_builder.rb`
+- Modify: `core_matrix/test/services/conversation_supervision/publish_update_test.rb`
 - Create: `core_matrix/test/integration/turn_todo_plan_cleanup_contract_test.rb`
 
 **Step 1: Write the failing cleanup contract test**
@@ -708,6 +748,7 @@ Add a test that proves:
 - `supervision_update.plan_items` is rejected
 - legacy `active_plan_items` payloads are absent
 - canonical feed no longer emits `progress_recorded`
+- lifecycle cleanup no longer depends on `AgentTaskPlanItem`
 
 ```ruby
 test "rejects legacy plan updates and old feed semantics" do
@@ -756,9 +797,15 @@ Expected: FAIL because the legacy path is still accepted.
 
 **Step 3: Delete the old plan path**
 
+- add a migration that drops `agent_task_plan_items`
 - remove the old model and service
 - remove old associations from `AgentTaskRun`
+- remove old delegated item associations from `SubagentSession`
 - reject old plan payloads explicitly
+- update `Conversations::PurgePlan` to account for `TurnTodoPlan` ownership and
+  cleanup
+- update behavior docs to present `TurnTodoPlan` as the active product
+  contract
 - update fixtures and tests to stop referring to legacy plan items
 
 **Step 4: Run the cleanup tests to verify they pass**
@@ -767,7 +814,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare test test/integration/turn_todo_plan_cleanup_contract_test.rb test/services/agent_control/handle_execution_report_test.rb
+bin/rails db:test:prepare test test/integration/turn_todo_plan_cleanup_contract_test.rb test/services/agent_control/handle_execution_report_test.rb test/services/conversation_supervision/publish_update_test.rb
 ```
 
 Expected: PASS.
@@ -776,7 +823,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add app/services/agent_control/apply_supervision_update.rb app/models/agent_task_run.rb test/services/agent_control/handle_execution_report_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
+git add db/migrate/20260406120000_drop_agent_task_plan_items.rb app/services/agent_control/apply_supervision_update.rb app/models/agent_task_run.rb app/models/subagent_session.rb app/services/conversations/purge_plan.rb docs/behavior/agent-progress-and-plan-items.md test/services/agent_control/handle_execution_report_test.rb test/support/conversation_supervision_fixture_builder.rb test/services/conversation_supervision/publish_update_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
 git rm app/models/agent_task_plan_item.rb app/services/agent_task_runs/replace_plan_items.rb
 git commit -m "refactor: delete legacy supervision plan path"
 ```
@@ -793,7 +840,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/models/turn_todo_plan_test.rb test/models/turn_todo_plan_item_test.rb test/services/turn_todo_plans/apply_update_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/conversations/update_supervision_state_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_feeds_controller_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
+bin/rails test test/models/turn_todo_plan_test.rb test/models/turn_todo_plan_item_test.rb test/models/conversation_supervision_feed_entry_test.rb test/services/turn_todo_plans/apply_update_test.rb test/services/turn_todo_plans/build_view_test.rb test/services/turn_todo_plans/build_feed_changeset_test.rb test/services/agent_control/handle_execution_report_turn_todo_plan_test.rb test/services/conversations/update_supervision_state_test.rb test/services/conversation_supervision/append_feed_entries_test.rb test/services/conversation_supervision/build_activity_feed_test.rb test/services/conversation_supervision/publish_update_test.rb test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_feeds_controller_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
 ```
 
 Expected: PASS.

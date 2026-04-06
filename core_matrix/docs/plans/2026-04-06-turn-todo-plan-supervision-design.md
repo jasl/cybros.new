@@ -191,7 +191,7 @@ main path.
 Recommended fields:
 
 - `installation_id`
-- `owner_type`, `owner_id`
+- `agent_task_run_id`
 - `conversation_id`
 - `turn_id`
 - `status`
@@ -202,10 +202,18 @@ Recommended fields:
 
 Ownership rules:
 
-- the primary owner is `AgentTaskRun`
+- `TurnTodoPlan` belongs directly to `AgentTaskRun`
 - each active `AgentTaskRun` may have at most one active `TurnTodoPlan`
 - child-agent plans are also owned by their own `AgentTaskRun`, not by
   `SubagentSession`
+
+Implementation note:
+
+- prefer an explicit `agent_task_run_id` foreign key over a polymorphic owner
+  column
+- add database-level cascading cleanup from `agent_task_runs` to
+  `turn_todo_plans` to avoid orphaned rows during conversation purge and other
+  runtime cleanup flows
 
 Plan statuses:
 
@@ -500,6 +508,10 @@ Required cleanup:
 - remove supervision snapshot payloads centered on `active_plan_items`
 - remove sidechat logic that reconstructs plan state from summary text
 - remove old feed kinds that no longer match the new plan-driven UX model
+- update purge/lifecycle cleanup paths so `TurnTodoPlan` rows are collected and
+  deleted safely with their owner task runs
+- update behavior docs that still present `AgentTaskPlanItem` as the active
+  product contract
 
 ## End State
 
