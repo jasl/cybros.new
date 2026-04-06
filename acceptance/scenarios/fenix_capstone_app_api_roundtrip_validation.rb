@@ -36,6 +36,18 @@ EXPECTED_SKILL_CONVERSATION_STATE = {
   "turn_lifecycle_state" => "active",
   "agent_task_run_state" => "completed",
 }.freeze
+CAPABILITY_CONTRACT = {
+  "scenario" => "fenix_2048_capstone",
+  "capabilities" => [
+    { "key" => "workspace_editing", "required" => true },
+    { "key" => "command_execution", "required" => true },
+    { "key" => "browser_verification", "required" => true },
+    { "key" => "supervision", "required" => true },
+    { "key" => "export_roundtrip", "required" => true },
+    { "key" => "skills", "required" => false },
+    { "key" => "subagents", "required" => false },
+  ],
+}.freeze
 
 repo_root = AcceptanceHarness.repo_root
 artifact_stamp = ENV.fetch("CAPSTONE_ARTIFACT_STAMP") do
@@ -1208,6 +1220,9 @@ def write_workspace_artifacts_md(path:, workspace_root:, generated_app_dir:, hos
   lines << "  - `http://127.0.0.1:#{preview_port}/`"
   lines << ""
   lines << "Host preview reachability is recorded separately in `workspace-validation.md` and `host-preview.json` when available."
+  lines << "- Benchmark summaries:"
+  lines << "  - `capability-activation.md`"
+  lines << "  - `failure-classification.md`"
   lines << ""
 
   write_text(path, lines.join("\n"))
@@ -1420,6 +1435,163 @@ def write_agent_evaluation_md(path, evaluation)
   end
 
   write_text(path, lines.join("\n"))
+end
+
+def determine_workload_outcome(workflow_run:, runtime_validation:, host_validation:, playwright_validation:, generated_app_dir:)
+  return "complete" if workflow_run.lifecycle_state == "completed" &&
+    runtime_validation_passed?(runtime_validation) &&
+    host_validation_passed?(host_validation:, playwright_validation:)
+
+  if workflow_run.lifecycle_state != "completed"
+    return "blocked" if generated_app_dir.exist? || runtime_validation.values.any?(true)
+
+    return "failed"
+  end
+
+  runtime_progress = runtime_validation.values.any?(true)
+  host_progress = [
+    host_validation.dig("npm_install", "success"),
+    host_validation.dig("npm_test", "success"),
+    host_validation.dig("npm_build", "success"),
+    host_validation.dig("preview_http", "status") == 200,
+    playwright_validation["result"].present?,
+  ].any?
+
+  return "partial" if generated_app_dir.exist? || runtime_progress || host_progress
+
+  "failed"
+end
+
+def build_rescue_history_entry(attempt_no:, workflow_run:, runtime_validation:, host_validation:, playwright_validation:, host_playability_skip_reason:, repair_prompt:)
+  reasons = []
+  reasons << "workflow_not_completed" unless workflow_run.lifecycle_state == "completed"
+  reasons << "runtime_validation_failed" unless runtime_validation_passed?(runtime_validation)
+  reasons << "host_validation_failed" unless host_validation_passed?(host_validation:, playwright_validation:)
+  reasons << "host_playability_failed" if host_playability_skip_reason.present?
+
+  {
+    "attempt_no" => attempt_no,
+    "workflow_run_id" => workflow_run.public_id,
+    "workflow_state" => workflow_run.lifecycle_state,
+    "trigger_reasons" => reasons,
+    "host_playability_skip_reason" => host_playability_skip_reason,
+    "repair_prompt_excerpt" => repair_prompt.lines.first(12).join,
+  }
+end
+
+def build_failure_timeline(attempt_history:, terminal_failure_message:)
+  timeline = Array(attempt_history).map do |attempt|
+    host_validation = attempt.fetch("host_validation")
+    suspected_category =
+      if host_validation.values.any?(false)
+        "environment_defect"
+      elsif attempt.fetch("workflow_state") != "completed"
+        "model_variance"
+      else
+        "agent_design_gap"
+      end
+
+    {
+      "phase" => "attempt_#{attempt.fetch("attempt_no")}",
+      "status" => attempt.fetch("workflow_state"),
+      "symptom" => host_validation.select { |_key, value| value == false }.keys.presence || ["workflow_state=#{attempt.fetch("workflow_state")}"],
+      "evidence" => ["attempt-history.json", "workspace-validation.md", "diagnostics.json"],
+      "suspected_category" => suspected_category,
+    }
+  end
+
+  if terminal_failure_message.present?
+    timeline << {
+      "phase" => "terminal_failure",
+      "status" => "failed",
+      "symptom" => terminal_failure_message.lines.first.to_s.strip,
+      "evidence" => ["run-summary.json", "failure-classification.json"],
+      "suspected_category" => "unknown",
+    }
+  end
+
+  timeline
+end
+
+def write_capability_activation_md(path:, capability_report:)
+  rows = Array(capability_report.fetch("required_capabilities"))
+  lines = [
+    "# Capability Activation",
+    "",
+    "- Scenario: `#{capability_report.fetch("scenario")}`",
+    "- Required capabilities passed: `#{capability_report.dig("summary", "required_passed_count")}` / `#{capability_report.dig("summary", "required_count")}`",
+    "- Optional capabilities activated: `#{capability_report.dig("summary", "optional_activated_count")}`",
+    "- Expectation passed: `#{capability_report.dig("summary", "expectation_passed")}`",
+    "",
+  ]
+
+  rows.each do |row|
+    lines << "## #{row.fetch("key")}"
+    lines << ""
+    lines << "- Required: `#{row.fetch("required")}`"
+    lines << "- Activated: `#{row.fetch("activated")}`"
+    lines << "- Evidence level: `#{row.fetch("evidence_level")}`"
+    if row.fetch("db_evidence").any?
+      lines << "- DB evidence:"
+      row.fetch("db_evidence").each { |entry| lines << "  - `#{entry}`" }
+    end
+    if row.fetch("artifact_evidence").any?
+      lines << "- Artifact evidence:"
+      row.fetch("artifact_evidence").each { |entry| lines << "  - `#{entry}`" }
+    end
+    if row.fetch("notes").any?
+      lines << "- Notes:"
+      row.fetch("notes").each { |entry| lines << "  - #{entry}" }
+    end
+    lines << ""
+  end
+
+  write_text(path, lines.join("\n").rstrip + "\n")
+end
+
+def write_failure_classification_md(path:, failure_report:)
+  lines = [
+    "# Failure Classification",
+    "",
+    "- Scenario: `#{failure_report.fetch("scenario")}`",
+    "- Benchmark outcome: `#{failure_report.fetch("outcome")}`",
+    "- Workload outcome: `#{failure_report.fetch("workload_outcome")}`",
+    "- System behavior outcome: `#{failure_report.fetch("system_behavior_outcome")}`",
+    "- Primary classification: `#{failure_report.dig("classification", "primary")}`",
+    "- Confidence: `#{failure_report.dig("classification", "confidence")}`",
+    "",
+  ]
+
+  secondary = Array(failure_report.dig("classification", "secondary"))
+  if secondary.any?
+    lines << "- Secondary classifications: `#{secondary.join("`, `")}`"
+    lines << ""
+  end
+
+  Array(failure_report.fetch("timeline")).each do |entry|
+    symptom = Array(entry["symptom"]).join(", ")
+    lines << "## #{entry.fetch("phase")}"
+    lines << ""
+    lines << "- Status: `#{entry.fetch("status")}`"
+    lines << "- Suspected category: `#{entry["suspected_category"]}`" if entry["suspected_category"].present?
+    lines << "- Symptom: #{symptom}" if symptom.present?
+    if Array(entry["evidence"]).any?
+      lines << "- Evidence:"
+      Array(entry["evidence"]).each { |artifact| lines << "  - `#{artifact}`" }
+    end
+    lines << ""
+  end
+
+  if Array(failure_report.fetch("recommended_actions")).any?
+    lines << "## Recommended Actions"
+    lines << ""
+    Array(failure_report.fetch("recommended_actions")).each do |action|
+      lines << "- #{action}"
+    end
+    lines << ""
+  end
+
+  write_text(path, lines.join("\n").rstrip + "\n")
 end
 
 def build_playwright_script(output_json_path:, screenshot_path:)
@@ -2051,6 +2223,8 @@ supervision_trace = nil
 host_validation_bundle = nil
 repair_prompt = prompt
 attempt_history = []
+rescue_history = []
+terminal_failure_message = nil
 
 1.upto(max_turn_attempts) do |attempt_no|
   run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
@@ -2115,7 +2289,7 @@ attempt_history = []
     host_validation_passed?(host_validation:, playwright_validation:)
 
   if attempt_no >= max_turn_attempts
-    raise <<~MSG
+    terminal_failure_message = <<~MSG
       2048 acceptance did not converge after #{max_turn_attempts} attempts
       last workflow state: #{workflow_run.lifecycle_state}
       last runtime validation:
@@ -2123,6 +2297,7 @@ attempt_history = []
       last host validation:
       #{JSON.pretty_generate(host_validation_bundle)}
     MSG
+    break
   end
 
   repair_prompt = build_repair_prompt(
@@ -2135,6 +2310,15 @@ attempt_history = []
     host_playability_skip_reason: host_validation_bundle.fetch("host_playability_skip_reason"),
     generated_app_dir: generated_app_dir,
     limit: validation_note_limit
+  )
+  rescue_history << build_rescue_history_entry(
+    attempt_no: attempt_no,
+    workflow_run: workflow_run,
+    runtime_validation: runtime_validation,
+    host_validation: host_validation,
+    playwright_validation: playwright_validation,
+    host_playability_skip_reason: host_validation_bundle.fetch("host_playability_skip_reason"),
+    repair_prompt: repair_prompt
   )
 end
 
@@ -2338,6 +2522,10 @@ write_turns_md(
     "supervision-sidechat.md",
     "supervision-status.md",
     "supervision-feed.md",
+    "capability-activation.json",
+    "capability-activation.md",
+    "failure-classification.json",
+    "failure-classification.md",
     ("control-intent-matrix.json" if control_intent_matrix.present?),
     ("host-preview.json" if preview_http.present?),
     ("host-playwright-verification.json" if playwright_validation.present?),
@@ -2385,6 +2573,79 @@ write_playability_verification_md(
 )
 
 conversation_validation = build_conversation_runtime_validation(tool_invocations: tool_invocations)
+capability_report = Acceptance::CapabilityActivation.build(
+  contract: CAPABILITY_CONTRACT,
+  tool_invocations: tool_invocations,
+  command_runs: command_runs,
+  subagent_sessions: subagent_sessions,
+  artifact_paths: {
+    "workspace_validation" => artifact_dir.join("workspace-validation.md"),
+    "skills_validation" => artifact_dir.join("skills-validation.json"),
+    "supervision_session" => artifact_dir.join("supervision-session.json"),
+    "supervision_polls" => artifact_dir.join("supervision-polls.json"),
+    "supervision_final" => artifact_dir.join("supervision-final.json"),
+    "supervision_status" => artifact_dir.join("supervision-status.md"),
+    "conversation_export" => user_bundle_path,
+    "conversation_debug_export" => debug_bundle_path,
+    "transcript_roundtrip" => artifact_dir.join("transcript-roundtrip-compare.json"),
+    "host_npm_install" => artifact_dir.join("host-npm-install.json"),
+    "host_npm_test" => artifact_dir.join("host-npm-test.json"),
+    "host_npm_build" => artifact_dir.join("host-npm-build.json"),
+    "host_preview" => artifact_dir.join("host-preview.json"),
+    "host_playwright_verification" => artifact_dir.join("host-playwright-verification.json"),
+    "host_playability_image" => artifact_dir.join("host-playability.png"),
+    "playability_verification" => artifact_dir.join("playability-verification.md"),
+  },
+  workspace_paths: {
+    "generated_app_dir" => generated_app_dir,
+  },
+  skill_validation: skills_validation,
+  transcript_roundtrip_match: transcript_roundtrip_match,
+  supervision_trace: supervision_trace
+)
+write_json(artifact_dir.join("capability-activation.json"), capability_report)
+write_capability_activation_md(
+  path: artifact_dir.join("capability-activation.md"),
+  capability_report: capability_report
+)
+
+workload_outcome = determine_workload_outcome(
+  workflow_run: workflow_run,
+  runtime_validation: conversation_validation,
+  host_validation: host_validation,
+  playwright_validation: playwright_validation,
+  generated_app_dir: generated_app_dir
+)
+failure_report = Acceptance::FailureClassification.build(
+  scenario: CAPABILITY_CONTRACT.fetch("scenario"),
+  capability_report: capability_report,
+  workload_outcome: workload_outcome,
+  diagnostics: {
+    "workflow_state" => workflow_run.lifecycle_state,
+    "terminal_failure_message" => terminal_failure_message,
+    "conversation_validation" => conversation_validation,
+    "workspace_validation" => {
+      "generated_app_dir_exists" => generated_app_dir.exist?,
+      "npm_install_passed" => host_validation.dig("npm_install", "success"),
+      "npm_test_passed" => host_validation.dig("npm_test", "success"),
+      "npm_build_passed" => host_validation.dig("npm_build", "success"),
+      "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
+      "preview_contains_2048" => host_validation.dig("preview_http", "contains_2048") || false,
+      "playwright_verification_passed" => playwright_validation["result"].present?,
+    },
+  },
+  rescue_history: rescue_history,
+  timeline: build_failure_timeline(
+    attempt_history: attempt_history,
+    terminal_failure_message: terminal_failure_message
+  ),
+  notes: [terminal_failure_message].compact
+)
+write_json(artifact_dir.join("failure-classification.json"), failure_report)
+write_failure_classification_md(
+  path: artifact_dir.join("failure-classification.md"),
+  failure_report: failure_report
+)
 
 summary = {
   "scenario_date" => scenario_date,
@@ -2416,8 +2677,18 @@ summary = {
   "tool_call_count" => tool_invocations.length,
   "subagent_session_count" => subagent_sessions.length,
   "skills_validation_path" => artifact_dir.join("skills-validation.json").to_s,
+  "capability_activation_path" => artifact_dir.join("capability-activation.json").to_s,
+  "failure_classification_path" => artifact_dir.join("failure-classification.json").to_s,
   "host_playability_artifact" => (artifact_dir.join("host-playwright-verification.json").to_s if playwright_validation.present?),
   "control_intent_matrix_path" => (artifact_dir.join("control-intent-matrix.json").to_s if control_intent_matrix.present?),
+  "benchmark_outcome" => failure_report.fetch("outcome"),
+  "workload_outcome" => failure_report.fetch("workload_outcome"),
+  "system_behavior_outcome" => failure_report.fetch("system_behavior_outcome"),
+  "failure_primary_category" => failure_report.dig("classification", "primary"),
+  "failure_recommended_actions" => failure_report.fetch("recommended_actions"),
+  "capability_activation" => capability_report.fetch("summary"),
+  "rescue_history_count" => rescue_history.length,
+  "terminal_failure_message" => terminal_failure_message,
   "conversation_validation" => conversation_validation,
   "workspace_validation" => {
     "generated_app_dir_exists" => generated_app_dir.exist?,
@@ -2442,3 +2713,4 @@ write_json(artifact_dir.join("agent-evaluation.json"), evaluation)
 write_json(artifact_dir.join("run-summary.json"), summary)
 
 puts JSON.pretty_generate(summary)
+raise terminal_failure_message if terminal_failure_message.present?

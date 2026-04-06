@@ -24,6 +24,8 @@ module Acceptance
     #   )
     def build(contract:, tool_invocations: [], command_runs: [], subagent_sessions: [], artifact_paths: {}, workspace_paths: {}, skill_validation: nil, transcript_roundtrip_match: nil, supervision_trace: nil)
       normalized_contract = stringify_keys(contract)
+      skill_validation = stringify_keys(skill_validation || {})
+      supervision_trace = stringify_keys(supervision_trace || {})
       capability_rows = Array(normalized_contract["capabilities"]).map do |capability|
         capability = stringify_keys(capability)
         build_capability_row(
@@ -33,9 +35,9 @@ module Acceptance
           subagent_sessions: Array(subagent_sessions),
           artifact_paths: stringify_keys(artifact_paths),
           workspace_paths: stringify_keys(workspace_paths),
-          skill_validation: stringify_keys(skill_validation),
+          skill_validation: skill_validation,
           transcript_roundtrip_match: transcript_roundtrip_match,
-          supervision_trace: stringify_keys(supervision_trace)
+          supervision_trace: supervision_trace
         )
       end
 
