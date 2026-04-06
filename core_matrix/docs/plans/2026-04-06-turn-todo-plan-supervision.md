@@ -4,7 +4,7 @@
 
 **Goal:** Replace summary-derived supervision progress reporting with an explicit turn-scoped todo plan domain that powers UI checklist rendering, turn feed entries, and supervision conversation answers.
 
-**Architecture:** Introduce `TurnTodoPlan` and `TurnTodoPlanItem` as the only plan truth for active `AgentTaskRun` work, including child-agent work. Route execution-time plan updates through a dedicated `turn_todo_plan_update` payload, generate append-only turn feed entries from plan diffs, rebuild conversation supervision to consume plan views, and delete the old `AgentTaskPlanItem` and `supervision_update.plan_items` pathways.
+**Architecture:** Introduce `TurnTodoPlan` and `TurnTodoPlanItem` as the only plan truth for active `AgentTaskRun` work, including child-agent work. Route execution-time plan updates through a dedicated `turn_todo_plan_update` payload, generate append-only turn feed entries from plan diffs, rebuild conversation supervision to consume plan views, and delete the old `AgentTaskPlanItem` and `supervision_update.plan_items` pathways. Do not introduce a second structured execution-item domain; any future Codex-style inline "worked for" or "explored files" affordances must render from existing workflow/runtime projections instead.
 
 **Tech Stack:** Rails 8.2, Active Record/Postgres, JSONB/public-id boundaries, Minitest, app API request tests, supervision services under `app/services`
 
@@ -111,6 +111,9 @@ cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 git add db/migrate/20260406110000_create_turn_todo_plans.rb app/models/turn_todo_plan.rb test/models/turn_todo_plan_test.rb
 git commit -m "feat: add turn todo plan model"
 ```
+
+**Guardrail:** Do not create companion execution-item tables or models while
+adding the plan domain. This task is only about the explicit turn todo plan.
 
 ### Task 2: Add the `TurnTodoPlanItem` schema and item contract
 
@@ -263,6 +266,10 @@ bin/rails test test/services/turn_todo_plans/apply_update_test.rb
 ```
 
 Expected: FAIL because the service does not exist.
+
+**Guardrail:** Keep this service scoped to `TurnTodoPlan` and
+`TurnTodoPlanItem`. Do not extend it into a generic structured execution-item
+pipeline.
 
 **Step 3: Write the service**
 

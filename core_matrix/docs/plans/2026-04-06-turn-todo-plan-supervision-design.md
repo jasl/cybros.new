@@ -48,6 +48,29 @@ The target product behavior is closer to the Codex task checklist UI:
 This is a UI and UX feature, not a new audit log. Workflow and runtime events
 remain the stronger audit substrate.
 
+## Non-Goals
+
+This redesign does not introduce a second structured execution-state domain
+next to `TurnTodoPlan`.
+
+Specifically:
+
+- do not add an OpenClaw-style execution-item model for tool, command, patch,
+  or approval progress
+- do not create a separate persisted "thinking transcript" domain
+- do not treat Codex-style inline conversation affordances such as "Worked for
+  39s" or "Explored 4 files, 1 search" as a new source-of-truth model
+
+If the product later wants conversation-inline work traces like the Codex UI,
+those should be rendered from existing workflow/runtime projections such as:
+
+- active workflow nodes
+- workflow node events
+- conversation runtime events
+
+That rendering layer must not become a second persisted execution-state
+domain.
+
 ## Destructive Assumptions
 
 - This redesign is intentionally destructive.
@@ -137,6 +160,10 @@ Workflow/runtime rows remain the stronger operational evidence.
 - dashboard summaries
 
 It does not need the full audit semantics of workflow history.
+
+If the product later wants inline "worked for" or "explored files" UI inside
+the conversation transcript, that should be treated as a renderer over
+workflow/runtime state rather than as a new persisted execution object.
 
 ### 5. Child work has its own plan
 
@@ -469,6 +496,7 @@ Required cleanup:
 - remove `AgentTaskPlanItem` as the primary plan model
 - remove `AgentTaskRuns::ReplacePlanItems`
 - reject `supervision_update.plan_items`
+- do not add any replacement execution-item domain alongside `TurnTodoPlan`
 - remove supervision snapshot payloads centered on `active_plan_items`
 - remove sidechat logic that reconstructs plan state from summary text
 - remove old feed kinds that no longer match the new plan-driven UX model
