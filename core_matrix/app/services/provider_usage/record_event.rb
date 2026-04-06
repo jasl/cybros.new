@@ -61,7 +61,7 @@ module ProviderUsage
         estimated_cost: @estimated_cost,
         success: @success,
         entitlement_window_key: @entitlement_window_key,
-        occurred_at: @occurred_at
+        occurred_at: @occurred_at,
       }.compact
     end
   end
