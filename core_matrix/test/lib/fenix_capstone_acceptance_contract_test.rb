@@ -121,6 +121,17 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ArtifactBundle.write_review_index!"
   end
 
+  test "acceptance gate requires semantic supervision sidechat and runtime alignment" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/conversation_artifacts.rb").read
+
+    assert_includes scenario, 'artifact_dir.join("review", "supervision-sidechat.md")'
+    assert_includes scenario, "Acceptance::ConversationArtifacts.human_visible_leak_tokens"
+    assert_includes scenario, "semantic_overlap?"
+    assert_includes scenario, 'runtime_focus_hint["summary"]'
+    assert_includes helper, "Runtime focus hint"
+  end
+
   test "acceptance scenario copies host playwright setup outputs into playable artifacts" do
     helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
     artifact_bundle = Rails.root.join("../acceptance/lib/artifact_bundle.rb").read

@@ -274,6 +274,7 @@ module Acceptance
         lines << "- Overall state: `#{machine_status.fetch("overall_state")}`"
         lines << "- Board lane: `#{machine_status["board_lane"]}`"
         lines << "- Current focus: `#{preferred_focus_summary(machine_status)}`"
+        lines << "- Runtime focus hint: `#{preferred_runtime_focus_summary(machine_status)}`"
         lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
         lines << "- Human-visible leak scan: `#{suspicious_tokens.empty? ? "pass" : "fail"}`"
         lines << ""
@@ -335,6 +336,7 @@ module Acceptance
         lines << "- Last terminal at: `#{machine_status["last_terminal_at"] || "unknown"}`"
         lines << "- Current focus: `#{preferred_focus_summary(machine_status)}`"
         lines << "- Recent progress: `#{preferred_progress_summary(machine_status)}`"
+        lines << "- Runtime focus hint: `#{preferred_runtime_focus_summary(machine_status)}`"
         lines << "- Waiting summary: `#{machine_status["waiting_summary"] || "none"}`"
         lines << "- Blocked summary: `#{machine_status["blocked_summary"] || "none"}`"
         lines << "- Next step hint: `#{machine_status["next_step_hint"] || "none"}`"
@@ -545,22 +547,30 @@ module Acceptance
       lines << "  - Primary turn todo plan present: `#{primary_turn_todo_plan_view(machine_status).present?}`"
       lines << "  - Active child turn todo plans: `#{active_subagent_turn_todo_plan_views(machine_status).length}`"
       lines << "  - Conversation facts: `#{Array(machine_status.dig("conversation_context", "facts")).length}`"
+      lines << "  - Runtime focus hint present: `#{machine_status.fetch("runtime_focus_hint", {}).present?}`"
       lines << "  - Waiting summary present: `#{machine_status["waiting_summary"].present?}`"
       lines << "  - Blocked summary present: `#{machine_status["blocked_summary"].present?}`"
     end
 
     private_class_method def preferred_focus_summary(machine_status)
-      primary_turn_todo_plan_view(machine_status).dig("current_item", "title") ||
+      machine_status.dig("runtime_focus_hint", "current_focus_summary") ||
+        primary_turn_todo_plan_view(machine_status).dig("current_item", "title") ||
         machine_status["current_focus_summary"] ||
         machine_status["request_summary"] ||
         "none"
     end
 
     private_class_method def preferred_progress_summary(machine_status)
-      latest_turn_feed_entry(machine_status)&.fetch("summary", nil) ||
-        machine_status["recent_progress_summary"] ||
+      machine_status["recent_progress_summary"] ||
+        latest_turn_feed_entry(machine_status)&.fetch("summary", nil) ||
         machine_status["waiting_summary"] ||
         machine_status["blocked_summary"] ||
+        "none"
+    end
+
+    private_class_method def preferred_runtime_focus_summary(machine_status)
+      machine_status.dig("runtime_focus_hint", "summary") ||
+        machine_status.dig("runtime_focus_hint", "current_focus_summary") ||
         "none"
     end
 

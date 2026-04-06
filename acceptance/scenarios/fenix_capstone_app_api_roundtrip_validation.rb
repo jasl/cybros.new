@@ -145,11 +145,15 @@ end
 def assert_2048_bundle_quality_contract!(artifact_dir:)
   status_markdown = File.read(artifact_dir.join("review", "supervision-status.md"))
   feed_markdown = File.read(artifact_dir.join("review", "supervision-feed.md"))
+  sidechat_markdown = File.read(artifact_dir.join("review", "supervision-sidechat.md"))
   runtime_transcript_markdown = File.read(artifact_dir.join("review", "turn-runtime-transcript.md"))
-  final_status = read_json(artifact_dir.join("logs", "supervision-final.json")).fetch("machine_status")
+  final_response = read_json(artifact_dir.join("logs", "supervision-final.json"))
+  final_status = final_response.fetch("machine_status")
+  final_sidechat = final_response.dig("human_sidechat", "content").to_s
   turn_runtime_evidence = read_json(artifact_dir.join("evidence", "turn-runtime-evidence.json"))
 
   primary_plan_view = final_status.fetch("primary_turn_todo_plan_view", {}).to_h
+  runtime_focus_hint = final_status.fetch("runtime_focus_hint", {}).to_h
   canonical_feed_entries = Array(final_status["turn_feed"].presence || final_status["activity_feed"]).select do |entry|
     entry["event_kind"].to_s.start_with?("turn_todo_")
   end
@@ -168,6 +172,24 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   end
   if canonical_feed_entries.empty?
     errors << "machine_status.turn_feed does not include canonical turn_todo_* events"
+  end
+  sidechat_leak_tokens = (
+    Acceptance::ConversationArtifacts.human_visible_leak_tokens(sidechat_markdown) +
+    Acceptance::ConversationArtifacts.human_visible_leak_tokens(final_sidechat)
+  ).uniq
+  if sidechat_leak_tokens.any?
+    errors << "supervision-sidechat still exposes raw runtime tokens: #{sidechat_leak_tokens.join(', ')}"
+  end
+  if runtime_focus_hint["summary"].present? && !semantic_overlap?(final_sidechat, runtime_focus_hint["summary"], minimum: 2)
+    errors << "supervision-sidechat does not align with runtime_focus_hint #{runtime_focus_hint["summary"].inspect}"
+  end
+  if final_status["recent_progress_summary"].present? &&
+      !runtime_alignment_present?(runtime_transcript_markdown, final_status["recent_progress_summary"])
+    errors << "turn-runtime-transcript.md is missing a runtime-aligned recent progress narrative for #{final_status["recent_progress_summary"].inspect}"
+  end
+  if final_status["overall_state"] == "waiting" && runtime_focus_hint["kind"].to_s.match?(/command|process/) &&
+      !semantic_overlap?(final_sidechat, runtime_focus_hint["summary"], minimum: 2)
+    errors << "waiting sidechat does not mention the command/process purpose from runtime_focus_hint"
   end
 
   if primary_plan_view.present?
@@ -208,6 +230,29 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
     2048 bundle quality contract failed:
     #{errors.map { |error| "- #{error}" }.join("\n")}
   MSG
+end
+
+def semantic_overlap?(text, reference, minimum: 2)
+  return true if reference.to_s.strip.empty?
+
+  (semantic_terms(text) & semantic_terms(reference)).length >= minimum
+end
+
+def runtime_alignment_present?(runtime_transcript_markdown, summary)
+  return true if summary.to_s.strip.empty?
+  return true if runtime_transcript_markdown.include?(summary)
+
+  semantic_overlap?(runtime_transcript_markdown, summary, minimum: 2)
+end
+
+def semantic_terms(text)
+  text.to_s.downcase
+    .scan(/[a-z0-9]+/)
+    .map { |term| term.sub(/ing\z/, "").sub(/ed\z/, "").sub(/s\z/, "") }
+    .reject do |term|
+      term.blank? || %w[a an and are because current for from have in into is it most of on or recent recently right the this to what while with now].include?(term)
+    end
+    .uniq
 end
 
 def capture_command(*command, chdir:, env: {})
