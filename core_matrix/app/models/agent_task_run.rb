@@ -38,6 +38,7 @@ class AgentTaskRun < ApplicationRecord
   has_many :tool_bindings, dependent: :destroy
   has_many :tool_invocations, dependent: :destroy
   has_many :command_runs, dependent: :destroy
+  has_one :turn_todo_plan, dependent: :delete, inverse_of: :agent_task_run
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
 
   validates :logical_work_id, presence: true

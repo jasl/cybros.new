@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1503,6 +1503,27 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.index ["turn_id"], name: "index_turn_diagnostics_snapshots_on_turn_id", unique: true
   end
 
+  create_table "turn_todo_plans", force: :cascade do |t|
+    t.bigint "agent_task_run_id", null: false
+    t.datetime "closed_at"
+    t.bigint "conversation_id", null: false
+    t.jsonb "counts_payload", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "current_item_key"
+    t.string "goal_summary", null: false
+    t.bigint "installation_id", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "status", default: "draft", null: false
+    t.bigint "turn_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_task_run_id"], name: "idx_turn_todo_plans_single_active_plan", unique: true, where: "((status)::text = 'active'::text)"
+    t.index ["agent_task_run_id"], name: "index_turn_todo_plans_on_agent_task_run_id"
+    t.index ["conversation_id"], name: "index_turn_todo_plans_on_conversation_id"
+    t.index ["installation_id"], name: "index_turn_todo_plans_on_installation_id"
+    t.index ["public_id"], name: "index_turn_todo_plans_on_public_id", unique: true
+    t.index ["turn_id"], name: "index_turn_todo_plans_on_turn_id"
+  end
+
   create_table "turns", force: :cascade do |t|
     t.bigint "agent_program_version_id", null: false
     t.string "cancellation_reason_kind"
@@ -2051,6 +2072,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
   add_foreign_key "turn_diagnostics_snapshots", "conversations"
   add_foreign_key "turn_diagnostics_snapshots", "installations"
   add_foreign_key "turn_diagnostics_snapshots", "turns"
+  add_foreign_key "turn_todo_plans", "agent_task_runs", on_delete: :cascade
+  add_foreign_key "turn_todo_plans", "conversations"
+  add_foreign_key "turn_todo_plans", "installations"
+  add_foreign_key "turn_todo_plans", "turns"
   add_foreign_key "turns", "agent_program_versions"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "execution_contracts"
