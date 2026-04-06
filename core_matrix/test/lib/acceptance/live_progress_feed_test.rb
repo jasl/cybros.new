@@ -46,10 +46,10 @@ class AcceptanceLiveProgressFeedTest < ActiveSupport::TestCase
     assert_equal 3, entries.length
     assert_equal "2026-04-06T14:03:10Z", entries.first.fetch("timestamp")
     assert_equal "wr_public_123", entries.first.fetch("workflow_run_public_id")
-    assert_equal "Running tool node provider_round_3_tool_1", entries.first.fetch("summary")
-    assert_equal "Completed tool node provider_round_3_tool_1", entries.second.fetch("summary")
+    assert_equal "Started a tool-backed workflow step", entries.first.fetch("summary")
+    assert_equal "Finished a tool-backed workflow step", entries.second.fetch("summary")
     assert_includes entries.second.fetch("detail"), "workspace_write"
-    assert_equal "Queued follow-up work after provider_round_3", entries.third.fetch("summary")
+    assert_equal "Queued the next implementation step", entries.third.fetch("summary")
     assert_equal 3, seen_event_keys.length
 
     repeated = Acceptance::LiveProgressFeed.build_entries(

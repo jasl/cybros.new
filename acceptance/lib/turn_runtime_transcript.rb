@@ -5,89 +5,23 @@ module Acceptance
     SEGMENT_ORDER = %w[plan build validate deliver].freeze
 
     def build(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_sessions:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
-      subagent_labels = build_subagent_labels(subagent_sessions)
-      agent_task_runs_by_id = Array(agent_task_runs).each_with_object({}) do |task_run, memo|
-        memo[task_run["agent_task_run_id"]] = task_run
-      end
-      tool_invocations_by_id = Array(tool_invocations).each_with_object({}) do |tool_invocation, memo|
-        memo[tool_invocation["tool_invocation_id"]] = tool_invocation
-      end
-
-      timeline = []
-      timeline.concat(build_phase_events(Array(phase_events)))
-      timeline.concat(build_workflow_node_progress_events(Array(workflow_node_events)))
-      timeline.concat(build_subagent_events(Array(subagent_sessions), subagent_labels:))
-      timeline.concat(
-        build_subagent_runtime_snapshot_events(
-          Array(subagent_runtime_snapshots),
-          subagent_labels:
-        )
+      report = ConversationRuntime::BuildTurnEventStream.call(
+        conversation_id: conversation_id,
+        turn_id: turn_id,
+        phase_events: phase_events,
+        workflow_node_events: workflow_node_events,
+        usage_events: usage_events,
+        tool_invocations: tool_invocations,
+        command_runs: command_runs,
+        process_runs: process_runs,
+        subagent_sessions: subagent_sessions,
+        subagent_runtime_snapshots: subagent_runtime_snapshots,
+        agent_task_runs: agent_task_runs,
+        supervision_trace: supervision_trace,
+        summary: summary
       )
-      timeline.concat(
-        build_tool_events(
-          Array(tool_invocations),
-          subagent_labels:,
-          agent_task_runs_by_id:
-        )
-      )
-      timeline.concat(
-        build_command_events(
-          Array(command_runs),
-          tool_invocations_by_id:,
-          subagent_labels:,
-          agent_task_runs_by_id:
-        )
-      )
-      timeline.concat(
-        build_process_events(
-          Array(process_runs),
-          subagent_labels:,
-          agent_task_runs_by_id:
-        )
-      )
-      timeline.concat(build_provider_round_events(Array(usage_events)))
-      timeline.concat(build_supervision_events(supervision_trace))
 
-      timeline = timeline.compact.sort_by do |event|
-        [
-          parse_time(event["timestamp"]) || Time.at(0).utc,
-          event.fetch("sort_order", 99),
-          event.fetch("summary"),
-        ]
-      end
-      timeline.each { |event| event.delete("sort_order") }
-
-      segments = SEGMENT_ORDER.filter_map do |segment|
-        entries = timeline.select { |event| event["phase"] == segment }
-        next if entries.empty?
-
-        {
-          "key" => segment,
-          "title" => segment_title(segment),
-          "events" => entries,
-        }
-      end
-
-      lanes = timeline.each_with_object({}) do |event, memo|
-        key = [event["actor_type"], event["actor_label"]]
-        memo[key] ||= {
-          "actor_type" => event["actor_type"],
-          "actor_label" => event["actor_label"],
-          "actor_public_id" => event["actor_public_id"],
-        }
-        memo[key]["actor_public_id"] ||= event["actor_public_id"]
-      end.values
-
-      {
-        "conversation_id" => conversation_id,
-        "turn_id" => turn_id,
-        "summary" => {
-          "benchmark_outcome" => summary["benchmark_outcome"],
-          "workload_outcome" => summary["workload_outcome"],
-          "system_behavior_outcome" => summary["system_behavior_outcome"],
-          "event_count" => timeline.length,
-          "lane_count" => lanes.length,
-        },
+      report.merge(
         "counts" => {
           "phase_event_count" => Array(phase_events).length,
           "tool_event_count" => Array(tool_invocations).length,
@@ -96,12 +30,9 @@ module Acceptance
           "provider_round_count" => Array(usage_events).count { |event| event["workflow_node_key"].to_s.match?(/\A(provider_round_|turn_step\z)/) },
           "subagent_session_count" => Array(subagent_sessions).length,
           "subagent_runtime_snapshot_count" => Array(subagent_runtime_snapshots).length,
-          "has_subagent_lane" => lanes.any? { |lane| lane["actor_type"] == "subagent" },
-        },
-        "lanes" => lanes,
-        "segments" => segments,
-        "timeline" => timeline,
-      }
+          "has_subagent_lane" => report.fetch("lanes").any? { |lane| lane["actor_type"] == "subagent" },
+        }
+      )
     end
 
     def to_markdown(report)

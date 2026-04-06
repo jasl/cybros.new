@@ -157,11 +157,10 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes summaries, "Started attempt 1 of 3"
     assert_includes summaries, "Supervisor checkpoint: Applying merge logic to the board reducer"
     assert_includes summaries, "Ran the test-and-build check in /workspace/game-2048"
-    assert_includes summaries, "Started the preview server in /workspace/game-2048"
+    assert_includes summaries, "Starting the preview server in /workspace/game-2048"
     assert_includes summaries, "Inspected the workspace tree"
     assert_includes summaries, "Spawned subagent researcher#1"
     assert_includes summaries, "researcher#1 completed its assigned work"
-    assert_includes summaries, "Completed provider round 1"
     assert_includes summaries, "Host validation passed: tests, build, preview, and Playwright"
 
     markdown = Acceptance::TurnRuntimeTranscript.to_markdown(report)
@@ -173,9 +172,9 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes markdown, "[researcher#1]"
     assert_includes markdown, "[supervisor]"
     assert_includes markdown, "[researcher#1] Inspected the workspace tree"
-    assert_includes markdown, "[researcher#1] Ran automated tests"
+    assert_includes markdown, "[researcher#1] Ran the test run in /workspace/game-2048"
     assert_includes markdown, "[main] Ran the test-and-build check in /workspace/game-2048"
-    assert_includes markdown, "[main] Started the preview server in /workspace/game-2048"
+    assert_includes markdown, "[main] Starting the preview server in /workspace/game-2048"
     assert_includes markdown, "Host validation passed: tests, build, preview, and Playwright"
   end
 end

@@ -111,15 +111,15 @@ module ConversationRuntime
 
         {
           "timestamp" => entry["timestamp"],
-          "actor_type" => "acceptance_harness",
-          "actor_label" => "harness",
+          "actor_type" => phase_actor_type(phase),
+          "actor_label" => phase_actor_label(phase),
           "actor_public_id" => nil,
-          "phase" => "plan",
+          "phase" => phase_segment(phase),
           "family" => "runtime_progress",
           "kind" => "phase_event",
-          "status" => "observed",
-          "summary" => phase.to_s.tr("_", " ").capitalize,
-          "detail" => nil,
+          "status" => phase_status(phase, entry),
+          "summary" => phase_summary(phase, entry),
+          "detail" => phase_detail(phase, entry),
           "source_refs" => ["phase-events.jsonl"],
           "sort_order" => 10,
         }
@@ -136,9 +136,9 @@ module ConversationRuntime
 
         {
           "timestamp" => entry["created_at"] || entry["updated_at"] || entry["occurred_at"],
-          "actor_type" => "main_agent",
-          "actor_label" => "main",
-          "actor_public_id" => nil,
+          "actor_type" => entry["actor_type"].presence || "main_agent",
+          "actor_label" => entry["actor_label"].presence || "main",
+          "actor_public_id" => entry["actor_public_id"],
           "phase" => workflow_phase(workflow_node_key),
           "family" => "runtime_progress",
           "kind" => "workflow_step_#{normalize_state(state)}",
@@ -149,7 +149,9 @@ module ConversationRuntime
           "workflow_node_public_id" => entry["workflow_node_public_id"],
           "workflow_node_key" => workflow_node_key,
           "workflow_node_ordinal" => entry["workflow_node_ordinal"],
+          "node_type" => entry["node_type"],
           "tool_invocation_public_id" => payload["tool_invocation_id"],
+          "command_run_public_id" => entry["command_run_public_id"] || payload["command_run_public_id"],
           "source_refs" => ["workflow_node_events.json"],
           "sort_order" => 20,
         }
@@ -380,20 +382,45 @@ module ConversationRuntime
     end
 
     def workflow_step_summary(entry)
+      return entry["summary"] if entry["summary"].present?
+
+      payload = entry["payload"] || {}
+      state = normalize_state(payload["state"] || entry["event_kind"])
+      if payload["tool_name"] == "command_run_wait" && payload["command_summary"].present?
+        prefix =
+          case state
+          when "started"
+            "Waiting for"
+          when "completed"
+            "Finished"
+          when "failed"
+            "Failed"
+          else
+            "Observed"
+          end
+        return "#{prefix} #{payload["command_summary"]}"
+      end
+
       node_type = entry["node_type"].to_s
+
+      return "Queued the next implementation step" if entry["event_kind"] == "yield_requested"
 
       case node_type
       when "tool_call"
-        "Finished a tool-backed workflow step"
+        state == "started" ? "Started a tool-backed workflow step" : "Finished a tool-backed workflow step"
       else
         "Updated the current workflow step"
       end
     end
 
     def workflow_step_detail(entry)
+      return entry["detail"] if entry["detail"].present?
+
       payload = entry["payload"] || {}
       parts = []
       parts << "State `#{payload["state"]}`." if payload["state"].present?
+      tool_name = entry["tool_name"].presence || payload["tool_name"].presence
+      parts << "Tool `#{tool_name}`." if tool_name.present?
       parts << "Tool invocation `#{payload["tool_invocation_id"]}`." if payload["tool_invocation_id"].present?
       parts.join(" ").presence
     end
@@ -401,6 +428,7 @@ module ConversationRuntime
     def summarize_tool_invocation(tool_invocation)
       tool_name = tool_invocation["tool_name"].to_s
       arguments = tool_invocation.dig("request_payload", "arguments") || {}
+      response_payload = tool_invocation["response_payload"] || {}
 
       case tool_name
       when "workspace_tree"
@@ -414,6 +442,13 @@ module ConversationRuntime
           "phase" => "build",
           "summary" => "Edited workspace files",
           "detail" => "Path `#{arguments["path"] || "unknown"}`.",
+        }
+      when "subagent_spawn"
+        profile_key = response_payload["profile_key"] || arguments["profile_key"] || "subagent"
+        {
+          "phase" => "build",
+          "summary" => "Spawned subagent #{profile_key}#1",
+          "detail" => "Delegated with profile `#{profile_key}`.",
         }
       else
         nil
@@ -443,6 +478,123 @@ module ConversationRuntime
 
     def workflow_phase(workflow_node_key)
       workflow_node_key.to_s.match?(/\Aprovider_round_(1|2|3)\z/) || workflow_node_key == "turn_step" ? "plan" : "build"
+    end
+
+    def phase_actor_type(phase)
+      case phase
+      when /\Ahost_validation/, "attempt_succeeded"
+        "host_validator"
+      when "supervision_progress", "supervision_complete"
+        "supervisor"
+      else
+        "acceptance_harness"
+      end
+    end
+
+    def phase_actor_label(phase)
+      case phase
+      when /\Ahost_validation/, "attempt_succeeded"
+        "host"
+      when "supervision_progress", "supervision_complete"
+        "supervisor"
+      else
+        "harness"
+      end
+    end
+
+    def phase_segment(phase)
+      case phase
+      when "skill_sources_prepared", "skills_validated", "conversation_initialized", "attempt_started"
+        "plan"
+      when "supervision_progress", "repair_prompt_prepared"
+        "build"
+      when "supervision_complete", "export_roundtrip_started", "benchmark_reporting_started", "benchmark_reporting_complete"
+        "deliver"
+      when "host_validation_started", "host_validation_complete", "attempt_succeeded"
+        "validate"
+      else
+        "plan"
+      end
+    end
+
+    def phase_status(phase, entry)
+      case phase
+      when "supervision_progress"
+        "updated"
+      when "host_validation_complete"
+        host_validation_failed_checks(entry).empty? ? "completed" : "failed"
+      when "benchmark_reporting_complete", "attempt_succeeded"
+        "completed"
+      else
+        "started"
+      end
+    end
+
+    def phase_summary(phase, entry)
+      case phase
+      when "supervision_progress"
+        focus =
+          entry["primary_turn_todo_plan_current_item_title"].presence ||
+          entry["latest_turn_feed_summary"].presence ||
+          entry["current_focus_summary"].presence ||
+          entry["recent_progress_summary"].presence ||
+          "No additional focus summary"
+        "Supervisor checkpoint: #{focus}"
+      when "attempt_started"
+        "Started attempt #{entry["attempt_no"]} of #{entry["max_turn_attempts"]}"
+      when "host_validation_complete"
+        if host_validation_failed_checks(entry).empty?
+          "Host validation passed: tests, build, preview, and Playwright"
+        else
+          "Host validation found issues with #{host_validation_failed_checks(entry).join(', ')}"
+        end
+      when "attempt_succeeded"
+        "Attempt #{entry["attempt_no"]} satisfied runtime and host checks"
+      when "supervision_complete"
+        "Supervisor observed the turn settle after #{entry["poll_count"]} polls"
+      else
+        phase.to_s.tr("_", " ").capitalize
+      end
+    end
+
+    def phase_detail(phase, entry)
+      case phase
+      when "supervision_progress"
+        parts = []
+        parts << "Machine state `#{entry["overall_state"]}`." if entry["overall_state"].present?
+        parts << "Current plan item: #{entry["primary_turn_todo_plan_current_item_title"]}." if entry["primary_turn_todo_plan_current_item_title"].present?
+        parts << "Latest turn-feed event: #{entry["latest_turn_feed_summary"]}." if entry["latest_turn_feed_summary"].present?
+        parts << "Recent progress: #{entry["recent_progress_summary"]}." if entry["recent_progress_summary"].present?
+        parts << "Active subagents: #{entry["active_subagent_count"]}." if entry["active_subagent_count"].present?
+        parts.join(" ").presence
+      when "host_validation_complete"
+        passed_checks = host_validation_checks(entry).select { |_key, value| value }.keys
+        failed_checks = host_validation_failed_checks(entry)
+
+        if failed_checks.empty?
+          "Host checks succeeded for #{passed_checks.join(", ")}."
+        else
+          details = []
+          details << "passed: #{passed_checks.join(", ")}" if passed_checks.any?
+          details << "failed: #{failed_checks.join(", ")}"
+          "Host validation outcome: #{details.join(" | ")}."
+        end
+      when "supervision_complete"
+        "Final observed machine state was `#{entry["overall_state"]}`."
+      end
+    end
+
+    def host_validation_checks(entry)
+      {
+        "tests" => entry["npm_test_passed"],
+        "build" => entry["npm_build_passed"],
+        "preview" => entry["preview_reachable"],
+        "Playwright" => entry["playwright_verification_passed"],
+      }
+    end
+
+    def host_validation_failed_checks(entry)
+      host_validation_checks(entry).select { |_key, value| value == false }.keys
     end
 
     def normalize_state(value)

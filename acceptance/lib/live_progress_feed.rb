@@ -40,87 +40,45 @@ module Acceptance
     end
 
     def normalize_event(entry)
-      if entry["summary"].present?
-        return {
-          "timestamp" => normalize_timestamp(entry["created_at"] || entry["updated_at"] || entry["timestamp"]),
-          "kind" => inferred_live_progress_kind(entry),
-          "event_kind" => entry["event_kind"],
-          "actor_type" => entry["actor_type"].presence || "main_agent",
-          "actor_label" => entry["actor_label"].presence || "main",
-          "actor_public_id" => entry["actor_public_id"],
-          "workflow_run_public_id" => entry["workflow_run_public_id"],
-          "workflow_node_key" => entry["workflow_node_key"],
-          "workflow_node_ordinal" => entry["workflow_node_ordinal"],
-          "node_type" => entry["node_type"],
-          "state" => entry["state"] || stringify_keys(entry["payload"] || {})["state"],
-          "summary" => entry["summary"],
-          "detail" => entry["detail"],
-        }
-      end
-
-      event_kind = entry["event_kind"].to_s
-      workflow_node_key = entry["workflow_node_key"].to_s
-      return if workflow_node_key.blank?
-
-      payload = stringify_keys(entry["payload"] || {})
-      node_type = entry["node_type"].to_s
-      state = payload["state"].presence || inferred_state(event_kind)
-      return if state.blank? && event_kind != "yield_requested"
-
-      detail =
-        case event_kind
-        when "yield_requested"
-          accepted_nodes = Array(payload["accepted_node_keys"])
-          accepted_nodes.any? ? "Accepted nodes: #{accepted_nodes.join(", ")}." : nil
-        else
-          parts = []
-          tool_name = entry["tool_name"].presence || payload["tool_name"].presence
-          parts << "Tool `#{tool_name}`." if tool_name.present?
-          parts << "Tool invocation `#{payload["tool_invocation_id"]}`." if payload["tool_invocation_id"].present?
-          parts << "Provider request `#{payload["provider_request_id"]}`." if payload["provider_request_id"].present?
-          parts.join(" ").presence
-        end
+      event = ConversationRuntime::BuildTurnEventStream.call(
+        conversation_id: entry["conversation_id"],
+        turn_id: entry["turn_id"],
+        phase_events: [],
+        workflow_node_events: [entry],
+        usage_events: [],
+        tool_invocations: [],
+        command_runs: [],
+        process_runs: [],
+        subagent_sessions: [],
+        subagent_runtime_snapshots: [],
+        agent_task_runs: [],
+        supervision_trace: {},
+        summary: {}
+      ).fetch("timeline").first
+      return if event.blank?
 
       {
-        "timestamp" => normalize_timestamp(entry["created_at"] || entry["updated_at"]),
-        "kind" => "workflow_live_progress",
-        "event_kind" => event_kind,
-        "actor_type" => entry["actor_type"].presence || "main_agent",
-        "actor_label" => entry["actor_label"].presence || "main",
-        "actor_public_id" => entry["actor_public_id"],
-        "workflow_run_public_id" => entry["workflow_run_public_id"],
-        "workflow_node_key" => workflow_node_key,
-        "workflow_node_ordinal" => entry["workflow_node_ordinal"],
-        "node_type" => node_type,
-        "state" => state,
-        "summary" => build_summary(
-          event_kind: event_kind,
-          node_type: node_type,
-          workflow_node_key: workflow_node_key,
-          state: state
-        ),
-        "detail" => detail,
-      }
+        "timestamp" => normalize_timestamp(event["timestamp"]),
+        "kind" => live_progress_kind_for(event),
+        "event_kind" => event["kind"],
+        "actor_type" => event["actor_type"],
+        "actor_label" => event["actor_label"],
+        "actor_public_id" => event["actor_public_id"],
+        "workflow_run_public_id" => event["workflow_run_public_id"],
+        "workflow_node_key" => event["workflow_node_key"],
+        "workflow_node_ordinal" => event["workflow_node_ordinal"],
+        "node_type" => event["node_type"],
+        "state" => event["status"],
+        "summary" => event["summary"],
+        "detail" => event["detail"],
+        "tool_invocation_public_id" => event["tool_invocation_public_id"],
+        "command_run_public_id" => event["command_run_public_id"],
+        "process_run_public_id" => event["process_run_public_id"],
+      }.compact
     end
 
-    private_class_method def build_summary(event_kind:, node_type:, workflow_node_key:, state:)
-      case event_kind
-      when "yield_requested"
-        "Queued follow-up work after #{workflow_node_key}"
-      else
-        "#{state.to_s.capitalize} #{node_kind_label(node_type)} node #{workflow_node_key}"
-      end
-    end
-
-    private_class_method def inferred_live_progress_kind(entry)
-      explicit_kind = entry["kind"].presence
-      return explicit_kind if explicit_kind.present?
-
-      event_kind = entry["event_kind"].to_s
-      node_type = entry["node_type"].to_s
-      actor_type = entry["actor_type"].to_s
-
-      if event_kind.start_with?("subagent_") || node_type == "subagent_session" || actor_type == "subagent"
+    private_class_method def live_progress_kind_for(event)
+      if event["actor_type"] == "subagent" || event["family"] == "subagent_progress"
         "subagent_live_progress"
       else
         "workflow_live_progress"
@@ -239,28 +197,6 @@ module Acceptance
             "actor_public_id" => actor_public_id
           )
         end
-    end
-
-    private_class_method def inferred_state(event_kind)
-      case event_kind
-      when "node_started"
-        "running"
-      when "node_completed"
-        "completed"
-      end
-    end
-
-    private_class_method def node_kind_label(node_type)
-      case node_type.to_s
-      when "tool_call"
-        "tool"
-      when "barrier_join"
-        "join"
-      when "turn_step"
-        "provider"
-      else
-        node_type.to_s.presence || "workflow"
-      end
     end
 
     private_class_method def build_event_key(entry)
