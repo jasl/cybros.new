@@ -78,4 +78,104 @@ class UsageEventTest < ActiveSupport::TestCase
     assert_nil event.input_tokens
     assert_nil event.output_tokens
   end
+
+  test "allows available prompt cache metrics with zero cached tokens" do
+    event = UsageEvent.create!(
+      installation: create_installation!,
+      provider_handle: "openai",
+      model_ref: "gpt-5.4",
+      operation_kind: "text_generation",
+      input_tokens: 100,
+      output_tokens: 10,
+      prompt_cache_status: "available",
+      cached_input_tokens: 0,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 6, 9, 0, 0)
+    )
+
+    assert_equal "available", event.prompt_cache_status
+    assert_equal 0, event.cached_input_tokens
+  end
+
+  test "allows available prompt cache metrics with cached input tokens" do
+    event = UsageEvent.create!(
+      installation: create_installation!,
+      provider_handle: "openai",
+      model_ref: "gpt-5.4",
+      operation_kind: "text_generation",
+      input_tokens: 100,
+      output_tokens: 10,
+      prompt_cache_status: "available",
+      cached_input_tokens: 12,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 6, 9, 5, 0)
+    )
+
+    assert_equal "available", event.prompt_cache_status
+    assert_equal 12, event.cached_input_tokens
+  end
+
+  test "rejects negative cached input tokens" do
+    event = UsageEvent.new(
+      installation: create_installation!,
+      provider_handle: "openai",
+      model_ref: "gpt-5.4",
+      operation_kind: "text_generation",
+      prompt_cache_status: "available",
+      cached_input_tokens: -1,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 6, 9, 10, 0)
+    )
+
+    assert_not event.valid?
+    assert_includes event.errors[:cached_input_tokens], "must be greater than or equal to 0"
+  end
+
+  test "requires cached input tokens when prompt cache status is available" do
+    event = UsageEvent.new(
+      installation: create_installation!,
+      provider_handle: "openai",
+      model_ref: "gpt-5.4",
+      operation_kind: "text_generation",
+      prompt_cache_status: "available",
+      cached_input_tokens: nil,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 6, 9, 12, 0)
+    )
+
+    assert_not event.valid?
+    assert_includes event.errors[:cached_input_tokens], "must be present when prompt cache status is available"
+  end
+
+  test "rejects cached input tokens when prompt cache status is unknown" do
+    event = UsageEvent.new(
+      installation: create_installation!,
+      provider_handle: "openai",
+      model_ref: "gpt-5.4",
+      operation_kind: "text_generation",
+      prompt_cache_status: "unknown",
+      cached_input_tokens: 4,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 6, 9, 15, 0)
+    )
+
+    assert_not event.valid?
+    assert_includes event.errors[:cached_input_tokens], "must be blank unless prompt cache status is available"
+  end
+
+  test "rejects cached input tokens when prompt cache status is unsupported" do
+    event = UsageEvent.new(
+      installation: create_installation!,
+      provider_handle: "openai",
+      model_ref: "gpt-5.4",
+      operation_kind: "text_generation",
+      prompt_cache_status: "unsupported",
+      cached_input_tokens: 4,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 6, 9, 20, 0)
+    )
+
+    assert_not event.valid?
+    assert_includes event.errors[:cached_input_tokens], "must be blank unless prompt cache status is available"
+  end
 end

@@ -1,6 +1,13 @@
 class UsageEvent < ApplicationRecord
   include DataLifecycle
 
+  enum :prompt_cache_status,
+    {
+      available: "available",
+      unknown: "unknown",
+      unsupported: "unsupported",
+    },
+    validate: true
   enum :operation_kind,
     {
       text_generation: "text_generation",
@@ -22,12 +29,13 @@ class UsageEvent < ApplicationRecord
   validates :provider_handle, presence: true
   validates :model_ref, presence: true
   validates :occurred_at, presence: true
-  validates :input_tokens, :output_tokens, :media_units, :latency_ms,
+  validates :input_tokens, :output_tokens, :media_units, :latency_ms, :cached_input_tokens,
     numericality: { only_integer: true, greater_than_or_equal_to: 0 },
     allow_nil: true
   validates :estimated_cost,
     numericality: { greater_than_or_equal_to: 0 },
     allow_nil: true
+  validate :cached_input_tokens_match_prompt_cache_status
   validate :user_installation_match
   validate :workspace_installation_match
   validate :agent_program_installation_match
@@ -42,6 +50,19 @@ class UsageEvent < ApplicationRecord
   end
 
   private
+
+  def cached_input_tokens_match_prompt_cache_status
+    if available?
+      if cached_input_tokens.nil?
+        errors.add(:cached_input_tokens, "must be present when prompt cache status is available")
+      end
+      return
+    end
+
+    return if cached_input_tokens.nil?
+
+    errors.add(:cached_input_tokens, "must be blank unless prompt cache status is available")
+  end
 
   def user_installation_match
     return if user.blank?

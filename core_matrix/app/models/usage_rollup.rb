@@ -34,6 +34,8 @@ class UsageRollup < ApplicationRecord
   validates :dimension_digest, uniqueness: { scope: [:installation_id, :bucket_kind, :bucket_key] }
   validates :event_count, :success_count, :failure_count, :input_tokens_total,
     :output_tokens_total, :media_units_total, :total_latency_ms,
+    :cached_input_tokens_total, :prompt_cache_available_event_count,
+    :prompt_cache_unknown_event_count, :prompt_cache_unsupported_event_count,
     numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :estimated_cost_total,
     numericality: { greater_than_or_equal_to: 0 }

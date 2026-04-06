@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_06_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -499,6 +499,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.integer "attributed_user_input_tokens_total", default: 0, null: false
     t.integer "attributed_user_output_tokens_total", default: 0, null: false
     t.integer "attributed_user_usage_event_count", default: 0, null: false
+    t.integer "cached_input_tokens_total", default: 0, null: false
     t.integer "canceled_turn_count", default: 0, null: false
     t.integer "command_failure_count", default: 0, null: false
     t.integer "command_run_count", default: 0, null: false
@@ -520,6 +521,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.integer "output_variant_count", default: 0, null: false
     t.integer "process_failure_count", default: 0, null: false
     t.integer "process_run_count", default: 0, null: false
+    t.integer "prompt_cache_available_event_count", default: 0, null: false
+    t.integer "prompt_cache_unknown_event_count", default: 0, null: false
+    t.integer "prompt_cache_unsupported_event_count", default: 0, null: false
     t.integer "provider_round_count", default: 0, null: false
     t.integer "resume_attempt_count", default: 0, null: false
     t.integer "retry_attempt_count", default: 0, null: false
@@ -1463,6 +1467,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.integer "attributed_user_output_tokens_total", default: 0, null: false
     t.integer "attributed_user_usage_event_count", default: 0, null: false
     t.integer "avg_latency_ms", default: 0, null: false
+    t.integer "cached_input_tokens_total", default: 0, null: false
     t.integer "command_failure_count", default: 0, null: false
     t.integer "command_run_count", default: 0, null: false
     t.bigint "conversation_id", null: false
@@ -1481,6 +1486,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.string "pause_state"
     t.integer "process_failure_count", default: 0, null: false
     t.integer "process_run_count", default: 0, null: false
+    t.integer "prompt_cache_available_event_count", default: 0, null: false
+    t.integer "prompt_cache_unknown_event_count", default: 0, null: false
+    t.integer "prompt_cache_unsupported_event_count", default: 0, null: false
     t.integer "provider_round_count", default: 0, null: false
     t.integer "resume_attempt_count", default: 0, null: false
     t.integer "retry_attempt_count", default: 0, null: false
@@ -1536,6 +1544,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
   create_table "usage_events", force: :cascade do |t|
     t.bigint "agent_program_id"
     t.bigint "agent_program_version_id"
+    t.integer "cached_input_tokens"
     t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.string "entitlement_window_key"
@@ -1548,6 +1557,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.datetime "occurred_at", null: false
     t.string "operation_kind", null: false
     t.integer "output_tokens"
+    t.string "prompt_cache_status", default: "unknown", null: false
     t.string "provider_handle", null: false
     t.boolean "success", null: false
     t.bigint "turn_id"
@@ -1571,6 +1581,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.bigint "agent_program_version_id"
     t.string "bucket_key", null: false
     t.string "bucket_kind", null: false
+    t.integer "cached_input_tokens_total", default: 0, null: false
     t.bigint "conversation_id"
     t.datetime "created_at", null: false
     t.string "dimension_digest", null: false
@@ -1583,6 +1594,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_05_093410) do
     t.string "model_ref", null: false
     t.string "operation_kind", null: false
     t.integer "output_tokens_total", default: 0, null: false
+    t.integer "prompt_cache_available_event_count", default: 0, null: false
+    t.integer "prompt_cache_unknown_event_count", default: 0, null: false
+    t.integer "prompt_cache_unsupported_event_count", default: 0, null: false
     t.string "provider_handle", null: false
     t.integer "success_count", default: 0, null: false
     t.integer "total_latency_ms", default: 0, null: false
