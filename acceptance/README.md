@@ -9,6 +9,18 @@ independent product codebases.
 - `artifacts/` and `logs/` are generated output directories and should stay out
   of git.
 
+The 2048 capstone now writes an organized artifact bundle per run:
+
+- `review/` for human-readable transcripts, supervision views, and validation notes
+- `evidence/` for machine-readable benchmark outputs and diagnostics
+- `logs/` for timeline and supervision logs
+- `exports/` for export/debug-export/import roundtrip bundles and metadata
+- `playable/` for host-side build, preview, and browser-verification outputs
+- `tmp/` for unpacked debug bundles and scratch files
+
+Each bundle also includes a root `README.md` plus `review/index.md` as the main
+entry points for manual inspection.
+
 Run acceptance scenarios through `Core Matrix`'s Rails environment:
 
 ```bash

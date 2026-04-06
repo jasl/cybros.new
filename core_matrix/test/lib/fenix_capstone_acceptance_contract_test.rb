@@ -98,6 +98,16 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, 'phase: "benchmark_reporting_complete"'
   end
 
+  test "acceptance scenario writes turn runtime transcript artifacts and review indexes" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "Acceptance::TurnRuntimeTranscript"
+    assert_includes scenario, 'review/index.md'
+    assert_includes scenario, 'turn-runtime-transcript.md'
+    assert_includes scenario, 'turn-runtime-evidence.json'
+    assert_includes scenario, 'turn-runtime-events.jsonl'
+  end
+
   test "behavior docs point to supervision and control instead of observation as the living source of truth" do
     redirect_doc = Rails.root.join("docs/behavior/conversation-observation-and-supervisor-status.md")
     supervision_doc = Rails.root.join("docs/behavior/conversation-supervision-and-control.md")
