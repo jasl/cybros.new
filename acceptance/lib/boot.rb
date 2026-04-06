@@ -17,3 +17,5 @@ module AcceptanceHarness
 end
 
 require_relative "../../core_matrix/script/manual/manual_acceptance_support"
+require_relative "capability_activation"
+require_relative "failure_classification"
