@@ -28,7 +28,7 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
     refute Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
   end
 
-  test "run! records missing generated app paths as a skip and still writes review artifacts" do
+  test "run! records missing generated app paths as a skip and writes canonical review artifacts" do
     Dir.mktmpdir do |dir|
       artifact_dir = Pathname(dir)
       generated_app_dir = artifact_dir.join("missing-app")
@@ -54,10 +54,10 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
       assert_equal({}, result.fetch("playwright_validation"))
       assert_equal false, result.fetch("dist_artifact_present")
       assert_equal [], result.fetch("host_validation_notes")
-      assert artifact_dir.join("workspace-validation.md").exist?
-      assert artifact_dir.join("playability-verification.md").exist?
-      assert_includes artifact_dir.join("workspace-validation.md").read, generated_app_dir.to_s
-      assert_includes artifact_dir.join("playability-verification.md").read, "Generated application path was missing."
+      assert artifact_dir.join("review", "workspace-validation.md").exist?
+      assert artifact_dir.join("review", "playability-verification.md").exist?
+      assert_includes artifact_dir.join("review", "workspace-validation.md").read, generated_app_dir.to_s
+      assert_includes artifact_dir.join("review", "playability-verification.md").read, "Generated application path was missing."
     end
   end
 end

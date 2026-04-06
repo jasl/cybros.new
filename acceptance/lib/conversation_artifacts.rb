@@ -32,8 +32,8 @@ module Acceptance
         machine_credential: machine_credential
       )
 
-      user_bundle_path = artifact_dir.join("conversation-export.zip")
-      debug_bundle_path = artifact_dir.join("conversation-debug-export.zip")
+      user_bundle_path = artifact_dir.join("exports", "conversation-export.zip")
+      debug_bundle_path = artifact_dir.join("exports", "conversation-debug-export.zip")
 
       export_result = ManualAcceptanceSupport.app_api_export_conversation!(
         conversation_id: conversation.public_id,
@@ -76,29 +76,29 @@ module Acceptance
         supervision_trace: supervision_trace,
         prompt: prompt
       )
-      write_json(artifact_dir.join("source-transcript.json"), source_transcript)
-      write_json(artifact_dir.join("source-diagnostics-show.json"), source_diagnostics_show)
-      write_json(artifact_dir.join("source-diagnostics-turns.json"), source_diagnostics_turns)
-      write_json(artifact_dir.join("diagnostics.json"), {
+      write_json(artifact_dir.join("evidence", "source-transcript.json"), source_transcript)
+      write_json(artifact_dir.join("evidence", "source-diagnostics-show.json"), source_diagnostics_show)
+      write_json(artifact_dir.join("evidence", "source-diagnostics-turns.json"), source_diagnostics_turns)
+      write_json(artifact_dir.join("evidence", "diagnostics.json"), {
         "source_show" => source_diagnostics_show,
         "source_turns" => source_diagnostics_turns,
         "imported_show" => imported_diagnostics_show,
       })
-      write_json(artifact_dir.join("export-request-create.json"), export_result.fetch("create"))
-      write_json(artifact_dir.join("export-request-show.json"), export_result.fetch("show"))
-      write_json(artifact_dir.join("debug-export-request-create.json"), debug_export_result.fetch("create"))
-      write_json(artifact_dir.join("debug-export-request-show.json"), debug_export_result.fetch("show"))
-      write_json(artifact_dir.join("import-request-create.json"), import_result.fetch("create"))
-      write_json(artifact_dir.join("import-request-show.json"), import_result.fetch("show"))
-      write_json(artifact_dir.join("imported-transcript.json"), imported_transcript)
-      write_json(artifact_dir.join("imported-diagnostics-show.json"), imported_diagnostics_show)
-      write_json(artifact_dir.join("transcript-roundtrip-compare.json"), {
+      write_json(artifact_dir.join("exports", "export-request-create.json"), export_result.fetch("create"))
+      write_json(artifact_dir.join("exports", "export-request-show.json"), export_result.fetch("show"))
+      write_json(artifact_dir.join("exports", "debug-export-request-create.json"), debug_export_result.fetch("create"))
+      write_json(artifact_dir.join("exports", "debug-export-request-show.json"), debug_export_result.fetch("show"))
+      write_json(artifact_dir.join("exports", "import-request-create.json"), import_result.fetch("create"))
+      write_json(artifact_dir.join("exports", "import-request-show.json"), import_result.fetch("show"))
+      write_json(artifact_dir.join("evidence", "imported-transcript.json"), imported_transcript)
+      write_json(artifact_dir.join("evidence", "imported-diagnostics-show.json"), imported_diagnostics_show)
+      write_json(artifact_dir.join("exports", "transcript-roundtrip-compare.json"), {
         "match" => transcript_roundtrip_match,
         "source_items" => source_items,
         "imported_items" => imported_items,
       })
       write_text(
-        artifact_dir.join("export-roundtrip.md"),
+        artifact_dir.join("review", "export-roundtrip.md"),
         export_roundtrip_markdown(
           source_conversation_id: conversation.public_id,
           imported_conversation_id: imported_conversation_id,
@@ -108,7 +108,7 @@ module Acceptance
         )
       )
       write_text(
-        artifact_dir.join("conversation-transcript.md"),
+        artifact_dir.join("review", "conversation-transcript.md"),
         conversation_transcript_markdown(source_transcript)
       )
 
@@ -182,19 +182,19 @@ module Acceptance
     end
 
     def write_supervision_artifacts!(artifact_dir:, supervision_trace:, prompt:)
-      write_json(artifact_dir.join("supervision-session.json"), supervision_trace.fetch("session"))
-      write_json(artifact_dir.join("supervision-polls.json"), supervision_trace.fetch("polls"))
-      write_json(artifact_dir.join("supervision-final.json"), supervision_trace.fetch("final_response"))
+      write_json(artifact_dir.join("logs", "supervision-session.json"), supervision_trace.fetch("session"))
+      write_json(artifact_dir.join("logs", "supervision-polls.json"), supervision_trace.fetch("polls"))
+      write_json(artifact_dir.join("logs", "supervision-final.json"), supervision_trace.fetch("final_response"))
       write_text(
-        artifact_dir.join("supervision-sidechat.md"),
+        artifact_dir.join("review", "supervision-sidechat.md"),
         supervision_sidechat_markdown(supervision_trace:, prompt:)
       )
       write_text(
-        artifact_dir.join("supervision-status.md"),
+        artifact_dir.join("review", "supervision-status.md"),
         supervision_status_markdown(supervision_trace:)
       )
       write_text(
-        artifact_dir.join("supervision-feed.md"),
+        artifact_dir.join("review", "supervision-feed.md"),
         supervision_feed_markdown(supervision_trace:)
       )
     end

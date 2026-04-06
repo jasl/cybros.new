@@ -161,8 +161,6 @@ module Acceptance
         "",
         "Canonical machine-readable entrypoints live under `review/`, `evidence/`, and `logs/`.",
         "- `evidence/artifact-manifest.json` lists the preferred paths for callers.",
-        "",
-        "Legacy root-level files are retained for compatibility with existing acceptance tooling.",
       ]
 
       write_text(path, lines.join("\n") + "\n")

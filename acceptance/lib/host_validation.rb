@@ -58,16 +58,16 @@ module Acceptance
         }
 
         if persist_artifacts
-          write_json(artifact_dir.join("host-npm-install.json"), npm_install)
-          write_json(artifact_dir.join("host-npm-test.json"), npm_test)
-          write_json(artifact_dir.join("host-npm-build.json"), npm_build)
-          write_json(artifact_dir.join("host-preview.json"), preview_http) if preview_http
+          write_json(artifact_dir.join("playable", "host-npm-install.json"), npm_install)
+          write_json(artifact_dir.join("playable", "host-npm-test.json"), npm_test)
+          write_json(artifact_dir.join("playable", "host-npm-build.json"), npm_build)
+          write_json(artifact_dir.join("playable", "host-preview.json"), preview_http) if preview_http
           if playwright_validation.any?
-            write_json(artifact_dir.join("host-playwright-install.json"), playwright_validation.fetch("install"))
-            write_json(artifact_dir.join("host-playwright-test.json"), playwright_validation.fetch("test"))
+            write_json(artifact_dir.join("playable", "host-playwright-install.json"), playwright_validation.fetch("install"))
+            write_json(artifact_dir.join("playable", "host-playwright-test.json"), playwright_validation.fetch("test"))
           end
 
-          write_text(artifact_dir.join("workspace-validation.md"), <<~MD)
+          write_text(artifact_dir.join("review", "workspace-validation.md"), <<~MD)
             # Workspace Validation
 
             Host-side source portability diagnostics:
@@ -86,15 +86,15 @@ module Acceptance
 
             See:
 
-            - `host-npm-install.json`
-            - `host-npm-test.json`
-            - `host-npm-build.json`
-            #{preview_http ? "- `host-preview.json`" : nil}
-            #{playwright_validation.any? ? "- `host-playwright-test.json`" : nil}
+            - `playable/host-npm-install.json`
+            - `playable/host-npm-test.json`
+            - `playable/host-npm-build.json`
+            #{preview_http ? "- `playable/host-preview.json`" : nil}
+            #{playwright_validation.any? ? "- `playable/host-playwright-test.json`" : nil}
           MD
 
           write_playability_verification!(
-            path: artifact_dir.join("playability-verification.md"),
+            path: artifact_dir.join("review", "playability-verification.md"),
             playability_result: playwright_validation["result"],
             generated_app_dir: generated_app_dir,
             preview_port: preview_port,
@@ -108,14 +108,14 @@ module Acceptance
         end
       elsif persist_artifacts
         host_playability_skip_reason = "Generated application path was missing."
-        write_text(artifact_dir.join("workspace-validation.md"), <<~MD)
+        write_text(artifact_dir.join("review", "workspace-validation.md"), <<~MD)
           # Workspace Validation
 
           Expected generated app directory was missing:
           - `#{generated_app_dir}`
         MD
         write_playability_verification!(
-          path: artifact_dir.join("playability-verification.md"),
+          path: artifact_dir.join("review", "playability-verification.md"),
           playability_result: nil,
           generated_app_dir: generated_app_dir,
           preview_port: preview_port,
@@ -174,7 +174,7 @@ module Acceptance
           "- Generated application path: `#{generated_app_dir}`",
           "- Intended host preview URL: `http://127.0.0.1:#{preview_port}/`",
           "",
-          "See `workspace-validation.md`, `host-preview.json`, `host-npm-test.json`, and `host-npm-build.json` for portability diagnostics.",
+          "See `review/workspace-validation.md`, `playable/host-preview.json`, `playable/host-npm-test.json`, and `playable/host-npm-build.json` for portability diagnostics.",
           "",
         ])
 
@@ -191,8 +191,8 @@ module Acceptance
         "",
         "Verification artifacts:",
         "",
-        "- `host-playwright-verification.json`",
-        "- `host-playability.png`",
+        "- `playable/host-playwright-verification.json`",
+        "- `playable/host-playability.png`",
         "",
         "## Verified Behaviors",
         "",
@@ -296,7 +296,7 @@ module Acceptance
     private_class_method :build_host_preview_failure_message
 
     def run_host_preview_and_verification!(dist_dir:, artifact_dir:, generated_app_dir:, preview_port:, attempts: 2)
-      preview_log = artifact_dir.join("host-preview.log")
+      preview_log = artifact_dir.join("logs", "host-preview.log")
       last_error = nil
 
       attempts.times do |index|
@@ -644,10 +644,10 @@ module Acceptance
     private_class_method :build_playwright_script
 
     def run_host_playwright_verification!(artifact_dir:, base_url:, generated_app_dir:)
-      artifact_spec_path = artifact_dir.join("host-playability.spec.cjs")
+      artifact_spec_path = artifact_dir.join("tmp", "host-playability.spec.cjs")
       runner_spec_path = generated_app_dir.join("host-playability.spec.cjs")
-      output_json_path = artifact_dir.join("host-playwright-verification.json")
-      screenshot_path = artifact_dir.join("host-playability.png")
+      output_json_path = artifact_dir.join("playable", "host-playwright-verification.json")
+      screenshot_path = artifact_dir.join("playable", "host-playability.png")
       script = build_playwright_script(output_json_path:, screenshot_path:)
 
       write_text(artifact_spec_path, script)

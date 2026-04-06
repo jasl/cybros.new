@@ -18,7 +18,7 @@ module Acceptance
       )
 
       new_events.each do |entry|
-        append_jsonl(artifact_dir.join("live-progress-events.jsonl"), entry)
+        append_jsonl(artifact_dir.join("logs", "live-progress-events.jsonl"), entry)
         puts "[capstone-live] #{entry.fetch("summary")}"
       end
 

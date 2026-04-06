@@ -59,8 +59,8 @@ selector = ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
 preview_port = Integer(ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4174"))
 scenario_date = Date.current.iso8601
 capstone_phase = ENV.fetch("CAPSTONE_PHASE", "execute")
-bootstrap_state_path = Pathname.new(ENV.fetch("CAPSTONE_BOOTSTRAP_STATE_PATH", artifact_dir.join("capstone-runtime-bootstrap.json").to_s))
-runtime_worker_boot_path = Pathname.new(ENV.fetch("CAPSTONE_RUNTIME_WORKER_BOOT_PATH", artifact_dir.join("docker-runtime-worker.json").to_s))
+bootstrap_state_path = Pathname.new(ENV.fetch("CAPSTONE_BOOTSTRAP_STATE_PATH", artifact_dir.join("evidence", "capstone-runtime-bootstrap.json").to_s))
+runtime_worker_boot_path = Pathname.new(ENV.fetch("CAPSTONE_RUNTIME_WORKER_BOOT_PATH", artifact_dir.join("evidence", "docker-runtime-worker.json").to_s))
 supervision_poll_interval_seconds = Float(
   ENV.fetch("CAPSTONE_SUPERVISION_POLL_INTERVAL_SECONDS", ENV.fetch("CAPSTONE_OBSERVATION_POLL_INTERVAL_SECONDS", "5"))
 )
@@ -134,7 +134,7 @@ def log_capstone_phase(artifact_dir:, phase:, details: {})
     "phase" => phase,
   }.merge(details.transform_keys(&:to_s))
 
-  append_jsonl(artifact_dir.join("phase-events.jsonl"), payload)
+  append_jsonl(artifact_dir.join("logs", "phase-events.jsonl"), payload)
   puts "[capstone] #{JSON.generate(payload)}"
 end
 
@@ -605,7 +605,7 @@ def run_control_intent_matrix!(artifact_dir:, supervision_session_id:, actor:, c
     "cases" => results,
   }
 
-  write_json(artifact_dir.join("control-intent-matrix.json"), payload)
+  write_json(artifact_dir.join("evidence", "control-intent-matrix.json"), payload)
   payload
 end
 
@@ -787,7 +787,7 @@ log_capstone_phase(
   }
 )
 
-write_json(artifact_dir.join("acceptance-registration.json"), {
+write_json(artifact_dir.join("evidence", "acceptance-registration.json"), {
   "agent_program_id" => agent_program.public_id,
   "agent_program_display_name" => agent_program.display_name,
   "agent_program_version_id" => agent_program_version.public_id,
@@ -799,7 +799,7 @@ write_json(artifact_dir.join("acceptance-registration.json"), {
   "program_fingerprint" => agent_program_version.fingerprint,
   "machine_credential_redacted" => machine_credential.to_s.sub(/:.+\z/, ":REDACTED"),
 })
-write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
+write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), {
   "scenario_date" => scenario_date,
   "operator" => OPERATOR_NAME,
   "selector" => selector,
@@ -809,9 +809,9 @@ write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
   "skill_source_manifest_path" => skill_sources.fetch("manifest_path"),
   "prompt" => prompt,
 })
-write_json(artifact_dir.join("skills-validation.json"), skills_validation)
-write_json(artifact_dir.join("attempt-history.json"), [])
-write_json(artifact_dir.join("rescue-history.json"), [])
+write_json(artifact_dir.join("evidence", "skills-validation.json"), skills_validation)
+write_json(artifact_dir.join("evidence", "attempt-history.json"), [])
+write_json(artifact_dir.join("evidence", "rescue-history.json"), [])
 
 conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
 conversation = conversation_context.fetch(:conversation).reload
@@ -936,7 +936,7 @@ seen_live_progress_event_keys = Set.new
       "playwright_verification_passed" => playwright_validation["result"].present?,
     },
   }
-  write_json(artifact_dir.join("attempt-history.json"), attempt_history)
+  write_json(artifact_dir.join("evidence", "attempt-history.json"), attempt_history)
   Acceptance::ConversationArtifacts.write_supervision_artifacts!(
     artifact_dir: artifact_dir,
     supervision_trace: supervision_trace,
@@ -966,7 +966,7 @@ seen_live_progress_event_keys = Set.new
       last host validation:
       #{JSON.pretty_generate(host_validation_bundle)}
     MSG
-    write_text(artifact_dir.join("terminal-failure.txt"), terminal_failure_message)
+    write_text(artifact_dir.join("evidence", "terminal-failure.txt"), terminal_failure_message)
     log_capstone_phase(
       artifact_dir: artifact_dir,
       phase: "terminal_failure_recorded",
@@ -998,7 +998,7 @@ seen_live_progress_event_keys = Set.new
     host_playability_skip_reason: host_validation_bundle.fetch("host_playability_skip_reason"),
     repair_prompt: repair_prompt
   )
-  write_json(artifact_dir.join("rescue-history.json"), rescue_history)
+  write_json(artifact_dir.join("evidence", "rescue-history.json"), rescue_history)
   log_capstone_phase(
     artifact_dir: artifact_dir,
     phase: "repair_prompt_prepared",
@@ -1065,7 +1065,7 @@ end) do |entry, memo|
   bucket["output_tokens_total"] += entry["output_tokens"].to_i
 end.values.sort_by { |entry| [entry["provider_handle"], entry["model_ref"], entry["operation_kind"]] }
 
-write_json(artifact_dir.join("capstone-run-bootstrap.json"), {
+write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), {
   "scenario_date" => scenario_date,
   "operator" => OPERATOR_NAME,
   "selector" => selector,
@@ -1101,7 +1101,7 @@ main_diagnostics_turn = source_diagnostics_turns.fetch("items").fetch(0)
 turn_runtime_report = Acceptance::TurnRuntimeTranscript.build(
   conversation_id: conversation.public_id,
   turn_id: turn.public_id,
-  phase_events: artifact_dir.join("phase-events.jsonl").exist? ? File.readlines(artifact_dir.join("phase-events.jsonl"), chomp: true).filter_map { |line| JSON.parse(line) if line.present? } : [],
+  phase_events: artifact_dir.join("logs", "phase-events.jsonl").exist? ? File.readlines(artifact_dir.join("logs", "phase-events.jsonl"), chomp: true).filter_map { |line| JSON.parse(line) if line.present? } : [],
   workflow_node_events: workflow_node_events,
   usage_events: usage_events,
   tool_invocations: tool_invocations,
@@ -1130,7 +1130,7 @@ write_jsonl(
   turn_runtime_report.fetch("timeline")
 )
 Acceptance::ReviewArtifacts.write_turns!(
-  path: artifact_dir.join("turns.md"),
+  path: artifact_dir.join("review", "turns.md"),
   scenario_date: scenario_date,
   operator_name: OPERATOR_NAME,
   runtime_mode: RUNTIME_MODE,
@@ -1177,7 +1177,7 @@ Acceptance::ReviewArtifacts.write_turns!(
   ].compact
 )
 Acceptance::ReviewArtifacts.write_collaboration_notes!(
-  path: artifact_dir.join("collaboration-notes.md"),
+  path: artifact_dir.join("review", "collaboration-notes.md"),
   selector: selector,
   host_validation_notes: host_validation_notes,
   subagent_sessions: subagent_sessions
@@ -1192,7 +1192,7 @@ log_capstone_phase(
   }
 )
 Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
-  path: artifact_dir.join("runtime-and-bindings.md"),
+  path: artifact_dir.join("review", "runtime-and-bindings.md"),
   workspace_root: workspace_root,
   machine_credential: machine_credential,
   agent_program: agent_program,
@@ -1204,14 +1204,14 @@ Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
   runtime_worker_boot: runtime_worker_boot
 )
 Acceptance::ReviewArtifacts.write_workspace_artifacts!(
-  path: artifact_dir.join("workspace-artifacts.md"),
+  path: artifact_dir.join("review", "workspace-artifacts.md"),
   workspace_root: workspace_root,
   generated_app_dir: generated_app_dir,
   host_validation_notes: host_validation_notes,
   preview_port: preview_port
 )
 write_playability_verification_md(
-  path: artifact_dir.join("playability-verification.md"),
+  path: artifact_dir.join("review", "playability-verification.md"),
   playability_result: playwright_validation["result"],
   generated_app_dir: generated_app_dir,
   preview_port: preview_port,
@@ -1230,22 +1230,22 @@ capability_report = Acceptance::CapabilityActivation.build(
   command_runs: command_runs,
   subagent_sessions: subagent_sessions,
   artifact_paths: {
-    "workspace_validation" => artifact_dir.join("workspace-validation.md"),
-    "skills_validation" => artifact_dir.join("skills-validation.json"),
-    "supervision_session" => artifact_dir.join("supervision-session.json"),
-    "supervision_polls" => artifact_dir.join("supervision-polls.json"),
-    "supervision_final" => artifact_dir.join("supervision-final.json"),
-    "supervision_status" => artifact_dir.join("supervision-status.md"),
+    "workspace_validation" => artifact_dir.join("review", "workspace-validation.md"),
+    "skills_validation" => artifact_dir.join("evidence", "skills-validation.json"),
+    "supervision_session" => artifact_dir.join("logs", "supervision-session.json"),
+    "supervision_polls" => artifact_dir.join("logs", "supervision-polls.json"),
+    "supervision_final" => artifact_dir.join("logs", "supervision-final.json"),
+    "supervision_status" => artifact_dir.join("review", "supervision-status.md"),
     "conversation_export" => user_bundle_path,
     "conversation_debug_export" => debug_bundle_path,
-    "transcript_roundtrip" => artifact_dir.join("transcript-roundtrip-compare.json"),
-    "host_npm_install" => artifact_dir.join("host-npm-install.json"),
-    "host_npm_test" => artifact_dir.join("host-npm-test.json"),
-    "host_npm_build" => artifact_dir.join("host-npm-build.json"),
-    "host_preview" => artifact_dir.join("host-preview.json"),
-    "host_playwright_verification" => artifact_dir.join("host-playwright-verification.json"),
-    "host_playability_image" => artifact_dir.join("host-playability.png"),
-    "playability_verification" => artifact_dir.join("playability-verification.md"),
+    "transcript_roundtrip" => artifact_dir.join("exports", "transcript-roundtrip-compare.json"),
+    "host_npm_install" => artifact_dir.join("playable", "host-npm-install.json"),
+    "host_npm_test" => artifact_dir.join("playable", "host-npm-test.json"),
+    "host_npm_build" => artifact_dir.join("playable", "host-npm-build.json"),
+    "host_preview" => artifact_dir.join("playable", "host-preview.json"),
+    "host_playwright_verification" => artifact_dir.join("playable", "host-playwright-verification.json"),
+    "host_playability_image" => artifact_dir.join("playable", "host-playability.png"),
+    "playability_verification" => artifact_dir.join("review", "playability-verification.md"),
   },
   workspace_paths: {
     "generated_app_dir" => generated_app_dir,
@@ -1254,9 +1254,9 @@ capability_report = Acceptance::CapabilityActivation.build(
   transcript_roundtrip_match: transcript_roundtrip_match,
   supervision_trace: supervision_trace
 )
-write_json(artifact_dir.join("capability-activation.json"), capability_report)
+write_json(artifact_dir.join("evidence", "capability-activation.json"), capability_report)
 write_text(
-  artifact_dir.join("capability-activation.md"),
+  artifact_dir.join("review", "capability-activation.md"),
   Acceptance::BenchmarkReporting.capability_activation_markdown(
     capability_report: capability_report
   )
@@ -1294,9 +1294,9 @@ failure_report = Acceptance::FailureClassification.build(
   ),
   notes: [terminal_failure_message].compact
 )
-write_json(artifact_dir.join("failure-classification.json"), failure_report)
+write_json(artifact_dir.join("evidence", "failure-classification.json"), failure_report)
 write_text(
-  artifact_dir.join("failure-classification.md"),
+  artifact_dir.join("review", "failure-classification.md"),
   Acceptance::BenchmarkReporting.failure_classification_markdown(
     failure_report: failure_report
   )
@@ -1373,11 +1373,10 @@ evaluation = Acceptance::BenchmarkReporting.build_agent_evaluation(
 summary["agent_evaluation"] = evaluation.transform_values { |payload| payload.fetch("rating") }
 
 write_text(
-  artifact_dir.join("agent-evaluation.md"),
+  artifact_dir.join("review", "agent-evaluation.md"),
   Acceptance::BenchmarkReporting.agent_evaluation_markdown(evaluation)
 )
-write_json(artifact_dir.join("agent-evaluation.json"), evaluation)
-write_json(artifact_dir.join("run-summary.json"), summary)
+write_json(artifact_dir.join("evidence", "agent-evaluation.json"), evaluation)
 write_json(artifact_dir.join("evidence", "run-summary.json"), summary)
 log_capstone_phase(
   artifact_dir: artifact_dir,
@@ -1404,10 +1403,6 @@ write_json(
 write_jsonl(
   artifact_dir.join("logs", "turn-runtime-events.jsonl"),
   turn_runtime_report.fetch("timeline")
-)
-Acceptance::ArtifactBundle.organize!(
-  artifact_dir: artifact_dir,
-  layout: Acceptance::ArtifactBundle::DEFAULT_LAYOUT
 )
 Acceptance::ArtifactBundle.write_review_index!(
   path: artifact_dir.join("review", "index.md"),

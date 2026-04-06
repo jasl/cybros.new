@@ -18,14 +18,10 @@ The 2048 capstone now writes an organized artifact bundle per run:
 - `playable/` for host-side build, preview, and browser-verification outputs
 - `tmp/` for unpacked debug bundles and scratch files
 
-Each bundle also includes:
+Each bundle includes:
 
-- a root `README.md` for compatibility
 - `review/index.md` as the human-readable entry point
 - `evidence/artifact-manifest.json` as the canonical machine-readable entry point
-
-New callers should prefer `review/`, `evidence/`, and `logs/` instead of the
-legacy root-level duplicates.
 
 Run acceptance scenarios through `Core Matrix`'s Rails environment:
 

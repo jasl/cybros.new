@@ -13,7 +13,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, 'ENV["CAPSTONE_ENABLE_CONTROL_ACCEPTANCE"]'
     assert_includes scenario, "ConversationControlPhraseMatrix.load!"
-    assert_includes scenario, 'artifact_dir.join("control-intent-matrix.json")'
+    assert_includes scenario, 'artifact_dir.join("evidence", "control-intent-matrix.json")'
   end
 
   test "acceptance fixture and loader define positive negative and ambiguous control utterances" do
@@ -51,13 +51,15 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "acceptance scenario writes capability activation benchmark output" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'artifact_dir.join("capability-activation.json")'
+    assert_includes scenario, 'artifact_dir.join("evidence", "capability-activation.json")'
+    assert_includes scenario, 'artifact_dir.join("review", "capability-activation.md")'
   end
 
   test "acceptance scenario writes failure classification benchmark output" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'artifact_dir.join("failure-classification.json")'
+    assert_includes scenario, 'artifact_dir.join("evidence", "failure-classification.json")'
+    assert_includes scenario, 'artifact_dir.join("review", "failure-classification.md")'
   end
 
   test "acceptance scenario uses shared capability benchmark helpers" do
@@ -85,17 +87,17 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "acceptance scenario checkpoints benchmark artifacts before the final export phase" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'write_json(artifact_dir.join("skills-validation.json"), skills_validation)'
-    assert_includes scenario, 'write_json(artifact_dir.join("attempt-history.json"), attempt_history)'
-    assert_includes scenario, 'write_json(artifact_dir.join("rescue-history.json"), rescue_history)'
-    assert_includes scenario, 'write_text(artifact_dir.join("terminal-failure.txt"), terminal_failure_message)'
+    assert_includes scenario, 'write_json(artifact_dir.join("evidence", "skills-validation.json"), skills_validation)'
+    assert_includes scenario, 'write_json(artifact_dir.join("evidence", "attempt-history.json"), attempt_history)'
+    assert_includes scenario, 'write_json(artifact_dir.join("evidence", "rescue-history.json"), rescue_history)'
+    assert_includes scenario, 'write_text(artifact_dir.join("evidence", "terminal-failure.txt"), terminal_failure_message)'
   end
 
   test "acceptance scenario emits phase progress events during long benchmark runs" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
     assert_includes scenario, "def log_capstone_phase"
-    assert_includes scenario, 'artifact_dir.join("phase-events.jsonl")'
+    assert_includes scenario, 'artifact_dir.join("logs", "phase-events.jsonl")'
     assert_includes scenario, 'phase: "supervision_progress"'
     assert_includes scenario, 'phase: "host_validation_started"'
     assert_includes scenario, 'phase: "benchmark_reporting_complete"'
@@ -125,8 +127,9 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
     assert_includes scenario, "Acceptance::ArtifactBundle"
-    assert_includes scenario, "DEFAULT_LAYOUT"
     assert_includes scenario, "Acceptance::ArtifactBundle.write_manifest!"
+    assert_includes scenario, "Acceptance::ArtifactBundle.write_review_index!"
+    assert_includes scenario, "Acceptance::ArtifactBundle.write_root_readme!"
     assert_includes scenario, 'artifact_dir.join("evidence", "artifact-manifest.json")'
   end
 

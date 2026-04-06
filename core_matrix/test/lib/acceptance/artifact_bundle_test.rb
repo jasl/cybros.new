@@ -32,6 +32,28 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
     end
   end
 
+  test "root readme describes canonical artifact layout only" do
+    Dir.mktmpdir do |dir|
+      path = Pathname(dir).join("README.md")
+
+      Acceptance::ArtifactBundle.write_root_readme!(
+        path: path,
+        artifact_stamp: "stamp_123",
+        summary: {
+          "benchmark_outcome" => "pass_clean",
+          "workload_outcome" => "complete",
+          "system_behavior_outcome" => "healthy",
+        }
+      )
+
+      body = path.read
+      assert_includes body, "[Review index](review/index.md)"
+      assert_includes body, "[Benchmark summary](evidence/run-summary.json)"
+      refute_includes body, "compatibility"
+      refute_includes body, "legacy root-level duplicates"
+    end
+  end
+
   test "manifest exposes canonical review and evidence entrypoints" do
     Dir.mktmpdir do |dir|
       path = Pathname(dir).join("artifact-manifest.json")
