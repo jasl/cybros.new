@@ -3,56 +3,58 @@ require "test_helper"
 class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < ActiveSupport::TestCase
   include ConversationSupervisionFixtureBuilder
 
-  test "uses the summary slot to render a concise user-facing reply" do
-    fixture = prepare_conversation_supervision_context!(summary_slot_selector: "role:summary")
+  GatewayResult = Struct.new(:content, :usage, :provider_request_id, keyword_init: true)
+
+  test "uses the supervision summary gateway to render a concise user-facing reply" do
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
       conversation_supervision_session: session
     )
-    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
-      response_body: {
-        id: "chatcmpl-supervision-summary-1",
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "Right now I'm rebuilding the supervision sidechat. Most recently, I replaced the old observation bundle with structured supervision data."
-            },
-            finish_reason: "stop",
-          },
-        ],
+    dispatched = nil
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
+      dispatched = kwargs
+      GatewayResult.new(
+        content: "Right now I'm rebuilding the supervision sidechat. Most recently, I replaced the old observation bundle with structured supervision data.",
         usage: {
-          prompt_tokens: 32,
-          completion_tokens: 18,
-          total_tokens: 50,
+          "input_tokens" => 32,
+          "output_tokens" => 18,
+          "total_tokens" => 50,
         },
-      }
-    )
+        provider_request_id: "provider-gateway-supervision-1"
+      )
+    end
 
-    response = EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
-      conversation_supervision_session: session,
-      conversation_supervision_snapshot: snapshot,
-      question: "Please tell me what you are doing right now and what changed most recently.",
-      adapter: adapter
-    )
+    begin
+      response = EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
+        conversation_supervision_session: session,
+        conversation_supervision_snapshot: snapshot,
+        question: "Please tell me what you are doing right now and what changed most recently."
+      )
 
-    assert_equal "summary_model", response.fetch("responder_kind")
-    assert_equal snapshot.machine_status_payload, response.fetch("machine_status")
-    assert_match(/Right now I'm rebuilding the supervision sidechat/i, response.dig("human_sidechat", "content"))
-    assert_match(/Most recently, I replaced the old observation bundle/i, response.dig("human_sidechat", "content"))
-    refute_match(/Grounded in/i, response.dig("human_sidechat", "content"))
+      assert_equal "summary_model", response.fetch("responder_kind")
+      assert_equal snapshot.machine_status_payload, response.fetch("machine_status")
+      assert_match(/Right now I'm rebuilding the supervision sidechat/i, response.dig("human_sidechat", "content"))
+      assert_match(/Most recently, I replaced the old observation bundle/i, response.dig("human_sidechat", "content"))
+      refute_match(/Grounded in/i, response.dig("human_sidechat", "content"))
+    ensure
+      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+    end
 
-    request_body = JSON.parse(adapter.last_request.fetch(:body))
+    assert_equal "role:supervision_summary", dispatched.fetch(:selector)
+    assert_equal "supervision_summary", dispatched.fetch(:purpose)
+    prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
 
-    assert_equal "mock-model", request_body.fetch("model")
-    assert_includes request_body.to_json, "Please tell me what you are doing right now and what changed most recently."
-    assert_includes request_body.to_json, "Rendering the frozen supervision snapshot"
-    refute_match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/, request_body.to_json)
+    assert_equal "Please tell me what you are doing right now and what changed most recently.", prompt_payload.fetch("question")
+    assert_includes prompt_payload.fetch("supervision").to_json, "Rendering the frozen supervision snapshot"
+    assert_includes dispatched.fetch(:messages).first.fetch("content"), "You produce concise user-facing supervision replies"
   end
 
   test "derives a contextual focus summary when detailed progress is otherwise generic" do
-    fixture = prepare_conversation_supervision_context!(summary_slot_selector: "role:summary")
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -68,63 +70,64 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
         "event_kind" => "turn_started",
         "summary" => "Started the turn.",
         "occurred_at" => Time.current.iso8601(6),
-      }
+      },
     ]
     machine_status["conversation_context"] = {
       "facts" => [
         {
           "role" => "user",
           "summary" => "Context already references the 2048 acceptance flow.",
-          "keywords" => %w[react 2048 game]
-        }
-      ]
+          "keywords" => %w[react 2048 game],
+        },
+      ],
     }
     snapshot.update!(machine_status_payload: machine_status)
-    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
-      response_body: {
-        id: "chatcmpl-supervision-summary-2",
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "Right now I'm building the React 2048 game."
-            },
-            finish_reason: "stop",
-          },
-        ],
+    dispatched = nil
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
+      dispatched = kwargs
+      GatewayResult.new(
+        content: "Right now I'm building the React 2048 game.",
         usage: {
-          prompt_tokens: 20,
-          completion_tokens: 10,
-          total_tokens: 30,
+          "input_tokens" => 20,
+          "output_tokens" => 10,
+          "total_tokens" => 30,
         },
-      }
-    )
+        provider_request_id: "provider-gateway-supervision-2"
+      )
+    end
 
-    EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
-      conversation_supervision_session: session,
-      conversation_supervision_snapshot: snapshot,
-      question: "Please tell me what you are doing right now.",
-      adapter: adapter
-    )
+    begin
+      EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
+        conversation_supervision_session: session,
+        conversation_supervision_snapshot: snapshot,
+        question: "Please tell me what you are doing right now."
+      )
+    ensure
+      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+    end
 
-    request_body = JSON.parse(adapter.last_request.fetch(:body))
-    prompt_payload = JSON.parse(request_body.fetch("messages").last.fetch("content"))
-
+    prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
     assert_equal "building the React 2048 game", prompt_payload.dig("supervision", "current_focus_summary")
   end
 
-  test "falls back to builtin output when no supervision summary slot is configured" do
-    fixture = prepare_conversation_supervision_context!
+  test "falls back to builtin output when the supervision summary selector is unavailable" do
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
       conversation_supervision_session: session
     )
+    catalog_definition = test_provider_catalog_definition.deep_dup
+    catalog_definition[:model_roles].delete("supervision_summary")
+    catalog = build_test_provider_catalog_from(catalog_definition)
 
     response = EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
       conversation_supervision_session: session,
       conversation_supervision_snapshot: snapshot,
-      question: "Please tell me what you are doing right now and what changed most recently."
+      question: "Please tell me what you are doing right now and what changed most recently.",
+      catalog: catalog
     )
 
     assert_equal "builtin", response.fetch("responder_kind")
@@ -133,7 +136,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
   end
 
   test "omits generic turn-start feed entries from the modeled supervision payload" do
-    fixture = prepare_conversation_supervision_context!(summary_slot_selector: "role:summary", waiting: false)
+    fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
       actor: fixture.fetch(:user),
@@ -147,41 +150,46 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
           {
             "event_kind" => "turn_started",
             "summary" => "Started the turn.",
-            "occurred_at" => Time.current.iso8601
-          }
-        ]
-      )
-    )
-    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
-      response_body: {
-        id: "chatcmpl-supervision-summary-2",
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "Right now I'm building the React 2048 game."
-            },
-            finish_reason: "stop",
+            "occurred_at" => Time.current.iso8601,
           },
         ],
+      ),
+    )
+    dispatched = nil
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
+      dispatched = kwargs
+      GatewayResult.new(
+        content: "Right now I'm building the React 2048 game.",
         usage: {
-          prompt_tokens: 28,
-          completion_tokens: 10,
-          total_tokens: 38,
+          "input_tokens" => 28,
+          "output_tokens" => 10,
+          "total_tokens" => 38,
         },
-      }
-    )
+        provider_request_id: "provider-gateway-supervision-3"
+      )
+    end
 
-    EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
-      conversation_supervision_session: session,
-      conversation_supervision_snapshot: snapshot,
-      question: "Please tell me what you are doing right now and what changed most recently.",
-      adapter: adapter
-    )
+    begin
+      EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
+        conversation_supervision_session: session,
+        conversation_supervision_snapshot: snapshot,
+        question: "Please tell me what you are doing right now and what changed most recently."
+      )
+    ensure
+      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+    end
 
-    request_body = JSON.parse(adapter.last_request.fetch(:body))
+    request_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
+    assert_includes request_payload.to_json, "building the React 2048 game"
+    refute_includes request_payload.to_json, "Started the turn."
+  end
 
-    assert_includes request_body.to_json, "building the React 2048 game"
-    refute_includes request_body.to_json, "Started the turn."
+  private
+
+  def fresh_fixture!(**kwargs)
+    Installation.destroy_all
+    prepare_conversation_supervision_context!(**kwargs)
   end
 end

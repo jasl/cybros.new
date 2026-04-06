@@ -6,8 +6,9 @@ module ProviderExecution
 
     LeaseRenewer = Struct.new(:thread, :mutex, :condition_variable, :stopped, keyword_init: true)
 
-    def initialize(workflow_run:, request_context:, effective_catalog:, workflow_node: nil, governor: ProviderExecution::ProviderRequestGovernor, lease_renew_interval_seconds: nil)
+    def initialize(workflow_run: nil, installation: nil, request_context:, effective_catalog:, workflow_node: nil, governor: ProviderExecution::ProviderRequestGovernor, lease_renew_interval_seconds: nil)
       @workflow_run = workflow_run
+      @installation = installation || workflow_run&.installation
       @request_context = request_context
       @effective_catalog = effective_catalog
       @workflow_node = workflow_node
@@ -17,7 +18,7 @@ module ProviderExecution
 
     def call
       decision = @governor.acquire(
-        installation: @workflow_run.installation,
+        installation: lease_installation,
         provider_handle: @request_context.provider_handle,
         effective_catalog: @effective_catalog,
         workflow_run: @workflow_run,
@@ -37,7 +38,7 @@ module ProviderExecution
     rescue SimpleInference::HTTPError => error
       if error.status.to_i == 429
         @governor.record_rate_limit!(
-          installation: @workflow_run.installation,
+          installation: lease_installation,
           provider_handle: @request_context.provider_handle,
           effective_catalog: @effective_catalog,
           retry_after: error.headers["retry-after"] || error.headers["Retry-After"]
@@ -55,7 +56,7 @@ module ProviderExecution
       stop_lease_renewer(renewer)
 
       @governor.release(
-        installation: @workflow_run.installation,
+        installation: lease_installation,
         provider_handle: @request_context.provider_handle,
         effective_catalog: @effective_catalog,
         lease_token: decision&.lease_token
@@ -83,7 +84,7 @@ module ProviderExecution
           break if stopped
 
           @governor.renew(
-            installation: @workflow_run.installation,
+            installation: lease_installation,
             provider_handle: @request_context.provider_handle,
             effective_catalog: @effective_catalog,
             lease_token: decision.lease_token
@@ -110,11 +111,19 @@ module ProviderExecution
       retry_after = error.headers["retry-after"] || error.headers["Retry-After"]
       seconds = @governor.retry_after_seconds_for(
         retry_after:,
-        installation: @workflow_run.installation,
+        installation: lease_installation,
         provider_handle: @request_context.provider_handle,
         effective_catalog: @effective_catalog
       )
       Time.current + seconds
+    end
+
+    def lease_installation
+      return @installation if @installation.present?
+
+      raise ArgumentError, "installation is required" if @workflow_run.blank?
+
+      @workflow_run.installation
     end
   end
 end

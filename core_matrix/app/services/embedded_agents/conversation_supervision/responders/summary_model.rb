@@ -2,6 +2,7 @@ module EmbeddedAgents
   module ConversationSupervision
     module Responders
       class SummaryModel
+        SUMMARY_SELECTOR = "role:supervision_summary"
         SYSTEM_PROMPT = <<~TEXT.freeze
           You produce concise user-facing supervision replies from sanitized supervision data.
           Answer in the same language as the user's question.
@@ -85,122 +86,21 @@ module EmbeddedAgents
         end
 
         def render_modeled_content
-          selector = summary_selector
-          return if selector.blank?
+          result = ProviderGateway::DispatchText.call(
+            installation: @conversation_supervision_snapshot.target_conversation.installation,
+            selector: SUMMARY_SELECTOR,
+            messages: prompt_messages,
+            max_output_tokens: MAX_OUTPUT_TOKENS,
+            purpose: "supervision_summary",
+            request_overrides: {},
+            adapter: @adapter,
+            catalog: @catalog
+          )
 
-          resolution = effective_catalog.resolve_selector(selector: selector)
-          return unless resolution.usable?
-
-          request_context = build_request_context(resolution)
-          result = dispatch_request(request_context)
-
-          normalize_modeled_content(provider_result_content(result))
+          normalize_modeled_content(result.content)
         rescue StandardError => error
           @logger.info("conversation supervision summary model fallback: #{error.class}: #{error.message}")
           nil
-        end
-
-        def summary_selector
-          latest_turn&.agent_program_version&.default_config_snapshot&.dig("model_slots", "summary", "selector") || "role:summary"
-        end
-
-        def latest_turn
-          @latest_turn ||= @conversation_supervision_snapshot.target_conversation.turns.order(sequence: :desc).first
-        end
-
-        def effective_catalog
-          @effective_catalog ||= ProviderCatalog::EffectiveCatalog.new(
-            installation: @conversation_supervision_snapshot.target_conversation.installation,
-            catalog: @catalog || ProviderCatalog::Registry.current
-          )
-        end
-
-        def build_request_context(resolution)
-          provider_definition = effective_catalog.provider(resolution.provider_handle)
-          model_definition = effective_catalog.model(resolution.provider_handle, resolution.model_ref)
-          execution_settings = ProviderRequestSettingsSchema
-            .for(provider_definition.fetch(:wire_api))
-            .merge_execution_settings(
-              request_defaults: model_definition.fetch(:request_defaults, {}),
-              runtime_overrides: {}
-            )
-
-          ProviderRequestContext.new(
-            "provider_handle" => resolution.provider_handle,
-            "model_ref" => resolution.model_ref,
-            "api_model" => model_definition.fetch(:api_model),
-            "wire_api" => provider_definition.fetch(:wire_api),
-            "transport" => provider_definition.fetch(:transport),
-            "tokenizer_hint" => model_definition.fetch(:tokenizer_hint),
-            "execution_settings" => execution_settings,
-            "hard_limits" => {
-              "context_window_tokens" => model_definition.fetch(:context_window_tokens),
-              "max_output_tokens" => [model_definition.fetch(:max_output_tokens), MAX_OUTPUT_TOKENS].min,
-            },
-            "advisory_hints" => {
-              "recommended_compaction_threshold" => (model_definition.fetch(:context_window_tokens) * model_definition.fetch(:context_soft_limit_ratio)).floor,
-            },
-            "provider_metadata" => provider_definition.fetch(:metadata, {}).deep_stringify_keys,
-            "model_metadata" => model_definition.fetch(:metadata, {}).deep_stringify_keys,
-          )
-        end
-
-        def dispatch_request(request_context)
-          provider_definition = effective_catalog.provider(request_context.provider_handle)
-          client = build_client(provider_handle: request_context.provider_handle, provider_definition: provider_definition)
-          request = {
-            model: request_context.api_model,
-            **request_context.execution_settings.symbolize_keys,
-          }
-
-          case request_context.wire_api
-          when "responses"
-            client.responses(
-              **request.merge(
-                input: prompt_messages,
-                max_output_tokens: request_context.hard_limits.fetch("max_output_tokens")
-              )
-            )
-          else
-            client.chat(
-              **request.merge(
-                messages: prompt_messages,
-                max_tokens: request_context.hard_limits.fetch("max_output_tokens")
-              )
-            )
-          end
-        end
-
-        def build_client(provider_handle:, provider_definition:)
-          adapter = @adapter || ProviderExecution::BuildHttpAdapter.call(provider_definition: provider_definition)
-
-          case provider_definition.fetch(:wire_api)
-          when "responses"
-            SimpleInference::Protocols::OpenAIResponses.new(
-              base_url: provider_definition.fetch(:base_url),
-              api_key: credential_secret_for(provider_handle:, provider_definition:),
-              headers: provider_definition.fetch(:headers, {}),
-              responses_path: provider_definition.fetch(:responses_path),
-              adapter: adapter
-            )
-          else
-            SimpleInference::Client.new(
-              base_url: provider_definition.fetch(:base_url),
-              api_key: credential_secret_for(provider_handle:, provider_definition:),
-              headers: provider_definition.fetch(:headers, {}),
-              adapter: adapter
-            )
-          end
-        end
-
-        def credential_secret_for(provider_handle:, provider_definition:)
-          return nil unless provider_definition.fetch(:requires_credential)
-
-          ProviderCredential.find_by!(
-            installation: @conversation_supervision_snapshot.target_conversation.installation,
-            provider_handle: provider_handle,
-            credential_kind: provider_definition.fetch(:credential_kind)
-          ).secret
         end
 
         def prompt_messages
@@ -254,7 +154,7 @@ module EmbeddedAgents
             "conversation_context" => {
               "facts" => Array(machine_status.dig("conversation_context", "facts")).last(3).map do |fact|
                 fact.slice("role", "summary", "keywords")
-              end
+              end,
             },
           }.compact
         end
@@ -289,14 +189,6 @@ module EmbeddedAgents
           event_kind = entry.to_h.fetch("event_kind", nil)
 
           summary.match?(/\AStarted the turn\.?\z/i) && (event_kind.blank? || event_kind == "turn_started")
-        end
-
-        def provider_result_content(result)
-          if result.respond_to?(:output_text)
-            result.output_text.to_s
-          else
-            result.content.to_s
-          end
         end
 
         def normalize_modeled_content(content)

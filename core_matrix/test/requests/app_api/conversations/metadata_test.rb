@@ -68,17 +68,44 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
       title_lock_state: "user_locked",
       summary_lock_state: "user_locked"
     )
+    original_call = Conversations::Metadata::GenerateField.method(:call)
+    Conversations::Metadata::GenerateField.singleton_class.send(:define_method, :call) do |conversation: _, field: _, occurred_at: _, persist: _, **_kwargs|
+      "Generated title"
+    end
 
-    post "/app_api/conversations/#{conversation.public_id}/metadata/regenerate",
-      params: { field: "title" }.to_json,
-      headers: app_api_headers(registration[:machine_credential])
+    begin
+      post "/app_api/conversations/#{conversation.public_id}/metadata/regenerate",
+        params: { field: "title" }.to_json,
+        headers: app_api_headers(registration[:machine_credential])
+    ensure
+      Conversations::Metadata::GenerateField.singleton_class.send(:define_method, :call, original_call)
+    end
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
     assert_equal conversation.public_id, response_body["conversation_id"]
+    assert_equal "Generated title", response_body["title"]
     assert_equal false, response_body["title_locked"]
     assert_equal true, response_body["summary_locked"]
+  end
+
+  test "returns unprocessable entity when metadata regeneration is unavailable" do
+    context = fresh_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    conversation = context[:conversation]
+    conversation.update!(
+      title: "Pinned title",
+      title_source: "user",
+      title_lock_state: "user_locked"
+    )
+
+    post "/app_api/conversations/#{conversation.public_id}/metadata/regenerate",
+      params: { field: "title" }.to_json,
+      headers: app_api_headers(registration[:machine_credential])
+
+    assert_response :unprocessable_entity
+    assert_includes response.body, "generation is unavailable"
   end
 
   test "rejects bigint ids for metadata app api endpoints" do

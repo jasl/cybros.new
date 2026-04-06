@@ -4,7 +4,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   include ConversationSupervisionFixtureBuilder
 
   test "creates a snapshot-backed supervision exchange without mutating the target transcript" do
-    fixture = prepare_conversation_supervision_context!
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)
     result = nil
 
@@ -36,33 +36,22 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   end
 
   test "uses the summary model responder when the session strategy requests it" do
-    fixture = prepare_conversation_supervision_context!(summary_slot_selector: "role:summary")
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
-    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
-      response_body: {
-        id: "chatcmpl-supervision-summary-append-1",
-        choices: [
-          {
-            message: {
-              role: "assistant",
-              content: "Right now I'm rebuilding the supervision sidechat. Most recently, I replaced the old observation bundle with structured supervision data."
-            },
-            finish_reason: "stop",
-          },
-        ],
-        usage: {
-          prompt_tokens: 32,
-          completion_tokens: 18,
-          total_tokens: 50,
-        },
-      }
+    gateway_result = Struct.new(:content, :usage, :provider_request_id, keyword_init: true).new(
+      content: "Right now I'm rebuilding the supervision sidechat. Most recently, I replaced the old observation bundle with structured supervision data.",
+      usage: {
+        "input_tokens" => 32,
+        "output_tokens" => 18,
+        "total_tokens" => 50,
+      },
+      provider_request_id: "provider-gateway-supervision-append-1"
     )
-
     result = nil
 
-    original_call = ProviderExecution::BuildHttpAdapter.method(:call)
-    ProviderExecution::BuildHttpAdapter.singleton_class.send(:define_method, :call) do |*_, **_kwargs|
-      adapter
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**_|
+      gateway_result
     end
 
     begin
@@ -72,7 +61,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
         content: "Please tell me what you are doing right now and what changed most recently."
       )
     ensure
-      ProviderExecution::BuildHttpAdapter.singleton_class.send(:define_method, :call, original_call)
+      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
     end
 
     assert_equal "summary_model", result.fetch("responder_kind")
@@ -81,7 +70,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   end
 
   test "requires the session initiator and rejects closed supervision sessions" do
-    fixture = prepare_conversation_supervision_context!
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)
     outsider = create_user!(installation: fixture.fetch(:installation))
 
@@ -109,7 +98,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   end
 
   test "raises record not found for a missing session row" do
-    fixture = prepare_conversation_supervision_context!
+    fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)
     session_id = session.id
 
@@ -128,7 +117,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   end
 
   test "dispatches high-confidence control phrases and records a confirmation exchange" do
-    fixture = prepare_conversation_supervision_context!(control_enabled: true)
+    fixture = fresh_fixture!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
     result = nil
 
@@ -154,7 +143,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
   end
 
   test "returns an explanatory chat response instead of dispatching control when control is disabled" do
-    fixture = prepare_conversation_supervision_context!(control_enabled: false)
+    fixture = fresh_fixture!(control_enabled: false)
     session = create_conversation_supervision_session!(fixture)
 
     assert_no_difference("ConversationControlRequest.count") do
@@ -168,5 +157,12 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
       assert_equal "control_unavailable", result.dig("human_sidechat", "response_kind")
       assert_match(/control is not enabled/i, result.dig("human_sidechat", "content"))
     end
+  end
+
+  private
+
+  def fresh_fixture!(**kwargs)
+    Installation.destroy_all
+    prepare_conversation_supervision_context!(**kwargs)
   end
 end
