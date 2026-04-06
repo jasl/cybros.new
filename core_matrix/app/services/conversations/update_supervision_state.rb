@@ -157,17 +157,22 @@ module Conversations
     def request_summary
       return unless detailed_progress_enabled?
 
-      current_task_run&.request_summary ||
+      current_task_plan_summary&.fetch("goal_summary", nil) ||
+        current_task_run&.request_summary ||
         active_conversation_subagent_session&.request_summary ||
+        active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["goal_summary"] }.first ||
         active_owned_subagent_sessions.filter_map(&:request_summary).first ||
+        latest_task_plan_summary&.fetch("goal_summary", nil) ||
         latest_task_run&.request_summary
     end
 
     def current_focus_summary
       return unless detailed_progress_enabled?
 
-      current_task_run&.current_focus_summary ||
+      current_task_plan_summary&.fetch("current_item_title", nil) ||
+        current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
+        active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["current_item_title"] }.first ||
         active_owned_subagent_sessions.filter_map(&:current_focus_summary).first
     end
 
@@ -245,11 +250,11 @@ module Conversations
     end
 
     def active_plan_item_count
-      current_task_plan_items.count { |item| !%w[completed canceled].include?(item.status) }
+      current_task_plan_summary&.fetch("active_item_count", 0).to_i
     end
 
     def completed_plan_item_count
-      current_task_plan_items.count { |item| item.status == "completed" }
+      current_task_plan_summary&.fetch("completed_item_count", 0).to_i
     end
 
     def active_subagent_count
@@ -268,6 +273,8 @@ module Conversations
       return {} unless detailed_progress_enabled?
 
       {
+        "current_turn_plan_summary" => current_task_plan_summary,
+        "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
         "active_plan_items" => active_plan_items_payload,
         "active_subagents" => active_subagent_payloads,
         "latest_progress_entry" => latest_progress_entry_payload,
@@ -275,28 +282,23 @@ module Conversations
     end
 
     def active_plan_items_payload
-      current_task_plan_items.map do |item|
-        {
-          "item_key" => item.item_key,
-          "title" => item.title,
-          "status" => item.status,
-          "position" => item.position,
-          "delegated_subagent_session_id" => item.delegated_subagent_session&.public_id,
-        }.compact
-      end
+      Array(current_task_plan_view&.fetch("items", nil))
     end
 
     def active_subagent_payloads
       active_owned_subagent_sessions.map do |session|
+        plan_summary = active_subagent_turn_plan_summary_for(session)
         {
           "subagent_session_id" => session.public_id,
           "observed_status" => session.observed_status,
           "supervision_state" => session.supervision_state,
           "profile_key" => session.profile_key,
-          "current_focus_summary" => session.current_focus_summary,
+          "request_summary" => plan_summary&.fetch("goal_summary", nil) || session.request_summary,
+          "current_focus_summary" => plan_summary&.fetch("current_item_title", nil) || session.current_focus_summary,
           "waiting_summary" => session.waiting_summary,
           "blocked_summary" => session.blocked_summary,
           "next_step_hint" => session.next_step_hint,
+          "turn_todo_plan_summary" => plan_summary,
         }.compact
       end
     end
@@ -336,7 +338,7 @@ module Conversations
 
       @current_task_run = AgentTaskRun
         .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-        .includes(:agent_task_plan_items, :agent_task_progress_entries)
+        .includes(:agent_task_progress_entries, turn_todo_plan: :turn_todo_plan_items)
         .order(created_at: :desc)
         .first
     end
@@ -402,11 +404,7 @@ module Conversations
       return @current_task_plan_items if instance_variable_defined?(:@current_task_plan_items)
 
       @current_task_plan_items =
-        if current_task_run.present?
-          current_task_run.agent_task_plan_items.sort_by(&:position)
-        else
-          []
-        end
+        Array(current_task_plan_view&.fetch("items", nil))
     end
 
     def current_task_progress_entries
@@ -431,6 +429,69 @@ module Conversations
       return sessions if sessions.present?
 
       active_owned_subagent_sessions
+    end
+
+    def current_task_plan
+      current_task_run&.turn_todo_plan
+    end
+
+    def current_task_plan_view
+      return @current_task_plan_view if instance_variable_defined?(:@current_task_plan_view)
+
+      @current_task_plan_view =
+        if current_task_plan.present?
+          TurnTodoPlans::BuildView.call(turn_todo_plan: current_task_plan)
+        end
+    end
+
+    def current_task_plan_summary
+      return @current_task_plan_summary if instance_variable_defined?(:@current_task_plan_summary)
+
+      @current_task_plan_summary =
+        if current_task_plan.present?
+          TurnTodoPlans::BuildCompactView.call(turn_todo_plan: current_task_plan)
+        end
+    end
+
+    def latest_task_plan_summary
+      return @latest_task_plan_summary if instance_variable_defined?(:@latest_task_plan_summary)
+
+      @latest_task_plan_summary =
+        if latest_task_run&.turn_todo_plan.present?
+          TurnTodoPlans::BuildCompactView.call(turn_todo_plan: latest_task_run.turn_todo_plan)
+        end
+    end
+
+    def active_owned_subagent_turn_plan_summaries
+      return @active_owned_subagent_turn_plan_summaries if instance_variable_defined?(:@active_owned_subagent_turn_plan_summaries)
+
+      @active_owned_subagent_turn_plan_summaries = active_owned_subagent_sessions.filter_map do |session|
+        active_subagent_turn_plan_summary_for(session)
+      end
+    end
+
+    def active_subagent_turn_plan_summary_for(session)
+      active_subagent_turn_plan_summaries_by_session_id.fetch(session.id, nil)
+    end
+
+    def active_subagent_turn_plan_summaries_by_session_id
+      return @active_subagent_turn_plan_summaries_by_session_id if instance_variable_defined?(:@active_subagent_turn_plan_summaries_by_session_id)
+
+      @active_subagent_turn_plan_summaries_by_session_id = active_owned_subagent_sessions.each_with_object({}) do |session, summaries|
+        agent_task_run = AgentTaskRun
+          .where(conversation: session.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
+          .includes(turn_todo_plan: :turn_todo_plan_items)
+          .order(created_at: :desc)
+          .first
+        next if agent_task_run&.turn_todo_plan.blank?
+
+        summaries[session.id] = TurnTodoPlans::BuildCompactView.call(turn_todo_plan: agent_task_run.turn_todo_plan).merge(
+          "subagent_session_id" => session.public_id,
+          "profile_key" => session.profile_key,
+          "observed_status" => session.observed_status,
+          "supervision_state" => session.supervision_state,
+        )
+      end
     end
 
     def active_subagent_session?(session)

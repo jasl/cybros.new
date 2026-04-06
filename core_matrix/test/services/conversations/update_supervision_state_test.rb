@@ -9,30 +9,36 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       started_at: Time.current,
       supervision_state: "running",
       focus_kind: "implementation",
-      request_summary: "Replace the observation schema",
-      current_focus_summary: "Adding the canonical supervision aggregates",
+      request_summary: "Stale task request summary",
+      current_focus_summary: "Stale task focus summary",
       recent_progress_summary: "Finished reviewing the old models",
       next_step_hint: "Rewrite the migrations",
       last_progress_at: Time.current,
       supervision_payload: {}
     )
-    AgentTaskPlanItem.create!(
-      installation: context[:installation],
+    TurnTodoPlans::ApplyUpdate.call(
       agent_task_run: agent_task_run,
-      item_key: "projection",
-      title: "Add conversation supervision state",
-      status: "completed",
-      position: 0,
-      details_payload: {}
-    )
-    AgentTaskPlanItem.create!(
-      installation: context[:installation],
-      agent_task_run: agent_task_run,
-      item_key: "renderer",
-      title: "Rebuild sidechat renderer",
-      status: "in_progress",
-      position: 1,
-      details_payload: {}
+      payload: {
+        "goal_summary" => "Replace the observation schema",
+        "current_item_key" => "renderer",
+        "items" => [
+          {
+            "item_key" => "projection",
+            "title" => "Add conversation supervision state",
+            "status" => "completed",
+            "position" => 0,
+            "kind" => "implementation",
+          },
+          {
+            "item_key" => "renderer",
+            "title" => "Rebuild sidechat renderer",
+            "status" => "in_progress",
+            "position" => 1,
+            "kind" => "implementation",
+          },
+        ],
+      },
+      occurred_at: Time.current
     )
     AgentTaskProgressEntry.create!(
       installation: context[:installation],
@@ -53,7 +59,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "agent_task_run", state.current_owner_kind
     assert_equal agent_task_run.public_id, state.current_owner_public_id
     assert_equal "Replace the observation schema", state.request_summary
-    assert_equal "Adding the canonical supervision aggregates", state.current_focus_summary
+    assert_equal "Rebuild sidechat renderer", state.current_focus_summary
     assert_equal "Finished reviewing the old models", state.recent_progress_summary
     assert_equal "Rewrite the migrations", state.next_step_hint
     assert_equal "active", state.board_lane
@@ -62,6 +68,28 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal 0, state.active_subagent_count
     assert_equal %w[projection renderer],
       state.status_payload.fetch("active_plan_items").map { |item| item.fetch("item_key") }
+  end
+
+  test "projects supervision summaries from the active turn todo plan" do
+    fixture = build_supervision_with_turn_todo_plan_fixture!
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: fixture.fetch(:conversation),
+      occurred_at: Time.current
+    )
+
+    assert_equal "running", state.overall_state
+    assert_equal "agent_task_run", state.current_owner_kind
+    assert_equal fixture.fetch(:agent_task_run).public_id, state.current_owner_public_id
+    assert_equal "Replace AgentTaskPlanItem with TurnTodoPlan", state.request_summary
+    assert_equal "Wire plan views into supervision", state.current_focus_summary
+    assert_equal "active", state.board_lane
+    assert_equal 1, state.active_plan_item_count
+    assert_equal 1, state.completed_plan_item_count
+    assert_equal "wire-supervision",
+      state.status_payload.fetch("current_turn_plan_summary").fetch("current_item_key")
+    assert_equal ["check-hard-gate"],
+      state.status_payload.fetch("active_subagent_turn_plan_summaries").map { |entry| entry.fetch("current_item_key") }
   end
 
   test "appends semantic feed entries from supervision changes" do
@@ -543,5 +571,145 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_includes state.waiting_summary, "1 child task"
     assert_includes state.waiting_summary, "Barrier child"
     refute_includes state.waiting_summary, "Unrelated child"
+  end
+
+  private
+
+  def build_supervision_with_turn_todo_plan_fixture!
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: 3.minutes.ago,
+      supervision_state: "running",
+      request_summary: "Stale legacy request summary",
+      current_focus_summary: "Stale legacy focus summary",
+      recent_progress_summary: "Finished reviewing the old models",
+      next_step_hint: "Rewrite the migrations",
+      last_progress_at: 1.minute.ago,
+      supervision_payload: {}
+    )
+    TurnTodoPlans::ApplyUpdate.call(
+      agent_task_run: agent_task_run,
+      payload: {
+        "goal_summary" => "Replace AgentTaskPlanItem with TurnTodoPlan",
+        "current_item_key" => "wire-supervision",
+        "items" => [
+          {
+            "item_key" => "define-domain",
+            "title" => "Define the new plan domain",
+            "status" => "completed",
+            "position" => 0,
+            "kind" => "implementation",
+          },
+          {
+            "item_key" => "wire-supervision",
+            "title" => "Wire plan views into supervision",
+            "status" => "in_progress",
+            "position" => 1,
+            "kind" => "implementation",
+          },
+        ],
+      },
+      occurred_at: 1.minute.ago
+    )
+    AgentTaskProgressEntry.create!(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 1,
+      entry_kind: "progress_recorded",
+      summary: "Finished reviewing the old models",
+      details_payload: {},
+      occurred_at: 1.minute.ago
+    )
+
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      parent_conversation: context[:conversation],
+      execution_runtime: context[:execution_runtime],
+      agent_program_version: context[:agent_program_version],
+      kind: "fork",
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      observed_status: "running",
+      supervision_state: "running",
+      request_summary: "Stale child request summary",
+      current_focus_summary: "Stale child focus summary",
+      recent_progress_summary: "Confirmed the control acceptance wiring",
+      last_progress_at: 30.seconds.ago,
+      supervision_payload: {}
+    )
+    child_turn = Turns::StartAgentTurn.call(
+      conversation: child_conversation,
+      content: "Verify the capstone acceptance path",
+      sender_kind: "owner_agent",
+      sender_conversation: context[:conversation],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_workflow_run = create_workflow_run!(
+      installation: context[:installation],
+      conversation: child_conversation,
+      turn: child_turn,
+      lifecycle_state: "active"
+    )
+    child_workflow_node = create_workflow_node!(
+      workflow_run: child_workflow_run,
+      installation: context[:installation],
+      node_key: "subagent_step",
+      node_type: "subagent_step",
+      lifecycle_state: "running",
+      started_at: 2.minutes.ago
+    )
+    child_agent_task_run = create_agent_task_run!(
+      installation: context[:installation],
+      workflow_run: child_workflow_run,
+      workflow_node: child_workflow_node,
+      conversation: child_conversation,
+      turn: child_turn,
+      agent_program: context[:agent_program],
+      subagent_session: subagent_session,
+      origin_turn: context[:turn],
+      kind: "subagent_step",
+      lifecycle_state: "running",
+      started_at: 2.minutes.ago,
+      supervision_state: "running",
+      request_summary: "Stale child request summary",
+      current_focus_summary: "Stale child focus summary",
+      last_progress_at: 30.seconds.ago,
+      supervision_payload: {}
+    )
+    TurnTodoPlans::ApplyUpdate.call(
+      agent_task_run: child_agent_task_run,
+      payload: {
+        "goal_summary" => "Verify the capstone acceptance path",
+        "current_item_key" => "check-hard-gate",
+        "items" => [
+          {
+            "item_key" => "check-hard-gate",
+            "title" => "Check the 2048 hard gate",
+            "status" => "in_progress",
+            "position" => 0,
+            "kind" => "verification",
+          },
+        ],
+      },
+      occurred_at: 30.seconds.ago
+    )
+
+    {
+      conversation: context[:conversation],
+      agent_task_run: agent_task_run,
+      subagent_session: subagent_session,
+      child_agent_task_run: child_agent_task_run,
+    }
   end
 end
