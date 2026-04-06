@@ -46,7 +46,7 @@ module AgentControl
         "conversation_id" => @conversation_control_request.target_conversation.public_id,
         "request_kind" => @conversation_control_request.request_kind,
         "target_kind" => @conversation_control_request.target_kind,
-        "target_public_id" => @conversation_control_request.target_public_id
+        "target_public_id" => @conversation_control_request.target_public_id,
       }.compact
     end
   end

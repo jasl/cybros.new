@@ -127,7 +127,7 @@ module Workflows
 
       result_payload = {
         "workflow_run_id" => @workflow_run.public_id,
-        "conversation_id" => @workflow_run.conversation.public_id
+        "conversation_id" => @workflow_run.conversation.public_id,
       }
       result_payload["agent_task_run_id"] = resource.public_id if resource.is_a?(AgentTaskRun)
       result_payload["workflow_node_id"] = resource.public_id if resource.is_a?(WorkflowNode)

@@ -58,7 +58,7 @@ module ConversationControl
       @persisted_request_payload ||= @request_payload.merge(
         "control_actor" => {
           "kind" => @actor.class.base_class.name,
-          "public_id" => @actor.public_id
+          "public_id" => @actor.public_id,
         }
       )
     end

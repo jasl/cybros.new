@@ -70,7 +70,7 @@ class AgentTaskRun < ApplicationRecord
   def progress_entry_subagent_session
     session = subagent_session
     return if session.blank?
-    return session if session.owner_conversation_id == conversation_id
+    session if session.owner_conversation_id == conversation_id
   end
 
   private

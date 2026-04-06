@@ -30,7 +30,7 @@ module ConversationSupervisionFixtureBuilder
         config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
         default_config_snapshot: default_default_config_snapshot(include_selector_slots: true).deep_merge(
           "model_slots" => {
-            "summary" => { "selector" => summary_slot_selector }
+            "summary" => { "selector" => summary_slot_selector },
           }
         )
       )

@@ -49,7 +49,7 @@ module ConversationSupervision
           "event_kind" => normalized.fetch("event_kind"),
           "summary" => summary,
           "details_payload" => normalized.fetch("details_payload", {}),
-          "occurred_at" => normalized["occurred_at"] || @occurred_at
+          "occurred_at" => normalized["occurred_at"] || @occurred_at,
         }
       end
     end

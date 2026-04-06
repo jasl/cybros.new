@@ -77,7 +77,7 @@ module EmbeddedAgents
             "side_chat_enabled" => authority.side_chat_enabled?,
             "control_enabled" => authority.control_enabled?,
             "available_control_verbs" => authority.available_control_verbs,
-          }
+          },
         }
       end
 
@@ -88,7 +88,7 @@ module EmbeddedAgents
         {
           "message_ids" => messages.map(&:public_id),
           "turn_ids" => messages.filter_map { |message| message.turn&.public_id }.uniq,
-          "facts" => messages.filter_map { |message| serialize_context_fact(message) }
+          "facts" => messages.filter_map { |message| serialize_context_fact(message) },
         }
       end
 
@@ -102,7 +102,7 @@ module EmbeddedAgents
           "role" => message.role,
           "slot" => message.slot,
           "summary" => summary,
-          "keywords" => context_keywords(message.content)
+          "keywords" => context_keywords(message.content),
         }.compact
       end
 
@@ -115,7 +115,7 @@ module EmbeddedAgents
         keywords = context_keywords(normalized)
         return if keywords.empty?
 
-        "Context already references #{keywords.first(4).join(' ')}."
+        "Context already references #{keywords.first(4).join(" ")}."
       end
 
       def context_keywords(content)
@@ -140,7 +140,7 @@ module EmbeddedAgents
         {
           "message_ids" => [],
           "turn_ids" => [],
-          "facts" => []
+          "facts" => [],
         }
       end
 

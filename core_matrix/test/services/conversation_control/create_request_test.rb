@@ -39,7 +39,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
           request_kind: "send_guidance_to_subagent",
           request_payload: {
             "subagent_session_id" => fixture.fetch(:subagent_session).public_id,
-            "content" => "Please stop and summarize your current status."
+            "content" => "Please stop and summarize your current status.",
           }
         )
 
@@ -89,7 +89,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
       capability_policy_snapshot: {
         "supervision_enabled" => true,
         "side_chat_enabled" => true,
-        "control_enabled" => true
+        "control_enabled" => true,
       },
       last_snapshot_at: Time.current
     )
@@ -142,7 +142,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
       capability_policy_snapshot: {
         "supervision_enabled" => true,
         "side_chat_enabled" => true,
-        "control_enabled" => true
+        "control_enabled" => true,
       },
       last_snapshot_at: Time.current
     )
@@ -170,7 +170,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
       context.fetch(:workflow_run).public_id,
       context.fetch(:deployment).public_id,
       outsider.public_id,
-      request.public_id
+      request.public_id,
     ], captured
   end
 end

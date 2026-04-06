@@ -29,7 +29,7 @@ module ConversationSupervision
         "active_plan_item_count" => @conversation_supervision_state.active_plan_item_count,
         "completed_plan_item_count" => @conversation_supervision_state.completed_plan_item_count,
         "active_subagent_count" => @conversation_supervision_state.active_subagent_count,
-        "board_badges" => @conversation_supervision_state.board_badges
+        "board_badges" => @conversation_supervision_state.board_badges,
       }.compact
     end
   end

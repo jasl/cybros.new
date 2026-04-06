@@ -85,4 +85,16 @@ module ConcurrentAllocationHelpers
       end
     end
   end
+
+  def delete_all_table_rows!
+    ActiveRecord::Base.connection_pool.with_connection do |connection|
+      tables = connection.tables - %w[schema_migrations ar_internal_metadata]
+
+      connection.disable_referential_integrity do
+        tables.each do |table|
+          connection.execute("DELETE FROM #{connection.quote_table_name(table)}")
+        end
+      end
+    end
+  end
 end

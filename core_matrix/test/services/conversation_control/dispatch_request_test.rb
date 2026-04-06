@@ -98,7 +98,7 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
       "request_subagent_close",
       "supervision_subagent_close_requested",
       "graceful",
-      request.public_id
+      request.public_id,
     ], captured
   end
 
@@ -141,7 +141,7 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
       fixture.fetch(:workflow_run).public_id,
       fixture.fetch(:agent_program_version).public_id,
       fixture.fetch(:user).public_id,
-      request.public_id
+      request.public_id,
     ], captured
   end
 

@@ -83,17 +83,17 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
                 "item_key" => "projection",
                 "title" => "Add conversation supervision state",
                 "status" => "completed",
-                "position" => 0
+                "position" => 0,
               },
               {
                 "item_key" => "renderer",
                 "title" => "Rebuild sidechat renderer",
                 "status" => "in_progress",
-                "position" => 1
-              }
-            ]
-          }
-        }
+                "position" => 1,
+              },
+            ],
+          },
+        },
       },
       occurred_at: Time.current
     )
@@ -196,7 +196,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
         "agent_task_run_id" => agent_task_run.public_id,
         "logical_work_id" => agent_task_run.logical_work_id,
         "attempt_no" => agent_task_run.attempt_no,
-        "terminal_payload" => { "output" => unsafe_output }
+        "terminal_payload" => { "output" => unsafe_output },
       },
       occurred_at: Time.current
     )
@@ -231,7 +231,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
         "agent_task_run_id" => agent_task_run.public_id,
         "logical_work_id" => agent_task_run.logical_work_id,
         "attempt_no" => agent_task_run.attempt_no,
-        "terminal_payload" => { "output" => "Subagent work finished cleanly" }
+        "terminal_payload" => { "output" => "Subagent work finished cleanly" },
       },
       occurred_at: Time.current
     )
@@ -264,7 +264,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
         agent_task_run: agent_task_run,
         item_type: "execution_assignment"
       ),
-      subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+      subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id")),
     }
   end
 
@@ -288,7 +288,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
         "agent_task_run_id" => agent_task_run.public_id,
         "logical_work_id" => agent_task_run.logical_work_id,
         "attempt_no" => agent_task_run.attempt_no,
-        "terminal_payload" => terminal_payload
+        "terminal_payload" => terminal_payload,
       },
       occurred_at: Time.current
     )

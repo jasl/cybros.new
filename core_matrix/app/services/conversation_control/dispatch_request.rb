@@ -34,7 +34,7 @@ module ConversationControl
           mailbox_request_kind: "supervision_guidance",
           payload: {
             "content" => content,
-            "subagent_session_id" => subagent_session.public_id
+            "subagent_session_id" => subagent_session.public_id,
           }
         )
       when "request_turn_interrupt"

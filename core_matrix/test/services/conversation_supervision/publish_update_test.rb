@@ -35,7 +35,7 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
           "last_terminal_state" => state.last_terminal_state,
           "last_terminal_at" => state.last_terminal_at,
           "current_owner_kind" => state.current_owner_kind,
-          "current_owner_public_id" => state.current_owner_public_id
+          "current_owner_public_id" => state.current_owner_public_id,
         }
       )
       ConversationSupervision::PublishUpdate.call(
@@ -54,7 +54,7 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
           "last_terminal_state" => state.last_terminal_state,
           "last_terminal_at" => state.last_terminal_at,
           "current_owner_kind" => state.current_owner_kind,
-          "current_owner_public_id" => state.current_owner_public_id
+          "current_owner_public_id" => state.current_owner_public_id,
         }
       )
     end

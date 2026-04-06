@@ -109,9 +109,9 @@ module EmbeddedAgents
             "Right now the conversation is idle with no active work."
           end
         when "waiting"
-          "Right now the conversation is currently waiting while working on #{focus&.downcase || 'the current task'}. #{@machine_status["waiting_summary"]}"
+          "Right now the conversation is currently waiting while working on #{focus&.downcase || "the current task"}. #{@machine_status["waiting_summary"]}"
         when "blocked"
-          "Right now the conversation is currently blocked while working on #{focus&.downcase || 'the current task'}. #{@machine_status["blocked_summary"]}"
+          "Right now the conversation is currently blocked while working on #{focus&.downcase || "the current task"}. #{@machine_status["blocked_summary"]}"
         else
           return "Right now the conversation is #{state}." if focus.blank?
 
@@ -234,7 +234,6 @@ module EmbeddedAgents
       def activity_phrase?(text)
         text.to_s.match?(/\A(?:build|building|render|rendering|check|checking|verify|verifying|report|reporting|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing)\b/i)
       end
-
     end
   end
 end

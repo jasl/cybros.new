@@ -519,10 +519,10 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
         "stage" => {
           "stage_index" => 0,
           "dispatch_mode" => "parallel",
-          "completion_barrier" => "wait_all"
+          "completion_barrier" => "wait_all",
         },
         "accepted_intent_ids" => ["intent-subagent-1"],
-        "rejected_intent_ids" => []
+        "rejected_intent_ids" => [],
       }
     )
     context[:workflow_run].update!(

@@ -79,7 +79,7 @@ module Conversations
         completed_plan_item_count: completed_plan_item_count,
         active_subagent_count: active_subagent_count,
         board_badges: board_badges,
-        status_payload: status_payload
+        status_payload: status_payload,
       }
     end
 
@@ -222,7 +222,7 @@ module Conversations
         latest_task_run&.last_progress_at,
         last_terminal_at,
         workflow_run&.waiting_since_at,
-        workflow_run&.created_at
+        workflow_run&.created_at,
       ].compact.max || @occurred_at
     end
 
@@ -259,8 +259,8 @@ module Conversations
 
     def board_badges
       badges = []
-      badges << "#{active_plan_item_count} active plan item#{'s' unless active_plan_item_count == 1}" if active_plan_item_count.positive?
-      badges << "#{active_subagent_count} child task#{'s' unless active_subagent_count == 1}" if active_subagent_count.positive?
+      badges << "#{active_plan_item_count} active plan item#{"s" unless active_plan_item_count == 1}" if active_plan_item_count.positive?
+      badges << "#{active_subagent_count} child task#{"s" unless active_subagent_count == 1}" if active_subagent_count.positive?
       badges << "retry pending" if retry_due_at.present?
       badges
     end
@@ -271,7 +271,7 @@ module Conversations
       {
         "active_plan_items" => active_plan_items_payload,
         "active_subagents" => active_subagent_payloads,
-        "latest_progress_entry" => latest_progress_entry_payload
+        "latest_progress_entry" => latest_progress_entry_payload,
       }.compact
     end
 
@@ -282,7 +282,7 @@ module Conversations
           "title" => item.title,
           "status" => item.status,
           "position" => item.position,
-          "delegated_subagent_session_id" => item.delegated_subagent_session&.public_id
+          "delegated_subagent_session_id" => item.delegated_subagent_session&.public_id,
         }.compact
       end
     end
@@ -297,7 +297,7 @@ module Conversations
           "current_focus_summary" => session.current_focus_summary,
           "waiting_summary" => session.waiting_summary,
           "blocked_summary" => session.blocked_summary,
-          "next_step_hint" => session.next_step_hint
+          "next_step_hint" => session.next_step_hint,
         }.compact
       end
     end
@@ -310,7 +310,7 @@ module Conversations
         "sequence" => latest_progress_entry.sequence,
         "entry_kind" => latest_progress_entry.entry_kind,
         "summary" => latest_progress_entry.summary,
-        "occurred_at" => latest_progress_entry.occurred_at.iso8601
+        "occurred_at" => latest_progress_entry.occurred_at.iso8601,
       }.compact
     end
 
@@ -319,11 +319,11 @@ module Conversations
       count = sessions.size
       return "Waiting for child work to finish." if count.zero?
 
-      summary = "Waiting for #{count} child #{'task'.pluralize(count)} to finish"
+      summary = "Waiting for #{count} child #{"task".pluralize(count)} to finish"
       focuses = sessions.filter_map(&:current_focus_summary).first(2)
       return "#{summary}." if focuses.empty?
 
-      "#{summary}: #{focuses.join(', ')}."
+      "#{summary}: #{focuses.join(", ")}."
     end
 
     def workflow_run
@@ -594,14 +594,14 @@ module Conversations
       if active_subagent_delta.positive?
         changes << semantic_change(
           event_kind: "subagent_started",
-          summary: "#{active_subagent_delta} child task#{'s' unless active_subagent_delta == 1} started.",
+          summary: "#{active_subagent_delta} child task#{"s" unless active_subagent_delta == 1} started.",
           current_attributes: current
         )
       elsif active_subagent_delta.negative?
         completed_count = active_subagent_delta.abs
         changes << semantic_change(
           event_kind: "subagent_completed",
-          summary: "#{completed_count} child task#{'s' unless completed_count == 1} completed.",
+          summary: "#{completed_count} child task#{"s" unless completed_count == 1} completed.",
           current_attributes: current
         )
       end
@@ -636,9 +636,9 @@ module Conversations
           "current_owner_kind" => current_attributes["current_owner_kind"],
           "current_owner_public_id" => current_attributes["current_owner_public_id"],
           "active_subagent_count" => current_attributes["active_subagent_count"],
-          "last_terminal_state" => current_attributes["last_terminal_state"]
+          "last_terminal_state" => current_attributes["last_terminal_state"],
         }.compact,
-        "occurred_at" => @occurred_at
+        "occurred_at" => @occurred_at,
       }
     end
 

@@ -129,16 +129,16 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
         "recent_progress_summary" => nil,
         "activity_feed" => [
           {
-            "summary" => "Started the turn."
-          }
+            "summary" => "Started the turn.",
+          },
         ],
         "conversation_context" => {
           "facts" => [
             {
               "summary" => "Context already references the 2048 acceptance flow.",
-              "keywords" => %w[build react 2048 game acceptance flow]
-            }
-          ]
+              "keywords" => %w[build react 2048 game acceptance flow],
+            },
+          ],
         }
       )
     )

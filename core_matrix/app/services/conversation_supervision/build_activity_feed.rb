@@ -33,7 +33,7 @@ module ConversationSupervision
         "event_kind" => entry.event_kind,
         "summary" => entry.summary,
         "details_payload" => entry.details_payload,
-        "occurred_at" => entry.occurred_at.iso8601
+        "occurred_at" => entry.occurred_at.iso8601,
       }
     end
   end

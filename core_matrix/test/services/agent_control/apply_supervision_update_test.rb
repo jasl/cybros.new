@@ -42,8 +42,8 @@ class AgentControl::ApplySupervisionUpdateTest < ActiveSupport::TestCase
       agent_task_run: agent_task_run,
       payload: {
         "supervision_update" => {
-          "recent_progress_summary" => "Captured the failing stack trace"
-        }
+          "recent_progress_summary" => "Captured the failing stack trace",
+        },
       },
       occurred_at: Time.current
     )
@@ -65,8 +65,8 @@ class AgentControl::ApplySupervisionUpdateTest < ActiveSupport::TestCase
       agent_task_run: agent_task_run,
       payload: {
         "supervision_update" => {
-          "recent_progress_summary" => "Captured the failing stack trace"
-        }
+          "recent_progress_summary" => "Captured the failing stack trace",
+        },
       },
       occurred_at: Time.current
     )
@@ -93,7 +93,7 @@ class AgentControl::ApplySupervisionUpdateTest < ActiveSupport::TestCase
 
     {
       agent_task_run: AgentTaskRun.find_by!(public_id: result.fetch("agent_task_run_id")),
-      subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+      subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id")),
     }
   end
 end

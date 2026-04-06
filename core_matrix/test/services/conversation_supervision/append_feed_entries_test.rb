@@ -10,13 +10,13 @@ class ConversationSupervision::AppendFeedEntriesTest < ActiveSupport::TestCase
         {
           "event_kind" => "turn_started",
           "summary" => "Started the turn.",
-          "details_payload" => { "overall_state" => "queued" }
+          "details_payload" => { "overall_state" => "queued" },
         },
         {
           "event_kind" => "progress_recorded",
           "summary" => "Reviewed the new supervision schema.",
-          "details_payload" => { "overall_state" => "running" }
-        }
+          "details_payload" => { "overall_state" => "running" },
+        },
       ],
       occurred_at: Time.current
     )

@@ -153,7 +153,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
         "conversation_control" => {
           "conversation_control_request_id" => "control-request-public-id",
           "conversation_id" => context.fetch(:conversation).public_id,
-        }
+        },
       },
       logical_work_id: "supervision-status-refresh:#{context.fetch(:conversation).public_id}",
       attempt_no: 1,

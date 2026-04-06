@@ -26,7 +26,7 @@ module ConversationSupervision
         "completed_plan_item_count" => @conversation_supervision_state.completed_plan_item_count,
         "active_subagent_count" => @conversation_supervision_state.active_subagent_count,
         "board_badges" => @conversation_supervision_state.board_badges,
-        "latest_feed_entry" => serialized_feed_entry
+        "latest_feed_entry" => serialized_feed_entry,
       }.compact
 
       ActiveSupport::Notifications.instrument(EVENT_NAME, payload)
@@ -66,7 +66,7 @@ module ConversationSupervision
         "sequence" => @latest_feed_entry.sequence,
         "event_kind" => @latest_feed_entry.event_kind,
         "summary" => @latest_feed_entry.summary,
-        "occurred_at" => @latest_feed_entry.occurred_at.iso8601
+        "occurred_at" => @latest_feed_entry.occurred_at.iso8601,
       }.compact
     end
   end

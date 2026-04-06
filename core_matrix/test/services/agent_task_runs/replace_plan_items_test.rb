@@ -47,7 +47,7 @@ class AgentTaskRuns::ReplacePlanItemsTest < ActiveSupport::TestCase
           "item_key" => "plan",
           "title" => "Rebuild supervision plan",
           "status" => "pending",
-          "position" => 0
+          "position" => 0,
         },
         {
           "item_key" => "projection",
@@ -55,14 +55,14 @@ class AgentTaskRuns::ReplacePlanItemsTest < ActiveSupport::TestCase
           "status" => "in_progress",
           "position" => 1,
           "parent_item_key" => "plan",
-          "delegated_subagent_session_public_id" => delegated_subagent_session.public_id
+          "delegated_subagent_session_public_id" => delegated_subagent_session.public_id,
         },
         {
           "item_key" => "renderer",
           "title" => "Update the renderer",
           "status" => "pending",
-          "position" => 2
-        }
+          "position" => 2,
+        },
       ]
     )
 
@@ -97,14 +97,14 @@ class AgentTaskRuns::ReplacePlanItemsTest < ActiveSupport::TestCase
           "title" => "Project the new runtime state",
           "status" => "in_progress",
           "position" => 1,
-          "parent_item_key" => "plan"
+          "parent_item_key" => "plan",
         },
         {
           "item_key" => "plan",
           "title" => "Rebuild supervision plan",
           "status" => "pending",
-          "position" => 0
-        }
+          "position" => 0,
+        },
       ]
     )
 
@@ -155,8 +155,8 @@ class AgentTaskRuns::ReplacePlanItemsTest < ActiveSupport::TestCase
             "title" => "Project the new runtime state",
             "status" => "in_progress",
             "position" => 0,
-            "delegated_subagent_session_public_id" => unrelated_session.public_id
-          }
+            "delegated_subagent_session_public_id" => unrelated_session.public_id,
+          },
         ]
       )
     end
@@ -181,8 +181,8 @@ class AgentTaskRuns::ReplacePlanItemsTest < ActiveSupport::TestCase
           "key" => "projection",
           "title" => "Add conversation supervision state",
           "status" => "in_progress",
-          "position" => 0
-        }
+          "position" => 0,
+        },
       ]
     )
 
