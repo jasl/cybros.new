@@ -11,6 +11,8 @@ class ProviderUsageRollupFlowTest < ActionDispatch::IntegrationTest
       operation_kind: "text_generation",
       input_tokens: 100,
       output_tokens: 40,
+      prompt_cache_status: "available",
+      cached_input_tokens: 25,
       latency_ms: 1200,
       estimated_cost: 0.0100,
       success: true,
@@ -19,5 +21,6 @@ class ProviderUsageRollupFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal ["2026-03-24", "2026-03-24T10", "codex:2026-03-24T10"], UsageRollup.order(:bucket_kind, :bucket_key).pluck(:bucket_key).sort
+    assert_equal 25, UsageRollup.find_by!(bucket_kind: "rolling_window", bucket_key: "codex:2026-03-24T10").cached_input_tokens_total
   end
 end

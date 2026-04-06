@@ -112,4 +112,33 @@ class ProviderExecution::PersistTurnStepSuccessTest < ActiveSupport::TestCase
     assert_equal 50, result.execution_profile_fact.recommended_compaction_threshold
     assert_equal true, result.execution_profile_fact.threshold_crossed
   end
+
+  test "persists prompt cache metrics on the recorded usage event" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    provider_result = build_provider_chat_result(
+      prompt_tokens_details: {
+        cached_tokens: 6,
+      }
+    )
+
+    result = ProviderExecution::PersistTurnStepSuccess.call(
+      workflow_node: workflow_node,
+      request_context: request_context,
+      provider_result: provider_result,
+      provider_request_id: "provider-request-cache-1",
+      messages_count: turn_step_messages_for(workflow_run).length,
+      duration_ms: 123
+    )
+
+    assert_equal "available", result.usage_event.prompt_cache_status
+    assert_equal 6, result.usage_event.cached_input_tokens
+  end
 end

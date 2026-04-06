@@ -279,6 +279,7 @@ module ProviderExecutionTestSupport
     prompt_tokens: 12,
     completion_tokens: 8,
     total_tokens: 20,
+    prompt_tokens_details: nil,
     request_id: "execute-turn-step-request-1",
     response_id: "chatcmpl-direct-step-1"
   )
@@ -298,7 +299,8 @@ module ProviderExecutionTestSupport
         prompt_tokens: prompt_tokens,
         completion_tokens: completion_tokens,
         total_tokens: total_tokens,
-      },
+        prompt_tokens_details: prompt_tokens_details,
+      }.compact,
       finish_reason: "stop",
       response: response
     )

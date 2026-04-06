@@ -36,6 +36,10 @@ module ProviderUsage
       rollup.failure_count = rollup.failure_count.to_i + (@event.success? ? 0 : 1)
       rollup.input_tokens_total = rollup.input_tokens_total.to_i + @event.input_tokens.to_i
       rollup.output_tokens_total = rollup.output_tokens_total.to_i + @event.output_tokens.to_i
+      rollup.cached_input_tokens_total = rollup.cached_input_tokens_total.to_i + cached_input_tokens_increment
+      rollup.prompt_cache_available_event_count = rollup.prompt_cache_available_event_count.to_i + prompt_cache_status_increment("available")
+      rollup.prompt_cache_unknown_event_count = rollup.prompt_cache_unknown_event_count.to_i + prompt_cache_status_increment("unknown")
+      rollup.prompt_cache_unsupported_event_count = rollup.prompt_cache_unsupported_event_count.to_i + prompt_cache_status_increment("unsupported")
       rollup.media_units_total = rollup.media_units_total.to_i + @event.media_units.to_i
       rollup.total_latency_ms = rollup.total_latency_ms.to_i + @event.latency_ms.to_i
       rollup.estimated_cost_total = rollup.estimated_cost_total.to_d + @event.estimated_cost.to_d
@@ -79,6 +83,16 @@ module ProviderUsage
 
     def daily_bucket_key
       @event.occurred_at.utc.strftime("%Y-%m-%d")
+    end
+
+    def cached_input_tokens_increment
+      return 0 unless @event.prompt_cache_status == "available"
+
+      @event.cached_input_tokens.to_i
+    end
+
+    def prompt_cache_status_increment(status)
+      @event.prompt_cache_status == status ? 1 : 0
     end
   end
 end

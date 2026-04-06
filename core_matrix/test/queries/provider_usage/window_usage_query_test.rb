@@ -29,6 +29,10 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
       failure_count: 1,
       input_tokens_total: 160,
       output_tokens_total: 60,
+      cached_input_tokens_total: 40,
+      prompt_cache_available_event_count: 1,
+      prompt_cache_unknown_event_count: 1,
+      prompt_cache_unsupported_event_count: 0,
       media_units_total: 0,
       total_latency_ms: 2000,
       estimated_cost_total: 0.03
@@ -57,6 +61,10 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
       failure_count: 0,
       input_tokens_total: 30,
       output_tokens_total: 10,
+      cached_input_tokens_total: 0,
+      prompt_cache_available_event_count: 0,
+      prompt_cache_unknown_event_count: 0,
+      prompt_cache_unsupported_event_count: 1,
       media_units_total: 0,
       total_latency_ms: 300,
       estimated_cost_total: 0.003
@@ -82,12 +90,17 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
     assert_equal 1, primary_summary.failure_count
     assert_equal 160, primary_summary.input_tokens_total
     assert_equal 60, primary_summary.output_tokens_total
+    assert_equal 40, primary_summary.cached_input_tokens_total
+    assert_equal 1, primary_summary.prompt_cache_available_event_count
+    assert_equal 1, primary_summary.prompt_cache_unknown_event_count
+    assert_equal 0, primary_summary.prompt_cache_unsupported_event_count
     assert_equal 2000, primary_summary.total_latency_ms
     assert_equal BigDecimal("0.03"), primary_summary.estimated_cost_total
 
     assert_equal 1, secondary_summary.event_count
     assert_equal 30, secondary_summary.input_tokens_total
     assert_equal 10, secondary_summary.output_tokens_total
+    assert_equal 1, secondary_summary.prompt_cache_unsupported_event_count
   end
 
   test "aggregates rolling-window usage across dimension rollups for the same provider model and operation" do
@@ -127,6 +140,8 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
       operation_kind: "text_generation",
       input_tokens: 100,
       output_tokens: 40,
+      prompt_cache_status: "available",
+      cached_input_tokens: 50,
       latency_ms: 1200,
       estimated_cost: 0.0100,
       success: true,
@@ -142,6 +157,7 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
       operation_kind: "text_generation",
       input_tokens: 60,
       output_tokens: 20,
+      prompt_cache_status: "unknown",
       latency_ms: 800,
       estimated_cost: 0.0200,
       success: false,
@@ -157,6 +173,7 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
       operation_kind: "text_generation",
       input_tokens: 30,
       output_tokens: 10,
+      prompt_cache_status: "unsupported",
       latency_ms: 300,
       estimated_cost: 0.0030,
       success: true,
@@ -200,6 +217,10 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
     assert_equal 1, primary_summary.failure_count
     assert_equal 160, primary_summary.input_tokens_total
     assert_equal 60, primary_summary.output_tokens_total
+    assert_equal 50, primary_summary.cached_input_tokens_total
+    assert_equal 1, primary_summary.prompt_cache_available_event_count
+    assert_equal 1, primary_summary.prompt_cache_unknown_event_count
+    assert_equal 0, primary_summary.prompt_cache_unsupported_event_count
     assert_equal 2000, primary_summary.total_latency_ms
     assert_equal BigDecimal("0.03"), primary_summary.estimated_cost_total
 
@@ -207,6 +228,7 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
     assert_equal window_key, secondary_summary.window_key
     assert_equal 30, secondary_summary.input_tokens_total
     assert_equal 10, secondary_summary.output_tokens_total
+    assert_equal 1, secondary_summary.prompt_cache_unsupported_event_count
   end
 
   test "returns an empty result when no rollups match the requested window" do

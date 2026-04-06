@@ -36,6 +36,8 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
       operation_kind: "text_generation",
       input_tokens: 120,
       output_tokens: 48,
+      prompt_cache_status: "available",
+      cached_input_tokens: 30,
       latency_ms: 3200,
       estimated_cost: 0.0125,
       success: true,
@@ -45,6 +47,9 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
 
     assert_equal 1, UsageEvent.count
     assert_equal event, UsageEvent.last
+    assert_equal "available", event.prompt_cache_status
+    assert_equal 30, event.cached_input_tokens
     assert_equal 3, UsageRollup.count
+    assert_equal 30, UsageRollup.find_by!(bucket_kind: "hour", bucket_key: "2026-03-24T10").cached_input_tokens_total
   end
 end

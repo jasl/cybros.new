@@ -95,6 +95,8 @@ module ProviderExecution
         operation_kind: "text_generation",
         input_tokens: usage["input_tokens"],
         output_tokens: usage["output_tokens"],
+        prompt_cache_status: usage["prompt_cache_status"],
+        cached_input_tokens: usage["cached_input_tokens"],
         latency_ms: @duration_ms,
         success: true,
         entitlement_window_key: workflow_run.turn.resolved_model_selection_snapshot["entitlement_key"]
