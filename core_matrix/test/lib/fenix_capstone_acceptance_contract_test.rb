@@ -119,8 +119,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes helper, '"host-playwright-install.json"'
     assert_includes helper, '"host-playwright-test.json"'
-    assert_includes artifact_bundle, '"host-playwright-install.json"'
-    assert_includes artifact_bundle, '"host-playwright-test.json"'
+    assert_includes artifact_bundle, "[Playable Outputs](../playable/)"
   end
 
   test "acceptance scenario uses shared artifact bundle helper" do

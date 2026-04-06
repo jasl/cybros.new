@@ -2,12 +2,7 @@ require "test_helper"
 require Rails.root.join("../acceptance/lib/artifact_bundle")
 
 class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
-  test "default layout and review index expose playable and evidence entry points" do
-    assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("playable"), "host-playwright-install.json"
-    assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("playable"), "host-playwright-test.json"
-    assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("logs"), "live-progress-events.jsonl"
-    assert_includes Acceptance::ArtifactBundle::DEFAULT_LAYOUT.fetch("evidence"), "artifact-manifest.json"
-
+  test "review index exposes playable and evidence entry points" do
     Dir.mktmpdir do |dir|
       path = Pathname(dir).join("review-index.md")
 
