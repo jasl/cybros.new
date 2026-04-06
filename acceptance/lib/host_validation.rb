@@ -81,6 +81,7 @@ module Acceptance
             - `dist/index.html` present before host checks: `#{dist_artifact_present}`
             - static preview reachable: `#{preview_http&.fetch("status", nil) == 200}`
             - Playwright verification ran: `#{playwright_validation.any?}`
+            - Playwright verification passed: `#{playwright_verification_passed?(playwright_validation)}`
 
             #{host_playability_skip_reason ? "Host playability note: #{host_playability_skip_reason}" : "Host playability note: browser verification used the exported `dist/` output."}
 
@@ -96,6 +97,7 @@ module Acceptance
           write_playability_verification!(
             path: artifact_dir.join("review", "playability-verification.md"),
             playability_result: playwright_validation["result"],
+            playwright_test: playwright_validation["test"],
             generated_app_dir: generated_app_dir,
             preview_port: preview_port,
             runtime_validation: runtime_validation,
@@ -117,6 +119,7 @@ module Acceptance
         write_playability_verification!(
           path: artifact_dir.join("review", "playability-verification.md"),
           playability_result: nil,
+          playwright_test: nil,
           generated_app_dir: generated_app_dir,
           preview_port: preview_port,
           runtime_validation: runtime_validation,
@@ -138,7 +141,7 @@ module Acceptance
       }
     end
 
-    def write_playability_verification!(path:, playability_result:, generated_app_dir:, preview_port:, runtime_validation:, preview_validation:, host_skip_reason: nil)
+    def write_playability_verification!(path:, playability_result:, playwright_test:, generated_app_dir:, preview_port:, runtime_validation:, preview_validation:, host_skip_reason: nil)
       unless playability_result
         lines = [
           "# Playability Verification",
@@ -177,6 +180,40 @@ module Acceptance
           "See `review/workspace-validation.md`, `playable/host-preview.json`, `playable/host-npm-test.json`, and `playable/host-npm-build.json` for portability diagnostics.",
           "",
         ])
+
+        return write_text(path, lines.join("\n"))
+      end
+
+      unless playwright_test&.fetch("success", false)
+        lines = [
+          "# Playability Verification",
+          "",
+          "## Host Playability Diagnostic",
+          "",
+          "- Host `dist/` preview reachable: `#{preview_validation.fetch("reachable")}`",
+          "- Host preview content mentioned `2048`: `#{preview_validation.fetch("contains_2048")}`",
+          "- Playwright verification ran: `true`",
+          "- Playwright verification passed: `false`",
+          "",
+          "Playwright captured a real browser session and wrote `playable/host-playwright-verification.json`, but one or more acceptance assertions failed.",
+          "",
+          "## Observed Run Details",
+          "",
+          "- Merge observed: `#{playability_result["mergeObserved"]}`",
+          "- Spawn observed: `#{playability_result["spawnObserved"]}`",
+          "- Game over reached: `#{playability_result["gameOverReached"]}`",
+          "- Restart reset score: `#{playability_result["restartResetScore"]}`",
+          "- Restart reset tile count: `#{playability_result["restartResetTileCount"]}`",
+          "",
+          "Playwright command result excerpt:",
+          "",
+          "```text",
+          command_result_excerpt(playwright_test, limit: 1500),
+          "```",
+          "",
+          "See `playable/host-playwright-verification.json`, `playable/host-playability.png`, and `playable/host-playwright-test.json` for the full browser-side evidence.",
+          "",
+        ]
 
         return write_text(path, lines.join("\n"))
       end
@@ -252,12 +289,21 @@ module Acceptance
         runtime_validation.fetch("runtime_browser_mentions_2048")
     end
 
+    def playwright_result_available?(playwright_validation)
+      playwright_validation.fetch("result", nil).present?
+    end
+
+    def playwright_verification_passed?(playwright_validation)
+      playwright_result_available?(playwright_validation) &&
+        playwright_validation.dig("test", "success") == true
+    end
+
     def host_validation_passed?(host_validation:, playwright_validation:)
       host_validation.dig("npm_install", "success") &&
         host_validation.dig("npm_test", "success") &&
         host_validation.dig("npm_build", "success") &&
         host_validation.dig("preview_http", "status") == 200 &&
-        playwright_validation["result"]
+        playwright_verification_passed?(playwright_validation)
     end
 
     def build_host_preview_failure_message(error:, preview_pid:, preview_log:, preview_port:)
@@ -668,12 +714,17 @@ module Acceptance
           chdir: generated_app_dir,
           failure_label: "install Playwright chromium"
         )
-        test_result = capture_command!(
+        test_result = capture_command(
           "npx", "playwright", "test", runner_spec_path.basename.to_s, "--workers=1", "--reporter=line",
           chdir: generated_app_dir,
           env: { "CAPSTONE_PREVIEW_URL" => base_url },
-          failure_label: "run Playwright host verification"
         )
+        result = JSON.parse(File.read(output_json_path)) if File.exist?(output_json_path)
+
+        if !test_result.fetch("success") && result.blank?
+          details = test_result.fetch("stderr").presence || test_result.fetch("stdout").presence || "no output"
+          raise "run Playwright host verification failed:\n#{details}"
+        end
 
         {
           "install" => {
@@ -681,7 +732,7 @@ module Acceptance
             "browser_install" => browser_install,
           },
           "test" => test_result,
-          "result" => JSON.parse(File.read(output_json_path)),
+          "result" => result,
           "output_json_path" => output_json_path.to_s,
           "screenshot_path" => screenshot_path.to_s,
           "spec_path" => artifact_spec_path.to_s,

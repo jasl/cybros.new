@@ -19,7 +19,10 @@ class AcceptanceBenchmarkReportingTest < ActiveSupport::TestCase
       "npm_build" => { "success" => true },
       "preview_http" => { "status" => 200 },
     }
-    playwright_validation = { "result" => { "restartResetScore" => true } }
+    playwright_validation = {
+      "test" => { "success" => true },
+      "result" => { "restartResetScore" => true }
+    }
 
     Dir.mktmpdir("benchmark-reporting-complete") do |tmpdir|
       outcome = Acceptance::BenchmarkReporting.determine_workload_outcome(

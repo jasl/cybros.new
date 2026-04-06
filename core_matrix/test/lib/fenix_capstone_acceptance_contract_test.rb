@@ -166,6 +166,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
 
     assert_includes scenario, "Acceptance::HostValidation.run!"
+    assert_includes scenario, "Acceptance::HostValidation.write_playability_verification!"
+    assert_includes scenario, 'playwright_test: playwright_validation["test"]'
     assert_includes scenario, "Acceptance::HostValidation.runtime_validation_passed?"
     assert_includes scenario, "Acceptance::HostValidation.host_validation_passed?"
     assert_includes scenario, "Acceptance::HostValidation.command_result_excerpt"

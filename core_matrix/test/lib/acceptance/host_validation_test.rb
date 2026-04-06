@@ -16,7 +16,10 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
       "npm_build" => { "success" => true },
       "preview_http" => { "status" => 200 },
     }
-    playwright_validation = { "result" => { "restartResetScore" => true } }
+    playwright_validation = {
+      "test" => { "success" => true },
+      "result" => { "restartResetScore" => true }
+    }
 
     assert Acceptance::HostValidation.runtime_validation_passed?(runtime_validation)
     assert Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
@@ -25,6 +28,23 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
     host_validation["npm_build"]["success"] = false
 
     refute Acceptance::HostValidation.runtime_validation_passed?(runtime_validation)
+    refute Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
+  end
+
+  test "host validation does not pass when Playwright produced evidence but failed assertions" do
+    host_validation = {
+      "npm_install" => { "success" => true },
+      "npm_test" => { "success" => true },
+      "npm_build" => { "success" => true },
+      "preview_http" => { "status" => 200 },
+    }
+    playwright_validation = {
+      "test" => { "success" => false },
+      "result" => { "restartResetScore" => true, "gameOverReached" => false }
+    }
+
+    assert Acceptance::HostValidation.playwright_result_available?(playwright_validation)
+    refute Acceptance::HostValidation.playwright_verification_passed?(playwright_validation)
     refute Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
   end
 

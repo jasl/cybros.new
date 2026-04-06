@@ -686,7 +686,11 @@ def build_repair_prompt(
   if host_validation.dig("preview_http", "status") != 200
     lines << "- host static preview was not reachable at `http://127.0.0.1:4174/`."
   end
-  if playwright_validation["result"].blank? && host_playability_skip_reason.present?
+  if Acceptance::HostValidation.playwright_result_available?(playwright_validation) &&
+      !Acceptance::HostValidation.playwright_verification_passed?(playwright_validation)
+    lines << "- host browser verification ran but its assertions failed:"
+    lines << Acceptance::HostValidation.command_result_excerpt(playwright_validation.fetch("test"), limit:)
+  elsif !Acceptance::HostValidation.playwright_result_available?(playwright_validation) && host_playability_skip_reason.present?
     lines << "- host browser verification failed:"
     lines << host_playability_skip_reason
   end
@@ -920,7 +924,7 @@ seen_live_progress_event_keys = Set.new
       "npm_test_passed" => host_validation.dig("npm_test", "success"),
       "npm_build_passed" => host_validation.dig("npm_build", "success"),
       "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
-      "playwright_verification_passed" => playwright_validation["result"].present?,
+      "playwright_verification_passed" => Acceptance::HostValidation.playwright_verification_passed?(playwright_validation),
     }
   )
 
@@ -935,7 +939,7 @@ seen_live_progress_event_keys = Set.new
       "npm_test_passed" => host_validation.dig("npm_test", "success"),
       "npm_build_passed" => host_validation.dig("npm_build", "success"),
       "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
-      "playwright_verification_passed" => playwright_validation["result"].present?,
+      "playwright_verification_passed" => Acceptance::HostValidation.playwright_verification_passed?(playwright_validation),
     },
   }
   write_json(artifact_dir.join("evidence", "attempt-history.json"), attempt_history)
@@ -1174,8 +1178,8 @@ Acceptance::ReviewArtifacts.write_turns!(
     ("evidence/terminal-failure.txt" if terminal_failure_message.present?),
     ("evidence/control-intent-matrix.json" if control_intent_matrix.present?),
     ("playable/host-preview.json" if preview_http.present?),
-    ("playable/host-playwright-verification.json" if playwright_validation.present?),
-    ("playable/host-playability.png" if playwright_validation.present?),
+    ("playable/host-playwright-verification.json" if Acceptance::HostValidation.playwright_result_available?(playwright_validation)),
+    ("playable/host-playability.png" if Acceptance::HostValidation.playwright_result_available?(playwright_validation)),
   ].compact
 )
 Acceptance::ReviewArtifacts.write_collaboration_notes!(
@@ -1212,9 +1216,10 @@ Acceptance::ReviewArtifacts.write_workspace_artifacts!(
   host_validation_notes: host_validation_notes,
   preview_port: preview_port
 )
-write_playability_verification_md(
+Acceptance::HostValidation.write_playability_verification!(
   path: artifact_dir.join("review", "playability-verification.md"),
   playability_result: playwright_validation["result"],
+  playwright_test: playwright_validation["test"],
   generated_app_dir: generated_app_dir,
   preview_port: preview_port,
   runtime_validation: build_conversation_runtime_validation(tool_invocations: tool_invocations),
@@ -1286,7 +1291,7 @@ failure_report = Acceptance::FailureClassification.build(
       "npm_build_passed" => host_validation.dig("npm_build", "success"),
       "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
       "preview_contains_2048" => host_validation.dig("preview_http", "contains_2048") || false,
-      "playwright_verification_passed" => playwright_validation["result"].present?,
+      "playwright_verification_passed" => Acceptance::HostValidation.playwright_verification_passed?(playwright_validation),
     },
   },
   rescue_history: rescue_history,
@@ -1345,7 +1350,7 @@ summary = {
   "evidence_run_summary_path" => artifact_dir.join("evidence", "run-summary.json").to_s,
   "evidence_turn_runtime_path" => artifact_dir.join("evidence", "turn-runtime-evidence.json").to_s,
   "subagent_runtime_snapshots_path" => artifact_dir.join("evidence", "subagent-runtime-snapshots.json").to_s,
-  "host_playability_artifact" => (artifact_dir.join("playable", "host-playwright-verification.json").to_s if playwright_validation.present?),
+  "host_playability_artifact" => (artifact_dir.join("playable", "host-playwright-verification.json").to_s if Acceptance::HostValidation.playwright_result_available?(playwright_validation)),
   "control_intent_matrix_path" => (artifact_dir.join("evidence", "control-intent-matrix.json").to_s if control_intent_matrix.present?),
   "benchmark_outcome" => failure_report.fetch("outcome"),
   "workload_outcome" => failure_report.fetch("workload_outcome"),
@@ -1363,7 +1368,7 @@ summary = {
     "npm_build_passed" => host_validation.dig("npm_build", "success"),
     "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
     "preview_contains_2048" => host_validation.dig("preview_http", "contains_2048") || false,
-    "playwright_verification_passed" => playwright_validation["result"].present?,
+    "playwright_verification_passed" => Acceptance::HostValidation.playwright_verification_passed?(playwright_validation),
   },
 }
 summary["control_intent_matrix"] = control_intent_matrix.fetch("summary") if control_intent_matrix.present?

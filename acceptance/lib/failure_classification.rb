@@ -57,7 +57,13 @@ module Acceptance
         runtime_dev_server_ready
         runtime_browser_loaded
       ].all? { |key| conversation_validation[key] != false }
-      workspace_failed = %w[npm_install_passed npm_test_passed npm_build_passed].any? do |key|
+      workspace_failed = %w[
+        npm_install_passed
+        npm_test_passed
+        npm_build_passed
+        preview_reachable
+        playwright_verification_passed
+      ].any? do |key|
         workspace_validation[key] == false
       end
 

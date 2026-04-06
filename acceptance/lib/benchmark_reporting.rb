@@ -130,7 +130,7 @@ module Acceptance
         host_validation.dig("npm_test", "success"),
         host_validation.dig("npm_build", "success"),
         host_validation.dig("preview_http", "status") == 200,
-        playwright_validation["result"].present?,
+        Acceptance::HostValidation.playwright_result_available?(playwright_validation),
       ].any?
 
       return "partial" if generated_app_dir.exist? || runtime_progress || host_progress
