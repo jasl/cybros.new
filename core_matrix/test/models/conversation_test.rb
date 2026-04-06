@@ -71,6 +71,51 @@ class ConversationTest < ActiveSupport::TestCase
     assert user_locked_conversation.summary_locked?
   end
 
+  test "rejects invalid title_source" do
+    conversation = build_conversation(title_source: "invalid_source")
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:title_source], "is not included in the list"
+  end
+
+  test "rejects invalid summary_source" do
+    conversation = build_conversation(summary_source: "invalid_source")
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:summary_source], "is not included in the list"
+  end
+
+  test "rejects invalid title_lock_state" do
+    conversation = build_conversation(title_lock_state: "invalid_lock_state")
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:title_lock_state], "is not included in the list"
+  end
+
+  test "rejects invalid summary_lock_state" do
+    conversation = build_conversation(summary_lock_state: "invalid_lock_state")
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:summary_lock_state], "is not included in the list"
+  end
+
+  test "defaults metadata sources and lock states on new and persisted conversation" do
+    conversation = build_conversation
+
+    assert_equal "none", conversation.title_source
+    assert_equal "none", conversation.summary_source
+    assert_equal "unlocked", conversation.title_lock_state
+    assert_equal "unlocked", conversation.summary_lock_state
+
+    conversation.save!
+    conversation.reload
+
+    assert_equal "none", conversation.title_source
+    assert_equal "none", conversation.summary_source
+    assert_equal "unlocked", conversation.title_lock_state
+    assert_equal "unlocked", conversation.summary_lock_state
+  end
+
   private
 
   def build_conversation(attributes = {})
