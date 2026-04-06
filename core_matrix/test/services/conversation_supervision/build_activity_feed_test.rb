@@ -1,6 +1,8 @@
 require "test_helper"
 
 class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
+  include ConversationSupervisionFixtureBuilder
+
   test "returns the active turn feed when the conversation has active work" do
     context = build_agent_control_context!
     create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_todo_item_started", summary: "Started the board projection.")
@@ -20,6 +22,17 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
 
     assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
     assert_equal ["turn_completed"], feed.map { |entry| entry.fetch("event_kind") }
+  end
+
+  test "keeps the supervision feed surface while using semantic fallback summaries for provider-backed work" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+
+    feed = ConversationSupervision::BuildActivityFeed.call(conversation: fixture.fetch(:conversation))
+
+    assert feed.any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_includes feed.map { |entry| entry.fetch("summary") },
+      "Started waiting for the test-and-build check in /workspace/game-2048."
+    refute_match(/provider round|command_run_wait|exec_command/i, feed.to_json)
   end
 
   private

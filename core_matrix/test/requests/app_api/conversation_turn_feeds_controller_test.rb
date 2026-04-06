@@ -43,5 +43,8 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
 
     body = JSON.parse(response.body)
     assert body.fetch("items").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_includes body.fetch("items").map { |entry| entry.fetch("summary") },
+      "Started waiting for the test-and-build check in /workspace/game-2048."
+    refute_match(/provider round|command_run_wait|exec_command/i, body.to_json)
   end
 end

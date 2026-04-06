@@ -350,15 +350,30 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "running", state.overall_state
     assert_equal "workflow_run", state.current_owner_kind
     assert state.request_summary.present?
-    assert state.current_focus_summary.present?
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048", state.current_focus_summary
+    assert_match(/test run|test-and-build check/i, state.recent_progress_summary)
     current_turn_plan_summary = state.status_payload.fetch("current_turn_plan_summary")
+    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
+
     assert current_turn_plan_summary.fetch("turn_todo_plan_id").present?
     assert current_turn_plan_summary.fetch("current_item_key").present?
     assert_equal fixture.fetch(:turn).public_id, current_turn_plan_summary.fetch("turn_id")
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048",
+      current_turn_plan_summary.fetch("current_item_title")
+    assert_equal "command_wait", runtime_focus_hint.fetch("kind")
+    assert_equal "waiting for the test-and-build check in /workspace/game-2048",
+      runtime_focus_hint.fetch("summary")
+    assert_equal fixture.fetch(:active_command_run).public_id,
+      runtime_focus_hint.fetch("command_run_public_id")
+    refute_match(/provider round|command_run_wait|exec_command/i, state.current_focus_summary)
+    refute_match(/provider round|command_run_wait|exec_command/i, state.recent_progress_summary)
 
     feed = ConversationSupervision::BuildActivityFeed.call(conversation: fixture.fetch(:conversation))
 
     assert feed.any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_includes feed.map { |entry| entry.fetch("summary") },
+      "Started waiting for the test-and-build check in /workspace/game-2048."
+    refute_match(/provider round|command_run_wait|exec_command/i, feed.to_json)
   end
 
   test "projects idle with last terminal completed when the previous run finished and nothing is active" do

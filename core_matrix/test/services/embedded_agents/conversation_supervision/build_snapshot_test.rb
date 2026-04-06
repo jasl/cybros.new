@@ -152,8 +152,21 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert primary_turn_todo_plan_view.fetch("current_item_key").present?
     assert primary_turn_todo_plan_view.dig("current_item", "title").present?
     assert_equal fixture.fetch(:turn).public_id, primary_turn_todo_plan_view.fetch("turn_id")
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048",
+      primary_turn_todo_plan_view.dig("current_item", "title")
     assert bundle.fetch("turn_feed").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
     assert_equal primary_turn_todo_plan_view,
       snapshot.machine_status_payload.fetch("primary_turn_todo_plan_view")
+    assert_equal(
+      {
+        "kind" => "command_wait",
+        "summary" => "waiting for the test-and-build check in /workspace/game-2048",
+        "command_run_public_id" => fixture.fetch(:active_command_run).public_id,
+      },
+      snapshot.machine_status_payload.fetch("runtime_focus_hint").slice("kind", "summary", "command_run_public_id")
+    )
+    assert_match(/test run|test-and-build check/i,
+      snapshot.machine_status_payload.fetch("recent_progress_summary"))
+    refute_match(/provider round|command_run_wait|exec_command/i, snapshot.machine_status_payload.to_json)
   end
 end

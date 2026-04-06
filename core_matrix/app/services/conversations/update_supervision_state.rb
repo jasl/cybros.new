@@ -182,6 +182,7 @@ module Conversations
       return unless detailed_progress_enabled?
 
       current_task_progress_entry&.summary ||
+        runtime_focus_hint&.fetch("recent_progress_summary", nil) ||
         workflow_turn_todo_latest_summary ||
         current_task_run&.recent_progress_summary ||
         active_conversation_subagent_session&.recent_progress_summary ||
@@ -194,6 +195,7 @@ module Conversations
       return unless detailed_progress_enabled?
 
       return humanized_subagent_barrier_summary if workflow_run&.waiting_on_subagent_barrier?
+      return runtime_focus_hint&.fetch("waiting_summary", nil) if workflow_run&.waiting? && runtime_focus_hint&.fetch("waiting_summary", nil).present?
       return current_task_run&.waiting_summary if current_task_run&.waiting_summary.present?
       return active_conversation_subagent_session&.waiting_summary if active_conversation_subagent_session&.waiting_summary.present?
       return active_owned_subagent_sessions.filter_map(&:waiting_summary).first if workflow_run&.waiting?
@@ -277,6 +279,7 @@ module Conversations
 
       {
         "current_turn_plan_summary" => current_turn_plan_summary,
+        "runtime_focus_hint" => runtime_focus_hint,
         "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
         "active_subagents" => active_subagent_payloads,
         "latest_progress_entry" => latest_progress_entry_payload,
@@ -469,6 +472,10 @@ module Conversations
 
     def workflow_turn_todo_plan_summary
       workflow_turn_todo_projection.fetch("plan_summary")
+    end
+
+    def runtime_focus_hint
+      workflow_turn_todo_projection.fetch("runtime_focus_hint", nil)
     end
 
     def workflow_turn_todo_latest_summary

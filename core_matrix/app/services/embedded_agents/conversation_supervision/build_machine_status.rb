@@ -26,6 +26,7 @@ module EmbeddedAgents
           "request_summary" => @conversation_supervision_state.request_summary,
           "current_focus_summary" => @conversation_supervision_state.current_focus_summary,
           "recent_progress_summary" => @conversation_supervision_state.recent_progress_summary,
+          "runtime_focus_hint" => @conversation_supervision_state.status_payload["runtime_focus_hint"],
           "waiting_summary" => @conversation_supervision_state.waiting_summary,
           "blocked_summary" => @conversation_supervision_state.blocked_summary,
           "next_step_hint" => @conversation_supervision_state.next_step_hint,

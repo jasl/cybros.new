@@ -277,7 +277,7 @@ module ConversationSupervisionFixtureBuilder
       provider_round_index: 1,
       metadata: {}
     )
-    exec_command_call = JsonDocuments::Store.call(
+    completed_tool_call = JsonDocuments::Store.call(
       installation: context.fetch(:installation),
       document_kind: "workflow_node_tool_call",
       payload: {
@@ -285,7 +285,7 @@ module ConversationSupervisionFixtureBuilder
         "tool_name" => "exec_command",
       }
     )
-    create_workflow_node!(
+    completed_tool_node = create_workflow_node!(
       workflow_run: context.fetch(:workflow_run),
       installation: context.fetch(:installation),
       node_key: "provider_round_1_tool_1",
@@ -295,11 +295,20 @@ module ConversationSupervisionFixtureBuilder
       finished_at: 70.seconds.ago,
       presentation_policy: "ops_trackable",
       decision_source: "agent_program",
-      tool_call_document: exec_command_call,
+      tool_call_document: completed_tool_call,
       provider_round_index: 1,
       metadata: {}
     )
-    current_node = create_workflow_node!(
+    completed_tool_execution = create_exec_command_execution!(
+      context: context,
+      workflow_node: completed_tool_node,
+      command_line: "cd /workspace/game-2048 && npm test",
+      tool_status: "succeeded",
+      command_state: "completed",
+      started_at: 80.seconds.ago,
+      finished_at: 70.seconds.ago
+    )
+    planning_node = create_workflow_node!(
       workflow_run: context.fetch(:workflow_run),
       installation: context.fetch(:installation),
       node_key: "provider_round_2",
@@ -310,6 +319,38 @@ module ConversationSupervisionFixtureBuilder
       decision_source: "agent_program",
       provider_round_index: 2,
       metadata: {}
+    )
+    active_tool_node = create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2_tool_1",
+      node_type: "tool_call",
+      lifecycle_state: "running",
+      started_at: 20.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      metadata: {}
+    )
+    active_tool_execution = create_exec_command_execution!(
+      context: context,
+      workflow_node: active_tool_node,
+      command_line: "cd /workspace/game-2048 && npm test && npm run build",
+      tool_status: "running",
+      command_state: "running",
+      started_at: 20.seconds.ago
+    )
+    active_tool_node.update!(
+      tool_call_document: JsonDocuments::Store.call(
+        installation: context.fetch(:installation),
+        document_kind: "workflow_node_tool_call",
+        payload: {
+          "call_id" => "call-#{next_test_sequence}",
+          "tool_name" => "command_run_wait",
+          "command_run_public_id" => active_tool_execution.fetch(:command_run).public_id,
+          "command_summary" => "the test-and-build check in /workspace/game-2048",
+        }
+      )
     )
     policy = ConversationCapabilityPolicy.create!(
       installation: context.fetch(:installation),
@@ -328,8 +369,87 @@ module ConversationSupervisionFixtureBuilder
 
     context.merge(
       workflow_run: context.fetch(:workflow_run).reload,
-      workflow_node: current_node.reload,
-      policy: policy
+      workflow_node: active_tool_node.reload,
+      planning_node: planning_node.reload,
+      completed_tool_node: completed_tool_node.reload,
+      completed_command_run: completed_tool_execution.fetch(:command_run).reload,
+      active_tool_node: active_tool_node.reload,
+      active_command_run: active_tool_execution.fetch(:command_run).reload,
+      policy: policy,
     )
+  end
+
+  def create_exec_command_execution!(context:, workflow_node:, command_line:, tool_status:, command_state:, started_at:, finished_at: nil)
+    tool_definition = ToolDefinition.find_or_create_by!(
+      installation: context.fetch(:installation),
+      agent_program_version: context.fetch(:deployment),
+      tool_name: "exec_command"
+    ) do |definition|
+      definition.tool_kind = "function"
+      definition.governance_mode = "reserved"
+      definition.policy_payload = {}
+    end
+    implementation_source = ImplementationSource.find_or_create_by!(
+      installation: context.fetch(:installation),
+      source_kind: "kernel",
+      source_ref: "core_matrix.exec_command.shared"
+    ) do |source|
+      source.metadata = {}
+    end
+    tool_implementation = ToolImplementation.find_or_create_by!(
+      installation: context.fetch(:installation),
+      tool_definition: tool_definition,
+      implementation_ref: "core_matrix.exec_command.shared"
+    ) do |implementation|
+      implementation.implementation_source = implementation_source
+      implementation.idempotency_policy = "idempotent"
+      implementation.default_for_snapshot = true
+      implementation.input_schema = {}
+      implementation.result_schema = {}
+      implementation.metadata = {}
+    end
+    tool_binding = ToolBinding.find_or_create_by!(
+      installation: context.fetch(:installation),
+      workflow_node: workflow_node,
+      tool_definition: tool_definition
+    ) do |binding|
+      binding.tool_implementation = tool_implementation
+      binding.binding_reason = "snapshot_default"
+      binding.runtime_state = {}
+    end
+    tool_invocation = ToolInvocation.create!(
+      installation: context.fetch(:installation),
+      workflow_node: workflow_node,
+      tool_binding: tool_binding,
+      tool_definition: tool_definition,
+      tool_implementation: tool_implementation,
+      attempt_no: tool_binding.tool_invocations.count + 1,
+      status: tool_status,
+      request_payload: {},
+      response_payload: {},
+      error_payload: {},
+      metadata: {},
+      started_at: started_at,
+      finished_at: finished_at
+    )
+    command_run = CommandRun.create!(
+      installation: context.fetch(:installation),
+      workflow_node: workflow_node,
+      tool_invocation: tool_invocation,
+      command_line: command_line,
+      lifecycle_state: command_state,
+      metadata: {},
+      started_at: started_at,
+      ended_at: finished_at,
+      exit_status: (command_state == "completed" ? 0 : nil)
+    )
+
+    {
+      tool_definition: tool_definition,
+      tool_implementation: tool_implementation,
+      tool_binding: tool_binding,
+      tool_invocation: tool_invocation,
+      command_run: command_run,
+    }
   end
 end
