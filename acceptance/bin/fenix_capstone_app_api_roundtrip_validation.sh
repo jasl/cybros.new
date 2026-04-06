@@ -19,7 +19,9 @@ export CAPSTONE_RUNTIME_WORKER_BOOT_PATH="${RUNTIME_WORKER_BOOT_PATH}"
 bash "${SCRIPT_DIR}/fresh_start_stack.sh"
 
 cd "${CORE_MATRIX_ROOT}"
-CAPSTONE_PHASE=bootstrap bin/rails runner "${REPO_ROOT}/acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb"
+CAPSTONE_PHASE=bootstrap \
+CAPSTONE_SKIP_BACKEND_RESET=true \
+bin/rails runner "${REPO_ROOT}/acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb"
 
 machine_credential="$(
   ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("machine_credential")' \

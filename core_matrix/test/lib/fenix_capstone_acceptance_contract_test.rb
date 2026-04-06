@@ -77,6 +77,14 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, '"runtime_source_path"'
   end
 
+  test "shell-driven capstone skips redundant backend reset during bootstrap" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    shell_script = Rails.root.join("../acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh").read
+
+    assert_includes scenario, 'ENV["CAPSTONE_SKIP_BACKEND_RESET"]'
+    assert_includes shell_script, "CAPSTONE_SKIP_BACKEND_RESET=true"
+  end
+
   test "clean benchmark runs do not emit false failure categories" do
     helper = Rails.root.join("../acceptance/lib/benchmark_reporting.rb").read
 

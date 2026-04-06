@@ -440,7 +440,7 @@ module ManualAcceptanceSupport
 
   def reconnect_application_record!
     ApplicationRecord.establish_connection
-    ApplicationRecord.connection
+    ApplicationRecord.with_connection(&:active?)
   end
 
   def wait_for_agent_task_terminal!(agent_task_run:, timeout_seconds: 10, poll_interval_seconds: 0.1)

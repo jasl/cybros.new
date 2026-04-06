@@ -100,6 +100,21 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal Rails.root.to_s, captured.fetch(:kwargs).fetch(:chdir)
   end
 
+  test "reconnect_application_record! re-establishes and checks out through with_connection" do
+    calls = []
+
+    with_redefined_singleton_method(ApplicationRecord, :establish_connection, -> { calls << :establish }) do
+      with_redefined_singleton_method(ApplicationRecord, :with_connection, lambda { |&block|
+        calls << :with_connection
+        block.call(Struct.new(:active?).new(true))
+      }) do
+        ManualAcceptanceSupport.reconnect_application_record!
+      end
+    end
+
+    assert_equal [:establish, :with_connection], calls
+  end
+
   test "register_external_runtime! returns the execution machine credential from the registration payload" do
     registration_calls = []
     heartbeat_calls = []

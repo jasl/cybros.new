@@ -709,7 +709,9 @@ when "bootstrap"
   FileUtils.mkdir_p(artifact_dir)
   FileUtils.rm_rf(generated_app_dir)
 
-  ManualAcceptanceSupport.reset_backend_state!
+  unless ActiveModel::Type::Boolean.new.cast(ENV["CAPSTONE_SKIP_BACKEND_RESET"])
+    ManualAcceptanceSupport.reset_backend_state!
+  end
   bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
   bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
     installation: bootstrap.installation,
