@@ -13,10 +13,8 @@ built-in home for every memory, knowledge, or web capability.
 
 ## Current Status
 
-The current active batch is `Agent Loop Execution`.
-
-Milestones A through F are now landed in the current agent-loop workspace,
-including the post-Milestone-C breadth and acceptance batch:
+The current kernel baseline includes the full agent-loop execution stack plus
+the April 2026 supervision/runtime rebuild:
 
 - conversation feature policy and durable stale-work safety
 - workflow-owned wait, human-interaction, and subagent handoff
@@ -24,6 +22,9 @@ including the post-Milestone-C breadth and acceptance batch:
 - one governed Streamable HTTP MCP path
 - bundled and external `Fenix` runtime plus skill validation flows
 - workflow proof export and acceptance harness coverage
+- turn-todo-backed supervision and canonical supervision feeds
+- canonical turn runtime event streams for app/review surfaces
+- plan-first supervision fallbacks plus replayable supervision evaluation dumps
 
 The baseline operator checklist for the manual acceptance pass is:
 
@@ -37,7 +38,10 @@ Current authoritative project documents:
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 - Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md`
 - Multi-round audit/reset framework: `../docs/plans/2026-04-03-multi-round-architecture-audit-and-reset-framework.md`
+- Runtime/supervision closeout record: `../docs/finished-plans/2026-04-07-fenix-runtime-supervision-ui-implementation.md`
+- Plan-first supervision closeout record: `../docs/finished-plans/2026-04-07-plan-first-supervision-rebuild.md`
 - Active plan index: `../docs/plans/README.md`
+- Proposed app-facing UI contract: `../docs/proposed-designs/2026-04-06-fenix-app-ui-contract.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Provider-backed capstone checklist: `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`

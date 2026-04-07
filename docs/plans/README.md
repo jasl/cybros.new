@@ -2,7 +2,7 @@
 
 This directory contains active execution plans for `core_matrix`.
 
-## Current Status (`2026-04-04`)
+## Current Status (`2026-04-08`)
 
 The current active planning documents in this directory are:
 
@@ -11,6 +11,7 @@ The current active planning documents in this directory are:
 - [2026-04-03-round-1-architecture-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-reset.md)
 - [2026-04-03-recoverable-failure-step-resume-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-design.md)
 - [2026-04-03-recoverable-failure-step-resume-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-implementation.md)
+- [2026-04-06-fenix-cowork-roadmap-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-06-fenix-cowork-roadmap-design.md)
 
 Practical state:
 
@@ -20,6 +21,11 @@ Practical state:
 - Current acceptance runs now execute through the top-level
   [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
   not the old `core_matrix/script/manual/acceptance` path.
+- The completed April supervision and `2048` acceptance execution plans were
+  archived to
+  [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
+- The current app-facing runtime/supervision contract draft lives in
+  [docs/proposed-designs](/Users/jasl/Workspaces/Ruby/cybros/docs/proposed-designs/README.md).
 
 Earlier execution plans, implementation records, and accepted reset designs
 were archived to

@@ -38,6 +38,13 @@ cd /Users/jasl/Workspaces/Ruby/cybros
 bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
 ```
 
+Replay the supervision review surfaces from an existing evaluation bundle:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/replay_supervision_eval.sh /absolute/path/to/review/supervision-eval-bundle.json
+```
+
 `acceptance/Gemfile` reserves a dedicated top-level home for the harness, but
 the supported execution path currently goes through `core_matrix/bin/rails`
 so the acceptance scripts reuse the product Rails environment directly.
