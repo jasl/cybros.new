@@ -2,710 +2,486 @@
 
 ## Goal
 
-Define one app-facing contract for `Fenix` that supports both product styles
-without splitting the execution model:
+Define one durable app-facing contract for `Fenix` that supports:
 
-- `Cowork mode` as the default product style
-- `Verbose mode` as a developer-facing inspection style
+- cowork-facing progress visibility
+- verbose developer inspection
+- supervision sidechat and status summaries
+- acceptance and replayable evaluation artifacts
 
-The contract is built on two orthogonal read models:
-
-- one canonical linear per-turn runtime event stream
-- one canonical supervision read model for "what is happening now"
-
-Everything else is a renderer over those two models plus the conversation
-transcript and artifact metadata.
+without coupling `Core Matrix` to agent business semantics.
 
 ## Why This Revision Exists
 
-The previous draft was directionally right but still too loose around
-supervision.
+The current implementation proved that runtime facts, plan updates, workflow
+state, and conversation context are all available. The weak point is not
+missing data. The weak point is the semantic boundary.
 
-The `2048` acceptance bundle now proves that runtime facts, command metadata,
-plan state, and validation milestones already exist in durable form. The weak
-point is not missing evidence. The weak point is that human-visible supervision
-sometimes falls back to low-information labels such as:
+Today, `Core Matrix` sometimes tries to infer user-facing business meaning from
+runtime details such as:
 
 - `provider round 6`
 - `command_run_wait`
-- raw tool names
+- `npm test`
+- `npm install -g`
+- `React app`
+- `game files`
 
-That is a contract problem, not a renderer polish problem.
+That approach does not scale. It overfits the `2048` acceptance benchmark and
+violates the product boundary:
 
-We need one design that explains:
+- `Agent Program` knows the task semantics
+- `Core Matrix` knows the runtime, the conversation, and the durable state
 
-- how a turn becomes a linear UI story
-- how supervision stays semantic instead of replaying internal runtime labels
-- how cowork and verbose renderers share the same substrate
-- how to remove compatibility baggage instead of layering more adapters
+This contract replaces runtime-first semantic guessing with plan-first
+supervision.
 
-## Product Decisions
+## Responsibility Split
 
-- `Cowork mode` is the default app experience.
-- `Verbose mode` is an alternate renderer, not a second backend model.
-- Supervision remains a first-class surface and is not derived from ad hoc
-  transcript parsing.
-- Runtime detail should be inspectable without flooding the main transcript.
-- This revision assumes breaking cleanup is allowed. Do not preserve old
-  observation-era UI contracts for the new app-facing model.
+### Agent Program Responsibilities
+
+The `Agent Program` runs inside `Core Matrix` and is optional at every semantic
+boundary except one:
+
+- it may emit `turn_todo_plan_update`
+
+That is the only additional transparency interface this contract requires for
+high-quality supervision.
+
+`turn_todo_plan_update` is optional, not mandatory. If it is missing, the
+system must still provide coarse supervision using runtime and lifecycle data.
+
+The `Agent Program` must not be required to emit extra supervision-only fields
+such as:
+
+- `active_form`
+- `progress_summary`
+- `waiting_on`
+- sidechat-specific text
+
+Those remain derived concerns owned by `Core Matrix`.
+
+### Core Matrix Responsibilities
+
+`Core Matrix` owns:
+
+- turn execution
+- workflow and runtime evidence
+- persisted turn todo plans and plan feed
+- safe reusable main-thread context
+- supervision snapshots
+- prompt payload construction
+- acceptance and replay evaluation dumps
+
+This means `Core Matrix` must derive user-facing supervision from durable
+inputs it already owns, not by asking the `Agent Program` for extra product
+copy.
 
 ## Hard Rules
 
-- Do not invent a second execution-state domain just to support a different UI
-  style.
-- Do not let `workflow_node_key`, provider round labels, raw tool names, or
-  wait-state tokens become default human-visible text.
-- Do not build sidechat directly from raw transcript text or raw runtime event
-  names.
-- Do not make acceptance markdown files themselves the product API.
-- Do not keep compatibility shims in the new app-facing contract just because
-  old payloads existed.
+- Do not encode benchmark-specific or business-specific semantics in
+  `Core Matrix`.
+- Do not infer product meaning from framework names, package manager commands,
+  or tool-specific strings.
+- Do not require more than `turn_todo_plan_update` for agent-side transparency.
+- Do not assume `turn_todo_plan_update` always exists.
+- Do not let raw workflow labels, provider rounds, snake_case tool names, or
+  wait tokens become default human-visible text.
+- Do not use acceptance markdown artifacts as the product API.
+- Do not preserve compatibility shims for the heuristic supervision path.
 - Use `public_id` at every app-facing boundary.
 
 ## Canonical Read Models
 
-The app should expose five app-facing read models. Only two of them are new
-core execution projections.
+The app exposes four durable read models:
 
 ### 1. Transcript View
 
 Purpose:
 
-- user-facing conversation transcript
-- assistant delivery messages
-- approval / clarification asks
-- concise work-summary insertions when product wants them
+- user-visible messages
+- approvals and clarifications
+- final assistant delivery
 
-This is the main conversation surface, not the runtime truth.
+Transcript is not runtime truth and not supervision truth.
 
 ### 2. Turn Event Stream
 
 Purpose:
 
-- linear "what happened inside this turn" projection
-- lane-aware, phase-aware, renderable in both cowork and verbose modes
+- linear story of what happened inside a turn
+- cowork and verbose rendering
+- replayable evaluation inputs
 
-This is the canonical execution-story model for a single turn.
+This is chronology, not meaning.
 
 ### 3. Supervision View
 
 Purpose:
 
-- current work
-- recent meaningful change
-- blocker / waiting state
-- active subagents
-- current turn todo plan
-- recent feed
-- sidechat-ready semantic grounding
-
-This is the canonical "what is happening now" model.
-
-### 4. Artifact and Validation View
-
-Purpose:
-
-- changed files
-- exports / debug exports
-- playable preview state
-- host validation results
-- artifact availability
-
-### 5. Debug View
-
-Purpose:
-
-- low-level runtime evidence
-- raw ids and payload refs
-- exact workflow node keys
-- exact commands and process metadata
-- evidence joins for developer inspection
-
-This remains separate from cowork-facing surfaces.
-
-## Capability Consolidation
-
-This revision is not only a wording cleanup. It is a consolidation plan for
-existing app-facing execution visibility.
-
-The target shape is:
-
-- one canonical `TurnEventStream` for linear turn-internal runtime story
-- one canonical `SupervisionView` for current-state semantics
-- transcript and debug staying separate instead of leaking into those models
-
-### Existing Surfaces That Should Collapse Into `TurnEventStream`
-
-These surfaces are currently overlapping runtime projections and should become
-renderers or APIs backed by the same event stream:
-
-- acceptance runtime transcript generation
-- acceptance live progress feed generation
-- artifact runtime summaries that currently re-derive activity wording
-- provider-backed fallback feed synthesis when no persisted turn todo plan exists
-
-The key cleanup rule is:
-
-- keep the underlying facts
-- remove duplicate humanization layers
-- stop letting each surface invent its own runtime wording
-
-### Existing Surfaces That Should Collapse Into `SupervisionView`
-
-These surfaces are currently different renderings of "what is happening now"
-and should share one semantic source:
-
-- machine-status payload fields such as `current_focus_summary`,
-  `recent_progress_summary`, `waiting_summary`, and `next_step_hint`
-- sidechat responses
-- human summary responses
-- board-card current-status summaries
-- app-facing conversation turn feed listing
-- provider-backed fallback current-work summaries
-- subagent current-progress summaries used in supervision payloads
-
-The key cleanup rule is:
-
-- sidechat and status summaries should consume semantic supervision fields
-- semantic supervision fields may use runtime hints
-- human-visible supervision must not read directly from raw workflow or tool
-  labels
-
-### Surfaces That Must Stay Separate
-
-The following are still first-class but should not be merged into the same
-model:
-
-- transcript messages stay transcript messages
-- debug and verbose evidence keep exact refs, raw labels, and exact commands
-- acceptance markdown files are validation artifacts, not the product API
-
-This means the new contract should remove duplication at the projection layer
-without collapsing user conversation, supervision, and developer debugging into
-one payload.
-
-## Core Architecture
-
-The app should treat execution visibility as two linked but distinct layers.
-
-### Layer A: Linear Turn Runtime Projection
-
-This answers:
-
-- what happened during this turn
-- in what order
-- on which lane
-- with what user-safe summary
-
-It is optimized for replayability and inspection.
-
-### Layer B: Semantic Supervision Projection
-
-This answers:
-
-- what is happening right now
+- what is happening now
 - what changed most recently
 - what is being waited on
 - what the active plan currently is
+- what active subagents are doing
 
-It is optimized for current-state visibility and natural-language answering.
+This is the semantic current-state model.
 
-### Relationship Between Them
+### 4. Debug View
 
-- supervision may consume semantic hints from the turn event stream
-- supervision must not become a thin wrapper over raw event labels
-- runtime panels may show more detail than supervision
-- verbose mode may expose exact commands and event refs
-- cowork mode should prefer semantic summaries over execution labels
+Purpose:
 
-That separation is the maintainability boundary:
+- exact command lines
+- raw workflow node refs
+- exact tool and process metadata
+- diagnostic joins for developer inspection
 
-- `TurnEventStream` owns inside-the-turn chronology
-- `SupervisionView` owns current-state meaning
-- transcript owns user-visible conversation delivery
-- debug owns exact runtime evidence and unsafe-or-noisy internals
+Debug data remains separate from cowork-facing surfaces.
 
-## Canonical Turn Event Stream
+## Plan-First Supervision
+
+### Primary Principle
+
+Human-visible supervision is anchored to the active plan item, not to the
+currently executing runtime operation.
+
+When a plan exists, the default semantic ladder is:
+
+1. active `TurnTodoPlanItem`
+2. recent plan transition feed
+3. safe reusable main-thread context
+4. generic runtime evidence
+5. coarse lifecycle fallback
+
+When no plan exists, the fallback ladder is:
+
+1. generic runtime evidence
+2. conversation request summary
+3. safe reusable main-thread context
+4. coarse lifecycle fallback
+
+### Why This Works
+
+This follows the strongest lessons from successful predecessors:
+
+- Codex treats plan updates as first-class turn events
+- Claude treats the current todo item as the best current-work anchor
+- both systems keep runtime evidence available without making it the primary
+  semantic source
+
+### Plan Quality Requirements
+
+For plan-first supervision to work well, `turn_todo_plan_update` must obey
+these constraints:
+
+- `goal_summary` is always present
+- at most one item is `in_progress`
+- `title` is written as a human task, not as a tool token or workflow label
+- status transitions are accurate
+
+This is a quality requirement on the single plan interface, not a request for
+additional agent-side interfaces.
+
+## Turn Event Stream
 
 ### Purpose
 
-`TurnEventStream` is the single app-facing projection for turn-internal work.
+`TurnEventStream` is the canonical ordered runtime story for a turn. It is used
+for:
 
-It should replace ad hoc mixtures of:
-
-- transcript snippets
-- raw workflow node humanization
-- runtime panel-specific formatting
-- sidechat-specific special cases
+- runtime transcript rendering
+- live progress feed rendering
+- replay dumps
+- verbose inspection
 
 ### Source Inputs
 
 The stream may derive from:
 
-- conversation messages
-- `TurnTodoPlan` / `TurnTodoPlanItem` views
-- canonical `turn_feed`
 - workflow node lifecycle
 - tool invocations
 - command runs
 - process runs
+- plan feed entries
 - subagent session updates
-- supervision snapshots when they materially affect the story
-- host validation milestones
+- validation milestones
 - artifact publication milestones
 
-### Required Event Shape
+### Constraints
 
-Every event should support these fields where applicable:
+- event families must be generic
+- event wording must be safe and tool-neutral by default
+- debug refs may be attached, but not required for cowork rendering
+- this stream must not invent business semantics
 
-- `event_public_id`
-- `sequence`
-- `timestamp`
-- `conversation_public_id`
-- `turn_public_id`
-- `actor_type`
-- `actor_label`
-- `actor_public_id`
-- `phase`
-- `family`
-- `kind`
-- `status`
-- `summary`
-- `detail`
-- `source_refs`
+Good examples:
 
-Execution-linked refs may additionally include:
+- `Started a shell command in /workspace/foo`
+- `A process is still running in /workspace/foo`
+- `Plan item completed: Add replay dump export`
 
-- `workflow_run_public_id`
-- `workflow_node_public_id`
-- `workflow_node_key`
-- `workflow_node_ordinal`
-- `tool_invocation_public_id`
-- `command_run_public_id`
-- `process_run_public_id`
-- `subagent_session_public_id`
+Bad examples:
 
-UI-oriented semantic hints may additionally include:
+- `Started the React app`
+- `Edited game files`
+- `Running npm test`
+- `Advancing provider round 6`
 
-- `work_type`
-- `goal_summary`
-- `safe_focus_summary`
-- `safe_progress_summary`
-- `wait_reason_summary`
-- `next_step_hint`
-- `command_summary`
-- `path_summary`
-- `user_visible`
-
-### Event Families
-
-Minimum families:
-
-1. `conversation_message`
-2. `runtime_progress`
-3. `tool_activity`
-4. `command_activity`
-5. `process_activity`
-6. `subagent_progress`
-7. `supervision_update`
-8. `host_validation`
-9. `artifact_update`
-
-### Semantic Enrichment Rules
-
-This is where the current system is still too weak.
-
-The event stream must carry user-safe summaries in addition to exact runtime
-refs.
-
-#### Provider rounds
-
-- provider round labels are classification hints only
-- they must not be the primary cowork or sidechat wording
-- an enriched event should prefer request-oriented wording such as:
-  - `Implementing the 2048 app`
-  - `Checking the test run`
-  - `Preparing the final validation step`
-
-#### Tool activity
-
-- raw tool names may exist in debug refs
-- cowork-visible summaries should describe the purpose of the work
-- `command_run_wait` is not a user-facing activity description
-
-#### Commands
-
-Commands should produce both:
-
-- exact command metadata for verbose/debug
-- a safe command summary for cowork/supervision
-
-Examples:
-
-- exact: ``cd /workspace/game-2048 && npm test && npm run build``
-- safe summary: `running the test-and-build check in /workspace/game-2048`
-
-The safe summary should prefer classification over raw shell when possible:
-
-- scaffold project
-- edit files
-- run tests
-- run build
-- start preview server
-- inspect workspace
-- wait for command to finish
-
-When the exact command is short, low-risk, and explanatory, verbose mode may
-show it directly. Cowork and supervision should default to the safe summary.
-
-#### Processes
-
-Process events should expose:
-
-- purpose
-- workspace path
-- current lifecycle
-
-Example:
-
-- cowork/supervision: `preview server is starting in /workspace/game-2048`
-- verbose/debug: exact `npm run preview`
-
-## Canonical Supervision View
+## Safe Reusable Main-Thread Context
 
 ### Purpose
 
-`SupervisionView` is the stable read model for current-state answering.
+Supervision needs compact, reusable context that survives across snapshots and
+can be safely passed to a responder prompt.
 
-It should be reconstructible from durable runtime rows and existing
-projections. It is not a second execution domain and it is not a transcript
-parser.
+This context is owned by `Core Matrix` and extracted from the main
+conversation. It is not requested from the `Agent Program`.
 
-### Source Inputs
+### Principle Absorbed From Claude `/btw`
 
-`SupervisionView` should derive from:
+Claude's `/btw` succeeds because it answers from a safe slice of the main
+thread context rather than from raw runtime internals. We should absorb that
+principle, not copy the product surface literally.
 
-- `ConversationSupervisionState`
-- `primary_turn_todo_plan_view`
-- `active_subagent_turn_todo_plan_views`
-- canonical `turn_feed`
-- active `CommandRun` / `ProcessRun` references when relevant
-- recent semantic hints from `TurnEventStream`
-- conversation facts / request summary
+In `Core Matrix`, the equivalent should be:
 
-### Required Shape
+- derive from `Conversations::ContextProjection`
+- use a bounded recent window
+- remove raw in-progress runtime noise
+- keep only safe reusable snippets
 
-Minimum fields:
+### Shape
+
+The context model should prefer snippets over synthesized business claims.
+
+Recommended fields:
+
+```json
+{
+  "message_ids": ["msg_123"],
+  "turn_ids": ["turn_123"],
+  "snippets": [
+    {
+      "message_id": "msg_123",
+      "turn_id": "turn_123",
+      "role": "user",
+      "slot": "input",
+      "excerpt": "Please rebuild supervision around the active plan item.",
+      "keywords": ["rebuild", "supervision", "active", "plan", "item"]
+    }
+  ]
+}
+```
+
+### Constraints
+
+- do not hardcode benchmark-specific summaries such as `2048 acceptance flow`
+- do not hardcode generic template summaries such as `Context already references ...`
+- do not promote one snippet into a business claim inside the context builder
+- let the responder prompt decide how to use the snippets
+
+## Runtime Evidence
+
+### Purpose
+
+Runtime evidence is the structured proof layer used when supervision needs to
+justify waiting, blocking, or recent activity.
+
+It exists to answer:
+
+- is something currently running
+- what kind of runtime object is active
+- where is it happening
+- did something recently fail or finish
+
+It does not exist to answer what the task means.
+
+### Recommended Shape
+
+```json
+{
+  "active_command": {
+    "command_run_public_id": "cmd_123",
+    "cwd": "/workspace/foo",
+    "command_preview": "npm test && npm run build",
+    "lifecycle_state": "running",
+    "started_at": "2026-04-07T10:00:00Z"
+  },
+  "active_process": null,
+  "recent_failure": null,
+  "workflow_wait_state": "waiting"
+}
+```
+
+### Constraints
+
+- no framework-specific business labels
+- no package-manager-specific product meaning
+- no benchmark-specific nouns
+- safe command preview may exist, but exact command line belongs to `DebugView`
+
+## Supervision View
+
+### Required Fields
+
+`SupervisionView` should expose:
 
 - `overall_state`
-- `current_work_summary`
-- `recent_progress_summary`
-- `waiting_summary`
-- `blocked_summary`
-- `next_step_hint`
+- `request_summary`
 - `primary_turn_todo_plan_view`
 - `active_subagent_turn_todo_plan_views`
-- `turn_feed`
-- `runtime_focus_hint`
-- `grounding`
+- `recent_plan_transitions`
+- `context_snippets`
+- `runtime_evidence`
+- `blocked_summary`
+- `next_step_hint`
+
+### Derived Human-Visible Fields
 
-`runtime_focus_hint` is important. It should capture the current concrete
-execution subject when the plan alone is too abstract, for example:
+The current persisted fields may remain for now:
 
-- active command summary
-- active process summary
-- active host validation step
+- `current_focus_summary`
+- `recent_progress_summary`
+- `waiting_summary`
+- `next_step_hint`
+
+But they should become derived outputs from the canonical inputs above, not
+their own separate truth source.
+
+### Fallback Contract
 
-### Sidechat Contract
+When a persisted plan exists:
 
-Sidechat should render from `SupervisionView`, not from raw event labels.
+- `current_focus_summary` derives from the current plan item
+- `recent_progress_summary` derives from recent plan transitions
+- `waiting_summary` derives from runtime evidence only when the current state is
+  actually waiting or blocked
 
-It should answer in this order:
+When no persisted plan exists:
 
-1. current work
-2. most recent meaningful change
-3. waiting / blocker reason when relevant
-4. next justified step when supported
-5. compact grounding when helpful
+- `current_focus_summary` may fall back to coarse runtime status
+- wording must stay generic
+- no business or toolchain inference is allowed
 
-### Sidechat Rules
+## Supervision Responder Prompt Contract
 
-#### Current work
+### Principle
 
-Prefer, in order:
+The responder is a derived query over the frozen canonical payload, similar in
+spirit to Claude `/btw`.
 
-1. current turn todo item title if it is already user-meaningful
-2. runtime focus hint if it is more concrete and still safe
-3. request-oriented work summary
+It should:
 
-Bad outputs:
+- answer from a safe bounded payload
+- prefer plan semantics over runtime wording
+- use runtime evidence only to justify waiting, blocking, or completion
+- be a single-response derived query with no tool access
+- never expose raw runtime tokens by default
 
-- `advancing provider round 6`
-- `running command_run_wait`
+### System Prompt Shape
 
-Good outputs:
+Recommended prompt intent:
 
-- `continuing the 2048 app implementation`
-- `running the test-and-build check in /workspace/game-2048`
-- `waiting for the preview server to finish starting`
+- answer in the user's language
+- base the answer only on the provided payload
+- answer in one response with no tools and no promises of future actions
+- prefer the active plan item for current work
+- prefer recent plan transitions for recent progress
+- use context snippets for subject nouns only when the plan is too generic
+- use runtime evidence only for waiting, blocked, or coarse fallback states
+- do not mention snapshots, provenance, provider names, workflow labels, tool
+  names, or internal ids
+- keep the answer short
 
-#### Recent change
+### User Payload Shape
 
-Prefer the latest meaningful semantic milestone, for example:
+Recommended structure:
 
-- tests finished
-- build failed
-- helper result arrived
-- waiting started
-- preview server became reachable
+```json
+{
+  "question": "What are you doing now and what changed recently?",
+  "supervision": {
+    "overall_state": "running",
+    "request_summary": "Refactor supervision to be plan-first.",
+    "primary_turn_todo_plan": {
+      "goal_summary": "Rebuild runtime and supervision around plan-first semantics.",
+      "current_item_title": "Rewrite the supervision prompt payload",
+      "current_item_status": "in_progress"
+    },
+    "recent_plan_transitions": [
+      { "summary": "Replace heuristic context summarization completed." }
+    ],
+    "context_snippets": [
+      { "excerpt": "Sidechat should use the active plan item as the semantic anchor." }
+    ],
+    "runtime_evidence": {
+      "active_command": {
+        "cwd": "/workspace/core_matrix",
+        "command_preview": "bin/rails test ..."
+      }
+    }
+  }
+}
+```
 
-Do not say:
+## Acceptance and Replay Evaluation
 
-- `provider round 6 just started`
-- `command_run_wait started`
+### New Requirement
 
-unless the user explicitly asked for verbose/runtime details.
+Acceptance should dump a replayable supervision evaluation bundle so iteration
+does not require a full `2048` rerun every time.
 
-#### Waiting and blockers
+### Required Artifact
 
-When the current work is a command wait or process wait, the visible wording
-should mention what is being waited on, not just the wait primitive.
+Each fresh acceptance run should export a canonical replay bundle such as:
 
-Examples:
+- `review/supervision-eval-bundle.json`
 
-- `I am waiting for npm test to finish in /workspace/game-2048.`
-- `I am waiting for the preview server in /workspace/game-2048 to become reachable.`
+Suggested contents:
 
-If the exact command is not safe or not concise enough, fall back to a safe
-summary:
+- frozen `machine_status`
+- canonical plan view
+- recent plan transitions
+- context snippets
+- runtime evidence
+- sidechat questions
+- expected contract flags
 
-- `I am waiting for the current verification command to finish.`
+### Replay Workflow
 
-#### Human-visible leak rule
+Local development should support:
 
-Cowork-visible supervision text must not expose:
+1. run one fresh acceptance
+2. replay supervision rendering from the exported dump
+3. iterate on payload shaping and prompt behavior locally
+4. rerun full acceptance only for final confirmation
 
-- `provider_round_*`
-- raw snake_case tool names
-- `command_run_wait`
-- `process_exec`
-- workflow node keys
-- internal event kinds
+This lowers cost and speeds supervision tuning without weakening the final gate.
 
-Those belong in verbose/debug surfaces only.
+## Reference Principles Absorbed
 
-## UI Surface Contract
+### From Codex
 
-### Main Transcript
+- explicit plan updates are first-class turn events
+- plan state is durable and app-facing
+- UI may track checklist progress directly without extra semantic interfaces
 
-Render:
+### From Claude
 
-- user messages
-- assistant messages
-- short work summaries
-- approvals and clarification asks
-- final delivery summaries
+- current todo is the strongest current-work anchor
+- side questions should answer from safe reusable main-thread context
+- derived responses should not directly replay raw execution tokens
 
-Do not default to rendering:
+### What We Intentionally Do Not Copy
 
-- provider-round churn
-- every tool call
-- every command/process event
-- supervision implementation details
+- we do not require agent-side `active_form`
+- we do not require sidechat-specific agent callbacks
+- we do not put business semantics into runtime classifiers
 
-### Turn Runtime Panel
+## Migration Notes
 
-Render from `TurnEventStream`.
-
-Show:
-
-- linear turn timeline
-- actor lanes
-- grouped phases
-- tool / command / process summaries
-- subagent progress
-- host validation milestones
-- supervision checkpoints when they materially change the story
-
-Cowork mode:
-
-- concise summaries first
-- grouped `Plan`, `Build`, `Validate`, `Deliver`
-- expandable details
-
-Verbose mode:
-
-- more event rows
-- exact command and process metadata
-- raw runtime refs available inline or in an inspector
-
-### Supervision Panel
-
-Render from `SupervisionView`.
-
-Show:
-
-- current focus
-- recent progress
-- waiting / blocker state
-- active subagents
-- primary turn todo plan
-- recent turn feed
-- sidechat transcript
-
-This panel should answer "what is happening now," not retell the whole turn.
-
-### Side Panels
-
-Render:
-
-- changed files
-- artifacts
-- playable verification results
-- subagent roster
-- export / debug-export availability
-
-### Debug Panel
-
-Render from `DebugView` and exact runtime refs.
-
-Show:
-
-- raw ids and payload refs
-- exact workflow node keys
-- exact command lines
-- exact process metadata
-- evidence links
-
-This is where developer-facing internals belong.
-
-## Event Placement Rules
-
-### Main Transcript Only
-
-- user messages
-- assistant-facing explanations
-- approvals / questions
-- final answer
-
-### Runtime Panel Only
-
-- provider progression
-- tool summaries
-- command / process activity
-- subagent execution detail
-- host validation checkpoints
-
-### Supervision Panel Only
-
-- current focus
-- recent semantic progress
-- wait / blocker state
-- sidechat
-- current turn feed
-
-### Debug Only
-
-- raw workflow node keys
-- raw event kinds
-- exact tool payload refs
-- exact command lines when not cowork-safe
-
-## Acceptance Gate
-
-The `2048` capstone should prove that the app substrate supports both render
-modes and semantic supervision.
-
-Minimum required artifacts remain:
-
-- `review/conversation-transcript.md`
-- `review/turn-runtime-transcript.md`
-- `review/supervision-sidechat.md`
-- `review/supervision-feed.md`
-- `review/supervision-status.md`
-- `evidence/turn-runtime-evidence.json`
-- `evidence/artifact-manifest.json`
-- `logs/live-progress-events.jsonl`
-- `logs/phase-events.jsonl`
-
-Additional semantic gate requirements:
-
-- cowork-visible supervision text must not fall back to provider round labels
-- cowork-visible supervision text must not say `command_run_wait` or other raw
-  tool names as the primary activity description
-- when waiting on a command or process, supervision should mention the command
-  purpose or a safe command summary
-- runtime artifacts must still preserve exact command/process detail for
-  verbose/debug inspection
-- turn runtime and supervision artifacts must agree on the current work story
-  without requiring identical wording
-
-## Recommended Implementation Plan
-
-### Phase 1: Replace the old UI contract
-
-- treat this document as the canonical app-facing direction
-- drop observation-era naming as a design constraint
-- standardize on `TurnEventStream`, `SupervisionView`, and explicit panel view
-  models
-
-### Phase 2: Introduce the canonical turn event stream
-
-- build one linear per-turn projection
-- unify acceptance runtime transcript, live progress feed, and app runtime
-  panel needs behind the same model
-- keep exact refs available without forcing them into cowork mode
-
-### Phase 3: Add semantic event enrichment
-
-- classify command, process, tool, and provider activity into user-safe work
-  summaries
-- produce safe command summaries alongside exact command metadata
-- add explicit wait and blocker semantics
-
-### Phase 4: Rebuild supervision on top of semantic inputs
-
-- keep `TurnTodoPlan` and `turn_feed` as primary supervision truth
-- let supervision consume semantic hints from the turn event stream
-- make sidechat read from semantic supervision state only
-
-### Phase 5: Expose app-facing panel view models
-
-- transcript surface
-- runtime panel surface
-- supervision panel surface
-- artifact / validation surface
-- debug surface
-
-### Phase 6: Tighten the `2048` gate
-
-- fail if supervision regresses to low-information runtime labels
-- fail if human-visible supervision leaks internal execution vocabulary
-- require alignment between runtime evidence and supervision summaries
-
-## Superseded Direction
-
-This revision supersedes the earlier, narrower reading of this file where
-supervision was mostly treated as another renderer over loosely defined
-progress surfaces.
-
-For app-facing runtime and supervision work:
-
-- do not revive observation-era sidechat wording rules as the primary model
-- do not introduce UI-only execution domains
-- do not preserve low-information runtime labels for backward compatibility
-
-## Bottom Line
-
-The long-term maintainable shape is:
-
-- one canonical turn event stream for turn-internal chronology
-- one canonical supervision view for current-state meaning
-- multiple renderers over those projections
-
-That gives us:
-
-- cleaner cowork mode
-- richer verbose mode
-- better supervision sidechat
-- better reuse between acceptance, app UI, and developer diagnostics
+- breaking cleanup is allowed
+- delete heuristic supervision wording paths
+- do not backfill old data
+- do not preserve old payload compatibility
+- rebuild acceptance expectations around the new canonical payloads
