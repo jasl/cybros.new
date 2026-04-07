@@ -65,7 +65,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")
     assert_equal current_turn.public_id, snapshot.identity.fetch("turn_id")
-    assert_equal context[:execution_runtime].public_id, snapshot.identity.fetch("execution_runtime_id")
+    assert_equal context[:executor_program].public_id, snapshot.identity.fetch("executor_program_id")
     assert_equal context[:agent_program_version].public_id, snapshot.identity.fetch("agent_program_version_id")
     assert_equal "codex_subscription", snapshot.model_context.fetch("provider_handle")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
@@ -174,7 +174,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "keeps canonical attachments even when execution runtime does not advertise request_attachment access" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    context[:execution_runtime].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
+    context[:executor_program].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,

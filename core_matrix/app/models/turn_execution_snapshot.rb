@@ -106,7 +106,7 @@ class TurnExecutionSnapshot
           "logical_work_id" => nil,
           "attempt_no" => nil,
           "agent_program_version_id" => turn.agent_program_version.public_id,
-          "execution_runtime_id" => turn.execution_runtime&.public_id,
+          "executor_program_id" => turn.executor_program&.public_id,
         }.compact
       end
     end

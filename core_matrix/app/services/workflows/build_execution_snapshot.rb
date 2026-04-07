@@ -23,7 +23,7 @@ module Workflows
 
       execution_contract.installation = @turn.installation
       execution_contract.agent_program_version = @turn.agent_program_version
-      execution_contract.execution_runtime = @turn.execution_runtime
+      execution_contract.executor_program = @turn.executor_program
       execution_contract.selected_input_message = @turn.selected_input_message
       execution_contract.selected_output_message = @turn.selected_output_message
       execution_contract.execution_capability_snapshot = capability_snapshot

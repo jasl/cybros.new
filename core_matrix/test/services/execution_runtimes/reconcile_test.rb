@@ -1,8 +1,8 @@
 require "test_helper"
 
-module ExecutionRuntimes
+module ExecutorPrograms
   class ReconcileTest < ActiveSupport::TestCase
-    test "reuses the same execution runtime for a stable installation-local fingerprint" do
+    test "reuses the same executor program for a stable installation-local fingerprint" do
       installation = create_installation!
       existing = create_execution_runtime!(
         installation: installation,
@@ -14,9 +14,9 @@ module ExecutionRuntimes
         }
       )
 
-      reconciled = ExecutionRuntimes::Reconcile.call(
+      reconciled = ExecutorPrograms::Reconcile.call(
         installation: installation,
-        runtime_fingerprint: "fenix-host-a",
+        executor_fingerprint: "fenix-host-a",
         kind: "container",
         connection_metadata: {
           "transport" => "http",
@@ -29,17 +29,17 @@ module ExecutionRuntimes
       assert_equal "https://fenix-v2.example.test", reconciled.connection_metadata["base_url"]
     end
 
-    test "rejects blank runtime fingerprints" do
-      error = assert_raises(ExecutionRuntimes::Reconcile::MissingRuntimeFingerprint) do
-        ExecutionRuntimes::Reconcile.call(
+    test "rejects blank executor fingerprints" do
+      error = assert_raises(ExecutorPrograms::Reconcile::MissingExecutorFingerprint) do
+        ExecutorPrograms::Reconcile.call(
           installation: create_installation!,
-          runtime_fingerprint: "   ",
+          executor_fingerprint: "   ",
           kind: "local",
           connection_metadata: {}
         )
       end
 
-      assert_equal "runtime fingerprint must be provided", error.message
+      assert_equal "executor fingerprint must be provided", error.message
     end
   end
 end

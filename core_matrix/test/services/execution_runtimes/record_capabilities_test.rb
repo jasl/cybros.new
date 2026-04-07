@@ -1,14 +1,14 @@
 require "test_helper"
 
-module ExecutionRuntimes
+module ExecutorPrograms
   class RecordCapabilitiesTest < ActiveSupport::TestCase
-    test "records execution runtime capabilities independently from agent program versions" do
-      execution_runtime = create_execution_runtime!(
+    test "records executor program capabilities independently from agent program versions" do
+      executor_program = create_execution_runtime!(
         capability_payload: { "attachment_access" => { "request_attachment" => false } },
         tool_catalog: []
       )
       expected_contract = RuntimeCapabilityContract.build(
-        execution_runtime: execution_runtime,
+        execution_runtime: executor_program,
         execution_capability_payload: { attachment_access: { request_attachment: true } },
         execution_tool_catalog: [
           {
@@ -24,8 +24,8 @@ module ExecutionRuntimes
         ]
       )
 
-      updated = ExecutionRuntimes::RecordCapabilities.call(
-        execution_runtime: execution_runtime,
+      updated = ExecutorPrograms::RecordCapabilities.call(
+        executor_program: executor_program,
         capability_payload: { attachment_access: { request_attachment: true } },
         tool_catalog: [
           {

@@ -406,11 +406,16 @@ module ActiveSupport
       actor: create_user!(installation: installation, role: "admin"),
       agent_program: create_agent_program!(installation: installation),
       execution_runtime: nil,
+      executor_program: execution_runtime,
       runtime_fingerprint: execution_runtime&.runtime_fingerprint || "runtime-env-#{next_test_sequence}",
+      executor_fingerprint: runtime_fingerprint,
       runtime_kind: execution_runtime&.kind || "local",
+      executor_kind: runtime_kind,
       runtime_connection_metadata: nil,
       execution_capability_payload: execution_runtime&.capability_payload || {},
+      executor_capability_payload: execution_capability_payload,
       execution_tool_catalog: execution_runtime&.tool_catalog || [],
+      executor_tool_catalog: execution_tool_catalog,
       protocol_methods: default_protocol_methods,
       tool_catalog: default_tool_catalog,
       endpoint_metadata: default_fenix_endpoint_metadata,
@@ -421,14 +426,20 @@ module ActiveSupport
       reuse_enrollment: false,
       **attrs
     )
-      execution_runtime ||= ExecutionRuntimes::Reconcile.call(
+      execution_runtime = executor_program || execution_runtime
+      runtime_fingerprint = executor_fingerprint
+      runtime_kind = executor_kind
+      execution_capability_payload = executor_capability_payload
+      execution_tool_catalog = executor_tool_catalog
+
+      execution_runtime ||= ExecutorPrograms::Reconcile.call(
         installation: installation,
-        runtime_fingerprint: runtime_fingerprint,
+        executor_fingerprint: runtime_fingerprint,
         kind: runtime_kind,
         connection_metadata: runtime_connection_metadata || default_runtime_connection_metadata(base_url: endpoint_metadata.fetch("base_url"))
       )
-      ExecutionRuntimes::RecordCapabilities.call(
-        execution_runtime: execution_runtime,
+      ExecutorPrograms::RecordCapabilities.call(
+        executor_program: execution_runtime,
         capability_payload: execution_capability_payload,
         tool_catalog: execution_tool_catalog
       )
@@ -483,6 +494,7 @@ module ActiveSupport
         installation: installation,
         actor: actor,
         agent_program: agent_program,
+        executor_program: execution_runtime,
         execution_runtime: execution_runtime,
         enrollment: enrollment,
         deployment: deployment,
@@ -490,6 +502,7 @@ module ActiveSupport
         machine_credential: session_credential,
         execution_machine_credential: execution_machine_credential,
         agent_session: agent_session,
+        executor_session: execution_session,
         execution_session: execution_session,
       }
     end
@@ -563,10 +576,12 @@ module ActiveSupport
         installation: installation,
         user: user,
         agent_program: agent_program,
+        executor_program: execution_runtime,
         execution_runtime: execution_runtime,
         agent_program_version: agent_program_version,
         capability_snapshot: agent_program_version,
         agent_session: agent_session,
+        executor_session: execution_session,
         execution_session: execution_session,
         user_program_binding: user_program_binding,
         workspace: workspace,
@@ -709,12 +724,12 @@ module ActiveSupport
         display_name: "Bundled Fenix",
         visibility: "global",
         lifecycle_state: "active",
-        runtime_kind: "local",
-        runtime_fingerprint: "bundled-fenix-environment",
+        executor_kind: "local",
+        executor_fingerprint: "bundled-fenix-environment",
         connection_metadata: default_runtime_connection_metadata(base_url: "http://127.0.0.1:4100"),
         endpoint_metadata: default_fenix_endpoint_metadata(base_url: "http://127.0.0.1:4100"),
-        execution_capability_payload: {},
-        execution_tool_catalog: [],
+        executor_capability_payload: {},
+        executor_tool_catalog: [],
         fingerprint: "bundled-fenix-runtime",
         protocol_version: "2026-03-24",
         sdk_version: "fenix-0.1.0",
@@ -746,6 +761,11 @@ module ActiveSupport
           "sandbox" => "workspace-write",
         },
       }.merge(attrs)
+
+      configuration[:executor_kind] = attrs[:runtime_kind] if attrs.key?(:runtime_kind)
+      configuration[:executor_fingerprint] = attrs[:runtime_fingerprint] if attrs.key?(:runtime_fingerprint)
+      configuration[:executor_capability_payload] = attrs[:execution_capability_payload] if attrs.key?(:execution_capability_payload)
+      configuration[:executor_tool_catalog] = attrs[:execution_tool_catalog] if attrs.key?(:execution_tool_catalog)
 
       unless explicit_endpoint_metadata
         configuration[:endpoint_metadata] = default_fenix_endpoint_metadata(
@@ -1150,12 +1170,14 @@ module ActiveSupport
         actor: actor,
         user: runtime_user,
         agent_program: agent_program,
+        executor_program: execution_runtime,
         execution_runtime: execution_runtime,
         registration: registration,
         deployment: registration[:deployment],
         agent_program_version: registration[:deployment],
         capability_snapshot: registration[:deployment],
         agent_session: registration[:agent_session],
+        executor_session: registration[:executor_session],
         execution_session: registration[:execution_session],
         machine_credential: registration[:machine_credential],
         execution_machine_credential: registration[:execution_machine_credential],

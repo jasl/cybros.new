@@ -30,7 +30,7 @@ class Turn < ApplicationRecord
   belongs_to :installation
   belongs_to :conversation
   belongs_to :agent_program_version
-  belongs_to :execution_runtime, optional: true
+  belongs_to :executor_program, class_name: "ExecutorProgram", optional: true
   belongs_to :execution_contract, optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
@@ -52,7 +52,7 @@ class Turn < ApplicationRecord
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
   validate :agent_program_version_installation_match
-  validate :execution_runtime_installation_match
+  validate :executor_program_installation_match
   validate :agent_program_version_conversation_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
@@ -87,6 +87,16 @@ class Turn < ApplicationRecord
 
   def execution_snapshot
     @execution_snapshot ||= TurnExecutionSnapshot.new(turn: self)
+  end
+
+  alias_attribute :execution_runtime_id, :executor_program_id
+
+  def execution_runtime
+    executor_program
+  end
+
+  def execution_runtime=(value)
+    self.executor_program = value
   end
 
   def pinned_capability_snapshot_version
@@ -146,11 +156,11 @@ class Turn < ApplicationRecord
     errors.add(:agent_program_version, "must belong to the same installation")
   end
 
-  def execution_runtime_installation_match
-    return if execution_runtime.blank?
-    return if execution_runtime.installation_id == installation_id
+  def executor_program_installation_match
+    return if executor_program.blank?
+    return if executor_program.installation_id == installation_id
 
-    errors.add(:execution_runtime, "must belong to the same installation")
+    errors.add(:executor_program, "must belong to the same installation")
   end
 
   def agent_program_version_conversation_match

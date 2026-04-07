@@ -6,13 +6,13 @@ module Installations
       display_name: "Bundled Fenix",
       visibility: "global",
       lifecycle_state: "active",
-      runtime_kind: "local",
-      runtime_fingerprint: "bundled-fenix-environment",
-      runtime_display_name: "Bundled Fenix Runtime",
+      executor_kind: "local",
+      executor_fingerprint: "bundled-fenix-environment",
+      executor_display_name: "Bundled Fenix Runtime",
       connection_metadata: {},
       endpoint_metadata: {},
-      execution_capability_payload: {},
-      execution_tool_catalog: [],
+      executor_capability_payload: {},
+      executor_tool_catalog: [],
       fingerprint: "bundled-fenix-runtime",
       protocol_version: "2026-03-24",
       sdk_version: "fenix-0.1.0",
@@ -26,13 +26,13 @@ module Installations
 
     Result = Struct.new(
       :agent_program,
-      :execution_runtime,
+      :executor_program,
       :deployment,
       :capability_snapshot,
       :agent_session,
-      :execution_session,
+      :executor_session,
       :session_credential,
-      :execution_session_credential,
+      :executor_session_credential,
       keyword_init: true
     )
 
@@ -44,47 +44,48 @@ module Installations
       installation:,
       configuration: Rails.configuration.x.bundled_agent,
       session_credential: nil,
+      executor_session_credential: nil,
       execution_session_credential: nil
     )
       @installation = installation
       @configuration = normalize_configuration(configuration)
       @session_credential = session_credential
-      @execution_session_credential = execution_session_credential
+      @executor_session_credential = executor_session_credential || execution_session_credential
     end
 
     def call
       return unless @configuration[:enabled]
 
       ApplicationRecord.transaction do
-        execution_runtime = reconcile_execution_runtime!
-        agent_program = reconcile_agent_program!(execution_runtime)
+        executor_program = reconcile_executor_program!
+        agent_program = reconcile_agent_program!(executor_program)
         deployment = nil
         agent_session = nil
-        execution_session = nil
+        executor_session = nil
         session_credential = nil
-        execution_session_credential = nil
+        executor_session_credential = nil
 
         agent_program.with_lock do
-          execution_runtime.with_lock do
+          executor_program.with_lock do
             deployment = reconcile_deployment!(agent_program)
             agent_session, session_credential = reconcile_agent_session!(agent_program:, deployment:)
-            execution_session, execution_session_credential = reconcile_execution_session!(execution_runtime:)
+            executor_session, executor_session_credential = reconcile_executor_session!(executor_program:)
           end
         end
 
         agent_program.reload
-        execution_runtime.reload
+        executor_program.reload
         deployment.reload
 
         Result.new(
           agent_program:,
-          execution_runtime:,
+          executor_program:,
           deployment:,
           capability_snapshot: deployment,
           agent_session:,
-          execution_session:,
+          executor_session:,
           session_credential:,
-          execution_session_credential:
+          executor_session_credential:
         )
       end
     end
@@ -96,9 +97,16 @@ module Installations
       values.each_with_object(DEFAULT_CONFIGURATION.dup) do |(key, value), normalized|
         normalized[key.to_sym] = value
       end
+        .tap do |normalized|
+          normalized[:executor_kind] = normalized[:runtime_kind] if normalized[:runtime_kind].present?
+          normalized[:executor_fingerprint] = normalized[:runtime_fingerprint] if normalized[:runtime_fingerprint].present?
+          normalized[:executor_display_name] = normalized[:runtime_display_name] if normalized[:runtime_display_name].present?
+          normalized[:executor_capability_payload] = normalized[:execution_capability_payload] if normalized.key?(:execution_capability_payload)
+          normalized[:executor_tool_catalog] = normalized[:execution_tool_catalog] if normalized.key?(:execution_tool_catalog)
+        end
     end
 
-    def reconcile_agent_program!(execution_runtime)
+    def reconcile_agent_program!(executor_program)
       agent_program = AgentProgram.find_or_initialize_by(
         installation: @installation,
         key: @configuration[:agent_key]
@@ -108,25 +116,25 @@ module Installations
         visibility: @configuration[:visibility],
         lifecycle_state: @configuration[:lifecycle_state],
         owner_user: nil,
-        default_execution_runtime: execution_runtime
+        default_executor_program: executor_program
       )
       agent_program
     end
 
-    def reconcile_execution_runtime!
-      execution_runtime = ExecutionRuntimes::Reconcile.call(
+    def reconcile_executor_program!
+      executor_program = ExecutorPrograms::Reconcile.call(
         installation: @installation,
-        runtime_fingerprint: @configuration[:runtime_fingerprint],
-        kind: @configuration[:runtime_kind],
+        executor_fingerprint: @configuration[:executor_fingerprint],
+        kind: @configuration[:executor_kind],
         connection_metadata: @configuration[:connection_metadata]
       )
-      execution_runtime.update!(display_name: @configuration[:runtime_display_name])
-      ExecutionRuntimes::RecordCapabilities.call(
-        execution_runtime: execution_runtime,
-        capability_payload: @configuration[:execution_capability_payload],
-        tool_catalog: @configuration[:execution_tool_catalog]
+      executor_program.update!(display_name: @configuration[:executor_display_name])
+      ExecutorPrograms::RecordCapabilities.call(
+        executor_program: executor_program,
+        capability_payload: @configuration[:executor_capability_payload],
+        tool_catalog: @configuration[:executor_tool_catalog]
       )
-      execution_runtime
+      executor_program
     end
 
     def reconcile_deployment!(agent_program)
@@ -219,53 +227,53 @@ module Installations
       [agent_session, session_credential]
     end
 
-    def reconcile_execution_session!(execution_runtime:)
-      active_session = execution_runtime.active_execution_session
-      return refresh_execution_session!(active_session) if active_session.present?
+    def reconcile_executor_session!(executor_program:)
+      active_session = executor_program.active_executor_session
+      return refresh_executor_session!(active_session) if active_session.present?
 
-      ExecutionSession.where(execution_runtime:, lifecycle_state: "active").update_all(
+      ExecutorSession.where(executor_program:, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
         updated_at: Time.current
       )
-      create_execution_session!(execution_runtime:)
+      create_executor_session!(executor_program:)
     end
 
-    def refresh_execution_session!(execution_session)
-      session_credential = @execution_session_credential
+    def refresh_executor_session!(executor_session)
+      session_credential = @executor_session_credential
       if session_credential.present?
-        execution_session.assign_attributes(
-          session_credential_digest: ExecutionSession.digest_session_credential(session_credential)
+        executor_session.assign_attributes(
+          session_credential_digest: ExecutorSession.digest_session_credential(session_credential)
         )
       end
 
-      execution_session.update!(
+      executor_session.update!(
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
-      [execution_session, session_credential]
+      [executor_session, session_credential]
     end
 
-    def create_execution_session!(execution_runtime:)
-      session_credential = @execution_session_credential.presence
+    def create_executor_session!(executor_program:)
+      session_credential = @executor_session_credential.presence
       session_credential_digest =
         if session_credential.present?
-          ExecutionSession.digest_session_credential(session_credential)
+          ExecutorSession.digest_session_credential(session_credential)
         else
-          session_credential, digest = ExecutionSession.issue_session_credential
+          session_credential, digest = ExecutorSession.issue_session_credential
           digest
         end
-      session_token, session_token_digest = ExecutionSession.issue_session_token
-      execution_session = ExecutionSession.create!(
+      session_token, session_token_digest = ExecutorSession.issue_session_token
+      executor_session = ExecutorSession.create!(
         installation: @installation,
-        execution_runtime: execution_runtime,
+        executor_program: executor_program,
         session_credential_digest: session_credential_digest,
         session_token_digest: session_token_digest,
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
-      [execution_session, session_credential]
+      [executor_session, session_credential]
     end
   end
 end
