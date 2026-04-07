@@ -41,7 +41,7 @@ Current authoritative project documents:
 - Runtime/supervision closeout record: `../docs/finished-plans/2026-04-07-fenix-runtime-supervision-ui-implementation.md`
 - Plan-first supervision closeout record: `../docs/finished-plans/2026-04-07-plan-first-supervision-rebuild.md`
 - Active plan index: `../docs/plans/README.md`
-- Proposed app-facing UI contract: `../docs/proposed-designs/2026-04-06-fenix-app-ui-contract.md`
+- App-facing UI contract: `../docs/finished-plans/2026-04-06-fenix-app-ui-contract.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
 - Provider-backed capstone checklist: `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`

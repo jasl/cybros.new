@@ -24,8 +24,8 @@ Practical state:
 - The completed April supervision and `2048` acceptance execution plans were
   archived to
   [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
-- The current app-facing runtime/supervision contract draft lives in
-  [docs/proposed-designs](/Users/jasl/Workspaces/Ruby/cybros/docs/proposed-designs/README.md).
+- The completed app-facing runtime/supervision contract is archived in
+  [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
 
 Earlier execution plans, implementation records, and accepted reset designs
 were archived to

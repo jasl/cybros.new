@@ -12,6 +12,7 @@ of leaving only a volatile reference path behind.
 
 Recent archived records from the accepted provider-backed loop and reset batch:
 
+- [2026-04-06-fenix-app-ui-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-06-fenix-app-ui-contract.md)
 - [2026-04-07-plan-first-supervision-rebuild.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-07-plan-first-supervision-rebuild.md)
 - [2026-04-07-fenix-runtime-supervision-ui-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-07-fenix-runtime-supervision-ui-implementation.md)
 - [2026-04-06-fenix-2048-capability-first-acceptance-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-06-fenix-2048-capability-first-acceptance-implementation.md)

@@ -17,4 +17,8 @@ Move a document out of this directory when:
 
 Current drafts:
 
-- [2026-04-06-fenix-app-ui-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/proposed-designs/2026-04-06-fenix-app-ui-contract.md)
+- none
+
+Recently promoted from draft to archived implementation baseline:
+
+- [2026-04-06-fenix-app-ui-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-06-fenix-app-ui-contract.md)
