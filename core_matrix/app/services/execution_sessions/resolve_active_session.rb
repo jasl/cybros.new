@@ -9,7 +9,7 @@ module ExecutionSessions
     end
 
     def call
-      ExecutionSession.find_by(execution_runtime: @execution_runtime, lifecycle_state: "active")
+      ExecutorSession.find_by(executor_program: @execution_runtime, lifecycle_state: "active")
     end
   end
 end

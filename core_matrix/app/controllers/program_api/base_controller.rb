@@ -20,7 +20,7 @@ module ProgramAPI
         AgentSession.find_by_plaintext_session_credential(token)
       end
       @current_deployment = @current_agent_session&.agent_program_version
-      @current_execution_runtime = @current_agent_session&.agent_program&.default_execution_runtime
+      @current_execution_runtime = @current_agent_session&.agent_program&.default_executor_program
       return if @current_agent_session.present?
 
       render json: { error: "session credential is invalid" }, status: :unauthorized

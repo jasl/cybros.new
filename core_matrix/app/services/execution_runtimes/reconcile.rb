@@ -16,9 +16,9 @@ module ExecutionRuntimes
     def call
       raise MissingRuntimeFingerprint, "runtime fingerprint must be provided" if @runtime_fingerprint.blank?
 
-      execution_runtime = ExecutionRuntime.find_or_initialize_by(
+      execution_runtime = ExecutorProgram.find_or_initialize_by(
         installation: @installation,
-        runtime_fingerprint: @runtime_fingerprint
+        executor_fingerprint: @runtime_fingerprint
       )
       execution_runtime.update!(
         display_name: execution_runtime.display_name.presence || @runtime_fingerprint,

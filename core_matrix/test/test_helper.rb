@@ -432,7 +432,7 @@ module ActiveSupport
         capability_payload: execution_capability_payload,
         tool_catalog: execution_tool_catalog
       )
-      agent_program.update!(default_execution_runtime: execution_runtime) if agent_program.default_execution_runtime != execution_runtime
+      agent_program.update!(default_executor_program: execution_runtime) if agent_program.default_executor_program != execution_runtime
 
       fingerprint = attrs.delete(:fingerprint) || "runtime-#{next_test_sequence}"
       deployment = create_agent_program_version!(
@@ -462,7 +462,7 @@ module ActiveSupport
         session_credential_digest: ::Digest::SHA256.hexdigest(session_credential),
         endpoint_metadata: endpoint_metadata
       )
-      ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+      ExecutorSession.where(executor_program: execution_runtime, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
         updated_at: Time.current
       )
@@ -532,7 +532,7 @@ module ActiveSupport
       execution_runtime = create_execution_runtime!(installation: installation)
       agent_program = create_agent_program!(
         installation: installation,
-        default_execution_runtime: execution_runtime
+        default_executor_program: execution_runtime
       )
       agent_program_version = create_agent_program_version!(
         installation: installation,
@@ -954,7 +954,7 @@ module ActiveSupport
       agent_program ||= parent_conversation&.agent_program
       agent_program ||= agent_program_version&.agent_program
       agent_program ||= workspace.user_program_binding&.agent_program
-      agent_program ||= create_agent_program!(installation: installation, default_execution_runtime: execution_runtime)
+      agent_program ||= create_agent_program!(installation: installation, default_executor_program: execution_runtime)
 
       Conversation.create!({
         installation: installation,
