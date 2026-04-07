@@ -87,7 +87,7 @@ module ConversationSupervision
           "conversation_id" => plan_view.fetch("conversation_id"),
           "turn_id" => plan_view.fetch("turn_id"),
           "status" => plan_view.fetch("status"),
-          "goal_summary" => plan_view.fetch("goal_summary"),
+          "goal_summary" => plan_view["goal_summary"],
           "current_item_key" => plan_view.fetch("current_item_key"),
           "current_item_title" => plan_view.dig("current_item", "title"),
           "current_item_status" => plan_view.dig("current_item", "status"),
@@ -222,7 +222,7 @@ module ConversationSupervision
       return semantic_details.fetch("title") if semantic_details["title"].present?
 
       tool_name = node.tool_call_payload&.fetch("tool_name", nil).presence
-      return "Run #{tool_name}" if tool_name.present?
+      return fallback_tool_title(tool_name) if tool_name.present?
       return goal_fallback_title if node.provider_round_index.present?
 
       node.node_key.to_s.tr("_", " ").strip.presence&.humanize || node.node_type.to_s.humanize
@@ -259,6 +259,8 @@ module ConversationSupervision
         "process_run_public_id" => semantic_details["process_run_public_id"],
         "tool_invocation_public_id" => semantic_details["tool_invocation_public_id"],
         "runtime_summary" => semantic_details["semantic_summary"] || semantic_details["summary"],
+        "semantic_summary" => semantic_details["semantic_summary"],
+        "semantic_started_summary" => semantic_details["semantic_started_summary"],
       }.compact
     end
 
@@ -268,9 +270,9 @@ module ConversationSupervision
 
     def goal_summary
       @goal_summary ||= begin
-        content = feed_turn&.selected_input_message&.content.to_s.squish
-        content = workflow_run&.turn&.selected_input_message&.content.to_s.squish if content.blank?
-        content.presence&.truncate(160)
+        content = feed_turn&.selected_input_message&.content.to_s
+        content = workflow_run&.turn&.selected_input_message&.content.to_s if content.blank?
+        ConversationSupervision::BuildGoalSummary.call(content: content)
       end
     end
 
@@ -308,19 +310,78 @@ module ConversationSupervision
       end
 
       process_run = latest_process_run_for(node)
-      return {} if process_run.blank?
+      if process_run.present?
+        semantic_summary = ConversationRuntime::BuildSafeActivitySummary.call(
+          activity_kind: "process",
+          command_line: process_run.command_line,
+          lifecycle_state: process_run.lifecycle_state
+        ).fetch("summary")
+        return {
+          "title" => semantic_summary,
+          "semantic_summary" => semantic_summary,
+          "semantic_started_summary" => started_feed_summary_for(semantic_summary),
+          "process_run_public_id" => process_run.public_id,
+        }
+      end
 
-      semantic_summary = ConversationRuntime::BuildSafeActivitySummary.call(
-        activity_kind: "process",
-        command_line: process_run.command_line,
-        lifecycle_state: process_run.lifecycle_state
-      ).fetch("summary")
+      safe_tool_summary = safe_tool_invocation_summary(node)
+      return {} if safe_tool_summary.blank?
+
       {
-        "title" => semantic_summary,
-        "semantic_summary" => semantic_summary,
-        "semantic_started_summary" => started_feed_summary_for(semantic_summary),
-        "process_run_public_id" => process_run.public_id,
-      }
+        "title" => safe_tool_summary["title"],
+        "semantic_summary" => safe_tool_summary["summary"],
+        "semantic_started_summary" => safe_tool_summary["started_summary"],
+      }.compact
+    end
+
+    def safe_tool_invocation_summary(node)
+      payload = node.tool_call_payload.to_h.deep_stringify_keys
+      return if payload.blank?
+
+      ConversationRuntime::BuildSafeToolInvocationSummary.call(
+        tool_name: payload["tool_name"],
+        arguments: payload.dig("request_payload", "arguments") || payload["arguments"] || {},
+        response_payload: payload["response_payload"] || {},
+        command_summary: referenced_command_summary(payload)
+      )
+    end
+
+    def referenced_command_summary(payload)
+      return payload["command_summary"] if payload["command_summary"].present?
+
+      command_run_public_id = payload.dig("request_payload", "arguments", "command_run_id") || payload.dig("arguments", "command_run_id")
+      return if command_run_public_id.blank?
+
+      command_run = referenced_command_run_scope.find_by(public_id: command_run_public_id)
+      return if command_run.blank?
+
+      activity_summary = ConversationRuntime::BuildSafeActivitySummary.call(
+        activity_kind: "command",
+        command_line: command_run.command_line,
+        lifecycle_state: command_run.lifecycle_state
+      ).fetch("summary")
+      lowercase_initial(activity_summary.to_s.sub(/\A(?:Running|Ran|Starting|Started)\s+/i, "").sub(/\.\z/, ""))
+    end
+
+    def referenced_command_run_scope
+      scope = CommandRun.joins(:workflow_node).where(workflow_nodes: { conversation_id: @conversation.id })
+      scope = scope.where(workflow_nodes: { workflow_run_id: workflow_run.id }) if workflow_run.present?
+      scope
+    end
+
+    def fallback_tool_title(tool_name)
+      case tool_name.to_s
+      when /\Aworkspace_/
+        "Review workspace state"
+      when /\Abrowser_/
+        "Review browser state"
+      when /\Acommand_run_/
+        "Review shell command state"
+      when /\Asubagent_/
+        "Coordinate child work"
+      else
+        "Run #{tool_name.to_s.tr("_", " ")}"
+      end
     end
 
     def runtime_focus_hint_matches_node?(node)

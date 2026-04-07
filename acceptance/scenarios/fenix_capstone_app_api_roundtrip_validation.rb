@@ -191,6 +191,28 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
       !semantic_overlap?(final_sidechat, runtime_focus_hint["summary"], minimum: 2)
     errors << "waiting sidechat does not mention the command/process purpose from runtime_focus_hint"
   end
+  supervision_human_texts = [
+    final_status["request_summary"],
+    final_status["current_focus_summary"],
+    final_status["recent_progress_summary"],
+    final_status["waiting_summary"],
+    final_status["blocked_summary"],
+    final_status["next_step_hint"],
+    primary_plan_view["goal_summary"],
+    primary_plan_view.dig("current_item", "title"),
+    runtime_focus_hint["summary"],
+    runtime_focus_hint["current_focus_summary"],
+  ]
+  supervision_leak_tokens = supervision_human_texts.flat_map do |text|
+    Acceptance::ConversationArtifacts.human_visible_leak_tokens(text)
+  end.uniq
+  if supervision_leak_tokens.any?
+    errors << "supervision-final.json still exposes raw supervision tokens: #{supervision_leak_tokens.join(', ')}"
+  end
+  runtime_leak_tokens = Acceptance::ConversationArtifacts.human_visible_leak_tokens(runtime_transcript_markdown).uniq
+  if runtime_leak_tokens.any?
+    errors << "turn-runtime-transcript.md still exposes raw runtime tokens: #{runtime_leak_tokens.join(', ')}"
+  end
 
   if primary_plan_view.present?
     current_item_key = primary_plan_view["current_item_key"].to_s
@@ -216,10 +238,10 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
       errors << "supervision-feed.md is missing canonical feed summary #{summary.inspect}"
     end
 
-    timeline_match = Array(turn_runtime_evidence["timeline"]).any? do |event|
-      event["summary"].to_s == summary
+    timeline_correlation = Array(turn_runtime_evidence["timeline"]).any? do |event|
+      runtime_alignment_present?([event["summary"], event["detail"]].compact.join(" "), summary)
     end
-    unless timeline_match
+    unless timeline_correlation || runtime_alignment_present?(runtime_transcript_markdown, summary)
       errors << "turn-runtime-evidence.json does not correlate canonical feed summary #{summary.inspect}"
     end
   end

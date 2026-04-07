@@ -39,8 +39,6 @@ module Acceptance
       lines = [
         "# Turn Runtime Transcript",
         "",
-        "- Conversation `public_id`: `#{report.fetch("conversation_id")}`",
-        "- Turn `public_id`: `#{report.fetch("turn_id")}`",
         "- Benchmark outcome: `#{report.dig("summary", "benchmark_outcome")}`",
         "- Workload outcome: `#{report.dig("summary", "workload_outcome")}`",
         "- System behavior outcome: `#{report.dig("summary", "system_behavior_outcome")}`",
@@ -422,7 +420,7 @@ module Acceptance
           "actor_label" => "main",
           "actor_public_id" => nil,
           "phase" => "build",
-          "summary" => "Spawned subagent #{subagent_label}",
+          "summary" => "Spawned child task #{subagent_label}",
           "detail" => "Delegated with profile `#{response_payload["profile_key"] || request_arguments["profile_key"] || "unknown"}`.",
         }
       when "subagent_send"

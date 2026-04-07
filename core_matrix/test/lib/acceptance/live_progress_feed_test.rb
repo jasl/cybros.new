@@ -48,7 +48,8 @@ class AcceptanceLiveProgressFeedTest < ActiveSupport::TestCase
     assert_equal "wr_public_123", entries.first.fetch("workflow_run_public_id")
     assert_equal "Started a tool-backed workflow step", entries.first.fetch("summary")
     assert_equal "Finished a tool-backed workflow step", entries.second.fetch("summary")
-    assert_includes entries.second.fetch("detail"), "workspace_write"
+    assert_includes entries.second.fetch("detail"), "/workspace"
+    refute_match(/workspace_write/i, entries.second.fetch("detail"))
     assert_equal "Queued the next implementation step", entries.third.fetch("summary")
     assert_equal 3, seen_event_keys.length
 
@@ -187,7 +188,8 @@ class AcceptanceLiveProgressFeedTest < ActiveSupport::TestCase
     assert_equal "subagent", entries.first.fetch("actor_type")
     assert_equal "researcher#1", entries.first.fetch("actor_label")
     assert_equal "sub_123", entries.first.fetch("actor_public_id")
-    assert_includes entries.first.fetch("detail"), "workspace_tree"
+    assert_includes entries.first.fetch("detail"), "/workspace"
+    refute_match(/workspace_tree/i, entries.first.fetch("detail"))
     assert_equal "researcher#1: Finished reducer audit", entries.second.fetch("summary")
     assert_equal "subagent_live_progress", entries.second.fetch("kind")
   end

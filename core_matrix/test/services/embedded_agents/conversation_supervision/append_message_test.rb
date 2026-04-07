@@ -190,6 +190,61 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     refute_match(/provider round|exec_command|command_run_wait/i, content)
   end
 
+  test "retries snapshot-backed exchange creation after a deadlock" do
+    fixture = fresh_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    original_call = EmbeddedAgents::ConversationSupervision::BuildSnapshot.method(:call)
+    attempts = 0
+
+    EmbeddedAgents::ConversationSupervision::BuildSnapshot.singleton_class.send(:define_method, :call) do |**kwargs|
+      attempts += 1
+      raise ActiveRecord::Deadlocked, "simulated deadlock" if attempts == 1
+
+      original_call.call(**kwargs)
+    end
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "What are you doing right now?"
+    )
+
+    assert_equal 2, attempts
+    assert_equal 1, session.conversation_supervision_snapshots.count
+    assert_equal 2, session.conversation_supervision_messages.count
+    assert_equal result.dig("human_sidechat", "content"), session.conversation_supervision_messages.order(:created_at).last.content
+  ensure
+    EmbeddedAgents::ConversationSupervision::BuildSnapshot.singleton_class.send(:define_method, :call, original_call)
+  end
+
+  test "retries message persistence after a deadlock" do
+    fixture = fresh_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    original_create_user_message = EmbeddedAgents::ConversationSupervision::AppendMessage.instance_method(:create_user_message)
+    attempts = 0
+
+    EmbeddedAgents::ConversationSupervision::AppendMessage.send(:define_method, :create_user_message) do |snapshot|
+      attempts += 1
+      raise ActiveRecord::Deadlocked, "simulated message deadlock" if attempts == 1
+
+      original_create_user_message.bind_call(self, snapshot)
+    end
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "What changed most recently?"
+    )
+
+    assert_equal 2, attempts
+    assert_equal 1, session.conversation_supervision_snapshots.count
+    assert_equal 2, session.conversation_supervision_messages.count
+    assert_equal result.dig("human_sidechat", "content"), session.conversation_supervision_messages.order(:created_at).last.content
+  ensure
+    EmbeddedAgents::ConversationSupervision::AppendMessage.send(:define_method, :create_user_message, original_create_user_message)
+    EmbeddedAgents::ConversationSupervision::AppendMessage.send(:private, :create_user_message)
+  end
+
   private
 
   def fresh_fixture!(**kwargs)

@@ -89,5 +89,6 @@ class ConversationRuntime::BuildTurnEventStreamTest < ActiveSupport::TestCase
     assert_equal "Starting the preview server in /workspace/game-2048", preview_event.fetch("summary")
 
     refute timeline.any? { |entry| entry.fetch("summary").match?(/provider round|provider_round_|command_run_wait/) }
+    refute timeline.any? { |entry| entry["detail"].to_s.match?(/workspace_tree|command_run_wait|tool `workspace/i) }
   end
 end

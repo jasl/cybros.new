@@ -196,7 +196,7 @@ module ConversationSupervision
 
     def command_runs
       @command_runs ||= begin
-        relation = CommandRun.joins(:workflow_node).where(workflow_nodes: {conversation_id: @conversation.id})
+        relation = CommandRun.joins(:workflow_node).where(workflow_nodes: { conversation_id: @conversation.id })
         relation = relation.where(workflow_node: workflow_nodes) if workflow_nodes.present?
         relation
       end

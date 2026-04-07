@@ -1,6 +1,8 @@
 module EmbeddedAgents
   module ConversationSupervision
     class AppendMessage
+      MAX_DEADLOCK_RETRIES = 2
+
       def self.call(...)
         new(...).call
       end
@@ -25,28 +27,48 @@ module EmbeddedAgents
         raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to append to supervision session" unless initiator_matches_actor?
         raise EmbeddedAgents::Errors::ClosedSupervisionSession, "supervision session is closed" unless @conversation_supervision_session.open?
 
-        ApplicationRecord.transaction do
-          control_decision = MaybeDispatchControlIntent.call(
-            actor: @actor,
-            conversation_supervision_session: @conversation_supervision_session,
-            question: @content
-          )
-          snapshot = BuildSnapshot.call(
+        control_decision = MaybeDispatchControlIntent.call(
+          actor: @actor,
+          conversation_supervision_session: @conversation_supervision_session,
+          question: @content
+        )
+        snapshot = with_deadlock_retry do
+          BuildSnapshot.call(
             actor: @actor,
             conversation_supervision_session: @conversation_supervision_session
           )
-          user_message = create_user_message(snapshot)
-          responder_output = respond(snapshot, control_decision:)
-          supervisor_message = create_supervisor_message(snapshot, responder_output)
-
-          responder_output.merge(
-            "user_message" => user_message,
-            "supervisor_message" => supervisor_message
-          )
         end
+        responder_output = respond(snapshot, control_decision:)
+        user_message, supervisor_message = with_deadlock_retry do
+          ApplicationRecord.transaction do
+            [
+              create_user_message(snapshot),
+              create_supervisor_message(snapshot, responder_output),
+            ]
+          end
+        end
+
+        responder_output.merge(
+          "user_message" => user_message,
+          "supervisor_message" => supervisor_message
+        )
       end
 
       private
+
+      def with_deadlock_retry
+        attempts = 0
+
+        begin
+          attempts += 1
+          yield
+        rescue ActiveRecord::Deadlocked
+          raise if attempts > MAX_DEADLOCK_RETRIES
+
+          sleep(0.01 * attempts)
+          retry
+        end
+      end
 
       def initiator_matches_actor?
         session_initiator = @conversation_supervision_session.initiator

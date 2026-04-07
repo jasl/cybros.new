@@ -129,7 +129,15 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ConversationArtifacts.human_visible_leak_tokens"
     assert_includes scenario, "semantic_overlap?"
     assert_includes scenario, 'runtime_focus_hint["summary"]'
+    assert_includes scenario, 'runtime_focus_hint["current_focus_summary"]'
+    assert_includes scenario, 'primary_plan_view["goal_summary"]'
+    assert_includes scenario, 'primary_plan_view.dig("current_item", "title")'
+    assert_includes scenario, 'final_status["recent_progress_summary"]'
+    assert_includes scenario, 'final_status["waiting_summary"]'
+    assert_includes scenario, 'final_status["blocked_summary"]'
+    assert_includes scenario, "turn-runtime-transcript.md still exposes raw runtime tokens"
     assert_includes helper, "Runtime focus hint"
+    assert_includes helper, "workspace_[a-z0-9_]+"
   end
 
   test "acceptance scenario copies host playwright setup outputs into playable artifacts" do

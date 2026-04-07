@@ -11,11 +11,30 @@ module Acceptance
     INTERNAL_HUMAN_VISIBLE_TOKEN_PATTERN = %r{
       provider_round|
       tool_[a-z0-9_]+|
+      workspace_[a-z0-9_]+|
+      browser_[a-z0-9_]+|
+      command_run_[a-z0-9_]+|
+      subagent_[a-z0-9_]+|
+      write_stdin|
+      exec_command|
+      using-superpowers|
+      find-skills|
       runtime\.[a-z0-9_.]+|
       subagent_barrier|
       wait_reason_kind|
       workflow_node
     }ix.freeze
+
+    HUMAN_CONTROL_ACTION_LABELS = {
+      "request_status_refresh" => "refresh the status snapshot",
+      "request_turn_interrupt" => "stop the current task",
+      "request_conversation_close" => "close this task",
+      "send_guidance_to_active_agent" => "send guidance to the active worker",
+      "send_guidance_to_subagent" => "send guidance to a child task",
+      "request_subagent_close" => "stop the active child task",
+      "retry_blocked_step" => "retry the blocked step",
+      "resume_waiting_workflow" => "resume the waiting workflow",
+    }.freeze
 
     def capture_export_roundtrip!(artifact_dir:, conversation:, machine_credential:, supervision_trace:, prompt:)
       source_transcript = ManualAcceptanceSupport.app_api_conversation_transcript!(
@@ -495,13 +514,13 @@ module Acceptance
 
     private_class_method def append_supervision_control_lines(lines, machine_status)
       control = machine_status.fetch("control", {})
-      available_verbs = Array(control["available_control_verbs"])
+      available_actions = human_control_action_labels(control["available_control_verbs"])
 
       lines << "- Control capability:"
       lines << "  - Supervision enabled: `#{control["supervision_enabled"]}`"
       lines << "  - Side chat enabled: `#{control["side_chat_enabled"]}`"
       lines << "  - Control enabled: `#{control["control_enabled"]}`"
-      lines << "  - Available control actions: `#{available_verbs.any? ? available_verbs.join("`, `") : "none"}`"
+      lines << "  - Available control actions: `#{available_actions.any? ? available_actions.join("`, `") : "none"}`"
     end
 
     private_class_method def append_supervision_plan_item_lines(lines, machine_status)
@@ -594,6 +613,12 @@ module Acceptance
 
     private_class_method def latest_turn_feed_entry(machine_status)
       canonical_turn_feed_entries(machine_status).last || turn_feed_entries(machine_status).last || {}
+    end
+
+    private_class_method def human_control_action_labels(verbs)
+      Array(verbs).filter_map do |verb|
+        HUMAN_CONTROL_ACTION_LABELS[verb] || verb.to_s.tr("_", " ").strip.presence
+      end.uniq
     end
 
     private_class_method def format_turn_todo_counts(counts)

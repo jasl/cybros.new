@@ -42,4 +42,146 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
     assert_includes markdown, "command runs exported: `2`"
     assert_includes markdown, "workflow nodes exported: `3`"
   end
+
+  test "supervision markdown humanizes available control actions" do
+    supervision_trace = {
+      "polls" => [
+        {
+          "machine_status" => {
+            "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+            "overall_state" => "running",
+            "board_lane" => "active",
+            "control" => {
+              "supervision_enabled" => true,
+              "side_chat_enabled" => true,
+              "control_enabled" => true,
+              "available_control_verbs" => %w[
+                request_status_refresh
+                request_subagent_close
+                send_guidance_to_active_agent
+              ],
+            },
+            "proof_debug" => {},
+            "conversation_context" => {},
+            "primary_turn_todo_plan_view" => {},
+            "active_subagent_turn_todo_plan_views" => [],
+            "turn_feed" => [],
+            "activity_feed" => [],
+          },
+          "human_sidechat" => {
+            "content" => "I am currently building the React 2048 game.",
+          },
+          "user_message" => {
+            "content" => "What are you doing?",
+          },
+        },
+      ],
+      "final_response" => {
+        "machine_status" => {
+          "supervision_session_id" => "22222222-2222-2222-2222-222222222222",
+          "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+          "overall_state" => "running",
+          "board_lane" => "active",
+          "control" => {
+            "supervision_enabled" => true,
+            "side_chat_enabled" => true,
+            "control_enabled" => true,
+            "available_control_verbs" => %w[
+              request_status_refresh
+              request_subagent_close
+              send_guidance_to_active_agent
+            ],
+          },
+          "proof_debug" => {},
+          "conversation_context" => {},
+          "primary_turn_todo_plan_view" => {},
+          "active_subagent_turn_todo_plan_views" => [],
+          "turn_feed" => [],
+          "activity_feed" => [],
+        },
+      },
+      "session" => {
+        "conversation_supervision_session" => {
+          "supervision_session_id" => "22222222-2222-2222-2222-222222222222",
+        },
+      },
+    }
+
+    sidechat_markdown = Acceptance::ConversationArtifacts.supervision_sidechat_markdown(
+      supervision_trace: supervision_trace,
+      prompt: "Please tell me what you are doing right now."
+    )
+    status_markdown = Acceptance::ConversationArtifacts.supervision_status_markdown(
+      supervision_trace: supervision_trace
+    )
+
+    refute_includes sidechat_markdown, "request_subagent_close"
+    refute_includes sidechat_markdown, "send_guidance_to_active_agent"
+    assert_includes sidechat_markdown, "refresh the status snapshot"
+    assert_includes sidechat_markdown, "stop the active child task"
+    assert_includes sidechat_markdown, "send guidance to the active worker"
+
+    refute_includes status_markdown, "request_subagent_close"
+    refute_includes status_markdown, "send_guidance_to_active_agent"
+    assert_includes status_markdown, "refresh the status snapshot"
+    assert_includes status_markdown, "stop the active child task"
+    assert_includes status_markdown, "send guidance to the active worker"
+  end
+
+  test "supervision markdown keeps unmapped control actions visible as humanized fallback labels" do
+    supervision_trace = {
+      "polls" => [
+        {
+          "machine_status" => {
+            "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+            "overall_state" => "running",
+            "board_lane" => "active",
+            "control" => {
+              "supervision_enabled" => true,
+              "side_chat_enabled" => true,
+              "control_enabled" => true,
+              "available_control_verbs" => ["request_custom_pause"],
+            },
+            "proof_debug" => {},
+            "conversation_context" => {},
+            "primary_turn_todo_plan_view" => {},
+            "active_subagent_turn_todo_plan_views" => [],
+            "turn_feed" => [],
+            "activity_feed" => [],
+          },
+          "human_sidechat" => { "content" => "Still working." },
+          "user_message" => { "content" => "Status?" },
+        },
+      ],
+      "final_response" => {
+        "machine_status" => {
+          "supervision_session_id" => "22222222-2222-2222-2222-222222222222",
+          "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+          "overall_state" => "running",
+          "board_lane" => "active",
+          "control" => {
+            "supervision_enabled" => true,
+            "side_chat_enabled" => true,
+            "control_enabled" => true,
+            "available_control_verbs" => ["request_custom_pause"],
+          },
+          "proof_debug" => {},
+          "conversation_context" => {},
+          "primary_turn_todo_plan_view" => {},
+          "active_subagent_turn_todo_plan_views" => [],
+          "turn_feed" => [],
+          "activity_feed" => [],
+        },
+      },
+      "session" => {
+        "conversation_supervision_session" => {
+          "supervision_session_id" => "22222222-2222-2222-2222-222222222222",
+        },
+      },
+    }
+
+    markdown = Acceptance::ConversationArtifacts.supervision_status_markdown(supervision_trace: supervision_trace)
+
+    assert_includes markdown, "request custom pause"
+  end
 end

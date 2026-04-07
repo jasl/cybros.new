@@ -597,7 +597,7 @@ module Conversations
       current = current_attributes.deep_stringify_keys
       changes = []
 
-      if previous.blank? && feed_target_turn.present? && current["overall_state"] != "idle"
+      if previous.blank? && current["overall_state"] != "idle"
         changes << semantic_change(
           event_kind: "turn_started",
           summary: current["request_summary"].presence || "Started the turn.",
@@ -652,8 +652,6 @@ module Conversations
     end
 
     def semantic_change(event_kind:, summary:, current_attributes:)
-      return if feed_target_turn.blank?
-
       {
         "event_kind" => event_kind,
         "summary" => summary,
@@ -676,11 +674,6 @@ module Conversations
         when "failed" then "The turn failed."
         else "The turn was interrupted."
         end
-    end
-
-    def feed_target_turn
-      @feed_target_turn ||= @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
-        @conversation.turns.order(sequence: :desc).first
     end
 
     def detailed_progress_enabled?

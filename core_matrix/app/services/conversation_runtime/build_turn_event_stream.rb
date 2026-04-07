@@ -417,42 +417,44 @@ module ConversationRuntime
       return entry["detail"] if entry["detail"].present?
 
       payload = entry["payload"] || {}
-      parts = []
-      parts << "State `#{payload["state"]}`." if payload["state"].present?
       tool_name = entry["tool_name"].presence || payload["tool_name"].presence
-      parts << "Tool `#{tool_name}`." if tool_name.present?
-      parts << "Tool invocation `#{payload["tool_invocation_id"]}`." if payload["tool_invocation_id"].present?
-      parts.join(" ").presence
+      safe_tool_detail = safe_tool_detail(tool_name:, payload:)
+      return safe_tool_detail if safe_tool_detail.present?
+
+      state = normalize_state(payload["state"] || entry["event_kind"])
+      return if state.blank?
+
+      case state
+      when "started"
+        "This workflow step just started."
+      when "completed"
+        "This workflow step finished."
+      when "failed"
+        "This workflow step failed."
+      when "waiting", "blocked"
+        "This workflow step is waiting on a dependency."
+      else
+        "This workflow step updated."
+      end
+    end
+
+    def safe_tool_detail(tool_name:, payload:)
+      return if tool_name.blank?
+
+      ConversationRuntime::BuildSafeToolInvocationSummary.call(
+        tool_name: tool_name,
+        arguments: payload.dig("request_payload", "arguments") || payload["arguments"] || {},
+        response_payload: payload["response_payload"] || {},
+        command_summary: payload["command_summary"]
+      )&.fetch("detail", nil)
     end
 
     def summarize_tool_invocation(tool_invocation)
-      tool_name = tool_invocation["tool_name"].to_s
-      arguments = tool_invocation.dig("request_payload", "arguments") || {}
-      response_payload = tool_invocation["response_payload"] || {}
-
-      case tool_name
-      when "workspace_tree"
-        {
-          "phase" => "plan",
-          "summary" => "Inspected the workspace tree",
-          "detail" => "Path `#{arguments["path"] || "/workspace"}`.",
-        }
-      when "workspace_write", "workspace_patch"
-        {
-          "phase" => "build",
-          "summary" => "Edited workspace files",
-          "detail" => "Path `#{arguments["path"] || "unknown"}`.",
-        }
-      when "subagent_spawn"
-        profile_key = response_payload["profile_key"] || arguments["profile_key"] || "subagent"
-        {
-          "phase" => "build",
-          "summary" => "Spawned subagent #{profile_key}#1",
-          "detail" => "Delegated with profile `#{profile_key}`.",
-        }
-      else
-        nil
-      end
+      ConversationRuntime::BuildSafeToolInvocationSummary.call(
+        tool_name: tool_invocation["tool_name"],
+        arguments: tool_invocation.dig("request_payload", "arguments") || {},
+        response_payload: tool_invocation["response_payload"] || {}
+      )&.slice("phase", "summary", "detail")
     end
 
     def actor_for_event(entry, subagent_labels:, agent_task_runs_by_id:)
@@ -546,7 +548,7 @@ module ConversationRuntime
         if host_validation_failed_checks(entry).empty?
           "Host validation passed: tests, build, preview, and Playwright"
         else
-          "Host validation found issues with #{host_validation_failed_checks(entry).join(', ')}"
+          "Host validation found issues with #{host_validation_failed_checks(entry).join(", ")}"
         end
       when "attempt_succeeded"
         "Attempt #{entry["attempt_no"]} satisfied runtime and host checks"

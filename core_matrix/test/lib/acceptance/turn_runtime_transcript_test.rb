@@ -159,7 +159,7 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes summaries, "Ran the test-and-build check in /workspace/game-2048"
     assert_includes summaries, "Starting the preview server in /workspace/game-2048"
     assert_includes summaries, "Inspected the workspace tree"
-    assert_includes summaries, "Spawned subagent researcher#1"
+    assert_includes summaries, "Spawned child task researcher#1"
     assert_includes summaries, "researcher#1 completed its assigned work"
     assert_includes summaries, "Host validation passed: tests, build, preview, and Playwright"
 
@@ -176,5 +176,8 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
     assert_includes markdown, "[main] Ran the test-and-build check in /workspace/game-2048"
     assert_includes markdown, "[main] Starting the preview server in /workspace/game-2048"
     assert_includes markdown, "Host validation passed: tests, build, preview, and Playwright"
+    refute_match(/workspace_write|command_run_wait|browser_open/i, markdown)
+    refute_includes markdown, "conv_123"
+    refute_includes markdown, "turn_123"
   end
 end
