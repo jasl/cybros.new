@@ -41,6 +41,7 @@ module EmbeddedAgents
             "recent_plan_transitions" => recent_plan_transitions,
             "context_snippets" => compact_context_snippets,
             "runtime_evidence" => idle_snapshot? ? nil : compact_runtime_evidence,
+            "runtime_facts" => idle_snapshot? ? nil : compact_runtime_facts,
           }.compact
         end
 
@@ -96,6 +97,55 @@ module EmbeddedAgents
             "active_process" => compact_runtime_item(@machine_status.dig("runtime_evidence", "active_process")),
             "recent_process" => compact_runtime_item(@machine_status.dig("runtime_evidence", "recent_process")),
           ).compact
+        end
+
+        def compact_runtime_facts
+          facts = {
+            "active_focus_summary" => active_runtime_focus_summary,
+            "recent_progress_summary" => recent_runtime_progress_summary,
+          }.compact
+
+          facts.presence
+        end
+
+        def active_runtime_focus_summary
+          if (process = @machine_status.dig("runtime_evidence", "active_process")).present?
+            "Monitoring a running process#{location_phrase(process)}"
+          elsif (command = @machine_status.dig("runtime_evidence", "active_command")).present?
+            "Monitoring a running shell command#{location_phrase(command)}"
+          end
+        end
+
+        def recent_runtime_progress_summary
+          if (process = @machine_status.dig("runtime_evidence", "recent_process")).present?
+            summarize_terminal_runtime_item(
+              item: process,
+              noun: "process",
+              lifecycle_state: process["lifecycle_state"]
+            )
+          elsif (command = @machine_status.dig("runtime_evidence", "recent_command")).present?
+            summarize_terminal_runtime_item(
+              item: command,
+              noun: "shell command",
+              lifecycle_state: command["lifecycle_state"]
+            )
+          end
+        end
+
+        def summarize_terminal_runtime_item(item:, noun:, lifecycle_state:)
+          case lifecycle_state.to_s
+          when "failed", "lost"
+            "A #{noun} failed#{location_phrase(item)}."
+          when "canceled", "interrupted", "stopped"
+            "A #{noun} was interrupted#{location_phrase(item)}."
+          else
+            "A #{noun} finished#{location_phrase(item)}."
+          end
+        end
+
+        def location_phrase(item)
+          cwd = item.to_h["cwd"].presence
+          cwd.present? ? " in #{cwd}" : ""
         end
 
         def compact_runtime_item(item)

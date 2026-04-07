@@ -133,6 +133,31 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/provider round|command_run_wait|exec_command|React app|game files|test-and-build check/i, content)
   end
 
+  test "uses runtime facts when the frozen focus falls back to the generic current-turn wording" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+    machine_status = snapshot.machine_status_payload.deep_dup
+    machine_status["current_focus_summary"] = "Working through the current turn"
+    machine_status["recent_progress_summary"] = nil
+    snapshot.update!(machine_status_payload: machine_status)
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/monitoring a running shell command/i, content)
+    assert_match(/most recently, a shell command finished in \/workspace\/game-2048/i, content)
+    refute_match(/working through the current turn/i, content)
+  end
+
   test "uses waiting summaries from the frozen payload without leaking raw wait tokens" do
     fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture)

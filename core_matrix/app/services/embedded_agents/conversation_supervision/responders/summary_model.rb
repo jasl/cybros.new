@@ -8,7 +8,11 @@ module EmbeddedAgents
           Answer in the same language as the user's question.
           Base the reply only on the provided supervision payload.
           Do not mention snapshots, machine status, internal ids, provider names, model names, runtime tokens, or provenance phrases such as "Grounded in".
+          If supervision.overall_state is idle, the first sentence must explicitly say the conversation is idle.
+          Do not paraphrase idle as merely "not doing anything" or describe active work for an idle state.
           Prefer the active plan item and recent plan transitions over runtime details.
+          If current_focus_summary is generic or missing and runtime_facts.active_focus_summary is present, use that runtime fact as the current-status sentence instead of restating request_summary or context snippets.
+          If recent plan progress is unavailable and runtime_facts.recent_progress_summary is present, use it for the recent-change sentence.
           Use runtime evidence only to justify waiting, blocking, or coarse fallback status.
           Mention a next step only when the user asks and the payload includes a justified next_step_hint.
           If detailed progress is unavailable, answer using only the coarse state information.
@@ -36,7 +40,7 @@ module EmbeddedAgents
 
           return control_response(machine_status) if @control_decision&.handled?
 
-          modeled_content = render_modeled_content
+          modeled_content = render_modeled_content(machine_status: machine_status)
           return builtin_response if modeled_content.blank?
 
           {
@@ -84,7 +88,7 @@ module EmbeddedAgents
           )
         end
 
-        def render_modeled_content
+        def render_modeled_content(machine_status:)
           result = ProviderGateway::DispatchText.call(
             installation: @conversation_supervision_snapshot.target_conversation.installation,
             selector: SUMMARY_SELECTOR,
@@ -96,7 +100,11 @@ module EmbeddedAgents
             catalog: @catalog
           )
 
-          normalize_modeled_content(result.content)
+          normalized = normalize_modeled_content(result.content)
+          return normalized if acceptable_modeled_content?(normalized, machine_status)
+
+          @logger.info("conversation supervision summary model fallback: unacceptable modeled content for #{machine_status.fetch("overall_state")}")
+          nil
         rescue StandardError => error
           @logger.info("conversation supervision summary model fallback: #{error.class}: #{error.message}")
           nil
@@ -134,6 +142,13 @@ module EmbeddedAgents
 
           normalized = sentences.first(2).join(" ").squish
           normalized.truncate(SupervisionStateFields::HUMAN_SUMMARY_MAX_LENGTH * 2).presence
+        end
+
+        def acceptable_modeled_content?(content, machine_status)
+          return false if content.blank?
+          return true unless machine_status.fetch("overall_state") == "idle"
+
+          content.match?(/\bidle\b/i) && !content.match?(/\bwaiting\b|\bblocked\b|\bworking on\b/i)
         end
       end
     end

@@ -128,7 +128,10 @@ module EmbeddedAgents
       end
 
       def recent_change_sentence
-        latest_summary = prompt_payload["recent_progress_summary"].presence || latest_meaningful_plan_transition
+        latest_summary =
+          prompt_payload["recent_progress_summary"].presence ||
+          prompt_payload.dig("runtime_facts", "recent_progress_summary").presence ||
+          latest_meaningful_plan_transition
         return if latest_summary.blank?
 
         "Most recently, #{trim_terminal_punctuation(latest_summary).downcase}."
@@ -201,16 +204,27 @@ module EmbeddedAgents
       end
 
       def current_focus_summary
-        [
+        focus =
+          [
           prompt_payload["current_focus_summary"],
           prompt_payload.dig("primary_turn_todo_plan", "current_item_title"),
           prompt_payload["request_summary"],
           prompt_payload.dig("primary_turn_todo_plan", "goal_summary"),
-        ].find(&:present?)
+          ].find(&:present?)
+
+        if generic_current_turn_focus?(focus)
+          prompt_payload.dig("runtime_facts", "active_focus_summary").presence || focus
+        else
+          focus || prompt_payload.dig("runtime_facts", "active_focus_summary").presence
+        end
       end
 
       def descriptive_focus?(text)
         text.to_s.match?(/\A(?:build|building|check|checking|verify|verifying|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing|wait|waiting|continue|continuing|review|reviewing|investigate|investigating|inspect|inspecting|monitor|monitoring|resolve|resolving|work|working)\b/i)
+      end
+
+      def generic_current_turn_focus?(text)
+        text.to_s.match?(/\AWorking through the current turn\z/i)
       end
 
       def lowercase_initial(text)

@@ -1,6 +1,7 @@
 require "json"
 require "pathname"
 require "securerandom"
+require_relative "conversation_artifacts"
 
 module Acceptance
   module SupervisionEvalReplay
