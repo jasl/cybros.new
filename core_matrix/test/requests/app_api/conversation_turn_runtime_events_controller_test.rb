@@ -21,11 +21,11 @@ class AppApiConversationTurnRuntimeEventsControllerTest < ActionDispatch::Integr
     assert_includes body.fetch("lanes").map { |lane| lane.fetch("actor_label") }, "main"
 
     summaries = body.fetch("items").map { |entry| entry.fetch("summary") }
-    assert_includes summaries, "Ran the test run in /workspace/game-2048"
-    assert_includes summaries, "Running the test-and-build check in /workspace/game-2048"
+    assert_includes summaries, "A shell command finished in /workspace/game-2048"
+    assert_includes summaries, "A shell command is running in /workspace/game-2048"
 
     current_check = body.fetch("items").find do |entry|
-      entry.fetch("summary") == "Running the test-and-build check in /workspace/game-2048"
+      entry.fetch("summary") == "A shell command is running in /workspace/game-2048"
     end
 
     assert_equal fixture.fetch(:active_command_run).public_id, current_check.fetch("command_run_public_id")

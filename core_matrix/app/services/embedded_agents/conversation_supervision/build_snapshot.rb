@@ -61,7 +61,12 @@ module EmbeddedAgents
         detailed_progress_enabled = authority.detailed_progress_enabled?
         context_view = detailed_progress_enabled ? conversation_context_view : empty_context_view
         turn_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
-        runtime_evidence = detailed_progress_enabled ? conversation_runtime_evidence : {}
+        runtime_evidence =
+          if detailed_progress_enabled && state.overall_state != "idle"
+            conversation_runtime_evidence
+          else
+            {}
+          end
 
         {
           "conversation_context_view" => context_view,

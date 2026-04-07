@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ConversationRuntime::BuildTurnEventStreamTest < ActiveSupport::TestCase
-  test "builds an ordered runtime event stream with safe summaries and exact refs" do
+  test "builds an ordered runtime event stream with generic safe summaries and exact refs" do
     report = ConversationRuntime::BuildTurnEventStream.call(
       conversation_id: "conv_123",
       turn_id: "turn_123",
@@ -80,19 +80,19 @@ class ConversationRuntime::BuildTurnEventStreamTest < ActiveSupport::TestCase
 
     assert_equal "command_activity", test_and_build_event.fetch("family")
     assert_equal "command_completed", test_and_build_event.fetch("kind")
-    assert_equal "Ran the test-and-build check in /workspace/game-2048", test_and_build_event.fetch("summary")
+    assert_equal "A shell command finished in /workspace/game-2048", test_and_build_event.fetch("summary")
     assert_equal "provider_round_3_tool_1", test_and_build_event.fetch("workflow_node_key")
     assert_equal "tool_public_123", test_and_build_event.fetch("tool_invocation_public_id")
 
     assert_equal "process_activity", preview_event.fetch("family")
     assert_equal "process_started", preview_event.fetch("kind")
-    assert_equal "Starting the preview server in /workspace/game-2048", preview_event.fetch("summary")
+    assert_equal "A process is running in /workspace/game-2048", preview_event.fetch("summary")
 
     refute timeline.any? { |entry| entry.fetch("summary").match?(/provider round|provider_round_|command_run_wait/) }
     refute timeline.any? { |entry| entry["detail"].to_s.match?(/workspace_tree|command_run_wait|tool `workspace/i) }
   end
 
-  test "uses referenced command semantics for write_stdin tool activity events" do
+  test "uses referenced command metadata for write_stdin tool activity events without guessing business semantics" do
     report = ConversationRuntime::BuildTurnEventStream.call(
       conversation_id: "conv_123",
       turn_id: "turn_123",
@@ -139,7 +139,7 @@ class ConversationRuntime::BuildTurnEventStreamTest < ActiveSupport::TestCase
 
     event = report.fetch("timeline").find { |entry| entry["tool_invocation_public_id"] == "tool_public_123" }
 
-    assert_equal "Installed project dependencies in /workspace/game-2048", event.fetch("summary")
+    assert_equal "A shell command finished in /workspace/game-2048", event.fetch("summary")
     refute_match(/Sent input to the running command|Respond to/i, event.to_json)
   end
 end

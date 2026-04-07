@@ -172,21 +172,24 @@ module Conversations
       return if overall_state == "idle"
 
       current_task_plan_summary&.fetch("current_item_title", nil) ||
+        current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["current_item_title"] }.first ||
         active_owned_subagent_sessions.filter_map(&:current_focus_summary).first ||
+        basic_task_run_current_focus_summary ||
         generic_runtime_current_focus_summary
     end
 
     def recent_progress_summary
       return unless detailed_progress_enabled?
 
-      recent_plan_transition_summary ||
-        (current_task_progress_entry&.summary if current_task_plan_summary.present?) ||
+      plan_backed_recent_progress_summary ||
+        current_task_run&.recent_progress_summary ||
+        current_task_progress_entry_summary ||
         active_conversation_subagent_session&.recent_progress_summary ||
         active_owned_subagent_sessions.filter_map(&:recent_progress_summary).first ||
         generic_runtime_recent_progress_summary ||
-        (latest_progress_entry&.summary if current_task_plan_summary.present?)
+        latest_progress_entry_summary
     end
 
     def waiting_summary
@@ -285,6 +288,7 @@ module Conversations
 
     def active_runtime_evidence
       return if overall_state == "idle"
+      return if suppress_runtime_evidence_for_task_run?
 
       runtime_evidence.presence
     end
@@ -344,6 +348,12 @@ module Conversations
       recent_plan_transition_entry&.summary
     end
 
+    def plan_backed_recent_progress_summary
+      return unless plan_backed_progress?
+
+      recent_plan_transition_summary
+    end
+
     def recent_plan_transition_entry
       return @recent_plan_transition_entry if instance_variable_defined?(:@recent_plan_transition_entry)
 
@@ -374,6 +384,7 @@ module Conversations
     end
 
     def generic_runtime_current_focus_summary
+      return if suppress_runtime_evidence_for_task_run?
       return summarize_active_process(runtime_evidence["active_process"]) if runtime_evidence["active_process"].present?
       return summarize_active_command(runtime_evidence["active_command"]) if runtime_evidence["active_command"].present?
       return "Working through the current turn" if workflow_progressing_without_task?
@@ -384,6 +395,7 @@ module Conversations
     end
 
     def generic_runtime_recent_progress_summary
+      return if suppress_runtime_evidence_for_task_run?
       return summarize_terminal_process(runtime_evidence["recent_process"]) if runtime_evidence["recent_process"].present?
       return summarize_terminal_command(runtime_evidence["recent_command"]) if runtime_evidence["recent_command"].present?
 
@@ -447,7 +459,6 @@ module Conversations
 
       @current_task_run = AgentTaskRun
         .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-        .includes(:agent_task_progress_entries, turn_todo_plan: :turn_todo_plan_items)
         .order(created_at: :desc)
         .first
     end
@@ -486,6 +497,18 @@ module Conversations
       return @current_task_progress_entry if instance_variable_defined?(:@current_task_progress_entry)
 
       @current_task_progress_entry = current_task_progress_entries.first
+    end
+
+    def current_task_progress_entry_summary
+      return if basic_task_run_fallback?
+
+      current_task_progress_entry&.summary
+    end
+
+    def latest_progress_entry_summary
+      return if basic_task_run_fallback?
+
+      latest_progress_entry&.summary
     end
 
     def conversation_subagent_session
@@ -630,6 +653,34 @@ module Conversations
 
     def workflow_progressing_without_task?
       active_workflow? && running_workflow_node.present?
+    end
+
+    def basic_task_run_current_focus_summary
+      return unless basic_task_run_fallback?
+      return unless overall_state == "running"
+
+      "Working through the current turn"
+    end
+
+    def basic_task_run_fallback?
+      return @basic_task_run_fallback if instance_variable_defined?(:@basic_task_run_fallback)
+
+      @basic_task_run_fallback =
+        current_task_run.present? &&
+        current_task_plan.blank? &&
+        current_task_run.current_focus_summary.blank? &&
+        current_task_run.recent_progress_summary.blank? &&
+        current_task_run.waiting_summary.blank? &&
+        current_task_run.blocked_summary.blank? &&
+        current_task_run.next_step_hint.blank?
+    end
+
+    def suppress_runtime_evidence_for_task_run?
+      current_task_run.present? && !%w[waiting blocked].include?(overall_state)
+    end
+
+    def plan_backed_progress?
+      current_task_plan.present? || latest_task_plan_summary.present?
     end
 
     def workflow_terminal_state

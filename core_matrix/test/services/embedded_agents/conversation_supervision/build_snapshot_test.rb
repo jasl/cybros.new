@@ -156,4 +156,33 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
       snapshot.machine_status_payload.fetch("recent_progress_summary")
     refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, snapshot.machine_status_payload.to_json)
   end
+
+  test "omits runtime evidence from idle machine status snapshots" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    fixture.fetch(:active_tool_node).update!(
+      lifecycle_state: "completed",
+      started_at: 30.seconds.ago,
+      finished_at: 10.seconds.ago
+    )
+    fixture.fetch(:active_command_run).update!(
+      lifecycle_state: "completed",
+      started_at: 30.seconds.ago,
+      ended_at: 10.seconds.ago
+    )
+    fixture.fetch(:workflow_run).update!(lifecycle_state: "completed")
+    fixture.fetch(:turn).update!(lifecycle_state: "completed")
+    session = create_conversation_supervision_session!(fixture)
+
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    assert_equal "idle", snapshot.machine_status_payload.fetch("overall_state")
+    assert_nil snapshot.machine_status_payload["current_focus_summary"]
+    assert_equal "A shell command finished in /workspace/game-2048.",
+      snapshot.machine_status_payload.fetch("recent_progress_summary")
+    assert_equal({}, snapshot.machine_status_payload.fetch("runtime_evidence"))
+    assert_equal({}, snapshot.bundle_payload.fetch("runtime_evidence"))
+  end
 end

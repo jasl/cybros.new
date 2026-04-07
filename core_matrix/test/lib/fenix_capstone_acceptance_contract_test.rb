@@ -130,7 +130,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ConversationArtifacts.human_visible_leak_tokens"
     assert_includes scenario, "semantic_overlap?"
     assert_includes scenario, 'runtime_evidence = final_status.fetch("runtime_evidence", {}).to_h'
-    assert_includes scenario, 'primary_plan_view.present?'
+    assert_includes scenario, "primary_plan_view.present?"
     assert_includes scenario, 'review", "supervision-eval-bundle.json"'
     assert_includes scenario, 'primary_plan_view["goal_summary"]'
     assert_includes scenario, 'primary_plan_view.dig("current_item", "title")'

@@ -45,14 +45,18 @@ module ConversationSupervision
     end
 
     def active_command_run
-      @active_command_run ||= command_runs
+      return @active_command_run if instance_variable_defined?(:@active_command_run)
+
+      @active_command_run = command_runs
         .where(lifecycle_state: ACTIVE_COMMAND_STATES)
         .order(started_at: :desc, created_at: :desc)
         .first
     end
 
     def recent_command_run
-      @recent_command_run ||= command_runs
+      return @recent_command_run if instance_variable_defined?(:@recent_command_run)
+
+      @recent_command_run = command_runs
         .where.not(id: active_command_run&.id)
         .where(lifecycle_state: TERMINAL_COMMAND_STATES)
         .order(ended_at: :desc, started_at: :desc, created_at: :desc)
@@ -60,14 +64,18 @@ module ConversationSupervision
     end
 
     def active_process_run
-      @active_process_run ||= process_runs
+      return @active_process_run if instance_variable_defined?(:@active_process_run)
+
+      @active_process_run = process_runs
         .where(lifecycle_state: ACTIVE_PROCESS_STATES)
         .order(started_at: :desc, created_at: :desc)
         .first
     end
 
     def recent_process_run
-      @recent_process_run ||= process_runs
+      return @recent_process_run if instance_variable_defined?(:@recent_process_run)
+
+      @recent_process_run = process_runs
         .where.not(id: active_process_run&.id)
         .where(lifecycle_state: TERMINAL_PROCESS_STATES)
         .order(ended_at: :desc, started_at: :desc, created_at: :desc)

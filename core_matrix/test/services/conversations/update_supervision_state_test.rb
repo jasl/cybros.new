@@ -358,6 +358,68 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     refute_match(/React app|game files|test-and-build|preview server|command_run_wait|provider round/i, state.attributes.to_json)
   end
 
+  test "uses the task-run work-state report before coarse runtime fallback when no turn todo plan exists" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      request_summary: "Replace the observation schema",
+      current_focus_summary: "Adding the canonical supervision aggregates",
+      recent_progress_summary: "Finished reviewing the old models",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+    AgentTaskProgressEntry.create!(
+      installation: context[:installation],
+      agent_task_run: agent_task_run,
+      sequence: 1,
+      entry_kind: "progress_recorded",
+      summary: "Finished reviewing the old models",
+      details_payload: {},
+      occurred_at: Time.current
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "running", state.overall_state
+    assert_equal "agent_task_run", state.current_owner_kind
+    assert_equal agent_task_run.public_id, state.current_owner_public_id
+    assert_equal "Replace the observation schema", state.request_summary
+    assert_equal "Adding the canonical supervision aggregates", state.current_focus_summary
+    assert_equal "Finished reviewing the old models", state.recent_progress_summary
+  end
+
+  test "keeps task-backed fallback on basic work-state instead of runtime evidence when no plan exists" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      request_summary: "Replace the observation schema",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "running", state.overall_state
+    assert_equal "agent_task_run", state.current_owner_kind
+    assert_equal agent_task_run.public_id, state.current_owner_public_id
+    assert_equal "Replace the observation schema", state.request_summary
+    assert_equal "Working through the current turn", state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_nil state.status_payload["runtime_evidence"]
+  end
+
   test "surfaces a running process as generic runtime evidence" do
     context = build_agent_control_context!(workflow_node_type: "background_service")
     context[:workflow_node].update!(
