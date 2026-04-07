@@ -49,7 +49,6 @@ class AcceptanceFailureClassificationTest < ActiveSupport::TestCase
           "runtime_build_passed" => true,
           "runtime_dev_server_ready" => true,
           "runtime_browser_loaded" => true,
-          "runtime_browser_mentions_2048" => true,
         },
       },
       rescue_history: [

@@ -182,11 +182,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal({ "turn_step" => 1, "turn_root" => 1 }, snapshot.metadata.fetch("workflow_node_type_counts"))
     assert_equal({ "exec_command" => { "count" => 2, "failures" => 1 } }, snapshot.metadata.fetch("tool_breakdown"))
     assert_equal(
-      {
-        "test" => { "count" => 1, "failures" => 0 },
-        "build" => { "count" => 1, "failures" => 1 },
-      },
-      snapshot.metadata.fetch("command_classification_counts")
+      { "completed" => 1, "failed" => 1 },
+      snapshot.metadata.fetch("command_lifecycle_state_counts")
     )
     assert_equal({ "completed" => 1 }, snapshot.metadata.fetch("subagent_status_counts"))
     assert_equal(

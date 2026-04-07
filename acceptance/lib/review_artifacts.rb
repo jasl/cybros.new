@@ -245,7 +245,6 @@ module Acceptance
               "src/**/*",
               "public/**/*",
               "package.json",
-              "vite.config.*",
               "tsconfig*.json",
               "index.html",
               "dist/**/*",

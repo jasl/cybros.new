@@ -14,20 +14,19 @@ class ConversationRuntime::BuildSafeToolInvocationSummaryTest < ActiveSupport::T
     refute_match(/workspace_tree/i, summary.to_json)
   end
 
-  test "summarizes stdin writes using the referenced command purpose" do
+  test "summarizes stdin writes using generic shell command wording" do
     summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
       tool_name: "write_stdin",
       command_summary: "the test-and-build check in /workspace/game-2048",
       command_metadata: {
         "summary" => "Running the test-and-build check in /workspace/game-2048",
-        "work_type" => "verification",
         "path_summary" => "/workspace/game-2048",
       }
     )
 
-    assert_equal "Check progress on the test-and-build check in /workspace/game-2048", summary.fetch("title")
-    assert_equal "Checked progress on the test-and-build check in /workspace/game-2048", summary.fetch("summary")
-    assert_equal "Started checking progress on the test-and-build check in /workspace/game-2048.", summary.fetch("started_summary")
+    assert_equal "Check progress on the shell command in /workspace/game-2048", summary.fetch("title")
+    assert_equal "Checked progress on the shell command in /workspace/game-2048", summary.fetch("summary")
+    assert_equal "Started checking progress on the shell command in /workspace/game-2048.", summary.fetch("started_summary")
     refute_match(/write_stdin/i, summary.to_json)
     refute_match(/Respond to|Sent input to/i, summary.to_json)
   end
@@ -82,38 +81,35 @@ class ConversationRuntime::BuildSafeToolInvocationSummaryTest < ActiveSupport::T
     refute_match(/browser_open/i, summary.to_json)
   end
 
-  test "summarizes command waits using the referenced command purpose" do
+  test "summarizes command waits using generic shell command wording" do
     summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
       tool_name: "command_run_wait",
       command_summary: "the preview server in /workspace/game-2048",
       command_metadata: {
         "summary" => "Starting the preview server in /workspace/game-2048",
-        "work_type" => "preview",
         "path_summary" => "/workspace/game-2048",
       }
     )
 
-    assert_equal "Wait for the preview server in /workspace/game-2048", summary.fetch("title")
-    assert_equal "Waiting for the preview server in /workspace/game-2048", summary.fetch("summary")
-    assert_equal "Started waiting for the preview server in /workspace/game-2048.", summary.fetch("started_summary")
+    assert_equal "Wait for the shell command in /workspace/game-2048", summary.fetch("title")
+    assert_equal "Waiting for the shell command in /workspace/game-2048", summary.fetch("summary")
+    assert_equal "Started waiting for the shell command in /workspace/game-2048.", summary.fetch("started_summary")
     refute_match(/command_run_wait/i, summary.to_json)
   end
 
-  test "summarizes command waits on workspace inspection as inspection work" do
+  test "summarizes command waits without inspection-specific phrasing" do
     summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
       tool_name: "command_run_wait",
       command_summary: "the workspace in /workspace",
       command_metadata: {
         "summary" => "Inspecting the workspace in /workspace",
-        "work_type" => "inspection",
         "path_summary" => "/workspace",
       }
     )
 
-    assert_equal "Inspect the workspace in /workspace", summary.fetch("title")
-    assert_equal "Inspecting the workspace in /workspace", summary.fetch("summary")
-    assert_equal "Started inspecting the workspace in /workspace.", summary.fetch("started_summary")
-    refute_match(/Wait for the workspace/i, summary.to_json)
+    assert_equal "Wait for the shell command in /workspace", summary.fetch("title")
+    assert_equal "Waiting for the shell command in /workspace", summary.fetch("summary")
+    assert_equal "Started waiting for the shell command in /workspace.", summary.fetch("started_summary")
   end
 
   test "summarizes stdin writes that close a command session with the completed command result" do
@@ -123,17 +119,16 @@ class ConversationRuntime::BuildSafeToolInvocationSummaryTest < ActiveSupport::T
         "session_closed" => true,
         "command_run_id" => "cmd_123",
       },
-      command_summary: "installed project dependencies in /workspace/game-2048",
+      command_summary: "The shell command completed in /workspace/game-2048",
       command_metadata: {
-        "summary" => "Installed project dependencies in /workspace/game-2048",
-        "work_type" => "dependency_setup",
+        "summary" => "The shell command completed in /workspace/game-2048",
         "path_summary" => "/workspace/game-2048",
       }
     )
 
-    assert_equal "Installed project dependencies in /workspace/game-2048", summary.fetch("title")
-    assert_equal "Installed project dependencies in /workspace/game-2048", summary.fetch("summary")
-    assert_equal "Started installing project dependencies in /workspace/game-2048.", summary.fetch("started_summary")
+    assert_equal "The shell command completed in /workspace/game-2048", summary.fetch("title")
+    assert_equal "The shell command completed in /workspace/game-2048", summary.fetch("summary")
+    assert_equal "Started collecting the final result from the shell command in /workspace/game-2048.", summary.fetch("started_summary")
     refute_match(/Respond to|Sent input to/i, summary.to_json)
   end
 

@@ -143,6 +143,10 @@ def read_json(path)
   JSON.parse(File.read(path))
 end
 
+def mentions_2048?(text)
+  text.to_s.match?(/\b2048\b/i)
+end
+
 def assert_2048_bundle_quality_contract!(artifact_dir:)
   status_markdown = File.read(artifact_dir.join("review", "supervision-status.md"))
   feed_markdown = File.read(artifact_dir.join("review", "supervision-feed.md"))
@@ -836,7 +840,8 @@ def build_repair_prompt(
   unless runtime_validation.fetch("runtime_browser_loaded")
     lines << "- runtime-side browser verification was missing."
   end
-  if runtime_validation.fetch("runtime_browser_loaded") && !runtime_validation.fetch("runtime_browser_mentions_2048")
+  if runtime_validation.fetch("runtime_browser_loaded") &&
+      !mentions_2048?(runtime_validation.fetch("runtime_browser_content_excerpt"))
     lines << "- runtime-side browser content did not clearly show the 2048 game."
   end
 
@@ -1402,7 +1407,7 @@ Acceptance::HostValidation.write_playability_verification!(
   runtime_validation: build_conversation_runtime_validation(tool_invocations: tool_invocations),
   preview_validation: {
     "reachable" => preview_http&.fetch("status", nil) == 200,
-    "contains_2048" => preview_http&.fetch("contains_2048", false) || false,
+    "content_excerpt" => preview_http&.fetch("content_excerpt", nil),
   },
   host_skip_reason: host_playability_skip_reason
 )
@@ -1468,7 +1473,7 @@ failure_report = Acceptance::FailureClassification.build(
       "npm_test_passed" => host_validation.dig("npm_test", "success"),
       "npm_build_passed" => host_validation.dig("npm_build", "success"),
       "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
-      "preview_contains_2048" => host_validation.dig("preview_http", "contains_2048") || false,
+      "preview_contains_2048" => mentions_2048?(host_validation.dig("preview_http", "content_excerpt")),
       "playwright_verification_passed" => Acceptance::HostValidation.playwright_verification_passed?(playwright_validation),
     },
   },
@@ -1546,7 +1551,7 @@ summary = {
     "npm_test_passed" => host_validation.dig("npm_test", "success"),
     "npm_build_passed" => host_validation.dig("npm_build", "success"),
     "preview_reachable" => host_validation.dig("preview_http", "status") == 200,
-    "preview_contains_2048" => host_validation.dig("preview_http", "contains_2048") || false,
+    "preview_contains_2048" => mentions_2048?(host_validation.dig("preview_http", "content_excerpt")),
     "playwright_verification_passed" => Acceptance::HostValidation.playwright_verification_passed?(playwright_validation),
   },
 }

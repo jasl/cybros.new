@@ -447,23 +447,7 @@ module Acceptance
     end
 
     private_class_method def summarize_command(command_line)
-      command = command_line.to_s
-
-      if command.include?("npm create vite")
-        ["Scaffolded the Vite React TypeScript project", "build"]
-      elsif command.include?("npm install")
-        ["Installed project dependencies", "build"]
-      elsif command.include?("npm test") && command.include?("npm run build")
-        ["Ran tests and production build", "validate"]
-      elsif command.include?("npm test")
-        ["Ran automated tests", "validate"]
-      elsif command.include?("npm run build")
-        ["Ran the production build", "validate"]
-      elsif command.include?("npm run preview")
-        ["Started the preview server", "validate"]
-      else
-        ["Executed a shell command", "build"]
-      end
+      ["Executed a shell command", "runtime"]
     end
 
     private_class_method def build_subagent_labels(subagent_sessions)

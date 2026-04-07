@@ -47,7 +47,7 @@ module Acceptance
 
     def write_root_readme!(path:, artifact_stamp:, summary:)
       lines = [
-        "# 2048 Acceptance Artifact Bundle",
+        "# Acceptance Artifact Bundle",
         "",
         "- Artifact stamp: `#{artifact_stamp}`",
         "- Benchmark outcome: `#{summary.fetch("benchmark_outcome")}`",

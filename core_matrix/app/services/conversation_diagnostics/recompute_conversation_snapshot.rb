@@ -64,7 +64,7 @@ module ConversationDiagnostics
         ),
         "workflow_node_type_counts" => merge_count_hashes(turn_snapshots, "workflow_node_type_counts"),
         "tool_breakdown" => merge_nested_counts(turn_snapshots, "tool_breakdown"),
-        "command_classification_counts" => merge_nested_counts(turn_snapshots, "command_classification_counts"),
+        "command_lifecycle_state_counts" => merge_count_hashes(turn_snapshots, "command_lifecycle_state_counts"),
         "subagent_status_counts" => merge_count_hashes(turn_snapshots, "subagent_status_counts"),
         }
       )

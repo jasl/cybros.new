@@ -8,7 +8,6 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
       "runtime_build_passed" => true,
       "runtime_dev_server_ready" => true,
       "runtime_browser_loaded" => true,
-      "runtime_browser_mentions_2048" => true,
     }
     host_validation = {
       "npm_install" => { "success" => true },
@@ -24,7 +23,7 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
     assert Acceptance::HostValidation.runtime_validation_passed?(runtime_validation)
     assert Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
 
-    runtime_validation["runtime_browser_mentions_2048"] = false
+    runtime_validation["runtime_browser_loaded"] = false
     host_validation["npm_build"]["success"] = false
 
     refute Acceptance::HostValidation.runtime_validation_passed?(runtime_validation)
@@ -78,7 +77,6 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
         "runtime_build_passed" => true,
         "runtime_dev_server_ready" => true,
         "runtime_browser_loaded" => true,
-        "runtime_browser_mentions_2048" => true,
         "runtime_browser_content_excerpt" => "2048 ready",
       }
 

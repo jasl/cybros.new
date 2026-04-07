@@ -116,6 +116,6 @@ class ConversationRuntimeValidationTest < ActiveSupport::TestCase
 
     assert_equal true, result.fetch("runtime_dev_server_ready")
     assert_equal true, result.fetch("runtime_browser_loaded")
-    assert_equal true, result.fetch("runtime_browser_mentions_2048")
+    assert_match(/2048/i, result.fetch("runtime_browser_content_excerpt"))
   end
 end

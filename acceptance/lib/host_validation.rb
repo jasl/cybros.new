@@ -103,7 +103,7 @@ module Acceptance
             runtime_validation: runtime_validation,
             preview_validation: {
               "reachable" => preview_http&.fetch("status", nil) == 200,
-              "contains_2048" => preview_http&.fetch("contains_2048", false) || false,
+              "content_excerpt" => preview_http&.fetch("content_excerpt", nil),
             },
             host_skip_reason: host_playability_skip_reason
           )
@@ -125,7 +125,7 @@ module Acceptance
           runtime_validation: runtime_validation,
           preview_validation: {
             "reachable" => false,
-            "contains_2048" => false,
+            "content_excerpt" => nil,
           },
           host_skip_reason: host_playability_skip_reason
         )
@@ -152,7 +152,6 @@ module Acceptance
           "- Runtime-side test succeeded: `#{runtime_validation.fetch("runtime_test_passed")}`",
           "- Runtime-side dev server reached `:4173`: `#{runtime_validation.fetch("runtime_dev_server_ready")}`",
           "- Runtime-side browser session loaded content: `#{runtime_validation.fetch("runtime_browser_loaded")}`",
-          "- Runtime browser content mentioned `2048`: `#{runtime_validation.fetch("runtime_browser_mentions_2048")}`",
         ]
         excerpt = runtime_validation.fetch("runtime_browser_content_excerpt").to_s
         unless excerpt.empty?
@@ -170,7 +169,6 @@ module Acceptance
           "## Host Playability Diagnostic",
           "",
           "- Host `dist/` preview reachable: `#{preview_validation.fetch("reachable")}`",
-          "- Host preview content mentioned `2048`: `#{preview_validation.fetch("contains_2048")}`",
           "",
           host_skip_reason || "Host-side browser verification did not run.",
           "",
@@ -188,14 +186,13 @@ module Acceptance
         lines = [
           "# Playability Verification",
           "",
-          "## Host Playability Diagnostic",
-          "",
-          "- Host `dist/` preview reachable: `#{preview_validation.fetch("reachable")}`",
-          "- Host preview content mentioned `2048`: `#{preview_validation.fetch("contains_2048")}`",
-          "- Playwright verification ran: `true`",
-          "- Playwright verification passed: `false`",
-          "",
-          "Playwright captured a real browser session and wrote `playable/host-playwright-verification.json`, but one or more acceptance assertions failed.",
+        "## Host Playability Diagnostic",
+        "",
+        "- Host `dist/` preview reachable: `#{preview_validation.fetch("reachable")}`",
+        "- Playwright verification ran: `true`",
+        "- Playwright verification passed: `false`",
+        "",
+        "Playwright captured a real browser session and wrote `playable/host-playwright-verification.json`, but one or more acceptance assertions failed.",
           "",
           "## Observed Run Details",
           "",
@@ -323,8 +320,7 @@ module Acceptance
       runtime_validation.fetch("runtime_test_passed") &&
         runtime_validation.fetch("runtime_build_passed") &&
         runtime_validation.fetch("runtime_dev_server_ready") &&
-        runtime_validation.fetch("runtime_browser_loaded") &&
-        runtime_validation.fetch("runtime_browser_mentions_2048")
+        runtime_validation.fetch("runtime_browser_loaded")
     end
 
     def playwright_result_available?(playwright_validation)
@@ -410,9 +406,7 @@ module Acceptance
 
           preview_http = {
             "status" => response.code.to_i,
-            "contains_2048" => body.include?("2048") ||
-              playwright_validation.dig("result", "initial", "nonEmpty").to_i.positive? ||
-              !playwright_validation.dig("result", "initial", "status").to_s.empty?,
+            "content_excerpt" => body.to_s.gsub(/\s+/, " ").strip[0, 240],
             "byte_size" => body.bytesize,
             "attempt_no" => index + 1,
           }

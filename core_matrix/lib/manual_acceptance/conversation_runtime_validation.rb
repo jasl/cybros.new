@@ -28,7 +28,7 @@ module ManualAcceptance
           test_success ||= combined_output.match?(/Test Files .*passed|Tests .*passed/m)
         elsif dev_server_log_tool?(tool_name) && status == "succeeded"
           dev_server_ready ||= combined_output.include?("4173") &&
-            combined_output.match?(/vite (preview|--host|preview --host)|ready in|Local:\s+http:\/\/localhost:4173|Network:\s+http:\/\//)
+            combined_output.match?(/ready in|Local:\s+http:\/\/localhost:4173|Network:\s+http:\/\//)
         elsif browser_navigation_tool?(tool_name) && status == "succeeded"
           dev_server_ready ||= current_url.start_with?("http://127.0.0.1:4173")
         elsif tool_name == "browser_get_content" && status == "succeeded"
@@ -43,7 +43,6 @@ module ManualAcceptance
         "runtime_build_passed" => build_success,
         "runtime_dev_server_ready" => dev_server_ready,
         "runtime_browser_loaded" => browser_content.present?,
-        "runtime_browser_mentions_2048" => browser_content.to_s.match?(/2048/i),
         "runtime_browser_content_excerpt" => browser_content.to_s[0, 240],
       }
     end

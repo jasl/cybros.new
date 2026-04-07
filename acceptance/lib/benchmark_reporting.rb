@@ -85,7 +85,7 @@ module Acceptance
         },
         "cost_efficiency" => {
           "rating" => cost_efficiency,
-          "summary" => "Token and tool usage were proportional to the difficulty of a real 2048 build, though the run still carried noticeable iteration cost.",
+          "summary" => "Token and tool usage were proportional to the difficulty of a real coding benchmark run, though the run still carried noticeable iteration cost.",
           "evidence" => [
             "evidence/run-summary.json",
             "evidence/diagnostics.json",

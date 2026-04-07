@@ -8,8 +8,6 @@ module Acceptance
       "pnpm-lock.yaml",
       "yarn.lock",
       "tsconfig*.json",
-      "vite.config.*",
-      "vitest.config.*",
       "index.html",
       "public/**/*",
       "src/**/*",

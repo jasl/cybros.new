@@ -1,25 +1,6 @@
 module ConversationDiagnostics
   class RecomputeTurnSnapshot
     RETRY_DELIVERY_KINDS = %w[step_retry paused_retry].freeze
-    COMMAND_CLASSIFICATIONS = {
-      "test" => [
-        /\bnpm test\b/,
-        /\bvitest(?:\s|$)/,
-        /\brspec(?:\s|$)/,
-        /\bpytest(?:\s|$)/,
-        %r{\bbin/rails test\b},
-      ],
-      "build" => [
-        /\bnpm run build\b/,
-        /\bvite build\b/,
-        /\btsc -b\b/,
-        %r{\bbin/rails assets:precompile\b},
-      ],
-      "preview" => [
-        /\bnpm run preview\b/,
-        /\bvite preview\b/,
-      ],
-    }.freeze
     FAILURE_TOOL_STATES = %w[failed canceled].freeze
     FAILURE_COMMAND_STATES = %w[failed interrupted canceled].freeze
     FAILURE_PROCESS_STATES = %w[failed lost].freeze
@@ -93,7 +74,7 @@ module ConversationDiagnostics
         "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(attributed_usage_scope),
         "workflow_node_type_counts" => stringify_hash(workflow_nodes.group(:node_type).count),
         "tool_breakdown" => tool_breakdown(tool_invocations),
-        "command_classification_counts" => command_classification_counts(command_runs),
+        "command_lifecycle_state_counts" => stringify_hash(command_runs.group(:lifecycle_state).count),
         "subagent_status_counts" => stringify_hash(subagent_sessions.group(:observed_status).count),
         }
       )
@@ -216,28 +197,6 @@ module ConversationDiagnostics
             "failures" => failures.to_i,
           }
         end
-    end
-
-    def command_classification_counts(scope)
-      counts = Hash.new { |hash, key| hash[key] = { "count" => 0, "failures" => 0 } }
-
-      scope.find_each do |command_run|
-        classification = classify_command(command_run.command_line)
-        next if classification.blank?
-
-        counts[classification]["count"] += 1
-        counts[classification]["failures"] += 1 if command_run.lifecycle_state.in?(FAILURE_COMMAND_STATES)
-      end
-
-      counts.sort.to_h
-    end
-
-    def classify_command(command_line)
-      COMMAND_CLASSIFICATIONS.each do |classification, patterns|
-        return classification if patterns.any? { |pattern| pattern.match?(command_line.to_s) }
-      end
-
-      nil
     end
 
     def stringify_hash(hash)
