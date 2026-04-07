@@ -277,4 +277,62 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
     assert_includes final_section, "- Recent progress: `Started the preview server in /workspace/game-2048`"
     refute_includes final_section, "Fixing the existing app in /workspace/game-2048"
   end
+
+  test "builds a replayable supervision evaluation bundle from the frozen trace" do
+    supervision_trace = {
+      "polls" => [
+        {
+          "machine_status" => {
+            "overall_state" => "running",
+            "primary_turn_todo_plan_view" => {
+              "goal_summary" => "Rebuild supervision around the active plan item.",
+              "current_item_key" => "rewrite-prompt-payload",
+              "current_item" => {
+                "title" => "Rewrite the supervision prompt payload",
+                "status" => "in_progress",
+              },
+            },
+            "turn_feed" => [
+              {
+                "event_kind" => "turn_todo_item_completed",
+                "summary" => "Replace heuristic context facts completed.",
+                "occurred_at" => Time.current.iso8601(6),
+              },
+            ],
+            "conversation_context" => {
+              "context_snippets" => [
+                {
+                  "excerpt" => "Sidechat should use the active plan item as the semantic anchor.",
+                  "keywords" => %w[sidechat active plan item semantic anchor],
+                },
+              ],
+            },
+            "runtime_evidence" => {
+              "active_command" => {
+                "cwd" => "/workspace/core_matrix",
+                "command_preview" => "bin/rails test",
+              },
+            },
+          },
+        },
+      ],
+      "final_response" => {
+        "machine_status" => {
+          "overall_state" => "running",
+        },
+      },
+    }
+
+    bundle = Acceptance::ConversationArtifacts.supervision_eval_bundle(
+      supervision_trace: supervision_trace,
+      questions: ["What are you doing now?"]
+    )
+
+    assert_equal "running", bundle.dig("machine_status", "overall_state")
+    assert_equal "Rewrite the supervision prompt payload",
+      bundle.dig("primary_turn_todo_plan", "current_item", "title")
+    assert_equal ["What are you doing now?"], bundle.fetch("questions")
+    assert_equal ["Sidechat should use the active plan item as the semantic anchor."],
+      bundle.fetch("context_snippets").map { |snippet| snippet.fetch("excerpt") }
+  end
 end

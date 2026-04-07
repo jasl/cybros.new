@@ -38,10 +38,11 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
       bundle.fetch("active_subagents").map { |item| item.fetch("current_focus_summary") }
     assert_nil snapshot.machine_status_payload["active_plan_items"]
     assert_includes bundle.dig("proof_debug", "feed_event_kinds"), "waiting_started"
-    assert_includes bundle.dig("conversation_context_view", "facts").map { |fact| fact.fetch("summary") },
-      "Context already references adding tests."
-    assert_includes bundle.dig("conversation_context_view", "facts").map { |fact| fact.fetch("summary") },
-      "Context already references the 2048 acceptance flow."
+    assert bundle.dig("conversation_context_view", "context_snippets").any? do |snippet|
+      snippet.fetch("excerpt").match?(/adding tests|2048 acceptance flow/i)
+    end
+    refute_includes bundle.dig("conversation_context_view", "context_snippets").to_json,
+      "Context already references"
     refute_includes bundle.to_json, "We already agreed to add tests before refactoring."
     refute_includes bundle.to_json, "The 2048 acceptance flow is already wired."
   end
@@ -59,7 +60,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
 
     assert_equal false, bundle.dig("capability_authority", "detailed_progress_enabled")
     assert_empty bundle.fetch("activity_feed")
-    assert_empty bundle.dig("conversation_context_view", "facts")
+    assert_empty bundle.dig("conversation_context_view", "context_snippets")
     assert_nil snapshot.machine_status_payload["request_summary"]
     assert_nil snapshot.machine_status_payload["current_focus_summary"]
     assert_nil snapshot.machine_status_payload["recent_progress_summary"]

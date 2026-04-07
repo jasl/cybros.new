@@ -112,7 +112,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/Grounded in/i, content)
   end
 
-  test "answers provider-backed work semantically instead of narrating provider rounds or raw tool labels" do
+  test "does not infer benchmark business semantics when provider-backed work has no persisted plan" do
     fixture = fresh_provider_backed_fixture!
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
@@ -128,7 +128,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
 
     content = response.dig("human_sidechat", "content")
 
-    assert_match(/2048|acceptance|supervisor informed/i, content)
+    refute_match(/2048|acceptance|React|game/i, content)
     refute_match(/provider round|exec_command/i, content)
   end
 

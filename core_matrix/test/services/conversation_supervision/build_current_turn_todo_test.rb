@@ -539,4 +539,17 @@ class ConversationSupervision::BuildCurrentTurnTodoTest < ActiveSupport::TestCas
       projection.dig("plan_summary", "current_item_title")
     refute_match(/foreign-app/, projection.to_json)
   end
+
+  test "returns no semantic plan projection when the conversation has no persisted turn todo plan" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+
+    projection = ConversationSupervision::BuildCurrentTurnTodo.call(
+      conversation: fixture.fetch(:conversation),
+      workflow_run: fixture.fetch(:workflow_run).reload
+    )
+
+    assert_nil projection["plan_view"]
+    assert_nil projection["plan_summary"]
+    assert_empty projection.fetch("synthetic_turn_feed")
+  end
 end

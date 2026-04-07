@@ -53,7 +53,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     assert_includes dispatched.fetch(:messages).first.fetch("content"), "You produce concise user-facing supervision replies"
   end
 
-  test "derives a contextual focus summary when detailed progress is otherwise generic" do
+  test "passes reusable context snippets to the summary model without deriving business focus from them inside core matrix" do
     fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
@@ -81,10 +81,10 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
       },
     ]
     machine_status["conversation_context"] = {
-      "facts" => [
+      "context_snippets" => [
         {
           "role" => "user",
-          "summary" => "Context already references the 2048 acceptance flow.",
+          "excerpt" => "Build a complete browser-playable React 2048 game.",
           "keywords" => %w[react 2048 game],
         },
       ],
@@ -96,7 +96,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
       dispatched = kwargs
       GatewayResult.new(
-        content: "Right now I'm building the React 2048 game.",
+        content: "Right now I'm working on the current task.",
         usage: {
           "input_tokens" => 20,
           "output_tokens" => 10,
@@ -117,7 +117,9 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     end
 
     prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
-    assert_equal "building the React 2048 game", prompt_payload.dig("supervision", "current_focus_summary")
+    assert_nil prompt_payload.dig("supervision", "current_focus_summary")
+    assert_equal ["Build a complete browser-playable React 2048 game."],
+      prompt_payload.dig("supervision", "context_snippets").map { |snippet| snippet.fetch("excerpt") }
   end
 
   test "falls back to builtin output when the supervision summary selector is unavailable" do
