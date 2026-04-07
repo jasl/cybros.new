@@ -62,7 +62,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal agent_task_run.public_id, state.current_owner_public_id
     assert_equal "Replace the observation schema", state.request_summary
     assert_equal "Rebuild sidechat renderer", state.current_focus_summary
-    assert_equal "Finished reviewing the old models", state.recent_progress_summary
+    assert_equal "Started rebuild sidechat renderer.", state.recent_progress_summary
     assert_equal "Rewrite the migrations", state.next_step_hint
     assert_equal "active", state.board_lane
     assert_equal 1, state.active_plan_item_count
@@ -351,11 +351,14 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "workflow_run", state.current_owner_kind
     assert state.request_summary.present?
     assert_nil state.status_payload["current_turn_plan_summary"]
-    refute_match(/2048|acceptance|React|game|test-and-build|preview server/i, state.current_focus_summary.to_s)
-    refute_match(/2048|acceptance|React|game|test-and-build|preview server/i, state.recent_progress_summary.to_s)
+    assert_equal "Monitoring a running shell command in /workspace/game-2048", state.current_focus_summary
+    assert_equal "A shell command finished in /workspace/game-2048.", state.recent_progress_summary
+    assert_equal fixture.fetch(:active_command_run).public_id,
+      state.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
+    refute_match(/React app|game files|test-and-build|preview server|command_run_wait|provider round/i, state.attributes.to_json)
   end
 
-  test "surfaces a running app server as a semantic runtime focus hint" do
+  test "surfaces a running process as generic runtime evidence" do
     context = build_agent_control_context!(workflow_node_type: "background_service")
     context[:workflow_node].update!(
       lifecycle_state: "running",
@@ -378,17 +381,14 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
-
-    assert_equal "Waiting for the app server in /workspace/game-2048", state.current_focus_summary
-    assert_equal "Started the app server in /workspace/game-2048", state.recent_progress_summary
-    assert_equal "process_wait", runtime_focus_hint.fetch("kind")
-    assert_equal "waiting for the app server in /workspace/game-2048", runtime_focus_hint.fetch("summary")
-    assert_equal process_run.public_id, runtime_focus_hint.fetch("process_run_public_id")
-    refute_match(/shell command/i, state.attributes.to_json)
+    assert_equal "Monitoring a running process in /workspace/game-2048", state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_equal process_run.public_id,
+      state.status_payload.dig("runtime_evidence", "active_process", "process_run_public_id")
+    refute_match(/app server|preview server|React app/i, state.attributes.to_json)
   end
 
-  test "treats active workspace inspection as inspection work instead of waiting for the workspace object" do
+  test "treats active workspace inspection as generic runtime evidence" do
     context = build_agent_control_context!(workflow_node_type: "workspace_scan")
     context[:workflow_node].update!(
       lifecycle_state: "running",
@@ -411,17 +411,14 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
-
-    assert_equal "Inspect the workspace in /workspace", state.current_focus_summary
-    assert_equal "Started inspecting the workspace in /workspace", state.recent_progress_summary
-    assert_equal "command_wait", runtime_focus_hint.fetch("kind")
-    assert_equal "inspecting the workspace in /workspace", runtime_focus_hint.fetch("summary")
-    assert_equal command_execution.fetch(:command_run).public_id, runtime_focus_hint.fetch("command_run_public_id")
-    refute_match(/Wait for the workspace/i, state.attributes.to_json)
+    assert_equal "Monitoring a running shell command in /workspace", state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_equal command_execution.fetch(:command_run).public_id,
+      state.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
+    refute_match(/Wait for the workspace|Inspect the workspace/i, state.attributes.to_json)
   end
 
-  test "treats waiting scaffolding commands as waiting for the scaffold instead of past-tense scaffold work" do
+  test "keeps waiting scaffolding commands generic when no persisted plan exists" do
     context = build_agent_control_context!
     context[:workflow_node].update!(
       lifecycle_state: "completed",
@@ -481,19 +478,14 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
-
-    assert_equal "Waiting for the React app scaffold in /workspace/game-2048", state.current_focus_summary
-    assert_equal "Started scaffolding the React app in /workspace/game-2048", state.recent_progress_summary
-    assert_equal "command_wait", runtime_focus_hint.fetch("kind")
-    assert_equal "waiting for the React app scaffold in /workspace/game-2048", runtime_focus_hint.fetch("summary")
-    assert_equal "Waiting for the React app scaffold in /workspace/game-2048 to finish.",
-      runtime_focus_hint.fetch("waiting_summary")
-    assert_equal command_execution.fetch(:command_run).public_id, runtime_focus_hint.fetch("command_run_public_id")
-    refute_match(/Waiting for scaffolded|Waiting for scaffolding/i, state.attributes.to_json)
+    assert_equal "Monitoring a running shell command in /workspace", state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_equal command_execution.fetch(:command_run).public_id,
+      state.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
+    refute_match(/React app scaffold|scaffolding|command_run_wait/i, state.attributes.to_json)
   end
 
-  test "prefers the runtime focus hint over provider-backed goal fallback titles when both exist" do
+  test "keeps runtime focus generic even when the conversation request is specific" do
     context = build_agent_control_context!(workflow_node_type: "background_service")
     context[:turn].selected_input_message.update!(
       content: "Build a complete browser-playable React 2048 game in `/workspace/game-2048`."
@@ -531,11 +523,11 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    assert_equal "Waiting for the preview server in /workspace/game-2048", state.current_focus_summary
-    assert_equal "Started the preview server in /workspace/game-2048", state.recent_progress_summary
-    assert_equal "Building a complete browser-playable React 2048 game in /workspace/game-2048",
-      state.status_payload.fetch("current_turn_plan_summary").fetch("current_item_title")
-    assert_equal process_run.public_id, state.status_payload.fetch("runtime_focus_hint").fetch("process_run_public_id")
+    assert_equal "Monitoring a running process in /workspace/game-2048", state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_nil state.status_payload["current_turn_plan_summary"]
+    assert_equal process_run.public_id,
+      state.status_payload.dig("runtime_evidence", "active_process", "process_run_public_id")
   end
 
   test "projects idle with last terminal completed when the previous run finished and nothing is active" do
@@ -597,8 +589,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "idle", state.overall_state
     assert_nil state.current_focus_summary
     assert_nil state.waiting_summary
-    assert_nil state.status_payload["runtime_focus_hint"]
-    assert_equal "Started the preview server in /workspace/game-2048", state.recent_progress_summary
+    assert_nil state.status_payload["runtime_evidence"]
+    assert_equal "A process stopped in /workspace/game-2048.", state.recent_progress_summary
   end
 
   test "projects idle with last terminal failed when the previous run failed and nothing is active" do

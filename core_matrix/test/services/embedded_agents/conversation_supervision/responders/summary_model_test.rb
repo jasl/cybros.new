@@ -18,7 +18,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
       dispatched = kwargs
       GatewayResult.new(
-        content: "Right now I'm rebuilding the supervision sidechat. Most recently, I replaced the old observation bundle with structured supervision data.",
+        content: "Right now I'm rendering the frozen supervision snapshot. Most recently, I started rendering the frozen supervision snapshot.",
         usage: {
           "input_tokens" => 32,
           "output_tokens" => 18,
@@ -37,8 +37,8 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
 
       assert_equal "summary_model", response.fetch("responder_kind")
       assert_equal snapshot.machine_status_payload, response.fetch("machine_status")
-      assert_match(/Right now I'm rebuilding the supervision sidechat/i, response.dig("human_sidechat", "content"))
-      assert_match(/Most recently, I replaced the old observation bundle/i, response.dig("human_sidechat", "content"))
+      assert_match(/Right now I'm rendering the frozen supervision snapshot/i, response.dig("human_sidechat", "content"))
+      assert_match(/Most recently, I started rendering the frozen supervision snapshot/i, response.dig("human_sidechat", "content"))
       refute_match(/Grounded in/i, response.dig("human_sidechat", "content"))
     ensure
       ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
@@ -49,7 +49,10 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
 
     assert_equal "Please tell me what you are doing right now and what changed most recently.", prompt_payload.fetch("question")
-    assert_includes prompt_payload.fetch("supervision").to_json, "Rendering the frozen supervision snapshot"
+    assert_equal "Rendering the frozen supervision snapshot",
+      prompt_payload.dig("supervision", "primary_turn_todo_plan", "current_item_title")
+    assert_includes prompt_payload.fetch("supervision").fetch("recent_plan_transitions").map { |entry| entry.fetch("summary") },
+      "Started rendering the frozen supervision snapshot."
     assert_includes dispatched.fetch(:messages).first.fetch("content"), "You produce concise user-facing supervision replies"
   end
 
@@ -73,17 +76,12 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
         "occurred_at" => Time.current.iso8601(6),
       },
     ]
-    machine_status["activity_feed"] = [
-      {
-        "event_kind" => "turn_started",
-        "summary" => "Started the turn.",
-        "occurred_at" => Time.current.iso8601(6),
-      },
-    ]
+    machine_status["activity_feed"] = machine_status["turn_feed"]
     machine_status["conversation_context"] = {
       "context_snippets" => [
         {
           "role" => "user",
+          "slot" => "input",
           "excerpt" => "Build a complete browser-playable React 2048 game.",
           "keywords" => %w[react 2048 game],
         },
@@ -158,7 +156,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
       dispatched = kwargs
       GatewayResult.new(
-        content: "Right now I'm continuing the 2048 acceptance work.",
+        content: "Right now I'm monitoring a running shell command.",
         usage: {
           "input_tokens" => 18,
           "output_tokens" => 10,
@@ -179,61 +177,13 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     end
 
     prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
-    focus_summary = prompt_payload.dig("supervision", "current_focus_summary").to_s
 
-    assert_match(/2048|acceptance|supervisor informed/i, focus_summary)
-    refute_match(/provider round|exec_command/i, focus_summary)
-  end
-
-  test "omits generic turn-start feed entries from the modeled supervision payload" do
-    fixture = fresh_fixture!(waiting: false)
-    session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
-    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
-      actor: fixture.fetch(:user),
-      conversation_supervision_session: session
-    )
-    snapshot.update!(
-      machine_status_payload: snapshot.machine_status_payload.merge(
-        "current_focus_summary" => "building the React 2048 game",
-        "recent_progress_summary" => nil,
-        "activity_feed" => [
-          {
-            "event_kind" => "turn_started",
-            "summary" => "Started the turn.",
-            "occurred_at" => Time.current.iso8601,
-          },
-        ],
-      ),
-    )
-    dispatched = nil
-
-    original_call = ProviderGateway::DispatchText.method(:call)
-    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
-      dispatched = kwargs
-      GatewayResult.new(
-        content: "Right now I'm building the React 2048 game.",
-        usage: {
-          "input_tokens" => 28,
-          "output_tokens" => 10,
-          "total_tokens" => 38,
-        },
-        provider_request_id: "provider-gateway-supervision-3"
-      )
-    end
-
-    begin
-      EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
-        conversation_supervision_session: session,
-        conversation_supervision_snapshot: snapshot,
-        question: "Please tell me what you are doing right now and what changed most recently."
-      )
-    ensure
-      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
-    end
-
-    request_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
-    assert_includes request_payload.to_json, "building the React 2048 game"
-    refute_includes request_payload.to_json, "Started the turn."
+    assert_equal "Monitoring a running shell command in /workspace/game-2048",
+      prompt_payload.dig("supervision", "current_focus_summary")
+    assert_nil prompt_payload.dig("supervision", "primary_turn_todo_plan")
+    assert_equal "/workspace/game-2048",
+      prompt_payload.dig("supervision", "runtime_evidence", "active_command", "cwd")
+    refute_match(/provider round|command_run_wait|exec_command|React app|game files|test-and-build check/i, prompt_payload.to_json)
   end
 
   test "omits active focus and waiting details from the modeled payload when the snapshot is idle" do
@@ -246,19 +196,19 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     machine_status = snapshot.machine_status_payload.deep_dup
     machine_status["overall_state"] = "idle"
     machine_status["last_terminal_state"] = "completed"
-    machine_status["current_focus_summary"] = "Waiting for the preview server in /workspace/game-2048"
-    machine_status["recent_progress_summary"] = "Started the preview server in /workspace/game-2048"
-    machine_status["waiting_summary"] = "Waiting for the preview server in /workspace/game-2048 to finish."
-    machine_status["runtime_focus_hint"] = {
-      "kind" => "process_wait",
-      "summary" => "waiting for the preview server in /workspace/game-2048",
-      "current_focus_summary" => "Waiting for the preview server in /workspace/game-2048",
-      "waiting_summary" => "Waiting for the preview server in /workspace/game-2048 to finish.",
-      "process_run_public_id" => "proc-preview-1",
+    machine_status["current_focus_summary"] = "Monitoring a running process in /workspace/game-2048"
+    machine_status["recent_progress_summary"] = "A process stopped in /workspace/game-2048."
+    machine_status["waiting_summary"] = "Waiting for a running process in /workspace/game-2048 to finish."
+    machine_status["runtime_evidence"] = {
+      "active_process" => {
+        "cwd" => "/workspace/game-2048",
+        "command_preview" => "npm run preview",
+        "lifecycle_state" => "running",
+      },
     }
     machine_status["primary_turn_todo_plan_view"] = {
       "goal_summary" => "Build a complete browser-playable React 2048 game in /workspace/game-2048",
-      "current_item_key" => "wait-for-the-preview-server",
+      "current_item_key" => "wait-for-preview",
       "current_item" => {
         "title" => "Wait for the preview server in /workspace/game-2048",
         "status" => "in_progress",
@@ -271,7 +221,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
       dispatched = kwargs
       GatewayResult.new(
-        content: "Right now I'm idle. Most recently, I started the preview server.",
+        content: "Right now I'm idle. Most recently, I finished a process.",
         usage: {
           "input_tokens" => 18,
           "output_tokens" => 10,
@@ -296,7 +246,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     assert_equal "idle", prompt_payload.dig("supervision", "overall_state")
     assert_nil prompt_payload.dig("supervision", "current_focus_summary")
     assert_nil prompt_payload.dig("supervision", "waiting_summary")
-    assert_nil prompt_payload.dig("supervision", "runtime_focus_hint")
+    assert_nil prompt_payload.dig("supervision", "runtime_evidence")
     assert_nil prompt_payload.dig("supervision", "primary_turn_todo_plan", "current_item_title")
   end
 

@@ -61,9 +61,11 @@ module EmbeddedAgents
         detailed_progress_enabled = authority.detailed_progress_enabled?
         context_view = detailed_progress_enabled ? conversation_context_view : empty_context_view
         turn_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
+        runtime_evidence = detailed_progress_enabled ? conversation_runtime_evidence : {}
 
         {
           "conversation_context_view" => context_view,
+          "runtime_evidence" => runtime_evidence,
           "turn_feed" => turn_feed,
           "activity_feed" => turn_feed,
           "primary_turn_todo_plan_view" => detailed_progress_enabled ? primary_turn_todo_plan_view : nil,
@@ -86,44 +88,10 @@ module EmbeddedAgents
       end
 
       def conversation_context_view
-        projection = Conversations::ContextProjection.call(conversation: @conversation)
-        messages = projection.messages.last(CONTEXT_MESSAGE_LIMIT)
-
-        {
-          "message_ids" => messages.map(&:public_id),
-          "turn_ids" => messages.filter_map { |message| message.turn&.public_id }.uniq,
-          "facts" => messages.filter_map { |message| serialize_context_fact(message) },
-        }
-      end
-
-      def serialize_context_fact(message)
-        summary = summarize_context_fact(message.content)
-        return if summary.blank?
-
-        {
-          "message_id" => message.public_id,
-          "turn_id" => message.turn&.public_id,
-          "role" => message.role,
-          "slot" => message.slot,
-          "summary" => summary,
-          "keywords" => context_keywords(message.content),
-        }.compact
-      end
-
-      def summarize_context_fact(content)
-        normalized = content.to_s.squish
-        return if normalized.blank?
-        return "Context already references the 2048 acceptance flow." if normalized.match?(/\b2048\b/i) && normalized.match?(/\bacceptance\b/i)
-        return "Context already references adding tests." if normalized.match?(/\btests?\b/i)
-
-        keywords = context_keywords(normalized)
-        return if keywords.empty?
-
-        "Context already references #{keywords.first(4).join(" ")}."
-      end
-
-      def context_keywords(content)
-        content.to_s.downcase.scan(/[a-z0-9]+/).uniq - %w[the and this that already with for from into while]
+        ::ConversationSupervision::BuildContextSnippets.call(
+          conversation: @conversation,
+          limit: CONTEXT_MESSAGE_LIMIT
+        )
       end
 
       def proof_debug_payload(context_view:, turn_feed:, policy:, state:)
@@ -146,8 +114,15 @@ module EmbeddedAgents
         {
           "message_ids" => [],
           "turn_ids" => [],
-          "facts" => [],
+          "context_snippets" => [],
         }
+      end
+
+      def conversation_runtime_evidence
+        ::ConversationSupervision::BuildRuntimeEvidence.call(
+          conversation: @conversation,
+          workflow_run: workflow_run
+        )
       end
 
       def active_subagent_session_public_ids(bundle_payload)

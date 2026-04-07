@@ -1,19 +1,5 @@
 module ConversationRuntime
   class BuildSafeActivitySummary
-    DEV_SERVER_PATTERN = /
-      \b(?:npm|pnpm|yarn|bun)\s+run\s+dev\b|
-      \bvite\b.*\b--host\b
-    /x.freeze
-    SCAFFOLD_PATTERN = /
-      \b(?:npm|pnpm|yarn|bun)\s+create\s+vite(?:@latest)?\b
-    /x.freeze
-    DEPENDENCY_INSTALL_PATTERN = /
-      \b(?:npm|pnpm|yarn|bun)\s+install\b
-    /x.freeze
-    DIRECTORY_INSPECTION_PATTERN = /
-      \b(ls|pwd|find|tree)\b
-    /x.freeze
-
     def self.call(...)
       new(...).call
     end
@@ -28,8 +14,8 @@ module ConversationRuntime
       {
         "summary" => summary,
         "detail" => detail,
-        "phase" => phase,
-        "work_type" => work_type,
+        "phase" => "runtime",
+        "work_type" => @activity_kind,
         "path_summary" => workspace_path,
         "user_visible" => true,
       }.compact
@@ -38,165 +24,62 @@ module ConversationRuntime
     private
 
     def summary
-      label = activity_label
-      location = workspace_path.present? ? " in #{workspace_path}" : nil
-
-      case @activity_kind
-      when "process"
-        "#{process_verb} #{label}#{location}"
-      else
-        "#{command_verb} #{label}#{location}"
-      end
+      [subject_phrase, location_phrase].compact.join
     end
 
     def detail
-      case @activity_kind
-      when "process"
-        @lifecycle_state == "running" ? "Process is still running." : "Process lifecycle changed."
+      case lifecycle_bucket
+      when :active
+        "#{subject_noun.capitalize} is still running."
+      when :failed
+        "#{subject_noun.capitalize} failed."
+      when :interrupted
+        "#{subject_noun.capitalize} was interrupted."
       else
-        case @lifecycle_state
-        when "running", "waiting"
-          "Command is still running."
-        when "failed"
-          "Command failed."
-        else
-          "Command completed successfully."
-        end
+        "#{subject_noun.capitalize} finished."
       end
     end
 
-    def phase
-      case work_type
-      when "verification", "preview", "app_server", "build"
-        "validate"
-      when "editing", "dependency_setup", "scaffolding"
-        "build"
+    def subject_phrase
+      case lifecycle_bucket
+      when :active
+        "#{article}#{subject_noun} is running"
+      when :failed
+        "#{article}#{subject_noun} failed"
+      when :interrupted
+        "#{article}#{subject_noun} was interrupted"
       else
-        "plan"
+        "#{article}#{subject_noun} finished"
       end
     end
 
-    def work_type
-      return "verification" if test_and_build_command?
-      return "verification" if test_command?
-      return "build" if build_command?
-      return "app_server" if app_server_command?
-      return "preview" if preview_command?
-      return "scaffolding" if scaffold_command?
-      return "dependency_setup" if dependency_install_command?
-      return "editing" if file_write_command?
-      return "inspection" if directory_inspection_command?
+    def location_phrase
+      return if workspace_path.blank?
 
-      "command"
+      " in #{workspace_path}"
     end
 
-    def activity_label
-      case work_type
-      when "verification"
-        test_and_build_command? ? "the test-and-build check" : "the test run"
-      when "build"
-        "the production build"
-      when "app_server"
-        "the app server"
-      when "preview"
-        "the preview server"
-      when "scaffolding"
-        "the React app"
-      when "dependency_setup"
-        "project dependencies"
-      when "editing"
-        "game files"
-      when "inspection"
-        "the workspace"
-      else
-        "a shell command"
-      end
+    def subject_noun
+      @activity_kind == "process" ? "process" : "shell command"
     end
 
-    def command_verb
-      case work_type
-      when "app_server"
-        active_command_state? ? "Starting" : "Started"
-      when "preview"
-        active_command_state? ? "Starting" : "Started"
-      when "scaffolding"
-        active_command_state? ? "Scaffolding" : "Scaffolded"
-      when "dependency_setup"
-        active_command_state? ? "Installing" : "Installed"
-      when "editing"
-        active_command_state? ? "Editing" : "Edited"
-      when "inspection"
-        active_command_state? ? "Inspecting" : "Inspected"
-      else
-        active_command_state? ? "Running" : "Ran"
-      end
+    def article
+      "A "
     end
 
-    def process_verb
-      @lifecycle_state == "running" ? "Starting" : "Started"
-    end
+    def lifecycle_bucket
+      return :active if %w[starting running waiting].include?(@lifecycle_state)
+      return :failed if @lifecycle_state == "failed"
+      return :interrupted if %w[canceled interrupted lost stopped].include?(@lifecycle_state)
 
-    def active_command_state?
-      %w[starting running waiting].include?(@lifecycle_state)
+      :completed
     end
 
     def workspace_path
       @workspace_path ||= begin
-        scaffold_target_path || begin
-          match = @command_line.match(/\bcd\s+([^\s&;]+)\b/)
-          match && match[1]
-        end
+        match = @command_line.match(/\bcd\s+([^\s&;]+)\b/)
+        match && match[1]
       end
-    end
-
-    def test_and_build_command?
-      @command_line.include?("npm test") && @command_line.include?("npm run build")
-    end
-
-    def test_command?
-      @command_line.include?("npm test") && !@command_line.include?("npm run build")
-    end
-
-    def build_command?
-      @command_line.include?("npm run build") && !@command_line.include?("npm test")
-    end
-
-    def preview_command?
-      @command_line.include?("npm run preview")
-    end
-
-    def app_server_command?
-      @command_line.match?(DEV_SERVER_PATTERN)
-    end
-
-    def scaffold_command?
-      @command_line.match?(SCAFFOLD_PATTERN)
-    end
-
-    def dependency_install_command?
-      @command_line.match?(DEPENDENCY_INSTALL_PATTERN) && !@command_line.include?("npm install -g")
-    end
-
-    def file_write_command?
-      @command_line.include?("cat <<") || @command_line.match?(/\s>\s*[^&|]+/)
-    end
-
-    def directory_inspection_command?
-      @command_line.match?(DIRECTORY_INSPECTION_PATTERN)
-    end
-
-    def scaffold_target_path
-      return unless scaffold_command?
-
-      base_match = @command_line.match(/\bcd\s+([^\s&;]+)\b/)
-      target_match = @command_line.match(/\bcreate\s+vite(?:@latest)?\s+([^\s&;]+)\b/)
-      base_path = base_match && base_match[1]
-      target = target_match && target_match[1]
-
-      return target if target.present? && target.start_with?("/")
-      return if base_path.blank? || target.blank?
-
-      File.join(base_path, target)
     end
   end
 end

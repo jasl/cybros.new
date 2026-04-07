@@ -24,15 +24,14 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
     assert_equal ["turn_completed"], feed.map { |entry| entry.fetch("event_kind") }
   end
 
-  test "keeps the supervision feed surface while using semantic fallback summaries for provider-backed work" do
+  test "keeps the supervision feed surface while avoiding synthetic turn todo fallback for provider-backed work" do
     fixture = prepare_provider_backed_conversation_supervision_context!
 
     feed = ConversationSupervision::BuildActivityFeed.call(conversation: fixture.fetch(:conversation))
 
-    assert feed.any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
-    assert_includes feed.map { |entry| entry.fetch("summary") },
-      "Started waiting for the test-and-build check in /workspace/game-2048."
-    refute_match(/provider round|command_run_wait|exec_command/i, feed.to_json)
+    refute feed.any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_includes feed.map { |entry| entry.fetch("event_kind") }, "turn_started"
+    refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, feed.to_json)
   end
 
   private

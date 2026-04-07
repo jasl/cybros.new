@@ -31,7 +31,7 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
     assert_response :not_found
   end
 
-  test "lists fallback canonical turn feed entries for provider-backed work without an agent task run" do
+  test "lists coarse canonical turn feed entries for provider-backed work without an agent task run" do
     fixture = prepare_provider_backed_conversation_supervision_context!
     registration = register_machine_api_for_context!(fixture)
 
@@ -42,9 +42,8 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
     assert_response :success
 
     body = JSON.parse(response.body)
-    assert body.fetch("items").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
-    assert_includes body.fetch("items").map { |entry| entry.fetch("summary") },
-      "Started waiting for the test-and-build check in /workspace/game-2048."
-    refute_match(/provider round|command_run_wait|exec_command/i, body.to_json)
+    refute body.fetch("items").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_includes body.fetch("items").map { |entry| entry.fetch("event_kind") }, "turn_started"
+    refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, body.to_json)
   end
 end

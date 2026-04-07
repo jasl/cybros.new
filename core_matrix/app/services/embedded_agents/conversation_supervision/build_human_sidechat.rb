@@ -98,31 +98,28 @@ module EmbeddedAgents
       end
 
       def current_status_sentence
+        state = prompt_payload.fetch("overall_state")
         focus = current_focus_summary
-        state = @machine_status.fetch("overall_state")
 
         case state
         when "idle"
-          if @machine_status["last_terminal_state"].present?
-            "Right now the conversation is idle. The last work segment ended #{@machine_status["last_terminal_state"]}."
+          if prompt_payload["last_terminal_state"].present?
+            "Right now the conversation is idle. The last work segment ended #{prompt_payload["last_terminal_state"]}."
           else
             "Right now the conversation is idle with no active work."
           end
         when "waiting"
-          waiting = semantic_waiting_summary
-          return "Right now the conversation is currently #{lowercase_initial(focus)}." if descriptive_focus?(focus)
-          return "Right now the conversation is #{trim_terminal_punctuation(lowercase_initial(waiting))}." if waiting.present? && waiting.match?(/\Awaiting\b/i)
+          waiting = prompt_payload["waiting_summary"].presence || "It is waiting for a dependency to clear."
+          return "Right now the conversation is #{lowercase_initial(focus)}." if descriptive_focus?(focus)
 
-          "Right now the conversation is waiting. #{waiting || "It is waiting for a dependency to clear."}"
+          "Right now the conversation is waiting. #{waiting}"
         when "blocked"
-          blocked = @machine_status["blocked_summary"].presence
-          return "Right now the conversation is blocked. #{blocked}" if blocked.present?
-          return "Right now the conversation is currently #{lowercase_initial(focus)}." if descriptive_focus?(focus)
+          blocked = prompt_payload["blocked_summary"].presence || "It is blocked."
+          return "Right now the conversation is #{lowercase_initial(focus)}." if descriptive_focus?(focus)
 
-          "Right now the conversation is blocked."
+          "Right now the conversation is blocked. #{blocked}"
         else
           return "Right now the conversation is #{state}." if focus.blank?
-
           return "Right now the conversation is currently #{lowercase_initial(focus)}." if descriptive_focus?(focus)
 
           verb = state == "queued" ? "queued to work on" : "working on"
@@ -131,69 +128,45 @@ module EmbeddedAgents
       end
 
       def recent_change_sentence
-        latest_summary = @machine_status["recent_progress_summary"].presence
-        latest_summary = nil if low_information_summary?(latest_summary)
-        latest_summary ||= latest_meaningful_feed_summary
+        latest_summary = prompt_payload["recent_progress_summary"].presence || latest_meaningful_plan_transition
         return if latest_summary.blank?
 
-        "Most recently, #{latest_summary.downcase}."
+        "Most recently, #{trim_terminal_punctuation(latest_summary).downcase}."
       end
 
-      def latest_meaningful_feed_summary
-        turn_feed_entries.reverse_each do |entry|
-          next if generic_turn_start_entry?(entry)
+      def latest_meaningful_plan_transition
+        Array(prompt_payload["recent_plan_transitions"]).reverse_each do |entry|
+          summary = entry.to_h["summary"].to_s
+          next if summary.blank?
 
-          return entry.fetch("summary", nil)
+          return summary
         end
 
         nil
       end
 
-      def generic_turn_start_entry?(entry)
-        summary = entry.to_h.fetch("summary", "")
-        event_kind = entry.to_h.fetch("event_kind", nil)
-
-        summary.match?(/\AStarted the turn\.?\z/i) && (event_kind.blank? || event_kind == "turn_started")
-      end
-
       def blocker_sentence
-        if @machine_status["blocked_summary"].present?
-          "The current blocker is #{@machine_status["blocked_summary"].downcase}."
-        elsif semantic_waiting_summary.present?
-          if semantic_waiting_summary.match?(/\Awaiting\b/i)
-            "The conversation is #{trim_terminal_punctuation(lowercase_initial(semantic_waiting_summary))}."
-          else
-            "The conversation is waiting because #{semantic_waiting_summary.downcase}."
-          end
+        if prompt_payload["blocked_summary"].present?
+          "The current blocker is #{trim_terminal_punctuation(prompt_payload["blocked_summary"]).downcase}."
+        elsif prompt_payload["waiting_summary"].present?
+          "The conversation is waiting because #{trim_terminal_punctuation(prompt_payload["waiting_summary"]).downcase}."
         else
           "There is no active blocker in this snapshot."
         end
       end
 
-      def next_step_sentence
-        hint = @machine_status["next_step_hint"]
-        return "The next justified step is #{hint.downcase}." if hint.present?
-
-        "The next step is not justified beyond the frozen supervision snapshot."
-      end
-
       def next_step_sentence_if_confident
-        hint = @machine_status["next_step_hint"]
+        hint = prompt_payload["next_step_hint"]
         return if hint.blank?
 
         "The next justified step is #{hint.downcase}."
       end
 
       def subagent_sentence
-        plan_views = Array(@machine_status["active_subagent_turn_todo_plan_views"])
-        summaries =
-          if plan_views.any?
-            plan_views.filter_map { |entry| entry.dig("current_item", "title") || entry["goal_summary"] }.uniq
-          else
-            Array(@machine_status["active_subagents"]).filter_map { |entry| entry["current_focus_summary"] }.uniq
-          end
-        active_count = plan_views.any? ? plan_views.length : Array(@machine_status["active_subagents"]).length
-        return "There is no active child task in this snapshot." if active_count.zero?
+        plan_views = Array(prompt_payload["active_subagent_turn_todo_plans"])
+        summaries = plan_views.filter_map { |entry| entry["current_item_title"] || entry["goal_summary"] }.uniq
+        active_count = plan_views.length.nonzero? || Array(@machine_status["active_subagents"]).length
+        return "There is no active child task in this snapshot." if active_count.to_i.zero?
 
         if summaries.any?
           "A child task is currently #{summaries.first.downcase}."
@@ -203,19 +176,20 @@ module EmbeddedAgents
       end
 
       def conversation_fact_sentence
-        matched_fact = best_matching_fact
-        return "This frozen snapshot does not include a matching conversation fact." if matched_fact.blank?
+        matched_snippet = best_matching_context_snippet
+        return "This frozen snapshot does not include a matching conversation fact." if matched_snippet.blank?
 
-        matched_fact.fetch("summary")
+        excerpt = matched_snippet.fetch("excerpt")
+        "A matching context snippet says: #{excerpt}"
       end
 
-      def best_matching_fact
-        facts = Array(@machine_status.dig("conversation_context", "facts"))
+      def best_matching_context_snippet
+        snippets = Array(prompt_payload["context_snippets"])
         keywords = semantic_terms(@question)
 
-        facts.max_by do |fact|
-          fact_keywords = semantic_terms(Array(fact["keywords"]).join(" "))
-          (fact_keywords & keywords).length
+        snippets.max_by do |snippet|
+          snippet_keywords = semantic_terms(Array(snippet["keywords"]).join(" "))
+          (snippet_keywords & keywords).length
         end
       end
 
@@ -228,77 +202,15 @@ module EmbeddedAgents
 
       def current_focus_summary
         [
-          runtime_focus_hint["current_focus_summary"],
-          @machine_status["current_focus_summary"],
-          @machine_status.dig("primary_turn_todo_plan_view", "current_item", "title"),
-          @machine_status["request_summary"],
-          @machine_status.dig("primary_turn_todo_plan_view", "goal_summary"),
-          contextual_focus_summary,
-        ].find { |summary| summary.present? && !low_information_summary?(summary) }
-      end
-
-      def semantic_waiting_summary
-        runtime_focus_hint["waiting_summary"] ||
-          runtime_focus_sentence(runtime_focus_hint["summary"]) ||
-          @machine_status["waiting_summary"].presence
-      end
-
-      def runtime_focus_sentence(summary)
-        return if summary.blank?
-
-        if summary.match?(/\Awaiting for\b/i)
-          "Waiting for #{summary.delete_prefix("waiting for ").strip} to finish."
-        else
-          "Waiting for #{summary}."
-        end
-      end
-
-      def runtime_focus_hint
-        @runtime_focus_hint ||= @machine_status.fetch("runtime_focus_hint", {}).to_h
-      end
-
-      def turn_feed_entries
-        Array(@machine_status["turn_feed"].presence || @machine_status["activity_feed"])
-      end
-
-      def contextual_focus_summary
-        fact = Array(@machine_status.dig("conversation_context", "facts")).last
-        return if fact.blank?
-
-        keywords = Array(fact["keywords"]).map { |keyword| keyword.to_s.downcase }
-        if keywords.include?("2048") && keywords.include?("game")
-          return "building the React 2048 game" if keywords.include?("react")
-          return "building the 2048 game"
-        end
-
-        summary = fact.fetch("summary", nil).to_s
-        return if summary.blank?
-
-        summary
-          .sub(/\AContext already references\s+/i, "")
-          .sub(/\.\z/, "")
-          .presence
-      end
-
-      def activity_phrase?(text)
-        text.to_s.match?(/\A(?:build|building|render|rendering|check|checking|verify|verifying|report|reporting|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing)\b/i)
+          prompt_payload["current_focus_summary"],
+          prompt_payload.dig("primary_turn_todo_plan", "current_item_title"),
+          prompt_payload["request_summary"],
+          prompt_payload.dig("primary_turn_todo_plan", "goal_summary"),
+        ].find(&:present?)
       end
 
       def descriptive_focus?(text)
-        return false if text.blank?
-
-        activity_phrase?(text) ||
-          text.to_s.match?(/\A(?:wait|waiting|continue|continuing|review|reviewing|investigate|investigating|inspect|inspecting|monitor|monitoring)\b/i)
-      end
-
-      def low_information_summary?(text)
-        normalized = text.to_s.strip
-        return true if normalized.blank?
-
-        normalized.match?(/\A(?:Ran|Running|Started)\s+a shell command\b/i) ||
-          normalized.match?(/\A(?:Review|Reviewed)\s+shell command state\b/i) ||
-          normalized.match?(/\A(?:Check|Checked)\s+progress on the running command\b/i) ||
-          normalized.match?(/\A(?:Wait|Waiting)\s+for the running command\b/i)
+        text.to_s.match?(/\A(?:build|building|check|checking|verify|verifying|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing|wait|waiting|continue|continuing|review|reviewing|investigate|investigating|inspect|inspecting|monitor|monitoring|resolve|resolving|work|working)\b/i)
       end
 
       def lowercase_initial(text)
@@ -309,6 +221,10 @@ module EmbeddedAgents
 
       def trim_terminal_punctuation(text)
         text.to_s.sub(/[.。!?！？]+\z/, "")
+      end
+
+      def prompt_payload
+        @prompt_payload ||= Responders::BuildPromptPayload.call(machine_status: @machine_status)
       end
     end
   end

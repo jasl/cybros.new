@@ -158,13 +158,13 @@ module Conversations
       return unless detailed_progress_enabled?
 
       current_task_plan_summary&.fetch("goal_summary", nil) ||
-        workflow_turn_todo_plan_summary&.fetch("goal_summary", nil) ||
         current_task_run&.request_summary ||
         active_conversation_subagent_session&.request_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["goal_summary"] }.first ||
         active_owned_subagent_sessions.filter_map(&:request_summary).first ||
         latest_task_plan_summary&.fetch("goal_summary", nil) ||
-        latest_task_run&.request_summary
+        latest_task_run&.request_summary ||
+        conversation_goal_summary
     end
 
     def current_focus_summary
@@ -172,35 +172,30 @@ module Conversations
       return if overall_state == "idle"
 
       current_task_plan_summary&.fetch("current_item_title", nil) ||
-        runtime_focus_hint&.fetch("current_focus_summary", nil) ||
-        workflow_turn_todo_plan_summary&.fetch("current_item_title", nil) ||
-        current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["current_item_title"] }.first ||
-        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first
+        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first ||
+        generic_runtime_current_focus_summary
     end
 
     def recent_progress_summary
       return unless detailed_progress_enabled?
 
-      current_task_progress_entry&.summary ||
-        runtime_focus_hint&.fetch("recent_progress_summary", nil) ||
-        workflow_turn_todo_latest_summary ||
-        current_task_run&.recent_progress_summary ||
+      recent_plan_transition_summary ||
+        (current_task_progress_entry&.summary if current_task_plan_summary.present?) ||
         active_conversation_subagent_session&.recent_progress_summary ||
         active_owned_subagent_sessions.filter_map(&:recent_progress_summary).first ||
-        latest_progress_entry&.summary ||
-        latest_task_run&.recent_progress_summary
+        generic_runtime_recent_progress_summary ||
+        (latest_progress_entry&.summary if current_task_plan_summary.present?)
     end
 
     def waiting_summary
       return unless detailed_progress_enabled?
 
       return humanized_subagent_barrier_summary if workflow_run&.waiting_on_subagent_barrier?
-      return runtime_focus_hint&.fetch("waiting_summary", nil) if workflow_run&.waiting? && runtime_focus_hint&.fetch("waiting_summary", nil).present?
-      return current_task_run&.waiting_summary if current_task_run&.waiting_summary.present?
       return active_conversation_subagent_session&.waiting_summary if active_conversation_subagent_session&.waiting_summary.present?
       return active_owned_subagent_sessions.filter_map(&:waiting_summary).first if workflow_run&.waiting?
+      return generic_runtime_waiting_summary if %w[waiting blocked].include?(overall_state)
 
       nil
     end
@@ -281,17 +276,17 @@ module Conversations
 
       {
         "current_turn_plan_summary" => current_turn_plan_summary,
-        "runtime_focus_hint" => active_runtime_focus_hint,
+        "runtime_evidence" => active_runtime_evidence,
         "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
         "active_subagents" => active_subagent_payloads,
         "latest_progress_entry" => latest_progress_entry_payload,
       }.compact
     end
 
-    def active_runtime_focus_hint
+    def active_runtime_evidence
       return if overall_state == "idle"
 
-      runtime_focus_hint
+      runtime_evidence.presence
     end
 
     def active_subagent_payloads
@@ -334,6 +329,111 @@ module Conversations
       return "#{summary}." if focuses.empty?
 
       "#{summary}: #{focuses.join(", ")}."
+    end
+
+    def conversation_goal_summary
+      @conversation_goal_summary ||= begin
+        turn = @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
+          @conversation.turns.order(sequence: :desc).first
+        content = turn&.selected_input_message&.content.to_s
+        ConversationSupervision::BuildGoalSummary.call(content: content)
+      end
+    end
+
+    def recent_plan_transition_summary
+      recent_plan_transition_entry&.summary
+    end
+
+    def recent_plan_transition_entry
+      return @recent_plan_transition_entry if instance_variable_defined?(:@recent_plan_transition_entry)
+
+      @recent_plan_transition_entry = ConversationSupervisionFeedEntry
+        .where(target_conversation: @conversation)
+        .where(event_kind: plan_transition_event_kinds)
+        .order(sequence: :desc)
+        .first
+    end
+
+    def plan_transition_event_kinds
+      %w[
+        turn_todo_item_started
+        turn_todo_item_completed
+        turn_todo_item_blocked
+        turn_todo_item_canceled
+        turn_todo_item_failed
+      ]
+    end
+
+    def runtime_evidence
+      return @runtime_evidence if instance_variable_defined?(:@runtime_evidence)
+
+      @runtime_evidence = ConversationSupervision::BuildRuntimeEvidence.call(
+        conversation: @conversation,
+        workflow_run: workflow_run
+      )
+    end
+
+    def generic_runtime_current_focus_summary
+      return summarize_active_process(runtime_evidence["active_process"]) if runtime_evidence["active_process"].present?
+      return summarize_active_command(runtime_evidence["active_command"]) if runtime_evidence["active_command"].present?
+      return "Working through the current turn" if workflow_progressing_without_task?
+      return "Waiting on the current workflow step" if workflow_run&.waiting?
+      return "Resolving the blocked workflow step" if workflow_run&.blocked?
+
+      nil
+    end
+
+    def generic_runtime_recent_progress_summary
+      return summarize_terminal_process(runtime_evidence["recent_process"]) if runtime_evidence["recent_process"].present?
+      return summarize_terminal_command(runtime_evidence["recent_command"]) if runtime_evidence["recent_command"].present?
+
+      nil
+    end
+
+    def generic_runtime_waiting_summary
+      return "Waiting for a running process#{location_phrase(runtime_evidence["active_process"])} to finish." if runtime_evidence["active_process"].present?
+      return "Waiting for a running shell command#{location_phrase(runtime_evidence["active_command"])} to finish." if runtime_evidence["active_command"].present?
+      return "Waiting for the current workflow step to unblock." if workflow_run&.waiting?
+      return "Waiting for the blocked workflow step to clear." if workflow_run&.blocked?
+
+      nil
+    end
+
+    def summarize_active_command(command)
+      "Monitoring a running shell command#{location_phrase(command)}"
+    end
+
+    def summarize_terminal_command(command)
+      case command["lifecycle_state"]
+      when "failed"
+        "A shell command failed#{location_phrase(command)}."
+      when "canceled", "interrupted"
+        "A shell command was interrupted#{location_phrase(command)}."
+      else
+        "A shell command finished#{location_phrase(command)}."
+      end
+    end
+
+    def summarize_active_process(process)
+      "Monitoring a running process#{location_phrase(process)}"
+    end
+
+    def summarize_terminal_process(process)
+      case process["lifecycle_state"]
+      when "failed", "lost"
+        "A process failed#{location_phrase(process)}."
+      when "stopped"
+        "A process stopped#{location_phrase(process)}."
+      else
+        "A process finished#{location_phrase(process)}."
+      end
+    end
+
+    def location_phrase(payload)
+      cwd = payload.to_h["cwd"].presence
+      return "" if cwd.blank?
+
+      " in #{cwd}"
     end
 
     def workflow_run
@@ -456,7 +556,7 @@ module Conversations
     end
 
     def current_turn_plan_summary
-      current_task_plan_summary || workflow_turn_todo_plan_summary
+      current_task_plan_summary
     end
 
     def latest_task_plan_summary
@@ -466,28 +566,6 @@ module Conversations
         if latest_task_run&.turn_todo_plan.present?
           TurnTodoPlans::BuildCompactView.call(turn_todo_plan: latest_task_run.turn_todo_plan)
         end
-    end
-
-    def workflow_turn_todo_projection
-      return @workflow_turn_todo_projection if instance_variable_defined?(:@workflow_turn_todo_projection)
-
-      @workflow_turn_todo_projection = ConversationSupervision::BuildCurrentTurnTodo.call(
-        conversation: @conversation,
-        active_agent_task_run: current_task_run,
-        workflow_run: workflow_run
-      )
-    end
-
-    def workflow_turn_todo_plan_summary
-      workflow_turn_todo_projection.fetch("plan_summary")
-    end
-
-    def runtime_focus_hint
-      workflow_turn_todo_projection.fetch("runtime_focus_hint", nil)
-    end
-
-    def workflow_turn_todo_latest_summary
-      workflow_turn_todo_projection.fetch("synthetic_turn_feed").last&.fetch("summary", nil)
     end
 
     def active_owned_subagent_turn_plan_summaries

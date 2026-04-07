@@ -20,7 +20,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal [fixture.fetch(:subagent_session).public_id], snapshot.active_subagent_session_public_ids
 
     bundle = snapshot.bundle_payload
-    assert_equal %w[active_subagent_turn_todo_plan_views active_subagents activity_feed capability_authority conversation_context_view primary_turn_todo_plan_view proof_debug turn_feed],
+    assert_equal %w[active_subagent_turn_todo_plan_views active_subagents activity_feed capability_authority conversation_context_view primary_turn_todo_plan_view proof_debug runtime_evidence turn_feed],
       bundle.keys.sort
     assert_equal "Rebuild the supervision sidechat surface",
       snapshot.machine_status_payload.fetch("request_summary")
@@ -43,8 +43,6 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     end
     refute_includes bundle.dig("conversation_context_view", "context_snippets").to_json,
       "Context already references"
-    refute_includes bundle.to_json, "We already agreed to add tests before refactoring."
-    refute_includes bundle.to_json, "The 2048 acceptance flow is already wired."
   end
 
   test "omits detailed progress artifacts when the conversation is configured for coarse supervision only" do
@@ -137,7 +135,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_nil snapshot.machine_status_payload["active_plan_items"]
   end
 
-  test "freezes fallback turn todo plan and canonical feed for provider-backed turns without an agent task run" do
+  test "freezes coarse runtime evidence instead of a synthetic fallback turn todo plan for provider-backed turns without an agent task run" do
     fixture = prepare_provider_backed_conversation_supervision_context!
     session = create_conversation_supervision_session!(fixture)
 
@@ -147,27 +145,15 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     )
 
     bundle = snapshot.bundle_payload
-    primary_turn_todo_plan_view = bundle.fetch("primary_turn_todo_plan_view")
-
-    assert primary_turn_todo_plan_view.fetch("turn_todo_plan_id").present?
-    assert primary_turn_todo_plan_view.fetch("current_item_key").present?
-    assert primary_turn_todo_plan_view.dig("current_item", "title").present?
-    assert_equal fixture.fetch(:turn).public_id, primary_turn_todo_plan_view.fetch("turn_id")
-    assert_equal "Waiting for the test-and-build check in /workspace/game-2048",
-      primary_turn_todo_plan_view.dig("current_item", "title")
-    assert bundle.fetch("turn_feed").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
-    assert_equal primary_turn_todo_plan_view,
-      snapshot.machine_status_payload.fetch("primary_turn_todo_plan_view")
-    assert_equal(
-      {
-        "kind" => "command_wait",
-        "summary" => "waiting for the test-and-build check in /workspace/game-2048",
-        "command_run_public_id" => fixture.fetch(:active_command_run).public_id,
-      },
-      snapshot.machine_status_payload.fetch("runtime_focus_hint").slice("kind", "summary", "command_run_public_id")
-    )
-    assert_match(/test run|test-and-build check/i,
-      snapshot.machine_status_payload.fetch("recent_progress_summary"))
-    refute_match(/provider round|command_run_wait|exec_command/i, snapshot.machine_status_payload.to_json)
+    assert_nil bundle["primary_turn_todo_plan_view"]
+    refute bundle.fetch("turn_feed").any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
+    assert_equal bundle.fetch("runtime_evidence"), snapshot.machine_status_payload.fetch("runtime_evidence")
+    assert_equal fixture.fetch(:active_command_run).public_id,
+      snapshot.machine_status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
+    assert_equal "Monitoring a running shell command in /workspace/game-2048",
+      snapshot.machine_status_payload.fetch("current_focus_summary")
+    assert_equal "A shell command finished in /workspace/game-2048.",
+      snapshot.machine_status_payload.fetch("recent_progress_summary")
+    refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, snapshot.machine_status_payload.to_json)
   end
 end

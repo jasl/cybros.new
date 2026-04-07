@@ -11,20 +11,10 @@ module ConversationSupervision
     def call
       return [] if feed_turn.blank?
 
-      persisted_entries = ConversationSupervisionFeedEntry
+      ConversationSupervisionFeedEntry
         .where(target_conversation: @conversation, target_turn: feed_turn)
         .order(:sequence)
         .map { |entry| serialize_entry(entry) }
-
-      return persisted_entries if persisted_entries.any? { |entry| entry.fetch("event_kind").start_with?("turn_todo_") }
-
-      synthetic_entries = ConversationSupervision::BuildCurrentTurnTodo.call(conversation: @conversation).fetch("synthetic_turn_feed")
-      return persisted_entries if synthetic_entries.blank?
-
-      next_sequence = persisted_entries.last&.fetch("sequence", 0).to_i
-      persisted_entries + synthetic_entries.each_with_index.map do |entry, index|
-        entry.merge("sequence" => next_sequence + index + 1)
-      end
     end
 
     private
