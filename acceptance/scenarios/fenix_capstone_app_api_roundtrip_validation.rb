@@ -148,13 +148,14 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   feed_markdown = File.read(artifact_dir.join("review", "supervision-feed.md"))
   sidechat_markdown = File.read(artifact_dir.join("review", "supervision-sidechat.md"))
   runtime_transcript_markdown = File.read(artifact_dir.join("review", "turn-runtime-transcript.md"))
+  supervision_eval_bundle = read_json(artifact_dir.join("review", "supervision-eval-bundle.json"))
   final_response = read_json(artifact_dir.join("logs", "supervision-final.json"))
   final_status = final_response.fetch("machine_status")
   final_sidechat = final_response.dig("human_sidechat", "content").to_s
   turn_runtime_evidence = read_json(artifact_dir.join("evidence", "turn-runtime-evidence.json"))
 
   primary_plan_view = final_status.fetch("primary_turn_todo_plan_view", {}).to_h
-  runtime_focus_hint = final_status.fetch("runtime_focus_hint", {}).to_h
+  runtime_evidence = final_status.fetch("runtime_evidence", {}).to_h
   canonical_feed_entries = Array(final_status["turn_feed"].presence || final_status["activity_feed"]).select do |entry|
     entry["event_kind"].to_s.start_with?("turn_todo_")
   end
@@ -162,18 +163,35 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   dominant_fallback_markers = [
     "- Current focus: `none`",
     "- Recent progress: `none`",
-    "- Active plan items: `0`",
+    "- Primary turn todo plan: `none`",
   ].select { |marker| final_status_section.include?(marker) }
 
   errors = []
-  unless primary_plan_view["turn_todo_plan_id"].present? && primary_plan_view["current_item_key"].present?
-    errors << "supervision-final.json is missing primary_turn_todo_plan_view.current_item_key"
+  required_eval_keys = %w[machine_status primary_turn_todo_plan recent_plan_transitions context_snippets runtime_evidence questions expected_contract_flags]
+  missing_eval_keys = required_eval_keys.reject { |key| supervision_eval_bundle.key?(key) }
+  errors << "supervision-eval-bundle.json is missing keys: #{missing_eval_keys.join(', ')}" if missing_eval_keys.any?
+  if supervision_eval_bundle.dig("machine_status", "overall_state") != final_status["overall_state"]
+    errors << "supervision-eval-bundle.json does not preserve machine_status.overall_state"
   end
-  if dominant_fallback_markers.length >= 2
-    errors << "supervision-status.md still centers fallback supervision lines: #{dominant_fallback_markers.join(', ')}"
+  if supervision_eval_bundle.fetch("runtime_evidence", {}).to_h != runtime_evidence
+    errors << "supervision-eval-bundle.json does not preserve runtime_evidence"
   end
-  if canonical_feed_entries.empty?
-    errors << "machine_status.turn_feed does not include canonical turn_todo_* events"
+  if Array(supervision_eval_bundle["questions"]).empty?
+    errors << "supervision-eval-bundle.json is missing replay questions"
+  end
+  if primary_plan_view.present?
+    unless primary_plan_view["turn_todo_plan_id"].present? && primary_plan_view["current_item_key"].present?
+      errors << "supervision-final.json is missing primary_turn_todo_plan_view.current_item_key"
+    end
+    if dominant_fallback_markers.length >= 2
+      errors << "supervision-status.md still centers fallback supervision lines: #{dominant_fallback_markers.join(', ')}"
+    end
+    if canonical_feed_entries.empty?
+      errors << "machine_status.turn_feed does not include canonical turn_todo_* events when a primary plan is present"
+    end
+    unless supervision_eval_bundle.dig("expected_contract_flags", "plan_present")
+      errors << "supervision-eval-bundle.json does not mark the primary plan as present"
+    end
   end
   sidechat_leak_tokens = (
     Acceptance::ConversationArtifacts.human_visible_leak_tokens(sidechat_markdown) +
@@ -182,21 +200,17 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   if sidechat_leak_tokens.any?
     errors << "supervision-sidechat still exposes raw runtime tokens: #{sidechat_leak_tokens.join(', ')}"
   end
-  if runtime_focus_hint["summary"].present? && !semantic_overlap?(final_sidechat, runtime_focus_hint["summary"], minimum: 2)
-    errors << "supervision-sidechat does not align with runtime_focus_hint #{runtime_focus_hint["summary"].inspect}"
-  end
   if final_status["recent_progress_summary"].present? &&
       !runtime_alignment_present?(runtime_transcript_markdown, final_status["recent_progress_summary"])
     errors << "turn-runtime-transcript.md is missing a runtime-aligned recent progress narrative for #{final_status["recent_progress_summary"].inspect}"
   end
-  if final_status["overall_state"] == "waiting" && runtime_focus_hint["kind"].to_s.match?(/command|process/) &&
-      !semantic_overlap?(final_sidechat, runtime_focus_hint["summary"], minimum: 2)
-    errors << "waiting sidechat does not mention the command/process purpose from runtime_focus_hint"
+  if final_status["overall_state"] == "waiting" && runtime_evidence.present? && final_status["waiting_summary"].blank?
+    errors << "waiting snapshots must preserve runtime evidence through waiting_summary or the replay bundle"
   end
   if final_status["overall_state"] == "idle"
     errors << "supervision-final.json still carries current_focus_summary for an idle snapshot" if final_status["current_focus_summary"].present?
     errors << "supervision-final.json still carries waiting_summary for an idle snapshot" if final_status["waiting_summary"].present?
-    errors << "supervision-final.json still carries runtime_focus_hint for an idle snapshot" if runtime_focus_hint.present?
+    errors << "supervision-final.json still carries runtime_evidence for an idle snapshot" if runtime_evidence.present?
     errors << "supervision-sidechat does not acknowledge the idle final state" unless final_sidechat.match?(/\bidle\b/i)
     if final_sidechat.match?(/\bwaiting\b|\bblocked\b|\bworking on\b/i)
       errors << "supervision-sidechat still narrates active work for an idle final state"
@@ -211,8 +225,6 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
     final_status["next_step_hint"],
     primary_plan_view["goal_summary"],
     primary_plan_view.dig("current_item", "title"),
-    runtime_focus_hint["summary"],
-    runtime_focus_hint["current_focus_summary"],
   ]
   supervision_leak_tokens = supervision_human_texts.flat_map do |text|
     Acceptance::ConversationArtifacts.human_visible_leak_tokens(text)
@@ -1320,6 +1332,7 @@ Acceptance::ReviewArtifacts.write_turns!(
     "review/supervision-sidechat.md",
     "review/supervision-status.md",
     "review/supervision-feed.md",
+    "review/supervision-eval-bundle.json",
     "review/workspace-validation.md",
     "review/playability-verification.md",
     "review/export-roundtrip.md",
@@ -1407,6 +1420,7 @@ capability_report = Acceptance::CapabilityActivation.build(
     "supervision_polls" => artifact_dir.join("logs", "supervision-polls.json"),
     "supervision_final" => artifact_dir.join("logs", "supervision-final.json"),
     "supervision_status" => artifact_dir.join("review", "supervision-status.md"),
+    "supervision_eval_bundle" => artifact_dir.join("review", "supervision-eval-bundle.json"),
     "conversation_export" => user_bundle_path,
     "conversation_debug_export" => debug_bundle_path,
     "transcript_roundtrip" => artifact_dir.join("exports", "transcript-roundtrip-compare.json"),
@@ -1510,6 +1524,7 @@ summary = {
   "live_progress_events_path" => artifact_dir.join("logs", "live-progress-events.jsonl").to_s,
   "review_index_path" => artifact_dir.join("review", "index.md").to_s,
   "review_turn_runtime_transcript_path" => artifact_dir.join("review", "turn-runtime-transcript.md").to_s,
+  "review_supervision_eval_bundle_path" => artifact_dir.join("review", "supervision-eval-bundle.json").to_s,
   "evidence_manifest_path" => artifact_dir.join("evidence", "artifact-manifest.json").to_s,
   "evidence_run_summary_path" => artifact_dir.join("evidence", "run-summary.json").to_s,
   "evidence_turn_runtime_path" => artifact_dir.join("evidence", "turn-runtime-evidence.json").to_s,

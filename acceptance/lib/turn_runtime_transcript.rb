@@ -2,7 +2,7 @@ module Acceptance
   module TurnRuntimeTranscript
     module_function
 
-    SEGMENT_ORDER = %w[plan build validate deliver].freeze
+    SEGMENT_ORDER = %w[plan build runtime validate deliver].freeze
 
     def build(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_sessions:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
       report = ConversationRuntime::BuildTurnEventStream.call(

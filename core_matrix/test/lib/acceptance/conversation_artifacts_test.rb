@@ -117,15 +117,19 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
 
     refute_includes sidechat_markdown, "request_subagent_close"
     refute_includes sidechat_markdown, "send_guidance_to_active_agent"
+    refute_includes sidechat_markdown, "Runtime focus hint"
     assert_includes sidechat_markdown, "refresh the status snapshot"
     assert_includes sidechat_markdown, "stop the active child task"
     assert_includes sidechat_markdown, "send guidance to the active worker"
+    assert_includes sidechat_markdown, "Runtime evidence"
 
     refute_includes status_markdown, "request_subagent_close"
     refute_includes status_markdown, "send_guidance_to_active_agent"
+    refute_includes status_markdown, "Runtime focus hint"
     assert_includes status_markdown, "refresh the status snapshot"
     assert_includes status_markdown, "stop the active child task"
     assert_includes status_markdown, "send guidance to the active worker"
+    assert_includes status_markdown, "Runtime evidence"
   end
 
   test "supervision markdown keeps unmapped control actions visible as humanized fallback labels" do
@@ -195,7 +199,7 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
         "last_terminal_at" => "2026-04-07T09:47:28.000000Z",
         "current_focus_summary" => nil,
         "recent_progress_summary" => "Started the preview server in /workspace/game-2048",
-        "runtime_focus_hint" => nil,
+        "runtime_evidence" => nil,
         "primary_turn_todo_plan_view" => {
           "goal_summary" => "Fix the existing app in /workspace/game-2048.",
           "current_item_key" => "fixing-the-existing-app-in-workspace-game-2048",
@@ -332,6 +336,10 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
     assert_equal "Rewrite the supervision prompt payload",
       bundle.dig("primary_turn_todo_plan", "current_item", "title")
     assert_equal ["What are you doing now?"], bundle.fetch("questions")
+    assert_equal ["Replace heuristic context facts completed."],
+      bundle.fetch("recent_plan_transitions").map { |entry| entry.fetch("summary") }
+    assert_equal "/workspace/core_matrix",
+      bundle.dig("runtime_evidence", "active_command", "cwd")
     assert_equal ["Sidechat should use the active plan item as the semantic anchor."],
       bundle.fetch("context_snippets").map { |snippet| snippet.fetch("excerpt") }
   end

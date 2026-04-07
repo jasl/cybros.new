@@ -20,6 +20,7 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
 
       body = path.read
       assert_includes body, "[Turn Runtime Transcript](turn-runtime-transcript.md)"
+      assert_includes body, "[Supervision Eval Bundle](supervision-eval-bundle.json)"
       assert_includes body, "[Turn Runtime Evidence](../evidence/turn-runtime-evidence.json)"
       assert_includes body, "[Subagent Runtime Snapshots](../evidence/subagent-runtime-snapshots.json)"
       assert_includes body, "[Live Progress Feed](../logs/live-progress-events.jsonl)"
@@ -66,6 +67,7 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
       payload = JSON.parse(path.read)
       assert_equal "stamp_123", payload.fetch("artifact_stamp")
       assert_equal "review/index.md", payload.dig("entry_points", "review_index")
+      assert_equal "review/supervision-eval-bundle.json", payload.dig("entry_points", "supervision_eval_bundle")
       assert_equal "evidence/run-summary.json", payload.dig("entry_points", "benchmark_summary")
       assert_equal "evidence/subagent-runtime-snapshots.json", payload.dig("entry_points", "subagent_runtime_snapshots")
       assert_equal "logs/live-progress-events.jsonl", payload.dig("entry_points", "live_progress_feed")

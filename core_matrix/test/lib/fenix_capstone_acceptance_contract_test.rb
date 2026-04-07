@@ -121,22 +121,26 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ArtifactBundle.write_review_index!"
   end
 
-  test "acceptance gate requires semantic supervision sidechat and runtime alignment" do
+  test "acceptance gate requires plan-first supervision replay bundles and runtime evidence" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/conversation_artifacts.rb").read
 
     assert_includes scenario, 'artifact_dir.join("review", "supervision-sidechat.md")'
+    assert_includes scenario, 'artifact_dir.join("review", "supervision-eval-bundle.json")'
     assert_includes scenario, "Acceptance::ConversationArtifacts.human_visible_leak_tokens"
     assert_includes scenario, "semantic_overlap?"
-    assert_includes scenario, 'runtime_focus_hint["summary"]'
-    assert_includes scenario, 'runtime_focus_hint["current_focus_summary"]'
+    assert_includes scenario, 'runtime_evidence = final_status.fetch("runtime_evidence", {}).to_h'
+    assert_includes scenario, 'primary_plan_view.present?'
+    assert_includes scenario, 'review", "supervision-eval-bundle.json"'
     assert_includes scenario, 'primary_plan_view["goal_summary"]'
     assert_includes scenario, 'primary_plan_view.dig("current_item", "title")'
     assert_includes scenario, 'final_status["recent_progress_summary"]'
     assert_includes scenario, 'final_status["waiting_summary"]'
     assert_includes scenario, 'final_status["blocked_summary"]'
+    assert_includes scenario, "runtime evidence"
     assert_includes scenario, "turn-runtime-transcript.md still exposes raw runtime tokens"
-    assert_includes helper, "Runtime focus hint"
+    assert_includes helper, "Runtime evidence"
+    assert_includes helper, "def supervision_eval_bundle"
     assert_includes helper, "workspace_[a-z0-9_]+"
   end
 

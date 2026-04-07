@@ -201,9 +201,15 @@ module Acceptance
     end
 
     def write_supervision_artifacts!(artifact_dir:, supervision_trace:, prompt:)
+      questions = supervision_questions(supervision_trace:, prompt:)
+
       write_json(artifact_dir.join("logs", "supervision-session.json"), supervision_trace.fetch("session"))
       write_json(artifact_dir.join("logs", "supervision-polls.json"), supervision_trace.fetch("polls"))
       write_json(artifact_dir.join("logs", "supervision-final.json"), supervision_trace.fetch("final_response"))
+      write_json(
+        artifact_dir.join("review", "supervision-eval-bundle.json"),
+        supervision_eval_bundle(supervision_trace:, questions:, prompt:)
+      )
       write_text(
         artifact_dir.join("review", "supervision-sidechat.md"),
         supervision_sidechat_markdown(supervision_trace:, prompt:)
@@ -216,6 +222,28 @@ module Acceptance
         artifact_dir.join("review", "supervision-feed.md"),
         supervision_feed_markdown(supervision_trace:)
       )
+    end
+
+    def supervision_eval_bundle(supervision_trace:, questions:, prompt: nil)
+      machine_status = canonical_machine_status(supervision_trace)
+      {
+        "prompt" => prompt,
+        "questions" => Array(questions).presence || [],
+        "machine_status" => machine_status,
+        "primary_turn_todo_plan" => primary_turn_todo_plan_view(machine_status),
+        "recent_plan_transitions" => canonical_turn_feed_entries(machine_status).last(5).map do |entry|
+          entry.slice("event_kind", "summary", "occurred_at", "details_payload")
+        end,
+        "context_snippets" => Array(machine_status.dig("conversation_context", "context_snippets")).map(&:to_h),
+        "runtime_evidence" => machine_status.fetch("runtime_evidence", {}).to_h,
+        "expected_contract_flags" => {
+          "plan_present" => primary_turn_todo_plan_view(machine_status).present?,
+          "recent_plan_transition_count" => canonical_turn_feed_entries(machine_status).length,
+          "context_snippet_count" => Array(machine_status.dig("conversation_context", "context_snippets")).length,
+          "runtime_evidence_present" => machine_status.fetch("runtime_evidence", {}).present?,
+          "question_count" => Array(questions).length,
+        },
+      }.compact
     end
 
     def conversation_transcript_markdown(transcript_payload)
@@ -293,7 +321,7 @@ module Acceptance
         lines << "- Overall state: `#{machine_status.fetch("overall_state")}`"
         lines << "- Board lane: `#{machine_status["board_lane"]}`"
         lines << "- Current focus: `#{preferred_focus_summary(machine_status)}`"
-        lines << "- Runtime focus hint: `#{preferred_runtime_focus_summary(machine_status)}`"
+        lines << "- Runtime evidence: `#{preferred_runtime_evidence_summary(machine_status)}`"
         lines << "- Public-id boundary check: `#{boundary_failures.empty? ? "pass" : "fail"}`"
         lines << "- Human-visible leak scan: `#{suspicious_tokens.empty? ? "pass" : "fail"}`"
         lines << ""
@@ -355,7 +383,7 @@ module Acceptance
         lines << "- Last terminal at: `#{machine_status["last_terminal_at"] || "unknown"}`"
         lines << "- Current focus: `#{preferred_focus_summary(machine_status)}`"
         lines << "- Recent progress: `#{preferred_progress_summary(machine_status)}`"
-        lines << "- Runtime focus hint: `#{preferred_runtime_focus_summary(machine_status)}`"
+        lines << "- Runtime evidence: `#{preferred_runtime_evidence_summary(machine_status)}`"
         lines << "- Waiting summary: `#{machine_status["waiting_summary"] || "none"}`"
         lines << "- Blocked summary: `#{machine_status["blocked_summary"] || "none"}`"
         lines << "- Next step hint: `#{machine_status["next_step_hint"] || "none"}`"
@@ -501,6 +529,14 @@ module Acceptance
         ["active_subagent_turn_todo_plan.delegated_subagent_session_ids", active_subagent_turn_todo_plan_views(machine_status).flat_map { |entry| Array(entry["items"]).map { |item| item["delegated_subagent_session_id"] } }],
         ["proof_debug.context_message_ids", Array(machine_status.dig("proof_debug", "context_message_ids"))],
         ["proof_debug.feed_entry_ids", Array(machine_status.dig("proof_debug", "feed_entry_ids"))],
+        ["runtime_evidence.command_run_public_ids", [
+          machine_status.dig("runtime_evidence", "active_command", "command_run_public_id"),
+          machine_status.dig("runtime_evidence", "recent_command", "command_run_public_id"),
+        ]],
+        ["runtime_evidence.process_run_public_ids", [
+          machine_status.dig("runtime_evidence", "active_process", "process_run_public_id"),
+          machine_status.dig("runtime_evidence", "recent_process", "process_run_public_id"),
+        ]],
       ]
 
       array_checks.each do |label, values|
@@ -572,8 +608,8 @@ module Acceptance
       lines << "  - Recent turn-feed entries: `#{turn_feed_entries(machine_status).length}`"
       lines << "  - Primary turn todo plan present: `#{primary_turn_todo_plan_view(machine_status).present?}`"
       lines << "  - Active child turn todo plans: `#{active_subagent_turn_todo_plan_views(machine_status).length}`"
-      lines << "  - Conversation facts: `#{Array(machine_status.dig("conversation_context", "facts")).length}`"
-      lines << "  - Runtime focus hint present: `#{machine_status.fetch("runtime_focus_hint", {}).present?}`"
+      lines << "  - Context snippets: `#{Array(machine_status.dig("conversation_context", "context_snippets")).length}`"
+      lines << "  - Runtime evidence present: `#{machine_status.fetch("runtime_evidence", {}).present?}`"
       lines << "  - Waiting summary present: `#{machine_status["waiting_summary"].present?}`"
       lines << "  - Blocked summary present: `#{machine_status["blocked_summary"].present?}`"
     end
@@ -581,24 +617,34 @@ module Acceptance
     private_class_method def preferred_focus_summary(machine_status)
       return "no active work" if machine_status["overall_state"] == "idle"
 
-      machine_status.dig("runtime_focus_hint", "current_focus_summary") ||
-        primary_turn_todo_plan_view(machine_status).dig("current_item", "title") ||
+      runtime_summary = preferred_runtime_evidence_summary(machine_status)
+
+      primary_turn_todo_plan_view(machine_status).dig("current_item", "title") ||
         machine_status["current_focus_summary"] ||
         machine_status["request_summary"] ||
+        (runtime_summary unless runtime_summary == "none") ||
         "none"
     end
 
     private_class_method def preferred_progress_summary(machine_status)
+      runtime_summary = preferred_runtime_evidence_summary(machine_status)
+
       machine_status["recent_progress_summary"] ||
         latest_turn_feed_entry(machine_status)&.fetch("summary", nil) ||
+        (runtime_summary unless runtime_summary == "none") ||
         machine_status["waiting_summary"] ||
         machine_status["blocked_summary"] ||
         "none"
     end
 
-    private_class_method def preferred_runtime_focus_summary(machine_status)
-      machine_status.dig("runtime_focus_hint", "summary") ||
-        machine_status.dig("runtime_focus_hint", "current_focus_summary") ||
+    private_class_method def preferred_runtime_evidence_summary(machine_status)
+      runtime_evidence = machine_status.fetch("runtime_evidence", {}).to_h
+
+      runtime_item_summary(runtime_evidence["active_command"], noun: "command") ||
+        runtime_item_summary(runtime_evidence["recent_command"], noun: "command") ||
+        runtime_item_summary(runtime_evidence["active_process"], noun: "process") ||
+        runtime_item_summary(runtime_evidence["recent_process"], noun: "process") ||
+        runtime_evidence["workflow_wait_state"].presence ||
         "none"
     end
 
@@ -622,6 +668,35 @@ module Acceptance
 
     private_class_method def latest_turn_feed_entry(machine_status)
       canonical_turn_feed_entries(machine_status).last || turn_feed_entries(machine_status).last || {}
+    end
+
+    private_class_method def runtime_item_summary(item, noun:)
+      item = item.to_h
+      return if item.empty?
+
+      lifecycle_state = item["lifecycle_state"].presence || "observed"
+      command_preview = item["command_preview"].presence
+      cwd = item["cwd"].presence
+
+      summary = +"#{lifecycle_state} #{noun}"
+      summary << " `#{command_preview}`" if command_preview
+      summary << " in #{cwd}" if cwd
+      summary
+    end
+
+    private_class_method def supervision_questions(supervision_trace:, prompt:)
+      poll_questions = Array(supervision_trace["polls"]).filter_map do |poll|
+        poll.dig("user_message", "content").presence
+      end
+
+      poll_questions.presence || Array(prompt).compact
+    end
+
+    private_class_method def canonical_machine_status(supervision_trace)
+      last_poll_status = Array(supervision_trace["polls"]).last&.fetch("machine_status", {})&.to_h || {}
+      final_status = supervision_trace.dig("final_response", "machine_status").to_h
+
+      last_poll_status.deep_merge(final_status)
     end
 
     private_class_method def human_control_action_labels(verbs)

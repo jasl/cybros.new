@@ -78,6 +78,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes helper, '"supervision-sidechat.md"'
     assert_includes helper, '"supervision-status.md"'
     assert_includes helper, '"supervision-feed.md"'
+    assert_includes helper, '"supervision-eval-bundle.json"'
   end
 
   test "supervision sidechat artifact keeps human sidechat separate from proof and debug refs" do
@@ -85,6 +86,14 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
 
     assert_includes helper, "append_supervision_grounding_lines"
     refute_includes helper, 'append_supervision_proof_ref_lines(lines, human_sidechat.fetch("proof_refs"))'
+  end
+
+  test "offline supervision replay shell entry point delegates through rails runner" do
+    script = Rails.root.join("../acceptance/bin/replay_supervision_eval.sh").read
+
+    assert_includes script, "supervision_eval_replay"
+    assert_includes script, "bin/rails runner"
+    assert_includes script, "ARGV.fetch(0)"
   end
 
   test "capstone scenario uses supervision naming and helper entrypoints" do

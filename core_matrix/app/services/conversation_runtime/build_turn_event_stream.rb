@@ -1,6 +1,6 @@
 module ConversationRuntime
   class BuildTurnEventStream
-    SEGMENT_ORDER = %w[plan build validate deliver].freeze
+    SEGMENT_ORDER = %w[plan build runtime validate deliver].freeze
 
     def self.call(...)
       new(...).call
