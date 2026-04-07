@@ -376,6 +376,39 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     refute_match(/provider round|command_run_wait|exec_command/i, feed.to_json)
   end
 
+  test "surfaces a running app server as a semantic runtime focus hint" do
+    context = build_agent_control_context!(workflow_node_type: "background_service")
+    context[:workflow_node].update!(
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      lifecycle_state: "running",
+      command_line: "cd /workspace/game-2048 && npm run dev -- --host 0.0.0.0 --port 4173",
+      started_at: 20.seconds.ago
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
+
+    assert_equal "Waiting for the app server in /workspace/game-2048", state.current_focus_summary
+    assert_equal "Started the app server in /workspace/game-2048", state.recent_progress_summary
+    assert_equal "process_wait", runtime_focus_hint.fetch("kind")
+    assert_equal "waiting for the app server in /workspace/game-2048", runtime_focus_hint.fetch("summary")
+    assert_equal process_run.public_id, runtime_focus_hint.fetch("process_run_public_id")
+    refute_match(/shell command/i, state.attributes.to_json)
+  end
+
   test "projects idle with last terminal completed when the previous run finished and nothing is active" do
     context = build_agent_control_context!
     context[:workflow_run].update!(lifecycle_state: "completed")

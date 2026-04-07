@@ -1,5 +1,15 @@
 module ConversationRuntime
   class BuildSafeActivitySummary
+    DEV_SERVER_PATTERN = /
+      \b(?:npm|pnpm|yarn|bun)\s+run\s+dev\b|
+      \bvite\b.*\b--host\b
+    /x.freeze
+    SCAFFOLD_PATTERN = /
+      \b(?:npm|pnpm|yarn|bun)\s+create\s+vite(?:@latest)?\b
+    /x.freeze
+    DEPENDENCY_INSTALL_PATTERN = /
+      \b(?:npm|pnpm|yarn|bun)\s+install\b
+    /x.freeze
     DIRECTORY_INSPECTION_PATTERN = /
       \b(ls|pwd|find|tree)\b
     /x.freeze
@@ -57,9 +67,9 @@ module ConversationRuntime
 
     def phase
       case work_type
-      when "verification", "preview", "build"
+      when "verification", "preview", "app_server", "build"
         "validate"
-      when "editing"
+      when "editing", "dependency_setup", "scaffolding"
         "build"
       else
         "plan"
@@ -70,7 +80,10 @@ module ConversationRuntime
       return "verification" if test_and_build_command?
       return "verification" if test_command?
       return "build" if build_command?
+      return "app_server" if app_server_command?
       return "preview" if preview_command?
+      return "scaffolding" if scaffold_command?
+      return "dependency_setup" if dependency_install_command?
       return "editing" if file_write_command?
       return "inspection" if directory_inspection_command?
 
@@ -83,8 +96,14 @@ module ConversationRuntime
         test_and_build_command? ? "the test-and-build check" : "the test run"
       when "build"
         "the production build"
+      when "app_server"
+        "the app server"
       when "preview"
         "the preview server"
+      when "scaffolding"
+        "the React app"
+      when "dependency_setup"
+        "project dependencies"
       when "editing"
         "game files"
       when "inspection"
@@ -96,12 +115,18 @@ module ConversationRuntime
 
     def command_verb
       case work_type
+      when "app_server"
+        @lifecycle_state == "running" ? "Starting" : "Started"
       when "preview"
         @lifecycle_state == "running" ? "Starting" : "Started"
+      when "scaffolding"
+        @lifecycle_state == "running" ? "Scaffolding" : "Scaffolded"
+      when "dependency_setup"
+        @lifecycle_state == "running" ? "Installing" : "Installed"
       when "editing"
-        "Edited"
+        @lifecycle_state == "running" ? "Editing" : "Edited"
       when "inspection"
-        "Inspected"
+        @lifecycle_state == "running" ? "Inspecting" : "Inspected"
       else
         @lifecycle_state == "running" ? "Running" : "Ran"
       end
@@ -113,8 +138,10 @@ module ConversationRuntime
 
     def workspace_path
       @workspace_path ||= begin
-        match = @command_line.match(/\bcd\s+([^\s&;]+)\b/)
-        match && match[1]
+        scaffold_target_path || begin
+          match = @command_line.match(/\bcd\s+([^\s&;]+)\b/)
+          match && match[1]
+        end
       end
     end
 
@@ -134,12 +161,38 @@ module ConversationRuntime
       @command_line.include?("npm run preview")
     end
 
+    def app_server_command?
+      @command_line.match?(DEV_SERVER_PATTERN)
+    end
+
+    def scaffold_command?
+      @command_line.match?(SCAFFOLD_PATTERN)
+    end
+
+    def dependency_install_command?
+      @command_line.match?(DEPENDENCY_INSTALL_PATTERN) && !@command_line.include?("npm install -g")
+    end
+
     def file_write_command?
       @command_line.include?("cat <<") || @command_line.match?(/\s>\s*[^&|]+/)
     end
 
     def directory_inspection_command?
       @command_line.match?(DIRECTORY_INSPECTION_PATTERN)
+    end
+
+    def scaffold_target_path
+      return unless scaffold_command?
+
+      base_match = @command_line.match(/\bcd\s+([^\s&;]+)\b/)
+      target_match = @command_line.match(/\bcreate\s+vite(?:@latest)?\s+([^\s&;]+)\b/)
+      base_path = base_match && base_match[1]
+      target = target_match && target_match[1]
+
+      return target if target.present? && target.start_with?("/")
+      return if base_path.blank? || target.blank?
+
+      File.join(base_path, target)
     end
   end
 end
