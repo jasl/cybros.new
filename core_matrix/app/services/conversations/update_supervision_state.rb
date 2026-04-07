@@ -176,8 +176,8 @@ module Conversations
         active_conversation_subagent_session&.current_focus_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["current_item_title"] }.first ||
         active_owned_subagent_sessions.filter_map(&:current_focus_summary).first ||
-        basic_task_run_current_focus_summary ||
-        generic_runtime_current_focus_summary
+        generic_runtime_current_focus_summary ||
+        basic_task_run_current_focus_summary
     end
 
     def recent_progress_summary
@@ -384,7 +384,7 @@ module Conversations
     end
 
     def generic_runtime_current_focus_summary
-      return if suppress_runtime_evidence_for_task_run?
+      return if suppress_runtime_evidence_for_task_run? && !basic_task_run_fallback?
       return summarize_active_process(runtime_evidence["active_process"]) if runtime_evidence["active_process"].present?
       return summarize_active_command(runtime_evidence["active_command"]) if runtime_evidence["active_command"].present?
       return "Working through the current turn" if workflow_progressing_without_task?
