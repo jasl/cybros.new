@@ -528,6 +528,7 @@ module Acceptance
       lines << "- Primary turn todo plan: `#{plan_view["turn_todo_plan_id"] || "none"}`"
       return if plan_view.blank?
 
+      idle_snapshot = machine_status["overall_state"] == "idle"
       current_item = plan_view["current_item"].to_h
       items = Array(plan_view["items"]).sort_by { |item| item["position"].to_i }
       visible_items = items.reject { |item| %w[completed canceled].include?(item["status"]) }.first(3)
@@ -535,9 +536,15 @@ module Acceptance
 
       lines << "  - Goal summary: `#{plan_view["goal_summary"] || "none"}`"
       lines << "  - Plan status: `#{plan_view["status"] || "unknown"}`"
+      lines << "  - Counts: `#{format_turn_todo_counts(plan_view["counts"])}`"
+      if idle_snapshot
+        lines << "  - Current item: `none`"
+        lines << "  - Current item key: `none`"
+        return
+      end
+
       lines << "  - Current item: `#{current_item["title"] || plan_view["current_item_key"] || "none"}`"
       lines << "  - Current item key: `#{plan_view["current_item_key"] || "none"}`"
-      lines << "  - Counts: `#{format_turn_todo_counts(plan_view["counts"])}`"
       visible_items.each do |item|
         lines << "  - `#{item["status"]}` #{item["title"]}"
       end
@@ -572,6 +579,8 @@ module Acceptance
     end
 
     private_class_method def preferred_focus_summary(machine_status)
+      return "no active work" if machine_status["overall_state"] == "idle"
+
       machine_status.dig("runtime_focus_hint", "current_focus_summary") ||
         primary_turn_todo_plan_view(machine_status).dig("current_item", "title") ||
         machine_status["current_focus_summary"] ||

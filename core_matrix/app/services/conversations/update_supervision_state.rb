@@ -169,8 +169,10 @@ module Conversations
 
     def current_focus_summary
       return unless detailed_progress_enabled?
+      return if overall_state == "idle"
 
       current_task_plan_summary&.fetch("current_item_title", nil) ||
+        runtime_focus_hint&.fetch("current_focus_summary", nil) ||
         workflow_turn_todo_plan_summary&.fetch("current_item_title", nil) ||
         current_task_run&.current_focus_summary ||
         active_conversation_subagent_session&.current_focus_summary ||
@@ -279,11 +281,17 @@ module Conversations
 
       {
         "current_turn_plan_summary" => current_turn_plan_summary,
-        "runtime_focus_hint" => runtime_focus_hint,
+        "runtime_focus_hint" => active_runtime_focus_hint,
         "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
         "active_subagents" => active_subagent_payloads,
         "latest_progress_entry" => latest_progress_entry_payload,
       }.compact
+    end
+
+    def active_runtime_focus_hint
+      return if overall_state == "idle"
+
+      runtime_focus_hint
     end
 
     def active_subagent_payloads

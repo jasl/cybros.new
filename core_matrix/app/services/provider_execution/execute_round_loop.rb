@@ -101,6 +101,14 @@ module ProviderExecution
         provider_result: dispatch_result.provider_result,
         request_context: @request_context
       )
+      if normalized_response.fetch("tool_calls").empty? && normalized_response.fetch("output_text").blank?
+        raise RoundRequestFailed.new(
+          error: SimpleInference::DecodeError.new("provider response must include output text or tool calls"),
+          duration_ms: dispatch_result.duration_ms,
+          provider_request_id: dispatch_result.provider_request_id,
+          messages_count: prepared_round.fetch("messages").length
+        )
+      end
 
       return Result.new(
         kind: "final",

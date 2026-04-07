@@ -31,6 +31,7 @@ module ProviderExecution
       return admission_refused_result if @error.is_a?(ProviderExecution::ProviderRequestGovernor::AdmissionRefused)
       return http_error_result if @error.is_a?(SimpleInference::HTTPError)
       return transport_error_result("provider_unreachable") if @error.is_a?(SimpleInference::TimeoutError) || @error.is_a?(SimpleInference::ConnectionError)
+      return contract_error_result("invalid_provider_response_contract") if @error.is_a?(SimpleInference::DecodeError)
       return protocol_error_result if @error.is_a?(ProviderExecution::ProgramMailboxExchange::ProtocolError)
       return transport_error_result("program_transport_failed") if @error.is_a?(ProviderExecution::ProgramMailboxExchange::TimeoutError)
       return request_failed_result if @error.is_a?(ProviderExecution::ProgramMailboxExchange::RequestFailed)

@@ -116,24 +116,28 @@ module ConversationRuntime
     def command_verb
       case work_type
       when "app_server"
-        @lifecycle_state == "running" ? "Starting" : "Started"
+        active_command_state? ? "Starting" : "Started"
       when "preview"
-        @lifecycle_state == "running" ? "Starting" : "Started"
+        active_command_state? ? "Starting" : "Started"
       when "scaffolding"
-        @lifecycle_state == "running" ? "Scaffolding" : "Scaffolded"
+        active_command_state? ? "Scaffolding" : "Scaffolded"
       when "dependency_setup"
-        @lifecycle_state == "running" ? "Installing" : "Installed"
+        active_command_state? ? "Installing" : "Installed"
       when "editing"
-        @lifecycle_state == "running" ? "Editing" : "Edited"
+        active_command_state? ? "Editing" : "Edited"
       when "inspection"
-        @lifecycle_state == "running" ? "Inspecting" : "Inspected"
+        active_command_state? ? "Inspecting" : "Inspected"
       else
-        @lifecycle_state == "running" ? "Running" : "Ran"
+        active_command_state? ? "Running" : "Ran"
       end
     end
 
     def process_verb
       @lifecycle_state == "running" ? "Starting" : "Started"
+    end
+
+    def active_command_state?
+      %w[starting running waiting].include?(@lifecycle_state)
     end
 
     def workspace_path

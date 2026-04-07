@@ -131,7 +131,9 @@ module EmbeddedAgents
       end
 
       def recent_change_sentence
-        latest_summary = @machine_status["recent_progress_summary"].presence || latest_meaningful_feed_summary
+        latest_summary = @machine_status["recent_progress_summary"].presence
+        latest_summary = nil if low_information_summary?(latest_summary)
+        latest_summary ||= latest_meaningful_feed_summary
         return if latest_summary.blank?
 
         "Most recently, #{latest_summary.downcase}."
@@ -225,12 +227,14 @@ module EmbeddedAgents
       end
 
       def current_focus_summary
-        runtime_focus_hint["current_focus_summary"] ||
-          @machine_status["current_focus_summary"] ||
-          @machine_status.dig("primary_turn_todo_plan_view", "current_item", "title") ||
-          @machine_status["request_summary"] ||
-          @machine_status.dig("primary_turn_todo_plan_view", "goal_summary") ||
-          contextual_focus_summary
+        [
+          runtime_focus_hint["current_focus_summary"],
+          @machine_status["current_focus_summary"],
+          @machine_status.dig("primary_turn_todo_plan_view", "current_item", "title"),
+          @machine_status["request_summary"],
+          @machine_status.dig("primary_turn_todo_plan_view", "goal_summary"),
+          contextual_focus_summary,
+        ].find { |summary| summary.present? && !low_information_summary?(summary) }
       end
 
       def semantic_waiting_summary
@@ -285,6 +289,16 @@ module EmbeddedAgents
 
         activity_phrase?(text) ||
           text.to_s.match?(/\A(?:wait|waiting|continue|continuing|review|reviewing|investigate|investigating|inspect|inspecting|monitor|monitoring)\b/i)
+      end
+
+      def low_information_summary?(text)
+        normalized = text.to_s.strip
+        return true if normalized.blank?
+
+        normalized.match?(/\A(?:Ran|Running|Started)\s+a shell command\b/i) ||
+          normalized.match?(/\A(?:Review|Reviewed)\s+shell command state\b/i) ||
+          normalized.match?(/\A(?:Check|Checked)\s+progress on the running command\b/i) ||
+          normalized.match?(/\A(?:Wait|Waiting)\s+for the running command\b/i)
       end
 
       def lowercase_initial(text)

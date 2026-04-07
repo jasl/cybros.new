@@ -78,7 +78,35 @@ module ConversationSupervision
     end
 
     def build_command_hint(command_run:, kind:, fragment_prefix:, sentence_prefix:, waiting:, recent_progress_summary:)
-      activity_summary = command_run_summary(command_run)
+      activity = command_run_activity(command_run)
+      activity_summary = activity.fetch("summary")
+      if waiting && inspection_activity?(activity_summary)
+        return {
+          "kind" => kind,
+          "summary" => lowercase_initial(activity_summary),
+          "current_focus_summary" => imperative_activity_summary(activity_summary),
+          "recent_progress_summary" => recent_progress_summary,
+          "command_run_public_id" => command_run.public_id,
+          "tool_invocation_public_id" => command_run.tool_invocation.public_id,
+          "workflow_node_public_id" => command_run.workflow_node&.public_id,
+        }.compact
+      end
+
+      if waiting
+        target = waiting_target(activity)
+
+        return {
+          "kind" => kind,
+          "summary" => "waiting for #{target}",
+          "current_focus_summary" => "Waiting for #{target}",
+          "recent_progress_summary" => recent_progress_summary,
+          "waiting_summary" => "Waiting for #{target} to finish.",
+          "command_run_public_id" => command_run.public_id,
+          "tool_invocation_public_id" => command_run.tool_invocation.public_id,
+          "workflow_node_public_id" => command_run.workflow_node&.public_id,
+        }.compact
+      end
+
       fragment = activity_fragment(activity_summary)
 
       {
@@ -109,11 +137,15 @@ module ConversationSupervision
     end
 
     def command_run_summary(command_run)
+      command_run_activity(command_run).fetch("summary")
+    end
+
+    def command_run_activity(command_run)
       ConversationRuntime::BuildSafeActivitySummary.call(
         activity_kind: "command",
         command_line: command_run.command_line,
         lifecycle_state: command_run.lifecycle_state
-      ).fetch("summary")
+      )
     end
 
     def process_run_summary(process_run)
@@ -125,7 +157,7 @@ module ConversationSupervision
     end
 
     def activity_fragment(summary)
-      lowercase_initial(summary.to_s.sub(/\A(?:Running|Ran|Starting|Started|Edited|Inspected)\s+/i, ""))
+      lowercase_initial(summary.to_s.sub(/\A(?:Running|Ran|Starting|Started|Installing|Installed|Scaffolding|Scaffolded|Editing|Edited|Inspecting|Inspected)\s+/i, ""))
     end
 
     def summary_fragment(prefix, fragment, fallback_summary)
@@ -144,6 +176,22 @@ module ConversationSupervision
       normalized = summary.to_s
       return normalized.sub(/\ARunning\b/i, "Started") if normalized.match?(/\ARunning\b/i)
       return normalized.sub(/\AStarting\b/i, "Started") if normalized.match?(/\AStarting\b/i)
+      return normalized.sub(/\AInspecting\b/i, "Started inspecting") if normalized.match?(/\AInspecting\b/i)
+      return normalized.sub(/\AInstalling\b/i, "Started installing") if normalized.match?(/\AInstalling\b/i)
+      return normalized.sub(/\AEditing\b/i, "Started editing") if normalized.match?(/\AEditing\b/i)
+      return normalized.sub(/\AScaffolding\b/i, "Started scaffolding") if normalized.match?(/\AScaffolding\b/i)
+
+      normalized
+    end
+
+    def inspection_activity?(summary)
+      summary.to_s.match?(/\A(?:Inspecting|Inspected)\b/i)
+    end
+
+    def imperative_activity_summary(summary)
+      normalized = summary.to_s
+      return normalized.sub(/\AInspecting\b/i, "Inspect") if normalized.match?(/\AInspecting\b/i)
+      return normalized.sub(/\AInspected\b/i, "Inspect") if normalized.match?(/\AInspected\b/i)
 
       normalized
     end
@@ -152,6 +200,33 @@ module ConversationSupervision
       return text if text.blank?
 
       text[0].downcase + text[1..]
+    end
+
+    def waiting_target(activity)
+      location = activity["path_summary"].presence
+      prefix =
+        case activity["work_type"]
+        when "verification"
+          activity["summary"].to_s.match?(/test-and-build check/i) ? "the test-and-build check" : "the test run"
+        when "build"
+          "the production build"
+        when "app_server"
+          "the app server"
+        when "preview"
+          "the preview server"
+        when "scaffolding"
+          "the React app scaffold"
+        when "dependency_setup"
+          "project dependency installation"
+        when "editing"
+          "game file updates"
+        else
+          activity_fragment(activity.fetch("summary"))
+        end
+
+      return prefix if location.blank?
+
+      "#{prefix} in #{location}"
     end
 
     def latest_completed_command_summary

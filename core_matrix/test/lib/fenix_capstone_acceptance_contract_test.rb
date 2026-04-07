@@ -185,12 +185,24 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
 
     assert_includes scenario, "Acceptance::HostValidation.run!"
+    assert_includes scenario, "Acceptance::HostValidation.playability_failure_observations"
     assert_includes scenario, "Acceptance::HostValidation.write_playability_verification!"
     assert_includes scenario, 'playwright_test: playwright_validation["test"]'
     assert_includes scenario, "Acceptance::HostValidation.runtime_validation_passed?"
     assert_includes scenario, "Acceptance::HostValidation.host_validation_passed?"
     assert_includes scenario, "Acceptance::HostValidation.command_result_excerpt"
     assert_includes helper, "def write_playability_verification!"
+  end
+
+  test "acceptance scenario makes the game-over status contract explicit" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
+
+    assert_includes scenario,
+      "- expose a game-over status through `data-testid=\"status\"` that visibly contains the words `Game over` when no moves remain"
+    assert_includes scenario,
+      "- if the board reaches a terminal no-moves state, the visible status must contain the exact words `Game over`"
+    assert_includes helper, "def playability_failure_observations(playwright_validation:)"
   end
 
   test "acceptance scenario uses shared benchmark reporting helper" do

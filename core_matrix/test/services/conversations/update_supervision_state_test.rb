@@ -409,6 +409,156 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     refute_match(/shell command/i, state.attributes.to_json)
   end
 
+  test "treats active workspace inspection as inspection work instead of waiting for the workspace object" do
+    context = build_agent_control_context!(workflow_node_type: "workspace_scan")
+    context[:workflow_node].update!(
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+    command_execution = create_exec_command_execution!(
+      context: context,
+      workflow_node: context[:workflow_node],
+      command_line: "cd /workspace && ls",
+      tool_status: "running",
+      command_state: "running",
+      started_at: 20.seconds.ago
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
+
+    assert_equal "Inspect the workspace in /workspace", state.current_focus_summary
+    assert_equal "Started inspecting the workspace in /workspace", state.recent_progress_summary
+    assert_equal "command_wait", runtime_focus_hint.fetch("kind")
+    assert_equal "inspecting the workspace in /workspace", runtime_focus_hint.fetch("summary")
+    assert_equal command_execution.fetch(:command_run).public_id, runtime_focus_hint.fetch("command_run_public_id")
+    refute_match(/Wait for the workspace/i, state.attributes.to_json)
+  end
+
+  test "treats waiting scaffolding commands as waiting for the scaffold instead of past-tense scaffold work" do
+    context = build_agent_control_context!
+    context[:workflow_node].update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 90.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 1,
+      metadata: {}
+    )
+    running_command_node = create_workflow_node!(
+      workflow_run: context[:workflow_run],
+      installation: context[:installation],
+      node_key: "provider_round_2_tool_1",
+      node_type: "tool_call",
+      lifecycle_state: "running",
+      started_at: 20.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      metadata: {}
+    )
+    command_execution = create_exec_command_execution!(
+      context: context,
+      workflow_node: running_command_node,
+      command_line: "cd /workspace && npm create vite@latest game-2048 -- --template react-ts",
+      tool_status: "running",
+      command_state: "running",
+      started_at: 20.seconds.ago
+    )
+    create_workflow_node!(
+      workflow_run: context[:workflow_run],
+      installation: context[:installation],
+      node_key: "provider_round_2_tool_2",
+      node_type: "tool_call",
+      lifecycle_state: "running",
+      started_at: 10.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      tool_call_document: JsonDocuments::Store.call(
+        installation: context[:installation],
+        document_kind: "workflow_node_tool_call",
+        payload: {
+          "call_id" => "call-#{next_test_sequence}",
+          "tool_name" => "command_run_wait",
+          "request_payload" => {
+            "arguments" => { "command_run_id" => command_execution.fetch(:command_run).public_id },
+          },
+        }
+      ),
+      metadata: {}
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    runtime_focus_hint = state.status_payload.fetch("runtime_focus_hint")
+
+    assert_equal "Waiting for the React app scaffold in /workspace/game-2048", state.current_focus_summary
+    assert_equal "Started scaffolding the React app in /workspace/game-2048", state.recent_progress_summary
+    assert_equal "command_wait", runtime_focus_hint.fetch("kind")
+    assert_equal "waiting for the React app scaffold in /workspace/game-2048", runtime_focus_hint.fetch("summary")
+    assert_equal "Waiting for the React app scaffold in /workspace/game-2048 to finish.",
+      runtime_focus_hint.fetch("waiting_summary")
+    assert_equal command_execution.fetch(:command_run).public_id, runtime_focus_hint.fetch("command_run_public_id")
+    refute_match(/Waiting for scaffolded|Waiting for scaffolding/i, state.attributes.to_json)
+  end
+
+  test "prefers the runtime focus hint over provider-backed goal fallback titles when both exist" do
+    context = build_agent_control_context!(workflow_node_type: "background_service")
+    context[:turn].selected_input_message.update!(
+      content: "Build a complete browser-playable React 2048 game in `/workspace/game-2048`."
+    )
+    context[:workflow_node].update!(
+      lifecycle_state: "running",
+      started_at: 20.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      lifecycle_state: "running",
+      command_line: "cd /workspace/game-2048 && npm run preview",
+      started_at: 20.seconds.ago
+    )
+    create_workflow_node!(
+      workflow_run: context[:workflow_run],
+      installation: context[:installation],
+      node_key: "provider_round_2",
+      node_type: "turn_step",
+      lifecycle_state: "running",
+      started_at: 10.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      metadata: {}
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "Waiting for the preview server in /workspace/game-2048", state.current_focus_summary
+    assert_equal "Started the preview server in /workspace/game-2048", state.recent_progress_summary
+    assert_equal "Building a complete browser-playable React 2048 game in /workspace/game-2048",
+      state.status_payload.fetch("current_turn_plan_summary").fetch("current_item_title")
+    assert_equal process_run.public_id, state.status_payload.fetch("runtime_focus_hint").fetch("process_run_public_id")
+  end
+
   test "projects idle with last terminal completed when the previous run finished and nothing is active" do
     context = build_agent_control_context!
     context[:workflow_run].update!(lifecycle_state: "completed")
@@ -433,6 +583,43 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "idle", state.board_lane
     assert_equal "completed", state.last_terminal_state
     assert_equal agent_task_run.finished_at.to_i, state.last_terminal_at.to_i
+  end
+
+  test "clears stale runtime focus summaries once completed workflow work is idle" do
+    context = build_agent_control_context!(workflow_node_type: "background_service")
+    context[:turn].selected_input_message.update!(
+      content: "Build a complete browser-playable React 2048 game in `/workspace/game-2048`."
+    )
+    context[:workflow_node].update!(
+      lifecycle_state: "completed",
+      started_at: 20.seconds.ago,
+      finished_at: 5.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      metadata: {}
+    )
+    create_process_run!(
+      workflow_node: context[:workflow_node],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      lifecycle_state: "stopped",
+      command_line: "cd /workspace/game-2048 && npm run preview",
+      started_at: 20.seconds.ago,
+      ended_at: 5.seconds.ago
+    )
+    context[:workflow_run].update!(lifecycle_state: "completed")
+    context[:turn].update!(lifecycle_state: "completed")
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: context[:conversation],
+      occurred_at: Time.current
+    )
+
+    assert_equal "idle", state.overall_state
+    assert_nil state.current_focus_summary
+    assert_nil state.waiting_summary
+    assert_nil state.status_payload["runtime_focus_hint"]
+    assert_equal "Started the preview server in /workspace/game-2048", state.recent_progress_summary
   end
 
   test "projects idle with last terminal failed when the previous run failed and nothing is active" do

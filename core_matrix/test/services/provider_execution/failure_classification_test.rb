@@ -94,6 +94,18 @@ class ProviderExecution::FailureClassificationTest < ActiveSupport::TestCase
     refute classification.terminal?
   end
 
+  test "classifies invalid provider responses as retryable contract errors" do
+    classification = ProviderExecution::FailureClassification.call(
+      error: SimpleInference::DecodeError.new("provider response must include output text or tool calls")
+    )
+
+    assert_equal "contract_error", classification.failure_category
+    assert_equal "invalid_provider_response_contract", classification.failure_kind
+    assert_equal "retryable_failure", classification.wait_reason_kind
+    assert_equal "automatic", classification.retry_strategy
+    refute classification.terminal?
+  end
+
   test "classifies unknown errors as terminal implementation failures" do
     classification = ProviderExecution::FailureClassification.call(error: StandardError.new("boom"))
 

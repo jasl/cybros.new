@@ -4,11 +4,12 @@ module ConversationRuntime
       new(...).call
     end
 
-    def initialize(tool_name:, arguments: {}, response_payload: {}, command_summary: nil)
+    def initialize(tool_name:, arguments: {}, response_payload: {}, command_summary: nil, command_metadata: {})
       @tool_name = tool_name.to_s
       @arguments = arguments.to_h.deep_stringify_keys
       @response_payload = response_payload.to_h.deep_stringify_keys
       @command_summary = command_summary.to_s.strip
+      @command_metadata = command_metadata.to_h.deep_stringify_keys
     end
 
     def call
@@ -81,22 +82,9 @@ module ConversationRuntime
           started_summary: "Started closing a child task."
         )
       when "write_stdin"
-        target = @command_summary.presence || "the running command"
-        {
-          "title" => "Respond to #{target}",
-          "summary" => "Sent input to #{target}",
-          "started_summary" => "Started responding to #{target}.",
-          "detail" => "Continued #{target}.",
-          "phase" => "build",
-          "user_visible" => true,
-        }
+        write_stdin_summary
       when "command_run_wait"
-        command_wrapper_summary(
-          title: "Wait for",
-          summary: "Waiting for",
-          started_summary: "Started waiting for",
-          detail: "Continuing to wait for"
-        )
+        command_run_wait_summary
       when "command_run_read_output"
         command_wrapper_summary(
           title: "Review output from",
@@ -221,7 +209,7 @@ module ConversationRuntime
     end
 
     def command_wrapper_summary(title:, summary:, started_summary:, detail:)
-      target = @command_summary.presence || "the running command"
+      target = command_target
 
       {
         "title" => "#{title} #{target}",
@@ -229,6 +217,62 @@ module ConversationRuntime
         "started_summary" => "#{started_summary} #{target}.",
         "detail" => "#{detail} #{target}.",
         "phase" => "validate",
+        "user_visible" => true,
+      }
+    end
+
+    def write_stdin_summary
+      return completed_command_summary if command_session_closed? && command_metadata_present?
+
+      target = command_progress_target
+
+      {
+        "title" => "Check progress on #{target}",
+        "summary" => "Checked progress on #{target}",
+        "started_summary" => "Started checking progress on #{target}.",
+        "detail" => "Checked the latest progress for #{target}.",
+        "phase" => command_phase,
+        "user_visible" => true,
+      }
+    end
+
+    def command_run_wait_summary
+      return inspection_wait_summary if inspection_command?
+      target = command_progress_target
+
+      {
+        "title" => "Wait for #{target}",
+        "summary" => "Waiting for #{target}",
+        "started_summary" => "Started waiting for #{target}.",
+        "detail" => "Continuing to wait for #{target}.",
+        "phase" => command_phase,
+        "user_visible" => true,
+      }
+    end
+
+    def inspection_wait_summary
+      title = command_location.present? ? "Inspect the workspace in #{command_location}" : "Inspect the workspace"
+      summary = command_location.present? ? "Inspecting the workspace in #{command_location}" : "Inspecting the workspace"
+
+      {
+        "title" => title,
+        "summary" => summary,
+        "started_summary" => "Started #{lowercase_initial(summary)}.",
+        "detail" => "Inspecting workspace contents.",
+        "phase" => command_phase,
+        "user_visible" => true,
+      }
+    end
+
+    def completed_command_summary
+      summary = command_summary_text
+
+      {
+        "title" => summary,
+        "summary" => summary,
+        "started_summary" => sentence(started_summary_for(summary)),
+        "detail" => "Collected the final result from #{command_progress_target}.",
+        "phase" => command_phase,
         "user_visible" => true,
       }
     end
@@ -251,10 +295,106 @@ module ConversationRuntime
         @response_payload["current_url"].presence
     end
 
+    def command_phase
+      @command_metadata["phase"].presence || "build"
+    end
+
+    def command_metadata_present?
+      @command_metadata.present?
+    end
+
+    def command_session_closed?
+      @response_payload["session_closed"] == true
+    end
+
+    def inspection_command?
+      command_work_type == "inspection"
+    end
+
+    def command_work_type
+      @command_metadata["work_type"].presence
+    end
+
+    def command_location
+      @command_metadata["path_summary"].presence
+    end
+
+    def command_summary_text
+      @command_metadata["summary"].presence || @command_summary.presence || "The command completed"
+    end
+
+    def command_progress_target
+      case command_work_type
+      when "verification"
+        verification_target
+      when "build"
+        located_target("the production build")
+      when "app_server"
+        located_target("the app server")
+      when "preview"
+        located_target("the preview server")
+      when "scaffolding"
+        located_target("the React app scaffold")
+      when "dependency_setup"
+        located_target("project dependency installation")
+      when "editing"
+        located_target("game file updates")
+      when "inspection"
+        located_target("workspace inspection")
+      else
+        command_target
+      end
+    end
+
+    def verification_target
+      summary = command_summary_text
+      prefix = summary.match?(/test-and-build check/i) ? "the test-and-build check" : "the test run"
+      located_target(prefix)
+    end
+
+    def command_target
+      @command_summary.presence || "the running command"
+    end
+
+    def located_target(prefix)
+      return prefix if command_location.blank?
+
+      "#{prefix} in #{command_location}"
+    end
+
     def join_target(prefix, target)
       return prefix if target.blank?
 
       "#{prefix} at #{target}"
+    end
+
+    def started_summary_for(summary)
+      normalized = summary.to_s
+      return normalized.sub(/\AStarting\b/i, "Started") if normalized.match?(/\AStarting\b/i)
+      return normalized.sub(/\ARunning\b/i, "Started") if normalized.match?(/\ARunning\b/i)
+      return normalized.sub(/\AInspecting\b/i, "Started inspecting") if normalized.match?(/\AInspecting\b/i)
+      return normalized.sub(/\AInspected\b/i, "Started inspecting") if normalized.match?(/\AInspected\b/i)
+      return normalized.sub(/\AInstalling\b/i, "Started installing") if normalized.match?(/\AInstalling\b/i)
+      return normalized.sub(/\AInstalled\b/i, "Started installing") if normalized.match?(/\AInstalled\b/i)
+      return normalized.sub(/\AScaffolding\b/i, "Started scaffolding") if normalized.match?(/\AScaffolding\b/i)
+      return normalized.sub(/\AScaffolded\b/i, "Started scaffolding") if normalized.match?(/\AScaffolded\b/i)
+      return normalized.sub(/\AEditing\b/i, "Started editing") if normalized.match?(/\AEditing\b/i)
+      return normalized.sub(/\AEdited\b/i, "Started editing") if normalized.match?(/\AEdited\b/i)
+      return normalized.sub(/\ARan\b/i, "Started") if normalized.match?(/\ARan\b/i)
+
+      normalized
+    end
+
+    def lowercase_initial(text)
+      return text if text.blank?
+
+      text[0].downcase + text[1..]
+    end
+
+    def sentence(text)
+      return text if text.blank? || text.end_with?(".")
+
+      "#{text}."
     end
 
     def workspace_search_detail

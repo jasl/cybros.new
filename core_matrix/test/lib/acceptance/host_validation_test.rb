@@ -48,6 +48,27 @@ class AcceptanceHostValidationTest < ActiveSupport::TestCase
     refute Acceptance::HostValidation.host_validation_passed?(host_validation:, playwright_validation:)
   end
 
+  test "playability failure observations call out a missing visible game-over status" do
+    playwright_validation = {
+      "test" => { "success" => false },
+      "result" => {
+        "mergeObserved" => true,
+        "spawnObserved" => true,
+        "gameOverReached" => false,
+        "preRestart" => {
+          "status" => "No moves left. Start a new game to try again.",
+          "nonEmpty" => 16,
+        },
+      },
+    }
+
+    observations = Acceptance::HostValidation.playability_failure_observations(playwright_validation:)
+
+    assert_includes observations, "- host browser play filled the board without observing a visible `Game over` status."
+    assert_includes observations, "- the last pre-restart status was `No moves left. Start a new game to try again.`."
+    assert_includes observations, "- the pre-restart board was full with `16` non-empty cells."
+  end
+
   test "run! records missing generated app paths as a skip and writes canonical review artifacts" do
     Dir.mktmpdir do |dir|
       artifact_dir = Pathname(dir)

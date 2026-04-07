@@ -17,13 +17,19 @@ class ConversationRuntime::BuildSafeToolInvocationSummaryTest < ActiveSupport::T
   test "summarizes stdin writes using the referenced command purpose" do
     summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
       tool_name: "write_stdin",
-      command_summary: "the test-and-build check in /workspace/game-2048"
+      command_summary: "the test-and-build check in /workspace/game-2048",
+      command_metadata: {
+        "summary" => "Running the test-and-build check in /workspace/game-2048",
+        "work_type" => "verification",
+        "path_summary" => "/workspace/game-2048",
+      }
     )
 
-    assert_equal "Respond to the test-and-build check in /workspace/game-2048", summary.fetch("title")
-    assert_equal "Sent input to the test-and-build check in /workspace/game-2048", summary.fetch("summary")
-    assert_equal "Started responding to the test-and-build check in /workspace/game-2048.", summary.fetch("started_summary")
+    assert_equal "Check progress on the test-and-build check in /workspace/game-2048", summary.fetch("title")
+    assert_equal "Checked progress on the test-and-build check in /workspace/game-2048", summary.fetch("summary")
+    assert_equal "Started checking progress on the test-and-build check in /workspace/game-2048.", summary.fetch("started_summary")
     refute_match(/write_stdin/i, summary.to_json)
+    refute_match(/Respond to|Sent input to/i, summary.to_json)
   end
 
   test "summarizes browser content capture without leaking the raw tool name" do
@@ -79,13 +85,56 @@ class ConversationRuntime::BuildSafeToolInvocationSummaryTest < ActiveSupport::T
   test "summarizes command waits using the referenced command purpose" do
     summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
       tool_name: "command_run_wait",
-      command_summary: "the preview server in /workspace/game-2048"
+      command_summary: "the preview server in /workspace/game-2048",
+      command_metadata: {
+        "summary" => "Starting the preview server in /workspace/game-2048",
+        "work_type" => "preview",
+        "path_summary" => "/workspace/game-2048",
+      }
     )
 
     assert_equal "Wait for the preview server in /workspace/game-2048", summary.fetch("title")
     assert_equal "Waiting for the preview server in /workspace/game-2048", summary.fetch("summary")
     assert_equal "Started waiting for the preview server in /workspace/game-2048.", summary.fetch("started_summary")
     refute_match(/command_run_wait/i, summary.to_json)
+  end
+
+  test "summarizes command waits on workspace inspection as inspection work" do
+    summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
+      tool_name: "command_run_wait",
+      command_summary: "the workspace in /workspace",
+      command_metadata: {
+        "summary" => "Inspecting the workspace in /workspace",
+        "work_type" => "inspection",
+        "path_summary" => "/workspace",
+      }
+    )
+
+    assert_equal "Inspect the workspace in /workspace", summary.fetch("title")
+    assert_equal "Inspecting the workspace in /workspace", summary.fetch("summary")
+    assert_equal "Started inspecting the workspace in /workspace.", summary.fetch("started_summary")
+    refute_match(/Wait for the workspace/i, summary.to_json)
+  end
+
+  test "summarizes stdin writes that close a command session with the completed command result" do
+    summary = ConversationRuntime::BuildSafeToolInvocationSummary.call(
+      tool_name: "write_stdin",
+      response_payload: {
+        "session_closed" => true,
+        "command_run_id" => "cmd_123",
+      },
+      command_summary: "installed project dependencies in /workspace/game-2048",
+      command_metadata: {
+        "summary" => "Installed project dependencies in /workspace/game-2048",
+        "work_type" => "dependency_setup",
+        "path_summary" => "/workspace/game-2048",
+      }
+    )
+
+    assert_equal "Installed project dependencies in /workspace/game-2048", summary.fetch("title")
+    assert_equal "Installed project dependencies in /workspace/game-2048", summary.fetch("summary")
+    assert_equal "Started installing project dependencies in /workspace/game-2048.", summary.fetch("started_summary")
+    refute_match(/Respond to|Sent input to/i, summary.to_json)
   end
 
   test "summarizes command output reads using the referenced command purpose" do

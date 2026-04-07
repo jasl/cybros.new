@@ -467,6 +467,54 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "provider_unreachable", workflow_run.wait_failure_kind
   end
 
+  test "enters retryable waiting when the provider returns a blank final response" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-empty-final-1",
+        choices: [
+          {
+            message: { role: "assistant", content: "" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 0,
+          total_tokens: 12,
+        },
+      }
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
+
+    broadcasts = capture_broadcasts(stream_name) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_node,
+          messages: turn_step_messages_for(workflow_run),
+          adapter: adapter,
+          program_exchange: program_exchange
+        )
+      end
+    end
+
+    assert_equal "active", workflow_run.reload.lifecycle_state
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "retryable_failure", workflow_run.wait_reason_kind
+    assert_equal "invalid_provider_response_contract", workflow_run.wait_failure_kind
+    assert_equal "waiting", workflow_run.turn.reload.lifecycle_state
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
+    assert_nil workflow_run.turn.reload.selected_output_message
+    assert_equal ["runtime.workflow_node.started", "runtime.workflow_node.waiting"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal "invalid_provider_response_contract", broadcasts.last.fetch("payload").fetch("failure_kind")
+  end
+
   test "blocks the step for retry instead of failing when the provider round budget is exceeded" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(

@@ -9,6 +9,9 @@ module ConversationSupervision
       /\bvisual design review\b/i,
       /\bproceed autonomously\b/i,
       /\bask(?:ing)? more questions\b/i,
+      /\Ayour previous attempt did not satisfy the acceptance harness\.?\z/i,
+      /\Athis is repair attempt\b/i,
+      /\Aobserved problems:?\z/i,
       /\Adesign is approved\.?\z/i,
       /\Arequirements:?\z/i,
     ].freeze
@@ -26,11 +29,19 @@ module ConversationSupervision
       return if summary.blank?
 
       normalized = summary.gsub(/`([^`]+)`/, "\\1")
+      normalized = normalize_repair_summary(normalized)
       normalized = "#{normalized}." unless normalized.end_with?(".")
       normalized.truncate(SupervisionStateFields::HUMAN_SUMMARY_MAX_LENGTH)
     end
 
     private
+
+    def normalize_repair_summary(summary)
+      match = summary.match(/\AContinue working in\s+(\S+)\s+and fix the existing app\b/i)
+      return "Fix the existing app in #{match[1]}" if match.present?
+
+      summary
+    end
 
     def actionable_lines
       @actionable_lines ||= @content.lines.filter_map do |line|

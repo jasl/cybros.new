@@ -281,6 +281,44 @@ module Acceptance
       "#{text[0, limit]}..."
     end
 
+    def playability_failure_observations(playwright_validation:)
+      return [] unless playwright_result_available?(playwright_validation)
+
+      result = playwright_validation.fetch("result", {})
+      observations = []
+
+      direction_failures = result.fetch("directionChecks", {}).filter_map do |key, entry|
+        key if entry.is_a?(Hash) && entry["changed"] == false
+      end
+      if direction_failures.any?
+        observations << "- host browser verification never produced a valid board change for: `#{direction_failures.join("`, `")}`."
+      end
+
+      observations << "- host browser verification never observed a merge." if result["mergeObserved"] == false
+      if result["spawnObserved"] == false
+        observations << "- host browser verification never observed a new tile spawn after a valid move."
+      end
+
+      if result["gameOverReached"] == false
+        observations << "- host browser play filled the board without observing a visible `Game over` status."
+
+        status = result.dig("preRestart", "status").to_s.strip
+        observations << "- the last pre-restart status was `#{status}`." if status.present?
+
+        non_empty = result.dig("preRestart", "nonEmpty")
+        if non_empty.present?
+          observations << "- the pre-restart board was full with `#{non_empty}` non-empty cells."
+        end
+      end
+
+      observations << "- restart did not reset the score to `0`." if result["restartResetScore"] == false
+      if result["restartResetTileCount"] == false
+        observations << "- restart did not reset the board back to exactly two starting tiles."
+      end
+
+      observations
+    end
+
     def runtime_validation_passed?(runtime_validation)
       runtime_validation.fetch("runtime_test_passed") &&
         runtime_validation.fetch("runtime_build_passed") &&

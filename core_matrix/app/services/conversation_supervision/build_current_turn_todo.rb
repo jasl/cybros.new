@@ -219,6 +219,7 @@ module ConversationSupervision
 
       semantic_details = semantic_activity_details(node)
       return semantic_details.fetch("current_focus_summary") if current_node?(node) && semantic_details["current_focus_summary"].present?
+      return goal_fallback_title if current_goal_fallback_node?(node)
       return semantic_details.fetch("title") if semantic_details["title"].present?
 
       tool_name = node.tool_call_payload&.fetch("tool_name", nil).presence
@@ -277,7 +278,7 @@ module ConversationSupervision
     end
 
     def goal_fallback_title
-      goal_summary.presence || "Continue the current work"
+      humanized_goal_activity_title(goal_summary) || "Continue the current work"
     end
 
     def runtime_focus_hint
@@ -338,16 +339,27 @@ module ConversationSupervision
       payload = node.tool_call_payload.to_h.deep_stringify_keys
       return if payload.blank?
 
+      command_metadata = referenced_command_metadata(payload)
+
       ConversationRuntime::BuildSafeToolInvocationSummary.call(
         tool_name: payload["tool_name"],
         arguments: payload.dig("request_payload", "arguments") || payload["arguments"] || {},
         response_payload: payload["response_payload"] || {},
-        command_summary: referenced_command_summary(payload)
+        command_summary: referenced_command_summary(payload),
+        command_metadata: command_metadata
       )
     end
 
     def referenced_command_summary(payload)
-      return payload["command_summary"] if payload["command_summary"].present?
+      command_metadata = referenced_command_metadata(payload)
+      return unless command_metadata.present?
+
+      command_metadata["summary"]
+    end
+
+    def referenced_command_metadata(payload)
+      return payload["command_metadata"] if payload["command_metadata"].present?
+      return { "summary" => payload["command_summary"] } if payload["command_summary"].present?
 
       command_run_public_id = payload.dig("request_payload", "arguments", "command_run_id") || payload.dig("arguments", "command_run_id")
       return if command_run_public_id.blank?
@@ -355,12 +367,11 @@ module ConversationSupervision
       command_run = referenced_command_run_scope.find_by(public_id: command_run_public_id)
       return if command_run.blank?
 
-      activity_summary = ConversationRuntime::BuildSafeActivitySummary.call(
+      ConversationRuntime::BuildSafeActivitySummary.call(
         activity_kind: "command",
         command_line: command_run.command_line,
         lifecycle_state: command_run.lifecycle_state
-      ).fetch("summary")
-      lowercase_initial(activity_summary.to_s.sub(/\A(?:Running|Ran|Starting|Started)\s+/i, "").sub(/\.\z/, ""))
+      )
     end
 
     def referenced_command_run_scope
@@ -419,6 +430,8 @@ module ConversationSupervision
       title = item.fetch("title")
       case event_kind
       when "turn_todo_item_completed"
+        return "Completed #{lowercase_initial(title)}." if activity_title?(title)
+
         "#{title} completed."
       when "turn_todo_item_blocked"
         "#{title} blocked."
@@ -427,8 +440,42 @@ module ConversationSupervision
       when "turn_todo_item_failed"
         "#{title} failed."
       else
+        return started_feed_summary_for(title) if activity_title?(title)
+
         "Started #{title.downcase}."
       end
+    end
+
+    def activity_title?(title)
+      title.to_s.match?(/\A(?:Building|Fixing|Implementing|Creating|Updating|Adding|Refactoring|Writing|Reviewing|Investigating|Completing|Developing|Shipping|Making|Supporting|Ensuring)\b/)
+    end
+
+    def humanized_goal_activity_title(summary)
+      normalized = summary.to_s.strip.delete_suffix(".")
+      return if normalized.blank?
+
+      [
+        [/\ABuild\b/i, "Building"],
+        [/\AFix\b/i, "Fixing"],
+        [/\AImplement\b/i, "Implementing"],
+        [/\ACreate\b/i, "Creating"],
+        [/\AUpdate\b/i, "Updating"],
+        [/\AAdd\b/i, "Adding"],
+        [/\ARefactor\b/i, "Refactoring"],
+        [/\AWrite\b/i, "Writing"],
+        [/\AReview\b/i, "Reviewing"],
+        [/\AInvestigate\b/i, "Investigating"],
+        [/\AComplete\b/i, "Completing"],
+        [/\ADevelop\b/i, "Developing"],
+        [/\AShip\b/i, "Shipping"],
+        [/\AMake\b/i, "Making"],
+        [/\ASupport\b/i, "Supporting"],
+        [/\AEnsure\b/i, "Ensuring"],
+      ].each do |pattern, replacement|
+        return normalized.sub(pattern, replacement) if normalized.match?(pattern)
+      end
+
+      normalized
     end
 
     def started_feed_summary_for(summary)
@@ -444,6 +491,18 @@ module ConversationSupervision
       return text if text.blank?
 
       text[0].downcase + text[1..]
+    end
+
+    def workflow_still_active?
+      workflow_run.present? && !workflow_run.completed? && !workflow_run.failed? && !workflow_run.canceled?
+    end
+
+    def current_goal_fallback_node?(node)
+      current_node?(node) &&
+        workflow_item_status(node) == "completed" &&
+        workflow_still_active? &&
+        node.provider_round_index.present? &&
+        node.tool_call_payload.blank?
     end
   end
 end

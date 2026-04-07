@@ -135,6 +135,210 @@ class ConversationSupervision::BuildCurrentTurnTodoTest < ActiveSupport::TestCas
     refute_match(/command_run_wait/i, projection.to_json)
   end
 
+  test "humanizes provider-only current work from the user goal instead of echoing the raw imperative prompt" do
+    context = build_agent_control_context!
+    context.fetch(:turn).selected_input_message.update!(
+      content: <<~PROMPT
+        Build a complete browser-playable React 2048 game in `/workspace/game-2048`.
+      PROMPT
+    )
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 1,
+      metadata: {}
+    )
+
+    projection = ConversationSupervision::BuildCurrentTurnTodo.call(
+      conversation: context.fetch(:conversation),
+      workflow_run: context.fetch(:workflow_run).reload
+    )
+
+    assert_equal "Building a complete browser-playable React 2048 game in /workspace/game-2048",
+      projection.dig("plan_summary", "current_item_title")
+    assert_equal "Started building a complete browser-playable React 2048 game in /workspace/game-2048.",
+      projection.fetch("synthetic_turn_feed").last.fetch("summary")
+    refute_match(/\ABuild a complete/i, projection.dig("plan_summary", "current_item_title"))
+  end
+
+  test "uses the repair goal instead of the acceptance harness preamble for provider-only fallback items" do
+    context = build_agent_control_context!
+    context.fetch(:turn).selected_input_message.update!(
+      content: <<~PROMPT
+        Your previous attempt did not satisfy the acceptance harness.
+        Continue working in `/workspace/game-2048` and fix the existing app. Do not restart from scratch unless necessary.
+        This is repair attempt 2 of 3.
+
+        Observed problems:
+        - host browser verification ran but its assertions failed
+      PROMPT
+    )
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "running",
+      started_at: 30.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 1,
+      metadata: {}
+    )
+
+    projection = ConversationSupervision::BuildCurrentTurnTodo.call(
+      conversation: context.fetch(:conversation),
+      workflow_run: context.fetch(:workflow_run).reload
+    )
+
+    assert_equal "Fixing the existing app in /workspace/game-2048",
+      projection.dig("plan_summary", "current_item_title")
+    assert_equal "Started fixing the existing app in /workspace/game-2048.",
+      projection.fetch("synthetic_turn_feed").last.fetch("summary")
+    refute_match(/previous attempt|acceptance harness/i, projection.to_json)
+  end
+
+  test "treats workspace inspection waits as inspection work instead of waiting for the workspace object" do
+    context = build_agent_control_context!
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 90.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 1,
+      metadata: {}
+    )
+    running_command_node = create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2_tool_1",
+      node_type: "tool_call",
+      lifecycle_state: "running",
+      started_at: 20.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      metadata: {}
+    )
+    execution = create_exec_command_execution!(
+      context: context,
+      workflow_node: running_command_node,
+      command_line: "cd /workspace && ls",
+      tool_status: "running",
+      command_state: "running",
+      started_at: 20.seconds.ago
+    )
+
+    create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2_tool_2",
+      node_type: "tool_call",
+      lifecycle_state: "running",
+      started_at: 10.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      tool_call_document: JsonDocuments::Store.call(
+        installation: context.fetch(:installation),
+        document_kind: "workflow_node_tool_call",
+        payload: {
+          "call_id" => "call-#{next_test_sequence}",
+          "tool_name" => "command_run_wait",
+          "request_payload" => {
+            "arguments" => { "command_run_id" => execution.fetch(:command_run).public_id },
+          },
+        }
+      ),
+      metadata: {}
+    )
+
+    projection = ConversationSupervision::BuildCurrentTurnTodo.call(
+      conversation: context.fetch(:conversation),
+      workflow_run: context.fetch(:workflow_run).reload
+    )
+
+    assert_equal "Inspect the workspace in /workspace",
+      projection.dig("plan_summary", "current_item_title")
+    assert_equal "Started inspecting the workspace in /workspace.",
+      projection.fetch("synthetic_turn_feed").last.fetch("summary")
+    refute_match(/Wait for the workspace/i, projection.to_json)
+  end
+
+  test "uses the referenced command result for completed stdin follow-up steps" do
+    context = build_agent_control_context!
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 90.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 1,
+      metadata: {}
+    )
+    completed_command_node = create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2_tool_1",
+      node_type: "tool_call",
+      lifecycle_state: "completed",
+      started_at: 45.seconds.ago,
+      finished_at: 20.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      metadata: {}
+    )
+    execution = create_exec_command_execution!(
+      context: context,
+      workflow_node: completed_command_node,
+      command_line: "cd /workspace/game-2048 && npm install",
+      tool_status: "succeeded",
+      command_state: "completed",
+      started_at: 45.seconds.ago,
+      finished_at: 20.seconds.ago
+    )
+
+    create_workflow_node!(
+      workflow_run: context.fetch(:workflow_run),
+      installation: context.fetch(:installation),
+      node_key: "provider_round_2_tool_2",
+      node_type: "tool_call",
+      lifecycle_state: "completed",
+      started_at: 18.seconds.ago,
+      finished_at: 10.seconds.ago,
+      presentation_policy: "ops_trackable",
+      decision_source: "agent_program",
+      provider_round_index: 2,
+      tool_call_document: JsonDocuments::Store.call(
+        installation: context.fetch(:installation),
+        document_kind: "workflow_node_tool_call",
+        payload: {
+          "call_id" => "call-#{next_test_sequence}",
+          "tool_name" => "write_stdin",
+          "request_payload" => {
+            "arguments" => { "command_run_id" => execution.fetch(:command_run).public_id },
+          },
+          "response_payload" => {
+            "session_closed" => true,
+            "command_run_id" => execution.fetch(:command_run).public_id,
+          },
+        }
+      ),
+      metadata: {}
+    )
+
+    projection = ConversationSupervision::BuildCurrentTurnTodo.call(
+      conversation: context.fetch(:conversation),
+      workflow_run: context.fetch(:workflow_run).reload
+    )
+
+    assert_equal "Installed project dependencies in /workspace/game-2048",
+      projection.dig("plan_summary", "current_item_title")
+    assert_equal "Installed project dependencies in /workspace/game-2048",
+      projection.fetch("synthetic_turn_feed").last.fetch("summary")
+    refute_match(/Respond to|Sent input to/i, projection.to_json)
+  end
+
   test "humanizes workspace search and browser tool calls in provider-backed plan items" do
     context = build_agent_control_context!
     context.fetch(:workflow_node).update!(

@@ -184,4 +184,97 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
 
     assert_includes markdown, "request custom pause"
   end
+
+  test "supervision status markdown shows no active work for an idle final poll" do
+    idle_poll = {
+      "machine_status" => {
+        "supervision_snapshot_id" => "33333333-3333-3333-3333-333333333333",
+        "overall_state" => "idle",
+        "board_lane" => "idle",
+        "last_terminal_state" => "completed",
+        "last_terminal_at" => "2026-04-07T09:47:28.000000Z",
+        "current_focus_summary" => nil,
+        "recent_progress_summary" => "Started the preview server in /workspace/game-2048",
+        "runtime_focus_hint" => nil,
+        "primary_turn_todo_plan_view" => {
+          "goal_summary" => "Fix the existing app in /workspace/game-2048.",
+          "current_item_key" => "fixing-the-existing-app-in-workspace-game-2048",
+          "current_item" => {
+            "title" => "Fixing the existing app in /workspace/game-2048",
+            "status" => "completed",
+          },
+          "items" => [],
+          "counts" => {
+            "in_progress" => 0,
+            "completed" => 3,
+            "total" => 3,
+          },
+        },
+        "active_subagent_turn_todo_plan_views" => [],
+        "turn_feed" => [
+          {
+            "sequence" => 6,
+            "event_kind" => "turn_todo_item_completed",
+            "summary" => "Completed fixing the existing app in /workspace/game-2048.",
+            "occurred_at" => "2026-04-07T09:47:28.000000Z",
+          },
+        ],
+        "activity_feed" => [],
+        "control" => {
+          "supervision_enabled" => true,
+          "side_chat_enabled" => true,
+          "control_enabled" => true,
+          "available_control_verbs" => ["request_status_refresh"],
+        },
+        "proof_debug" => {},
+        "conversation_context" => {},
+      },
+      "human_sidechat" => {
+        "content" => "Right now I’m idle. Most recently, I started the preview server in /workspace/game-2048.",
+      },
+      "user_message" => {
+        "content" => "What are you doing?",
+      },
+    }
+    supervision_trace = {
+      "polls" => [
+        {
+          "machine_status" => {
+            "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+            "overall_state" => "queued",
+            "board_lane" => "queued",
+            "primary_turn_todo_plan_view" => {},
+            "active_subagent_turn_todo_plan_views" => [],
+            "turn_feed" => [],
+            "activity_feed" => [],
+            "control" => {
+              "supervision_enabled" => true,
+              "side_chat_enabled" => true,
+              "control_enabled" => true,
+              "available_control_verbs" => ["request_status_refresh"],
+            },
+            "proof_debug" => {},
+            "conversation_context" => {},
+          },
+          "human_sidechat" => { "content" => "Queued." },
+          "user_message" => { "content" => "What are you doing?" },
+        },
+        idle_poll,
+      ],
+      "final_response" => idle_poll,
+      "session" => {
+        "conversation_supervision_session" => {
+          "supervision_session_id" => "22222222-2222-2222-2222-222222222222",
+        },
+      },
+    }
+
+    markdown = Acceptance::ConversationArtifacts.supervision_status_markdown(supervision_trace: supervision_trace)
+    final_section = markdown.split("## Poll 2").last
+
+    assert_includes markdown, "- Current focus: `none`"
+    assert_includes final_section, "- Current focus: `no active work`"
+    assert_includes final_section, "- Recent progress: `Started the preview server in /workspace/game-2048`"
+    refute_includes final_section, "Fixing the existing app in /workspace/game-2048"
+  end
 end

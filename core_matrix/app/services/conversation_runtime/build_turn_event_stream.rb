@@ -53,11 +53,15 @@ module ConversationRuntime
         tool_id = tool_invocation["tool_invocation_public_id"] || tool_invocation["tool_invocation_id"]
         memo[tool_id] = tool_invocation
       end
+      command_runs_by_id = @command_runs.each_with_object({}) do |command_run, memo|
+        command_id = command_run["command_run_public_id"] || command_run["command_run_id"]
+        memo[command_id] = command_run if command_id.present?
+      end
 
       timeline = []
       timeline.concat(build_phase_events)
       timeline.concat(build_workflow_node_events)
-      timeline.concat(build_tool_events(subagent_labels:, agent_task_runs_by_id:))
+      timeline.concat(build_tool_events(subagent_labels:, agent_task_runs_by_id:, command_runs_by_id:))
       timeline.concat(build_command_events(tool_invocations_by_id:, subagent_labels:, agent_task_runs_by_id:))
       timeline.concat(build_process_events(tool_invocations_by_id:, subagent_labels:, agent_task_runs_by_id:))
       timeline.concat(build_provider_round_events)
@@ -158,11 +162,11 @@ module ConversationRuntime
       end
     end
 
-    def build_tool_events(subagent_labels:, agent_task_runs_by_id:)
+    def build_tool_events(subagent_labels:, agent_task_runs_by_id:, command_runs_by_id:)
       @tool_invocations.filter_map do |tool_invocation|
         actor = actor_for_event(tool_invocation, subagent_labels:, agent_task_runs_by_id:)
         tool_id = tool_invocation["tool_invocation_public_id"] || tool_invocation["tool_invocation_id"]
-        payload = summarize_tool_invocation(tool_invocation)
+        payload = summarize_tool_invocation(tool_invocation, command_runs_by_id:)
         next if payload.blank?
 
         payload.merge(
@@ -305,6 +309,10 @@ module ConversationRuntime
       @subagent_runtime_snapshots.flat_map do |snapshot|
         actor_label = subagent_labels.fetch(snapshot["subagent_session_id"], snapshot["profile_key"].presence || "subagent")
         actor_public_id = snapshot["subagent_session_id"]
+        snapshot_command_runs_by_id = snapshot.fetch("command_runs", []).each_with_object({}) do |command_run, memo|
+          command_id = command_run["command_run_public_id"] || command_run["command_run_id"]
+          memo[command_id] = command_run if command_id.present?
+        end
 
         events = []
         events.concat(
@@ -332,7 +340,7 @@ module ConversationRuntime
         )
         events.concat(
           snapshot.fetch("tool_invocations", []).filter_map do |tool_invocation|
-            payload = summarize_tool_invocation(tool_invocation)
+            payload = summarize_tool_invocation(tool_invocation, command_runs_by_id: snapshot_command_runs_by_id)
             next if payload.blank?
 
             payload.merge(
@@ -449,11 +457,23 @@ module ConversationRuntime
       )&.fetch("detail", nil)
     end
 
-    def summarize_tool_invocation(tool_invocation)
+    def summarize_tool_invocation(tool_invocation, command_runs_by_id: {})
+      command_run_public_id = tool_invocation.dig("request_payload", "arguments", "command_run_id") ||
+        tool_invocation.dig("response_payload", "command_run_id")
+      command_run = command_runs_by_id[command_run_public_id]
+      command_metadata = if command_run.present?
+        BuildSafeActivitySummary.call(
+          activity_kind: "command",
+          command_line: command_run["command_line"],
+          lifecycle_state: command_run["lifecycle_state"]
+        )
+      end
+
       ConversationRuntime::BuildSafeToolInvocationSummary.call(
         tool_name: tool_invocation["tool_name"],
         arguments: tool_invocation.dig("request_payload", "arguments") || {},
-        response_payload: tool_invocation["response_payload"] || {}
+        response_payload: tool_invocation["response_payload"] || {},
+        command_metadata: command_metadata || {}
       )&.slice("phase", "summary", "detail")
     end
 

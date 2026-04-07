@@ -103,6 +103,7 @@ Acceptance harness requirements:
 - expose each cell with `role="gridcell"`
 - expose score with `data-testid="score"`
 - expose game status text with `data-testid="status"`
+- expose a game-over status through `data-testid="status"` that visibly contains the words `Game over` when no moves remain
 - expose restart or new-game control with `data-testid="restart"`
 PROMPT
 
@@ -157,11 +158,12 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   canonical_feed_entries = Array(final_status["turn_feed"].presence || final_status["activity_feed"]).select do |entry|
     entry["event_kind"].to_s.start_with?("turn_todo_")
   end
+  final_status_section = status_markdown.split(/^## Poll \d+\n/).last.to_s
   dominant_fallback_markers = [
     "- Current focus: `none`",
     "- Recent progress: `none`",
     "- Active plan items: `0`",
-  ].select { |marker| status_markdown.include?(marker) }
+  ].select { |marker| final_status_section.include?(marker) }
 
   errors = []
   unless primary_plan_view["turn_todo_plan_id"].present? && primary_plan_view["current_item_key"].present?
@@ -190,6 +192,15 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
   if final_status["overall_state"] == "waiting" && runtime_focus_hint["kind"].to_s.match?(/command|process/) &&
       !semantic_overlap?(final_sidechat, runtime_focus_hint["summary"], minimum: 2)
     errors << "waiting sidechat does not mention the command/process purpose from runtime_focus_hint"
+  end
+  if final_status["overall_state"] == "idle"
+    errors << "supervision-final.json still carries current_focus_summary for an idle snapshot" if final_status["current_focus_summary"].present?
+    errors << "supervision-final.json still carries waiting_summary for an idle snapshot" if final_status["waiting_summary"].present?
+    errors << "supervision-final.json still carries runtime_focus_hint for an idle snapshot" if runtime_focus_hint.present?
+    errors << "supervision-sidechat does not acknowledge the idle final state" unless final_sidechat.match?(/\bidle\b/i)
+    if final_sidechat.match?(/\bwaiting\b|\bblocked\b|\bworking on\b/i)
+      errors << "supervision-sidechat still narrates active work for an idle final state"
+    end
   end
   supervision_human_texts = [
     final_status["request_summary"],
@@ -836,6 +847,7 @@ def build_repair_prompt(
       !Acceptance::HostValidation.playwright_verification_passed?(playwright_validation)
     lines << "- host browser verification ran but its assertions failed:"
     lines << Acceptance::HostValidation.command_result_excerpt(playwright_validation.fetch("test"), limit:)
+    lines.concat(Acceptance::HostValidation.playability_failure_observations(playwright_validation:))
   elsif !Acceptance::HostValidation.playwright_result_available?(playwright_validation) && host_playability_skip_reason.present?
     lines << "- host browser verification failed:"
     lines << host_playability_skip_reason
@@ -848,6 +860,9 @@ def build_repair_prompt(
   lines << "- run a production build successfully"
   lines << "- start the app on `0.0.0.0:4173`"
   lines << "- verify it in a browser session"
+  if playwright_validation.dig("result", "gameOverReached") == false
+    lines << "- if the board reaches a terminal no-moves state, the visible status must contain the exact words `Game over`"
+  end
   lines << "- finish with a concise completion note that reflects what actually passed"
 
   lines.join("\n")

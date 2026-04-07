@@ -234,6 +234,70 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
     refute_includes request_payload.to_json, "Started the turn."
   end
 
+  test "omits active focus and waiting details from the modeled payload when the snapshot is idle" do
+    fixture = fresh_fixture!(waiting: false)
+    session = create_conversation_supervision_session!(fixture, responder_strategy: "summary_model")
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+    machine_status = snapshot.machine_status_payload.deep_dup
+    machine_status["overall_state"] = "idle"
+    machine_status["last_terminal_state"] = "completed"
+    machine_status["current_focus_summary"] = "Waiting for the preview server in /workspace/game-2048"
+    machine_status["recent_progress_summary"] = "Started the preview server in /workspace/game-2048"
+    machine_status["waiting_summary"] = "Waiting for the preview server in /workspace/game-2048 to finish."
+    machine_status["runtime_focus_hint"] = {
+      "kind" => "process_wait",
+      "summary" => "waiting for the preview server in /workspace/game-2048",
+      "current_focus_summary" => "Waiting for the preview server in /workspace/game-2048",
+      "waiting_summary" => "Waiting for the preview server in /workspace/game-2048 to finish.",
+      "process_run_public_id" => "proc-preview-1",
+    }
+    machine_status["primary_turn_todo_plan_view"] = {
+      "goal_summary" => "Build a complete browser-playable React 2048 game in /workspace/game-2048",
+      "current_item_key" => "wait-for-the-preview-server",
+      "current_item" => {
+        "title" => "Wait for the preview server in /workspace/game-2048",
+        "status" => "in_progress",
+      },
+    }
+    snapshot.update!(machine_status_payload: machine_status)
+    dispatched = nil
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**kwargs|
+      dispatched = kwargs
+      GatewayResult.new(
+        content: "Right now I'm idle. Most recently, I started the preview server.",
+        usage: {
+          "input_tokens" => 18,
+          "output_tokens" => 10,
+          "total_tokens" => 28,
+        },
+        provider_request_id: "provider-gateway-supervision-idle"
+      )
+    end
+
+    begin
+      EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.call(
+        conversation_supervision_session: session,
+        conversation_supervision_snapshot: snapshot,
+        question: "Please tell me what you are doing right now and what changed most recently."
+      )
+    ensure
+      ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+    end
+
+    prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
+
+    assert_equal "idle", prompt_payload.dig("supervision", "overall_state")
+    assert_nil prompt_payload.dig("supervision", "current_focus_summary")
+    assert_nil prompt_payload.dig("supervision", "waiting_summary")
+    assert_nil prompt_payload.dig("supervision", "runtime_focus_hint")
+    assert_nil prompt_payload.dig("supervision", "primary_turn_todo_plan", "current_item_title")
+  end
+
   private
 
   def fresh_fixture!(**kwargs)

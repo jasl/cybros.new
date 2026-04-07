@@ -125,18 +125,23 @@ module EmbeddedAgents
 
         def sanitized_supervision_payload
           machine_status = @conversation_supervision_snapshot.machine_status_payload.deep_stringify_keys
-          runtime_focus_hint = machine_status.fetch("runtime_focus_hint", {}).to_h
+          idle_snapshot = machine_status["overall_state"] == "idle"
+          runtime_focus_hint = idle_snapshot ? {} : machine_status.fetch("runtime_focus_hint", {}).to_h
           focus_summary =
-            runtime_focus_hint["current_focus_summary"].presence ||
-            machine_status["current_focus_summary"].presence ||
-            machine_status.dig("primary_turn_todo_plan_view", "current_item", "title").presence ||
-            machine_status["request_summary"].presence ||
-            machine_status.dig("primary_turn_todo_plan_view", "goal_summary").presence ||
-            contextual_focus_summary(machine_status)
+            unless idle_snapshot
+              runtime_focus_hint["current_focus_summary"].presence ||
+                machine_status["current_focus_summary"].presence ||
+                machine_status.dig("primary_turn_todo_plan_view", "current_item", "title").presence ||
+                machine_status["request_summary"].presence ||
+                machine_status.dig("primary_turn_todo_plan_view", "goal_summary").presence ||
+                contextual_focus_summary(machine_status)
+            end
           waiting_summary =
-            runtime_focus_hint["waiting_summary"].presence ||
-            runtime_focus_sentence(runtime_focus_hint["summary"]).presence ||
-            machine_status["waiting_summary"].presence
+            unless idle_snapshot
+              runtime_focus_hint["waiting_summary"].presence ||
+                runtime_focus_sentence(runtime_focus_hint["summary"]).presence ||
+                machine_status["waiting_summary"].presence
+            end
 
           {
             "overall_state" => machine_status["overall_state"],
@@ -147,11 +152,14 @@ module EmbeddedAgents
             "request_summary" => machine_status["request_summary"],
             "current_focus_summary" => focus_summary,
             "recent_progress_summary" => machine_status["recent_progress_summary"],
-            "runtime_focus_hint" => runtime_focus_hint.slice("kind", "summary", "command_run_public_id", "process_run_public_id"),
+            "runtime_focus_hint" => runtime_focus_hint.slice("kind", "summary", "command_run_public_id", "process_run_public_id").presence,
             "waiting_summary" => waiting_summary,
-            "blocked_summary" => machine_status["blocked_summary"],
-            "next_step_hint" => machine_status["next_step_hint"],
-            "primary_turn_todo_plan" => compact_turn_todo_plan(machine_status["primary_turn_todo_plan_view"]),
+            "blocked_summary" => idle_snapshot ? nil : machine_status["blocked_summary"],
+            "next_step_hint" => idle_snapshot ? nil : machine_status["next_step_hint"],
+            "primary_turn_todo_plan" => compact_turn_todo_plan(
+              machine_status["primary_turn_todo_plan_view"],
+              include_current_item: !idle_snapshot
+            ),
             "active_subagent_turn_todo_plans" => Array(machine_status["active_subagent_turn_todo_plan_views"]).map do |entry|
               compact_subagent_turn_todo_plan(entry)
             end,
@@ -201,15 +209,19 @@ module EmbeddedAgents
           end
         end
 
-        def compact_turn_todo_plan(plan_view)
+        def compact_turn_todo_plan(plan_view, include_current_item: true)
           return if plan_view.blank?
 
-          {
+          compacted = {
             "goal_summary" => plan_view["goal_summary"],
+          }
+          return compacted.compact unless include_current_item
+
+          compacted.merge(
             "current_item_key" => plan_view["current_item_key"],
             "current_item_title" => plan_view.dig("current_item", "title"),
             "current_item_status" => plan_view.dig("current_item", "status"),
-          }.compact
+          ).compact
         end
 
         def compact_subagent_turn_todo_plan(plan_view)

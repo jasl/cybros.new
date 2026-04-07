@@ -91,4 +91,55 @@ class ConversationRuntime::BuildTurnEventStreamTest < ActiveSupport::TestCase
     refute timeline.any? { |entry| entry.fetch("summary").match?(/provider round|provider_round_|command_run_wait/) }
     refute timeline.any? { |entry| entry["detail"].to_s.match?(/workspace_tree|command_run_wait|tool `workspace/i) }
   end
+
+  test "uses referenced command semantics for write_stdin tool activity events" do
+    report = ConversationRuntime::BuildTurnEventStream.call(
+      conversation_id: "conv_123",
+      turn_id: "turn_123",
+      phase_events: [],
+      workflow_node_events: [],
+      usage_events: [],
+      tool_invocations: [
+        {
+          "tool_invocation_id" => "tool_public_123",
+          "tool_name" => "write_stdin",
+          "status" => "succeeded",
+          "started_at" => "2026-04-06T08:48:31Z",
+          "finished_at" => "2026-04-06T08:48:32Z",
+          "request_payload" => {
+            "arguments" => {
+              "command_run_id" => "cmd_public_123",
+            },
+          },
+          "response_payload" => {
+            "session_closed" => true,
+            "command_run_id" => "cmd_public_123",
+          },
+          "agent_task_run_id" => nil,
+        },
+      ],
+      command_runs: [
+        {
+          "command_run_public_id" => "cmd_public_123",
+          "command_line" => "cd /workspace/game-2048 && npm install",
+          "lifecycle_state" => "completed",
+          "started_at" => "2026-04-06T08:48:00Z",
+          "ended_at" => "2026-04-06T08:48:30Z",
+          "tool_invocation_id" => "tool_public_122",
+          "workflow_node_key" => "provider_round_2_tool_1",
+        },
+      ],
+      process_runs: [],
+      subagent_sessions: [],
+      subagent_runtime_snapshots: [],
+      agent_task_runs: [],
+      supervision_trace: {},
+      summary: {}
+    )
+
+    event = report.fetch("timeline").find { |entry| entry["tool_invocation_public_id"] == "tool_public_123" }
+
+    assert_equal "Installed project dependencies in /workspace/game-2048", event.fetch("summary")
+    refute_match(/Sent input to the running command|Respond to/i, event.to_json)
+  end
 end

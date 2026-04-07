@@ -219,6 +219,52 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/Grounded in/i, content)
   end
 
+  test "falls back from generic shell-command summaries to semantic goal and feed context" do
+    fixture = fresh_fixture!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    snapshot.update!(
+      machine_status_payload: snapshot.machine_status_payload.merge(
+        "overall_state" => "running",
+        "current_focus_summary" => "Ran a shell command",
+        "request_summary" => "Fixing the existing app in /workspace/game-2048",
+        "recent_progress_summary" => "Ran a shell command",
+        "runtime_focus_hint" => {},
+        "turn_feed" => [
+          {
+            "event_kind" => "turn_todo_item_completed",
+            "summary" => "Captured browser content",
+          },
+        ],
+        "activity_feed" => [
+          {
+            "event_kind" => "turn_todo_item_completed",
+            "summary" => "Captured browser content",
+          },
+        ],
+        "primary_turn_todo_plan_view" => {
+          "goal_summary" => "Fixing the existing app in /workspace/game-2048",
+        }
+      )
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/fixing the existing app/i, content)
+    assert_match(/captured browser content/i, content)
+    refute_match(/ran a shell command/i, content)
+  end
+
   test "renders human-readable confirmation for dispatched control intents" do
     fixture = fresh_fixture!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
