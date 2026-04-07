@@ -259,7 +259,8 @@ module AgentControl
       [agent_task_run.conversation, agent_task_run.subagent_session&.owner_conversation].compact.uniq.each do |conversation|
         Conversations::UpdateSupervisionState.call(
           conversation: conversation,
-          occurred_at: @occurred_at
+          occurred_at: @occurred_at,
+          include_runtime_evidence: @method_id != "execution_started"
         )
       end
     end

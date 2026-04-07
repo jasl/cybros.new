@@ -446,6 +446,33 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_nil state.status_payload["runtime_evidence"]
   end
 
+  test "can skip runtime evidence queries for basic task-start fallback" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: fixture.fetch(:active_tool_node),
+      lifecycle_state: "running",
+      started_at: Time.current,
+      supervision_state: "running",
+      request_summary: "Replace the observation schema",
+      last_progress_at: Time.current,
+      supervision_payload: {}
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: fixture.fetch(:conversation),
+      occurred_at: Time.current,
+      include_runtime_evidence: false
+    )
+
+    assert_equal "running", state.overall_state
+    assert_equal "agent_task_run", state.current_owner_kind
+    assert_equal agent_task_run.public_id, state.current_owner_public_id
+    assert_equal "Replace the observation schema", state.request_summary
+    assert_equal "Working through the current turn", state.current_focus_summary
+    assert_nil state.recent_progress_summary
+    assert_nil state.status_payload["runtime_evidence"]
+  end
+
   test "surfaces a running process as generic runtime evidence" do
     context = build_agent_control_context!(workflow_node_type: "background_service")
     context[:workflow_node].update!(

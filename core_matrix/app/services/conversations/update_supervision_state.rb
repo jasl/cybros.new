@@ -8,9 +8,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, occurred_at: Time.current)
+    def initialize(conversation:, occurred_at: Time.current, include_runtime_evidence: true)
       @conversation = conversation
       @occurred_at = occurred_at
+      @include_runtime_evidence = include_runtime_evidence
     end
 
     def call
@@ -376,6 +377,7 @@ module Conversations
 
     def runtime_evidence
       return @runtime_evidence if instance_variable_defined?(:@runtime_evidence)
+      return @runtime_evidence = {} unless @include_runtime_evidence
 
       @runtime_evidence = ConversationSupervision::BuildRuntimeEvidence.call(
         conversation: @conversation,
