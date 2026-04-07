@@ -1,25 +1,25 @@
-class ExecutionRuntime < ApplicationRecord
+class ExecutorProgram < ApplicationRecord
   include HasPublicId
 
   METHOD_ID_PATTERN = /\A[a-z0-9_]+\z/
-  TOOL_KINDS = %w[execution_runtime].freeze
+  TOOL_KINDS = %w[executor_program].freeze
 
   enum :kind, { local: "local", container: "container", remote: "remote" }, validate: true
   enum :lifecycle_state, { active: "active", retired: "retired" }, validate: true
 
   belongs_to :installation
 
-  has_many :agent_programs, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
-  has_many :turns, dependent: :restrict_with_exception
-  has_many :process_runs, dependent: :restrict_with_exception
-  has_many :execution_sessions, dependent: :restrict_with_exception
-  has_one :active_execution_session,
+  has_many :agent_programs, foreign_key: :default_executor_program_id, dependent: :restrict_with_exception
+  has_many :turns, foreign_key: :executor_program_id, dependent: :restrict_with_exception
+  has_many :process_runs, foreign_key: :executor_program_id, dependent: :restrict_with_exception
+  has_many :executor_sessions, dependent: :restrict_with_exception
+  has_one :active_executor_session,
     -> { where(lifecycle_state: "active") },
-    class_name: "ExecutionSession",
+    class_name: "ExecutorSession",
     dependent: :restrict_with_exception
 
   validates :display_name, presence: true
-  validates :runtime_fingerprint, presence: true, uniqueness: { scope: :installation_id }
+  validates :executor_fingerprint, presence: true, uniqueness: { scope: :installation_id }
   validate :connection_metadata_must_be_hash
   validate :capability_payload_must_be_hash
   validate :tool_catalog_must_be_array

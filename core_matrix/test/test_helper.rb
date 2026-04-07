@@ -152,7 +152,7 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent_program!(installation: create_installation!, visibility: "global", owner_user: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_execution_runtime: nil, **attrs)
+    def create_agent_program!(installation: create_installation!, visibility: "global", owner_user: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_executor_program: nil, **attrs)
       AgentProgram.create!({
         installation: installation,
         visibility: visibility,
@@ -160,16 +160,16 @@ module ActiveSupport
         key: key,
         display_name: display_name,
         lifecycle_state: lifecycle_state,
-        default_execution_runtime: default_execution_runtime,
+        default_executor_program: default_executor_program,
       }.merge(attrs.symbolize_keys.slice(*AgentProgram.attribute_names.map(&:to_sym))))
     end
 
     def create_execution_runtime!(installation: create_installation!, kind: "local", display_name: "Execution Runtime #{next_test_sequence}", runtime_fingerprint: "runtime-#{next_test_sequence}", connection_metadata: {}, capability_payload: {}, tool_catalog: [], lifecycle_state: "active", **attrs)
-      ExecutionRuntime.create!({
+      ExecutorProgram.create!({
         installation: installation,
         kind: kind,
         display_name: display_name,
-        runtime_fingerprint: runtime_fingerprint,
+        executor_fingerprint: runtime_fingerprint,
         connection_metadata: connection_metadata,
         capability_payload: capability_payload,
         tool_catalog: tool_catalog,
@@ -216,9 +216,9 @@ module ActiveSupport
     end
 
     def create_execution_session!(installation: create_installation!, execution_runtime: create_execution_runtime!(installation: installation), session_credential_digest: ::Digest::SHA256.hexdigest("execution-session-credential-#{next_test_sequence}"), session_token_digest: ::Digest::SHA256.hexdigest("execution-session-token-#{next_test_sequence}"), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
-      ExecutionSession.create!({
+      ExecutorSession.create!({
         installation: installation,
-        execution_runtime: execution_runtime,
+        executor_program: execution_runtime,
         session_credential_digest: session_credential_digest,
         session_token_digest: session_token_digest,
         endpoint_metadata: endpoint_metadata,

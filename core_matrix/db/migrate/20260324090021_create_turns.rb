@@ -4,7 +4,7 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.references :installation, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :agent_program_version, null: false, foreign_key: true
-      t.references :execution_runtime, foreign_key: true
+      t.references :executor_program, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.integer :sequence, null: false
       t.string :lifecycle_state, null: false

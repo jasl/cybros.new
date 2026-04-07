@@ -5,11 +5,11 @@ class Installation < ApplicationRecord
   has_many :invitations, dependent: :destroy
   has_many :audit_logs, dependent: :destroy
   has_many :agent_programs, dependent: :destroy
-  has_many :execution_runtimes, dependent: :destroy
+  has_many :executor_programs, dependent: :destroy
   has_many :agent_enrollments, dependent: :destroy
   has_many :agent_program_versions, dependent: :destroy
   has_many :agent_sessions, dependent: :destroy
-  has_many :execution_sessions, dependent: :destroy
+  has_many :executor_sessions, dependent: :destroy
   has_many :user_program_bindings, dependent: :destroy
   has_many :workspaces, dependent: :destroy
 

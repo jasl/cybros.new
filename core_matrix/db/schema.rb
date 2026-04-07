@@ -61,7 +61,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.integer "lease_timeout_seconds", default: 30, null: false
     t.datetime "leased_at"
     t.bigint "leased_to_agent_session_id"
-    t.bigint "leased_to_execution_session_id"
+    t.bigint "leased_to_executor_session_id"
     t.string "logical_work_id", null: false
     t.jsonb "payload", default: {}, null: false
     t.bigint "payload_document_id"
@@ -72,7 +72,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.string "status", default: "queued", null: false
     t.bigint "target_agent_program_id", null: false
     t.bigint "target_agent_program_version_id"
-    t.bigint "target_execution_runtime_id"
+    t.bigint "target_executor_program_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_node_id"
     t.index ["agent_task_run_id"], name: "index_agent_control_mailbox_items_on_agent_task_run_id"
@@ -80,15 +80,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["installation_id", "protocol_message_id"], name: "idx_agent_control_mailbox_items_protocol_message", unique: true
     t.index ["installation_id"], name: "index_agent_control_mailbox_items_on_installation_id"
     t.index ["leased_to_agent_session_id"], name: "idx_on_leased_to_agent_session_id_b994fa4a13"
-    t.index ["leased_to_execution_session_id"], name: "idx_on_leased_to_execution_session_id_c126a93603"
+    t.index ["leased_to_executor_session_id"], name: "idx_on_leased_to_executor_session_id_124fa768b3"
     t.index ["payload_document_id"], name: "index_agent_control_mailbox_items_on_payload_document_id"
     t.index ["public_id"], name: "index_agent_control_mailbox_items_on_public_id", unique: true
     t.index ["target_agent_program_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_program_delivery"
     t.index ["target_agent_program_id"], name: "index_agent_control_mailbox_items_on_target_agent_program_id"
     t.index ["target_agent_program_version_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_program_version_delivery"
     t.index ["target_agent_program_version_id"], name: "idx_on_target_agent_program_version_id_a8e4deca40"
-    t.index ["target_execution_runtime_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_execution_delivery"
-    t.index ["target_execution_runtime_id"], name: "idx_on_target_execution_runtime_id_d79214996d"
+    t.index ["target_executor_program_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_execution_delivery"
+    t.index ["target_executor_program_id"], name: "idx_on_target_executor_program_id_52b64049f9"
     t.index ["workflow_node_id"], name: "index_agent_control_mailbox_items_on_workflow_node_id"
   end
 
@@ -97,7 +97,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "agent_task_run_id"
     t.integer "attempt_no"
     t.datetime "created_at", null: false
-    t.bigint "execution_session_id"
+    t.bigint "executor_session_id"
     t.bigint "installation_id", null: false
     t.string "logical_work_id"
     t.bigint "mailbox_item_id"
@@ -108,7 +108,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.datetime "updated_at", null: false
     t.index ["agent_session_id"], name: "index_agent_control_report_receipts_on_agent_session_id"
     t.index ["agent_task_run_id"], name: "index_agent_control_report_receipts_on_agent_task_run_id"
-    t.index ["execution_session_id"], name: "index_agent_control_report_receipts_on_execution_session_id"
+    t.index ["executor_session_id"], name: "index_agent_control_report_receipts_on_executor_session_id"
     t.index ["installation_id", "protocol_message_id"], name: "idx_agent_control_report_receipts_protocol_message", unique: true
     t.index ["installation_id"], name: "index_agent_control_report_receipts_on_installation_id"
     t.index ["mailbox_item_id"], name: "index_agent_control_report_receipts_on_mailbox_item_id"
@@ -152,7 +152,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
 
   create_table "agent_programs", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.bigint "default_execution_runtime_id"
+    t.bigint "default_executor_program_id"
     t.string "display_name", null: false
     t.bigint "installation_id", null: false
     t.string "key", null: false
@@ -161,7 +161,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.string "visibility", default: "global", null: false
-    t.index ["default_execution_runtime_id"], name: "index_agent_programs_on_default_execution_runtime_id"
+    t.index ["default_executor_program_id"], name: "index_agent_programs_on_default_executor_program_id"
     t.index ["installation_id", "key"], name: "index_agent_programs_on_installation_id_and_key", unique: true
     t.index ["installation_id", "visibility"], name: "index_agent_programs_on_installation_id_and_visibility"
     t.index ["installation_id"], name: "index_agent_programs_on_installation_id"
@@ -814,7 +814,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.datetime "created_at", null: false
     t.bigint "execution_capability_snapshot_id", null: false
     t.bigint "execution_context_snapshot_id", null: false
-    t.bigint "execution_runtime_id"
+    t.bigint "executor_program_id"
     t.bigint "installation_id", null: false
     t.jsonb "model_input_attachments", default: [], null: false
     t.jsonb "provider_context", default: {}, null: false
@@ -827,7 +827,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["agent_program_version_id"], name: "index_execution_contracts_on_agent_program_version_id"
     t.index ["execution_capability_snapshot_id"], name: "index_execution_contracts_on_execution_capability_snapshot_id"
     t.index ["execution_context_snapshot_id"], name: "index_execution_contracts_on_execution_context_snapshot_id"
-    t.index ["execution_runtime_id"], name: "index_execution_contracts_on_execution_runtime_id"
+    t.index ["executor_program_id"], name: "index_execution_contracts_on_executor_program_id"
     t.index ["installation_id"], name: "index_execution_contracts_on_installation_id"
     t.index ["public_id"], name: "index_execution_contracts_on_public_id", unique: true
     t.index ["selected_input_message_id"], name: "index_execution_contracts_on_selected_input_message_id"
@@ -895,28 +895,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["workspace_id"], name: "index_execution_profile_facts_on_workspace_id"
   end
 
-  create_table "execution_runtimes", force: :cascade do |t|
+  create_table "executor_programs", force: :cascade do |t|
     t.jsonb "capability_payload", default: {}, null: false
     t.jsonb "connection_metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.string "display_name", null: false
+    t.string "executor_fingerprint", null: false
     t.bigint "installation_id", null: false
     t.string "kind", default: "local", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "runtime_fingerprint", null: false
     t.jsonb "tool_catalog", default: [], null: false
     t.datetime "updated_at", null: false
-    t.index ["installation_id", "kind"], name: "index_execution_runtimes_on_installation_id_and_kind"
-    t.index ["installation_id", "runtime_fingerprint"], name: "idx_execution_runtimes_installation_fingerprint", unique: true
-    t.index ["installation_id"], name: "index_execution_runtimes_on_installation_id"
-    t.index ["public_id"], name: "index_execution_runtimes_on_public_id", unique: true
+    t.index ["installation_id", "executor_fingerprint"], name: "idx_executor_programs_installation_fingerprint", unique: true
+    t.index ["installation_id", "kind"], name: "index_executor_programs_on_installation_id_and_kind"
+    t.index ["installation_id"], name: "index_executor_programs_on_installation_id"
+    t.index ["public_id"], name: "index_executor_programs_on_public_id", unique: true
   end
 
-  create_table "execution_sessions", force: :cascade do |t|
+  create_table "executor_sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.jsonb "endpoint_metadata", default: {}, null: false
-    t.bigint "execution_runtime_id", null: false
+    t.bigint "executor_program_id", null: false
     t.bigint "installation_id", null: false
     t.datetime "last_heartbeat_at"
     t.string "lifecycle_state", default: "active", null: false
@@ -924,12 +924,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.string "session_credential_digest", null: false
     t.string "session_token_digest", null: false
     t.datetime "updated_at", null: false
-    t.index ["execution_runtime_id"], name: "idx_execution_sessions_runtime_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
-    t.index ["execution_runtime_id"], name: "index_execution_sessions_on_execution_runtime_id"
-    t.index ["installation_id"], name: "index_execution_sessions_on_installation_id"
-    t.index ["public_id"], name: "index_execution_sessions_on_public_id", unique: true
-    t.index ["session_credential_digest"], name: "index_execution_sessions_on_session_credential_digest", unique: true
-    t.index ["session_token_digest"], name: "index_execution_sessions_on_session_token_digest", unique: true
+    t.index ["executor_program_id"], name: "idx_executor_sessions_program_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
+    t.index ["executor_program_id"], name: "index_executor_sessions_on_executor_program_id"
+    t.index ["installation_id"], name: "index_executor_sessions_on_installation_id"
+    t.index ["public_id"], name: "index_executor_sessions_on_public_id", unique: true
+    t.index ["session_credential_digest"], name: "index_executor_sessions_on_session_credential_digest", unique: true
+    t.index ["session_token_digest"], name: "index_executor_sessions_on_session_token_digest", unique: true
   end
 
   create_table "human_interaction_requests", force: :cascade do |t|
@@ -1135,7 +1135,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.datetime "ended_at"
-    t.bigint "execution_runtime_id", null: false
+    t.bigint "executor_program_id", null: false
     t.integer "exit_status"
     t.string "idempotency_key"
     t.bigint "installation_id", null: false
@@ -1151,8 +1151,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "workflow_node_id", null: false
     t.index ["conversation_id", "lifecycle_state"], name: "idx_process_runs_conversation_lifecycle"
     t.index ["conversation_id"], name: "index_process_runs_on_conversation_id"
-    t.index ["execution_runtime_id", "lifecycle_state"], name: "idx_process_runs_execution_lifecycle"
-    t.index ["execution_runtime_id"], name: "index_process_runs_on_execution_runtime_id"
+    t.index ["executor_program_id", "lifecycle_state"], name: "idx_process_runs_executor_lifecycle"
+    t.index ["executor_program_id"], name: "index_process_runs_on_executor_program_id"
     t.index ["installation_id"], name: "index_process_runs_on_installation_id"
     t.index ["origin_message_id"], name: "index_process_runs_on_origin_message_id"
     t.index ["public_id"], name: "index_process_runs_on_public_id", unique: true
@@ -1530,7 +1530,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.bigint "execution_contract_id"
-    t.bigint "execution_runtime_id"
+    t.bigint "executor_program_id"
     t.string "external_event_key"
     t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.string "idempotency_key"
@@ -1552,7 +1552,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["conversation_id", "sequence"], name: "index_turns_on_conversation_id_and_sequence", unique: true
     t.index ["conversation_id"], name: "index_turns_on_conversation_id"
     t.index ["execution_contract_id"], name: "index_turns_on_execution_contract_id"
-    t.index ["execution_runtime_id"], name: "index_turns_on_execution_runtime_id"
+    t.index ["executor_program_id"], name: "index_turns_on_executor_program_id"
     t.index ["installation_id"], name: "index_turns_on_installation_id"
     t.index ["public_id"], name: "index_turns_on_public_id", unique: true
     t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
@@ -1860,22 +1860,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "agent_control_mailbox_items", "agent_sessions", column: "leased_to_agent_session_id"
   add_foreign_key "agent_control_mailbox_items", "agent_task_runs"
   add_foreign_key "agent_control_mailbox_items", "execution_contracts"
-  add_foreign_key "agent_control_mailbox_items", "execution_runtimes", column: "target_execution_runtime_id"
-  add_foreign_key "agent_control_mailbox_items", "execution_sessions", column: "leased_to_execution_session_id"
+  add_foreign_key "agent_control_mailbox_items", "executor_programs", column: "target_executor_program_id"
+  add_foreign_key "agent_control_mailbox_items", "executor_sessions", column: "leased_to_executor_session_id"
   add_foreign_key "agent_control_mailbox_items", "installations"
   add_foreign_key "agent_control_mailbox_items", "json_documents", column: "payload_document_id"
   add_foreign_key "agent_control_mailbox_items", "workflow_nodes"
   add_foreign_key "agent_control_report_receipts", "agent_control_mailbox_items", column: "mailbox_item_id"
   add_foreign_key "agent_control_report_receipts", "agent_sessions"
   add_foreign_key "agent_control_report_receipts", "agent_task_runs"
-  add_foreign_key "agent_control_report_receipts", "execution_sessions"
+  add_foreign_key "agent_control_report_receipts", "executor_sessions"
   add_foreign_key "agent_control_report_receipts", "installations"
   add_foreign_key "agent_control_report_receipts", "json_documents", column: "report_document_id"
   add_foreign_key "agent_enrollments", "agent_programs"
   add_foreign_key "agent_enrollments", "installations"
   add_foreign_key "agent_program_versions", "agent_programs"
   add_foreign_key "agent_program_versions", "installations"
-  add_foreign_key "agent_programs", "execution_runtimes", column: "default_execution_runtime_id"
+  add_foreign_key "agent_programs", "executor_programs", column: "default_executor_program_id"
   add_foreign_key "agent_programs", "installations"
   add_foreign_key "agent_programs", "users", column: "owner_user_id"
   add_foreign_key "agent_sessions", "agent_program_versions"
@@ -1975,7 +1975,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "execution_contracts", "agent_program_versions"
   add_foreign_key "execution_contracts", "execution_capability_snapshots"
   add_foreign_key "execution_contracts", "execution_context_snapshots"
-  add_foreign_key "execution_contracts", "execution_runtimes"
+  add_foreign_key "execution_contracts", "executor_programs"
   add_foreign_key "execution_contracts", "installations"
   add_foreign_key "execution_contracts", "messages", column: "selected_input_message_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_output_message_id"
@@ -1986,9 +1986,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "execution_profile_facts", "installations"
   add_foreign_key "execution_profile_facts", "users"
   add_foreign_key "execution_profile_facts", "workspaces"
-  add_foreign_key "execution_runtimes", "installations"
-  add_foreign_key "execution_sessions", "execution_runtimes"
-  add_foreign_key "execution_sessions", "installations"
+  add_foreign_key "executor_programs", "installations"
+  add_foreign_key "executor_sessions", "executor_programs"
+  add_foreign_key "executor_sessions", "installations"
   add_foreign_key "human_interaction_requests", "conversations"
   add_foreign_key "human_interaction_requests", "installations"
   add_foreign_key "human_interaction_requests", "turns"
@@ -2016,7 +2016,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "messages", "messages", column: "source_input_message_id"
   add_foreign_key "messages", "turns"
   add_foreign_key "process_runs", "conversations"
-  add_foreign_key "process_runs", "execution_runtimes"
+  add_foreign_key "process_runs", "executor_programs"
   add_foreign_key "process_runs", "installations"
   add_foreign_key "process_runs", "messages", column: "origin_message_id"
   add_foreign_key "process_runs", "turns"
@@ -2077,7 +2077,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "turns", "agent_program_versions"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "execution_contracts"
-  add_foreign_key "turns", "execution_runtimes"
+  add_foreign_key "turns", "executor_programs"
   add_foreign_key "turns", "installations"
   add_foreign_key "turns", "messages", column: "selected_input_message_id"
   add_foreign_key "turns", "messages", column: "selected_output_message_id"

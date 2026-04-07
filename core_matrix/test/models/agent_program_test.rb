@@ -39,4 +39,52 @@ class AgentProgramTest < ActiveSupport::TestCase
     assert_not invalid_personal.valid?
     assert_includes invalid_personal.errors[:owner_user], "must exist"
   end
+
+  test "belongs to a default executor program from the same installation" do
+    installation = create_installation!
+    executor_program = ExecutorProgram.create!(
+      installation: installation,
+      kind: "local",
+      display_name: "Executor #{next_test_sequence}",
+      executor_fingerprint: "executor-#{next_test_sequence}",
+      connection_metadata: {},
+      capability_payload: {},
+      tool_catalog: [],
+      lifecycle_state: "active"
+    )
+
+    agent_program = AgentProgram.create!(
+      installation: installation,
+      visibility: "global",
+      key: "executor-bound-agent",
+      display_name: "Executor Bound Agent",
+      lifecycle_state: "active",
+      default_executor_program: executor_program
+    )
+
+    assert_equal executor_program, agent_program.default_executor_program
+
+    foreign_executor_program = ExecutorProgram.new(
+      installation: Installation.new(id: installation.id.to_i + 1, name: "Foreign Installation", bootstrap_state: "bootstrapped", global_settings: {}),
+      kind: "local",
+      display_name: "Foreign Executor",
+      executor_fingerprint: "foreign-executor-#{next_test_sequence}",
+      connection_metadata: {},
+      capability_payload: {},
+      tool_catalog: [],
+      lifecycle_state: "active"
+    )
+
+    invalid_program = AgentProgram.new(
+      installation: installation,
+      visibility: "global",
+      key: "invalid-executor-agent",
+      display_name: "Invalid Executor Agent",
+      lifecycle_state: "active",
+      default_executor_program: foreign_executor_program
+    )
+
+    assert_not invalid_program.valid?
+    assert_includes invalid_program.errors[:default_executor_program], "must belong to the same installation"
+  end
 end

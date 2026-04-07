@@ -6,7 +6,7 @@ class AgentProgram < ApplicationRecord
 
   belongs_to :installation
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_agent_programs
-  belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
+  belongs_to :default_executor_program, class_name: "ExecutorProgram", optional: true
 
   has_many :agent_enrollments, dependent: :restrict_with_exception
   has_many :agent_program_versions, dependent: :restrict_with_exception
@@ -22,7 +22,7 @@ class AgentProgram < ApplicationRecord
   validates :display_name, presence: true
   validate :owner_user_requirements
   validate :owner_user_installation_match
-  validate :default_execution_runtime_installation_match
+  validate :default_executor_program_installation_match
 
   def current_agent_program_version
     active_agent_session&.agent_program_version
@@ -42,10 +42,10 @@ class AgentProgram < ApplicationRecord
     errors.add(:owner_user, "must belong to the same installation")
   end
 
-  def default_execution_runtime_installation_match
-    return if default_execution_runtime.blank?
-    return if default_execution_runtime.installation_id == installation_id
+  def default_executor_program_installation_match
+    return if default_executor_program.blank?
+    return if default_executor_program.installation_id == installation_id
 
-    errors.add(:default_execution_runtime, "must belong to the same installation")
+    errors.add(:default_executor_program, "must belong to the same installation")
   end
 end
