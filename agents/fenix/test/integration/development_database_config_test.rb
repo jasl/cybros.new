@@ -13,5 +13,7 @@ class DevelopmentDatabaseConfigTest < ActiveSupport::TestCase
     assert_equal "storage/development.sqlite3", development.dig("primary", "database")
     assert_equal "storage/development_queue.sqlite3", development.dig("queue", "database")
     assert_equal ["db/queue_migrate"], Array(development.dig("queue", "migrations_paths"))
+    assert_equal 8, development.dig("primary", "max_connections")
+    assert_equal 16, development.dig("queue", "max_connections")
   end
 end

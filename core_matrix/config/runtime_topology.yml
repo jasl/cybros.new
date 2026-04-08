@@ -8,35 +8,35 @@ llm_queues:
   codex_subscription:
     queue: llm_codex_subscription
     threads_env: SQ_THREADS_LLM_CODEX_SUBSCRIPTION
-    default_threads: 2
+    default_threads: 4
     processes_env: SQ_PROCESSES_LLM_CODEX_SUBSCRIPTION
     default_processes: 1
     polling_interval: 0.1
   openai:
     queue: llm_openai
     threads_env: SQ_THREADS_LLM_OPENAI
-    default_threads: 3
+    default_threads: 6
     processes_env: SQ_PROCESSES_LLM_OPENAI
     default_processes: 1
     polling_interval: 0.1
   openrouter:
     queue: llm_openrouter
     threads_env: SQ_THREADS_LLM_OPENROUTER
-    default_threads: 2
+    default_threads: 4
     processes_env: SQ_PROCESSES_LLM_OPENROUTER
     default_processes: 1
     polling_interval: 0.1
   dev:
     queue: llm_dev
     threads_env: SQ_THREADS_LLM_DEV
-    default_threads: 1
+    default_threads: 2
     processes_env: SQ_PROCESSES_LLM_DEV
     default_processes: 1
     polling_interval: 0.1
   local:
     queue: llm_local
     threads_env: SQ_THREADS_LLM_LOCAL
-    default_threads: 1
+    default_threads: 2
     processes_env: SQ_PROCESSES_LLM_LOCAL
     default_processes: 1
     polling_interval: 0.1
@@ -45,14 +45,14 @@ shared_queues:
   tool_calls:
     queue: tool_calls
     threads_env: SQ_THREADS_TOOL_CALLS
-    default_threads: 6
+    default_threads: 12
     processes_env: SQ_PROCESSES_TOOL_CALLS
     default_processes: 1
     polling_interval: 0.1
   workflow_default:
     queue: workflow_default
     threads_env: SQ_THREADS_WORKFLOW_DEFAULT
-    default_threads: 3
+    default_threads: 6
     processes_env: SQ_PROCESSES_WORKFLOW_DEFAULT
     default_processes: 1
     polling_interval: 0.1

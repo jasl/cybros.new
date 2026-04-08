@@ -29,6 +29,19 @@ class QueueConfigurationTest < ActiveSupport::TestCase
     assert_equal 2, openai_worker.fetch("processes")
   end
 
+  test "default queue baseline matches the 8 fenix topology" do
+    workers = render_queue_yml.fetch("development").fetch("workers").index_by { |worker| worker.fetch("queues") }
+
+    assert_equal 4, workers.fetch("llm_codex_subscription").fetch("threads")
+    assert_equal 6, workers.fetch("llm_openai").fetch("threads")
+    assert_equal 4, workers.fetch("llm_openrouter").fetch("threads")
+    assert_equal 2, workers.fetch("llm_dev").fetch("threads")
+    assert_equal 2, workers.fetch("llm_local").fetch("threads")
+    assert_equal 12, workers.fetch("tool_calls").fetch("threads")
+    assert_equal 6, workers.fetch("workflow_default").fetch("threads")
+    assert_equal 1, workers.fetch("maintenance").fetch("threads")
+  end
+
   private
 
   def render_queue_yml(env_overrides = {})

@@ -5,10 +5,13 @@
 # Puma starts a configurable number of processes (workers) and each process
 # serves each request in a thread from an internal thread pool.
 #
-# You can control the number of workers using ENV["WEB_CONCURRENCY"]. You
-# should only set this value when you want to run 2 or more workers. The
-# default is already 1. You can set it to `auto` to automatically start a worker
-# for each available processor.
+# You can control the number of workers using ENV["WEB_CONCURRENCY"] or
+# ENV["RAILS_WEB_CONCURRENCY"]. In production, the default is 2 workers so the
+# shared control plane does not bottleneck on a single Ruby process when
+# multiple Fenix runtimes are active. Outside production, the default stays in
+# Puma single-mode unless you opt into cluster mode explicitly. You can set
+# WEB_CONCURRENCY to `auto` to automatically start a worker for each available
+# processor.
 #
 # The ideal number of threads per worker depends both on how much time the
 # application spends waiting for IO operations and on how much you wish to
@@ -19,13 +22,18 @@
 # Global VM Lock (GVL) it has diminishing returns and will degrade the
 # response time (latency) of the application.
 #
-# The default is set to 3 threads as it's deemed a decent compromise between
-# throughput and latency for the average Rails application.
+# The default is set to 8 threads to give the shared control plane enough
+# headroom for multiple connected Fenix runtimes on a modern host.
 #
 # Any libraries that use a connection pool or another resource pool should
 # be configured to provide at least as many connections as the number of
 # threads. This includes Active Record's `pool` parameter in `database.yml`.
-threads ENV.fetch("RAILS_MAX_THREADS", 3)
+threads ENV.fetch("RAILS_MAX_THREADS", 8)
+
+# The production default is set to 2 workers so one CoreMatrix node can absorb
+# the control-plane traffic from multiple Fenix deployments without immediate
+# head-of-line blocking on a single Ruby process.
+workers ENV.fetch("RAILS_WEB_CONCURRENCY", ENV.fetch("WEB_CONCURRENCY", Rails.env.production? ? 2 : 0))
 
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 port ENV.fetch("PORT", 3000)

@@ -1,3 +1,21 @@
+<%
+  runtime_topology = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/runtime_topology.yml")) || {}
+  runtime_topology = runtime_topology.deep_stringify_keys
+
+  queue_thread_budget =
+    runtime_topology.fetch("llm_queues").values.sum { |worker| worker.fetch("default_threads").to_i * worker.fetch("default_processes").to_i } +
+    runtime_topology.fetch("shared_queues").values.sum { |worker| worker.fetch("default_threads").to_i * worker.fetch("default_processes").to_i }
+
+  round_up = ->(value, step) { ((value + step - 1) / step) * step }
+  global_pool_override = ENV["RAILS_DB_POOL"]
+  primary_pool_default = global_pool_override ? global_pool_override.to_i : [ENV.fetch("RAILS_MAX_THREADS", 8).to_i, 16].max
+  queue_pool_default = global_pool_override ? global_pool_override.to_i : round_up.call([queue_thread_budget, 16].max, 8)
+  cable_pool_default = global_pool_override ? global_pool_override.to_i : 16
+
+  primary_pool = ENV.fetch("RAILS_PRIMARY_DB_POOL", primary_pool_default)
+  queue_pool = ENV.fetch("RAILS_QUEUE_DB_POOL", queue_pool_default)
+  cable_pool = ENV.fetch("RAILS_CABLE_DB_POOL", cable_pool_default)
+%>
 # PostgreSQL. Versions 9.3 and up are supported.
 #
 # Install the pg driver:
@@ -17,11 +35,12 @@ default: &default
   encoding: unicode
   # For details on connection pooling, see Rails configuration guide
   # https://guides.rubyonrails.org/configuring.html#database-pooling
-  pool: <%= ENV.fetch("RAILS_DB_POOL") { ENV.fetch("RAILS_MAX_THREADS") { 16 } } %>
+  pool: <%= global_pool_override ? global_pool_override.to_i : 16 %>
 
 development:
   primary:
     <<: *default
+    pool: <%= primary_pool %>
     <% if ENV["RAILS_DB_URL_BASE"] %>
     url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_primary_development"
     <% else %>
@@ -29,6 +48,7 @@ development:
     <% end %>
   queue:
     <<: *default
+    pool: <%= queue_pool %>
     <% if ENV["RAILS_DB_URL_BASE"] %>
     url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_queue_development"
     <% else %>
@@ -37,6 +57,7 @@ development:
     migrations_paths: db/queue_migrate
   cable:
     <<: *default
+    pool: <%= cable_pool %>
     <% if ENV["RAILS_DB_URL_BASE"] %>
     url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_cable_development"
     <% else %>
@@ -76,6 +97,7 @@ development:
 # Do not set this db to the same as development or production.
 test:
   <<: *default
+  pool: <%= primary_pool %>
   <% if ENV["RAILS_DB_URL_BASE"] %>
   url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_test"
   <% else %>
@@ -88,6 +110,7 @@ test:
 production:
   primary: &primary_production
     <<: *default
+    pool: <%= primary_pool %>
     url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_primary_production"
   cache:
     <<: *primary_production
@@ -95,9 +118,11 @@ production:
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
+    pool: <%= queue_pool %>
     url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_queue_production"
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
+    pool: <%= cable_pool %>
     url: "<%= ENV["RAILS_DB_URL_BASE"] %>/core_matrix_cable_production"
     migrations_paths: db/cable_migrate
