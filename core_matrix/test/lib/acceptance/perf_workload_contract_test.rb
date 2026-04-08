@@ -16,6 +16,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
 
     assert_equal "program_exchange_mock", profile.workload_kind
     assert_operator profile.turns_per_conversation, :>, 1
+    assert_operator profile.recommended_runner_db_pool, :>=, profile.conversation_count
   end
 
   test "stress workload manifest uses provider-backed request corpus fields" do
@@ -104,5 +105,60 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     assert_equal 6, execution_calls.length
     assert_equal %w[conversation-1 conversation-1 conversation-1 conversation-2 conversation-2 conversation-2],
       execution_calls.map { |entry| entry.fetch(:conversation_id) }
+  end
+
+  test "workload driver clears active db connections between conversation setup and workload items" do
+    manifest = Acceptance::Perf::WorkloadManifest.new(
+      profile_name: "contract",
+      conversation_count: 1,
+      turns_per_conversation: 2,
+      workload_kind: "execution_assignment",
+      deterministic: true,
+      request_corpus: [
+        { "content" => "task-a", "workload_kind" => "execution_assignment" },
+        { "content" => "task-b", "workload_kind" => "execution_assignment" },
+      ]
+    )
+    registration = { "slot_label" => "fenix-01", "boot_status" => "ready", "agent_program_version" => "deployment-1", "event_output_path" => "/tmp/fenix-01.ndjson" }
+    connection_calls = 0
+    clear_calls = 0
+    driver = Acceptance::Perf::WorkloadDriver.new(
+      manifest: manifest,
+      registration_matrix: { "runtime_registrations" => [registration] },
+      create_conversation: lambda do |agent_program_version:|
+        { "conversation" => { "public_id" => "conversation-1", "agent_program_version" => agent_program_version } }
+      end,
+      execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+        { "status" => "completed", "conversation_public_id" => conversation.fetch("public_id") }
+      end
+    )
+    assignment = {
+      "slot_index" => 1,
+      "slot_label" => "fenix-01",
+      "registration" => registration,
+      "tasks" => manifest.request_corpus,
+    }
+
+    pool = ActiveRecord::Base.connection_pool
+    handler = ActiveRecord::Base.connection_handler
+    original_with_connection = pool.method(:with_connection)
+    original_clear_active_connections = handler.method(:clear_active_connections!)
+
+    pool.singleton_class.define_method(:with_connection) do |*args, **kwargs, &block|
+      connection_calls += 1
+      original_with_connection.call(*args, **kwargs, &block)
+    end
+    handler.singleton_class.define_method(:clear_active_connections!) do |*args, **kwargs|
+      clear_calls += 1
+      original_clear_active_connections.call(*args, **kwargs)
+    end
+
+    driver.send(:execute_assignment, assignment)
+
+    assert_equal 3, connection_calls
+    assert_equal 3, clear_calls
+  ensure
+    pool.singleton_class.define_method(:with_connection, original_with_connection) if original_with_connection
+    handler.singleton_class.define_method(:clear_active_connections!, original_clear_active_connections) if original_clear_active_connections
   end
 end

@@ -4,11 +4,12 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_node:, messages: nil, adapter: nil, program_exchange: nil)
+    def initialize(workflow_node:, messages: nil, adapter: nil, program_exchange: nil, catalog: nil)
       @workflow_node = workflow_node
       @messages = messages
       @adapter = adapter
       @program_exchange = program_exchange
+      @catalog = catalog
     end
 
     def call
@@ -22,7 +23,8 @@ module Workflows
           workflow_node: current_node,
           messages: @messages || default_messages(current_node),
           adapter: @adapter,
-          program_exchange: @program_exchange
+          program_exchange: @program_exchange,
+          catalog: @catalog
         )
       when "tool_call"
         ProviderExecution::ExecuteToolNode.call(

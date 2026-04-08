@@ -5,6 +5,7 @@ require Rails.root.join("../acceptance/lib/perf/workload_executor")
 class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
   AgentProgramDouble = Struct.new(:public_id)
   AgentProgramVersionDouble = Struct.new(:agent_program)
+  ConversationDouble = Struct.new(:public_id)
 
   test "routes execution-assignment tasks through the mailbox runner" do
     mailbox_calls = []
@@ -115,5 +116,34 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     end
 
     assert_match(/unsupported workload kind/i, error.message)
+  end
+
+  test "emits the conversation public id when the workload conversation is an active record object" do
+    events = []
+    executor = Acceptance::Perf::WorkloadExecutor.new(
+      run_execution_assignment: lambda do |conversation:, registration:, task:, slot_index:|
+        {
+          "status" => "completed",
+          "conversation_public_id" => conversation.public_id,
+          "turn_public_id" => "turn-object",
+          "workflow_run_public_id" => "workflow-object",
+        }
+      end,
+      run_program_exchange: ->(**) { raise "provider path should not run" },
+      append_event: lambda do |path:, payload:|
+        events << { path:, payload: }
+      end,
+      time_source: [Time.utc(2026, 4, 9, 12, 0, 0), Time.utc(2026, 4, 9, 12, 0, 1)].each
+    )
+
+    executor.call(
+      conversation: ConversationDouble.new("conversation-ar"),
+      registration: { "slot_label" => "fenix-01", "agent_program_version" => AgentProgramVersionDouble.new(AgentProgramDouble.new("program-1")) },
+      task: { "content" => "mailbox", "mode" => "deterministic_tool", "workload_kind" => "execution_assignment" },
+      slot_index: 1,
+      event_output_path: "/tmp/fenix-01.ndjson"
+    )
+
+    assert_equal "conversation-ar", events.first.dig(:payload, "conversation_public_id")
   end
 end

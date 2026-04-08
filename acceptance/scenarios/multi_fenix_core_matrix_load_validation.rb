@@ -13,6 +13,7 @@ require_relative "../lib/perf/workload_manifest"
 require_relative "../lib/perf/runtime_registration_matrix"
 require_relative "../lib/perf/workload_driver"
 require_relative "../lib/perf/workload_executor"
+require_relative "../lib/perf/provider_catalog_override"
 require_relative "../lib/perf/event_reader"
 require_relative "../lib/perf/metrics_aggregator"
 require_relative "../lib/perf/report_builder"
@@ -78,13 +79,14 @@ def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:,
   }
 end
 
-def execute_program_exchange_task_on_conversation!(conversation:, agent_program_version:, task:)
+def execute_program_exchange_task_on_conversation!(conversation:, agent_program_version:, task:, catalog: nil)
   run = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
     conversation: conversation,
     agent_program_version: agent_program_version,
     content: task.fetch("content"),
     selector_source: task.fetch("selector_source", "manual"),
-    selector: task.fetch("selector")
+    selector: task.fetch("selector"),
+    catalog: catalog
   )
   workflow_run = run.fetch(:workflow_run).reload
   turn = run.fetch(:turn).reload
@@ -126,6 +128,12 @@ topology = Acceptance::Perf::Topology.build(
   artifact_stamp: artifact_stamp
 )
 manifest = Acceptance::Perf::WorkloadManifest.for_profile(profile)
+provider_catalog_override = Acceptance::Perf::ProviderCatalogOverride.build(
+  profile: profile,
+  topology: topology,
+  rails_root: Rails.root,
+  env: Rails.env
+)
 workload_executor = Acceptance::Perf::WorkloadExecutor.new(
   run_execution_assignment: lambda do |conversation:, registration:, task:, slot_index:|
     execute_mailbox_task_on_conversation!(
@@ -140,7 +148,8 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
     execute_program_exchange_task_on_conversation!(
       conversation: conversation,
       agent_program_version: registration.fetch("agent_program_version"),
-      task: task
+      task: task,
+      catalog: provider_catalog_override&.catalog
     ).merge("slot_index" => slot_index)
   end,
   append_event: lambda do |path:, payload:|
@@ -228,6 +237,7 @@ write_json(artifact_dir.join("evidence", "runtime-topology.json"), {
 })
 write_json(artifact_dir.join("evidence", "workload-profile.json"), {
   **manifest.artifact_payload,
+  "provider_catalog_override" => provider_catalog_override&.payload,
 })
 write_json(artifact_dir.join("evidence", "aggregated-metrics.json"), metrics)
 write_json(artifact_dir.join("evidence", "run-summary.json"), summary)

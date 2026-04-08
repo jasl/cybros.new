@@ -44,6 +44,75 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal 42, captured_timeout
   end
 
+  test "execute_provider_turn_on_conversation! forwards catalog overrides into provider execution" do
+    workflow_run = ReloadableDouble.new("workflow")
+    turn = ReloadableDouble.new("turn")
+    conversation = ReloadableDouble.new("conversation")
+    captured_catalog = nil
+
+    with_redefined_singleton_method(
+      ManualAcceptanceSupport,
+      :start_turn_workflow_on_conversation!,
+      lambda do |**_kwargs|
+        {
+          workflow_run: workflow_run,
+          turn: turn,
+          conversation: conversation,
+        }
+      end
+    ) do
+      with_redefined_singleton_method(
+        ManualAcceptanceSupport,
+        :execute_provider_workflow!,
+        lambda do |workflow_run:, timeout_seconds: 3600, catalog: nil|
+          captured_catalog = catalog
+        end
+      ) do
+        result = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+          conversation: conversation,
+          agent_program_version: "apv",
+          content: "Benchmark input",
+          selector: "role:mock",
+          catalog: :catalog_override
+        )
+
+        assert_equal workflow_run, result.fetch(:workflow_run)
+        assert_equal turn, result.fetch(:turn)
+      end
+    end
+
+    assert_equal :catalog_override, captured_catalog
+  end
+
+  test "execute_inline_if_queued! forwards catalog overrides into execute node" do
+    current_node = Struct.new(:public_id, :workflow_run) do
+      def queued? = true
+      def pending? = false
+    end.new(
+      "node-public-id",
+      WorkflowRunDouble.new(ExecutionSnapshot.new({ "messages" => [{ "role" => "user", "content" => "hello" }] }))
+    )
+    captured = nil
+
+    with_redefined_singleton_method(WorkflowNode, :find_by, ->(public_id:) { current_node }) do
+      with_redefined_singleton_method(
+        Workflows::ExecuteNode,
+        :call,
+        lambda do |**kwargs|
+          captured = kwargs
+        end
+      ) do
+        ManualAcceptanceSupport.execute_inline_if_queued!(
+          workflow_node: Struct.new(:public_id).new("node-public-id"),
+          catalog: :catalog_override
+        )
+      end
+    end
+
+    assert_equal :catalog_override, captured.fetch(:catalog)
+    assert_equal current_node.public_id, captured.fetch(:workflow_node).public_id
+  end
+
   test "reset_backend_state! disconnects, rebuilds, and reconnects the database" do
     calls = []
 

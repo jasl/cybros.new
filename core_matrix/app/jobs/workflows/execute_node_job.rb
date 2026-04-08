@@ -12,6 +12,8 @@ module Workflows
       return if workflow_node.terminal? || workflow_node.running?
 
       Workflows::ExecuteNode.call(workflow_node: workflow_node)
+    rescue ProviderExecution::WithFreshExecutionStateLock::StaleExecutionError
+      nil
     end
 
     private

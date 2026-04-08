@@ -89,6 +89,7 @@ require_command ruby
 
 RUN_ROOT=""
 ARTIFACT_DIR=""
+RUNNER_DB_POOL=""
 declare -a SLOT_ROWS=()
 while IFS= read -r row; do
   IFS=$'\t' read -r row_kind _rest <<< "${row}"
@@ -98,6 +99,9 @@ while IFS= read -r row; do
       ;;
     artifact_root)
       IFS=$'\t' read -r _ ARTIFACT_DIR <<< "${row}"
+      ;;
+    runner_db_pool)
+      IFS=$'\t' read -r _ RUNNER_DB_POOL <<< "${row}"
       ;;
     slot)
       SLOT_ROWS+=("${row}")
@@ -125,6 +129,7 @@ topology = Acceptance::Perf::Topology.build(
 
 puts ["run_root", topology.run_root.to_s].join("\t")
 puts ["artifact_root", topology.artifact_root.to_s].join("\t")
+puts ["runner_db_pool", profile.recommended_runner_db_pool].join("\t")
 topology.runtime_slots.each do |slot|
   puts [
     "slot",
@@ -138,6 +143,11 @@ topology.runtime_slots.each do |slot|
 end
 RUBY
 )
+
+if [[ -z "${RUNNER_DB_POOL}" ]]; then
+  echo "expected runner db pool sizing for profile ${MULTI_FENIX_LOAD_PROFILE}" >&2
+  exit 1
+fi
 
 RUNTIME_COUNT="${#SLOT_ROWS[@]}"
 if [[ "${RUNTIME_COUNT}" -lt 1 ]]; then
@@ -197,4 +207,5 @@ for index in $(seq 2 "${RUNTIME_COUNT}"); do
 done
 
 cd "${CORE_MATRIX_ROOT}"
-bin/rails runner "${REPO_ROOT}/acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb"
+RAILS_DB_POOL="${MULTI_FENIX_LOAD_RUNNER_DB_POOL:-${RUNNER_DB_POOL}}" \
+  bin/rails runner "${REPO_ROOT}/acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb"

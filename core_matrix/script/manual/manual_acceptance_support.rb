@@ -739,12 +739,12 @@ module ManualAcceptanceSupport
     }
   end
 
-  def execute_provider_workflow!(workflow_run:, timeout_seconds: 3600)
+  def execute_provider_workflow!(workflow_run:, timeout_seconds: 3600, catalog: nil)
     dispatched_node = Workflows::ExecuteRun.call(
       workflow_run: workflow_run,
       messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
     )
-    execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
+    execute_inline_if_queued!(workflow_node: dispatched_node, catalog: catalog) if dispatched_node.present?
     wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds:)
   end
 
@@ -755,7 +755,8 @@ module ManualAcceptanceSupport
     executor_program: nil,
     content:,
     selector_source: "conversation",
-    selector:
+    selector:,
+    catalog: nil
   )
     run = start_turn_workflow_on_conversation!(
       conversation: conversation,
@@ -768,7 +769,7 @@ module ManualAcceptanceSupport
       selector_source: selector_source,
       selector: selector
     )
-    execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
+    execute_provider_workflow!(workflow_run: run.fetch(:workflow_run), catalog: catalog)
     run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }
   end
 
@@ -939,14 +940,15 @@ module ManualAcceptanceSupport
     }
   end
 
-  def execute_inline_if_queued!(workflow_node:)
+  def execute_inline_if_queued!(workflow_node:, catalog: nil)
     current_node = WorkflowNode.find_by(public_id: workflow_node.public_id)
     return if current_node.blank?
     return unless current_node.queued? || current_node.pending?
 
     Workflows::ExecuteNode.call(
       workflow_node: current_node,
-      messages: current_node.workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
+      messages: current_node.workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
+      catalog: catalog
     )
   end
 end
