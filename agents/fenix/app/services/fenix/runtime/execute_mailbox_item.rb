@@ -18,7 +18,7 @@ module Fenix
       def call
         case item_type
         when "execution_assignment"
-          fail_execution_assignment!
+          execute_execution_assignment!
         when "agent_program_request"
           execute_agent_program_request!
         else
@@ -28,25 +28,63 @@ module Fenix
 
       private
 
-      def fail_execution_assignment!
+      def execute_execution_assignment!
+        reports = [emit_execution_started]
+        dispatch = Fenix::Runtime::Assignments::DispatchMode.call(
+          task_payload: mailbox_payload.fetch("task_payload", {}),
+          runtime_context: mailbox_payload.fetch("runtime_context", {})
+        )
+
+        return emit_execution_completion(dispatch.fetch("output"), reports: reports) if dispatch.fetch("kind") == "skill_flow"
+
+        fail_execution_assignment!(reports: reports)
+      rescue StandardError => error
+        emit_execution_failure(execution_assignment_error_payload_for(error), reports: defined?(reports) ? reports : [])
+      end
+
+      def emit_execution_started
+        report = execution_assignment_report(
+          method_id: "execution_started",
+          expected_duration_seconds: 30
+        )
+
+        @control_client&.report!(payload: report) if @deliver_reports
+        report
+      end
+
+      def emit_execution_completion(output, reports:)
+        report = execution_assignment_report(
+          method_id: "execution_complete",
+          terminal_payload: output
+        )
+
+        @control_client&.report!(payload: report) if @deliver_reports
+
+        {
+          "status" => "ok",
+          "mailbox_item_id" => @mailbox_item.fetch("item_id"),
+          "reports" => reports + [report],
+          "output" => output,
+        }
+      end
+
+      def emit_execution_failure(error_payload, reports:)
+        report = execution_assignment_report(
+          method_id: "execution_fail",
+          terminal_payload: error_payload
+        )
+
+        emit_result(report: report, reports: reports, error_payload: error_payload)
+      end
+
+      def fail_execution_assignment!(reports:)
         error_payload = {
           "classification" => "runtime",
           "code" => "executor_tool_slice_not_ready",
           "message" => "executor tool slice is not implemented yet in this runtime build",
           "retryable" => false,
         }
-        report = {
-          "method_id" => "execution_fail",
-          "protocol_message_id" => "fenix-execution_fail-#{SecureRandom.uuid}",
-          "control_plane" => control_plane,
-          "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-          "agent_task_run_id" => @mailbox_item.dig("payload", "task", "agent_task_run_id"),
-          "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
-          "attempt_no" => @mailbox_item.fetch("attempt_no"),
-          "terminal_payload" => error_payload,
-        }.compact
-
-        emit_result(report: report, error_payload: error_payload)
+        emit_execution_failure(error_payload, reports: reports)
       end
 
       def execute_agent_program_request!
@@ -113,13 +151,13 @@ module Fenix
         emit_result(report: report, error_payload: error_payload)
       end
 
-      def emit_result(report:, error_payload:)
+      def emit_result(report:, reports:, error_payload:)
         @control_client&.report!(payload: report) if @deliver_reports
 
         {
           "status" => "failed",
           "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-          "reports" => [report],
+          "reports" => reports + [report],
           "error" => error_payload,
         }
       end
@@ -138,6 +176,67 @@ module Fenix
 
       def control_plane
         @mailbox_item.fetch("control_plane")
+      end
+
+      def execution_assignment_report(method_id:, expected_duration_seconds: nil, terminal_payload: nil)
+        {
+          "method_id" => method_id,
+          "protocol_message_id" => "fenix-#{method_id}-#{SecureRandom.uuid}",
+          "control_plane" => control_plane,
+          "mailbox_item_id" => @mailbox_item.fetch("item_id"),
+          "agent_task_run_id" => @mailbox_item.dig("payload", "task", "agent_task_run_id"),
+          "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
+          "attempt_no" => @mailbox_item.fetch("attempt_no"),
+          "expected_duration_seconds" => expected_duration_seconds,
+          "terminal_payload" => terminal_payload,
+        }.compact
+      end
+
+      def execution_assignment_error_payload_for(error)
+        case error
+        when Fenix::Skills::Repository::MissingScopeError, Fenix::Runtime::PayloadContext::MissingSkillsScopeError
+          {
+            "classification" => "configuration",
+            "code" => "missing_skill_scope",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Skills::PackageValidator::InvalidSkillPackage
+          {
+            "classification" => "semantic",
+            "code" => "invalid_skill_package",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Skills::Repository::SkillNotFound
+          {
+            "classification" => "semantic",
+            "code" => "skill_not_found",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Skills::Repository::InvalidFileReference
+          {
+            "classification" => "semantic",
+            "code" => "invalid_skill_file_reference",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Skills::Repository::ReservedSkillNameError
+          {
+            "classification" => "semantic",
+            "code" => "reserved_skill_name",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        else
+          {
+            "classification" => "runtime",
+            "code" => "runtime_error",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        end
       end
 
       def runtime_error_payload_for(error)

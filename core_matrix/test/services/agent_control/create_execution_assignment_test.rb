@@ -245,6 +245,8 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     payload["runtime_context"] = payload.fetch("runtime_context").merge(
       "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
       "agent_program_version_id" => "agent-program-version-public-id",
+      "agent_program_id" => "agent-program-public-id",
+      "user_id" => "user-public-id",
       "executor_program_id" => "execution-runtime-public-id"
     )
 

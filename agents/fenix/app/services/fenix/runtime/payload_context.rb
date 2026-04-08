@@ -1,6 +1,8 @@
 module Fenix
   module Runtime
     class PayloadContext
+      MissingSkillsScopeError = Class.new(StandardError)
+
       def self.call(...)
         new(...).call
       end
@@ -100,6 +102,7 @@ module Fenix
 
       def skill_context
         return @defaults.fetch("skill_context", {}) if @defaults.key?("skill_context")
+        return empty_skill_context if Fenix::Skills::Catalog.requested_skill_names(messages: transcript_messages).empty?
 
         selected_skills = skills_catalog.active_for_messages(messages: transcript_messages)
 
@@ -117,7 +120,22 @@ module Fenix
       end
 
       def skills_catalog
-        @skills_catalog ||= Fenix::Skills::Catalog.new
+        @skills_catalog ||= begin
+          repository = Fenix::Skills::Repository.from_runtime_context!(runtime_context: runtime_context)
+
+          Fenix::Skills::Catalog.new(
+            live_root: repository.live_root
+          )
+        end
+      rescue Fenix::Skills::Repository::MissingScopeError => error
+        raise MissingSkillsScopeError, error.message
+      end
+
+      def empty_skill_context
+        {
+          "active_skill_names" => [],
+          "active_skill_contents" => [],
+        }
       end
     end
   end

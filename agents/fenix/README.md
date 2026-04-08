@@ -335,7 +335,9 @@ Skill roots are separated intentionally:
 
 - `skills/.system/<name>/` for reserved built-in `Fenix` skills
 - `skills/.curated/<name>/` for bundled curated catalog entries
-- `skills/<name>/` for live installed third-party skills
+- `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/live/<name>/` for installed third-party skills
+- `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/staging/<nonce>/<name>/` for staged installs
+- `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/backups/<timestamp>-<name>/` for replaced live backups
 
 The current minimal skill surface is:
 
@@ -349,10 +351,14 @@ That surface is sufficient to:
 - discover reserved system skills and bundled curated entries
 - load one active system or installed skill body on demand
 - read additional files relative to an active skill root
-- stage and promote a third-party skill into the live root
+- stage and promote a third-party skill into the scoped live root
 
-By default, the live skill root now lives under `tmp/skills-live` so runtime
-install state does not pollute the tracked repo tree.
+The default writable skills home is `~/.fenix`. In host mode, `Fenix` stores
+runtime skill state under `~/.fenix/skills-scopes/...`.
+
+In Docker or any other ephemeral runtime environment, set `FENIX_HOME_ROOT`
+to a persistent volume-backed path such as `/rails/storage/fenix-home` so
+installed skills survive container replacement.
 
 The current runtime keeps two explicit rules:
 
@@ -365,25 +371,23 @@ instruction storage.
 
 ## Manual Acceptance Runtime Layout
 
-The retained manual-acceptance layout uses two local `Fenix` processes:
+The retained manual-acceptance layout uses one `Fenix` runtime base URL:
 
 - `AGENT_FENIX_PORT=3101 bin/dev`
   - default bundled/external runtime validation
+  - dedicated skills-validation scenario execution
   - bundled mailbox execution
   - external pairing
   - deployment rotation
   - pairs with `bin/runtime-worker` for external mailbox execution and
     long-lived `ProcessRun` validation
-- `AGENT_FENIX_PORT=3102 ... bin/dev`
-  - dedicated skills-validation runtime
-  - `FENIX_LIVE_SKILLS_ROOT=/tmp/fenix-live-skills`
-  - `FENIX_STAGING_SKILLS_ROOT=/tmp/fenix-staging`
-  - `FENIX_BACKUP_SKILLS_ROOT=/tmp/fenix-backups`
+  - `FENIX_HOME_ROOT=/tmp/acceptance-fenix-home` in host validation
+  - `FENIX_HOME_ROOT=/rails/storage/fenix-home` inside docker validation
 
-The dedicated `3102` runtime keeps live, staging, and backup skill writes out
-of the repo tree so the checked-in skill catalog stays reproducible. The manual
-acceptance scripts intentionally clear those `/tmp/fenix-*` roots before
-scenarios `12` and `13`.
+The skills-validation scenario keeps scoped skill writes out of the repo tree
+by using a dedicated disposable `FENIX_HOME_ROOT`, not a separate runtime port.
+The manual acceptance scripts clear only that dedicated acceptance home root,
+never a shared global live or staging root.
 
 ## Deployment Rotation
 

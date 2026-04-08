@@ -35,8 +35,12 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
     assert_equal "main", request_payload.fetch("agent_context").fetch("profile")
     assert_includes request_payload.fetch("agent_context").fetch("allowed_tool_names"), "exec_command"
     assert_equal(
-      { "agent_program_version_id" => context.fetch(:deployment).public_id },
-      request_payload.fetch("runtime_context").slice("agent_program_version_id")
+      {
+        "agent_program_version_id" => context.fetch(:deployment).public_id,
+        "agent_program_id" => context.fetch(:agent_program).public_id,
+        "user_id" => context.fetch(:user).public_id,
+      },
+      request_payload.fetch("runtime_context").slice("agent_program_version_id", "agent_program_id", "user_id")
     )
     assert_equal "prepare-round:#{context.fetch(:workflow_node).public_id}", request_payload.fetch("runtime_context").fetch("logical_work_id")
   end

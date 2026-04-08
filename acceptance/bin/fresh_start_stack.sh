@@ -19,10 +19,13 @@ FENIX_DOCKER_IMAGE="${FENIX_DOCKER_IMAGE:-fenix-capstone-image}"
 FENIX_DOCKER_PROXY_PORT="${FENIX_DOCKER_PROXY_PORT:-3310}"
 FENIX_DOCKER_WORKSPACE_ROOT="${FENIX_DOCKER_WORKSPACE_ROOT:-${REPO_ROOT}/tmp/fenix}"
 FENIX_DOCKER_ENV_FILE="${FENIX_DOCKER_ENV_FILE:-${FENIX_ROOT}/.env}"
+FENIX_HOME_ROOT="${FENIX_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-fenix-home}"
+FENIX_DOCKER_HOME_ROOT="${FENIX_DOCKER_HOME_ROOT:-/rails/storage/fenix-home}"
 RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
 
 mkdir -p "${LOG_DIR}"
 rm -f "${LOG_DIR}"/*.log
+mkdir -p "${FENIX_HOME_ROOT}"
 
 require_command() {
   local name="$1"
@@ -297,6 +300,7 @@ recreate_docker_capstone_stack() {
     "${docker_env_args[@]}" \
     -e "RAILS_ENV=production" \
     -e "FENIX_PUBLIC_BASE_URL=${FENIX_RUNTIME_BASE_URL}" \
+    -e "FENIX_HOME_ROOT=${FENIX_DOCKER_HOME_ROOT}" \
     -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
     -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
@@ -311,6 +315,7 @@ recreate_docker_capstone_stack() {
     -p "${FENIX_DOCKER_PROXY_PORT}:${FENIX_DOCKER_PROXY_PORT}" \
     "${docker_env_args[@]}" \
     -e "RAILS_ENV=production" \
+    -e "FENIX_HOME_ROOT=${FENIX_DOCKER_HOME_ROOT}" \
     -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
     -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
@@ -378,6 +383,7 @@ CORE_MATRIX_JOBS_PID="${STARTED_PID}"
 wait_for_http_ok "${CORE_MATRIX_BASE_URL}/up"
 
 if [[ "${FENIX_RUNTIME_MODE}" == "host" ]]; then
+  export FENIX_HOME_ROOT
   stop_listening_port "${FENIX_RUNTIME_PORT}"
   stop_matching_process "${FENIX_ROOT}/bin/rails" "server"
   clear_server_pidfile "${FENIX_ROOT}"
@@ -414,6 +420,7 @@ core_matrix_jobs_pid=${CORE_MATRIX_JOBS_PID}
 fenix_runtime_mode=${FENIX_RUNTIME_MODE}
 fenix_runtime_base_url=${FENIX_RUNTIME_BASE_URL}
 fenix_runtime_server_pid=${FENIX_RUNTIME_PID}
+fenix_home_root=${FENIX_HOME_ROOT}
 fenix_docker_container=${FENIX_DOCKER_CONTAINER}
 fenix_docker_status=${DOCKER_STATUS}
 log_dir=${LOG_DIR}

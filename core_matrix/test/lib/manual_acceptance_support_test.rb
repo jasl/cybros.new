@@ -100,6 +100,43 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal Rails.root.to_s, captured.fetch(:kwargs).fetch(:chdir)
   end
 
+  test "run_fenix_runtime_task! forwards FENIX_HOME_ROOT into the spawned fenix task" do
+    captured = nil
+    previous_home_root = ENV["FENIX_HOME_ROOT"]
+    ENV["FENIX_HOME_ROOT"] = "/tmp/acceptance-fenix-home"
+
+    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
+      with_redefined_singleton_method(Open3, :capture3, lambda { |*args, **kwargs|
+        captured = { args:, kwargs: }
+        ['{"items":[]}', "", Struct.new(:success?, :exitstatus).new(true, 0)]
+      }) do
+        with_redefined_singleton_method(
+          ManualAcceptanceSupport,
+          :fenix_project_root,
+          -> { Pathname.new("/tmp/fenix-project") }
+        ) do
+          result = ManualAcceptanceSupport.run_fenix_runtime_task!(
+            task_name: "runtime:control_loop_once",
+            machine_credential: "program-secret",
+            executor_machine_credential: "execution-secret",
+            env: {}
+          )
+
+          assert_equal({ "items" => [] }, result)
+        end
+      end
+    end
+
+    env, command, task_name = captured.fetch(:args)
+    assert_equal "bin/rails", command
+    assert_equal "runtime:control_loop_once", task_name
+    assert_equal "/tmp/acceptance-fenix-home", env.fetch("FENIX_HOME_ROOT")
+    assert_equal "/tmp/fenix-project/Gemfile", env.fetch("BUNDLE_GEMFILE")
+    assert_equal "/tmp/fenix-project", captured.fetch(:kwargs).fetch(:chdir)
+  ensure
+    ENV["FENIX_HOME_ROOT"] = previous_home_root
+  end
+
   test "reconnect_application_record! re-establishes and checks out through with_connection" do
     calls = []
 
@@ -251,7 +288,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal manifest.fetch("endpoint_metadata"), captured_configuration.fetch(:endpoint_metadata)
   end
 
-  test "run_fenix_mailbox_task! forwards the execution machine credential to the realtime control loop" do
+  test "run_fenix_mailbox_task! forwards the execution machine credential and resolves mailbox_result summaries" do
     conversation = ReloadableDouble.new("conversation")
     workflow_run = ReloadableDouble.new("workflow")
     turn = ReloadableDouble.new("turn")
@@ -285,7 +322,14 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
             captured_executor_machine_credential = executor_machine_credential
             {
               "items" => [
-                { "kind" => "runtime_execution", "mailbox_item_id" => "mailbox-1", "status" => "completed" },
+                {
+                  "kind" => "mailbox_result",
+                  "result" => {
+                    "mailbox_item_id" => "mailbox-1",
+                    "status" => "ok",
+                    "output" => { "name" => "portable-notes" },
+                  },
+                },
               ],
             }
           end
@@ -296,13 +340,16 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
             ->(agent_task_run:) { agent_task_run }
           ) do
             with_redefined_singleton_method(ManualAcceptanceSupport, :report_results_for, ->(agent_task_run:) { [] }) do
-              ManualAcceptanceSupport.run_fenix_mailbox_task!(
+              result = ManualAcceptanceSupport.run_fenix_mailbox_task!(
                 agent_program_version: "apv",
                 machine_credential: "program-secret",
                 executor_machine_credential: "execution-secret",
                 content: "hello",
                 mode: "deterministic_tool"
               )
+
+              assert_equal "ok", result.fetch(:execution).fetch("status")
+              assert_equal "portable-notes", result.fetch(:execution).dig("output", "name")
             end
           end
         end

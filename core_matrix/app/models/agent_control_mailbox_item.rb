@@ -159,10 +159,15 @@ class AgentControlMailboxItem < ApplicationRecord
     end
 
     runtime_context = payload["runtime_context"].is_a?(Hash) ? payload["runtime_context"].deep_dup : {}
+    snapshot_runtime_context = snapshot&.runtime_context.to_h
     runtime_context["logical_work_id"] = logical_work_id
     runtime_context["attempt_no"] = attempt_no
     runtime_context["control_plane"] = control_plane
     runtime_context["agent_program_version_id"] = target_agent_program_version.public_id if target_agent_program_version.present?
+    runtime_context["agent_program_id"] ||= snapshot_runtime_context["agent_program_id"]
+    runtime_context["user_id"] ||= snapshot_runtime_context["user_id"]
+    runtime_context["agent_program_id"] ||= target_agent_program.public_id if target_agent_program.present?
+    runtime_context["user_id"] ||= execution_contract&.turn&.conversation&.workspace&.user&.public_id
     payload["runtime_context"] = runtime_context if runtime_context.present?
 
     payload

@@ -3,19 +3,17 @@ require "tmpdir"
 
 class Fenix::Skills::CatalogTest < ActiveSupport::TestCase
   test "loads only active skills referenced from transcript messages" do
-    Dir.mktmpdir("fenix-skills-") do |skills_root|
-      system_root = Pathname.new(skills_root).join(".system")
-      live_root = Pathname.new(skills_root).join("live")
-      curated_root = Pathname.new(skills_root).join(".curated")
+    with_skill_fixture_roots do |roots|
+      live_root = roots.fetch(:home_root).join("live")
 
-      write_skill(system_root, "deploy-agent", "Deploy agents safely", "Use evidence-backed deploy steps.")
-      write_skill(live_root, "custom-checks", "Custom checks", "Run the repo checks before delivery.")
-      write_skill(curated_root, "inactive-skill", "Inactive", "This should stay inactive.")
+      write_skill(root: roots.fetch(:system_root), name: "deploy-agent", description: "Deploy agents safely", body: "Use evidence-backed deploy steps.")
+      write_skill(root: live_root, name: "custom-checks", description: "Custom checks", body: "Run the repo checks before delivery.")
+      write_skill(root: roots.fetch(:curated_root), name: "inactive-skill", description: "Inactive", body: "This should stay inactive.")
 
       catalog = Fenix::Skills::Catalog.new(
-        system_root: system_root,
+        system_root: roots.fetch(:system_root),
         live_root: live_root,
-        curated_root: curated_root
+        curated_root: roots.fetch(:curated_root)
       )
 
       selected = catalog.active_for_messages(
@@ -30,20 +28,55 @@ class Fenix::Skills::CatalogTest < ActiveSupport::TestCase
     end
   end
 
-  private
+  test "reads only the live root for the selected agent program and user scope" do
+    with_skill_fixture_roots do |roots|
+      repository_a = Fenix::Skills::Repository.new(
+        agent_program_id: "agent-program-1",
+        user_id: "user-1",
+        home_root: roots.fetch(:home_root),
+        system_root: roots.fetch(:system_root),
+        curated_root: roots.fetch(:curated_root)
+      )
+      repository_b = Fenix::Skills::Repository.new(
+        agent_program_id: "agent-program-2",
+        user_id: "user-1",
+        home_root: roots.fetch(:home_root),
+        system_root: roots.fetch(:system_root),
+        curated_root: roots.fetch(:curated_root)
+      )
 
-  def write_skill(root, name, description, body)
-    skill_root = root.join(name)
-    FileUtils.mkdir_p(skill_root)
-    skill_root.join("SKILL.md").write(
-      <<~MARKDOWN
-        ---
-        name: #{name}
-        description: #{description}
-        ---
+      write_skill(root: repository_a.live_root, name: "scope-a-checks", description: "Scope A", body: "Only scope A should see this.")
+      write_skill(root: repository_b.live_root, name: "scope-b-checks", description: "Scope B", body: "Only scope B should see this.")
 
-        #{body}
-      MARKDOWN
-    )
+      catalog_a = Fenix::Skills::Catalog.new(
+        system_root: roots.fetch(:system_root),
+        live_root: repository_a.live_root,
+        curated_root: roots.fetch(:curated_root)
+      )
+      catalog_b = Fenix::Skills::Catalog.new(
+        system_root: roots.fetch(:system_root),
+        live_root: repository_b.live_root,
+        curated_root: roots.fetch(:curated_root)
+      )
+
+      selected_a = catalog_a.active_for_messages(messages: [{ "role" => "user", "content" => "Use $scope-a-checks" }])
+      selected_b = catalog_b.active_for_messages(messages: [{ "role" => "user", "content" => "Use $scope-b-checks" }])
+
+      assert_equal ["scope-a-checks"], selected_a.map { |entry| entry.fetch("name") }
+      assert_equal ["scope-b-checks"], selected_b.map { |entry| entry.fetch("name") }
+    end
+  end
+
+  test "requires an explicit live root" do
+    with_skill_fixture_roots do |roots|
+      error = assert_raises(ArgumentError) do
+        Fenix::Skills::Catalog.new(
+          system_root: roots.fetch(:system_root),
+          curated_root: roots.fetch(:curated_root)
+        )
+      end
+
+      assert_includes error.message, "live_root"
+    end
   end
 end

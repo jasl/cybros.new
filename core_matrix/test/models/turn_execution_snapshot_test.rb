@@ -1,6 +1,23 @@
 require "test_helper"
 
 class TurnExecutionSnapshotTest < ActiveSupport::TestCase
+  test "builds runtime_context with public agent program and user ids" do
+    context = build_agent_control_context!
+
+    snapshot = TurnExecutionSnapshot.new(turn: context.fetch(:turn))
+
+    assert_equal(
+      {
+        "control_plane" => "program",
+        "agent_program_version_id" => context.fetch(:deployment).public_id,
+        "agent_program_id" => context.fetch(:agent_program).public_id,
+        "user_id" => context.fetch(:user).public_id,
+        "executor_program_id" => context.fetch(:executor_program).public_id,
+      },
+      snapshot.runtime_context.compact
+    )
+  end
+
   test "returns deep-duped hashes and arrays while defaulting missing sections" do
     snapshot = TurnExecutionSnapshot.new(
       "identity" => { "turn_id" => "turn-1" },

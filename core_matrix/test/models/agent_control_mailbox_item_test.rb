@@ -59,6 +59,8 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       installation: context[:installation],
       target_agent_program: context[:agent_program],
       target_agent_program_version: context[:deployment],
+      workflow_node: context[:workflow_node],
+      execution_contract: context[:turn].execution_contract,
       item_type: "agent_program_request",
       control_plane: "program",
       logical_work_id: "prepare-round-#{next_test_sequence}",
@@ -73,6 +75,8 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal mailbox_item.attempt_no, mailbox_item.payload.dig("runtime_context", "attempt_no")
     assert_equal mailbox_item.control_plane, mailbox_item.payload.dig("runtime_context", "control_plane")
     assert_equal context[:deployment].public_id, mailbox_item.payload.dig("runtime_context", "agent_program_version_id")
+    assert_equal context[:agent_program].public_id, mailbox_item.payload.dig("runtime_context", "agent_program_id")
+    assert_equal context[:user].public_id, mailbox_item.payload.dig("runtime_context", "user_id")
   end
 
   test "requires deployment targeting to remain inside the targeted agent program" do

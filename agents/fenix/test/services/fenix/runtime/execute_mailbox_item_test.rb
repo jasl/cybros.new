@@ -29,7 +29,89 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     end
   end
 
+  test "skills execution assignments emit started and completed terminal reports" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    original_load = Fenix::Skills::Load.method(:call)
+    Fenix::Skills::Load.define_singleton_method(:call) do |skill_name:, repository:|
+      {
+        "name" => skill_name,
+        "scope" => [
+          repository.scope_roots.agent_program_id,
+          repository.scope_roots.user_id,
+        ],
+      }
+    end
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execution_assignment_mailbox_item(
+        mode: "skills_load",
+        task_payload: { "skill_name" => "portable-notes" },
+        runtime_context: {
+          "agent_program_id" => "agent-program-1",
+          "user_id" => "user-1",
+          "agent_program_version_id" => "agent-program-version-1",
+        }
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal "portable-notes", result.dig("output", "name")
+    assert_equal ["execution_started", "execution_complete"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
+    assert_equal "portable-notes", client.reported_payloads.last.dig("terminal_payload", "name")
+  ensure
+    Fenix::Skills::Load.define_singleton_method(:call, original_load) if original_load
+  end
+
+  test "skills execution assignments emit started before deterministic scope failures" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execution_assignment_mailbox_item(
+        mode: "skills_catalog_list",
+        runtime_context: {
+          "agent_program_version_id" => "agent-program-version-1",
+        }
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "failed", result.fetch("status")
+    assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
+    assert_equal "missing_skill_scope", client.reported_payloads.last.dig("terminal_payload", "code")
+  end
+
   private
+
+  def execution_assignment_mailbox_item(mode:, task_payload: {}, runtime_context: {})
+    {
+      "item_type" => "execution_assignment",
+      "item_id" => "mailbox-item-execution-assignment-1",
+      "protocol_message_id" => "protocol-message-execution-assignment-1",
+      "logical_work_id" => "logical-work-execution-assignment-1",
+      "attempt_no" => 1,
+      "control_plane" => "program",
+      "payload" => {
+        "request_kind" => "execution_assignment",
+        "task" => {
+          "agent_task_run_id" => "agent-task-run-1",
+          "workflow_run_id" => "workflow-run-1",
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "turn_step",
+        },
+        "runtime_context" => runtime_context,
+        "task_payload" => {
+          "mode" => mode,
+        }.merge(task_payload),
+      },
+    }
+  end
 
   def prepare_round_mailbox_item(workspace_root:)
     {

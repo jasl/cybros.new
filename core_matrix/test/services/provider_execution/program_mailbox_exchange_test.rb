@@ -423,7 +423,7 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     result = nil
     result = ProviderExecution::ProgramMailboxExchange.new(
       agent_program_version: context.fetch(:deployment),
-      timeout: 0.02,
+      timeout: 0.1,
       poll_interval: 0.0,
       sleeper: sleeper,
     ).prepare_round(

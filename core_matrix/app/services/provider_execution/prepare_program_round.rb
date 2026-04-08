@@ -38,6 +38,8 @@ module ProviderExecution
           "logical_work_id" => "prepare-round:#{@workflow_node.public_id}",
           "attempt_no" => 1,
           "agent_program_version_id" => @workflow_run.turn.agent_program_version.public_id,
+          "agent_program_id" => @workflow_run.turn.agent_program_version.agent_program.public_id,
+          "user_id" => @workflow_run.conversation.workspace.user.public_id,
         },
       }
     end

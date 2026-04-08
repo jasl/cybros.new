@@ -115,6 +115,8 @@ module ProviderExecution
             "logical_work_id" => "program-tool:#{@workflow_node.public_id}:#{@tool_call.fetch("call_id")}",
             "attempt_no" => 1,
             "agent_program_version_id" => @workflow_node.turn.agent_program_version.public_id,
+            "agent_program_id" => @workflow_node.turn.agent_program_version.agent_program.public_id,
+            "user_id" => @workflow_node.conversation.workspace.user.public_id,
           },
           "program_tool_call" => {
             "call_id" => @tool_call.fetch("call_id"),

@@ -210,6 +210,48 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ConversationArtifacts.capture_subagent_runtime_snapshots!"
   end
 
+  test "dedicated skills validation stays separate from the capstone and uses scoped home roots" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_skills_validation.rb").read
+    capstone = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    fresh_start = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+    docker_activate = Rails.root.join("../acceptance/bin/activate_fenix_docker_runtime.sh").read
+
+    refute_includes capstone, "skills_install"
+    assert_includes scenario, "ENV.fetch('FENIX_HOME_ROOT'"
+    refute_includes scenario, "FENIX_LIVE_SKILLS_ROOT"
+    refute_includes scenario, "FENIX_STAGING_SKILLS_ROOT"
+    refute_includes scenario, "FENIX_BACKUP_SKILLS_ROOT"
+    assert_includes fresh_start, "FENIX_HOME_ROOT"
+    assert_includes docker_activate, "FENIX_HOME_ROOT"
+  end
+
+  test "skills validation scenario proves same-program sharing and different-program isolation" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_skills_validation.rb").read
+
+    assert_includes scenario, "ensure_disposable_fenix_home_root!"
+    assert_includes scenario, "basename must start with acceptance-fenix-home"
+    assert_includes scenario, "ENV['FENIX_HOME_ROOT'] = fenix_home_root.to_s"
+    assert_includes scenario, "'conversation_a'"
+    assert_includes scenario, "'conversation_b'"
+    assert_includes scenario, "'conversation_c'"
+    assert_includes scenario, "mode: 'skills_install'"
+    assert_includes scenario, "mode: 'skills_load'"
+    assert_includes scenario, "mode: 'skills_read_file'"
+    assert_includes scenario, "'shared_conversation_success'"
+    assert_includes scenario, "'different_program_failure'"
+    assert_includes scenario, "'install_scope_root'"
+    assert_includes scenario, "'workflow_lifecycle_state' => 'failed'"
+    assert_includes scenario, "'agent_task_run_state' => 'failed'"
+  end
+
+  test "skills validation docs stay aligned with the active acceptance runtime port" do
+    readme = Rails.root.join("../agents/fenix/README.md").read
+
+    assert_includes readme, "`AGENT_FENIX_PORT=3101 bin/dev`"
+    refute_includes readme, "AGENT_FENIX_PORT=3102"
+    refute_includes readme, "dedicated `3102` runtime"
+  end
+
   test "acceptance scenario uses shared review artifacts helper" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/review_artifacts.rb")

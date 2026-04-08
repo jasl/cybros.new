@@ -1,13 +1,18 @@
-require "yaml"
-
 module Fenix
   module Skills
     class Catalog
       SkillNotFound = Class.new(StandardError)
-      InvalidSkillPackage = Class.new(StandardError)
+      InvalidSkillPackage = PackageValidator::InvalidSkillPackage
 
       MARKDOWN_SKILL_REFERENCE = /\[\$([A-Za-z0-9._-]+)\]\([^)]+\)/.freeze
       INLINE_SKILL_REFERENCE = /(?<![\w\/])\$([A-Za-z0-9._-]+)/.freeze
+
+      def self.requested_skill_names(messages:)
+        Array(messages).map { |message| message.deep_stringify_keys["content"].to_s }.flat_map do |content|
+          content.scan(MARKDOWN_SKILL_REFERENCE).flatten +
+            content.scan(INLINE_SKILL_REFERENCE).flatten
+        end.uniq
+      end
 
       Entry = Struct.new(:name, :description, :source_kind, :active, :root, keyword_init: true) do
         def payload
@@ -21,10 +26,11 @@ module Fenix
         end
       end
 
-      def initialize(system_root: default_system_root, live_root: default_live_root, curated_root: default_curated_root)
+      def initialize(system_root: default_system_root, live_root:, curated_root: default_curated_root, validator: PackageValidator)
         @system_root = Pathname(system_root).expand_path
         @live_root = Pathname(live_root).expand_path
         @curated_root = Pathname(curated_root).expand_path
+        @validator = validator
 
         [@system_root, @live_root, @curated_root].each { |path| FileUtils.mkdir_p(path) }
       end
@@ -35,7 +41,7 @@ module Fenix
       end
 
       def active_for_messages(messages:)
-        requested_skill_names(messages).filter_map do |skill_name|
+        self.class.requested_skill_names(messages: messages).filter_map do |skill_name|
           load(skill_name: skill_name)
         rescue SkillNotFound, InvalidSkillPackage
           nil
@@ -53,13 +59,6 @@ module Fenix
       end
 
       private
-
-      def requested_skill_names(messages)
-        Array(messages).map { |message| message.deep_stringify_keys["content"].to_s }.flat_map do |content|
-          content.scan(MARKDOWN_SKILL_REFERENCE).flatten +
-            content.scan(INLINE_SKILL_REFERENCE).flatten
-        end.uniq
-      end
 
       def active_entries
         (system_entries + live_entries).map(&:payload)
@@ -93,14 +92,7 @@ module Fenix
       end
 
       def metadata_for(skill_root)
-        metadata = frontmatter_for(read_skill_md(skill_root))
-
-        {
-          "name" => metadata.fetch("name").presence || skill_root.basename.to_s,
-          "description" => metadata.fetch("description").presence || "No description provided.",
-        }
-      rescue KeyError => error
-        raise InvalidSkillPackage, "#{skill_root} missing #{error.key} metadata"
+        @validator.call(skill_root: skill_root)
       end
 
       def read_skill_md(skill_root)
@@ -110,21 +102,8 @@ module Fenix
         skill_md_path.read
       end
 
-      def frontmatter_for(content)
-        match = content.match(/\A---\s*\n(.*?)\n---\s*(?:\n|\z)/m)
-        return {} unless match
-
-        YAML.safe_load(match[1], permitted_classes: [], aliases: false).to_h
-      rescue Psych::SyntaxError => error
-        raise InvalidSkillPackage, error.message
-      end
-
       def default_system_root
         Rails.root.join("skills", ".system")
-      end
-
-      def default_live_root
-        Pathname(ENV["FENIX_LIVE_SKILLS_ROOT"].presence || Rails.root.join("tmp", "skills-live"))
       end
 
       def default_curated_root

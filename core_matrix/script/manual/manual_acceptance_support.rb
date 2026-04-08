@@ -354,7 +354,7 @@ module ManualAcceptanceSupport
       "CORE_MATRIX_MACHINE_CREDENTIAL" => machine_credential,
       "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL" => executor_machine_credential,
       "BUNDLE_GEMFILE" => project_root.join("Gemfile").to_s,
-    }.merge(env)
+    }.merge(forwarded_fenix_env).merge(env)
 
     stdout = nil
     stderr = nil
@@ -384,7 +384,7 @@ module ManualAcceptanceSupport
       "LIMIT" => limit.to_s,
       "INLINE" => inline ? "true" : "false",
       "REALTIME_TIMEOUT_SECONDS" => realtime_timeout_seconds.to_s,
-    }
+    }.merge(forwarded_fenix_env)
 
     reader, writer = IO.pipe
     pid = nil
@@ -410,6 +410,12 @@ module ManualAcceptanceSupport
 
   def fenix_project_root
     Pathname.new(ENV.fetch("FENIX_PROJECT_ROOT", Rails.root.join("..", "agents", "fenix").to_s))
+  end
+
+  def forwarded_fenix_env
+    {}.tap do |env|
+      env["FENIX_HOME_ROOT"] = ENV["FENIX_HOME_ROOT"] if ENV["FENIX_HOME_ROOT"].present?
+    end
   end
 
   def disconnect_application_record!
@@ -512,6 +518,23 @@ module ManualAcceptanceSupport
       .where(agent_task_run:)
       .order(:created_at, :id)
       .pluck(:result_code)
+  end
+
+  def mailbox_execution_result_for!(pump_result:, mailbox_item_id:)
+    summary = Array(pump_result.fetch("items")).find do |item|
+      case item["kind"]
+      when "runtime_execution"
+        item["mailbox_item_id"] == mailbox_item_id
+      when "mailbox_result"
+        item.dig("result", "mailbox_item_id") == mailbox_item_id
+      else
+        false
+      end
+    end
+
+    raise "expected runtime execution summary for mailbox item #{mailbox_item_id}" if summary.blank?
+
+    summary["kind"] == "mailbox_result" ? summary.fetch("result") : summary
   end
 
   def create_external_agent_program!(installation:, actor:, key:, display_name:)
@@ -789,15 +812,10 @@ module ManualAcceptanceSupport
     mailbox_item = agent_task_run.agent_control_mailbox_items.order(:created_at, :id).last
     raise "expected mailbox item for task run #{agent_task_run.public_id}" if mailbox_item.blank?
 
-    execution = pump_result.fetch("items").find do |item|
-      item["kind"] == "runtime_execution" && item["mailbox_item_id"] == mailbox_item.public_id
-    end
-    raise "expected runtime execution summary for mailbox item #{mailbox_item.public_id}" if execution.blank?
-
     run.merge(
       conversation: conversation_context.fetch(:conversation).reload,
       mailbox_item: mailbox_item,
-      execution: execution,
+      execution: mailbox_execution_result_for!(pump_result: pump_result, mailbox_item_id: mailbox_item.public_id),
       report_results: report_results_for(agent_task_run:)
     )
   end

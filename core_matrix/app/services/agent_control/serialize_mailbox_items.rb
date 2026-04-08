@@ -26,14 +26,31 @@ module AgentControl
         records: @mailbox_items,
         associations: [
           :payload_document,
-          { agent_task_run: [:workflow_run, :workflow_node, :conversation, :turn] },
+          :target_agent_program,
+          :target_agent_program_version,
+          {
+            agent_task_run: [
+              :workflow_run,
+              :workflow_node,
+              :conversation,
+              { turn: [{ conversation: { workspace: :user } }, { agent_program_version: :agent_program }] },
+            ],
+          },
           { workflow_node: [:workflow_run, :conversation, :turn] },
           {
             execution_contract: [
               :agent_program_version,
               :execution_context_snapshot,
               :execution_capability_snapshot,
-              { turn: [:conversation, :agent_program_version, :executor_program, :selected_input_message, :selected_output_message] },
+              {
+                turn: [
+                  { conversation: { workspace: :user } },
+                  { agent_program_version: :agent_program },
+                  :executor_program,
+                  :selected_input_message,
+                  :selected_output_message,
+                ],
+              },
             ],
           },
         ]
@@ -54,6 +71,14 @@ module AgentControl
 
         turns_by_id[turn.id] = turn
       end
+
+      ActiveRecord::Associations::Preloader.new(
+        records: turns_by_id.values,
+        associations: [
+          { conversation: { workspace: :user } },
+          { agent_program_version: :agent_program },
+        ]
+      ).call
 
       turns_by_id.transform_values(&:execution_snapshot)
     end

@@ -58,6 +58,8 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
           "attempt_no" => 3,
           "control_plane" => "program",
           "agent_program_version_id" => context.fetch(:deployment).public_id,
+          "agent_program_id" => context.fetch(:agent_program).public_id,
+          "user_id" => context.fetch(:user).public_id,
           "custom_flag" => "keep-me",
         },
       },
@@ -71,7 +73,14 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     refute stored_payload.key?("request_kind")
     refute stored_payload.key?("provider_context")
     refute stored_payload.key?("task")
-    assert_equal({ "custom_flag" => "keep-me" }, stored_payload.fetch("runtime_context"))
+    assert_equal(
+      {
+        "agent_program_id" => context.fetch(:agent_program).public_id,
+        "user_id" => context.fetch(:user).public_id,
+        "custom_flag" => "keep-me",
+      },
+      stored_payload.fetch("runtime_context")
+    )
     assert_equal context.fetch(:workflow_node), mailbox_item.workflow_node
     assert_equal context.fetch(:turn).execution_contract, mailbox_item.execution_contract
     assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
@@ -84,6 +93,8 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_equal 3, mailbox_item.payload.dig("runtime_context", "attempt_no")
     assert_equal "program", mailbox_item.payload.dig("runtime_context", "control_plane")
     assert_equal context.fetch(:deployment).public_id, mailbox_item.payload.dig("runtime_context", "agent_program_version_id")
+    assert_equal context.fetch(:agent_program).public_id, mailbox_item.payload.dig("runtime_context", "agent_program_id")
+    assert_equal context.fetch(:user).public_id, mailbox_item.payload.dig("runtime_context", "user_id")
     assert_equal "keep-me", mailbox_item.payload.dig("runtime_context", "custom_flag")
   end
 

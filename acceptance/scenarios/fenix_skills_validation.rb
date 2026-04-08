@@ -1,38 +1,173 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
-require "fileutils"
-require_relative "../lib/boot"
+require 'fileutils'
+require_relative '../lib/boot'
 
-runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3102")
-live_root = ENV.fetch("FENIX_LIVE_SKILLS_ROOT", "/tmp/acceptance-fenix-live-skills")
-staging_root = ENV.fetch("FENIX_STAGING_SKILLS_ROOT", "/tmp/acceptance-fenix-staging")
-backup_root = ENV.fetch("FENIX_BACKUP_SKILLS_ROOT", "/tmp/acceptance-fenix-backups")
+def ensure_disposable_fenix_home_root!(path)
+  return path if path.basename.to_s.start_with?('acceptance-fenix-home')
+
+  raise(
+    'FENIX_HOME_ROOT must point to a disposable acceptance root ' \
+    "(basename must start with acceptance-fenix-home): #{path}"
+  )
+end
+
+def mailbox_task(content:, mode:, extra_payload: {})
+  { content:, mode:, extra_payload: }
+end
+
+def run_mailbox_task_on_conversation!(conversation:, agent_program_version:, registration:, task:)
+  run = start_mailbox_turn_workflow!(
+    conversation: conversation,
+    agent_program_version: agent_program_version,
+    task: task
+  )
+  finalize_mailbox_task_run(run:, conversation:, registration:)
+end
+
+def start_mailbox_turn_workflow!(conversation:, agent_program_version:, task:)
+  ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+    conversation: conversation,
+    agent_program_version: agent_program_version,
+    content: task.fetch(:content),
+    root_node_key: 'agent_turn_step',
+    root_node_type: 'turn_step',
+    decision_source: 'agent_program',
+    initial_kind: 'turn_step',
+    initial_payload: { 'mode' => task.fetch(:mode) }.merge(task.fetch(:extra_payload, {}))
+  )
+end
+
+def finalize_mailbox_task_run(run:, conversation:, registration:)
+  pump_result = run_fenix_control_loop!(registration:)
+  agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
+  mailbox_item = latest_mailbox_item_for!(agent_task_run)
+
+  run.merge(
+    conversation: conversation.reload,
+    mailbox_item: mailbox_item,
+    execution: execution_summary_for!(pump_result:, mailbox_item:),
+    report_results: report_results_for(agent_task_run:)
+  )
+end
+
+def execution_summary_for!(pump_result:, mailbox_item:)
+  ManualAcceptanceSupport.mailbox_execution_result_for!(
+    pump_result: pump_result,
+    mailbox_item_id: mailbox_item.public_id
+  )
+end
+
+def report_results_for(agent_task_run:)
+  ManualAcceptanceSupport.report_results_for(agent_task_run: agent_task_run)
+end
+
+def run_fenix_control_loop!(registration:)
+  ManualAcceptanceSupport.run_fenix_control_loop_once!(
+    machine_credential: registration.fetch(:machine_credential),
+    executor_machine_credential: registration.fetch(:executor_machine_credential)
+  )
+end
+
+def latest_mailbox_item_for!(agent_task_run)
+  mailbox_item = agent_task_run.agent_control_mailbox_items.order(:created_at, :id).last
+  raise "expected mailbox item for task run #{agent_task_run.public_id}" if mailbox_item.blank?
+
+  mailbox_item
+end
+
+def serialize_run(run)
+  serialize_run_identity(run)
+    .merge('dag_shape' => ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)))
+    .merge('conversation_state' => serialize_run_conversation_state(run))
+    .merge(serialize_run_execution(run))
+    .merge('report_results' => run.fetch(:report_results))
+end
+
+def serialize_run_identity(run)
+  {
+    'conversation_id' => run.fetch(:conversation).public_id,
+    'turn_id' => run.fetch(:turn).public_id,
+    'workflow_run_id' => run.fetch(:workflow_run).public_id,
+    'agent_task_run_id' => run.fetch(:agent_task_run).public_id
+  }
+end
+
+def serialize_run_conversation_state(run)
+  ManualAcceptanceSupport.workflow_state_hash(
+    conversation: run.fetch(:conversation),
+    workflow_run: run.fetch(:workflow_run),
+    turn: run.fetch(:turn),
+    agent_task_run: run.fetch(:agent_task_run)
+  )
+end
+
+def serialize_run_execution(run)
+  execution = run.fetch(:execution)
+
+  {
+    'runtime_execution_status' => execution.fetch('status'),
+    'runtime_output' => execution['output'],
+    'runtime_error' => execution['error']
+  }
+end
+
+def run_passed?(serialized_run, expected_conversation_state)
+  serialized_run.fetch('dag_shape') == ['agent_turn_step'] &&
+    expected_conversation_state.all? do |key, value|
+      serialized_run.fetch('conversation_state')[key] == value
+    end
+end
+
+runtime_base_url = ENV.fetch('FENIX_RUNTIME_BASE_URL', 'http://127.0.0.1:3101')
+fenix_home_root = ensure_disposable_fenix_home_root!(
+  Pathname.new(
+    ENV.fetch('FENIX_HOME_ROOT', Rails.root.join('tmp/acceptance-fenix-home').to_s)
+  ).expand_path
+)
+ENV['FENIX_HOME_ROOT'] = fenix_home_root.to_s
+
+FileUtils.rm_rf(fenix_home_root)
+FileUtils.mkdir_p(fenix_home_root)
 
 ManualAcceptanceSupport.reset_backend_state!
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-external = ManualAcceptanceSupport.create_external_agent_program!(
+
+external_program_a = ManualAcceptanceSupport.create_external_agent_program!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
-  key: "fenix-skills",
-  display_name: "Fenix Skills Runtime"
+  key: 'fenix-skills-program-a',
+  display_name: 'Fenix Skills Runtime A'
 )
-registration = ManualAcceptanceSupport.register_external_runtime!(
-  enrollment_token: external.fetch(:enrollment_token),
+external_program_b = ManualAcceptanceSupport.create_external_agent_program!(
+  installation: bootstrap.installation,
+  actor: bootstrap.user,
+  key: 'fenix-skills-program-b',
+  display_name: 'Fenix Skills Runtime B'
+)
+
+registration_a = ManualAcceptanceSupport.register_external_runtime!(
+  enrollment_token: external_program_a.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-fenix-skills-environment",
-  fingerprint: "acceptance-fenix-skills-v1"
+  executor_fingerprint: 'acceptance-fenix-skills-environment-a',
+  fingerprint: 'acceptance-fenix-skills-a-v1'
 )
-agent_program_version = registration.fetch(:agent_program_version)
+registration_b = ManualAcceptanceSupport.register_external_runtime!(
+  enrollment_token: external_program_b.fetch(:enrollment_token),
+  runtime_base_url: runtime_base_url,
+  executor_fingerprint: 'acceptance-fenix-skills-environment-b',
+  fingerprint: 'acceptance-fenix-skills-b-v1'
+)
 
-FileUtils.rm_rf(Dir.glob(File.join(live_root, "*")))
-FileUtils.rm_rf(Dir.glob(File.join(staging_root, "*")))
-FileUtils.rm_rf(Dir.glob(File.join(backup_root, "*")))
+agent_program_version_a = registration_a.fetch(:agent_program_version)
+agent_program_version_b = registration_b.fetch(:agent_program_version)
 
-source_root = Rails.root.join("tmp", "acceptance-portable-notes-src", "portable-notes")
+source_root = Rails.root.join('tmp/acceptance-portable-notes-src/portable-notes')
 FileUtils.rm_rf(source_root.parent)
-FileUtils.mkdir_p(source_root.join("references"))
+FileUtils.mkdir_p(source_root.join('references'))
 File.write(
-  source_root.join("SKILL.md"),
+  source_root.join('SKILL.md'),
   <<~MD
     ---
     name: portable-notes
@@ -44,150 +179,137 @@ File.write(
     Write portable notes.
   MD
 )
-File.write(source_root.join("references", "checklist.md"), "# Checklist\n")
+File.write(source_root.join('references', 'checklist.md'), "# Checklist\n")
 
-catalog_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: agent_program_version,
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
-  runtime_base_url: runtime_base_url,
-  content: "List available skills.",
-  mode: "skills_catalog_list"
+conversation_a = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version_a)
+conversation_b = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version_a)
+conversation_c = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version_b)
+
+install_run = run_mailbox_task_on_conversation!(
+  conversation: conversation_a.fetch(:conversation),
+  agent_program_version: agent_program_version_a,
+  registration: registration_a,
+  task: mailbox_task(
+    content: 'Install portable-notes in conversation A.',
+    mode: 'skills_install',
+    extra_payload: { 'source_path' => source_root.to_s }
+  )
 )
-load_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: agent_program_version,
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
-  runtime_base_url: runtime_base_url,
-  content: "Load deploy-agent.",
-  mode: "skills_load",
-  extra_payload: { "skill_name" => "deploy-agent" }
+same_program_load_run = run_mailbox_task_on_conversation!(
+  conversation: conversation_b.fetch(:conversation),
+  agent_program_version: agent_program_version_a,
+  registration: registration_a,
+  task: mailbox_task(
+    content: 'Load portable-notes from conversation B.',
+    mode: 'skills_load',
+    extra_payload: { 'skill_name' => 'portable-notes' }
+  )
 )
-read_system_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: agent_program_version,
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
-  runtime_base_url: runtime_base_url,
-  content: "Read deploy-agent script.",
-  mode: "skills_read_file",
-  extra_payload: {
-    "skill_name" => "deploy-agent",
-    "relative_path" => "scripts/deploy_agent.rb",
-  }
+same_program_read_run = run_mailbox_task_on_conversation!(
+  conversation: conversation_b.fetch(:conversation),
+  agent_program_version: agent_program_version_a,
+  registration: registration_a,
+  task: mailbox_task(
+    content: 'Read portable-notes checklist from conversation B.',
+    mode: 'skills_read_file',
+    extra_payload: {
+      'skill_name' => 'portable-notes',
+      'relative_path' => 'references/checklist.md'
+    }
+  )
 )
-install_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: agent_program_version,
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
-  runtime_base_url: runtime_base_url,
-  content: "Install portable-notes skill.",
-  mode: "skills_install",
-  extra_payload: { "source_path" => source_root.to_s }
-)
-load_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: agent_program_version,
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
-  runtime_base_url: runtime_base_url,
-  content: "Load portable-notes on the next top-level turn.",
-  mode: "skills_load",
-  extra_payload: { "skill_name" => "portable-notes" }
-)
-read_live_run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: agent_program_version,
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
-  runtime_base_url: runtime_base_url,
-  content: "Read portable-notes checklist.",
-  mode: "skills_read_file",
-  extra_payload: {
-    "skill_name" => "portable-notes",
-    "relative_path" => "references/checklist.md",
-  }
+different_program_load_run = run_mailbox_task_on_conversation!(
+  conversation: conversation_c.fetch(:conversation),
+  agent_program_version: agent_program_version_b,
+  registration: registration_b,
+  task: mailbox_task(
+    content: 'Load portable-notes from conversation C on a different program.',
+    mode: 'skills_load',
+    extra_payload: { 'skill_name' => 'portable-notes' }
+  )
 )
 
 expected_conversation_state = {
-  "conversation_state" => "active",
-  "workflow_lifecycle_state" => "completed",
-  "workflow_wait_state" => "ready",
-  "turn_lifecycle_state" => "active",
-  "agent_task_run_state" => "completed",
+  'conversation_state' => 'active',
+  'workflow_lifecycle_state' => 'completed',
+  'workflow_wait_state' => 'ready',
+  'turn_lifecycle_state' => 'active',
+  'agent_task_run_state' => 'completed'
+}.freeze
+expected_isolation_failure_state = {
+  'conversation_state' => 'active',
+  'workflow_lifecycle_state' => 'failed',
+  'workflow_wait_state' => 'ready',
+  'turn_lifecycle_state' => 'active',
+  'agent_task_run_state' => 'failed'
 }.freeze
 
-serialize_run = lambda do |run|
-  {
-    "conversation_id" => run.fetch(:conversation).public_id,
-    "turn_id" => run.fetch(:turn).public_id,
-    "workflow_run_id" => run.fetch(:workflow_run).public_id,
-    "agent_task_run_id" => run.fetch(:agent_task_run).public_id,
-    "dag_shape" => ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
-    "conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
-      conversation: run.fetch(:conversation),
-      workflow_run: run.fetch(:workflow_run),
-      turn: run.fetch(:turn),
-      agent_task_run: run.fetch(:agent_task_run)
-    ),
-    "runtime_execution_status" => run.fetch(:execution).fetch("status"),
-    "runtime_output" => run.fetch(:execution)["output"],
-    "report_results" => run.fetch(:report_results),
-  }
-end
+serialized_install_run = serialize_run(install_run)
+serialized_same_program_load_run = serialize_run(same_program_load_run)
+serialized_same_program_read_run = serialize_run(same_program_read_run)
+serialized_different_program_load_run = serialize_run(different_program_load_run)
 
-scenario_12_runs = [
-  serialize_run.call(catalog_run),
-  serialize_run.call(load_system_run),
-  serialize_run.call(read_system_run),
-]
-scenario_13_runs = [
-  serialize_run.call(install_run),
-  serialize_run.call(load_live_run),
-  serialize_run.call(read_live_run),
-]
+shared_conversation_success = {
+  'passed' => run_passed?(serialized_same_program_load_run, expected_conversation_state) &&
+              run_passed?(serialized_same_program_read_run, expected_conversation_state) &&
+              same_program_load_run.fetch(:conversation).public_id ==
+              same_program_read_run.fetch(:conversation).public_id &&
+              same_program_load_run.fetch(:execution).dig('output', 'name') == 'portable-notes' &&
+              same_program_read_run.fetch(:execution).dig('output', 'content') == "# Checklist\n",
+  'conversation_id' => conversation_b.fetch(:conversation).public_id,
+  'load_name' => same_program_load_run.fetch(:execution).dig('output', 'name'),
+  'read_content' => same_program_read_run.fetch(:execution).dig('output', 'content')
+}.freeze
 
-scenario_runs_passed = lambda do |runs|
-  runs.all? do |serialized_run|
-    serialized_run.fetch("dag_shape") == ["agent_turn_step"] &&
-      expected_conversation_state.all? do |key, value|
-        serialized_run.fetch("conversation_state")[key] == value
-      end
-  end
-end
+different_program_failure = {
+  'passed' => run_passed?(serialized_different_program_load_run, expected_isolation_failure_state) &&
+              different_program_load_run.fetch(:execution).fetch('status') == 'failed' &&
+              different_program_load_run.fetch(:execution).dig('error', 'code') == 'skill_not_found',
+  'conversation_id' => conversation_c.fetch(:conversation).public_id,
+  'status' => different_program_load_run.fetch(:execution).fetch('status'),
+  'error' => different_program_load_run.fetch(:execution).fetch('error')
+}.freeze
+
+install_scope_root = install_run.fetch(:execution).dig('output', 'live_root')
+passed = run_passed?(serialized_install_run, expected_conversation_state) &&
+         shared_conversation_success.fetch('passed') &&
+         different_program_failure.fetch('passed')
 
 ManualAcceptanceSupport.write_json(
   {
-    "scenario" => "fenix_skills_validation",
-    "passed" => scenario_runs_passed.call(scenario_12_runs) && scenario_runs_passed.call(scenario_13_runs),
-    "proof_artifact_path" => nil,
-    "agent_program_version_id" => agent_program_version.public_id,
-    "executor_program_id" => registration.fetch(:executor_program)&.public_id,
-    "agent_session_id" => registration.fetch(:registration).fetch("agent_session_id"),
-    "executor_session_id" => registration.fetch(:registration)["executor_session_id"],
-    "heartbeat_lifecycle_state" => registration.fetch(:heartbeat).fetch("lifecycle_state"),
-    "heartbeat_health_status" => registration.fetch(:heartbeat).fetch("health_status"),
-    "scenario_12" => {
-      "passed" => scenario_runs_passed.call(scenario_12_runs),
-      "expected_dag_shape" => ["agent_turn_step"],
-      "expected_conversation_state" => expected_conversation_state,
-      "catalog_run" => scenario_12_runs[0],
-      "load_system_run" => scenario_12_runs[1],
-      "read_system_run" => scenario_12_runs[2],
-      "catalog_names" => Array(catalog_run.fetch(:execution)["output"]).map { |entry| [entry["name"], entry["source_kind"], entry["active"]] },
-      "load_system_name" => load_system_run.fetch(:execution).dig("output", "name"),
-      "load_system_files" => load_system_run.fetch(:execution).dig("output", "files"),
-      "read_system_content" => read_system_run.fetch(:execution).dig("output", "content"),
+    'scenario' => 'fenix_skills_validation',
+    'passed' => passed,
+    'proof_artifact_path' => nil,
+    'fenix_home_root' => fenix_home_root.to_s,
+    'install_scope_root' => install_scope_root,
+    'shared_conversation_success' => shared_conversation_success,
+    'different_program_failure' => different_program_failure,
+    'registrations' => {
+      'program_a' => {
+        'agent_program_version_id' => agent_program_version_a.public_id,
+        'executor_program_id' => registration_a.fetch(:executor_program)&.public_id,
+        'agent_session_id' => registration_a.fetch(:registration).fetch('agent_session_id'),
+        'executor_session_id' => registration_a.fetch(:registration)['executor_session_id']
+      },
+      'program_b' => {
+        'agent_program_version_id' => agent_program_version_b.public_id,
+        'executor_program_id' => registration_b.fetch(:executor_program)&.public_id,
+        'agent_session_id' => registration_b.fetch(:registration).fetch('agent_session_id'),
+        'executor_session_id' => registration_b.fetch(:registration)['executor_session_id']
+      }
     },
-    "scenario_13" => {
-      "passed" => scenario_runs_passed.call(scenario_13_runs),
-      "expected_dag_shape" => ["agent_turn_step"],
-      "expected_conversation_state" => expected_conversation_state,
-      "install_run" => scenario_13_runs[0],
-      "load_live_run" => scenario_13_runs[1],
-      "read_live_run" => scenario_13_runs[2],
-      "install_activation_state" => install_run.fetch(:execution).dig("output", "activation_state"),
-      "install_live_root" => install_run.fetch(:execution).dig("output", "live_root"),
-      "load_live_name" => load_live_run.fetch(:execution).dig("output", "name"),
-      "load_live_files" => load_live_run.fetch(:execution).dig("output", "files"),
-      "read_live_content" => read_live_run.fetch(:execution).dig("output", "content"),
+    'conversation_a' => {
+      'install_run' => serialized_install_run,
+      'conversation_id' => conversation_a.fetch(:conversation).public_id
     },
+    'conversation_b' => {
+      'load_run' => serialized_same_program_load_run,
+      'read_run' => serialized_same_program_read_run,
+      'conversation_id' => conversation_b.fetch(:conversation).public_id
+    },
+    'conversation_c' => {
+      'load_run' => serialized_different_program_load_run,
+      'conversation_id' => conversation_c.fetch(:conversation).public_id
+    }
   }
 )
