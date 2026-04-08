@@ -94,6 +94,5 @@ module ExecutorAPI
     def current_deployment_for_turn(turn)
       turn.agent_program_version
     end
-
   end
 end

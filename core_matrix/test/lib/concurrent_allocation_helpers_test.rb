@@ -51,4 +51,48 @@ class ConcurrentAllocationHelpersTest < ActiveSupport::TestCase
   ensure
     pool.singleton_class.send(:define_method, :with_connection, original_with_connection)
   end
+
+  test "truncates all tables in one statement without toggling referential integrity" do
+    fake_connection = Class.new do
+      attr_reader :disable_calls, :executed_sql
+
+      def initialize
+        @disable_calls = 0
+        @executed_sql = []
+      end
+
+      def tables
+        %w[zebra schema_migrations ar_internal_metadata apple]
+      end
+
+      def quote_table_name(name)
+        %("#{name}")
+      end
+
+      def disable_referential_integrity
+        @disable_calls += 1
+        yield
+      end
+
+      def execute(sql)
+        @executed_sql << sql
+      end
+    end.new
+
+    pool = ActiveRecord::Base.connection_pool
+    original_with_connection = pool.method(:with_connection)
+
+    pool.singleton_class.send(:define_method, :with_connection) do |*args, **kwargs, &block|
+      block.call(fake_connection)
+    end
+
+    truncate_all_tables!
+
+    assert_equal 0, fake_connection.disable_calls
+    assert_equal [
+      'TRUNCATE TABLE "apple", "zebra" RESTART IDENTITY CASCADE',
+    ], fake_connection.executed_sql
+  ensure
+    pool.singleton_class.send(:define_method, :with_connection, original_with_connection)
+  end
 end

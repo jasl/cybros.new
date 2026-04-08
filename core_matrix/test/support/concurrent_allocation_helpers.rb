@@ -76,13 +76,11 @@ module ConcurrentAllocationHelpers
 
   def truncate_all_tables!
     ActiveRecord::Base.connection_pool.with_connection do |connection|
-      tables = connection.tables - %w[schema_migrations ar_internal_metadata]
+      tables = (connection.tables - %w[schema_migrations ar_internal_metadata]).sort
+      return if tables.empty?
 
-      connection.disable_referential_integrity do
-        tables.each do |table|
-          connection.execute("TRUNCATE TABLE #{connection.quote_table_name(table)} RESTART IDENTITY CASCADE")
-        end
-      end
+      quoted_tables = tables.map { |table| connection.quote_table_name(table) }.join(", ")
+      connection.execute("TRUNCATE TABLE #{quoted_tables} RESTART IDENTITY CASCADE")
     end
   end
 
