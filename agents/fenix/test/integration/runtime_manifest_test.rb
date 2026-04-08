@@ -22,7 +22,12 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("endpoint_metadata"), body.fetch("executor_connection_metadata")
     assert_equal "mailbox-first", body.dig("program_contract", "transport")
     assert_equal %w[websocket_push poll], body.dig("program_contract", "delivery")
-    assert_equal %w[prepare_round execute_program_tool], body.dig("program_contract", "methods")
+    assert_equal %w[
+      prepare_round
+      execute_program_tool
+      supervision_status_refresh
+      supervision_guidance
+    ], body.dig("program_contract", "methods")
     assert_includes protocol_method_ids, "capabilities_handshake"
     assert_includes protocol_method_ids, "execution_started"
 

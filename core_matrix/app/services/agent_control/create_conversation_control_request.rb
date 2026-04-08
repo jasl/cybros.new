@@ -17,7 +17,10 @@ module AgentControl
       mailbox_item = AgentControl::CreateAgentProgramRequest.call(
         agent_program_version: @agent_program_version,
         request_kind: @request_kind,
-        payload: @payload.merge("conversation_control" => conversation_control_payload),
+        payload: @payload.merge(
+          "conversation_control" => conversation_control_payload,
+          "runtime_context" => runtime_context_payload
+        ),
         logical_work_id: "conversation-control:#{@conversation_control_request.public_id}:#{@request_kind}",
         attempt_no: 1,
         dispatch_deadline_at: @dispatch_deadline_at,
@@ -47,6 +50,13 @@ module AgentControl
         "request_kind" => @conversation_control_request.request_kind,
         "target_kind" => @conversation_control_request.target_kind,
         "target_public_id" => @conversation_control_request.target_public_id,
+      }.compact
+    end
+
+    def runtime_context_payload
+      {
+        "agent_program_id" => @agent_program_version.agent_program.public_id,
+        "user_id" => @conversation_control_request.target_conversation.workspace.user.public_id,
       }.compact
     end
   end

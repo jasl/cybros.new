@@ -257,6 +257,63 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal({ "status" => "ok" }, payload.fetch("response_payload"))
   end
 
+  test "agent program failure reports store only the error body and reconstruct workflow refs on read" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+      },
+      logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    protocol_message_id = "agent-program-failed-#{next_test_sequence}"
+
+    AgentControl::Report.call(
+      deployment: context[:deployment],
+      method_id: "agent_program_failed",
+      protocol_message_id: protocol_message_id,
+      mailbox_item_id: mailbox_item.public_id,
+      logical_work_id: mailbox_item.logical_work_id,
+      attempt_no: mailbox_item.attempt_no,
+      conversation_id: context.fetch(:conversation).public_id,
+      turn_id: context.fetch(:turn).public_id,
+      workflow_node_id: context.fetch(:workflow_node).public_id,
+      error_payload: {
+        "classification" => "runtime",
+        "code" => "program_request_failed",
+        "message" => "prepare_round failed",
+        "retryable" => false,
+      }
+    )
+
+    receipt = AgentControlReportReceipt.find_by!(
+      installation: context[:installation],
+      protocol_message_id: protocol_message_id
+    )
+    stored_payload = receipt.report_document.payload
+
+    refute stored_payload.key?("conversation_id")
+    refute stored_payload.key?("turn_id")
+    refute stored_payload.key?("workflow_node_id")
+    assert_equal "program_request_failed", stored_payload.dig("error_payload", "code")
+
+    payload = receipt.payload
+
+    assert_equal context.fetch(:conversation).public_id, payload.fetch("conversation_id")
+    assert_equal context.fetch(:turn).public_id, payload.fetch("turn_id")
+    assert_equal context.fetch(:workflow_node).public_id, payload.fetch("workflow_node_id")
+    assert_equal "program_request_failed", payload.dig("error_payload", "code")
+  end
+
   test "execution reports broadcast runtime progress and tool invocation events on the conversation stream" do
     context = build_calculator_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

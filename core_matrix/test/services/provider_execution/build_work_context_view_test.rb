@@ -25,6 +25,7 @@ class ProviderExecution::BuildWorkContextViewTest < ActiveSupport::TestCase
     assert_equal "waiting", view.dig("supervision_snapshot", "overall_state")
     assert_equal 1, view.dig("supervision_snapshot", "active_child_count")
     refute view.key?("active_subagents")
+    refute view.key?("supervisor_guidance")
     refute view.fetch("active_children").first.key?("subagent_session_id")
     refute_match(/cowork/i, view.to_json)
   end
@@ -44,5 +45,37 @@ class ProviderExecution::BuildWorkContextViewTest < ActiveSupport::TestCase
       view.dig("active_children", 0, "plan_summary", "current_item_key")
     assert_equal "Checking the 2048 acceptance flow",
       view.dig("active_children", 0, "current_focus_summary")
+  end
+
+  test "includes delivered supervisor guidance for the current runtime target" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!(control_enabled: true)
+    session = create_conversation_supervision_session!(fixture)
+
+    ConversationControlRequest.create!(
+      installation: fixture.fetch(:installation),
+      conversation_supervision_session: session,
+      target_conversation: fixture.fetch(:conversation),
+      request_kind: "send_guidance_to_active_agent",
+      target_kind: "conversation",
+      target_public_id: fixture.fetch(:conversation).public_id,
+      lifecycle_state: "completed",
+      request_payload: { "content" => "Stop and summarize the latest blocker." },
+      result_payload: {
+        "response_payload" => {
+          "control_outcome" => {
+            "outcome_kind" => "guidance_acknowledged",
+          },
+        },
+      },
+      completed_at: Time.current
+    )
+
+    view = ProviderExecution::BuildWorkContextView.call(
+      workflow_node: fixture.fetch(:workflow_node)
+    )
+
+    assert_equal "conversation", view.dig("supervisor_guidance", "guidance_scope")
+    assert_equal "Stop and summarize the latest blocker.",
+      view.dig("supervisor_guidance", "latest_guidance", "content")
   end
 end

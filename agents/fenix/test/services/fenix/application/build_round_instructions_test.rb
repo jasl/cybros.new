@@ -27,7 +27,15 @@ class Fenix::Application::BuildRoundInstructionsTest < ActiveSupport::TestCase
         "transcript_messages" => [
           { "role" => "user", "content" => "Current todo: ship browser proof for 2048." },
         ],
-        "work_context_view" => nil,
+        "work_context_view" => {
+          "supervisor_guidance" => {
+            "guidance_scope" => "conversation",
+            "latest_guidance" => {
+              "content" => "Stop and summarize the current blocker.",
+              "delivered_at" => "2026-04-09T12:00:00Z",
+            },
+          },
+        },
       }
 
       result = Fenix::Application::BuildRoundInstructions.call(context: context)
@@ -35,7 +43,7 @@ class Fenix::Application::BuildRoundInstructionsTest < ActiveSupport::TestCase
       assert_equal %w[exec_command browser_open], result.fetch("visible_tool_names")
       assert_equal "system", result.fetch("messages").first.fetch("role")
       assert_equal context.fetch("transcript_messages"), result.fetch("messages").drop(1)
-      assert_includes result.fetch("messages").first.fetch("content"), "No durable state view provided by CoreMatrix."
+      assert_includes result.fetch("messages").first.fetch("content"), "Stop and summarize the current blocker."
       refute_includes result.fetch("messages").first.fetch("content"), "Current todo: ship browser proof for 2048."
       assert_includes result.fetch("messages").first.fetch("content"), "Keep changes scoped to agents/fenix."
     end

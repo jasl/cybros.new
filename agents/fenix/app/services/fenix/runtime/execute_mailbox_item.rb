@@ -105,7 +105,7 @@ module Fenix
 
         emit_agent_program_failure(response_payload.fetch("failure"))
       rescue StandardError => error
-        emit_agent_program_failure(runtime_error_payload_for(error))
+        emit_agent_program_failure(agent_program_request_error_payload_for(error))
       end
 
       def execute_agent_program_request
@@ -114,6 +114,8 @@ module Fenix
           Fenix::Runtime::PrepareRound.call(payload: mailbox_payload)
         when "execute_program_tool"
           Fenix::Runtime::ExecuteProgramTool.call(payload: mailbox_payload)
+        when "supervision_status_refresh", "supervision_guidance"
+          Fenix::Runtime::ExecuteConversationControlRequest.call(payload: mailbox_payload)
         else
           raise UnsupportedMailboxItemError, "unsupported agent program request #{request_kind.inspect}"
         end
@@ -159,7 +161,7 @@ module Fenix
           "error_payload" => error_payload,
         }.compact
 
-        emit_result(report: report, error_payload: error_payload)
+        emit_result(report: report, reports: [], error_payload: error_payload)
       end
 
       def emit_result(report:, reports:, error_payload:)
@@ -247,6 +249,13 @@ module Fenix
             "message" => error.message,
             "retryable" => false,
           }
+        when Fenix::Runtime::ExecuteConversationControlRequest::InvalidRequestError
+          {
+            "classification" => "semantic",
+            "code" => "invalid_conversation_control_request",
+            "message" => error.message,
+            "retryable" => false,
+          }
         else
           {
             "classification" => "runtime",
@@ -254,6 +263,20 @@ module Fenix
             "message" => error.message,
             "retryable" => false,
           }
+        end
+      end
+
+      def agent_program_request_error_payload_for(error)
+        case error
+        when Fenix::Runtime::ExecuteConversationControlRequest::InvalidRequestError
+          {
+            "classification" => "semantic",
+            "code" => "invalid_conversation_control_request",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        else
+          runtime_error_payload_for(error)
         end
       end
 

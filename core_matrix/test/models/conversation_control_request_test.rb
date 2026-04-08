@@ -80,4 +80,15 @@ class ConversationControlRequestTest < ActiveSupport::TestCase
     assert_not request.valid?
     assert_includes request.errors[:target_conversation], "must match the supervision session target conversation"
   end
+
+  test "has guidance projection indexes for conversation and subagent targets" do
+    indexes = ActiveRecord::Base.connection.indexes(:conversation_control_requests)
+
+    assert indexes.any? { |index|
+      index.columns == %w[installation_id request_kind lifecycle_state target_conversation_id completed_at]
+    }
+    assert indexes.any? { |index|
+      index.columns == %w[installation_id request_kind lifecycle_state target_public_id completed_at]
+    }
+  end
 end

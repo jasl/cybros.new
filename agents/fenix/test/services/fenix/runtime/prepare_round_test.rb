@@ -22,6 +22,13 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
             "context_imports" => [],
             "work_context_view" => {
               "goal" => "Ship the 2048 capstone",
+              "supervisor_guidance" => {
+                "guidance_scope" => "conversation",
+                "latest_guidance" => {
+                  "content" => "Stop and summarize the current blocker before coding.",
+                  "delivered_at" => "2026-04-09T12:00:00Z",
+                },
+              },
               "plan" => [
                 { "step" => "Implement runtime tools", "status" => "done" },
                 { "step" => "Build prompt pipeline", "status" => "in_progress" },
@@ -53,9 +60,11 @@ class Fenix::Runtime::PrepareRoundTest < ActiveSupport::TestCase
       assert_includes response.fetch("messages").first.fetch("content"), "## Code-Owned Base"
       assert_includes response.fetch("messages").first.fetch("content"), "## Role Overlay"
       assert_includes response.fetch("messages").first.fetch("content"), "## Workspace Instructions"
+      assert_includes response.fetch("messages").first.fetch("content"), "## Supervisor Guidance"
       assert_includes response.fetch("messages").first.fetch("content"), "## CoreMatrix Durable State"
       assert_includes response.fetch("messages").first.fetch("content"), "## Execution-Local Fenix Context"
       assert_includes response.fetch("messages").first.fetch("content"), "Stay inside agents/fenix unless the task explicitly spans projects."
+      assert_includes response.fetch("messages").first.fetch("content"), "Stop and summarize the current blocker before coding."
       assert_includes response.fetch("messages").first.fetch("content"), "\"goal\": \"Ship the 2048 capstone\""
       assert_equal "Build the 2048 acceptance path.", response.fetch("messages").second.fetch("content")
     end

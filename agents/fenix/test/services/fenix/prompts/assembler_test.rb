@@ -10,6 +10,13 @@ class Fenix::Prompts::AssemblerTest < ActiveSupport::TestCase
       durable_state: {
         "plan_status" => "in_progress",
         "active_goal" => "Ship the 2048 capstone",
+        "supervisor_guidance" => {
+          "guidance_scope" => "conversation",
+          "latest_guidance" => {
+            "content" => "Stop and summarize the latest blocker.",
+            "delivered_at" => "2026-04-09T12:00:00Z",
+          },
+        },
       },
       execution_context: {
         "memory" => "No conversation memory loaded.",
@@ -24,12 +31,14 @@ class Fenix::Prompts::AssemblerTest < ActiveSupport::TestCase
     assert system_prompt.index("## Code-Owned Base") < system_prompt.index("## Role Overlay")
     assert system_prompt.index("## Role Overlay") < system_prompt.index("## Workspace Instructions")
     assert system_prompt.index("## Workspace Instructions") < system_prompt.index("## Skill Overlay")
-    assert system_prompt.index("## Skill Overlay") < system_prompt.index("## CoreMatrix Durable State")
+    assert system_prompt.index("## Skill Overlay") < system_prompt.index("## Supervisor Guidance")
+    assert system_prompt.index("## Supervisor Guidance") < system_prompt.index("## CoreMatrix Durable State")
     assert system_prompt.index("## CoreMatrix Durable State") < system_prompt.index("## Execution-Local Fenix Context")
     assert_includes system_prompt, "You are Fenix."
     assert_includes system_prompt, "Serve the active user"
     assert_includes system_prompt, "Keep changes scoped to agents/fenix."
     assert_includes system_prompt, "Skill overlay: use test-driven development"
+    assert_includes system_prompt, "Stop and summarize the latest blocker."
     assert_includes system_prompt, "\"plan_status\": \"in_progress\""
     assert_includes system_prompt, "\"logical_work_id\": \"prepare-round:workflow-node-1\""
   end
@@ -50,6 +59,7 @@ class Fenix::Prompts::AssemblerTest < ActiveSupport::TestCase
     refute_includes system_prompt, "Serve the active user"
     assert_includes system_prompt, "No workspace instructions provided."
     assert_includes system_prompt, "No active skills loaded."
+    assert_includes system_prompt, "No active supervisor guidance."
     assert_includes system_prompt, "No durable state view provided by CoreMatrix."
   end
 end

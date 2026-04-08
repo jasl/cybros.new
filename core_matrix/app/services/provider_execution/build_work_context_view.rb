@@ -20,7 +20,8 @@ module ProviderExecution
         "primary_turn_todo" => primary_turn_todo,
         "active_children" => active_children,
         "supervision_snapshot" => supervision_snapshot,
-      }
+        "supervisor_guidance" => supervisor_guidance,
+      }.compact
     end
 
     private
@@ -77,6 +78,12 @@ module ProviderExecution
         "active_child_count" => board_card["active_subagent_count"],
         "board_badges" => board_card["board_badges"],
       }.compact
+    end
+
+    def supervisor_guidance
+      @supervisor_guidance ||= ConversationControl::BuildGuidanceProjection.call(
+        conversation: @conversation
+      )
     end
 
     def current_turn_todo

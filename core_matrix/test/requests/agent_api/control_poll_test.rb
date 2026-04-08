@@ -100,6 +100,56 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     assert_equal context[:turn].public_id, item.dig("payload", "task", "turn_id")
   end
 
+  test "poll returns supervision control request envelopes without leaking internal ids" do
+    context = build_agent_control_context!
+    supervision_session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "supervision_enabled" => true, "side_chat_enabled" => true, "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: supervision_session,
+      target_conversation: context[:conversation],
+      request_kind: "request_status_refresh",
+      target_kind: "conversation",
+      target_public_id: context[:conversation].public_id,
+      lifecycle_state: "queued",
+      request_payload: {},
+      result_payload: {}
+    )
+    mailbox_item = AgentControl::CreateConversationControlRequest.call(
+      conversation_control_request: control_request,
+      agent_program_version: context[:deployment],
+      request_kind: "supervision_status_refresh",
+      payload: {},
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    post "/agent_api/control/poll",
+      params: { limit: 10 },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    item = JSON.parse(response.body).fetch("mailbox_items").find { |entry| entry.fetch("item_id") == mailbox_item.public_id }
+
+    assert item.present?
+    assert_equal "agent_program_request", item.fetch("item_type")
+    assert_equal "supervision_status_refresh", item.dig("payload", "request_kind")
+    assert_equal control_request.public_id,
+      item.dig("payload", "conversation_control", "conversation_control_request_id")
+    assert_equal context[:conversation].public_id, item.dig("payload", "conversation_control", "conversation_id")
+    assert_equal context[:agent_program].public_id, item.dig("payload", "runtime_context", "agent_program_id")
+    assert_equal context[:user].public_id, item.dig("payload", "runtime_context", "user_id")
+    refute_includes response.body, %("#{control_request.id}")
+  end
+
   test "poll does not deliver executor-plane close requests from the writer path" do
     context = build_rotated_runtime_context!
     process_run = create_process_run!(

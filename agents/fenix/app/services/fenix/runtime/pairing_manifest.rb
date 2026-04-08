@@ -166,7 +166,12 @@ module Fenix
           "version" => "v1",
           "transport" => "mailbox-first",
           "delivery" => %w[websocket_push poll],
-          "methods" => %w[prepare_round execute_program_tool],
+          "methods" => %w[
+            prepare_round
+            execute_program_tool
+            supervision_status_refresh
+            supervision_guidance
+          ],
         }
       end
 

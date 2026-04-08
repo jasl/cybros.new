@@ -61,15 +61,21 @@ module AgentControl
       control_request = linked_conversation_control_request
       return if control_request.blank?
 
+      result_payload = control_request.result_payload.merge(
+        "mailbox_item_id" => mailbox_item.public_id,
+        "mailbox_status" => mailbox_item.status,
+        "mailbox_completed_at" => mailbox_item.completed_at&.iso8601,
+        "mailbox_failed_at" => mailbox_item.failed_at&.iso8601
+      ).compact
+      response_payload = @payload["response_payload"]
+      error_payload = @payload["error_payload"]
+      result_payload["response_payload"] = response_payload.deep_stringify_keys if response_payload.is_a?(Hash)
+      result_payload["error_payload"] = error_payload.deep_stringify_keys if error_payload.is_a?(Hash)
+
       control_request.update!(
         lifecycle_state: lifecycle_state,
         completed_at: @occurred_at,
-        result_payload: control_request.result_payload.merge(
-          "mailbox_item_id" => mailbox_item.public_id,
-          "mailbox_status" => mailbox_item.status,
-          "mailbox_completed_at" => mailbox_item.completed_at&.iso8601,
-          "mailbox_failed_at" => mailbox_item.failed_at&.iso8601
-        ).compact
+        result_payload:
       )
     end
 

@@ -29,6 +29,95 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     end
   end
 
+  test "execute_program_tool agent program requests emit a completed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      result = Fenix::Runtime::ExecuteMailboxItem.call(
+        mailbox_item: execute_program_tool_mailbox_item(
+          workspace_root: workspace_root,
+          allowed_tool_names: %w[exec_command]
+        ),
+        deliver_reports: true,
+        control_client: client
+      )
+
+      assert_equal "ok", result.fetch("status")
+      assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+      assert_equal "execute_program_tool", client.reported_payloads.last.fetch("request_kind")
+      assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
+      assert_equal "exec_command", client.reported_payloads.last.dig("response_payload", "program_tool_call", "tool_name")
+      assert_equal 0, client.reported_payloads.last.dig("response_payload", "result", "exit_status")
+    end
+  end
+
+  test "execute_program_tool failures emit a failed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execute_program_tool_mailbox_item(
+        workspace_root: Dir.tmpdir,
+        allowed_tool_names: []
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "failed", result.fetch("status")
+    assert_equal ["agent_program_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "execute_program_tool", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "tool_not_allowed", client.reported_payloads.last.dig("error_payload", "code")
+  end
+
+  test "supervision_status_refresh agent program requests emit a completed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: supervision_mailbox_item(request_kind: "supervision_status_refresh"),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "supervision_status_refresh", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "supervision_status_refresh", client.reported_payloads.last.dig("response_payload", "handled_request_kind")
+    assert_equal "status_refresh_acknowledged", client.reported_payloads.last.dig("response_payload", "control_outcome", "outcome_kind")
+  end
+
+  test "supervision_guidance agent program requests emit a completed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: supervision_mailbox_item(request_kind: "supervision_guidance"),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "supervision_guidance", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "supervision_guidance", client.reported_payloads.last.dig("response_payload", "handled_request_kind")
+    assert_equal "guidance_acknowledged", client.reported_payloads.last.dig("response_payload", "control_outcome", "outcome_kind")
+    assert_equal "Stop and summarize.", client.reported_payloads.last.dig("response_payload", "control_outcome", "content")
+  end
+
+  test "supervision_guidance without content emits a failed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    mailbox_item = supervision_mailbox_item(request_kind: "supervision_guidance")
+    mailbox_item.fetch("payload").delete("content")
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "failed", result.fetch("status")
+    assert_equal ["agent_program_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "invalid_conversation_control_request", client.reported_payloads.last.dig("error_payload", "code")
+  end
+
   test "skills execution assignments emit started and completed terminal reports" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
     original_load = Fenix::Skills::Load.method(:call)
@@ -167,6 +256,72 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         },
         "workspace_context" => {
           "workspace_root" => workspace_root,
+        },
+      },
+    }
+  end
+
+  def execute_program_tool_mailbox_item(workspace_root:, allowed_tool_names:)
+    {
+      "item_type" => "agent_program_request",
+      "item_id" => "mailbox-item-program-tool-1",
+      "protocol_message_id" => "protocol-message-program-tool-1",
+      "logical_work_id" => "program-tool:workflow-node-1:tool-call-1",
+      "attempt_no" => 1,
+      "control_plane" => "program",
+      "payload" => {
+        "request_kind" => "execute_program_tool",
+        "task" => {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "turn_step",
+        },
+        "agent_context" => {
+          "profile" => "main",
+          "allowed_tool_names" => allowed_tool_names,
+        },
+        "provider_context" => {
+          "provider_execution" => { "provider" => "openai" },
+          "model_context" => { "model_slug" => "gpt-5.4" },
+        },
+        "runtime_context" => {
+          "agent_program_version_id" => "agent-program-version-1",
+        },
+        "workspace_context" => {
+          "workspace_root" => workspace_root,
+        },
+        "program_tool_call" => {
+          "call_id" => "tool-call-1",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "printf 'hello\\n'",
+          },
+        },
+      },
+    }
+  end
+
+  def supervision_mailbox_item(request_kind:)
+    {
+      "item_type" => "agent_program_request",
+      "item_id" => "mailbox-item-#{request_kind}",
+      "protocol_message_id" => "protocol-message-#{request_kind}",
+      "logical_work_id" => "conversation-control:control-request-1:#{request_kind}",
+      "attempt_no" => 1,
+      "control_plane" => "program",
+      "payload" => {
+        "request_kind" => request_kind,
+        "content" => (request_kind == "supervision_guidance" ? "Stop and summarize." : nil),
+        "conversation_control" => {
+          "conversation_control_request_id" => "control-request-1",
+          "conversation_id" => "conversation-1",
+          "request_kind" => request_kind == "supervision_status_refresh" ? "request_status_refresh" : "send_guidance_to_active_agent",
+          "target_kind" => "conversation",
+          "target_public_id" => "conversation-1",
+        },
+        "runtime_context" => {
+          "agent_program_version_id" => "agent-program-version-1",
         },
       },
     }

@@ -103,12 +103,21 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
         "mailbox_item_id" => mailbox_item.public_id,
         "logical_work_id" => mailbox_item.logical_work_id,
         "attempt_no" => mailbox_item.attempt_no,
+        "response_payload" => {
+          "status" => "ok",
+          "control_outcome" => {
+            "outcome_kind" => "status_refresh_acknowledged",
+            "conversation_control_request_id" => control_request.public_id,
+          },
+        },
       }
     )
 
     assert_equal "completed", control_request.reload.lifecycle_state
     assert_equal mailbox_item.public_id, control_request.result_payload["mailbox_item_id"]
     assert_equal "completed", control_request.result_payload["mailbox_status"]
+    assert_equal "status_refresh_acknowledged",
+      control_request.result_payload.dig("response_payload", "control_outcome", "outcome_kind")
   end
 
   test "fails a linked conversation control request when a supervision mailbox request fails" do
@@ -149,11 +158,78 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
         "mailbox_item_id" => mailbox_item.public_id,
         "logical_work_id" => mailbox_item.logical_work_id,
         "attempt_no" => mailbox_item.attempt_no,
+        "error_payload" => {
+          "classification" => "runtime",
+          "code" => "guidance_delivery_failed",
+          "message" => "guidance could not be delivered",
+          "retryable" => false,
+        },
       }
     )
 
     assert_equal "failed", control_request.reload.lifecycle_state
     assert_equal mailbox_item.public_id, control_request.result_payload["mailbox_item_id"]
     assert_equal "failed", control_request.result_payload["mailbox_status"]
+    assert_equal "guidance_delivery_failed", control_request.result_payload.dig("error_payload", "code")
+  end
+
+  test "completed supervision guidance reports become durable guidance for the next round" do
+    context = build_agent_control_context!
+    supervision_session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "supervision_enabled" => true, "side_chat_enabled" => true, "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: supervision_session,
+      target_conversation: context[:conversation],
+      request_kind: "send_guidance_to_active_agent",
+      target_kind: "conversation",
+      target_public_id: context[:conversation].public_id,
+      lifecycle_state: "queued",
+      request_payload: { "content" => "Stop and summarize the blocker before coding." },
+      result_payload: {}
+    )
+    mailbox_item = AgentControl::CreateConversationControlRequest.call(
+      conversation_control_request: control_request,
+      agent_program_version: context[:deployment],
+      request_kind: "supervision_guidance",
+      payload: { "content" => "Stop and summarize the blocker before coding." },
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    AgentControl::HandleAgentProgramReport.call(
+      deployment: context[:deployment],
+      method_id: "agent_program_completed",
+      payload: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "logical_work_id" => mailbox_item.logical_work_id,
+        "attempt_no" => mailbox_item.attempt_no,
+        "response_payload" => {
+          "status" => "ok",
+          "control_outcome" => {
+            "outcome_kind" => "guidance_acknowledged",
+            "conversation_control_request_id" => control_request.public_id,
+            "conversation_id" => context[:conversation].public_id,
+            "target_kind" => "conversation",
+            "target_public_id" => context[:conversation].public_id,
+            "content" => "Stop and summarize the blocker before coding.",
+          },
+        },
+      }
+    )
+
+    projection = ConversationControl::BuildGuidanceProjection.call(
+      conversation: context[:conversation]
+    )
+
+    assert_equal control_request.public_id, projection.dig("latest_guidance", "conversation_control_request_id")
+    assert_equal "Stop and summarize the blocker before coding.", projection.dig("latest_guidance", "content")
   end
 end
