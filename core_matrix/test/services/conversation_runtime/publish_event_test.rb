@@ -49,7 +49,7 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
       conversation: context.fetch(:conversation),
       turn: context.fetch(:turn),
       workflow_node: context.fetch(:workflow_node),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
     stream_name = ConversationRuntime::StreamName.for_conversation(process_run.conversation)
 
@@ -85,7 +85,7 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context.fetch(:workspace),
-      execution_runtime: context.fetch(:execution_runtime),
+      executor_program: context.fetch(:executor_program),
       agent_program_version: context.fetch(:agent_program_version)
     )
     turn = Turns::StartUserTurn.call(

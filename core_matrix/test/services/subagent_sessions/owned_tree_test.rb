@@ -53,7 +53,7 @@ class SubagentSessions::OwnedTreeTest < ActiveSupport::TestCase
   def create_root_conversation!(context:)
     Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
   end
@@ -64,7 +64,7 @@ class SubagentSessions::OwnedTreeTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )

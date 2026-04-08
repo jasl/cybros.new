@@ -13,14 +13,14 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
 
     registration = AgentProgramVersions::Register.call(
       enrollment_token: enrollment.plaintext_token,
-      runtime_fingerprint: "fenix-host-a",
-      runtime_kind: "local",
-      runtime_connection_metadata: {
+      executor_fingerprint: "fenix-host-a",
+      executor_kind: "local",
+      executor_connection_metadata: {
         "transport" => "http",
         "base_url" => "http://127.0.0.1:4100",
       },
-      execution_capability_payload: {},
-      execution_tool_catalog: [],
+      executor_capability_payload: {},
+      executor_tool_catalog: [],
       fingerprint: "fenix-release-0.1.0",
       endpoint_metadata: {
         "transport" => "http",
@@ -59,7 +59,7 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal "pending", registration.deployment.bootstrap_state
-    assert_equal "fenix-host-a", registration.execution_runtime.runtime_fingerprint
+    assert_equal "fenix-host-a", registration.executor_program.executor_fingerprint
 
     travel_to Time.zone.parse("2026-03-24 12:00:00 UTC") do
       AgentProgramVersions::RecordHeartbeat.call(

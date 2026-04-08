@@ -36,7 +36,7 @@ class Installations::BootstrapBundledAgentBindingTest < ActiveSupport::TestCase
     assert_equal installation, result.workspace.installation
     assert result.workspace.is_default?
     assert_equal 1, AgentProgram.count
-    assert_equal 1, ExecutionRuntime.count
+    assert_equal 1, ExecutorProgram.count
     assert_equal 1, AgentProgramVersion.count
     assert_equal 1, UserProgramBinding.count
     assert_equal 1, Workspace.count

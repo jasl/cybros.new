@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the current conversation-bound deployment and execution-environment model with a turn-bound runtime model built around `AgentProgram`, `AgentProgramVersion`, optional `ExecutionRuntime`, and single-active session authentication.
+**Goal:** Replace the current conversation-bound deployment and execution-environment model with a turn-bound runtime model built around `AgentProgram`, `AgentProgramVersion`, optional `ExecutorProgram`, and single-active session authentication.
 
-**Architecture:** Reset the domain in one destructive migration pass. `Conversation` binds only to `AgentProgram`. `Turn` freezes `AgentProgramVersion` and optional `ExecutionRuntime`. Live authentication and control-plane ownership move to `AgentSession` and `ExecutionSession`. Capability assembly, attachment delivery, recovery, and bundled `Fenix` bootstrap are rewritten around the new model. Obsolete services, docs, and tests are deleted instead of shimmed.
+**Architecture:** Reset the domain in one destructive migration pass. `Conversation` binds only to `AgentProgram`. `Turn` freezes `AgentProgramVersion` and optional `ExecutorProgram`. Live authentication and control-plane ownership move to `AgentSession` and `ExecutorSession`. Capability assembly, attachment delivery, recovery, and bundled `Fenix` bootstrap are rewritten around the new model. Obsolete services, docs, and tests are deleted instead of shimmed.
 
 **Tech Stack:** Ruby on Rails, Active Record, Action Cable, Active Job, Active Storage, mailbox control-plane services, provider-backed agent loop in `core_matrix`, Dockerized `agents/fenix`, React acceptance app in mounted workspace, OpenRouter-backed model access from `core_matrix/.env`.
 
@@ -90,9 +90,9 @@ Expected: exit 0
 - Create: `core_matrix/app/models/agent_program.rb`
 - Create: `core_matrix/app/models/user_program_binding.rb`
 - Create: `core_matrix/app/models/agent_program_version.rb`
-- Create: `core_matrix/app/models/execution_runtime.rb`
+- Create: `core_matrix/app/models/executor_program.rb`
 - Create: `core_matrix/app/models/agent_session.rb`
-- Create: `core_matrix/app/models/execution_session.rb`
+- Create: `core_matrix/app/models/executor_session.rb`
 - Modify: `core_matrix/app/models/conversation.rb`
 - Modify: `core_matrix/app/models/turn.rb`
 - Modify: `core_matrix/app/models/process_run.rb`
@@ -104,9 +104,9 @@ Expected: exit 0
 - Test: `core_matrix/test/models/agent_program_test.rb`
 - Test: `core_matrix/test/models/user_program_binding_test.rb`
 - Test: `core_matrix/test/models/agent_program_version_test.rb`
-- Test: `core_matrix/test/models/execution_runtime_test.rb`
+- Test: `core_matrix/test/models/executor_program_test.rb`
 - Test: `core_matrix/test/models/agent_session_test.rb`
-- Test: `core_matrix/test/models/execution_session_test.rb`
+- Test: `core_matrix/test/models/executor_session_test.rb`
 - Test: `core_matrix/test/models/conversation_test.rb`
 - Test: `core_matrix/test/models/turn_test.rb`
 - Test: `core_matrix/test/models/process_run_test.rb`
@@ -115,7 +115,7 @@ Expected: exit 0
 
 - conversation binds only to agent program
 - turn requires agent program version
-- turn allows `execution_runtime` to be nil
+- turn allows `executor_program` to be nil
 - process run validates against turn execution runtime
 - single-active-session invariants
 - display-name persistence
@@ -127,7 +127,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/models/agent_program_test.rb test/models/user_program_binding_test.rb test/models/agent_program_version_test.rb test/models/execution_runtime_test.rb test/models/agent_session_test.rb test/models/execution_session_test.rb test/models/conversation_test.rb test/models/turn_test.rb test/models/process_run_test.rb
+bin/rails test test/models/agent_program_test.rb test/models/user_program_binding_test.rb test/models/agent_program_version_test.rb test/models/executor_program_test.rb test/models/agent_session_test.rb test/models/executor_session_test.rb test/models/conversation_test.rb test/models/turn_test.rb test/models/process_run_test.rb
 ```
 
 Expected: FAIL against the old model
@@ -144,7 +144,7 @@ Run:
 
 ```bash
 cd core_matrix && bin/rails db:drop && rm db/schema.rb && bin/rails db:create && bin/rails db:migrate && bin/rails db:reset
-bin/rails test test/models/agent_program_test.rb test/models/user_program_binding_test.rb test/models/agent_program_version_test.rb test/models/execution_runtime_test.rb test/models/agent_session_test.rb test/models/execution_session_test.rb test/models/conversation_test.rb test/models/turn_test.rb test/models/process_run_test.rb
+bin/rails test test/models/agent_program_test.rb test/models/user_program_binding_test.rb test/models/agent_program_version_test.rb test/models/executor_program_test.rb test/models/agent_session_test.rb test/models/executor_session_test.rb test/models/conversation_test.rb test/models/turn_test.rb test/models/process_run_test.rb
 ```
 
 Expected: PASS
@@ -159,7 +159,7 @@ Expected: PASS
 **Step 1: Write failing tests around the new helper contracts**
 
 - default test contexts produce `agent_program`, `agent_program_version`,
-  optional `execution_runtime`, and sessions
+  optional `executor_program`, and sessions
 - helper methods no longer expose old names
 
 **Step 2: Run the targeted helper tests or dependent model/service tests**
@@ -199,7 +199,7 @@ Expected: PASS
 - Modify: `core_matrix/app/services/turns/start_agent_turn.rb`
 - Modify: `core_matrix/app/services/turns/start_automation_turn.rb`
 - Modify: `core_matrix/app/services/turns/queue_follow_up.rb`
-- Create: `core_matrix/app/services/turns/select_execution_runtime.rb`
+- Create: `core_matrix/app/services/turns/select_executor_program.rb`
 - Create: `core_matrix/app/services/turns/freeze_program_version.rb`
 - Modify: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - Modify: `core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb`
@@ -253,8 +253,8 @@ Expected: PASS
 
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
-- Create: `core_matrix/app/controllers/program_api/base_controller.rb`
-- Create: `core_matrix/app/controllers/execution_api/base_controller.rb`
+- Create: `core_matrix/app/controllers/agent_api/base_controller.rb`
+- Create: `core_matrix/app/controllers/executor_api/base_controller.rb`
 - Port and rename controllers under `core_matrix/app/controllers/agent_api/`
 - Delete: `core_matrix/app/controllers/agent_api/**/*.rb`
 - Modify: `core_matrix/app/services/agent_control/create_execution_assignment.rb`
@@ -265,8 +265,8 @@ Expected: PASS
 - Modify: `core_matrix/app/services/agent_control/validate_close_report_freshness.rb`
 - Modify: `core_matrix/app/models/agent_control_mailbox_item.rb`
 - Modify: `core_matrix/app/channels/application_cable/connection.rb`
-- Test: `core_matrix/test/requests/program_api/**/*_test.rb`
-- Test: `core_matrix/test/requests/execution_api/**/*_test.rb`
+- Test: `core_matrix/test/requests/agent_api/**/*_test.rb`
+- Test: `core_matrix/test/requests/executor_api/**/*_test.rb`
 - Test: `core_matrix/test/services/agent_control/**/*_test.rb`
 - Test: `core_matrix/test/channels/application_cable/connection_test.rb`
 
@@ -356,7 +356,7 @@ Expected: PASS
 - Create: `core_matrix/app/services/execution_attachments/request.rb`
 - Create: `core_matrix/app/models/attachment_access_grant.rb`
 - Modify: `core_matrix/app/services/provider_execution/route_tool_call.rb`
-- Modify: `core_matrix/app/controllers/execution_api/*`
+- Modify: `core_matrix/app/controllers/executor_api/*`
 - Test: `core_matrix/test/services/attachments/materialize_refs_test.rb`
 - Test: `core_matrix/test/services/execution_attachments/request_test.rb`
 - Test: `core_matrix/test/integration/transcript_visibility_attachment_flow_test.rb`

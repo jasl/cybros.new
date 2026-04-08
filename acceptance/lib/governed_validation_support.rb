@@ -32,13 +32,13 @@ module GovernedValidationSupport
   def bootstrap_runtime!(
     agent_key:,
     display_name:,
-    runtime_fingerprint:,
+    executor_fingerprint:,
     fingerprint:,
     tool_catalog:,
     profile_catalog:,
     default_config_snapshot:,
-    execution_capability_payload: {},
-    execution_tool_catalog: []
+    executor_capability_payload: {},
+    executor_tool_catalog: []
   )
     raise "expected an empty database; run core_matrix_reset_backend_state first" if Installation.exists?
 
@@ -59,8 +59,8 @@ module GovernedValidationSupport
         display_name: display_name,
         visibility: "global",
         lifecycle_state: "active",
-        runtime_kind: "local",
-        runtime_fingerprint: runtime_fingerprint,
+        executor_kind: "local",
+        executor_fingerprint: executor_fingerprint,
         connection_metadata: {
           "transport" => "http",
           "base_url" => "http://127.0.0.1:4100",
@@ -70,8 +70,8 @@ module GovernedValidationSupport
           "base_url" => "http://127.0.0.1:4100",
           "runtime_manifest_path" => "/runtime/manifest",
         },
-        execution_capability_payload: execution_capability_payload,
-        execution_tool_catalog: execution_tool_catalog,
+        executor_capability_payload: executor_capability_payload,
+        executor_tool_catalog: executor_tool_catalog,
         fingerprint: fingerprint,
         protocol_version: "2026-03-24",
         sdk_version: "fenix-0.1.0",
@@ -123,8 +123,7 @@ module GovernedValidationSupport
   )
     conversation = Conversations::CreateRoot.call(
       workspace: workspace,
-      execution_runtime: deployment.execution_runtime,
-      agent_program_version: deployment
+      agent_program: deployment.agent_program
     )
 
     turn = Turns::StartUserTurn.call(

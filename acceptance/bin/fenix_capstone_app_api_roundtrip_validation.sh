@@ -27,13 +27,13 @@ machine_credential="$(
   ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("machine_credential")' \
     "${BOOTSTRAP_STATE_PATH}"
 )"
-execution_machine_credential="$(
-  ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("execution_machine_credential")' \
+executor_machine_credential="$(
+  ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("executor_machine_credential")' \
     "${BOOTSTRAP_STATE_PATH}"
 )"
 
 FENIX_MACHINE_CREDENTIAL="${machine_credential}" \
-FENIX_EXECUTION_MACHINE_CREDENTIAL="${execution_machine_credential}" \
+FENIX_EXECUTION_MACHINE_CREDENTIAL="${executor_machine_credential}" \
 CAPSTONE_RUNTIME_WORKER_BOOT_PATH="${RUNTIME_WORKER_BOOT_PATH}" \
 bash "${SCRIPT_DIR}/activate_fenix_docker_runtime.sh"
 

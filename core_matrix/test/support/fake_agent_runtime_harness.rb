@@ -10,11 +10,11 @@ class FakeAgentRuntimeHarness
     resource_close_failed
   ].freeze
 
-  def initialize(test_case:, deployment:, machine_credential:, execution_machine_credential: nil)
+  def initialize(test_case:, deployment:, machine_credential:, executor_machine_credential: nil)
     @test_case = test_case
     @deployment = deployment
     @machine_credential = machine_credential
-    @execution_machine_credential = execution_machine_credential
+    @executor_machine_credential = executor_machine_credential
   end
 
   attr_reader :deployment
@@ -41,11 +41,11 @@ class FakeAgentRuntimeHarness
 
   def poll!(limit: 10)
     program_response = post_and_parse(
-      "/program_api/control/poll",
+      "/agent_api/control/poll",
       params: { limit: limit },
-      headers: @test_case.send(:program_api_headers, @machine_credential)
+      headers: @test_case.send(:agent_api_headers, @machine_credential)
     )
-    execution_response = execution_machine_credential.present? ? poll_execution!(limit: limit) : nil
+    execution_response = executor_machine_credential.present? ? poll_execution!(limit: limit) : nil
 
     {
       "mailbox_items" => merge_mailbox_items(
@@ -57,31 +57,31 @@ class FakeAgentRuntimeHarness
 
   def report!(method_id:, **params)
     if execution_report?(method_id:, params:)
-      raise ArgumentError, "execution_machine_credential is required for #{method_id}" if execution_machine_credential.blank?
+      raise ArgumentError, "executor_machine_credential is required for #{method_id}" if executor_machine_credential.blank?
 
       return post_and_parse(
-        "/execution_api/control/report",
+        "/executor_api/control/report",
         params: params.merge(method_id: method_id),
-        headers: @test_case.send(:execution_api_headers, execution_machine_credential)
+        headers: @test_case.send(:executor_api_headers, executor_machine_credential)
       )
     end
 
     post_and_parse(
-      "/program_api/control/report",
+      "/agent_api/control/report",
       params: params.merge(method_id: method_id),
-      headers: @test_case.send(:program_api_headers, @machine_credential)
+      headers: @test_case.send(:agent_api_headers, @machine_credential)
     )
   end
 
   private
 
-  attr_reader :execution_machine_credential
+  attr_reader :executor_machine_credential
 
   def poll_execution!(limit:)
     post_and_parse(
-      "/execution_api/control/poll",
+      "/executor_api/control/poll",
       params: { limit: limit },
-      headers: @test_case.send(:execution_api_headers, execution_machine_credential)
+      headers: @test_case.send(:executor_api_headers, executor_machine_credential)
     )
   end
 

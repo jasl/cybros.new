@@ -19,7 +19,7 @@ class ProcessRun < ApplicationRecord
 
   belongs_to :installation
   belongs_to :workflow_node
-  belongs_to :execution_runtime
+  belongs_to :executor_program, class_name: "ExecutorProgram"
   belongs_to :conversation
   belongs_to :turn
   belongs_to :origin_message, class_name: "Message", optional: true
@@ -31,13 +31,13 @@ class ProcessRun < ApplicationRecord
   validates :command_line, presence: true
   validate :metadata_must_be_hash
   validate :workflow_node_installation_match
-  validate :execution_runtime_installation_match
+  validate :executor_program_installation_match
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :origin_message_installation_match
   validate :workflow_node_turn_match
   validate :workflow_node_conversation_match
-  validate :turn_execution_runtime_match
+  validate :turn_executor_program_match
   validate :origin_message_turn_match
   validate :origin_message_conversation_match
   validate :timeout_rules
@@ -64,11 +64,11 @@ class ProcessRun < ApplicationRecord
     errors.add(:workflow_node, "must belong to the same installation")
   end
 
-  def execution_runtime_installation_match
-    return if execution_runtime.blank?
-    return if execution_runtime.installation_id == installation_id
+  def executor_program_installation_match
+    return if executor_program.blank?
+    return if executor_program.installation_id == installation_id
 
-    errors.add(:execution_runtime, "must belong to the same installation")
+    errors.add(:executor_program, "must belong to the same installation")
   end
 
   def conversation_installation_match
@@ -106,11 +106,11 @@ class ProcessRun < ApplicationRecord
     errors.add(:conversation, "must match the workflow run conversation")
   end
 
-  def turn_execution_runtime_match
-    return if turn.blank? || execution_runtime.blank?
-    return if turn.execution_runtime_id == execution_runtime_id
+  def turn_executor_program_match
+    return if turn.blank? || executor_program.blank?
+    return if turn.executor_program_id == executor_program_id
 
-    errors.add(:execution_runtime, "must match the turn execution runtime")
+    errors.add(:executor_program, "must match the turn executor program")
   end
 
   def origin_message_turn_match

@@ -322,11 +322,11 @@ module ManualAcceptanceSupport
     }
   end
 
-  def run_fenix_mailbox_pump_once!(machine_credential:, execution_machine_credential: machine_credential, limit: 10, inline: true)
+  def run_fenix_mailbox_pump_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true)
     run_fenix_runtime_task!(
       task_name: "runtime:mailbox_pump_once",
       machine_credential:,
-      execution_machine_credential:,
+      executor_machine_credential:,
       env: {
         "LIMIT" => limit.to_s,
         "INLINE" => inline ? "true" : "false",
@@ -334,11 +334,11 @@ module ManualAcceptanceSupport
     )
   end
 
-  def run_fenix_control_loop_once!(machine_credential:, execution_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5)
+  def run_fenix_control_loop_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5)
     run_fenix_runtime_task!(
       task_name: "runtime:control_loop_once",
       machine_credential:,
-      execution_machine_credential:,
+      executor_machine_credential:,
       env: {
         "LIMIT" => limit.to_s,
         "INLINE" => inline ? "true" : "false",
@@ -347,12 +347,12 @@ module ManualAcceptanceSupport
     )
   end
 
-  def run_fenix_runtime_task!(task_name:, machine_credential:, execution_machine_credential: machine_credential, env:)
+  def run_fenix_runtime_task!(task_name:, machine_credential:, executor_machine_credential: machine_credential, env:)
     project_root = fenix_project_root
     task_env = {
       "CORE_MATRIX_BASE_URL" => CONTROL_BASE_URL,
       "CORE_MATRIX_MACHINE_CREDENTIAL" => machine_credential,
-      "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL" => execution_machine_credential,
+      "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL" => executor_machine_credential,
       "BUNDLE_GEMFILE" => project_root.join("Gemfile").to_s,
     }.merge(env)
 
@@ -374,12 +374,12 @@ module ManualAcceptanceSupport
     JSON.parse(stdout)
   end
 
-  def with_fenix_control_worker!(machine_credential:, execution_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5)
+  def with_fenix_control_worker!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5)
     project_root = fenix_project_root
     task_env = {
       "CORE_MATRIX_BASE_URL" => CONTROL_BASE_URL,
       "CORE_MATRIX_MACHINE_CREDENTIAL" => machine_credential,
-      "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL" => execution_machine_credential,
+      "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL" => executor_machine_credential,
       "BUNDLE_GEMFILE" => project_root.join("Gemfile").to_s,
       "LIMIT" => limit.to_s,
       "INLINE" => inline ? "true" : "false",
@@ -537,17 +537,17 @@ module ManualAcceptanceSupport
   def register_external_runtime!(
     enrollment_token:,
     runtime_base_url:,
-    runtime_fingerprint:,
+    executor_fingerprint:,
     fingerprint:
   )
     manifest = live_manifest(base_url: runtime_base_url)
     registration = http_post_json(
-      "#{CONTROL_BASE_URL}/program_api/registrations",
+      "#{CONTROL_BASE_URL}/agent_api/registrations",
       {
         enrollment_token: enrollment_token,
-        runtime_fingerprint: runtime_fingerprint,
-        runtime_kind: "local",
-        runtime_connection_metadata: manifest.fetch("runtime_connection_metadata", {
+        executor_fingerprint: executor_fingerprint,
+        executor_kind: "local",
+        executor_connection_metadata: manifest.fetch("executor_connection_metadata", {
           "transport" => "http",
           "base_url" => runtime_base_url,
         }),
@@ -555,8 +555,8 @@ module ManualAcceptanceSupport
         endpoint_metadata: manifest.fetch("endpoint_metadata"),
         protocol_version: manifest.fetch("protocol_version"),
         sdk_version: manifest.fetch("sdk_version"),
-        execution_capability_payload: manifest.fetch("execution_capability_payload", {}),
-        execution_tool_catalog: manifest.fetch("execution_tool_catalog", []),
+        executor_capability_payload: manifest.fetch("executor_capability_payload", {}),
+        executor_tool_catalog: manifest.fetch("executor_tool_catalog", []),
         protocol_methods: manifest.fetch("protocol_methods"),
         tool_catalog: manifest.fetch("tool_catalog"),
         profile_catalog: manifest.fetch("profile_catalog"),
@@ -566,9 +566,9 @@ module ManualAcceptanceSupport
       }
     )
     machine_credential = registration.fetch("machine_credential")
-    execution_machine_credential = registration.fetch("execution_machine_credential", machine_credential)
+    executor_machine_credential = registration.fetch("executor_machine_credential", machine_credential)
     heartbeat = http_post_json(
-      "#{CONTROL_BASE_URL}/program_api/heartbeats",
+      "#{CONTROL_BASE_URL}/agent_api/heartbeats",
       {
         health_status: "healthy",
         health_metadata: { "release" => manifest.fetch("sdk_version") },
@@ -577,16 +577,16 @@ module ManualAcceptanceSupport
       headers: token_headers(machine_credential)
     )
     agent_program_version = AgentProgramVersion.find_by_public_id!(registration.fetch("agent_program_version_id"))
-    execution_runtime = registration["execution_runtime_id"].present? ? ExecutionRuntime.find_by_public_id!(registration.fetch("execution_runtime_id")) : nil
+    executor_program = registration["executor_program_id"].present? ? ExecutorProgram.find_by_public_id!(registration.fetch("executor_program_id")) : nil
 
     {
       manifest: manifest,
       registration: registration,
       heartbeat: heartbeat,
       machine_credential: machine_credential,
-      execution_machine_credential: execution_machine_credential,
+      executor_machine_credential: executor_machine_credential,
       agent_program_version: agent_program_version,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       deployment: agent_program_version,
     }
   end
@@ -594,32 +594,32 @@ module ManualAcceptanceSupport
   def register_bundled_runtime_from_manifest!(
     installation:,
     runtime_base_url:,
-    runtime_fingerprint:,
+    executor_fingerprint:,
     fingerprint:,
     sdk_version:
   )
     manifest = live_manifest(base_url: runtime_base_url)
     session_credential = SecureRandom.hex(32)
-    execution_session_credential = SecureRandom.hex(32)
+    executor_session_credential = SecureRandom.hex(32)
     runtime = Installations::RegisterBundledAgentRuntime.call(
       installation: installation,
       session_credential: session_credential,
-      execution_session_credential: execution_session_credential,
+      executor_session_credential: executor_session_credential,
       configuration: {
         enabled: true,
         agent_key: "fenix",
         display_name: "Bundled Fenix",
         visibility: "global",
         lifecycle_state: "active",
-        runtime_kind: "local",
-        runtime_fingerprint: runtime_fingerprint,
+        executor_kind: "local",
+        executor_fingerprint: executor_fingerprint,
         connection_metadata: {
           "transport" => "http",
           "base_url" => runtime_base_url,
         },
         endpoint_metadata: manifest.fetch("endpoint_metadata"),
-        execution_capability_payload: manifest.fetch("execution_capability_payload", {}),
-        execution_tool_catalog: manifest.fetch("execution_tool_catalog", []),
+        executor_capability_payload: manifest.fetch("executor_capability_payload", {}),
+        executor_tool_catalog: manifest.fetch("executor_tool_catalog", []),
         fingerprint: fingerprint,
         protocol_version: manifest.fetch("protocol_version"),
         sdk_version: sdk_version,
@@ -636,7 +636,7 @@ module ManualAcceptanceSupport
       manifest: manifest,
       runtime: runtime,
       machine_credential: runtime.session_credential || session_credential,
-      execution_machine_credential: runtime.execution_session_credential || execution_session_credential,
+      executor_machine_credential: runtime.executor_session_credential || executor_session_credential,
     }
   end
 
@@ -670,7 +670,7 @@ module ManualAcceptanceSupport
     conversation:,
     agent_program_version: nil,
     deployment: nil,
-    execution_runtime: nil,
+    executor_program: nil,
     content:,
     root_node_key:,
     root_node_type:,
@@ -685,7 +685,7 @@ module ManualAcceptanceSupport
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: content,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -721,7 +721,7 @@ module ManualAcceptanceSupport
     conversation:,
     agent_program_version: nil,
     deployment: nil,
-    execution_runtime: nil,
+    executor_program: nil,
     content:,
     selector_source: "conversation",
     selector:
@@ -729,7 +729,7 @@ module ManualAcceptanceSupport
     run = start_turn_workflow_on_conversation!(
       conversation: conversation,
       agent_program_version: agent_program_version || deployment,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       content: content,
       root_node_key: "turn_step",
       root_node_type: "turn_step",
@@ -745,7 +745,7 @@ module ManualAcceptanceSupport
     agent_program_version: nil,
     deployment: nil,
     machine_credential:,
-    execution_machine_credential: machine_credential,
+    executor_machine_credential: machine_credential,
     runtime_base_url: nil,
     content:,
     mode:,
@@ -769,12 +769,12 @@ module ManualAcceptanceSupport
       if delivery_mode == "realtime"
         run_fenix_control_loop_once!(
           machine_credential:,
-          execution_machine_credential:
+          executor_machine_credential:
         )
       else
         run_fenix_mailbox_pump_once!(
           machine_credential:,
-          execution_machine_credential:
+          executor_machine_credential:
         )
       end
     agent_task_run = wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))

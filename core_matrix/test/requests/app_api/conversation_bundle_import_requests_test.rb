@@ -80,7 +80,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     imported_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     request = ConversationBundleImportRequest.new(

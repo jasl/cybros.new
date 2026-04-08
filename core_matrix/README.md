@@ -92,7 +92,7 @@ claims real loop behavior, validation must include:
   `../acceptance/bin/*`, and are intended to be run through
   `bin/rails runner ../acceptance/scenarios/...`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
-  stable `runtime_fingerprint`; the manual checklist currently exports that
+  stable `executor_fingerprint`; the manual checklist currently exports that
   through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
   `CORE_MATRIX_ENROLLMENT_TOKEN`.
 - Publication verification remains service-level in phase 1 because public

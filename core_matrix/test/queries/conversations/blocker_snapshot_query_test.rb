@@ -18,7 +18,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     )
     create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -26,7 +26,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: root,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment]
     )
 
@@ -66,7 +66,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     )
     create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -80,13 +80,13 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
 
   private
 
-  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_program_version:)
+  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, executor_program:, agent_program_version:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       agent_program_version: agent_program_version,
       addressability: "agent_addressable"
     )

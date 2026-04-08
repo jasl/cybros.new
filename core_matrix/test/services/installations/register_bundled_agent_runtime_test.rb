@@ -59,6 +59,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal 1, AgentSession.count
     assert_equal 1, ExecutorSession.count
     assert_equal 0, UserProgramBinding.count
+    assert_equal first.executor_program, first.agent_program.default_executor_program
     assert_equal "active", first.deployment.bootstrap_state
     assert first.deployment.healthy?
     assert_equal first.agent_session, AgentSession.find_by_plaintext_session_credential(first.session_credential)

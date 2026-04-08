@@ -218,7 +218,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
@@ -265,7 +265,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program: context[:agent_program]
     )
 
@@ -485,7 +485,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       lifecycle_state: "running",
       command_line: "cd /workspace/game-2048 && npm run dev -- --host 0.0.0.0 --port 4173",
       started_at: 20.seconds.ago
@@ -615,7 +615,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       lifecycle_state: "running",
       command_line: "cd /workspace/game-2048 && npm run preview",
       started_at: 20.seconds.ago
@@ -687,7 +687,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     create_process_run!(
       workflow_node: context[:workflow_node],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       lifecycle_state: "stopped",
       command_line: "cd /workspace/game-2048 && npm run preview",
       started_at: 20.seconds.ago,
@@ -741,7 +741,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: parent_context[:workspace],
       installation: parent_context[:installation],
       parent_conversation: parent_context[:conversation],
-      execution_runtime: parent_context[:execution_runtime],
+      executor_program: parent_context[:executor_program],
       agent_program_version: parent_context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
@@ -822,7 +822,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
@@ -831,7 +831,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"
@@ -971,7 +971,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"

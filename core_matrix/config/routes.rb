@@ -13,7 +13,7 @@ Rails.application.routes.draw do
   root "home#index"
   mount ActionCable.server => "/cable"
 
-  namespace :program_api do
+  namespace :agent_api do
     resources :registrations, only: :create
     resources :heartbeats, only: :create
     resource :health, only: :show, controller: :health
@@ -44,7 +44,7 @@ Rails.application.routes.draw do
     post "control/report", to: "control#report"
   end
 
-  namespace :execution_api do
+  namespace :executor_api do
     resources :command_runs, only: :create do
       post :activate, on: :member
     end

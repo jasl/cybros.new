@@ -18,7 +18,7 @@ class AgentProgramVersions::BuildRecoveryPlanTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     drifted_snapshot = create_capability_snapshot!(
       agent_program_version: replacement,
@@ -55,7 +55,7 @@ class AgentProgramVersions::BuildRecoveryPlanTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     AgentProgramVersions::RecordHeartbeat.call(
       deployment: replacement,
@@ -81,7 +81,7 @@ class AgentProgramVersions::BuildRecoveryPlanTest < ActiveSupport::TestCase
     replacement = create_profile_aware_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       profile_catalog: default_profile_catalog.deep_merge(
         "main" => { "allowed_tool_names" => %w[exec_command] }
       )
@@ -121,7 +121,7 @@ class AgentProgramVersions::BuildRecoveryPlanTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -156,13 +156,13 @@ class AgentProgramVersions::BuildRecoveryPlanTest < ActiveSupport::TestCase
   def create_profile_aware_replacement_deployment!(
     installation:,
     agent_program:,
-    execution_runtime:,
+    executor_program:,
     profile_catalog:
   )
     deployment = create_compatible_replacement_deployment!(
       installation: installation,
       agent_program: agent_program,
-      execution_runtime: execution_runtime
+      executor_program: executor_program
     )
     capability_snapshot = create_capability_snapshot!(
       agent_program_version: deployment,

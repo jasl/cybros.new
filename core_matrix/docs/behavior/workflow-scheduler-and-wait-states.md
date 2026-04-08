@@ -284,9 +284,9 @@ job. No automatic retention policy is implemented here yet.
   `resource_close_request(request_kind = "archive_force_quiesce")`
 - close-request delivery for both archive and interrupt now follows the durable
   mailbox routing contract:
-  - `runtime_plane`
+  - `control_plane`
   - `target_ref`
-  - optional `target_execution_runtime_id`
+  - optional `target_executor_program_id`
   rather than payload-based runtime inference
 - `Conversations::ReconcileCloseOperation` is the single writer for archive
   close lifecycle state, `summary_payload`, and archive-side
@@ -312,8 +312,8 @@ job. No automatic retention policy is implemented here yet.
 - the active turn is fenced through `turn_interrupt`
 - detached background processes are closed through mailbox
   `resource_close_request(request_kind = "deletion_force_quiesce")`
-- execution-plane close terminal reports are accepted only from the active
-  execution session for the owning `ExecutionRuntime`, and they re-enter close
+- executor-plane close terminal reports are accepted only from the active
+  executor session for the owning `ExecutorProgram`, and they re-enter close
   reconciliation through the dedicated close-report handler family
 - delete also records a durable
   `ConversationCloseOperation(intent_kind = "delete")`

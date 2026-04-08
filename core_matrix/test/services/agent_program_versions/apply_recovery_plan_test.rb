@@ -46,7 +46,7 @@ class AgentProgramVersions::ApplyRecoveryPlanTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     AgentProgramVersions::RecordHeartbeat.call(
       deployment: replacement,
@@ -82,7 +82,7 @@ class AgentProgramVersions::ApplyRecoveryPlanTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     AgentProgramVersions::RecordHeartbeat.call(
       deployment: replacement,
@@ -112,7 +112,7 @@ class AgentProgramVersions::ApplyRecoveryPlanTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     AgentProgramVersions::RecordHeartbeat.call(
       deployment: replacement,

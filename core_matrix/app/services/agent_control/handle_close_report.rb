@@ -4,10 +4,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, execution_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
       @deployment = deployment
       @agent_session = agent_session
-      @execution_session = execution_session
+      @executor_session = executor_session
       @resource = resource
       @method_id = method_id
       @payload = payload
@@ -25,7 +25,7 @@ module AgentControl
         resource.with_lock do
           ValidateCloseReportFreshness.call(
             deployment: @deployment,
-            execution_session: @execution_session,
+            executor_session: @executor_session,
             payload: @payload,
             mailbox_item: mailbox_item,
             resource: resource,

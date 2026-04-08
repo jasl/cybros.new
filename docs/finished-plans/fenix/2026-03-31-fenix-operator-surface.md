@@ -65,7 +65,7 @@ test "pairing manifest exposes operator groups for execution tools" do
 
   assert_includes groups.keys, "workspace"
   assert_includes groups.keys, "command_run"
-  assert body.fetch("execution_tool_catalog").any? { |entry| entry["operator_group"] == "workspace" }
+  assert body.fetch("executor_tool_catalog").any? { |entry| entry["operator_group"] == "workspace" }
 end
 ```
 

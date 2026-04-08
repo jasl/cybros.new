@@ -89,16 +89,6 @@ class Turn < ApplicationRecord
     @execution_snapshot ||= TurnExecutionSnapshot.new(turn: self)
   end
 
-  alias_attribute :execution_runtime_id, :executor_program_id
-
-  def execution_runtime
-    executor_program
-  end
-
-  def execution_runtime=(value)
-    self.executor_program = value
-  end
-
   def pinned_capability_snapshot_version
     1
   end

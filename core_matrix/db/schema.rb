@@ -49,6 +49,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.datetime "available_at", null: false
     t.string "causation_id"
     t.datetime "completed_at"
+    t.string "control_plane", null: false
     t.datetime "created_at", null: false
     t.integer "delivery_no", default: 0, null: false
     t.datetime "dispatch_deadline_at", null: false
@@ -68,7 +69,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.integer "priority", default: 1, null: false
     t.string "protocol_message_id", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.string "runtime_plane", null: false
     t.string "status", default: "queued", null: false
     t.bigint "target_agent_program_id", null: false
     t.bigint "target_agent_program_version_id"
@@ -83,11 +83,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["leased_to_executor_session_id"], name: "idx_on_leased_to_executor_session_id_124fa768b3"
     t.index ["payload_document_id"], name: "index_agent_control_mailbox_items_on_payload_document_id"
     t.index ["public_id"], name: "index_agent_control_mailbox_items_on_public_id", unique: true
-    t.index ["target_agent_program_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_program_delivery"
+    t.index ["target_agent_program_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_program_delivery"
     t.index ["target_agent_program_id"], name: "index_agent_control_mailbox_items_on_target_agent_program_id"
-    t.index ["target_agent_program_version_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_program_version_delivery"
+    t.index ["target_agent_program_version_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_program_version_delivery"
     t.index ["target_agent_program_version_id"], name: "idx_on_target_agent_program_version_id_a8e4deca40"
-    t.index ["target_executor_program_id", "runtime_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_execution_delivery"
+    t.index ["target_executor_program_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_execution_delivery"
     t.index ["target_executor_program_id"], name: "idx_on_target_executor_program_id_52b64049f9"
     t.index ["workflow_node_id"], name: "index_agent_control_mailbox_items_on_workflow_node_id"
   end

@@ -98,7 +98,7 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Build request context",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: resolved_config_snapshot,
       resolved_model_selection_snapshot: {}
     )

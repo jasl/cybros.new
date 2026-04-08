@@ -1,7 +1,7 @@
 plugin_id: system.exec_command
 version: 1
 display_name: Exec Command
-default_runtime_plane: execution
+default_control_plane: executor
 tool_catalog:
   - tool_name: exec_command
     tool_kind: kernel_primitive

@@ -14,11 +14,11 @@ class RuntimeCapabilityContract
   end
 
   def initialize(
-    execution_runtime: nil,
+    executor_program: nil,
     agent_program_version: nil,
     capability_snapshot: nil,
-    execution_capability_payload: nil,
-    execution_tool_catalog: nil,
+    executor_capability_payload: nil,
+    executor_tool_catalog: nil,
     protocol_methods: nil,
     tool_catalog: nil,
     profile_catalog: nil,
@@ -27,13 +27,13 @@ class RuntimeCapabilityContract
     default_config_snapshot: nil,
     core_matrix_tool_catalog: []
   )
-    @execution_runtime = execution_runtime
+    @executor_program = executor_program
     @agent_program_version = agent_program_version || capability_snapshot
-    @execution_capability_payload = normalize_hash(
-      execution_capability_payload.nil? ? execution_runtime&.capability_payload : execution_capability_payload
+    @executor_capability_payload = normalize_hash(
+      executor_capability_payload.nil? ? @executor_program&.capability_payload : executor_capability_payload
     )
-    @execution_tool_catalog = normalize_array(
-      execution_tool_catalog.nil? ? execution_runtime&.tool_catalog : execution_tool_catalog
+    @executor_tool_catalog = normalize_array(
+      executor_tool_catalog.nil? ? @executor_program&.tool_catalog : executor_tool_catalog
     )
     @protocol_methods = normalize_array(
       protocol_methods.nil? ? agent_program_version&.protocol_methods : protocol_methods
@@ -56,12 +56,12 @@ class RuntimeCapabilityContract
     @core_matrix_tool_catalog = normalize_array(core_matrix_tool_catalog)
   end
 
-  def execution_capability_payload
-    @execution_capability_payload.deep_dup
+  def executor_capability_payload
+    @executor_capability_payload.deep_dup
   end
 
-  def execution_tool_catalog
-    normalize_tool_catalog(@execution_tool_catalog)
+  def executor_tool_catalog
+    normalize_tool_catalog(@executor_tool_catalog)
   end
 
   def protocol_methods
@@ -92,17 +92,17 @@ class RuntimeCapabilityContract
     @agent_program_version&.fingerprint
   end
 
-  def execution_plane
+  def executor_plane
     {
-      "runtime_plane" => "execution",
-      "capability_payload" => execution_capability_payload,
-      "tool_catalog" => execution_tool_catalog,
+      "control_plane" => "executor",
+      "capability_payload" => executor_capability_payload,
+      "tool_catalog" => executor_tool_catalog,
     }
   end
 
   def program_plane
     {
-      "runtime_plane" => "program",
+      "control_plane" => "program",
       "program_version_fingerprint" => program_version_fingerprint,
       "protocol_methods" => protocol_methods,
       "tool_catalog" => program_tool_catalog,
@@ -119,7 +119,7 @@ class RuntimeCapabilityContract
     reserved_entries = {}
     reserved_order = []
 
-    [@core_matrix_tool_catalog, execution_tool_catalog, program_tool_catalog].each do |catalog|
+    [@core_matrix_tool_catalog, executor_tool_catalog, program_tool_catalog].each do |catalog|
       catalog.each do |entry|
         tool_name = entry.fetch("tool_name")
 
@@ -162,17 +162,17 @@ class RuntimeCapabilityContract
     }.compact
   end
 
-  def capability_response(method_id:, execution_runtime_id:, runtime_fingerprint:, reconciliation_report: nil)
+  def capability_response(method_id:, executor_program_id:, executor_fingerprint:, reconciliation_report: nil)
     contract_payload(
       method_id: method_id,
       reconciliation_report: reconciliation_report
     ).merge(
-      "execution_runtime_id" => execution_runtime_id,
-      "runtime_fingerprint" => runtime_fingerprint,
-      "execution_capability_payload" => execution_capability_payload,
-      "execution_tool_catalog" => execution_tool_catalog,
+      "executor_program_id" => executor_program_id,
+      "executor_fingerprint" => executor_fingerprint,
+      "executor_capability_payload" => executor_capability_payload,
+      "executor_tool_catalog" => executor_tool_catalog,
       "program_plane" => program_plane,
-      "execution_plane" => execution_plane,
+      "executor_plane" => executor_plane,
       "effective_tool_catalog" => effective_tool_catalog
     ).compact
   end

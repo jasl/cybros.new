@@ -15,41 +15,41 @@ class AgentRuntimeResourceApiTest < ActionDispatch::IntegrationTest
       source_workflow_run: context[:workflow_run]
     )
 
-    post "/program_api/conversation_variables/set",
+    post "/agent_api/conversation_variables/set",
       params: {
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
         key: "customer_name",
         typed_value_payload: { type: "string", value: "Acme China" },
       },
-      headers: program_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:machine_credential]),
       as: :json
 
     assert_response :created
 
-    get "/program_api/conversation_variables/resolve",
+    get "/agent_api/conversation_variables/resolve",
       params: {
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
       },
-      headers: program_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:machine_credential])
 
     assert_response :success
     resolve_body = JSON.parse(response.body)
 
-    get "/program_api/capabilities", headers: program_api_headers(registration[:machine_credential])
+    get "/agent_api/capabilities", headers: agent_api_headers(registration[:machine_credential])
 
     assert_response :success
     capabilities_body = JSON.parse(response.body)
 
-    post "/program_api/human_interactions",
+    post "/agent_api/human_interactions",
       params: {
         workflow_node_id: context[:workflow_node].public_id,
         request_type: "ApprovalRequest",
         blocking: true,
         request_payload: { approval_scope: "publish" },
       },
-      headers: program_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:machine_credential]),
       as: :json
 
     assert_response :created

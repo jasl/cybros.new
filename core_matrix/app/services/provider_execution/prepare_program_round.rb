@@ -34,7 +34,7 @@ module ProviderExecution
         "agent_context" => agent_context,
         "provider_context" => @workflow_run.execution_snapshot.provider_context,
         "runtime_context" => {
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "logical_work_id" => "prepare-round:#{@workflow_node.public_id}",
           "attempt_no" => 1,
           "agent_program_version_id" => @workflow_run.turn.agent_program_version.public_id,

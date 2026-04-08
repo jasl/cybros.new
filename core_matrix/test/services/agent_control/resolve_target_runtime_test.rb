@@ -11,21 +11,21 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
 
     result = AgentControl::ResolveTargetRuntime.call(mailbox_item: mailbox_item)
 
-    assert_equal "program", result.runtime_plane
-    assert_nil result.execution_runtime
+    assert_equal "program", result.control_plane
+    assert_nil result.executor_program
     assert_equal context[:agent_session], result.delivery_endpoint
     assert result.matches?(context[:deployment])
   end
 
-  test "routes execution-plane work by execution runtime instead of program hints" do
+  test "routes executor-plane work by executor program instead of program hints" do
     context = build_agent_control_context!
     other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent_program: other_agent_program,
-      target_execution_runtime: context[:execution_runtime],
+      target_executor_program: context[:executor_program],
       item_type: "resource_close_request",
-      runtime_plane: "execution",
+      control_plane: "executor",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -36,10 +36,10 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
 
     result = AgentControl::ResolveTargetRuntime.call(mailbox_item: mailbox_item)
 
-    assert_equal "execution", result.runtime_plane
-    assert_equal context[:execution_runtime], result.execution_runtime
-    assert_equal context[:execution_session], result.delivery_endpoint
-    assert result.matches?(context[:execution_session])
+    assert_equal "executor", result.control_plane
+    assert_equal context[:executor_program], result.executor_program
+    assert_equal context[:executor_session], result.delivery_endpoint
+    assert result.matches?(context[:executor_session])
     refute result.matches?(context[:deployment])
   end
 end

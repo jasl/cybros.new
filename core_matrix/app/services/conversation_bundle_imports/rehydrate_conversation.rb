@@ -38,8 +38,8 @@ module ConversationBundleImports
       @parsed_bundle.fetch("file_bytes")
     end
 
-    def target_execution_runtime
-      @target_execution_runtime ||= target_agent_program_version.agent_program.default_execution_runtime
+    def target_executor_program
+      @target_executor_program ||= target_agent_program_version.agent_program.default_executor_program
     end
 
     def restore_conversation_timestamps!(conversation)
@@ -70,7 +70,7 @@ module ConversationBundleImports
           installation: conversation.installation,
           conversation: conversation,
           agent_program_version: target_agent_program_version,
-          execution_runtime: target_execution_runtime,
+          executor_program: target_executor_program,
           sequence: index + 1,
           lifecycle_state: "completed",
           origin_kind: "system_internal",

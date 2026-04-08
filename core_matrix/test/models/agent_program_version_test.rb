@@ -21,7 +21,7 @@ class AgentProgramVersionTest < ActiveSupport::TestCase
     assert_equal ["conversation_variables_mget"], version.protocol_methods.map { |entry| entry.fetch("method_id") }
     assert_equal ["agent_lookup"], version.tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal 0.2, version.default_config_snapshot.fetch("temperature")
-    assert_nil AgentProgramVersion.reflect_on_association(:execution_runtime)
+    assert_nil AgentProgramVersion.reflect_on_association(:executor_program)
   end
 
   test "requires installation-local fingerprint uniqueness" do

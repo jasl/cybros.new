@@ -1,7 +1,7 @@
 plugin_id: system.workspace
 version: 1
 display_name: Workspace
-default_runtime_plane: execution
+default_control_plane: executor
 tool_catalog:
   - tool_name: workspace_read
     tool_kind: kernel_primitive

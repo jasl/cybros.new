@@ -47,8 +47,8 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
 
       client.register!(
         enrollment_token: "enroll-123",
-        runtime_fingerprint: "fenix:test",
-        runtime_connection_metadata: { "transport" => "http" },
+        executor_fingerprint: "fenix:test",
+        executor_connection_metadata: { "transport" => "http" },
         fingerprint: "deployment-fingerprint",
         endpoint_metadata: { "base_url" => "https://fenix.example.test" },
         protocol_version: "agent-program/2026-04-01",
@@ -61,12 +61,12 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
     heartbeat_request = requests.fetch(1)
 
     assert_equal "POST", register_request.fetch(:method)
-    assert_equal "/program_api/registrations", register_request.fetch(:path)
+    assert_equal "/agent_api/registrations", register_request.fetch(:path)
     assert_nil register_request.fetch(:authorization)
     assert_equal "enroll-123", register_request.fetch(:json_body).fetch("enrollment_token")
 
     assert_equal "POST", heartbeat_request.fetch(:method)
-    assert_equal "/program_api/heartbeats", heartbeat_request.fetch(:path)
+    assert_equal "/agent_api/heartbeats", heartbeat_request.fetch(:path)
     assert_equal %(Token token="secret"), heartbeat_request.fetch(:authorization)
     assert_equal "healthy", heartbeat_request.fetch(:json_body).fetch("health_status")
   end
@@ -137,32 +137,32 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
     end
 
     assert_equal [
-      "GET /program_api/health",
-      "GET /program_api/capabilities",
-      "POST /program_api/capabilities",
-      "GET /program_api/conversation_transcripts?conversation_id=conversation-1&limit=10",
-      "GET /program_api/conversation_variables/get?workspace_id=workspace-1&conversation_id=conversation-1&key=customer_name",
-      "POST /program_api/conversation_variables/mget",
-      "GET /program_api/conversation_variables/exists?workspace_id=workspace-1&conversation_id=conversation-1&key=customer_name",
-      "GET /program_api/conversation_variables/list_keys?workspace_id=workspace-1&conversation_id=conversation-1&limit=5",
-      "GET /program_api/conversation_variables/resolve?workspace_id=workspace-1&conversation_id=conversation-1",
-      "POST /program_api/conversation_variables/set",
-      "POST /program_api/conversation_variables/delete",
-      "POST /program_api/conversation_variables/promote",
-      "GET /program_api/workspace_variables?workspace_id=workspace-1",
-      "GET /program_api/workspace_variables/get?workspace_id=workspace-1&key=support_tier",
-      "POST /program_api/workspace_variables/mget",
-      "POST /program_api/workspace_variables/write",
-      "POST /program_api/human_interactions",
-      "POST /program_api/tool_invocations",
-      "POST /execution_api/command_runs",
-      "POST /execution_api/command_runs/command-run-1/activate",
-      "POST /execution_api/process_runs",
-      "POST /execution_api/attachments/request",
-      "POST /program_api/control/poll",
-      "POST /execution_api/control/poll",
-      "POST /execution_api/control/report",
-      "POST /program_api/control/report",
+      "GET /agent_api/health",
+      "GET /agent_api/capabilities",
+      "POST /agent_api/capabilities",
+      "GET /agent_api/conversation_transcripts?conversation_id=conversation-1&limit=10",
+      "GET /agent_api/conversation_variables/get?workspace_id=workspace-1&conversation_id=conversation-1&key=customer_name",
+      "POST /agent_api/conversation_variables/mget",
+      "GET /agent_api/conversation_variables/exists?workspace_id=workspace-1&conversation_id=conversation-1&key=customer_name",
+      "GET /agent_api/conversation_variables/list_keys?workspace_id=workspace-1&conversation_id=conversation-1&limit=5",
+      "GET /agent_api/conversation_variables/resolve?workspace_id=workspace-1&conversation_id=conversation-1",
+      "POST /agent_api/conversation_variables/set",
+      "POST /agent_api/conversation_variables/delete",
+      "POST /agent_api/conversation_variables/promote",
+      "GET /agent_api/workspace_variables?workspace_id=workspace-1",
+      "GET /agent_api/workspace_variables/get?workspace_id=workspace-1&key=support_tier",
+      "POST /agent_api/workspace_variables/mget",
+      "POST /agent_api/workspace_variables/write",
+      "POST /agent_api/human_interactions",
+      "POST /agent_api/tool_invocations",
+      "POST /executor_api/command_runs",
+      "POST /executor_api/command_runs/command-run-1/activate",
+      "POST /executor_api/process_runs",
+      "POST /executor_api/attachments/request",
+      "POST /agent_api/control/poll",
+      "POST /executor_api/control/poll",
+      "POST /executor_api/control/report",
+      "POST /agent_api/control/report",
     ], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
     assert_equal Array.new(18, %(Token token="secret")) +
       Array.new(4, %(Token token="execution-secret")) +
@@ -199,7 +199,7 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
   end
 
   def default_response_for(request)
-    return { "mailbox_items" => [] } if ["/program_api/control/poll", "/execution_api/control/poll"].include?(request.path)
+    return { "mailbox_items" => [] } if ["/agent_api/control/poll", "/executor_api/control/poll"].include?(request.path)
 
     { "result" => "accepted" }
   end

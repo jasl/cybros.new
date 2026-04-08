@@ -73,7 +73,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     conversation.update!(enabled_feature_ids: Conversation::FEATURE_IDS - ["human_interaction"])

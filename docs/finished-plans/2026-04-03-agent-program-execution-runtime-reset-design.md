@@ -65,12 +65,12 @@ The user-approved target behavior for the reset is:
 - `Turn` must freeze:
   - the chosen program version
   - the chosen execution runtime when one is used
-- `ExecutionRuntime` is optional
+- `ExecutorProgram` is optional
 - some turns must be able to run with no execution runtime at all
-- `ExecutionRuntime` is a program or service that exposes execution-oriented
+- `ExecutorProgram` is a program or service that exposes execution-oriented
   tools
-- `ExecutionRuntime` is not a synonym for host machine
-- both `AgentProgram` and `ExecutionRuntime` need persistent user-facing
+- `ExecutorProgram` is not a synonym for host machine
+- both `AgentProgram` and `ExecutorProgram` need persistent user-facing
   `display_name`
 - agent-plane routing is not product identity; it is delivery routing
 - if multiple copies of the same agent program try to connect, only one may be
@@ -89,14 +89,14 @@ The user-approved target behavior for the reset is:
 - `AgentInstallation` becomes `AgentProgram`
 - `UserAgentBinding` becomes `UserProgramBinding`
 - `AgentDeployment` becomes `AgentProgramVersion`
-- `ExecutionEnvironment` becomes `ExecutionRuntime`
+- `ExecutionEnvironment` becomes `ExecutorProgram`
 
 ### New Live Connection Models
 
 - `AgentSession`
   - the single active program-plane connection for one `AgentProgram`
-- `ExecutionSession`
-  - the single active execution-plane connection for one `ExecutionRuntime`
+- `ExecutorSession`
+  - the single active execution-plane connection for one `ExecutorProgram`
 
 ### Plane Names
 
@@ -107,11 +107,11 @@ The control-plane enum values should be renamed from:
 
 The API namespaces should be renamed from:
 
-- `agent_api` -> `program_api`
-- `environment_api` -> `execution_api`
+- `agent_api` -> `agent_api`
+- `environment_api` -> `executor_api`
 
 This keeps naming aligned with the new domain model and avoids mixing
-`ExecutionRuntime` with an old `environment` vocabulary.
+`ExecutorProgram` with an old `environment` vocabulary.
 
 ## New Aggregate Responsibilities
 
@@ -159,9 +159,9 @@ It does not own:
 `CapabilitySnapshot` should be removed and folded into this aggregate instead
 of remaining as a second immutable version layer.
 
-### `ExecutionRuntime`
+### `ExecutorProgram`
 
-`ExecutionRuntime` is an optional external execution host that can expose
+`ExecutorProgram` is an optional external execution host that can expose
 execution-oriented tools such as:
 
 - command execution
@@ -205,9 +205,9 @@ It belongs to:
 
 Single-active-session is enforced per `AgentProgram`.
 
-### `ExecutionSession`
+### `ExecutorSession`
 
-`ExecutionSession` is the live, authenticated, single-active execution-plane
+`ExecutorSession` is the live, authenticated, single-active execution-plane
 connection.
 
 It owns:
@@ -219,9 +219,9 @@ It owns:
 
 It belongs to:
 
-- one `ExecutionRuntime`
+- one `ExecutorProgram`
 
-Single-active-session is enforced per `ExecutionRuntime`.
+Single-active-session is enforced per `ExecutorProgram`.
 
 ### `Conversation`
 
@@ -242,7 +242,7 @@ It belongs to:
 It must not belong to:
 
 - `AgentProgramVersion`
-- `ExecutionRuntime`
+- `ExecutorProgram`
 
 ### `Turn`
 
@@ -252,7 +252,7 @@ It belongs to:
 
 - one `Conversation`
 - one `AgentProgramVersion`
-- zero or one `ExecutionRuntime`
+- zero or one `ExecutorProgram`
 
 It freezes:
 
@@ -268,12 +268,12 @@ It freezes:
 - `agent_installations` -> `agent_programs`
 - `user_agent_bindings` -> `user_program_bindings`
 - `agent_deployments` -> `agent_program_versions`
-- `execution_environments` -> `execution_runtimes`
+- `execution_environments` -> `executor_programs`
 
 ### Add Tables
 
 - `agent_sessions`
-- `execution_sessions`
+- `executor_sessions`
 
 ### Remove Columns
 
@@ -284,7 +284,7 @@ From `conversations`:
 
 From `agent_program_versions`:
 
-- `execution_runtime_id`
+- `executor_program_id`
 - machine credential digest
 - heartbeat state
 - realtime link state
@@ -302,17 +302,17 @@ To `conversations`:
 To `turns`:
 
 - `agent_program_version_id`
-- `execution_runtime_id`, nullable
+- `executor_program_id`, nullable
 
 To `agent_programs`:
 
 - `display_name`
-- optional `default_execution_runtime_id`, nullable
+- optional `default_executor_program_id`, nullable
 
-To `execution_runtimes`:
+To `executor_programs`:
 
 - `display_name`
-- `runtime_fingerprint`
+- `executor_fingerprint`
 
 ### Fold Or Remove Tables
 
@@ -326,22 +326,22 @@ To `execution_runtimes`:
 Every new turn must go through a single application boundary that resolves:
 
 - the active `AgentSession`
-- the selected `ExecutionRuntime`, if any
+- the selected `ExecutorProgram`, if any
 - the derived capability surface
 
 ### Execution Runtime Selection Policy
 
-`Turns::SelectExecutionRuntime` should resolve runtime selection in this order:
+`Turns::SelectExecutorProgram` should resolve runtime selection in this order:
 
-1. explicitly requested `execution_runtime_id`
-2. previous turn's `execution_runtime_id`
-3. `AgentProgram.default_execution_runtime_id`
+1. explicitly requested `executor_program_id`
+2. previous turn's `executor_program_id`
+3. `AgentProgram.default_executor_program_id`
 4. `nil`
 
 Behavior:
 
 - if the result is `nil`, the turn remains valid
-- if a runtime is selected, an active `ExecutionSession` must exist
+- if a runtime is selected, an active `ExecutorSession` must exist
 - if the runtime session is missing or stale, turn creation fails closed
 
 ### Program Version Selection Policy
@@ -361,14 +361,14 @@ Capability assembly should become turn-scoped rather than conversation-scoped.
 ### Inputs
 
 - `Core Matrix` tool catalog
-- `ExecutionRuntime` tool catalog, when a runtime is present
+- `ExecutorProgram` tool catalog, when a runtime is present
 - `AgentProgramVersion` program tool catalog
 
 ### Precedence
 
 For ordinary tool names:
 
-1. `ExecutionRuntime`
+1. `ExecutorProgram`
 2. `AgentProgramVersion`
 3. `Core Matrix`
 
@@ -417,8 +417,8 @@ Add an execution-plane request such as:
 Expected behavior:
 
 - input uses `public_id` values only
-- validates that the authenticated `ExecutionSession` belongs to the turn's
-  frozen `ExecutionRuntime`
+- validates that the authenticated `ExecutorSession` belongs to the turn's
+  frozen `ExecutorProgram`
 - returns an expiring execution-local handle
 
 I recommend a durable but short-lived access-grant row to support:
@@ -437,12 +437,12 @@ matches the new model.
 
 Program-plane requests authenticate `AgentSession`.
 
-Execution-plane requests authenticate `ExecutionSession`.
+Execution-plane requests authenticate `ExecutorSession`.
 
 No API should authenticate directly as:
 
 - `AgentProgramVersion`
-- `ExecutionRuntime`
+- `ExecutorProgram`
 
 ### Single-Active Session
 
@@ -464,8 +464,8 @@ Program-plane work:
 
 Execution-plane work:
 
-- new work targets the logical `ExecutionRuntime`
-- leased in-flight work belongs to one `ExecutionSession`
+- new work targets the logical `ExecutorProgram`
+- leased in-flight work belongs to one `ExecutorSession`
 
 This keeps delivery routing out of the product identity layer.
 
@@ -503,7 +503,7 @@ but those are two composable roles, not one domain identity.
 Bundled bootstrap must therefore become:
 
 1. register or reconcile bundled `AgentProgram`
-2. register or reconcile bundled `ExecutionRuntime`
+2. register or reconcile bundled `ExecutorProgram`
 3. establish bundled defaults or composition policy
 4. create user binding against the `AgentProgram`
 

@@ -32,7 +32,7 @@ class ConversationBundleImportRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     imported_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     other_workspace = create_workspace!(
@@ -42,7 +42,7 @@ class ConversationBundleImportRequestTest < ActiveSupport::TestCase
     )
     foreign_conversation = Conversations::CreateRoot.call(
       workspace: other_workspace,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
 

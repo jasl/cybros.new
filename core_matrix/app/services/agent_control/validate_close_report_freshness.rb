@@ -4,9 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, execution_session: nil, payload:, mailbox_item:, resource:, occurred_at: Time.current)
+    def initialize(deployment:, executor_session: nil, payload:, mailbox_item:, resource:, occurred_at: Time.current)
       @deployment = deployment
-      @execution_session = execution_session
+      @executor_session = executor_session
       @payload = payload
       @mailbox_item = mailbox_item
       @resource = resource
@@ -23,23 +23,23 @@ module AgentControl
       stale! unless @resource.close_requested_at.present?
       stale! if @resource.close_closed? || @resource.close_failed?
 
-      return unless @mailbox_item.execution_plane?
+      return unless @mailbox_item.executor_plane?
 
-      resource_environment = ClosableResourceRouting.execution_runtime_for(@resource)
+      resource_environment = ClosableResourceRouting.executor_program_for(@resource)
       stale! if resource_environment.blank?
-      stale! unless @mailbox_item.target_execution_runtime_id == resource_environment.id
+      stale! unless @mailbox_item.target_executor_program_id == resource_environment.id
 
-      if @execution_session.present?
-        stale! unless @execution_session.execution_runtime_id == resource_environment.id
+      if @executor_session.present?
+        stale! unless @executor_session.executor_program_id == resource_environment.id
       else
-        stale! unless ExecutionSessions::ResolveActiveSession.call(execution_runtime: resource_environment).present?
+        stale! unless ExecutorSessions::ResolveActiveSession.call(executor_program: resource_environment).present?
       end
     end
 
     private
 
     def lease_owner
-      return @execution_session if @mailbox_item.execution_plane?
+      return @executor_session if @mailbox_item.executor_plane?
 
       @deployment
     end

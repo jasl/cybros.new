@@ -20,12 +20,12 @@ module AgentProgramVersions
     def initialize(
       agent_session: nil,
       deployment:,
-      execution_runtime: nil,
+      executor_program: nil,
       fingerprint:,
       protocol_version:,
       sdk_version:,
-      execution_capability_payload: nil,
-      execution_tool_catalog: nil,
+      executor_capability_payload: nil,
+      executor_tool_catalog: nil,
       protocol_methods:,
       tool_catalog:,
       profile_catalog:,
@@ -35,12 +35,12 @@ module AgentProgramVersions
     )
       @agent_session = agent_session
       @deployment = deployment
-      @execution_runtime = execution_runtime
+      @executor_program = executor_program
       @fingerprint = fingerprint
       @protocol_version = protocol_version
       @sdk_version = sdk_version
-      @execution_capability_payload = execution_capability_payload
-      @execution_tool_catalog = execution_tool_catalog
+      @executor_capability_payload = executor_capability_payload
+      @executor_tool_catalog = executor_tool_catalog
       @protocol_methods = protocol_methods
       @tool_catalog = tool_catalog
       @profile_catalog = profile_catalog
@@ -69,22 +69,22 @@ module AgentProgramVersions
       candidate.errors.delete(:fingerprint)
       raise ActiveRecord::RecordInvalid, candidate if candidate.errors.any?
 
-      if @execution_runtime.present? && (!@execution_capability_payload.nil? || !@execution_tool_catalog.nil?)
-        ExecutionRuntimes::RecordCapabilities.call(
-          execution_runtime: @execution_runtime,
-          capability_payload: @execution_capability_payload || @execution_runtime.capability_payload,
-          tool_catalog: @execution_tool_catalog || @execution_runtime.tool_catalog
+      if @executor_program.present? && (!@executor_capability_payload.nil? || !@executor_tool_catalog.nil?)
+        ExecutorPrograms::RecordCapabilities.call(
+          executor_program: @executor_program,
+          capability_payload: @executor_capability_payload || @executor_program.capability_payload,
+          tool_catalog: @executor_tool_catalog || @executor_program.tool_catalog
         )
       end
 
       runtime_capability_contract = RuntimeCapabilityContract.build(
-        execution_runtime: @execution_runtime || @deployment.agent_program.default_execution_runtime,
+        executor_program: @executor_program || @deployment.agent_program.default_executor_program,
         agent_program_version: @deployment
       )
 
       ToolBindings::ProjectCapabilitySnapshot.call(
         agent_program_version: @deployment,
-        execution_runtime: @execution_runtime || @deployment.agent_program.default_execution_runtime
+        executor_program: @executor_program || @deployment.agent_program.default_executor_program
       )
 
       Result.new(

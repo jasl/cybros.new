@@ -37,7 +37,7 @@ and safe deletion support.
 - program binding and turn execution snapshots:
   - one fixed `AgentProgram`
   - each turn freezes one `AgentProgramVersion`
-  - each turn may optionally freeze one `ExecutionRuntime`
+  - each turn may optionally freeze one `ExecutorProgram`
 - feature policy:
   - `enabled_feature_ids`
   - `during_generation_input_policy`
@@ -50,7 +50,7 @@ running.
 Program binding is a separate independent concern. A conversation stays bound
 to one logical `AgentProgram` for its whole lifetime. Concrete execution
 identity is frozen per turn: each turn captures the active
-`AgentProgramVersion` and may also capture an optional `ExecutionRuntime`.
+`AgentProgramVersion` and may also capture an optional `ExecutorProgram`.
 
 Feature policy is conversation-owned durable execution state. It is not a UI
 hint and it is not recomputed from controller parameters when live work is
@@ -207,7 +207,7 @@ already in flight.
 - detached background processes are closed through mailbox close requests with
   `request_kind = "archive_force_quiesce"`
 - those process-close requests target the process run's frozen
-  `ExecutionRuntime` as the durable owner and resolve the live execution
+  `ExecutorProgram` as the durable owner and resolve the live execution
   session separately
 - `Conversations::ReconcileCloseOperation` is the single writer for archive
   close progression; local turn fencing and mailbox terminal close reports both

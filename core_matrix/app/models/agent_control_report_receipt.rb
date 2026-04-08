@@ -2,12 +2,12 @@ class AgentControlReportReceipt < ApplicationRecord
   STRUCTURED_PAYLOAD_KEYS = %w[
     attempt_no
     conversation_id
+    control_plane
     logical_work_id
     mailbox_item_id
     method_id
     protocol_message_id
     request_kind
-    runtime_plane
     turn_id
     workflow_node_id
   ].freeze
@@ -16,7 +16,7 @@ class AgentControlReportReceipt < ApplicationRecord
 
   belongs_to :installation
   belongs_to :agent_session, optional: true
-  belongs_to :execution_session, optional: true
+  belongs_to :executor_session, class_name: "ExecutorSession", optional: true
   belongs_to :agent_task_run, optional: true
   belongs_to :mailbox_item, class_name: "AgentControlMailboxItem", optional: true
   belongs_to :report_document, class_name: "JsonDocument", optional: true
@@ -39,6 +39,10 @@ class AgentControlReportReceipt < ApplicationRecord
   def payload=(value)
     @pending_payload = value
     @pending_payload_requires_materialization = true
+  end
+
+  def control_plane
+    mailbox_item&.control_plane
   end
 
   private
@@ -88,7 +92,7 @@ class AgentControlReportReceipt < ApplicationRecord
       "logical_work_id" => logical_work_id,
       "attempt_no" => attempt_no,
       "mailbox_item_id" => mailbox_item&.public_id,
-      "runtime_plane" => mailbox_item&.runtime_plane,
+      "control_plane" => mailbox_item&.control_plane,
       "request_kind" => mailbox_item&.payload&.fetch("request_kind", nil),
       "conversation_id" => resolved_conversation&.public_id,
       "turn_id" => resolved_turn&.public_id,

@@ -3,7 +3,7 @@ module AgentProgramVersionRecoveryTestSupport
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -61,7 +61,7 @@ module AgentProgramVersionRecoveryTestSupport
   def create_compatible_replacement_deployment!(
     installation:,
     agent_program:,
-    execution_runtime: create_execution_runtime!(installation: installation)
+    executor_program: create_executor_program!(installation: installation)
   )
     active_snapshot = agent_program.current_agent_program_version
     deployment = create_agent_program_version!(
@@ -75,7 +75,7 @@ module AgentProgramVersionRecoveryTestSupport
       conversation_override_schema_snapshot: active_snapshot&.conversation_override_schema_snapshot || {},
       default_config_snapshot: active_snapshot&.default_config_snapshot || default_default_config_snapshot(include_selector_slots: true)
     )
-    agent_program.update!(default_execution_runtime: execution_runtime)
+    agent_program.update!(default_executor_program: executor_program)
     AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
       updated_at: Time.current
@@ -89,13 +89,13 @@ module AgentProgramVersionRecoveryTestSupport
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
-    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+    ExecutorSession.where(executor_program: executor_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
       updated_at: Time.current
     )
-    create_execution_session!(
+    create_executor_session!(
       installation: installation,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       last_heartbeat_at: Time.current
     )
     deployment

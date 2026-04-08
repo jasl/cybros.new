@@ -7,7 +7,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -35,7 +35,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     root_turn = Turns::StartUserTurn.call(
@@ -84,7 +84,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     source_turn = Turns::StartUserTurn.call(
@@ -192,7 +192,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       lifecycle_state: "stopped",
       ended_at: 1.minute.ago
     )
@@ -258,7 +258,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -314,7 +314,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -395,7 +395,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -442,7 +442,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -489,7 +489,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     stale_conversation = Conversation.find(conversation.id)
@@ -517,7 +517,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -545,7 +545,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -574,7 +574,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     branch = Conversations::CreateFork.call(parent: root)
@@ -619,7 +619,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     branch = Conversations::CreateFork.call(parent: root)
@@ -641,7 +641,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     branch = Conversations::CreateFork.call(parent: root)
@@ -649,7 +649,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: branch,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
 
@@ -671,7 +671,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: branch,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment]
     )
     branch.lineage_store_reference.destroy!
@@ -876,13 +876,13 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     }
   end
 
-  def create_nested_subagent_session_tree!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_program_version:)
+  def create_nested_subagent_session_tree!(installation:, workspace:, owner_conversation:, executor_program:, agent_program_version:)
     direct_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       agent_program_version: agent_program_version,
       addressability: "agent_addressable"
     )
@@ -900,7 +900,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       workspace: workspace,
       parent_conversation: direct_conversation,
       kind: "fork",
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       agent_program_version: agent_program_version,
       addressability: "agent_addressable"
     )

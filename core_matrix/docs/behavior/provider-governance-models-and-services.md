@@ -133,7 +133,7 @@ governance stay separate concerns:
   implementations inside an installation
 - the current source kinds are:
   - `core_matrix`
-  - `execution_runtime`
+  - `executor_program`
   - `agent`
   - `kernel`
   - `mcp`
@@ -190,7 +190,7 @@ governance stay separate concerns:
 #### `ToolBindings::ProjectCapabilitySnapshot`
 
 - projects durable governed rows from one `AgentProgramVersion` plus the bound
-  `ExecutionRuntime`
+  `ExecutorProgram`
 - resolves the effective tool winner through the existing
   `RuntimeCapabilityContract`
 - persists all candidate implementations for each projected logical tool and

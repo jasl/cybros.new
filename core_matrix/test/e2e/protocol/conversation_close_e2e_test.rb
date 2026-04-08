@@ -7,21 +7,21 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       test_case: self,
       deployment: context[:deployment],
       machine_credential: context[:machine_credential],
-      execution_machine_credential: context[:execution_machine_credential]
+      executor_machine_credential: context[:executor_machine_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:execution_session].public_id : context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:executor_session].public_id : context[:deployment].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -66,14 +66,14 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       test_case: self,
       deployment: context[:deployment],
       machine_credential: context[:machine_credential],
-      execution_machine_credential: context[:execution_machine_credential]
+      executor_machine_credential: context[:executor_machine_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -81,7 +81,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:execution_session].public_id : context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:executor_session].public_id : context[:deployment].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -149,21 +149,21 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       test_case: self,
       deployment: context[:deployment],
       machine_credential: context[:machine_credential],
-      execution_machine_credential: context[:execution_machine_credential]
+      executor_machine_credential: context[:executor_machine_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:execution_session].public_id : context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:executor_session].public_id : context[:deployment].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -229,7 +229,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )

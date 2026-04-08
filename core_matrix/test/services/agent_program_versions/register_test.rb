@@ -16,16 +16,16 @@ class AgentProgramVersions::RegisterTest < ActiveSupport::TestCase
 
     result = AgentProgramVersions::Register.call(
       enrollment_token: enrollment.plaintext_token,
-      runtime_fingerprint: "fenix-host-a",
-      runtime_kind: "container",
-      runtime_connection_metadata: {
+      executor_fingerprint: "fenix-host-a",
+      executor_kind: "container",
+      executor_connection_metadata: {
         "transport" => "http",
         "base_url" => "https://runtime.example.test",
       },
-      execution_capability_payload: {
+      executor_capability_payload: {
         "attachment_access" => { "request_attachment" => true },
       },
-      execution_tool_catalog: [],
+      executor_tool_catalog: [],
       fingerprint: "fenix-release-0.1.0",
       endpoint_metadata: {
         "transport" => "http",
@@ -64,7 +64,7 @@ class AgentProgramVersions::RegisterTest < ActiveSupport::TestCase
     )
 
     assert result.enrollment.reload.consumed?
-    assert_equal result.execution_runtime, result.deployment.agent_program.default_execution_runtime
+    assert_equal result.executor_program, result.deployment.agent_program.default_executor_program
     assert_equal result.deployment, result.agent_session.agent_program_version
     assert result.agent_session.pending?
     assert_equal result.agent_session, AgentSession.find_by_plaintext_session_credential(result.session_credential)
@@ -85,16 +85,16 @@ class AgentProgramVersions::RegisterTest < ActiveSupport::TestCase
 
     result = AgentProgramVersions::Register.call(
       enrollment_token: enrollment.plaintext_token,
-      runtime_fingerprint: "fenix-host-a",
-      runtime_kind: "container",
-      runtime_connection_metadata: {
+      executor_fingerprint: "fenix-host-a",
+      executor_kind: "container",
+      executor_connection_metadata: {
         transport: "http",
         base_url: "https://runtime.example.test",
       },
-      execution_capability_payload: {
+      executor_capability_payload: {
         attachment_access: { request_attachment: true },
       },
-      execution_tool_catalog: [],
+      executor_tool_catalog: [],
       fingerprint: "fenix-release-0.1.0",
       endpoint_metadata: {
         transport: "http",

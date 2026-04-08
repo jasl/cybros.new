@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ProgramApiCoverageContractTest < ActiveSupport::TestCase
-  test "fenix control client covers the current core matrix program_api surface" do
+  test "fenix control client covers the current core matrix agent_api surface" do
     client = Fenix::Runtime::ControlClient.new(
       base_url: "https://core-matrix.example.test",
       machine_credential: "secret"

@@ -15,7 +15,7 @@ class Fenix::Runtime::PayloadContextTest < ActiveSupport::TestCase
     assert_equal payload.fetch("task_payload"), context.fetch("task_payload")
     assert_equal payload.dig("runtime_context", "logical_work_id"), context.fetch("logical_work_id")
     assert_equal payload.dig("runtime_context", "attempt_no"), context.fetch("attempt_no")
-    assert_equal payload.dig("runtime_context", "runtime_plane"), context.fetch("runtime_plane")
+    assert_equal payload.dig("runtime_context", "control_plane"), context.fetch("control_plane")
     assert_equal payload.dig("runtime_context", "agent_program_version_id"),
       context.dig("runtime_identity", "agent_program_version_id")
     assert_equal payload.dig("conversation_projection", "messages"), context.fetch("context_messages")
@@ -37,19 +37,19 @@ class Fenix::Runtime::PayloadContextTest < ActiveSupport::TestCase
     mailbox_item = runtime_assignment_payload
     mailbox_item["logical_work_id"] = "logical-work-from-mailbox"
     mailbox_item["attempt_no"] = 3
-    mailbox_item["runtime_plane"] = "program"
+    mailbox_item["control_plane"] = "program"
     mailbox_item.fetch("payload")["runtime_context"] = {
       "agent_program_version_id" => "agent-program-version-public-id",
     }
 
     context = Fenix::Runtime::PayloadContext.call(
       payload: mailbox_item.fetch("payload"),
-      defaults: mailbox_item.slice("logical_work_id", "attempt_no", "runtime_plane")
+      defaults: mailbox_item.slice("logical_work_id", "attempt_no", "control_plane")
     )
 
     assert_equal "logical-work-from-mailbox", context.fetch("logical_work_id")
     assert_equal 3, context.fetch("attempt_no")
-    assert_equal "program", context.fetch("runtime_plane")
+    assert_equal "program", context.fetch("control_plane")
   end
 
   test "accepts compact program payloads that use round_context and agent_context" do

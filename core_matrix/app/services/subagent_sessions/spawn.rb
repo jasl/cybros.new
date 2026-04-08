@@ -142,7 +142,7 @@ module SubagentSessions
 
     def runtime_contract(conversation:)
       @runtime_contract ||= RuntimeCapabilityContract.build(
-        execution_runtime: Turns::SelectExecutionRuntime.call(conversation: conversation),
+        executor_program: Turns::SelectExecutorProgram.call(conversation: conversation),
         agent_program_version: Turns::FreezeProgramVersion.call(conversation: conversation),
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )

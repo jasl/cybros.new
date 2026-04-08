@@ -137,12 +137,12 @@
   - `core_matrix/test/services/agent_control/report_test.rb`
 - Counterpoint: one ingress endpoint for duplicate/stale handling is a good
   idea and should not be discarded.
-- Related concepts: mailbox targeting, runtime planes, stale reports, leases,
+- Related concepts: mailbox targeting, control planes, stale reports, leases,
   close requests
 - Local fix: split method families behind dedicated report handlers and replace
-  payload-based runtime-plane inference with stricter declared semantics.
+  payload-based control-plane inference with stricter declared semantics.
 - Systemic fix: define one control-plane routing contract that owns:
-  - runtime-plane intent
+  - control-plane intent
   - durable target reference semantics
   - report-family dispatch
   so the ingress boundary stays thin while routing and lifecycle rules stop
@@ -228,7 +228,7 @@
   semantics live on durable mailbox fields, `ResolveTargetRuntime` is shared by
   poll and publish paths, and `AgentControl::Report` now delegates lifecycle
   families to dedicated handlers and freshness validators.
-- Current shape: ingress report handling, mailbox targeting, runtime-plane
+- Current shape: ingress report handling, mailbox targeting, control-plane
   semantics, and close follow-up behavior are spread across model validation,
   polling selection, and report dispatch.
 - Why it is not orthogonal: one logical control-plane contract is currently
@@ -240,7 +240,7 @@
 - Single owner / source of truth: a control-plane routing contract shared by
   mailbox writers, pollers, and report handlers.
 - What should be merged / deleted / demoted:
-  - merge runtime-plane and durable-target interpretation into one rule family
+  - merge control-plane and durable-target interpretation into one rule family
   - demote payload-shape inference to a legacy compatibility detail, then
     remove it
   - keep report handlers separate by family once routing is explicit
@@ -437,7 +437,7 @@ clustering, and retirement status live in the cumulative register.
 ### Candidate: Mailbox targeting semantics depend on payload inference
 - Category: `contracts`
 - Why suspicious at audit time: `AgentControlMailboxItem` partly read
-  runtime-plane and target meaning from explicit fields and partly inferred
+  control-plane and target meaning from explicit fields and partly inferred
   them from payload conventions such as `resource_type == "ProcessRun"`.
 - Evidence: `core_matrix/app/models/agent_control_mailbox_item.rb`; `core_matrix/app/services/agent_control/resolve_target_runtime.rb`; `core_matrix/app/services/agent_control/create_resource_close_request.rb`
 - Possible impact: as environment-plane work grows, mailbox routing can become
@@ -445,10 +445,10 @@ clustering, and retirement status live in the cumulative register.
   protocol harder to extend safely.
 - Counterpoint: the current inference rule is small and may simply reflect a
   still-narrow protocol surface.
-- Suggested direction: push runtime-plane and target semantics into an explicit
+- Suggested direction: push control-plane and target semantics into an explicit
   write-time contract so the model validates declared intent instead of
   reconstructing it from payload shape.
-- Related concepts: mailbox items, runtime plane, target resolution, resource
+- Related concepts: mailbox items, control plane, target resolution, resource
   close requests, environment plane
 
 ### Candidate: Close progression is distributed across several writers

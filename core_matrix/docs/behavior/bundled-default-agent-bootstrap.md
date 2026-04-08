@@ -12,14 +12,14 @@ existing binding and workspace services.
 ### `Installations::RegisterBundledAgentRuntime`
 
 - Reconciles the packaged runtime into `AgentProgram`,
-  `ExecutionRuntime`, `AgentProgramVersion`, `AgentSession`, and
-  `ExecutionSession`.
-- Treats `ExecutionRuntime` as the stable execution host and rotates
+  `ExecutorProgram`, `AgentProgramVersion`, `AgentSession`, and
+  `ExecutorSession`.
+- Treats `ExecutorProgram` as the stable execution host and rotates
   `AgentProgramVersion` when the bundled runtime release fingerprint changes.
 - Reuses existing logical and program-version rows instead of duplicating them on
   repeated calls.
 - Concurrent bundled-runtime reconciliation serializes around the logical
-  program and execution runtime so repeated passes reuse the same version and
+  program and executor program so repeated passes reuse the same version and
   session rows without duplicate-key races.
 - Does not create user bindings or workspaces.
 - Returns `nil` when bundled bootstrap is not enabled in configuration.

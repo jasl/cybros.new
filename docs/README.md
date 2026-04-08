@@ -29,8 +29,8 @@ For the current implementation state, start here:
 Many older design, research, report, and checklist records are intentionally
 kept for traceability. Those records may preserve superseded naming from before
 the April 2026 reset. The current codebase uses `AgentProgram`,
-`AgentProgramVersion`, `AgentSession`, `ExecutionRuntime`, and
-`ExecutionSession`.
+`AgentProgramVersion`, `AgentSession`, `ExecutorProgram`, and
+`ExecutorSession`.
 
 ## Lifecycle
 

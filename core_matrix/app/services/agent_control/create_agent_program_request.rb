@@ -38,7 +38,7 @@ module AgentControl
         target_agent_program: @agent_program_version.agent_program,
         target_agent_program_version: @agent_program_version,
         item_type: "agent_program_request",
-        runtime_plane: "program",
+        control_plane: "program",
         workflow_node: workflow_node,
         execution_contract: execution_contract,
         logical_work_id: @logical_work_id,
@@ -96,7 +96,7 @@ module AgentControl
         runtime_context.deep_stringify_keys.except(
           "logical_work_id",
           "attempt_no",
-          "runtime_plane",
+          "control_plane",
           "agent_program_version_id"
         )
 

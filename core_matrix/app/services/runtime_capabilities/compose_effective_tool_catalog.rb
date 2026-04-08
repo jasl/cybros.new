@@ -185,15 +185,15 @@ module RuntimeCapabilities
       new(...).call
     end
 
-    def initialize(execution_runtime:, agent_program_version: nil, capability_snapshot: nil, core_matrix_tool_catalog: CORE_MATRIX_TOOL_CATALOG)
-      @execution_runtime = execution_runtime
+    def initialize(executor_program:, agent_program_version: nil, capability_snapshot: nil, core_matrix_tool_catalog: CORE_MATRIX_TOOL_CATALOG)
+      @executor_program = executor_program
       @agent_program_version = agent_program_version || capability_snapshot
       @core_matrix_tool_catalog = Array(core_matrix_tool_catalog)
     end
 
     def call
       RuntimeCapabilityContract.build(
-        execution_runtime: @execution_runtime,
+        executor_program: @executor_program,
         agent_program_version: @agent_program_version,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       ).effective_tool_catalog

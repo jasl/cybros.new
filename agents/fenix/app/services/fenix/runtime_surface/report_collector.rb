@@ -46,7 +46,7 @@ module Fenix
         {
           "method_id" => method_id,
           "protocol_message_id" => "fenix-#{method_id}-#{SecureRandom.uuid}",
-          "runtime_plane" => @context.fetch("runtime_plane"),
+          "control_plane" => @context.fetch("control_plane"),
           "mailbox_item_id" => @context.fetch("item_id"),
           "agent_task_run_id" => @context.fetch("agent_task_run_id"),
           "logical_work_id" => @context.fetch("logical_work_id"),

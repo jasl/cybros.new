@@ -96,11 +96,11 @@ runtime resources that later tasks now build on are:
 
 - `ProcessRun` is now a first-class runtime resource instead of an opaque tool
   side effect.
-- `ProcessRun` is `ExecutionRuntime`-owned, not `AgentProgramVersion`-owned.
+- `ProcessRun` is `ExecutorProgram`-owned, not `AgentProgramVersion`-owned.
 - Every process run belongs to:
   - one installation
   - one workflow node
-  - one execution runtime
+  - one executor program
   - one conversation
   - one turn
   - optionally one originating transcript-bearing `Message`
@@ -117,8 +117,8 @@ runtime resources that later tasks now build on are:
   - `failed`
   - `lost`
 - detached background services are kernel-first:
-  - `POST /execution_api/process_runs` provisions the durable `ProcessRun`
-  - the execution runtime then reports `process_started` when the local handle
+  - `POST /executor_api/process_runs` provisions the durable `ProcessRun`
+  - the executor program then reports `process_started` when the local handle
     is live
   - if the process exits without a close request, the runtime reports
     `process_exited`
@@ -133,9 +133,10 @@ runtime resources that later tasks now build on are:
   - `close_acknowledged_at`
   - `close_outcome_kind`
   - `close_outcome_payload`
-- mailbox close for `ProcessRun` now rides the `execution` runtime plane:
-  - mailbox `target_ref` is the owning `ExecutionRuntime.public_id`
-  - delivery goes to the currently active `ExecutionSession` for that runtime
+- mailbox close for `ProcessRun` now rides the `executor` control plane:
+  - mailbox `target_ref` is the owning `ExecutorProgram.public_id`
+  - delivery goes to the currently active `ExecutorSession` for that executor
+    program
   - deployment rotation does not change process ownership
 
 ## Agent Task Runs

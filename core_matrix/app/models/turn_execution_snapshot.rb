@@ -102,7 +102,7 @@ class TurnExecutionSnapshot
         {}
       else
         {
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "logical_work_id" => nil,
           "attempt_no" => nil,
           "agent_program_version_id" => turn.agent_program_version.public_id,

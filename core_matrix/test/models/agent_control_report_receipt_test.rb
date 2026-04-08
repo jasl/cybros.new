@@ -45,11 +45,11 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
         "logical_work_id" => "ignored-by-storage",
         "attempt_no" => 99,
         "mailbox_item_id" => "ignored-by-storage",
-        "runtime_plane" => "ignored-by-storage",
+        "control_plane" => "ignored-by-storage",
         "request_kind" => "ignored-by-storage",
         "control" => {
           "mailbox_item_id" => mailbox_item.public_id,
-          "runtime_plane" => mailbox_item.runtime_plane,
+          "control_plane" => mailbox_item.control_plane,
           "request_kind" => mailbox_item.payload.fetch("request_kind"),
         },
         "response_payload" => { "content" => "ok" },
@@ -63,7 +63,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     refute stored_payload.key?("logical_work_id")
     refute stored_payload.key?("attempt_no")
     refute stored_payload.key?("mailbox_item_id")
-    refute stored_payload.key?("runtime_plane")
+    refute stored_payload.key?("control_plane")
     refute stored_payload.key?("request_kind")
     refute stored_payload.key?("control")
     assert_equal({ "content" => "ok" }, stored_payload.fetch("response_payload"))
@@ -75,7 +75,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     assert_equal receipt.logical_work_id, payload.fetch("logical_work_id")
     assert_equal receipt.attempt_no, payload.fetch("attempt_no")
     assert_equal mailbox_item.public_id, payload.fetch("mailbox_item_id")
-    assert_equal mailbox_item.runtime_plane, payload.fetch("runtime_plane")
+    assert_equal mailbox_item.control_plane, payload.fetch("control_plane")
     assert_equal mailbox_item.payload.fetch("request_kind"), payload.fetch("request_kind")
     assert_equal agent_task_run.conversation.public_id, payload.fetch("conversation_id")
     assert_equal agent_task_run.turn.public_id, payload.fetch("turn_id")
@@ -105,11 +105,11 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
         "logical_work_id" => "ignored-by-storage",
         "attempt_no" => 99,
         "mailbox_item_id" => "ignored-by-storage",
-        "runtime_plane" => "ignored-by-storage",
+        "control_plane" => "ignored-by-storage",
         "request_kind" => "ignored-by-storage",
         "control" => {
           "mailbox_item_id" => mailbox_item.public_id,
-          "runtime_plane" => mailbox_item.runtime_plane,
+          "control_plane" => mailbox_item.control_plane,
           "request_kind" => mailbox_item.payload.fetch("request_kind"),
         },
       }
@@ -124,7 +124,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     assert_equal receipt.logical_work_id, payload.fetch("logical_work_id")
     assert_equal receipt.attempt_no, payload.fetch("attempt_no")
     assert_equal mailbox_item.public_id, payload.fetch("mailbox_item_id")
-    assert_equal mailbox_item.runtime_plane, payload.fetch("runtime_plane")
+    assert_equal mailbox_item.control_plane, payload.fetch("control_plane")
     assert_equal mailbox_item.payload.fetch("request_kind"), payload.fetch("request_kind")
     assert_equal agent_task_run.conversation.public_id, payload.fetch("conversation_id")
     assert_equal agent_task_run.turn.public_id, payload.fetch("turn_id")
@@ -210,7 +210,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
         "runtime_context" => {
           "logical_work_id" => "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
           "attempt_no" => 1,
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "agent_program_version_id" => context.fetch(:deployment).public_id,
         },
       },
@@ -339,7 +339,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
         "runtime_context" => {
           "logical_work_id" => "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
           "attempt_no" => 1,
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "agent_program_version_id" => context.fetch(:deployment).public_id,
         },
       },

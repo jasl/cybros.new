@@ -15,11 +15,11 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "delegates effective tool catalog rendering to the shared runtime capability contract" do
     registration = register_agent_runtime!(
-      execution_tool_catalog: [
+      executor_tool_catalog: [
         {
           "tool_name" => "exec_command",
-          "tool_kind" => "execution_runtime",
-          "implementation_source" => "execution_runtime",
+          "tool_kind" => "executor_program",
+          "implementation_source" => "executor_program",
           "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -30,7 +30,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
       tool_catalog: default_tool_catalog("exec_command", "compact_context")
     )
     contract = RuntimeCapabilityContract.build(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment],
       core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
     )
@@ -38,7 +38,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     assert_equal(
       contract.effective_tool_catalog,
       RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-        execution_runtime: registration[:execution_runtime],
+        executor_program: registration[:executor_program],
         agent_program_version: registration[:deployment]
       )
     )
@@ -46,12 +46,12 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "injects reserved subagent tools into the base effective catalog" do
     registration = register_agent_runtime!(
-      execution_tool_catalog: [],
+      executor_tool_catalog: [],
       tool_catalog: default_tool_catalog("exec_command")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     )
 
@@ -64,12 +64,12 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "exposes conversation_metadata_update in the core matrix catalog" do
     registration = register_agent_runtime!(
-      execution_tool_catalog: [],
+      executor_tool_catalog: [],
       tool_catalog: default_tool_catalog("exec_command")
     )
 
     entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     ).find { |candidate| candidate.fetch("tool_name") == "conversation_metadata_update" }
 
@@ -89,11 +89,11 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "reserved subagent tool names cannot be overridden by runtime tools" do
     registration = register_agent_runtime!(
-      execution_tool_catalog: [
+      executor_tool_catalog: [
         {
           "tool_name" => "subagent_spawn",
-          "tool_kind" => "execution_runtime",
-          "implementation_source" => "execution_runtime",
+          "tool_kind" => "executor_program",
+          "implementation_source" => "executor_program",
           "implementation_ref" => "env/subagent_spawn",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -105,7 +105,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     )
     spawn_entry = effective_catalog.find { |entry| entry.fetch("tool_name") == "subagent_spawn" }
@@ -118,11 +118,11 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "adds a default execution policy with parallel_safe false to effective tools" do
     registration = register_agent_runtime!(
-      execution_tool_catalog: [
+      executor_tool_catalog: [
         {
           "tool_name" => "exec_command",
-          "tool_kind" => "execution_runtime",
-          "implementation_source" => "execution_runtime",
+          "tool_kind" => "executor_program",
+          "implementation_source" => "executor_program",
           "implementation_ref" => "env/exec_command",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
@@ -134,7 +134,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     )
 
@@ -164,7 +164,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     ).find { |candidate| candidate.fetch("tool_name") == "remote_echo" }
 
@@ -214,7 +214,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     )
 

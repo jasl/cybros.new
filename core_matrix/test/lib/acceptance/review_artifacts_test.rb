@@ -32,7 +32,7 @@ class AcceptanceReviewArtifactsTest < ActiveSupport::TestCase
       turn_id: "turn_123",
       workflow_run_id: "run_123",
       agent_program_version_id: "apv_123",
-      execution_runtime_id: "rt_123",
+      executor_program_id: "rt_123",
       selector: "openai/gpt-5.4",
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",

@@ -6,7 +6,7 @@ class MessageTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     ),
       content: "Hello",
@@ -25,7 +25,7 @@ class MessageTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     ),
       content: "Hello",
@@ -54,7 +54,7 @@ class MessageTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     ),
       content: "Hello",
@@ -82,7 +82,7 @@ class MessageTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     ),
       content: "Hello",
@@ -110,7 +110,7 @@ class MessageTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     ),
       content: "Hello",

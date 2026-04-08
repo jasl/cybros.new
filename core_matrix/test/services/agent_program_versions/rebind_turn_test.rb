@@ -6,7 +6,7 @@ class AgentProgramVersions::RebindTurnTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     AgentProgramVersions::RecordHeartbeat.call(
       deployment: replacement,
@@ -44,7 +44,7 @@ class AgentProgramVersions::RebindTurnTest < ActiveSupport::TestCase
     probe_turn.installation = turn.installation
     probe_turn.conversation = turn.conversation
     probe_turn.agent_program_version = agent_program_version
-    probe_turn.execution_runtime = turn.execution_runtime
+    probe_turn.executor_program = turn.executor_program
     probe_turn.pinned_program_version_fingerprint = agent_program_version.fingerprint
     probe_turn.resolved_config_snapshot = turn.resolved_config_snapshot.deep_dup
     probe_turn.resolved_model_selection_snapshot = turn.resolved_model_selection_snapshot.deep_dup

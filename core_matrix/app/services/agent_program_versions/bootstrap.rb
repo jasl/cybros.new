@@ -33,7 +33,7 @@ module AgentProgramVersions
           source_ref_id: @deployment.public_id,
           idempotency_key: "deployment-bootstrap-#{@deployment.id}-#{SecureRandom.hex(8)}",
           external_event_key: "deployment-bootstrap-#{@deployment.id}-#{SecureRandom.hex(8)}",
-          execution_runtime: @deployment.agent_program.default_execution_runtime,
+          executor_program: @deployment.agent_program.default_executor_program,
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {}
         )

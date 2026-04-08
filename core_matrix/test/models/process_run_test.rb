@@ -1,18 +1,18 @@
 require "test_helper"
 
 class ProcessRunTest < ActiveSupport::TestCase
-  test "requires the process run runtime to match the frozen turn execution runtime" do
+  test "requires the process run executor program to match the frozen turn executor program" do
     process_context = build_process_context!
-    other_runtime = create_execution_runtime!(
+    other_runtime = create_executor_program!(
       installation: process_context[:installation],
-      runtime_fingerprint: "other-host",
+      executor_fingerprint: "other-host",
       capability_payload: {}
     )
 
     process_run = ProcessRun.new(
       installation: process_context[:installation],
       workflow_node: process_context[:workflow_node],
-      execution_runtime: other_runtime,
+      executor_program: other_runtime,
       conversation: process_context[:conversation],
       turn: process_context[:turn],
       origin_message: process_context[:origin_message],
@@ -23,7 +23,7 @@ class ProcessRunTest < ActiveSupport::TestCase
     )
 
     assert_not process_run.valid?
-    assert_includes process_run.errors[:execution_runtime], "must match the turn execution runtime"
+    assert_includes process_run.errors[:executor_program], "must match the turn executor program"
   end
 
   private
@@ -43,7 +43,7 @@ class ProcessRunTest < ActiveSupport::TestCase
       user_program_binding: user_program_binding
     )
     agent_program_version = create_agent_program_version!(installation: installation, agent_program: agent_program)
-    execution_runtime = create_execution_runtime!(installation: installation)
+    executor_program = create_executor_program!(installation: installation)
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
@@ -56,7 +56,7 @@ class ProcessRunTest < ActiveSupport::TestCase
       installation: installation,
       conversation: conversation,
       agent_program_version: agent_program_version,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       sequence: 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",
@@ -72,7 +72,7 @@ class ProcessRunTest < ActiveSupport::TestCase
     {
       installation: installation,
       conversation: conversation,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       origin_message: nil,
       turn: turn,
       workflow_node: workflow_node,

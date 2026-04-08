@@ -3,7 +3,7 @@
 ## Purpose
 
 Task 03 establishes the machine-facing registry substrate for Core Matrix:
-agent programs, execution runtimes, one-time enrollment tokens,
+agent programs, executor programs, one-time enrollment tokens,
 immutable program versions, and session-backed heartbeat state.
 
 ## Status
@@ -31,16 +31,17 @@ Related design note:
   installation.
 - Lifecycle state is tracked separately from runtime health.
 
-### ExecutionRuntime
+### ExecutorProgram
 
-- `ExecutionRuntime` is the stable runtime-resource owner aggregate.
+- `ExecutorProgram` is the stable runtime-resource owner aggregate.
 - It is the durable owner for environment-backed resources such as
   `ProcessRun` and future shell or file sessions.
 - Kind is `local`, `container`, or `remote`.
-- Stable reconciliation identity is `runtime_fingerprint`, scoped to one
+- Stable reconciliation identity is `executor_fingerprint`, scoped to one
   installation.
 - Connection details live in `connection_metadata`.
-- Lifecycle state tracks whether the runtime is still available for new work.
+- Lifecycle state tracks whether the executor carrier is still available for
+  new work.
 
 ### AgentEnrollment
 
@@ -54,7 +55,7 @@ Related design note:
   one `AgentProgram`.
 - It stores the protocol methods, tool catalog, profile catalog, and config
   snapshots advertised by one runtime release fingerprint.
-- It does not own live connectivity, machine credentials, or execution-runtime
+- It does not own live connectivity, machine credentials, or executor-program
   state.
 
 ### AgentSession
@@ -65,11 +66,11 @@ Related design note:
 - Only one `active` session may exist for a given `AgentProgram` at a time.
 - Health, heartbeat, realtime-link, and control-activity facts live here.
 
-### ExecutionSession
+### ExecutorSession
 
-- `ExecutionSession` is the live execution-plane identity for one
-  `ExecutionRuntime`.
-- Only one `active` session may exist for a given `ExecutionRuntime` at a
+- `ExecutorSession` is the live executor-plane identity for one
+  `ExecutorProgram`.
+- Only one `active` session may exist for a given `ExecutorProgram` at a
   time.
 - Execution delivery and runtime-owned resource reporting lease against this
   session rather than against `AgentProgramVersion`.
@@ -87,7 +88,7 @@ Related design note:
 - Resolves an enrollment token by digest lookup.
 - Rejects invalid, consumed, or expired tokens.
 - Creates or reuses the advertised `AgentProgramVersion` and opens the live
-  `AgentSession` plus `ExecutionSession` in one transaction.
+  `AgentSession` plus `ExecutorSession` in one transaction.
 - Exchanges the one-time enrollment token for a durable machine credential.
 - Works for bundled and external runtimes because the kernel only needs
   registration metadata, not a callback path into the runtime's private
@@ -113,20 +114,20 @@ Related design note:
   waiting for a healthy session, and then cutting future work over to that
   newly active session
 - both upgrade and downgrade use the same rotation contract
-- version rotation reuses the same `ExecutionRuntime` when
-  `runtime_fingerprint` is unchanged
+- version rotation reuses the same `ExecutorProgram` when
+  `executor_fingerprint` is unchanged
 - mailbox control targets logical owners plus live sessions, not persisted
   program-version rows
 
 ## Invariants
 
 - `AgentProgram` and `AgentProgramVersion` remain separate aggregates.
-- `ExecutionRuntime` remains stable across version rotation for the same
+- `ExecutorProgram` remains stable across version rotation for the same
   runtime carrier.
 - Cross-installation references are rejected for owners, enrollments, and
   versions.
 - Active session uniqueness is scoped to the logical owner (`agent_program_id`
-  or `execution_runtime_id`), not the top-level installation.
+  or `executor_program_id`), not the top-level installation.
 - `AgentProgramVersion` rows are append-only historical records.
 - Cross-aggregate side effects happen through service objects, not model
   callbacks.

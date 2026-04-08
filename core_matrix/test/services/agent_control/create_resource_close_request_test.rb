@@ -1,12 +1,12 @@
 require "test_helper"
 
 class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
-  test "creates an execution-plane close request with durable execution runtime targeting" do
+  test "creates an executor-plane close request with durable executor program targeting" do
     context = build_agent_control_context!
     occurred_at = Time.zone.parse("2026-03-29 18:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
 
     mailbox_item = travel_to(occurred_at) do
@@ -21,8 +21,8 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     end
 
     assert_equal "resource_close_request", mailbox_item.item_type
-    assert mailbox_item.execution_plane?
-    assert_equal context[:execution_runtime], mailbox_item.target_execution_runtime
+    assert mailbox_item.executor_plane?
+    assert_equal context[:executor_program], mailbox_item.target_executor_program
     assert_nil mailbox_item.target_agent_program_version
     refute_respond_to mailbox_item, :target_ref
     assert_equal mailbox_item.public_id, mailbox_item.payload["close_request_id"]

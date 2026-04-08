@@ -8,7 +8,7 @@ class MachineCredentialLifecycleTest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       actor: admin,
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     rotated = AgentProgramVersions::RotateMachineCredential.call(
       deployment: registration[:deployment],
@@ -40,7 +40,7 @@ class MachineCredentialLifecycleTest < ActionDispatch::IntegrationTest
       Turns::StartUserTurn.call(
         conversation: future_conversation,
         content: "Retry on retired deployment",
-        execution_runtime: context[:execution_runtime],
+        executor_program: context[:executor_program],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )

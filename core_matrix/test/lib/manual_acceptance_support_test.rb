@@ -115,7 +115,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal [:establish, :with_connection], calls
   end
 
-  test "register_external_runtime! returns the execution machine credential from the registration payload" do
+  test "register_external_runtime! returns the executor machine credential from the registration payload" do
     registration_calls = []
     heartbeat_calls = []
     manifest = {
@@ -128,8 +128,8 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       "config_schema_snapshot" => {},
       "conversation_override_schema_snapshot" => {},
       "default_config_snapshot" => {},
-      "execution_capability_payload" => {},
-      "execution_tool_catalog" => [],
+      "executor_capability_payload" => {},
+      "executor_tool_catalog" => [],
     }
 
     with_redefined_singleton_method(ManualAcceptanceSupport, :live_manifest, ->(base_url:) { manifest }) do
@@ -137,13 +137,13 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         ManualAcceptanceSupport,
         :http_post_json,
         lambda do |url, payload, headers: {}|
-          if url.end_with?("/program_api/registrations")
+          if url.end_with?("/agent_api/registrations")
             registration_calls << [url, payload, headers]
             {
               "machine_credential" => "program-secret",
-              "execution_machine_credential" => "execution-secret",
+              "executor_machine_credential" => "execution-secret",
               "agent_program_version_id" => "apv_123",
-              "execution_runtime_id" => "rt_123",
+              "executor_program_id" => "rt_123",
             }
           else
             heartbeat_calls << [url, payload, headers]
@@ -152,18 +152,18 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         end
       ) do
         with_redefined_singleton_method(AgentProgramVersion, :find_by_public_id!, ->(public_id) { public_id }) do
-          with_redefined_singleton_method(ExecutionRuntime, :find_by_public_id!, ->(public_id) { public_id }) do
+          with_redefined_singleton_method(ExecutorProgram, :find_by_public_id!, ->(public_id) { public_id }) do
             result = ManualAcceptanceSupport.register_external_runtime!(
               enrollment_token: "enrollment-token",
               runtime_base_url: "http://127.0.0.1:3101",
-              runtime_fingerprint: "runtime-fingerprint",
+              executor_fingerprint: "runtime-fingerprint",
               fingerprint: "program-fingerprint"
             )
 
             assert_equal "program-secret", result.fetch(:machine_credential)
-            assert_equal "execution-secret", result.fetch(:execution_machine_credential)
+            assert_equal "execution-secret", result.fetch(:executor_machine_credential)
             assert_equal "apv_123", result.fetch(:agent_program_version)
-            assert_equal "rt_123", result.fetch(:execution_runtime)
+            assert_equal "rt_123", result.fetch(:executor_program)
             assert_equal 1, registration_calls.length
             assert_equal 1, heartbeat_calls.length
           end
@@ -180,7 +180,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     mailbox_items = Object.new
     mailbox_items.define_singleton_method(:order) { |_created_at, _id| [mailbox_item] }
     agent_task_run = AgentTaskRunDouble.new("agent-task-1", mailbox_items)
-    captured_execution_machine_credential = nil
+    captured_executor_machine_credential = nil
 
     with_redefined_singleton_method(
       ManualAcceptanceSupport,
@@ -202,8 +202,8 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         with_redefined_singleton_method(
           ManualAcceptanceSupport,
           :run_fenix_control_loop_once!,
-          lambda do |machine_credential:, execution_machine_credential:, **_kwargs|
-            captured_execution_machine_credential = execution_machine_credential
+          lambda do |machine_credential:, executor_machine_credential:, **_kwargs|
+            captured_executor_machine_credential = executor_machine_credential
             {
               "items" => [
                 { "kind" => "runtime_execution", "mailbox_item_id" => "mailbox-1", "status" => "completed" },
@@ -220,7 +220,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
               ManualAcceptanceSupport.run_fenix_mailbox_task!(
                 agent_program_version: "apv",
                 machine_credential: "program-secret",
-                execution_machine_credential: "execution-secret",
+                executor_machine_credential: "execution-secret",
                 content: "hello",
                 mode: "deterministic_tool"
               )
@@ -230,7 +230,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal "execution-secret", captured_execution_machine_credential
+    assert_equal "execution-secret", captured_executor_machine_credential
   end
 
   test "create_conversation_supervision_session! calls the create-session service and serializes the result" do

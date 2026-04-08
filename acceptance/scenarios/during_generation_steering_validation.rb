@@ -8,8 +8,8 @@ bundled_configuration = {
   display_name: "Acceptance Steering Runtime",
   visibility: "global",
   lifecycle_state: "active",
-  runtime_kind: "local",
-  runtime_fingerprint: "acceptance-d-steering-environment",
+  executor_kind: "local",
+  executor_fingerprint: "acceptance-d-steering-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
@@ -124,8 +124,7 @@ end
 def build_active_work!(workspace:, registry:, policy:, content:)
   conversation = Conversations::CreateRoot.call(
     workspace: workspace,
-    execution_runtime: registry.execution_runtime,
-    agent_program_version: registry.deployment
+    agent_program: registry.agent_program
   )
   conversation.update!(during_generation_input_policy: policy)
   turn = Turns::StartUserTurn.call(
@@ -194,8 +193,7 @@ queue_workflow.reload
 
 feature_conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  execution_runtime: registry.execution_runtime,
-  agent_program_version: registry.deployment
+  agent_program: registry.agent_program
 )
 feature_turn = Turns::StartUserTurn.call(
   conversation: feature_conversation,
@@ -222,8 +220,7 @@ end
 
 stale_conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  execution_runtime: registry.execution_runtime,
-  agent_program_version: registry.deployment
+  agent_program: registry.agent_program
 )
 stale_turn = Turns::StartUserTurn.call(
   conversation: stale_conversation,

@@ -1,15 +1,15 @@
 module AgentControl
   class ResolveTargetRuntime
-    EXECUTION_PLANE = "execution".freeze
+    EXECUTOR_PLANE = "executor".freeze
     PROGRAM_PLANE = "program".freeze
 
     class SessionCache
-      def initialize(agent_session: nil, execution_session: nil)
+      def initialize(agent_session: nil, executor_session: nil)
         @agent_session = agent_session
-        @execution_session = execution_session
+        @executor_session = executor_session
         @program_sessions_by_agent_program_id = {}
         @program_sessions_by_agent_program_version_id = {}
-        @execution_sessions_by_runtime_id = {}
+        @executor_sessions_by_runtime_id = {}
       end
 
       def program_delivery_endpoint_for(mailbox_item)
@@ -33,19 +33,19 @@ module AgentControl
       end
 
       def execution_delivery_endpoint_for(mailbox_item)
-        runtime_id = mailbox_item.target_execution_runtime_id
-        return @execution_session if @execution_session&.execution_runtime_id == runtime_id
+        runtime_id = mailbox_item.target_executor_program_id
+        return @executor_session if @executor_session&.executor_program_id == runtime_id
 
-        @execution_sessions_by_runtime_id[runtime_id] ||= ExecutionSession.find_by(
-          execution_runtime_id: runtime_id,
+        @executor_sessions_by_runtime_id[runtime_id] ||= ExecutorSession.find_by(
+          executor_program_id: runtime_id,
           lifecycle_state: "active"
         )
       end
     end
 
     Result = Struct.new(
-      :runtime_plane,
-      :execution_runtime,
+      :control_plane,
+      :executor_program,
       :delivery_endpoint,
       keyword_init: true
     ) do
@@ -62,9 +62,9 @@ module AgentControl
           else
             false
           end
-        when ExecutionSession
+        when ExecutorSession
           case deployment
-          when ExecutionSession
+          when ExecutorSession
             delivery_endpoint.id == deployment.id
           else
             false
@@ -84,7 +84,7 @@ module AgentControl
         <<~SQL.squish,
           target_agent_program_version_id = :deployment_id
           OR (
-            runtime_plane = :program_plane
+            control_plane = :program_plane
             AND target_agent_program_id = :agent_program_id
           )
         SQL
@@ -94,10 +94,10 @@ module AgentControl
       )
     end
 
-    def self.candidate_scope_for_execution_session(execution_session:, relation: AgentControlMailboxItem.all)
+    def self.candidate_scope_for_executor_session(executor_session:, relation: AgentControlMailboxItem.all)
       relation.where(
-        runtime_plane: EXECUTION_PLANE,
-        target_execution_runtime_id: execution_session.execution_runtime_id
+        control_plane: EXECUTOR_PLANE,
+        target_executor_program_id: executor_session.executor_program_id
       )
     end
 
@@ -107,8 +107,8 @@ module AgentControl
     end
 
     def call
-      if @mailbox_item.execution_plane?
-        resolve_execution_runtime
+      if @mailbox_item.executor_plane?
+        resolve_executor_program
       else
         resolve_program_runtime
       end
@@ -116,20 +116,20 @@ module AgentControl
 
     private
 
-    def resolve_execution_runtime
-      execution_runtime = @mailbox_item.target_execution_runtime
+    def resolve_executor_program
+      executor_program = @mailbox_item.target_executor_program
 
       Result.new(
-        runtime_plane: EXECUTION_PLANE,
-        execution_runtime: execution_runtime,
+        control_plane: EXECUTOR_PLANE,
+        executor_program: executor_program,
         delivery_endpoint: resolve_execution_delivery_endpoint
       )
     end
 
     def resolve_program_runtime
       Result.new(
-        runtime_plane: PROGRAM_PLANE,
-        execution_runtime: nil,
+        control_plane: PROGRAM_PLANE,
+        executor_program: nil,
         delivery_endpoint: resolve_program_delivery_endpoint
       )
     end
@@ -145,10 +145,10 @@ module AgentControl
     end
 
     def resolve_execution_delivery_endpoint
-      return if @mailbox_item.target_execution_runtime.blank?
+      return if @mailbox_item.target_executor_program.blank?
       return @session_cache.execution_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
 
-      ExecutionSessions::ResolveActiveSession.call(execution_runtime: @mailbox_item.target_execution_runtime)
+      ExecutorSessions::ResolveActiveSession.call(executor_program: @mailbox_item.target_executor_program)
     end
   end
 end

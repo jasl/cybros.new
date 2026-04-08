@@ -180,7 +180,7 @@
 - Title: Mailbox targeting semantics depend on payload inference
 - Decision: resolved by durable mailbox routing columns and shared runtime
   resolution
-- Reason: mailbox rows now persist `runtime_plane` and
+- Reason: mailbox rows now persist `control_plane` and
   `target_execution_environment_id`, and poll/publish routing no longer depends
   on payload inference or JSON SQL branches.
 

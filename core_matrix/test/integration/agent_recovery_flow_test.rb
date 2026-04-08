@@ -10,7 +10,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Recover this workflow",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -50,7 +50,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     replacement = create_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     retried = Workflows::ManualRetry.call(
       workflow_run: workflow_run.reload,
@@ -69,7 +69,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     assert_equal "gpt-5.4", retried.turn.resolved_model_ref
     assert_equal replacement.public_id, retried.turn.execution_snapshot.identity["agent_program_version_id"]
     assert_equal replacement.public_id, retried.execution_identity["agent_program_version_id"]
-    assert_equal context[:execution_runtime].public_id, retried.execution_identity["execution_runtime_id"]
+    assert_equal context[:executor_program].public_id, retried.execution_identity["executor_program_id"]
     assert_equal(
       %w[agent_program_version.degraded agent_program_version.paused_agent_unavailable workflow.manual_retried],
       AuditLog.where(installation: context[:installation]).order(:created_at).pluck(:action).last(3)
@@ -81,7 +81,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
   def create_replacement_deployment!(
     installation:,
     agent_program:,
-    execution_runtime: create_execution_runtime!(installation: installation)
+    executor_program: create_executor_program!(installation: installation)
   )
     AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
@@ -96,7 +96,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    agent_program.update!(default_execution_runtime: execution_runtime)
+    agent_program.update!(default_executor_program: executor_program)
     create_agent_session!(
       installation: installation,
       agent_program: agent_program,
@@ -106,13 +106,13 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
-    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+    ExecutorSession.where(executor_program: executor_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
       updated_at: Time.current
     )
-    create_execution_session!(
+    create_executor_session!(
       installation: installation,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       last_heartbeat_at: Time.current
     )
     deployment

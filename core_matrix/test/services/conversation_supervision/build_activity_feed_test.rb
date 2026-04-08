@@ -54,7 +54,7 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
       installation: template_turn.installation,
       conversation: conversation,
       agent_program_version: template_turn.agent_program_version,
-      execution_runtime: template_turn.execution_runtime,
+      executor_program: template_turn.executor_program,
       sequence: sequence,
       lifecycle_state: lifecycle_state,
       origin_kind: "system_internal",

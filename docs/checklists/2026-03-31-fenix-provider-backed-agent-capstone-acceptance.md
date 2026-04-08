@@ -135,7 +135,7 @@ For every turn in the capstone run, record:
 - conversation `public_id`
 - turn `public_id`
 - workflow-run `public_id`
-- agent program version identifier, execution runtime identifier, and runtime mode
+- agent program version identifier, executor program identifier, and runtime mode
 - provider handle, model ref, and API model when applicable
 - expected DAG shape
 - observed DAG shape

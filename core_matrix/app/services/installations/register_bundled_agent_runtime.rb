@@ -44,13 +44,12 @@ module Installations
       installation:,
       configuration: Rails.configuration.x.bundled_agent,
       session_credential: nil,
-      executor_session_credential: nil,
-      execution_session_credential: nil
+      executor_session_credential: nil
     )
       @installation = installation
       @configuration = normalize_configuration(configuration)
       @session_credential = session_credential
-      @executor_session_credential = executor_session_credential || execution_session_credential
+      @executor_session_credential = executor_session_credential
     end
 
     def call
@@ -97,13 +96,6 @@ module Installations
       values.each_with_object(DEFAULT_CONFIGURATION.dup) do |(key, value), normalized|
         normalized[key.to_sym] = value
       end
-        .tap do |normalized|
-          normalized[:executor_kind] = normalized[:runtime_kind] if normalized[:runtime_kind].present?
-          normalized[:executor_fingerprint] = normalized[:runtime_fingerprint] if normalized[:runtime_fingerprint].present?
-          normalized[:executor_display_name] = normalized[:runtime_display_name] if normalized[:runtime_display_name].present?
-          normalized[:executor_capability_payload] = normalized[:execution_capability_payload] if normalized.key?(:execution_capability_payload)
-          normalized[:executor_tool_catalog] = normalized[:execution_tool_catalog] if normalized.key?(:execution_tool_catalog)
-        end
     end
 
     def reconcile_agent_program!(executor_program)

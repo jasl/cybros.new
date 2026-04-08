@@ -7,12 +7,12 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     mailbox_item = scenario.fetch(:mailbox_item).reload
     envelope = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
-    assert_equal "program", mailbox_item.attributes["runtime_plane"]
-    assert_nil mailbox_item.attributes["target_execution_runtime_id"]
-    assert_equal "program", envelope.fetch("runtime_plane")
+    assert_equal "program", mailbox_item.attributes["control_plane"]
+    assert_nil mailbox_item.attributes["target_executor_program_id"]
+    assert_equal "program", envelope.fetch("control_plane")
     refute envelope.key?("target_kind")
     refute envelope.key?("target_ref")
-    refute envelope.fetch("payload").key?("runtime_plane")
+    refute envelope.fetch("payload").key?("control_plane")
   end
 
   test "matches the authenticated deployment target and detects stale leases" do
@@ -60,7 +60,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       target_agent_program: context[:agent_program],
       target_agent_program_version: context[:deployment],
       item_type: "agent_program_request",
-      runtime_plane: "program",
+      control_plane: "program",
       logical_work_id: "prepare-round-#{next_test_sequence}",
       payload_document: payload_document,
       payload: { "request_kind" => "prepare_round" }
@@ -71,7 +71,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
     assert_equal mailbox_item.logical_work_id, mailbox_item.payload.dig("runtime_context", "logical_work_id")
     assert_equal mailbox_item.attempt_no, mailbox_item.payload.dig("runtime_context", "attempt_no")
-    assert_equal mailbox_item.runtime_plane, mailbox_item.payload.dig("runtime_context", "runtime_plane")
+    assert_equal mailbox_item.control_plane, mailbox_item.payload.dig("runtime_context", "control_plane")
     assert_equal context[:deployment].public_id, mailbox_item.payload.dig("runtime_context", "agent_program_version_id")
   end
 
@@ -88,7 +88,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       target_agent_program: context[:agent_program],
       target_agent_program_version: other_deployment,
       item_type: "resource_close_request",
-      runtime_plane: "program",
+      control_plane: "program",
       logical_work_id: "close-test",
       attempt_no: 1,
       delivery_no: 0,
@@ -105,17 +105,17 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_includes mailbox_item.errors[:target_agent_program_version], "must belong to the targeted agent program"
   end
 
-  test "execution-plane close work keeps the execution runtime as the durable target reference" do
+  test "executor-plane close work keeps the executor program as the durable target reference" do
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -128,8 +128,8 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       force_deadline_at: 60.seconds.from_now
     )
 
-    assert_equal "execution", mailbox_item.attributes["runtime_plane"]
-    assert_equal context[:execution_runtime].id, mailbox_item.attributes["target_execution_runtime_id"]
+    assert_equal "executor", mailbox_item.attributes["control_plane"]
+    assert_equal context[:executor_program].id, mailbox_item.attributes["target_executor_program_id"]
     refute_respond_to mailbox_item, :target_ref
   end
 
@@ -165,7 +165,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal context[:agent_program], mailbox_item.target_agent_program
     refute_respond_to mailbox_item, :target_kind
     refute_respond_to mailbox_item, :target_ref
-    assert_equal "program", mailbox_item.attributes["runtime_plane"]
+    assert_equal "program", mailbox_item.attributes["control_plane"]
     assert_equal "SubagentSession", mailbox_item.payload.fetch("resource_type")
     assert_equal subagent_session.public_id, mailbox_item.payload.fetch("resource_id")
   end
@@ -195,7 +195,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       installation: context[:installation],
       target_agent_program: context[:agent_program],
       item_type: "resource_close_request",
-      runtime_plane: "program",
+      control_plane: "program",
       logical_work_id: "close-test-#{next_test_sequence}",
       protocol_message_id: protocol_message_id,
       priority: 0,
@@ -219,7 +219,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_nil subagent_session.close_requested_at
   end
 
-  test "requires runtime_plane to be declared explicitly instead of inferring it from payload conventions" do
+  test "requires control_plane to be declared explicitly instead of inferring it from payload conventions" do
     context = build_agent_control_context!
 
     mailbox_item = AgentControlMailboxItem.new(
@@ -241,16 +241,16 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_not mailbox_item.valid?
-    assert_includes mailbox_item.errors.attribute_names, :runtime_plane
+    assert_includes mailbox_item.errors.attribute_names, :control_plane
   end
 
-  test "rejects legacy runtime plane aliases instead of normalizing them" do
+  test "rejects invalid control-plane values instead of normalizing them" do
     context = build_agent_control_context!
     mailbox_item = AgentControlMailboxItem.new(
       installation: context[:installation],
       target_agent_program: context[:agent_program],
       item_type: "execution_assignment",
-      runtime_plane: "agent",
+      control_plane: "invalid",
       logical_work_id: "assignment-#{next_test_sequence}",
       attempt_no: 1,
       delivery_no: 0,
@@ -266,6 +266,6 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_not mailbox_item.valid?
-    assert_includes mailbox_item.errors[:runtime_plane], "is not included in the list"
+    assert_includes mailbox_item.errors[:control_plane], "is not included in the list"
   end
 end

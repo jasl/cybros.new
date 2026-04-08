@@ -111,7 +111,7 @@ module ProviderExecution
             "model_context" => @workflow_node.workflow_run.model_context,
           },
           "runtime_context" => {
-            "runtime_plane" => "program",
+            "control_plane" => "program",
             "logical_work_id" => "program-tool:#{@workflow_node.public_id}:#{@tool_call.fetch("call_id")}",
             "attempt_no" => 1,
             "agent_program_version_id" => @workflow_node.turn.agent_program_version.public_id,
@@ -177,7 +177,7 @@ module ProviderExecution
         when "process_exec"
           Processes::Provision.call(
             workflow_node: @workflow_node,
-            execution_runtime: @workflow_node.turn.execution_runtime,
+            executor_program: @workflow_node.turn.executor_program,
             kind: normalize_process_kind(@tool_call.dig("arguments", "kind")),
             command_line: @tool_call.dig("arguments", "command_line"),
             timeout_seconds: @tool_call.dig("arguments", "timeout_seconds"),

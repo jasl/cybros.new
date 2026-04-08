@@ -15,7 +15,7 @@ bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
 bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "acceptance-provider-backed-environment",
+  executor_fingerprint: "acceptance-provider-backed-environment",
   fingerprint: fingerprint,
   sdk_version: "fenix-0.1.0"
 )
@@ -63,7 +63,7 @@ ManualAcceptanceSupport.write_json(
     observed_conversation_state: observed_conversation_state,
     extra: {
       "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
-      "execution_runtime_id" => bundled.fetch(:runtime).execution_runtime.public_id,
+      "executor_program_id" => bundled.fetch(:runtime).executor_program.public_id,
       "conversation_id" => conversation_context.fetch(:conversation).public_id,
       "turn_id" => turn.public_id,
       "workflow_run_id" => workflow_run.public_id,

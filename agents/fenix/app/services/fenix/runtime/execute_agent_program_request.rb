@@ -96,7 +96,7 @@ module Fenix
           "mailbox_item_id" => @mailbox_item.fetch("item_id"),
           "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
           "attempt_no" => @mailbox_item.fetch("attempt_no"),
-          "runtime_plane" => @mailbox_item.fetch("runtime_plane"),
+          "control_plane" => @mailbox_item.fetch("control_plane"),
           "request_kind" => request_kind,
           "workflow_node_id" => task["workflow_node_id"],
           "conversation_id" => task["conversation_id"],

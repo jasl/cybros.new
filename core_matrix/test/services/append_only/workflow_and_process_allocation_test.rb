@@ -5,7 +5,7 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -52,14 +52,14 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
   test "allocates unique workflow node event ordinals across concurrent process provisions" do
     process_context = build_process_context!
     workflow_node = process_context[:workflow_node]
-    execution_runtime_id = process_context[:execution_runtime].id
+    executor_program_id = process_context[:executor_program].id
     origin_message_id = process_context[:origin_message].id
 
     process_runs = assert_parallel_success!(
       run_in_parallel(5) do |index|
         Processes::Provision.call(
           workflow_node: WorkflowNode.find(workflow_node.id),
-          execution_runtime: ExecutionRuntime.find(execution_runtime_id),
+          executor_program: ExecutorProgram.find(executor_program_id),
           kind: "background_service",
           command_line: "echo #{index}",
           origin_message: Message.find(origin_message_id)
@@ -76,7 +76,7 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
     process_runs = 4.times.map do |index|
       process_run = Processes::Provision.call(
         workflow_node: process_context[:workflow_node],
-        execution_runtime: process_context[:execution_runtime],
+        executor_program: process_context[:executor_program],
         kind: "background_service",
         command_line: "bin/service_#{index}",
         origin_message: process_context[:origin_message]
@@ -109,7 +109,7 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -124,7 +124,7 @@ class AppendOnly::WorkflowAndProcessAllocationTest < NonTransactionalConcurrency
 
     {
       conversation: conversation,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       origin_message: turn.selected_input_message,
       turn: turn,
       workflow_node: workflow_node,

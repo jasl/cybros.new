@@ -24,7 +24,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     )
 
     assert_equal "agent_program_request", mailbox_item.item_type
-    assert_equal "program", mailbox_item.runtime_plane
+    assert_equal "program", mailbox_item.control_plane
     refute_respond_to mailbox_item, :target_kind
     assert_equal context.fetch(:deployment), mailbox_item.target_agent_program_version
     assert_equal context.fetch(:agent_program), mailbox_item.target_agent_program
@@ -56,7 +56,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
         "runtime_context" => {
           "logical_work_id" => logical_work_id,
           "attempt_no" => 3,
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "agent_program_version_id" => context.fetch(:deployment).public_id,
           "custom_flag" => "keep-me",
         },
@@ -82,7 +82,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_equal context.fetch(:turn).execution_contract.provider_context, mailbox_item.payload.fetch("provider_context")
     assert_equal logical_work_id, mailbox_item.payload.dig("runtime_context", "logical_work_id")
     assert_equal 3, mailbox_item.payload.dig("runtime_context", "attempt_no")
-    assert_equal "program", mailbox_item.payload.dig("runtime_context", "runtime_plane")
+    assert_equal "program", mailbox_item.payload.dig("runtime_context", "control_plane")
     assert_equal context.fetch(:deployment).public_id, mailbox_item.payload.dig("runtime_context", "agent_program_version_id")
     assert_equal "keep-me", mailbox_item.payload.dig("runtime_context", "custom_flag")
   end
@@ -121,7 +121,7 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
         "runtime_context" => {
           "logical_work_id" => logical_work_id,
           "attempt_no" => 1,
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "agent_program_version_id" => context.fetch(:deployment).public_id,
         },
       },

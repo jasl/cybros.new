@@ -9,12 +9,12 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       machine_credential: context[:machine_credential]
     )
     sibling_agent_program = create_agent_program!(installation: context[:installation])
-    sibling_execution_runtime = create_execution_runtime!(installation: context[:installation])
+    sibling_executor_program = create_executor_program!(installation: context[:installation])
     sibling_registration = register_agent_runtime!(
       installation: context[:installation],
       actor: context[:actor],
       agent_program: sibling_agent_program,
-      execution_runtime: sibling_execution_runtime,
+      executor_program: sibling_executor_program,
       reuse_enrollment: true
     )
     sibling_registration.fetch(:agent_session).update!(
@@ -154,7 +154,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )

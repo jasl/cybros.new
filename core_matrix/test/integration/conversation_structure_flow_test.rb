@@ -7,7 +7,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
 
     root = Conversations::CreateRoot.call(
       workspace: workspace,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     root_turn = Turns::StartUserTurn.call(
@@ -42,7 +42,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
 
     automation_root = Conversations::CreateAutomationRoot.call(
       workspace: workspace,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
 

@@ -4,16 +4,16 @@ module ToolBindings
       new(...).call
     end
 
-    def initialize(agent_program_version: nil, capability_snapshot: nil, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
+    def initialize(agent_program_version: nil, capability_snapshot: nil, executor_program:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
       @agent_program_version = agent_program_version || capability_snapshot
-      @execution_runtime = execution_runtime
+      @executor_program = executor_program
       @core_matrix_tool_catalog = core_matrix_tool_catalog
     end
 
     def call
       ToolBindings::ProjectCapabilitySnapshot.call(
         agent_program_version: @agent_program_version,
-        execution_runtime: @execution_runtime,
+        executor_program: @executor_program,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       )
 
@@ -32,7 +32,7 @@ module ToolBindings
     def projected_entries
       @projected_entries ||= begin
         entries = RuntimeCapabilityContract.build(
-          execution_runtime: @execution_runtime,
+          executor_program: @executor_program,
           agent_program_version: @agent_program_version,
           core_matrix_tool_catalog: @core_matrix_tool_catalog
         ).effective_tool_catalog

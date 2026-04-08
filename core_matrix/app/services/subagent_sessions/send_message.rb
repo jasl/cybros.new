@@ -30,13 +30,13 @@ module SubagentSessions
         )
         validate_sender_kind!(conversation:)
         agent_program_version = Turns::FreezeProgramVersion.call(conversation: conversation)
-        execution_runtime = Turns::SelectExecutionRuntime.call(conversation: conversation)
+        executor_program = Turns::SelectExecutorProgram.call(conversation: conversation)
 
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
           agent_program_version: agent_program_version,
-          execution_runtime: execution_runtime,
+          executor_program: executor_program,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "completed",
           origin_kind: "system_internal",

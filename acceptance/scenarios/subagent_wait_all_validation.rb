@@ -8,8 +8,8 @@ bundled_configuration = {
   display_name: "Acceptance Subagent Runtime",
   visibility: "global",
   lifecycle_state: "active",
-  runtime_kind: "local",
-  runtime_fingerprint: "acceptance-d-subagents-environment",
+  executor_kind: "local",
+  executor_fingerprint: "acceptance-d-subagents-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
@@ -117,8 +117,7 @@ workspace = binding.workspaces.find_by!(is_default: true)
 
 conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  execution_runtime: registry.execution_runtime,
-  agent_program_version: registry.deployment
+  agent_program: registry.agent_program
 )
 turn = Turns::StartUserTurn.call(
   conversation: conversation,

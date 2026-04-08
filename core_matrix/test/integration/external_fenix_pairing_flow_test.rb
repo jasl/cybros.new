@@ -36,7 +36,7 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal "superseded", first[:deployment].reload.bootstrap_state
     assert_equal "active", upgrade[:deployment].reload.bootstrap_state
-    assert_equal first[:execution_runtime].public_id, upgrade[:execution_runtime].public_id
+    assert_equal first[:executor_program].public_id, upgrade[:executor_program].public_id
 
     downgrade = register_runtime!(
       installation: installation,
@@ -54,14 +54,14 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
     assert_equal "superseded", upgrade[:deployment].reload.bootstrap_state
     assert_equal "active", downgrade[:deployment].reload.bootstrap_state
-    assert_equal first[:execution_runtime].public_id, downgrade[:execution_runtime].public_id
+    assert_equal first[:executor_program].public_id, downgrade[:executor_program].public_id
   end
 
   test "manual retry can move paused work onto a rotated external fenix deployment" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -83,7 +83,7 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       actor: actor,
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       sdk_version: "fenix-0.2.0",
       base_url: "https://fenix-v2.example.test"
     )
@@ -114,13 +114,13 @@ class ExternalFenixPairingFlowTest < ActionDispatch::IntegrationTest
 
   private
 
-  def register_runtime!(installation:, actor:, agent_program:, sdk_version:, base_url:, execution_runtime: nil)
+  def register_runtime!(installation:, actor:, agent_program:, sdk_version:, base_url:, executor_program: nil)
     register_agent_runtime!(
       installation: installation,
       actor: actor,
       agent_program: agent_program,
-      execution_runtime: execution_runtime,
-      runtime_fingerprint: execution_runtime&.runtime_fingerprint || "fenix-host-a",
+      executor_program: executor_program,
+      executor_fingerprint: executor_program&.executor_fingerprint || "fenix-host-a",
       sdk_version: sdk_version,
       fingerprint: "fenix-release-#{sdk_version}",
       endpoint_metadata: {

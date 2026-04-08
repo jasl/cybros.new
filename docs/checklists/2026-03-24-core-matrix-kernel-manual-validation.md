@@ -142,7 +142,7 @@ jq '.' /tmp/phase2_bundled_fast_terminal_validation.json
 - operator note:
   - this proves the bundled Fenix mailbox execution path over the
     websocket-first control plane; the runtime output completes on the
-    task/runtime plane and is not projected into `turn.selected_output_message`
+    task/control plane and is not projected into `turn.selected_output_message`
 - cleanup steps:
   - none; the script resets and seeds the development database itself
 - last validated:

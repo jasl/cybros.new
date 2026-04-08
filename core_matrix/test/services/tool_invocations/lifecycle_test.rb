@@ -5,7 +5,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -40,7 +40,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -58,7 +58,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
 
     binding = ToolBindings::FreezeForWorkflowNode.call(
@@ -86,7 +86,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -132,7 +132,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))

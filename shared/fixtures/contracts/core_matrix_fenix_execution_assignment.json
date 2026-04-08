@@ -1,7 +1,7 @@
 {
   "item_id": "mailbox-item-public-id",
   "item_type": "execution_assignment",
-  "runtime_plane": "program",
+  "control_plane": "program",
   "logical_work_id": "subagent-step:subagent-session-public-id:subagent-turn-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
@@ -109,11 +109,11 @@
       }
     },
     "runtime_context": {
-      "runtime_plane": "program",
+      "control_plane": "program",
       "logical_work_id": "subagent-step:subagent-session-public-id:subagent-turn-public-id",
       "attempt_no": 1,
       "agent_program_version_id": "agent-program-version-public-id",
-      "execution_runtime_id": "execution-runtime-public-id"
+      "executor_program_id": "execution-runtime-public-id"
     },
     "task_payload": {
       "mode": "deterministic_tool",

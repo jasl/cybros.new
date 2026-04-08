@@ -7,7 +7,7 @@ class CreateRuntimeExecutions < ActiveRecord::Migration[8.2]
       t.string :logical_work_id, null: false
       t.string :agent_task_run_id
       t.integer :attempt_no, null: false
-      t.string :runtime_plane, null: false
+      t.string :control_plane, null: false
       t.string :item_type, null: false
       t.string :request_kind, null: false
       t.string :status, null: false, default: "queued"

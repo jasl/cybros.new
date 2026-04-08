@@ -23,10 +23,10 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     assert_equal scenario.fetch(:mailbox_item).public_id, assignment.fetch("item_id")
     assert_equal "execution_assignment", assignment.fetch("item_type")
-    assert_equal "program", assignment.fetch("runtime_plane")
+    assert_equal "program", assignment.fetch("control_plane")
     refute assignment.key?("target_kind")
     refute assignment.key?("target_ref")
-    refute assignment.fetch("payload").key?("runtime_plane")
+    refute assignment.fetch("payload").key?("control_plane")
 
     started = report_execution_started(
       harness: harness,
@@ -151,13 +151,13 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "active_control", context[:deployment].reload.control_activity_state
   end
 
-  test "program report responses leave execution-plane close work for execution polling" do
+  test "program report responses leave executor-plane close work for executor polling" do
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
       deployment: context[:deployment],
       machine_credential: context[:machine_credential],
-      execution_machine_credential: context[:execution_machine_credential]
+      executor_machine_credential: context[:executor_machine_credential]
     )
     scenario_builder = MailboxScenarioBuilder.new(self)
     scenario = scenario_builder.execution_assignment!(context: context)
@@ -174,11 +174,11 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = scenario_builder.close_request!(context: context, resource: process_run).fetch(:mailbox_item)
@@ -200,7 +200,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
       mailbox_item.fetch("item_id") == close_request.public_id
     end
 
-    assert_equal "execution", execution_delivery.fetch("runtime_plane")
+    assert_equal "executor", execution_delivery.fetch("control_plane")
   end
 
   private

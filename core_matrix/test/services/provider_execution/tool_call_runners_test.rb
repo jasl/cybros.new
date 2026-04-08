@@ -5,7 +5,7 @@ class ProviderExecution::ToolCallRunnersTest < ActiveSupport::TestCase
     assert_equal ProviderExecution::ToolCallRunners::MCP, ProviderExecution::ToolCallRunners.fetch!("mcp")
     assert_equal ProviderExecution::ToolCallRunners::Program, ProviderExecution::ToolCallRunners.fetch!("agent")
     assert_equal ProviderExecution::ToolCallRunners::Program, ProviderExecution::ToolCallRunners.fetch!("kernel")
-    assert_equal ProviderExecution::ToolCallRunners::Program, ProviderExecution::ToolCallRunners.fetch!("execution_runtime")
+    assert_equal ProviderExecution::ToolCallRunners::Program, ProviderExecution::ToolCallRunners.fetch!("executor_program")
     assert_equal ProviderExecution::ToolCallRunners::CoreMatrix, ProviderExecution::ToolCallRunners.fetch!("core_matrix")
   end
 

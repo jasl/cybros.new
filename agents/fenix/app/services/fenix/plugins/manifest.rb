@@ -3,7 +3,7 @@ require "yaml"
 module Fenix
   module Plugins
     class Manifest
-      attr_reader :plugin_id, :version, :display_name, :default_runtime_plane,
+      attr_reader :plugin_id, :version, :display_name, :default_control_plane,
         :tool_catalog, :config_schema, :requirements, :env_contract,
         :healthcheck, :bootstrap, :source_path
 
@@ -16,7 +16,7 @@ module Fenix
         @plugin_id = payload.fetch("plugin_id")
         @version = payload.fetch("version")
         @display_name = payload.fetch("display_name")
-        @default_runtime_plane = payload.fetch("default_runtime_plane")
+        @default_control_plane = payload.fetch("default_control_plane")
         @tool_catalog = Array(payload.fetch("tool_catalog", [])).map(&:deep_stringify_keys)
         @config_schema = payload.fetch("config_schema", {})
         @requirements = payload.fetch("requirements", {})
@@ -26,12 +26,12 @@ module Fenix
         @source_path = source_path.to_s
       end
 
-      def execution_plane?
-        default_runtime_plane == "execution"
+      def executor_plane?
+        default_control_plane == "executor"
       end
 
       def program_plane?
-        default_runtime_plane == "program"
+        default_control_plane == "program"
       end
     end
   end

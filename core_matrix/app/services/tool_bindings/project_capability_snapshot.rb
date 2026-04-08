@@ -6,9 +6,9 @@ module ToolBindings
       new(...).call
     end
 
-    def initialize(agent_program_version: nil, capability_snapshot: nil, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
+    def initialize(agent_program_version: nil, capability_snapshot: nil, executor_program:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
       @agent_program_version = agent_program_version || capability_snapshot
-      @execution_runtime = execution_runtime
+      @executor_program = executor_program
       @core_matrix_tool_catalog = Array(core_matrix_tool_catalog)
     end
 
@@ -39,7 +39,7 @@ module ToolBindings
 
     def effective_tool_catalog
       @effective_tool_catalog ||= RuntimeCapabilityContract.build(
-        execution_runtime: @execution_runtime,
+        executor_program: @executor_program,
         agent_program_version: @agent_program_version,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       ).effective_tool_catalog
@@ -52,7 +52,7 @@ module ToolBindings
     end
 
     def candidates_for(tool_name)
-      [@core_matrix_tool_catalog, @execution_runtime&.tool_catalog, @agent_program_version.tool_catalog]
+      [@core_matrix_tool_catalog, @executor_program&.tool_catalog, @agent_program_version.tool_catalog]
         .flat_map { |catalog| Array(catalog) }
         .select { |entry| entry.fetch("tool_name") == tool_name }
     end
@@ -138,8 +138,8 @@ module ToolBindings
       source_kind = candidate.fetch("implementation_source")
 
       source_ref = case source_kind
-      when "execution_runtime"
-        @execution_runtime.public_id
+      when "executor_program"
+        @executor_program.public_id
       when "agent", "kernel"
         "agent_program_version:#{@agent_program_version.public_id}"
       when "core_matrix"
@@ -156,7 +156,7 @@ module ToolBindings
       source = effective_entry.fetch("implementation_source")
 
       return "reserved" if reserved_tool_name?(tool_name)
-      return "whitelist_only" if source == "execution_runtime"
+      return "whitelist_only" if source == "executor_program"
 
       "replaceable"
     end

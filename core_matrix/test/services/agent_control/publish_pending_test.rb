@@ -1,15 +1,15 @@
 require "test_helper"
 
 class AgentControlPublishPendingTest < ActiveSupport::TestCase
-  test "publishes execution-plane work for an execution session using durable execution runtime routing" do
+  test "publishes executor-plane work for an executor session using durable executor program routing" do
     context = build_rotated_runtime_context!
     other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent_program: other_agent_program,
-      target_execution_runtime: context[:execution_runtime],
+      target_executor_program: context[:executor_program],
       item_type: "resource_close_request",
-      runtime_plane: "execution",
+      control_plane: "executor",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -21,24 +21,24 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     broadcasts = []
 
     with_captured_broadcasts(broadcasts) do
-      AgentControl::PublishPending.call(execution_session: context[:execution_session])
+      AgentControl::PublishPending.call(executor_session: context[:executor_session])
     end
 
-    assert_equal [[AgentControl::StreamName.for_deployment(context[:execution_session]), mailbox_item.public_id]],
+    assert_equal [[AgentControl::StreamName.for_deployment(context[:executor_session]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
-    assert_equal context[:execution_session], mailbox_item.reload.leased_to_execution_session
+    assert_equal context[:executor_session], mailbox_item.reload.leased_to_executor_session
   end
 
   test "publishes a queued mailbox item to the deployment selected by ResolveTargetRuntime" do
     context = build_agent_control_context!
-    context[:execution_session].update!(endpoint_metadata: { "realtime_link_connected" => true })
+    context[:executor_session].update!(endpoint_metadata: { "realtime_link_connected" => true })
     other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent_program: other_agent_program,
-      target_execution_runtime: context[:execution_runtime],
+      target_executor_program: context[:executor_program],
       item_type: "resource_close_request",
-      runtime_plane: "execution",
+      control_plane: "executor",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",
@@ -53,21 +53,21 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
       AgentControl::PublishPending.call(mailbox_item: mailbox_item)
     end
 
-    assert_equal [[AgentControl::StreamName.for_deployment(context[:execution_session]), mailbox_item.public_id]],
+    assert_equal [[AgentControl::StreamName.for_deployment(context[:executor_session]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
-    assert_equal context[:execution_session], mailbox_item.reload.leased_to_execution_session
+    assert_equal context[:executor_session], mailbox_item.reload.leased_to_executor_session
   end
 
   test "publishes a queued mailbox item without single-item routing query explosion" do
     context = build_agent_control_context!
-    context[:execution_session].update!(endpoint_metadata: { "realtime_link_connected" => true })
+    context[:executor_session].update!(endpoint_metadata: { "realtime_link_connected" => true })
     other_agent_program = create_agent_program!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent_program: other_agent_program,
-      target_execution_runtime: context[:execution_runtime],
+      target_executor_program: context[:executor_program],
       item_type: "resource_close_request",
-      runtime_plane: "execution",
+      control_plane: "executor",
       payload: {
         "resource_type" => "ProcessRun",
         "resource_id" => "process-#{next_test_sequence}",

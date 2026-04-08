@@ -21,36 +21,36 @@ Related design note:
 
 ## Controller Boundary
 
-- `ProgramAPI::RegistrationsController` is the only unauthenticated machine-facing
+- `AgentAPI::RegistrationsController` is the only unauthenticated machine-facing
   endpoint in this task.
-- `ProgramAPI::HeartbeatsController`, `ProgramAPI::HealthController`, and
-  `ProgramAPI::CapabilitiesController` are thin wrappers around application
+- `AgentAPI::HeartbeatsController`, `AgentAPI::HealthController`, and
+  `AgentAPI::CapabilitiesController` are thin wrappers around application
   services and agent-session lookups.
 - These controllers stay machine-facing only; they do not introduce browser UI,
   schedule-trigger ingress, or webhook-trigger ingress.
 
 ## Identifier Boundary
 
-- registration now reconciles the bound `ExecutionRuntime` from the stable
-  request-side `runtime_fingerprint`
-- registration responses still expose `execution_runtime_id`, and that
-  field now carries `ExecutionRuntime.public_id`
+- registration now reconciles the bound `ExecutorProgram` from the stable
+  request-side `executor_fingerprint`
+- registration responses still expose `executor_program_id`, and that
+  field now carries `ExecutorProgram.public_id`
 - registration, health, and heartbeat payloads expose public ids such as
   `agent_program_id`, `agent_program_version_id`, `agent_session_id`, and
-  `execution_session_id`
-- internal program-version, installation, and execution-runtime relations still use
+  `executor_session_id`
+- internal program-version, installation, and executor-program relations still use
   `bigint` after the HTTP boundary reconciliation
 
 ## Authentication Model
 
 - registration uses a one-time `AgentEnrollment` token and exchanges it for a
   durable session credential
-- all follow-up program API calls authenticate with HTTP token auth using the
+- all follow-up agent API calls authenticate with HTTP token auth using the
   `AgentSession` credential
-- execution-plane calls authenticate separately with the `ExecutionSession`
-  credential when an `ExecutionRuntime` is present
+- executor-plane calls authenticate separately with the `ExecutorSession`
+  credential when an `ExecutorProgram` is present
 - session credentials are matched by digest lookup on `AgentSession` or
-  `ExecutionSession`; plaintext credentials are only returned at registration time
+  `ExecutorSession`; plaintext credentials are only returned at registration time
 - invalid session credentials return `401 unauthorized`
 
 ## Public Contract Shape
@@ -77,13 +77,13 @@ Related design note:
   idempotency policy
 - capability refresh and handshake now also publish:
   - `program_plane`
-  - `execution_plane`
+  - `executor_plane`
   - `effective_tool_catalog`
   - `governed_effective_tool_catalog`
 - those sections now come from one shared `RuntimeCapabilityContract`
   projection instead of controller-local hash assembly
 - `effective_tool_catalog` resolves ordinary tool-name conflicts in this order:
-  - `ExecutionRuntime`
+  - `ExecutorProgram`
   - `AgentProgramVersion`
   - `Core Matrix`
 - reserved `core_matrix__*` system tools remain outside ordinary collision
@@ -100,7 +100,7 @@ Related design note:
 - registration returns program identity, program-version identity, session
   credentials, and the initial capability snapshot
 - registration returns `agent_program_id`, `agent_program_version_id`,
-  `agent_session_id`, and optional `execution_session_id` as public ids
+  `agent_session_id`, and optional `executor_session_id` as public ids
 - heartbeat returns `method_id: "agent_health"` plus agent-session health and
   the latest heartbeat timestamp
 - health returns the same public `agent_health` method family plus program
@@ -110,8 +110,8 @@ Related design note:
   current program-version capability payload
 - capabilities handshake returns `method_id: "capabilities_handshake"` and the
   current program-version capability payload
-- both capability endpoints also return execution-runtime identity and the
-  current execution capability payload and tool catalog
+- both capability endpoints also return executor-program identity and the
+  current executor capability payload and tool catalog
 
 ## Program Version Rules
 
@@ -124,7 +124,7 @@ Related design note:
 - `RuntimeCapabilityContract` is the shared formatter for:
   - machine-facing capability refresh and handshake payloads
   - `program_plane`
-  - `execution_plane`
+  - `executor_plane`
   - `effective_tool_catalog`
   - conversation-facing runtime capability payloads
 - capability handshake now also projects the durable governance rows for the
@@ -150,7 +150,7 @@ Related design note:
 - authenticated program-version fingerprint
 - handshake reuses the authenticated `AgentProgramVersion`; it does not append
   versioned capability rows under that same fingerprint
-- handshake normalizes both execution-plane and program-plane payloads through
+- handshake normalizes both executor-plane and program-plane payloads through
   the shared runtime capability contract before response rendering and tool
   governance projection
 - concurrent handshakes serialize only the governed tool projection, so
@@ -167,8 +167,8 @@ Related design note:
 
 - invalid, consumed, or expired enrollment tokens are rejected during
   registration
-- blank `runtime_fingerprint` values are rejected during registration
-- execution-runtime reconciliation remains scoped to the enrollment
+- blank `executor_fingerprint` values are rejected during registration
+- executor-program reconciliation remains scoped to the enrollment
   installation instead of trusting caller-provided runtime ids
 - fingerprint mismatches are rejected during capability handshake
 - machine-facing endpoints reject unknown session credentials before mutating
@@ -176,9 +176,9 @@ Related design note:
 
 ## Retained Implementation Notes
 
-- Rails autoloading expects the `app/controllers/program_api` namespace to be
-  `ProgramAPI`, not `ProgramApi`, so the controller module uses the acronym form to
+- Rails autoloading expects the `app/controllers/agent_api` namespace to be
+  `AgentAPI`, not `AgentApi`, so the controller module uses the acronym form to
   satisfy Zeitwerk
 - `ActionController::API` does not include HTTP token auth helpers by default,
-  so `ProgramAPI::BaseController` includes
+  so `AgentAPI::BaseController` includes
   `ActionController::HttpAuthentication::Token::ControllerMethods` explicitly

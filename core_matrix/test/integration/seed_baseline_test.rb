@@ -9,7 +9,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     initial_binding_count = UserProgramBinding.count
     initial_workspace_count = Workspace.count
     initial_agent_program_count = AgentProgram.count
-    initial_environment_count = ExecutionRuntime.count
+    initial_environment_count = ExecutorProgram.count
     initial_deployment_count = AgentProgramVersion.count
 
     run_seed_script!(
@@ -26,7 +26,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     assert_equal initial_installation_count, Installation.count
     assert_equal installation, Installation.first
     assert_equal initial_agent_program_count + 1, AgentProgram.count
-    assert_equal initial_environment_count + 1, ExecutionRuntime.count
+    assert_equal initial_environment_count + 1, ExecutorProgram.count
     assert_equal initial_deployment_count + 1, AgentProgramVersion.count
     assert_equal initial_identity_count, Identity.count
     assert_equal initial_user_count, User.count
@@ -81,7 +81,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Seed selector",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -116,7 +116,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Seed selector",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -150,7 +150,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Seed selector",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

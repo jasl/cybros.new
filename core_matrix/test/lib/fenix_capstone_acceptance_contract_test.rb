@@ -121,6 +121,18 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ArtifactBundle.write_review_index!"
   end
 
+  test "acceptance scenario uses executor bootstrap and registration identifiers" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, '"executor_machine_credential"'
+    assert_includes scenario, '"executor_program_id"'
+    assert_includes scenario, '"executor_program_display_name"'
+    assert_includes scenario, '"executor_session_id"'
+    assert_includes scenario, '"executor_fingerprint"'
+    assert_includes scenario, "ExecutorProgram.find_by_public_id!"
+    assert_includes scenario, "ExecutorSession.find_by_public_id!"
+  end
+
   test "acceptance gate requires plan-first supervision replay bundles and runtime evidence" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/conversation_artifacts.rb").read

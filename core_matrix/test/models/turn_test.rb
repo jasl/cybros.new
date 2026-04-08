@@ -98,7 +98,7 @@ class TurnTest < ActiveSupport::TestCase
     assert_includes duplicate.errors[:sequence], "has already been taken"
   end
 
-  test "belongs to an agent program version and allows execution runtime to be nil" do
+  test "belongs to an agent program version and allows executor program to be nil" do
     installation = create_installation!
     agent_program = create_agent_program!(installation: installation)
     user = create_user!(installation: installation)
@@ -125,7 +125,7 @@ class TurnTest < ActiveSupport::TestCase
       installation: installation,
       conversation: conversation,
       agent_program_version: agent_program_version,
-      execution_runtime: nil,
+      executor_program: nil,
       sequence: 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",
@@ -138,7 +138,10 @@ class TurnTest < ActiveSupport::TestCase
 
     assert turn.valid?
     assert_equal :belongs_to, Turn.reflect_on_association(:agent_program_version).macro
-    assert_equal :belongs_to, Turn.reflect_on_association(:execution_runtime).macro
+    executor_program_association = Turn.reflect_on_association(:executor_program)
+
+    assert_equal :belongs_to, executor_program_association.macro
+    assert executor_program_association.options[:optional]
   end
 
   test "treats waiting as a non terminal lifecycle state" do

@@ -38,8 +38,8 @@ class ExecutionLease < ApplicationRecord
     )
   end
 
-  def holder_execution_runtime
-    holder_deployment&.execution_runtime
+  def holder_executor_program
+    holder_deployment&.executor_program
   end
 
   private

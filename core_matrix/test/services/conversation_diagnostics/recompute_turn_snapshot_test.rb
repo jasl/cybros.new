@@ -28,7 +28,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
 
     create_process_run!(
       workflow_node: workflow_node,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       conversation: context[:conversation],
       turn: turn,
       lifecycle_state: "lost",
@@ -39,7 +39,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment],
       kind: "fork",
       addressability: "agent_addressable"

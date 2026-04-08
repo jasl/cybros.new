@@ -34,13 +34,13 @@ class DummyAgentRuntime
   def run
     case @command
     when "register"
-      request_json(:post, "/program_api/registrations", register_payload)
+      request_json(:post, "/agent_api/registrations", register_payload)
     when "heartbeat"
-      request_json(:post, "/program_api/heartbeats", heartbeat_payload, machine_credential: machine_credential)
+      request_json(:post, "/agent_api/heartbeats", heartbeat_payload, machine_credential: machine_credential)
     when "capabilities"
-      request_json(:post, "/program_api/capabilities", capabilities_payload, machine_credential: machine_credential)
+      request_json(:post, "/agent_api/capabilities", capabilities_payload, machine_credential: machine_credential)
     when "health"
-      request_json(:get, "/program_api/health", nil, machine_credential: machine_credential)
+      request_json(:get, "/agent_api/health", nil, machine_credential: machine_credential)
     else
       abort usage
     end
@@ -80,7 +80,7 @@ class DummyAgentRuntime
   def register_payload
     {
       "enrollment_token" => ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      "runtime_fingerprint" => ENV.fetch("CORE_MATRIX_RUNTIME_FINGERPRINT", "dummy-runtime-environment"),
+      "executor_fingerprint" => ENV.fetch("CORE_MATRIX_RUNTIME_FINGERPRINT", "dummy-runtime-environment"),
       "fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
       "endpoint_metadata" => {
         "transport" => "http",

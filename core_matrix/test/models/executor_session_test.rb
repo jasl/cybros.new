@@ -38,14 +38,14 @@ class ExecutorSessionTest < ActiveSupport::TestCase
 
   test "legacy execution helpers create executor-backed records" do
     installation = create_installation!
-    executor_program = create_execution_runtime!(
+    executor_program = create_executor_program!(
       installation: installation,
-      runtime_fingerprint: "helper-executor-#{next_test_sequence}"
+      executor_fingerprint: "helper-executor-#{next_test_sequence}"
     )
 
-    executor_session = create_execution_session!(
+    executor_session = create_executor_session!(
       installation: installation,
-      execution_runtime: executor_program
+      executor_program: executor_program
     )
 
     assert_instance_of ExecutorProgram, executor_program

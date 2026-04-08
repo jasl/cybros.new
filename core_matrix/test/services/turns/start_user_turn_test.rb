@@ -23,7 +23,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal "User", turn.source_ref_type
     assert_equal context[:user].public_id, turn.source_ref_id
     assert_equal context[:agent_program_version], turn.agent_program_version
-    assert_equal context[:execution_runtime], turn.execution_runtime
+    assert_equal context[:executor_program], turn.executor_program
     assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
     assert_equal "role:main", turn.resolved_model_selection_snapshot.fetch("normalized_selector")
@@ -74,6 +74,25 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal context[:agent_program_version], turn.agent_program_version
     assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
     refute_equal alternate_deployment, turn.agent_program_version
+  end
+
+  test "accepts executor_program as an alias for the selected executor" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+    alternate_executor_program = create_executor_program!(installation: context[:installation])
+    create_executor_session!(installation: context[:installation], executor_program: alternate_executor_program)
+
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Hello executor alias",
+      executor_program: alternate_executor_program,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_equal alternate_executor_program, turn.executor_program
   end
 
   test "rejects automation purpose conversations" do

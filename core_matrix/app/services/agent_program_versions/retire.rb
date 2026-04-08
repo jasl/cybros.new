@@ -37,7 +37,7 @@ module AgentProgramVersions
     def audit_metadata
       {
         "agent_program_id" => @deployment.agent_program_id,
-        "execution_runtime_id" => @deployment.agent_program.default_execution_runtime_id,
+        "executor_program_id" => @deployment.agent_program.default_executor_program_id,
         "health_status" => @deployment.health_status,
         "bootstrap_state" => @deployment.bootstrap_state,
       }

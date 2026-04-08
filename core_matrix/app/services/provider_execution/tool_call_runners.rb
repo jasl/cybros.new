@@ -4,7 +4,7 @@ module ProviderExecution
       "mcp" => "ProviderExecution::ToolCallRunners::MCP",
       "agent" => "ProviderExecution::ToolCallRunners::Program",
       "kernel" => "ProviderExecution::ToolCallRunners::Program",
-      "execution_runtime" => "ProviderExecution::ToolCallRunners::Program",
+      "executor_program" => "ProviderExecution::ToolCallRunners::Program",
       "core_matrix" => "ProviderExecution::ToolCallRunners::CoreMatrix",
     }.freeze
 

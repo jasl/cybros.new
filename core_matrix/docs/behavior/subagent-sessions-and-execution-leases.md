@@ -78,7 +78,7 @@ instead of scraping child workflow internals after the fact.
   resources
 - child workflow creation now inherits the origin turn's frozen selector and
   selector source when it re-enters `Workflows::CreateForTurn`, so delegated
-  work stays aligned with the parent's origin-turn `ExecutionRuntime` when one
+  work stays aligned with the parent's origin-turn `ExecutorProgram` when one
   was selected, plus the same frozen capability contract, instead of silently
   falling back to a different selector lane
 - `SubagentSessions::SendMessage` appends agent-facing messages into an

@@ -13,7 +13,7 @@ class Conversations::CloseSummaryQueryTest < ActiveSupport::TestCase
     )
     create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )

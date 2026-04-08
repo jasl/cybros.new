@@ -529,13 +529,13 @@ class Fenix::Runtime::ExecuteAssignmentTest < ActiveSupport::TestCase
     assert_operator compact_context_entry.fetch("after_message_count"), :<, compact_context_entry.fetch("before_message_count")
   end
 
-  test "program assignment execution rejects non-program runtime planes" do
+  test "program assignment execution rejects non-program control planes" do
     result = Fenix::Runtime::ExecuteAssignment.call(
-      mailbox_item: runtime_assignment_payload(runtime_plane: "execution")
+      mailbox_item: runtime_assignment_payload(control_plane: "executor")
     )
 
     assert_equal "failed", result.status
-    assert_equal "unsupported_runtime_plane", result.error.fetch("failure_kind")
+    assert_equal "unsupported_control_plane", result.error.fetch("failure_kind")
     assert_equal %w[execution_fail], result.reports.map { |report| report.fetch("method_id") }
   end
 

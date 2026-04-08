@@ -77,8 +77,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
   test "routes execution-environment round tools back through the program mailbox exchange" do
     environment_tool = {
       "tool_name" => "memory_search",
-      "tool_kind" => "execution_runtime",
-      "implementation_source" => "execution_runtime",
+      "tool_kind" => "executor_program",
+      "implementation_source" => "executor_program",
       "implementation_ref" => "env/memory_search",
       "input_schema" => {
         "type" => "object",
@@ -97,7 +97,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       "idempotency_policy" => "best_effort",
     }
     context = build_governed_tool_context!(
-      execution_tool_catalog: [environment_tool],
+      executor_tool_catalog: [environment_tool],
       profile_catalog: {
         "main" => {
           "label" => "Main",

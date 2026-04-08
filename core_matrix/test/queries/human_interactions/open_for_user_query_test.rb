@@ -68,7 +68,7 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
 
   def build_request_context(installation:, user:)
     agent_program = create_agent_program!(installation: installation, key: "agent-#{next_test_sequence}")
-    execution_runtime = create_execution_runtime!(installation: installation)
+    executor_program = create_executor_program!(installation: installation)
     agent_program_version = create_agent_program_version!(
       installation: installation,
       agent_program: agent_program
@@ -82,9 +82,9 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
-    create_execution_session!(
+    create_executor_session!(
       installation: installation,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       last_heartbeat_at: Time.current
     )
     user_program_binding = create_user_program_binding!(
@@ -105,7 +105,7 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
     interactive_turn = Turns::StartUserTurn.call(
       conversation: interactive_conversation,
       content: "Interactive task",
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -134,7 +134,7 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       source_ref_id: "schedule-#{next_test_sequence}",
       idempotency_key: "idempotency-#{next_test_sequence}",
       external_event_key: "event-#{next_test_sequence}",
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -152,7 +152,7 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       installation: installation,
       user: user,
       agent_program: agent_program,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       agent_program_version: agent_program_version,
       user_program_binding: user_program_binding,
       workspace: workspace,

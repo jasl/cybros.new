@@ -11,11 +11,11 @@ module Fenix
         @tool_catalog ||= decorate(manifests.flat_map(&:tool_catalog))
       end
 
-      def execution_tool_catalog
-        @execution_tool_catalog ||= decorate(manifests.select(&:execution_plane?).flat_map(&:tool_catalog)).map do |entry|
+      def executor_tool_catalog
+        @executor_tool_catalog ||= decorate(manifests.select(&:executor_plane?).flat_map(&:tool_catalog)).map do |entry|
           entry.merge(
-            "tool_kind" => "execution_runtime",
-            "implementation_source" => "execution_runtime"
+            "tool_kind" => "executor_program",
+            "implementation_source" => "executor_program"
           )
         end
       end
@@ -24,8 +24,8 @@ module Fenix
         @program_tool_catalog ||= decorate(manifests.select(&:program_plane?).flat_map(&:tool_catalog))
       end
 
-      def execution_tool_names
-        execution_tool_catalog.map { |entry| entry.fetch("tool_name") }
+      def executor_tool_names
+        executor_tool_catalog.map { |entry| entry.fetch("tool_name") }
       end
 
       private

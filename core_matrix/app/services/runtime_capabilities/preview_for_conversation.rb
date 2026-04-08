@@ -16,7 +16,7 @@ module RuntimeCapabilities
 
     def call
       {
-        "execution_runtime_id" => execution_runtime&.public_id,
+        "executor_program_id" => executor_program&.public_id,
         "agent_program_version_id" => agent_program_version.public_id,
         "tool_catalog" => visible_tool_catalog,
       }.compact
@@ -37,8 +37,8 @@ module RuntimeCapabilities
       @agent_program_version ||= Turns::FreezeProgramVersion.call(conversation: @conversation)
     end
 
-    def execution_runtime
-      @execution_runtime ||= Turns::SelectExecutionRuntime.call(conversation: @conversation)
+    def executor_program
+      @executor_program ||= Turns::SelectExecutorProgram.call(conversation: @conversation)
     rescue ActiveRecord::RecordInvalid
       nil
     end
@@ -47,7 +47,7 @@ module RuntimeCapabilities
       @visible_tool_catalog_composer ||= RuntimeCapabilities::ComposeVisibleToolCatalog.new(
         conversation: @conversation,
         agent_program_version: agent_program_version,
-        execution_runtime: execution_runtime
+        executor_program: executor_program
       )
     end
   end

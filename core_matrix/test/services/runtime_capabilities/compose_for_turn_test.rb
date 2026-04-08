@@ -65,7 +65,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
 
     Conversations::CreateRoot.call(
       workspace: workspace,
-      execution_runtime: registration[:execution_runtime],
+      executor_program: registration[:executor_program],
       agent_program_version: registration[:deployment]
     )
   end
@@ -80,7 +80,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
         kind: "fork",
-        execution_runtime: registration[:execution_runtime],
+        executor_program: registration[:executor_program],
         agent_program_version: registration[:deployment],
         addressability: "agent_addressable"
       )

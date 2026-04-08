@@ -5,7 +5,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
 
@@ -22,7 +22,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     Turns::StartUserTurn.call(
@@ -45,14 +45,14 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     open_session = create_open_owned_subagent_session!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: root,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       observed_status: "idle"
     ).fetch(:session)
@@ -89,7 +89,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     root.update!(deletion_state: "pending_delete", deleted_at: Time.current)
@@ -105,7 +105,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     root.update!(lifecycle_state: "archived")
@@ -121,7 +121,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     root.update!(lifecycle_state: "archived")
@@ -154,7 +154,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -162,7 +162,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment]
     )
     [background_service].each do |resource|
@@ -244,7 +244,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
 
@@ -280,13 +280,13 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context
   end
 
-  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_program_version:, observed_status: "running")
+  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, executor_program:, agent_program_version:, observed_status: "running")
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       agent_program_version: agent_program_version,
       addressability: "agent_addressable"
     )

@@ -11,7 +11,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-1",
       "logical_work_id" => "logical-work-1",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(
       runtime_execution_attributes(
@@ -51,7 +51,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-2",
       "logical_work_id" => "logical-work-2",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
@@ -94,7 +94,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-3",
       "logical_work_id" => "logical-work-3",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
@@ -128,7 +128,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-4",
       "logical_work_id" => "logical-work-4",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
@@ -168,7 +168,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-4b",
       "logical_work_id" => "logical-work-4b",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
@@ -239,7 +239,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-5",
       "logical_work_id" => "logical-work-5",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 
@@ -277,7 +277,7 @@ class RuntimeExecutionJobTest < ActiveJob::TestCase
       "protocol_message_id" => "protocol-message-6",
       "logical_work_id" => "logical-work-6",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
     )
     runtime_execution = RuntimeExecution.create!(runtime_execution_attributes(mailbox_item:))
 

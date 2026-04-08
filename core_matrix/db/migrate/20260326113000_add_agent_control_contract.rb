@@ -162,7 +162,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :leased_to_executor_session, foreign_key: { to_table: :executor_sessions }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :item_type, null: false
-      t.string :runtime_plane, null: false
+      t.string :control_plane, null: false
       t.string :logical_work_id, null: false
       t.integer :attempt_no, null: false, default: 1
       t.integer :delivery_no, null: false, default: 0
@@ -184,9 +184,9 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     end
     add_index :agent_control_mailbox_items, :public_id, unique: true
     add_index :agent_control_mailbox_items, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_mailbox_items_protocol_message"
-    add_index :agent_control_mailbox_items, [:target_agent_program_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_program_delivery"
-    add_index :agent_control_mailbox_items, [:target_agent_program_version_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_program_version_delivery"
-    add_index :agent_control_mailbox_items, [:target_executor_program_id, :runtime_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_execution_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_program_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_program_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_program_version_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_program_version_delivery"
+    add_index :agent_control_mailbox_items, [:target_executor_program_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_execution_delivery"
 
     create_table :agent_control_report_receipts do |t|
       t.references :installation, null: false, foreign_key: true

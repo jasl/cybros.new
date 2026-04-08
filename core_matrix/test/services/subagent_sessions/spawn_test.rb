@@ -67,7 +67,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -141,7 +141,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!(profile_catalog: profile_catalog)
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -187,7 +187,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!(profile_catalog: profile_catalog)
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -216,7 +216,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -246,7 +246,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
 
     other_owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     other_owner_turn = Turns::StartUserTurn.call(
@@ -280,7 +280,7 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     owner_turn = Turns::StartUserTurn.call(

@@ -186,12 +186,12 @@ module Fenix
         {
           "agent_key" => "fenix",
           "display_name" => "Fenix",
-          "includes_execution_runtime" => true,
-          "runtime_kind" => EXECUTION_RUNTIME_KIND,
-          "runtime_fingerprint" => runtime_fingerprint,
-          "runtime_connection_metadata" => endpoint_metadata,
-          "execution_capability_payload" => execution_capability_payload,
-          "execution_tool_catalog" => execution_tool_catalog,
+          "includes_executor_program" => true,
+          "executor_kind" => EXECUTION_RUNTIME_KIND,
+          "executor_fingerprint" => executor_fingerprint,
+          "executor_connection_metadata" => endpoint_metadata,
+          "executor_capability_payload" => executor_capability_payload,
+          "executor_tool_catalog" => executor_tool_catalog,
           "operator_groups" => operator_groups,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
@@ -201,7 +201,7 @@ module Fenix
           "tool_catalog" => program_tool_catalog,
           "profile_catalog" => profile_catalog,
           "program_plane" => program_plane,
-          "execution_plane" => execution_plane,
+          "executor_plane" => executor_plane,
           "effective_tool_catalog" => effective_tool_catalog,
           "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
           "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
@@ -238,7 +238,7 @@ module Fenix
 
       def program_plane
         {
-          "runtime_plane" => "program",
+          "control_plane" => "program",
           "protocol_methods" => protocol_methods,
           "tool_catalog" => program_tool_catalog,
           "profile_catalog" => profile_catalog,
@@ -248,16 +248,16 @@ module Fenix
         }
       end
 
-      def execution_plane
+      def executor_plane
         {
-          "runtime_plane" => "execution",
-          "capability_payload" => execution_capability_payload,
-          "tool_catalog" => execution_tool_catalog,
+          "control_plane" => "executor",
+          "capability_payload" => executor_capability_payload,
+          "tool_catalog" => executor_tool_catalog,
         }
       end
 
-      def execution_tool_catalog
-        @execution_tool_catalog ||= plugin_catalog.execution_tool_catalog
+      def executor_tool_catalog
+        @executor_tool_catalog ||= plugin_catalog.executor_tool_catalog
       end
 
       def profile_catalog
@@ -278,7 +278,7 @@ module Fenix
         }
       end
 
-      def execution_capability_payload
+      def executor_capability_payload
         {
           "attachment_access" => {
             "request_attachment" => true,
@@ -317,7 +317,7 @@ module Fenix
         ordinary_entries = {}
         ordinary_order = []
 
-        [execution_tool_catalog, program_tool_catalog].each do |catalog|
+        [executor_tool_catalog, program_tool_catalog].each do |catalog|
           catalog.each do |entry|
             tool_name = entry.fetch("tool_name")
             next if ordinary_entries.key?(tool_name)
@@ -330,7 +330,7 @@ module Fenix
         ordinary_order.map { |tool_name| ordinary_entries.fetch(tool_name) }
       end
 
-      def runtime_fingerprint
+      def executor_fingerprint
         "fenix:#{Socket.gethostname}"
       end
 

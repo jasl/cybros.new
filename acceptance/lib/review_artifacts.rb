@@ -4,7 +4,7 @@ module Acceptance
   module ReviewArtifacts
     module_function
 
-    def write_turns!(path:, scenario_date:, operator_name:, runtime_mode:, conversation:, turn:, workflow_run:, agent_program_version:, execution_runtime:, selector:, diagnostics_turn:, source_transcript:, provider_breakdown:, subagent_sessions:, proof_artifacts:)
+    def write_turns!(path:, scenario_date:, operator_name:, runtime_mode:, conversation:, turn:, workflow_run:, agent_program_version:, executor_program:, selector:, diagnostics_turn:, source_transcript:, provider_breakdown:, subagent_sessions:, proof_artifacts:)
       workflow_node_type_counts = diagnostics_turn.dig("metadata", "workflow_node_type_counts") || {}
       provider_entry = provider_breakdown.first || {}
       message_roles = source_transcript.fetch("items").map { |item| item.fetch("role") }.uniq
@@ -19,7 +19,7 @@ module Acceptance
           turn_id: turn.public_id,
           workflow_run_id: workflow_run.public_id,
           agent_program_version_id: agent_program_version.public_id,
-          execution_runtime_id: execution_runtime&.public_id || "none",
+          executor_program_id: executor_program&.public_id || "none",
           selector: selector,
           provider_handle: provider_entry["provider_handle"] || "n/a",
           model_ref: provider_entry["model_ref"] || "n/a",
@@ -37,7 +37,7 @@ module Acceptance
       )
     end
 
-    def turns_markdown(scenario_date:, operator_name:, runtime_mode:, conversation_id:, turn_id:, workflow_run_id:, agent_program_version_id:, execution_runtime_id:, selector:, provider_handle:, model_ref:, resolved_model_ref:, workflow_node_type_counts:, total_workflow_nodes:, provider_round_count:, conversation_lifecycle_state:, turn_lifecycle_state:, message_roles:, selected_output_message_id:, subagent_sessions:, proof_artifacts:)
+    def turns_markdown(scenario_date:, operator_name:, runtime_mode:, conversation_id:, turn_id:, workflow_run_id:, agent_program_version_id:, executor_program_id:, selector:, provider_handle:, model_ref:, resolved_model_ref:, workflow_node_type_counts:, total_workflow_nodes:, provider_round_count:, conversation_lifecycle_state:, turn_lifecycle_state:, message_roles:, selected_output_message_id:, subagent_sessions:, proof_artifacts:)
       subagent_entry = Array(subagent_sessions).first || {}
 
       lines = [
@@ -51,7 +51,7 @@ module Acceptance
         "- Turn `public_id`: `#{turn_id}`",
         "- Workflow-run `public_id`: `#{workflow_run_id}`",
         "- Agent program version `public_id`: `#{agent_program_version_id}`",
-        "- Execution runtime `public_id`: `#{execution_runtime_id}`",
+        "- Executor program `public_id`: `#{executor_program_id}`",
         "- Runtime mode: `#{runtime_mode}`",
         "- Provider handle: `#{provider_handle}`",
         "- Model ref: `#{model_ref}`",
@@ -132,7 +132,7 @@ module Acceptance
       lines.join("\n")
     end
 
-    def write_runtime_and_bindings!(path:, workspace_root:, machine_credential:, agent_program:, agent_program_version:, execution_runtime:, skill_source_manifest_path:, docker_container:, runtime_base_url:, runtime_worker_boot:)
+    def write_runtime_and_bindings!(path:, workspace_root:, machine_credential:, agent_program:, agent_program_version:, executor_program:, skill_source_manifest_path:, docker_container:, runtime_base_url:, runtime_worker_boot:)
       redacted_credential = machine_credential.to_s.sub(/:.+\z/, ":REDACTED")
       worker_commands = Array(runtime_worker_boot&.fetch("worker_commands", nil))
       standalone_solid_queue = runtime_worker_boot&.fetch("standalone_solid_queue", false)
@@ -218,7 +218,7 @@ module Acceptance
 
         - Agent program `public_id`: `#{agent_program.public_id}`
         - Agent program version `public_id`: `#{agent_program_version.public_id}`
-        - Execution runtime `public_id`: `#{execution_runtime.public_id}`
+        - Executor program `public_id`: `#{executor_program.public_id}`
         - Skill source manifest: `#{skill_source_manifest_path}`
 
         After runtime registration, the top-level automation recreated the

@@ -19,7 +19,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal mailbox_item.fetch("protocol_message_id"), runtime_execution.protocol_message_id
     assert_equal mailbox_item.fetch("logical_work_id"), runtime_execution.logical_work_id
     assert_equal mailbox_item.fetch("attempt_no"), runtime_execution.attempt_no
-    assert_equal mailbox_item.fetch("runtime_plane"), runtime_execution.runtime_plane
+    assert_equal mailbox_item.fetch("control_plane"), runtime_execution.control_plane
     assert_equal "execution_assignment", runtime_execution.item_type
     assert_equal "execution_assignment", runtime_execution.request_kind
     assert_equal mailbox_item.fetch("payload"), runtime_execution.request_payload
@@ -52,7 +52,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
@@ -68,7 +68,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
@@ -109,7 +109,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 
@@ -152,7 +152,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{SecureRandom.uuid}",
       "logical_work_id" => "logical-work-#{SecureRandom.uuid}",
       "attempt_no" => 1,
-      "runtime_plane" => "program",
+      "control_plane" => "program",
       "payload" => shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload"),
     }
 

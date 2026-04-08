@@ -45,7 +45,7 @@ execution-snapshot persistence on the turn row.
 ## Turn Behavior
 
 - `Turn` belongs to a conversation, installation, pinned
-  `AgentProgramVersion`, and optional `ExecutionRuntime`
+  `AgentProgramVersion`, and optional `ExecutorProgram`
 - turn state is explicit and supports:
   - `queued`
   - `active`

@@ -101,7 +101,7 @@ module ConversationSupervisionFixtureBuilder
       workspace: context.fetch(:workspace),
       parent_conversation: conversation,
       kind: "fork",
-      execution_runtime: context.fetch(:execution_runtime),
+      executor_program: context.fetch(:executor_program),
       agent_program_version: context.fetch(:agent_program_version),
       addressability: "agent_addressable"
     )

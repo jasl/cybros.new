@@ -172,7 +172,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "automation_schedule", snapshot.task.fetch("origin_kind")
   end
 
-  test "keeps canonical attachments even when execution runtime does not advertise request_attachment access" do
+  test "keeps canonical attachments even when executor program does not advertise request_attachment access" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     context[:executor_program].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])

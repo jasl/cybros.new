@@ -9,20 +9,19 @@ class AgentLoopFenixContractSmokeTest < Minitest::Test
     "shared",
     "fixtures",
     "contracts",
-    "core_matrix_fenix_execution_assignment_v1.json"
+    "core_matrix_fenix_execution_assignment.json"
   )
 
   def test_core_matrix_and_fenix_accept_the_same_agent_loop_assignment_fixture
     fixture = JSON.parse(File.read(CONTRACT_FIXTURE_PATH))
 
     assert_equal "execution_assignment", fixture.fetch("item_type")
-    assert_equal "agent", fixture.fetch("runtime_plane")
-    assert_equal "agent_installation", fixture.fetch("target_kind")
-    assert_equal "subagent_step", fixture.dig("payload", "kind")
-    assert_equal "gpt-5.4", fixture.dig("payload", "model_context", "model_ref")
-    assert_equal true, fixture.dig("payload", "agent_context", "is_subagent")
+    assert_equal "program", fixture.fetch("control_plane")
+    assert_equal "subagent_step", fixture.dig("payload", "task", "kind")
+    assert_equal "gpt-5.4", fixture.dig("payload", "provider_context", "model_context", "model_ref")
+    assert_equal true, fixture.dig("payload", "capability_projection", "is_subagent")
     assert_match(/public-id\z/, fixture.fetch("item_id"))
-    assert_match(/public-id\z/, fixture.dig("payload", "agent_task_run_id"))
+    assert_match(/public-id\z/, fixture.dig("payload", "task", "agent_task_run_id"))
 
     run_contract_test!(
       label: "core_matrix producer contract",

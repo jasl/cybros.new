@@ -29,7 +29,7 @@ module Workflows
       "tool_runtime_unavailable" => 10.seconds,
       "tool_invocation_timeout" => 10.seconds,
       "agent_session_unavailable" => 10.seconds,
-      "execution_session_unavailable" => 10.seconds,
+      "executor_session_unavailable" => 10.seconds,
       "invalid_provider_response_contract" => 5.seconds,
       "invalid_program_response_contract" => 5.seconds,
       "invalid_tool_call_contract" => 5.seconds,

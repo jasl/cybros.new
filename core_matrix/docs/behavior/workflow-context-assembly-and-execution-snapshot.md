@@ -53,7 +53,7 @@ freezes a per-turn execution snapshot that preserves:
   - `workspace_id`
   - `conversation_id`
   - `turn_id`
-  - `execution_runtime_id`
+  - `executor_program_id`
   - `agent_program_version_id`
 - these identity fields are public ids for the referenced resources, not raw
   internal `bigint` primary keys
@@ -242,7 +242,7 @@ freezes a per-turn execution snapshot that preserves:
   `attachment_diagnostics` with `reason=unsupported_modality`
 - execution-runtime attachment delivery is not precomputed into the snapshot
 - execution tooling must request concrete attachment handles through
-  `POST /execution_api/attachments/request`
+  `POST /executor_api/attachments/request`
 
 ## Aggregate And Read-Side Boundaries
 

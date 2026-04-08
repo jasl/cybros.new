@@ -229,7 +229,7 @@ module ProviderExecutionTestSupport
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Execute turn step input",
-        execution_runtime: context[:execution_runtime],
+        executor_program: context[:executor_program],
         resolved_config_snapshot: resolved_config_snapshot,
         resolved_model_selection_snapshot: {}
       )

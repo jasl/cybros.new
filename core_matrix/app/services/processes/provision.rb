@@ -8,9 +8,9 @@ module Processes
       new(...).call
     end
 
-    def initialize(workflow_node:, execution_runtime:, kind:, command_line:, timeout_seconds: nil, origin_message: nil, metadata: {}, idempotency_key: nil)
+    def initialize(workflow_node:, executor_program:, kind:, command_line:, timeout_seconds: nil, origin_message: nil, metadata: {}, idempotency_key: nil)
       @workflow_node = workflow_node
-      @execution_runtime = execution_runtime
+      @executor_program = executor_program
       @kind = kind
       @command_line = command_line
       @timeout_seconds = timeout_seconds
@@ -37,7 +37,7 @@ module Processes
           process_run = ProcessRun.create!(
             installation: @workflow_node.installation,
             workflow_node: @workflow_node,
-            execution_runtime: @execution_runtime,
+            executor_program: @executor_program,
             conversation: @workflow_node.workflow_run.conversation,
             turn: @workflow_node.workflow_run.turn,
             origin_message: @origin_message,
@@ -73,14 +73,14 @@ module Processes
     end
 
     def acquire_process_lease!(process_run)
-      execution_session = ExecutionSessions::ResolveActiveSession.call(
-        execution_runtime: process_run.execution_runtime
+      executor_session = ExecutorSessions::ResolveActiveSession.call(
+        executor_program: process_run.executor_program
       )
-      return if execution_session.blank?
+      return if executor_session.blank?
 
       Leases::Acquire.call(
         leased_resource: process_run,
-        holder_key: execution_session.public_id,
+        holder_key: executor_session.public_id,
         heartbeat_timeout_seconds: LEASE_TIMEOUT_SECONDS
       )
     end

@@ -47,7 +47,7 @@ module Fenix
           protocol_message_id: @mailbox_item.fetch("protocol_message_id"),
           logical_work_id: @mailbox_item.fetch("logical_work_id"),
           attempt_no: @mailbox_item.fetch("attempt_no"),
-          runtime_plane: @mailbox_item.fetch("runtime_plane"),
+          control_plane: @mailbox_item.fetch("control_plane"),
           item_type: @mailbox_item.fetch("item_type", "execution_assignment"),
           request_kind: @mailbox_item.dig("payload", "request_kind").presence || @mailbox_item.fetch("item_type", "execution_assignment"),
           request_payload: @mailbox_item.fetch("payload")

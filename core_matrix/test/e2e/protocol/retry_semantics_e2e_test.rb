@@ -96,7 +96,7 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
     initial_task = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )

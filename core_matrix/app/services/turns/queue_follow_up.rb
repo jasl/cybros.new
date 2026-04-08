@@ -4,10 +4,10 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, content:, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
+    def initialize(conversation:, content:, executor_program: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
       @conversation = conversation
       @content = content
-      @execution_runtime = execution_runtime
+      @executor_program = executor_program
       @resolved_config_snapshot = resolved_config_snapshot
       @resolved_model_selection_snapshot = resolved_model_selection_snapshot
     end
@@ -31,16 +31,16 @@ module Turns
         end
 
         agent_program_version = Turns::FreezeProgramVersion.call(conversation: conversation)
-        execution_runtime = Turns::SelectExecutionRuntime.call(
+        executor_program = Turns::SelectExecutorProgram.call(
           conversation: conversation,
-          execution_runtime: @execution_runtime
+          executor_program: @executor_program
         )
 
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
           agent_program_version: agent_program_version,
-          execution_runtime: execution_runtime,
+          executor_program: executor_program,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "queued",
           origin_kind: "manual_user",

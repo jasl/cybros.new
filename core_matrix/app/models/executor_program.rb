@@ -1,10 +1,10 @@
 class ExecutorProgram < ApplicationRecord
   include HasPublicId
 
-  alias_attribute :runtime_fingerprint, :executor_fingerprint
+  alias_attribute :executor_fingerprint, :executor_fingerprint
 
   METHOD_ID_PATTERN = /\A[a-z0-9_]+\z/
-  TOOL_KINDS = %w[execution_runtime].freeze
+  TOOL_KINDS = %w[executor_program].freeze
 
   enum :kind, { local: "local", container: "container", remote: "remote" }, validate: true
   enum :lifecycle_state, { active: "active", retired: "retired" }, validate: true

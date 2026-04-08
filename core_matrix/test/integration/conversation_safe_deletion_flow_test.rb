@@ -18,12 +18,12 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
 
     Conversations::RequestDeletion.call(conversation: context[:conversation])
 
-    get "/program_api/conversation_variables/resolve",
+    get "/agent_api/conversation_variables/resolve",
       params: {
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
       },
-      headers: program_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:machine_credential])
 
     assert_response :not_found
     assert_equal [], HumanInteractions::OpenForUserQuery.call(user: context[:user])
@@ -88,7 +88,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     child = Conversations::CreateFork.call(parent: parent)

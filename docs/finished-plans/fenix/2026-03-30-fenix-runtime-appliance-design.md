@@ -11,7 +11,7 @@
 Turn `agents/fenix` from the current validated runtime baseline
 into a default, distributable runtime appliance that:
 
-- remains compatible with Core Matrix's `AgentProgramVersion + ExecutionRuntime`
+- remains compatible with Core Matrix's `AgentProgramVersion + ExecutorProgram`
   model
 - ships as the default agent implementation in Docker Compose deployments
 - can also run bare-metal on Ubuntu 24.04 LTS with documented prerequisites
@@ -22,7 +22,7 @@ into a default, distributable runtime appliance that:
 
 ## Current Constraints
 
-- `core_matrix` already models one stable `ExecutionRuntime`, frozen
+- `core_matrix` already models one stable `ExecutorProgram`, frozen
   `AgentProgramVersion` rows, and `program_plane` / `execution_plane` /
   `effective_tool_catalog` contracts.
 - `agents/fenix` still exposes a mostly static pairing manifest and hardcoded

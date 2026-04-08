@@ -13,7 +13,7 @@ begin
   runtime_context = GovernedValidationSupport.bootstrap_runtime!(
     agent_key: "acceptance-governed-mcp",
     display_name: "Acceptance Governed MCP Runtime",
-    runtime_fingerprint: "acceptance-governed-mcp-environment",
+    executor_fingerprint: "acceptance-governed-mcp-environment",
     fingerprint: "acceptance-governed-mcp-runtime",
     tool_catalog: [
       {

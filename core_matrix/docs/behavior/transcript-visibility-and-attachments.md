@@ -62,7 +62,7 @@ into descendant conversation support surfaces.
 - transcript visibility decides which attachments are even eligible for a
   conversation, but later runtime exposure is still gated by the turn's frozen
   capability surface from its `AgentProgramVersion` plus any optional
-  `ExecutionRuntime`.
+  `ExecutorProgram`.
 
 ## Attachment Ancestry Behavior
 

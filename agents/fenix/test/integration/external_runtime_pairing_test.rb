@@ -8,14 +8,14 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
 
     body = JSON.parse(response.body)
 
-    assert_equal true, body.fetch("includes_execution_runtime")
-    assert_equal "local", body.fetch("runtime_kind")
-    assert body.fetch("runtime_fingerprint").present?
+    assert_equal true, body.fetch("includes_executor_program")
+    assert_equal "local", body.fetch("executor_kind")
+    assert body.fetch("executor_fingerprint").present?
     assert_equal "/runtime/manifest", body.dig("endpoint_metadata", "runtime_manifest_path")
-    assert_equal true, body.dig("execution_plane", "capability_payload", "attachment_access", "request_attachment")
-    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("execution_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
-    assert_equal 3310, body.dig("execution_plane", "capability_payload", "fixed_port_dev_proxy", "default_external_port")
-    assert_equal "/dev/<process_run_id>", body.dig("execution_plane", "capability_payload", "fixed_port_dev_proxy", "path_prefix_template")
+    assert_equal true, body.dig("executor_plane", "capability_payload", "attachment_access", "request_attachment")
+    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("executor_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
+    assert_equal 3310, body.dig("executor_plane", "capability_payload", "fixed_port_dev_proxy", "default_external_port")
+    assert_equal "/dev/<process_run_id>", body.dig("executor_plane", "capability_payload", "fixed_port_dev_proxy", "path_prefix_template")
     assert_equal "agent-program/2026-04-01", body.fetch("protocol_version")
     assert_equal "fenix-0.1.0", body.fetch("sdk_version")
     assert_equal %w[base_url runtime_manifest_path transport], body.fetch("endpoint_metadata").keys.sort
@@ -29,26 +29,26 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("program_plane").fetch("protocol_methods").map { |entry| entry.fetch("method_id") }, "execution_started"
     assert_equal body.fetch("profile_catalog"), body.fetch("program_plane").fetch("profile_catalog")
     assert_includes body.fetch("profile_catalog").keys, "main"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "write_stdin"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "workspace_read"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "workspace_write"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "memory_get"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "memory_search"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "memory_store"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "web_fetch"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "web_search"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "firecrawl_search"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "firecrawl_scrape"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_open"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_navigate"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_get_content"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_screenshot"
-    assert_includes body.fetch("execution_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_close"
-    assert body.fetch("execution_tool_catalog").all? { |entry| entry.fetch("tool_kind") == "execution_runtime" }
-    assert body.fetch("execution_tool_catalog").all? { |entry| entry.fetch("implementation_source") == "execution_runtime" }
-    assert body.fetch("execution_tool_catalog").any? { |entry| entry.fetch("tool_name") == "workspace_read" && entry.fetch("operator_group") == "workspace" }
-    assert body.fetch("execution_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" && entry.fetch("operator_group") == "command_run" && entry.fetch("supports_streaming_output") == true }
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "write_stdin"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "workspace_read"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "workspace_write"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "memory_get"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "memory_search"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "memory_store"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "web_fetch"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "web_search"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "firecrawl_search"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "firecrawl_scrape"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_open"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_navigate"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_get_content"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_screenshot"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_close"
+    assert body.fetch("executor_tool_catalog").all? { |entry| entry.fetch("tool_kind") == "executor_program" }
+    assert body.fetch("executor_tool_catalog").all? { |entry| entry.fetch("implementation_source") == "executor_program" }
+    assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "workspace_read" && entry.fetch("operator_group") == "workspace" }
+    assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" && entry.fetch("operator_group") == "command_run" && entry.fetch("supports_streaming_output") == true }
     assert_equal body.fetch("tool_catalog"), body.fetch("program_plane").fetch("tool_catalog")
     assert_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "compact_context"
     refute_includes body.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "exec_command"
@@ -76,7 +76,7 @@ class ExternalRuntimePairingTest < ActionDispatch::IntegrationTest
       body = JSON.parse(response.body)
 
       assert_equal "http://fenix.example.test:3101", body.dig("endpoint_metadata", "base_url")
-      assert_equal "http://fenix.example.test:3101", body.dig("runtime_connection_metadata", "base_url")
+      assert_equal "http://fenix.example.test:3101", body.dig("executor_connection_metadata", "base_url")
     ensure
       ENV["FENIX_PUBLIC_BASE_URL"] = original_base_url
     end

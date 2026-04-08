@@ -149,7 +149,7 @@ Core Matrix must not own:
 
 ## Agent Program Responsibilities
 
-An agent program is the business execution runtime that consumes kernel
+An agent program is the business program surface that consumes kernel
 projections and emits execution intent and reports.
 
 It should own:
@@ -285,7 +285,7 @@ stable.
     "model_context": {}
   },
   "runtime_context": {
-    "runtime_plane": "agent",
+    "control_plane": "program",
     "logical_work_id": "workflow-node:...",
     "attempt_no": 1,
     "deployment_public_id": "dep_..."
@@ -373,7 +373,7 @@ business task.
 
 It should contain:
 
-- `runtime_plane`
+- `control_plane`
 - `logical_work_id`
 - `attempt_no`
 - `deployment_public_id`

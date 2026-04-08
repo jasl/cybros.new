@@ -7,7 +7,7 @@ class AgentControl::ApplySupervisionUpdateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"

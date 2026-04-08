@@ -60,8 +60,8 @@ class DistributionContractTest < ActionDispatch::IntegrationTest
     assert_match(/CORE_MATRIX_MACHINE_CREDENTIAL=/, env_sample)
     refute_match(/Provider LLM queues/i, env_sample)
 
-    assert_equal "ubuntu-24.04", body.dig("execution_capability_payload", "runtime_foundation", "base_image")
-    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("execution_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
+    assert_equal "ubuntu-24.04", body.dig("executor_capability_payload", "runtime_foundation", "base_image")
+    assert_equal "FENIX_DEV_PROXY_PORT", body.dig("executor_plane", "capability_payload", "fixed_port_dev_proxy", "external_port_env")
 
     assert_equal ".", fenix_service.fetch("build")
     assert_equal ".", proxy_service.fetch("build")

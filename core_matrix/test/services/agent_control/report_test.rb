@@ -92,7 +92,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       attempt_no: agent_task_run.attempt_no,
       control: {
         "mailbox_item_id" => mailbox_item.public_id,
-        "runtime_plane" => mailbox_item.runtime_plane,
+        "control_plane" => mailbox_item.control_plane,
         "request_kind" => mailbox_item.payload.fetch("request_kind"),
       },
       progress_payload: {
@@ -123,7 +123,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal agent_task_run.logical_work_id, payload.fetch("logical_work_id")
     assert_equal agent_task_run.attempt_no, payload.fetch("attempt_no")
     assert_equal mailbox_item.public_id, payload.fetch("mailbox_item_id")
-    assert_equal mailbox_item.runtime_plane, payload.fetch("runtime_plane")
+    assert_equal mailbox_item.control_plane, payload.fetch("control_plane")
     assert_equal mailbox_item.payload.fetch("request_kind"), payload.fetch("request_kind")
     assert_equal agent_task_run.conversation.public_id, payload.fetch("conversation_id")
     assert_equal agent_task_run.turn.public_id, payload.fetch("turn_id")
@@ -564,13 +564,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
@@ -601,7 +601,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_rotated_runtime_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -712,7 +712,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )
@@ -775,7 +775,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )
@@ -820,13 +820,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-28 12:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = travel_to(occurred_at) do
@@ -836,11 +836,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
       ).fetch(:mailbox_item)
     end
 
-    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
+    AgentControl::Poll.call(executor_session: context[:executor_session], limit: 10, occurred_at: occurred_at)
 
     ack_result = AgentControl::Report.call(
       deployment: context[:deployment],
-      execution_session: context[:execution_session],
+      executor_session: context[:executor_session],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -852,7 +852,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     assert_equal "accepted", ack_result.code
     assert_equal "acked", close_request.reload.status
-    assert_equal context[:execution_session], close_request.leased_to_execution_session
+    assert_equal context[:executor_session], close_request.leased_to_executor_session
 
     AgentControl::ProgressCloseRequest.call(
       mailbox_item: close_request,
@@ -861,11 +861,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     assert_equal "queued", close_request.reload.status
     assert_equal "forced", close_request.payload["strictness"]
-    assert_equal context[:execution_session], close_request.leased_to_execution_session
+    assert_equal context[:executor_session], close_request.leased_to_executor_session
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
-      execution_session: context[:execution_session],
+      executor_session: context[:executor_session],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -888,13 +888,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-28 13:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = travel_to(occurred_at) do
@@ -904,11 +904,11 @@ class AgentControlReportTest < ActiveSupport::TestCase
       ).fetch(:mailbox_item)
     end
 
-    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10, occurred_at: occurred_at)
+    AgentControl::Poll.call(executor_session: context[:executor_session], limit: 10, occurred_at: occurred_at)
 
     ack_result = AgentControl::Report.call(
       deployment: context[:deployment],
-      execution_session: context[:execution_session],
+      executor_session: context[:executor_session],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -935,7 +935,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     terminal_result = AgentControl::Report.call(
       deployment: context[:deployment],
-      execution_session: context[:execution_session],
+      executor_session: context[:executor_session],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -956,26 +956,26 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
+    AgentControl::Poll.call(executor_session: context[:executor_session], limit: 10)
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
         deployment: context[:deployment],
-        execution_session: context[:execution_session],
+        executor_session: context[:executor_session],
         method_id: "resource_closed",
         protocol_message_id: "close-output-#{next_test_sequence}",
         mailbox_item_id: close_request.public_id,
@@ -1011,26 +1011,26 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
+    AgentControl::Poll.call(executor_session: context[:executor_session], limit: 10)
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
         deployment: context[:deployment],
-        execution_session: context[:execution_session],
+        executor_session: context[:executor_session],
         method_id: "resource_close_failed",
         protocol_message_id: "close-lost-#{next_test_sequence}",
         mailbox_item_id: close_request.public_id,
@@ -1052,18 +1052,18 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: process_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(execution_session: context[:execution_session], limit: 10)
+    AgentControl::Poll.call(executor_session: context[:executor_session], limit: 10)
     close_operation = ConversationCloseOperation.create!(
       installation: context[:conversation].installation,
       conversation: context[:conversation],
@@ -1083,7 +1083,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     params = {
       deployment: context[:deployment],
-      execution_session: context[:execution_session],
+      executor_session: context[:executor_session],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,

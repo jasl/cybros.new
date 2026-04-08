@@ -15,7 +15,7 @@ module ToolBindings
     def call
       ToolBindings::ProjectCapabilitySnapshot.call(
         agent_program_version: agent_program_version,
-        execution_runtime: execution_runtime
+        executor_program: executor_program
       )
 
       if @tool_catalog_provided
@@ -51,8 +51,8 @@ module ToolBindings
       @agent_program_version ||= turn_record.agent_program_version || raise_invalid!("missing agent program version")
     end
 
-    def execution_runtime
-      @execution_runtime ||= @workflow_node.turn.execution_runtime
+    def executor_program
+      @executor_program ||= @workflow_node.turn.executor_program
     end
 
     def requested_tool_catalog
@@ -152,7 +152,7 @@ module ToolBindings
       source = tool_entry.fetch("implementation_source")
 
       return "reserved" if reserved_tool_name?(tool_name)
-      return "whitelist_only" if source == "execution_runtime"
+      return "whitelist_only" if source == "executor_program"
 
       "replaceable"
     end
@@ -171,8 +171,8 @@ module ToolBindings
     def find_or_create_source!(tool_entry)
       source_kind = tool_entry.fetch("implementation_source")
       source_ref = case source_kind
-      when "execution_runtime"
-        execution_runtime.public_id
+      when "executor_program"
+        executor_program.public_id
       when "agent", "kernel"
         "agent_program_version:#{agent_program_version.public_id}"
       when "core_matrix"

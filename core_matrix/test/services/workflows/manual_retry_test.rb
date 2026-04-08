@@ -6,7 +6,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     actor = create_user!(installation: context[:installation], role: "admin")
 
@@ -26,7 +26,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.3-chat-latest", retried.turn.resolved_model_ref
     assert_equal replacement.public_id, retried.execution_identity["agent_program_version_id"]
-    assert_equal context[:execution_runtime].public_id, retried.execution_identity["execution_runtime_id"]
+    assert_equal context[:executor_program].public_id, retried.execution_identity["executor_program_id"]
     assert_equal ["root"], retried.workflow_nodes.order(:ordinal).pluck(:node_key)
 
     paused = context[:workflow_run].reload
@@ -72,7 +72,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:agent_program_version], "must preserve the frozen execution runtime"
+    assert_includes error.record.errors[:agent_program_version], "must preserve the frozen executor program"
   end
 
   test "rejects manual retry when the frozen selector can no longer be resolved" do
@@ -80,7 +80,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     ProviderEntitlement.where(installation: context[:installation]).update_all(active: false)
 
@@ -104,7 +104,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     service = Workflows::ManualRetry.new(
       workflow_run: context[:workflow_run],
@@ -128,7 +128,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     original_resolve_call = nil
     resolve_calls = []
@@ -163,7 +163,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -193,7 +193,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
   def create_compatible_replacement_deployment!(
     installation:,
     agent_program:,
-    execution_runtime: create_execution_runtime!(installation: installation)
+    executor_program: create_executor_program!(installation: installation)
   )
     AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
@@ -208,7 +208,7 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    agent_program.update!(default_execution_runtime: execution_runtime)
+    agent_program.update!(default_executor_program: executor_program)
     create_agent_session!(
       installation: installation,
       agent_program: agent_program,
@@ -218,13 +218,13 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
-    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+    ExecutorSession.where(executor_program: executor_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
       updated_at: Time.current
     )
-    create_execution_session!(
+    create_executor_session!(
       installation: installation,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       last_heartbeat_at: Time.current
     )
 

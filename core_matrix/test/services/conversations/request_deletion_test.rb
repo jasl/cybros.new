@@ -5,7 +5,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     conversation.update!(lifecycle_state: "archived")
@@ -69,7 +69,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -94,7 +94,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     original_deleted_at = Time.zone.parse("2026-03-25 09:00:00 UTC")
@@ -114,7 +114,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     stale_conversation = Conversation.find(conversation.id)
@@ -136,7 +136,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     stale_conversation = Conversation.find(conversation.id)

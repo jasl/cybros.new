@@ -33,7 +33,7 @@ module AgentControl
               :agent_program_version,
               :execution_context_snapshot,
               :execution_capability_snapshot,
-              { turn: [:conversation, :agent_program_version, :execution_runtime, :selected_input_message, :selected_output_message] },
+              { turn: [:conversation, :agent_program_version, :executor_program, :selected_input_message, :selected_output_message] },
             ],
           },
         ]

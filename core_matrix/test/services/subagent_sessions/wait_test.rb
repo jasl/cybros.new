@@ -81,7 +81,7 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     child_conversation = create_conversation_record!(
@@ -89,7 +89,7 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       addressability: "agent_addressable"
     )

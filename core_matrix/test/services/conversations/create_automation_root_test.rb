@@ -6,7 +6,7 @@ class Conversations::CreateAutomationRootTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
 

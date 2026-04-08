@@ -6,7 +6,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version],
       kind: "fork",
       addressability: "agent_addressable"

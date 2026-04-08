@@ -201,7 +201,7 @@ module ActiveSupport
       )
     end
 
-    def runtime_assignment_payload(runtime_plane: "program", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context, conversation_id: nil)
+    def runtime_assignment_payload(control_plane: "program", mode: "deterministic_tool", task_payload: {}, context_messages: default_context_messages, budget_hints: {}, provider_execution: {}, model_context: {}, agent_context: default_agent_context, conversation_id: nil)
       conversation_public_id = conversation_id || "conversation-#{SecureRandom.uuid}"
       turn_public_id = "turn-#{SecureRandom.uuid}"
       workflow_run_public_id = "workflow-#{SecureRandom.uuid}"
@@ -214,7 +214,7 @@ module ActiveSupport
         "protocol_message_id" => "kernel-assignment-#{SecureRandom.uuid}",
         "logical_work_id" => logical_work_id,
         "attempt_no" => 1,
-        "runtime_plane" => runtime_plane,
+        "control_plane" => control_plane,
         "payload" => {
           "protocol_version" => "agent-program/2026-04-01",
           "request_kind" => "execution_assignment",
@@ -270,7 +270,7 @@ module ActiveSupport
             }.merge(model_context),
           },
           "runtime_context" => {
-            "runtime_plane" => runtime_plane,
+            "control_plane" => control_plane,
             "logical_work_id" => logical_work_id,
             "attempt_no" => 1,
             "agent_program_version_id" => "agent-program-version-public-id",
@@ -319,7 +319,7 @@ module ActiveSupport
         protocol_message_id: normalized_mailbox_item.fetch("protocol_message_id"),
         logical_work_id: normalized_mailbox_item.fetch("logical_work_id"),
         attempt_no: normalized_mailbox_item.fetch("attempt_no"),
-        runtime_plane: normalized_mailbox_item.fetch("runtime_plane"),
+        control_plane: normalized_mailbox_item.fetch("control_plane"),
         item_type: normalized_mailbox_item.fetch("item_type", "execution_assignment"),
         request_kind: normalized_mailbox_item.dig("payload", "request_kind").presence || normalized_mailbox_item.fetch("item_type", "execution_assignment"),
         request_payload: normalized_mailbox_item.fetch("payload"),

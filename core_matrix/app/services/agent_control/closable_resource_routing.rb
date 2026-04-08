@@ -2,10 +2,10 @@ module AgentControl
   module ClosableResourceRouting
     module_function
 
-    def execution_runtime_for(resource)
-      return resource.execution_runtime if resource.respond_to?(:execution_runtime)
+    def executor_program_for(resource)
+      return resource.executor_program if resource.respond_to?(:executor_program)
 
-      turn_for(resource)&.execution_runtime
+      turn_for(resource)&.executor_program
     end
 
     def conversation_for(resource)

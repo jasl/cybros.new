@@ -1,7 +1,7 @@
 {
   "item_id": "mailbox-item-tool-public-id",
   "item_type": "agent_program_request",
-  "runtime_plane": "program",
+  "control_plane": "program",
   "logical_work_id": "program-tool:workflow-node-public-id:tool-call-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
@@ -44,7 +44,7 @@
       }
     },
     "runtime_context": {
-      "runtime_plane": "program",
+      "control_plane": "program",
       "logical_work_id": "program-tool:workflow-node-public-id:tool-call-public-id",
       "attempt_no": 1,
       "agent_program_version_id": "agent-program-version-public-id"

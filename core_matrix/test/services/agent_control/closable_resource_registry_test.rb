@@ -5,7 +5,7 @@ class AgentControl::ClosableResourceRegistryTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
 
     assert_equal ProcessRun, AgentControl::ClosableResourceRegistry.fetch("ProcessRun")

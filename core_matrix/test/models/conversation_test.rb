@@ -19,9 +19,9 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal :belongs_to, Conversation.reflect_on_association(:workspace).macro
     assert_equal :belongs_to, Conversation.reflect_on_association(:agent_program).macro
     assert_nil Conversation.reflect_on_association(:agent_program_version)
-    assert_nil Conversation.reflect_on_association(:execution_runtime)
+    assert_nil Conversation.reflect_on_association(:executor_program)
     assert_not_includes Conversation.column_names, "agent_program_version_id"
-    assert_not_includes Conversation.column_names, "execution_runtime_id"
+    assert_not_includes Conversation.column_names, "executor_program_id"
   end
 
   test "exposes inline metadata fields on conversation" do

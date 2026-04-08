@@ -75,7 +75,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
 
     AgentProgramVersions::RecordHeartbeat.call(
@@ -101,7 +101,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     replacement = create_compatible_replacement_deployment!(
       installation: context[:installation],
       agent_program: context[:agent_program],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
     original_rebind_call = nil
     rebind_calls = []
@@ -151,7 +151,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert_equal context[:agent_program], context[:conversation].reload.agent_program
     assert_equal context[:agent_program_version], context[:turn].reload.agent_program_version
     assert_equal "manual_recovery_required", context[:workflow_run].reload.wait_reason_kind
-    assert_equal "execution_runtime_drift", context[:workflow_run].recovery_drift_reason
+    assert_equal "executor_program_drift", context[:workflow_run].recovery_drift_reason
   end
 
   test "restores the original human-interaction blocker after auto resume" do
@@ -245,7 +245,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Recovery input",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -290,7 +290,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
   def create_compatible_replacement_deployment!(
     installation:,
     agent_program:,
-    execution_runtime: create_execution_runtime!(installation: installation)
+    executor_program: create_executor_program!(installation: installation)
   )
     deployment = create_agent_program_version!(
       installation: installation,
@@ -301,7 +301,7 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    agent_program.update!(default_execution_runtime: execution_runtime)
+    agent_program.update!(default_executor_program: executor_program)
     AgentSession.where(agent_program: agent_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
       updated_at: Time.current
@@ -315,13 +315,13 @@ class AgentProgramVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
-    ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+    ExecutorSession.where(executor_program: executor_program, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
       updated_at: Time.current
     )
-    create_execution_session!(
+    create_executor_session!(
       installation: installation,
-      execution_runtime: execution_runtime,
+      executor_program: executor_program,
       last_heartbeat_at: Time.current
     )
     deployment

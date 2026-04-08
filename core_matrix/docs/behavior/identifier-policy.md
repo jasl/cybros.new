@@ -26,7 +26,7 @@ agent-facing boundaries:
 - `Session`
 - `Workspace`
 - `AgentProgram`
-- `ExecutionRuntime`
+- `ExecutorProgram`
 - `AgentProgramVersion`
 - `AgentControlMailboxItem`
 - `Conversation`

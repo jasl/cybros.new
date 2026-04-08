@@ -27,13 +27,13 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: background_service,
-      holder_key: context[:execution_session].public_id,
+      holder_key: context[:executor_session].public_id,
       heartbeat_timeout_seconds: 30
     )
     turn_scoped_session = create_turn_scoped_subagent_session!(
@@ -187,7 +187,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     assert_equal "requested", turn_scoped_session.reload.close_state
     assert_equal turn_scoped_session.public_id, close_request.payload.fetch("resource_id")
     assert_equal "SubagentSession", close_request.payload.fetch("resource_type")
-    assert_equal "program", close_request.runtime_plane
+    assert_equal "program", close_request.control_plane
     refute_respond_to close_request, :target_kind
     refute_respond_to close_request, :target_ref
   end
@@ -221,7 +221,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Interrupt me",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -277,7 +277,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )
@@ -300,7 +300,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:deployment],
       addressability: "agent_addressable"
     )

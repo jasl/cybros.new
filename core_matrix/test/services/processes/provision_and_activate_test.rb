@@ -8,7 +8,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
 
     provisioned = Processes::Provision.call(
       workflow_node: process_context[:workflow_node],
-      execution_runtime: process_context[:execution_runtime],
+      executor_program: process_context[:executor_program],
       kind: "background_service",
       command_line: "echo hi",
       origin_message: process_context[:origin_message]
@@ -18,7 +18,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
     assert_equal process_context[:conversation], provisioned.conversation
     assert_equal process_context[:turn], provisioned.turn
     assert_equal process_context[:origin_message], provisioned.origin_message
-    assert_equal process_context[:execution_session].public_id, provisioned.execution_lease&.holder_key
+    assert_equal process_context[:executor_session].public_id, provisioned.execution_lease&.holder_key
 
     activated = Processes::Activate.call(process_run: provisioned)
 
@@ -37,7 +37,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
     process_context = build_process_context!
     provisioned = Processes::Provision.call(
       workflow_node: process_context[:workflow_node],
-      execution_runtime: process_context[:execution_runtime],
+      executor_program: process_context[:executor_program],
       kind: "background_service",
       command_line: "echo hi",
       origin_message: process_context[:origin_message]
@@ -65,7 +65,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     turn = Turns::StartUserTurn.call(
@@ -80,8 +80,8 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
 
     {
       conversation: conversation,
-      execution_runtime: context[:execution_runtime],
-      execution_session: context[:execution_session],
+      executor_program: context[:executor_program],
+      executor_session: context[:executor_session],
       origin_message: turn.selected_input_message,
       turn: turn,
       workflow_node: workflow_node,

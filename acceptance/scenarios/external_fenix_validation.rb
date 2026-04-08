@@ -16,13 +16,13 @@ external = ManualAcceptanceSupport.create_external_agent_program!(
 registration = ManualAcceptanceSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  runtime_fingerprint: "acceptance-external-fenix-environment",
+  executor_fingerprint: "acceptance-external-fenix-environment",
   fingerprint: "acceptance-external-fenix-v1"
 )
 run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   agent_program_version: registration.fetch(:agent_program_version),
   machine_credential: registration.fetch(:machine_credential),
-  execution_machine_credential: registration.fetch(:execution_machine_credential),
+  executor_machine_credential: registration.fetch(:executor_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "External Fenix deterministic tool turn",
   mode: "deterministic_tool",
@@ -56,9 +56,9 @@ ManualAcceptanceSupport.write_json(
     extra: {
       "agent_program_version_id" => registration.fetch(:agent_program_version).public_id,
       "delivery_mode" => delivery_mode,
-      "execution_runtime_id" => registration.fetch(:execution_runtime)&.public_id,
+      "executor_program_id" => registration.fetch(:executor_program)&.public_id,
       "agent_session_id" => registration.fetch(:registration).fetch("agent_session_id"),
-      "execution_session_id" => registration.fetch(:registration)["execution_session_id"],
+      "executor_session_id" => registration.fetch(:registration)["executor_session_id"],
       "heartbeat_lifecycle_state" => registration.fetch(:heartbeat).fetch("lifecycle_state"),
       "heartbeat_health_status" => registration.fetch(:heartbeat).fetch("health_status"),
       "conversation_id" => run.fetch(:conversation).public_id,

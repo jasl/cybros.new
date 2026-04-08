@@ -13,7 +13,7 @@ module ToolBindings
 
       ToolBindings::ProjectCapabilitySnapshot.call(
         agent_program_version: agent_program_version,
-        execution_runtime: execution_runtime
+        executor_program: executor_program
       )
 
       allowed_tool_names.each do |tool_name|
@@ -44,8 +44,8 @@ module ToolBindings
       @agent_program_version ||= turn_record.agent_program_version || raise_invalid!("missing agent program version")
     end
 
-    def execution_runtime
-      @execution_runtime ||= @agent_task_run.turn.execution_runtime
+    def executor_program
+      @executor_program ||= @agent_task_run.turn.executor_program
     end
 
     def allowed_tool_names

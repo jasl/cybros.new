@@ -81,7 +81,7 @@ module Conversations
           status: "canceled",
           completed_at: @occurred_at,
           leased_to_agent_session_id: nil,
-          leased_to_execution_session_id: nil,
+          leased_to_executor_session_id: nil,
           leased_at: nil,
           lease_expires_at: nil,
           updated_at: @occurred_at

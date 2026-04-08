@@ -8,7 +8,7 @@ that was current when the investigation was written. They should not override
 current product naming or runtime contracts.
 
 Current code and acceptance now use `AgentProgram`, `AgentProgramVersion`,
-`AgentSession`, `ExecutionRuntime`, and `ExecutionSession`. Use
+`AgentSession`, `ExecutorProgram`, and `ExecutorSession`. Use
 [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md) and
 [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
 for the current implementation path.

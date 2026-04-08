@@ -9,7 +9,7 @@ require_relative "../lib/governed_validation_support"
 runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   agent_key: "acceptance-governed-tool",
   display_name: "Acceptance Governed Tool Runtime",
-  runtime_fingerprint: "acceptance-governed-tool-environment",
+  executor_fingerprint: "acceptance-governed-tool-environment",
   fingerprint: "acceptance-governed-tool-runtime",
   tool_catalog: [],
   profile_catalog: {

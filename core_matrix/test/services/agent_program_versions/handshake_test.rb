@@ -38,7 +38,7 @@ class AgentProgramVersions::HandshakeTest < ActiveSupport::TestCase
     assert_equal "2026-03-24", registration[:deployment].protocol_version
     assert_equal(
       RuntimeCapabilityContract.build(
-        execution_runtime: registration[:execution_runtime],
+        executor_program: registration[:executor_program],
         agent_program_version: result.capability_snapshot
       ).effective_tool_catalog,
       result.runtime_capability_contract.effective_tool_catalog

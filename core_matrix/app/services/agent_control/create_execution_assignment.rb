@@ -35,7 +35,7 @@ module AgentControl
         agent_task_run: @agent_task_run,
         execution_contract: @agent_task_run.turn.execution_contract,
         item_type: "execution_assignment",
-        runtime_plane: "program",
+        control_plane: "program",
         logical_work_id: @agent_task_run.logical_work_id,
         attempt_no: @agent_task_run.attempt_no,
         protocol_message_id: @protocol_message_id,

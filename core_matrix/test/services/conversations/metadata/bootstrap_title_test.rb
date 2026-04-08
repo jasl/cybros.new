@@ -120,7 +120,7 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
       installation: conversation.installation,
       conversation: conversation,
       agent_program_version: context[:agent_program_version],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       sequence: conversation.turns.maximum(:sequence).to_i + 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",

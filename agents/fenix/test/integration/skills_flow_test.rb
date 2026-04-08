@@ -108,7 +108,7 @@ class SkillsFlowTest < ActiveSupport::TestCase
       "mailbox_item_id" => runtime_execution.mailbox_item_id,
       "logical_work_id" => runtime_execution.logical_work_id,
       "attempt_no" => runtime_execution.attempt_no,
-      "runtime_plane" => runtime_execution.runtime_plane,
+      "control_plane" => runtime_execution.control_plane,
       "started_at" => runtime_execution.started_at,
       "finished_at" => runtime_execution.finished_at,
     }.compact

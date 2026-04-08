@@ -37,7 +37,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal turn.public_id, turn.execution_snapshot.identity["turn_id"]
     assert_equal context[:user].public_id, turn.execution_snapshot.identity["user_id"]
     assert_equal context[:workspace].public_id, turn.execution_snapshot.identity["workspace_id"]
-    assert_equal context[:execution_runtime].public_id, turn.execution_snapshot.identity["execution_runtime_id"]
+    assert_equal context[:executor_program].public_id, turn.execution_snapshot.identity["executor_program_id"]
     assert_equal [attachment.public_id], turn.execution_snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal [attachment.public_id], turn.execution_snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert turn.execution_contract.present?

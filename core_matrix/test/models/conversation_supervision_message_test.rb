@@ -6,7 +6,7 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program: context[:agent_program]
     )
     session = ConversationSupervisionSession.create!(
@@ -69,13 +69,13 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program: context[:agent_program]
     )
     other_conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program: context[:agent_program]
     )
     session = ConversationSupervisionSession.create!(

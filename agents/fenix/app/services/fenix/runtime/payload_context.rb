@@ -27,7 +27,7 @@ module Fenix
           "task_payload" => @payload.fetch("task_payload", {}),
           "logical_work_id" => runtime_context["logical_work_id"].presence || @defaults["logical_work_id"],
           "attempt_no" => (runtime_context["attempt_no"].presence || @defaults["attempt_no"] || 1).to_i,
-          "runtime_plane" => runtime_context["runtime_plane"].presence || @defaults["runtime_plane"] || "program",
+          "control_plane" => runtime_context["control_plane"].presence || @defaults["control_plane"] || "program",
           "context_messages" => normalized_messages,
           "context_imports" => normalized_projection_entries("context_imports"),
           "prior_tool_results" => normalized_projection_entries("prior_tool_results"),

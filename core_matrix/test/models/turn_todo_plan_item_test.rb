@@ -70,7 +70,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       workspace: fixture.fetch(:context).fetch(:workspace),
       installation: fixture.fetch(:installation),
       parent_conversation: unrelated_owner,
-      execution_runtime: fixture.fetch(:context).fetch(:execution_runtime),
+      executor_program: fixture.fetch(:context).fetch(:executor_program),
       agent_program_version: fixture.fetch(:context).fetch(:agent_program_version),
       kind: "fork",
       addressability: "agent_addressable"
@@ -109,7 +109,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       workspace: context.fetch(:workspace),
       installation: context.fetch(:installation),
       parent_conversation: context.fetch(:conversation),
-      execution_runtime: context.fetch(:execution_runtime),
+      executor_program: context.fetch(:executor_program),
       agent_program_version: context.fetch(:agent_program_version),
       kind: "fork",
       addressability: "agent_addressable"

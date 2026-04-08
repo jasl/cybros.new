@@ -6,7 +6,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
 
     assert_equal %w[execution_started execution_progress execution_complete],
       body.fetch("reports").map { |report| report.fetch("method_id") }
-    assert_equal ["program"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
+    assert_equal ["program"], body.fetch("reports").map { |report| report.fetch("control_plane") }.uniq
     assert_equal "completed", body.fetch("status")
     assert_equal "The calculator returned 4.", body.fetch("output")
     assert_equal "main", body.fetch("trace").first.fetch("profile")
@@ -370,16 +370,16 @@ class RuntimeFlowTest < ActiveSupport::TestCase
 
     assert_equal %w[execution_started execution_fail],
       body.fetch("reports").map { |report| report.fetch("method_id") }
-    assert_equal ["program"], body.fetch("reports").map { |report| report.fetch("runtime_plane") }.uniq
+    assert_equal ["program"], body.fetch("reports").map { |report| report.fetch("control_plane") }.uniq
     assert_equal "failed", body.fetch("status")
     assert_equal "runtime_error", body.fetch("error").fetch("failure_kind")
   end
 
-  test "mailbox worker persists unsupported runtime-plane failures" do
-    body = run_runtime_execution(runtime_assignment_payload(runtime_plane: "execution"))
+  test "mailbox worker persists unsupported control-plane failures" do
+    body = run_runtime_execution(runtime_assignment_payload(control_plane: "executor"))
 
     assert_equal "failed", body.fetch("status")
-    assert_equal "unsupported_runtime_plane", body.fetch("error").fetch("failure_kind")
+    assert_equal "unsupported_control_plane", body.fetch("error").fetch("failure_kind")
   end
 
   test "mailbox worker is idempotent for duplicate assignment delivery" do
@@ -425,7 +425,7 @@ class RuntimeFlowTest < ActiveSupport::TestCase
       "mailbox_item_id" => runtime_execution.mailbox_item_id,
       "logical_work_id" => runtime_execution.logical_work_id,
       "attempt_no" => runtime_execution.attempt_no,
-      "runtime_plane" => runtime_execution.runtime_plane,
+      "control_plane" => runtime_execution.control_plane,
       "started_at" => runtime_execution.started_at,
       "finished_at" => runtime_execution.finished_at,
     }.compact

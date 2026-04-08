@@ -4,10 +4,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, execution_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
       @deployment = deployment
       @agent_session = agent_session
-      @execution_session = execution_session
+      @executor_session = executor_session
       @resource = resource
       @method_id = method_id
       @payload = payload
@@ -72,7 +72,7 @@ module AgentControl
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,
-        holder_key: resolved_execution_session.public_id,
+        holder_key: resolved_executor_session.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -90,7 +90,7 @@ module AgentControl
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,
-        holder_key: resolved_execution_session.public_id,
+        holder_key: resolved_executor_session.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -156,11 +156,11 @@ module AgentControl
       raise Report::StaleReportError
     end
 
-    def resolved_execution_session
-      @resolved_execution_session ||= begin
-        session = @execution_session || ExecutionSessions::ResolveActiveSession.call(execution_runtime: process_run.execution_runtime)
+    def resolved_executor_session
+      @resolved_executor_session ||= begin
+        session = @executor_session || ExecutorSessions::ResolveActiveSession.call(executor_program: process_run.executor_program)
         stale! if session.blank?
-        stale! unless session.execution_runtime_id == process_run.execution_runtime_id
+        stale! unless session.executor_program_id == process_run.executor_program_id
 
         session
       end

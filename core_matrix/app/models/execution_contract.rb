@@ -32,16 +32,6 @@ class ExecutionContract < ApplicationRecord
     }
   end
 
-  alias_attribute :execution_runtime_id, :executor_program_id
-
-  def execution_runtime
-    executor_program
-  end
-
-  def execution_runtime=(value)
-    self.executor_program = value
-  end
-
   def task
     {
       "conversation_id" => turn.conversation.public_id,

@@ -11,23 +11,23 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
       expires_at: 2.hours.from_now
     )
 
-    post "/program_api/registrations",
+    post "/agent_api/registrations",
       params: {
         enrollment_token: enrollment.plaintext_token,
-        runtime_fingerprint: "fenix-host-a",
-        runtime_kind: "local",
-        runtime_connection_metadata: {
+        executor_fingerprint: "fenix-host-a",
+        executor_kind: "local",
+        executor_connection_metadata: {
           transport: "http",
           base_url: "https://fenix.example.test",
         },
-        execution_capability_payload: {
+        executor_capability_payload: {
           attachment_access: { request_attachment: true },
         },
-        execution_tool_catalog: [
+        executor_tool_catalog: [
           {
             tool_name: "exec_command",
-            tool_kind: "execution_runtime",
-            implementation_source: "execution_runtime",
+            tool_kind: "executor_program",
+            implementation_source: "executor_program",
             implementation_ref: "env/exec_command",
             input_schema: { type: "object", properties: {} },
             result_schema: { type: "object", properties: {} },
@@ -54,22 +54,22 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     assert_response :created
     registration_body = JSON.parse(response.body)
 
-    get "/program_api/capabilities", headers: program_api_headers(registration_body.fetch("session_credential"))
+    get "/agent_api/capabilities", headers: agent_api_headers(registration_body.fetch("session_credential"))
 
     assert_response :success
     capability_body = JSON.parse(response.body)
 
     assert_equal agent_program.public_id, registration_body["agent_program_id"]
-    assert_equal "fenix-host-a", registration_body["runtime_fingerprint"]
+    assert_equal "fenix-host-a", registration_body["executor_fingerprint"]
     assert_equal AgentProgramVersion.find_by_public_id!(registration_body.fetch("agent_program_version_id")).public_id, registration_body["agent_program_version_id"]
-    assert_equal registration_body["execution_runtime_id"], capability_body["execution_runtime_id"]
+    assert_equal registration_body["executor_program_id"], capability_body["executor_program_id"]
     assert_equal default_profile_catalog, registration_body.dig("program_plane", "profile_catalog")
     assert_equal default_profile_catalog, capability_body.fetch("profile_catalog")
     assert_equal default_profile_catalog, capability_body.fetch("program_plane").fetch("profile_catalog")
     assert_equal "main", capability_body.dig("default_config_snapshot", "interactive", "profile")
     assert_equal 3, capability_body.dig("default_config_snapshot", "subagents", "max_depth")
     assert_nil capability_body.dig("conversation_override_schema_snapshot", "properties", "interactive")
-    assert_equal ["exec_command"], capability_body.fetch("execution_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], capability_body.fetch("executor_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["exec_command", "subagent_spawn"], capability_body.fetch("program_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert capability_body["protocol_methods"].all? { |entry| entry.fetch("method_id").match?(/\A[a-z0-9_]+\z/) }
     assert capability_body["tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }

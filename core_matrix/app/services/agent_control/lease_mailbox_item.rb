@@ -25,7 +25,7 @@ module AgentControl
         @mailbox_item.update_columns(
           status: "leased",
           leased_to_agent_session_id: leased_agent_session&.id,
-          leased_to_execution_session_id: leased_execution_session&.id,
+          leased_to_executor_session_id: leased_executor_session&.id,
           leased_at: @occurred_at,
           lease_expires_at: @occurred_at + @mailbox_item.lease_timeout_seconds.seconds,
           delivery_no: @mailbox_item.delivery_no + 1,
@@ -64,16 +64,16 @@ module AgentControl
         end
     end
 
-    def leased_execution_session
-      return @leased_execution_session if defined?(@leased_execution_session)
-      return @leased_execution_session = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(ExecutionSession)
+    def leased_executor_session
+      return @leased_executor_session if defined?(@leased_executor_session)
+      return @leased_executor_session = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(ExecutorSession)
 
-      @leased_execution_session =
+      @leased_executor_session =
         case @deployment
-        when ExecutionSession
+        when ExecutorSession
           @deployment
         when AgentProgramVersion
-          ExecutionSession.find_by(execution_runtime: @mailbox_item.target_execution_runtime, lifecycle_state: "active") if @mailbox_item.execution_plane?
+          ExecutorSession.find_by(executor_program: @mailbox_item.target_executor_program, lifecycle_state: "active") if @mailbox_item.executor_plane?
         else
           nil
         end

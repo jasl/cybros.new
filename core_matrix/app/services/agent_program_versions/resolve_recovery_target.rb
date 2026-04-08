@@ -82,11 +82,11 @@ module AgentProgramVersions
     end
 
     def validate_same_environment!
-      expected_runtime_id = @turn.execution_runtime_id
-      candidate_runtime_id = resolved_agent_program_version.agent_program.default_execution_runtime_id
+      expected_runtime_id = @turn.executor_program_id
+      candidate_runtime_id = resolved_agent_program_version.agent_program.default_executor_program_id
       return if candidate_runtime_id == expected_runtime_id
 
-      raise_invalid!(:agent_program_version, "must preserve the frozen execution runtime", reason: "execution_runtime_drift")
+      raise_invalid!(:agent_program_version, "must preserve the frozen executor program", reason: "executor_program_drift")
     end
 
     def validate_same_logical_agent!
@@ -128,7 +128,7 @@ module AgentProgramVersions
         turn.installation = @turn.installation
         turn.conversation = @conversation
         turn.agent_program_version = resolved_agent_program_version
-        turn.execution_runtime = @turn.execution_runtime
+        turn.executor_program = @turn.executor_program
         turn.pinned_program_version_fingerprint = resolved_agent_program_version.fingerprint
         turn.resolved_config_snapshot = @turn.resolved_config_snapshot.deep_dup
         turn.resolved_model_selection_snapshot = @turn.resolved_model_selection_snapshot.deep_dup

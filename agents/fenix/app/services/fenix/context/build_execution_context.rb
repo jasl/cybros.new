@@ -12,7 +12,7 @@ module Fenix
       def call
         context = Fenix::Runtime::PayloadContext.call(
           payload: @mailbox_item.fetch("payload"),
-          defaults: @mailbox_item.slice("logical_work_id", "attempt_no", "runtime_plane")
+          defaults: @mailbox_item.slice("logical_work_id", "attempt_no", "control_plane")
         )
         Fenix::Operator::Snapshot.call(
           workspace_root: context.dig("workspace_context", "workspace_root"),

@@ -26,27 +26,27 @@ module Fenix
       end
 
       def poll(limit:)
-        program_items = post_json("/program_api/control/poll", { limit: limit }, credential: machine_credential).fetch("mailbox_items")
-        execution_items = post_json("/execution_api/control/poll", { limit: limit }, credential: execution_machine_credential).fetch("mailbox_items")
+        program_items = post_json("/agent_api/control/poll", { limit: limit }, credential: machine_credential).fetch("mailbox_items")
+        execution_items = post_json("/executor_api/control/poll", { limit: limit }, credential: execution_machine_credential).fetch("mailbox_items")
 
         (Array(program_items) + Array(execution_items)).map(&:deep_stringify_keys)
       end
 
       def report!(payload:)
         if execution_report?(payload)
-          post_json("/execution_api/control/report", payload, credential: execution_machine_credential)
+          post_json("/executor_api/control/report", payload, credential: execution_machine_credential)
         else
-          post_json("/program_api/control/report", payload, credential: machine_credential)
+          post_json("/agent_api/control/report", payload, credential: machine_credential)
         end
       end
 
       def register!(
         enrollment_token:,
-        runtime_fingerprint:,
-        runtime_kind: "local",
-        runtime_connection_metadata:,
-        execution_capability_payload: {},
-        execution_tool_catalog: [],
+        executor_fingerprint:,
+        executor_kind: "local",
+        executor_connection_metadata:,
+        executor_capability_payload: {},
+        executor_tool_catalog: [],
         fingerprint:,
         endpoint_metadata:,
         protocol_version:,
@@ -58,13 +58,13 @@ module Fenix
         conversation_override_schema_snapshot: {},
         default_config_snapshot: {}
       )
-        post_json("/program_api/registrations", {
+        post_json("/agent_api/registrations", {
           enrollment_token: enrollment_token,
-          runtime_fingerprint: runtime_fingerprint,
-          runtime_kind: runtime_kind,
-          runtime_connection_metadata: runtime_connection_metadata,
-          execution_capability_payload: execution_capability_payload,
-          execution_tool_catalog: execution_tool_catalog,
+          executor_fingerprint: executor_fingerprint,
+          executor_kind: executor_kind,
+          executor_connection_metadata: executor_connection_metadata,
+          executor_capability_payload: executor_capability_payload,
+          executor_tool_catalog: executor_tool_catalog,
           fingerprint: fingerprint,
           endpoint_metadata: endpoint_metadata,
           protocol_version: protocol_version,
@@ -79,7 +79,7 @@ module Fenix
       end
 
       def heartbeat!(health_status:, auto_resume_eligible:, health_metadata: {}, unavailability_reason: nil)
-        post_json("/program_api/heartbeats", {
+        post_json("/agent_api/heartbeats", {
           health_status: health_status,
           auto_resume_eligible: auto_resume_eligible,
           health_metadata: health_metadata,
@@ -88,19 +88,19 @@ module Fenix
       end
 
       def health
-        get_json("/program_api/health")
+        get_json("/agent_api/health")
       end
 
       def capabilities_refresh
-        get_json("/program_api/capabilities")
+        get_json("/agent_api/capabilities")
       end
 
       def capabilities_handshake!(
         fingerprint:,
         protocol_version:,
         sdk_version:,
-        execution_capability_payload: nil,
-        execution_tool_catalog: nil,
+        executor_capability_payload: nil,
+        executor_tool_catalog: nil,
         protocol_methods: [],
         tool_catalog: [],
         profile_catalog: {},
@@ -108,12 +108,12 @@ module Fenix
         conversation_override_schema_snapshot: {},
         default_config_snapshot: {}
       )
-        post_json("/program_api/capabilities", {
+        post_json("/agent_api/capabilities", {
           fingerprint: fingerprint,
           protocol_version: protocol_version,
           sdk_version: sdk_version,
-          execution_capability_payload: execution_capability_payload,
-          execution_tool_catalog: execution_tool_catalog,
+          executor_capability_payload: executor_capability_payload,
+          executor_tool_catalog: executor_tool_catalog,
           protocol_methods: protocol_methods,
           tool_catalog: tool_catalog,
           profile_catalog: profile_catalog,
@@ -124,7 +124,7 @@ module Fenix
       end
 
       def conversation_transcript_list(conversation_id:, cursor: nil, limit: nil)
-        get_json("/program_api/conversation_transcripts", {
+        get_json("/agent_api/conversation_transcripts", {
           conversation_id: conversation_id,
           cursor: cursor,
           limit: limit,
@@ -132,7 +132,7 @@ module Fenix
       end
 
       def conversation_variables_get(workspace_id:, conversation_id:, key:)
-        get_json("/program_api/conversation_variables/get", {
+        get_json("/agent_api/conversation_variables/get", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           key: key,
@@ -140,7 +140,7 @@ module Fenix
       end
 
       def conversation_variables_mget(workspace_id:, conversation_id:, keys:)
-        post_json("/program_api/conversation_variables/mget", {
+        post_json("/agent_api/conversation_variables/mget", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           keys: keys,
@@ -148,7 +148,7 @@ module Fenix
       end
 
       def conversation_variables_exists(workspace_id:, conversation_id:, key:)
-        get_json("/program_api/conversation_variables/exists", {
+        get_json("/agent_api/conversation_variables/exists", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           key: key,
@@ -156,7 +156,7 @@ module Fenix
       end
 
       def conversation_variables_list_keys(workspace_id:, conversation_id:, cursor: nil, limit: nil)
-        get_json("/program_api/conversation_variables/list_keys", {
+        get_json("/agent_api/conversation_variables/list_keys", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           cursor: cursor,
@@ -165,14 +165,14 @@ module Fenix
       end
 
       def conversation_variables_resolve(workspace_id:, conversation_id:)
-        get_json("/program_api/conversation_variables/resolve", {
+        get_json("/agent_api/conversation_variables/resolve", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
         })
       end
 
       def conversation_variables_set(workspace_id:, conversation_id:, key:, typed_value_payload:)
-        post_json("/program_api/conversation_variables/set", {
+        post_json("/agent_api/conversation_variables/set", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           key: key,
@@ -181,7 +181,7 @@ module Fenix
       end
 
       def conversation_variables_delete(workspace_id:, conversation_id:, key:)
-        post_json("/program_api/conversation_variables/delete", {
+        post_json("/agent_api/conversation_variables/delete", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           key: key,
@@ -189,7 +189,7 @@ module Fenix
       end
 
       def conversation_variables_promote(workspace_id:, conversation_id:, key:)
-        post_json("/program_api/conversation_variables/promote", {
+        post_json("/agent_api/conversation_variables/promote", {
           workspace_id: workspace_id,
           conversation_id: conversation_id,
           key: key,
@@ -197,18 +197,18 @@ module Fenix
       end
 
       def workspace_variables_list(workspace_id:)
-        get_json("/program_api/workspace_variables", { workspace_id: workspace_id })
+        get_json("/agent_api/workspace_variables", { workspace_id: workspace_id })
       end
 
       def workspace_variables_get(workspace_id:, key:)
-        get_json("/program_api/workspace_variables/get", {
+        get_json("/agent_api/workspace_variables/get", {
           workspace_id: workspace_id,
           key: key,
         })
       end
 
       def workspace_variables_mget(workspace_id:, keys:)
-        post_json("/program_api/workspace_variables/mget", {
+        post_json("/agent_api/workspace_variables/mget", {
           workspace_id: workspace_id,
           keys: keys,
         })
@@ -223,7 +223,7 @@ module Fenix
         source_workflow_run_id: nil,
         projection_policy: nil
       )
-        post_json("/program_api/workspace_variables/write", {
+        post_json("/agent_api/workspace_variables/write", {
           workspace_id: workspace_id,
           key: key,
           typed_value_payload: typed_value_payload,
@@ -235,7 +235,7 @@ module Fenix
       end
 
       def request_human_interaction!(workflow_node_id:, request_type:, blocking: true, request_payload: {})
-        post_json("/program_api/human_interactions", {
+        post_json("/agent_api/human_interactions", {
           workflow_node_id: workflow_node_id,
           request_type: request_type,
           blocking: blocking,
@@ -244,7 +244,7 @@ module Fenix
       end
 
       def create_tool_invocation!(agent_task_run_id:, tool_name:, request_payload:, idempotency_key: nil, stream_output: false, metadata: {})
-        post_json("/program_api/tool_invocations", {
+        post_json("/agent_api/tool_invocations", {
           agent_task_run_id: agent_task_run_id,
           tool_name: tool_name,
           request_payload: request_payload,
@@ -255,7 +255,7 @@ module Fenix
       end
 
       def create_command_run!(tool_invocation_id:, command_line:, timeout_seconds: nil, pty: false, metadata: {})
-        post_json("/execution_api/command_runs", {
+        post_json("/executor_api/command_runs", {
           tool_invocation_id: tool_invocation_id,
           command_line: command_line,
           timeout_seconds: timeout_seconds,
@@ -265,11 +265,11 @@ module Fenix
       end
 
       def activate_command_run!(command_run_id:)
-        post_json("/execution_api/command_runs/#{command_run_id}/activate", {}, credential: execution_machine_credential)
+        post_json("/executor_api/command_runs/#{command_run_id}/activate", {}, credential: execution_machine_credential)
       end
 
       def create_process_run!(agent_task_run_id:, tool_name:, kind:, command_line:, timeout_seconds: nil, idempotency_key: nil, metadata: {})
-        post_json("/execution_api/process_runs", {
+        post_json("/executor_api/process_runs", {
           agent_task_run_id: agent_task_run_id,
           tool_name: tool_name,
           kind: kind,
@@ -281,7 +281,7 @@ module Fenix
       end
 
       def request_attachment!(turn_id:, attachment_id:)
-        post_json("/execution_api/attachments/request", {
+        post_json("/executor_api/attachments/request", {
           turn_id: turn_id,
           attachment_id: attachment_id,
         }, credential: execution_machine_credential)

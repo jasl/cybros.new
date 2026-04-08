@@ -25,7 +25,7 @@ class ConversationSupervision::ListBoardCardsTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program: context[:agent_program]
     )
 

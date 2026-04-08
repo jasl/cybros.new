@@ -53,7 +53,7 @@ generated_app_dir = workspace_root.join("game-2048")
 skill_source_root = workspace_root.join("skill-sources")
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 docker_container = ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
-runtime_fingerprint = ENV.fetch("CAPSTONE_RUNTIME_FINGERPRINT", "capstone-fenix-execution-runtime-v1")
+executor_fingerprint = ENV.fetch("CAPSTONE_EXECUTOR_FINGERPRINT", "capstone-fenix-executor-program-v1")
 program_fingerprint = ENV.fetch("CAPSTONE_PROGRAM_FINGERPRINT", "capstone-fenix-agent-program-v1")
 selector = ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
 preview_port = Integer(ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4174"))
@@ -898,31 +898,31 @@ when "bootstrap"
   bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
     installation: bootstrap.installation,
     runtime_base_url: runtime_base_url,
-    runtime_fingerprint: runtime_fingerprint,
+    executor_fingerprint: executor_fingerprint,
     fingerprint: program_fingerprint,
     sdk_version: "fenix-0.1.0"
   )
 
   machine_credential = bundled.fetch(:machine_credential)
-  execution_machine_credential = bundled.fetch(:execution_machine_credential)
+  executor_machine_credential = bundled.fetch(:executor_machine_credential)
   agent_program = bundled.fetch(:runtime).agent_program
   agent_program_version = bundled.fetch(:runtime).deployment
-  execution_runtime = bundled.fetch(:runtime).execution_runtime
+  executor_program = bundled.fetch(:runtime).executor_program
   agent_session = bundled.fetch(:runtime).agent_session
-  execution_session = bundled.fetch(:runtime).execution_session
+  executor_session = bundled.fetch(:runtime).executor_session
 
   bootstrap_state = {
     "scenario_date" => scenario_date,
     "machine_credential" => machine_credential,
-    "execution_machine_credential" => execution_machine_credential,
+    "executor_machine_credential" => executor_machine_credential,
     "agent_program_id" => agent_program.public_id,
     "agent_program_version_id" => agent_program_version.public_id,
-    "execution_runtime_id" => execution_runtime.public_id,
+    "executor_program_id" => executor_program.public_id,
     "agent_session_id" => agent_session.public_id,
-    "execution_session_id" => execution_session.public_id,
+    "executor_session_id" => executor_session.public_id,
     "runtime_base_url" => runtime_base_url,
     "docker_container" => docker_container,
-    "runtime_fingerprint" => runtime_fingerprint,
+    "executor_fingerprint" => executor_fingerprint,
     "program_fingerprint" => program_fingerprint,
   }
 
@@ -936,12 +936,12 @@ when "execute"
   FileUtils.mkdir_p(artifact_dir)
 
   machine_credential = bootstrap_state.fetch("machine_credential")
-  execution_machine_credential = bootstrap_state.fetch("execution_machine_credential")
+  executor_machine_credential = bootstrap_state.fetch("executor_machine_credential")
   agent_program = AgentProgram.find_by_public_id!(bootstrap_state.fetch("agent_program_id"))
   agent_program_version = AgentProgramVersion.find_by_public_id!(bootstrap_state.fetch("agent_program_version_id"))
-  execution_runtime = ExecutionRuntime.find_by_public_id!(bootstrap_state.fetch("execution_runtime_id"))
+  executor_program = ExecutorProgram.find_by_public_id!(bootstrap_state.fetch("executor_program_id"))
   agent_session = AgentSession.find_by_public_id!(bootstrap_state.fetch("agent_session_id"))
-  execution_session = ExecutionSession.find_by_public_id!(bootstrap_state.fetch("execution_session_id"))
+  executor_session = ExecutorSession.find_by_public_id!(bootstrap_state.fetch("executor_session_id"))
   runtime_worker_boot = runtime_worker_boot_path.exist? ? read_json(runtime_worker_boot_path) : nil
 else
   raise "unsupported CAPSTONE_PHASE: #{capstone_phase}"
@@ -975,11 +975,11 @@ write_json(artifact_dir.join("evidence", "acceptance-registration.json"), {
   "agent_program_id" => agent_program.public_id,
   "agent_program_display_name" => agent_program.display_name,
   "agent_program_version_id" => agent_program_version.public_id,
-  "execution_runtime_id" => execution_runtime.public_id,
-  "execution_runtime_display_name" => execution_runtime.display_name,
+  "executor_program_id" => executor_program.public_id,
+  "executor_program_display_name" => executor_program.display_name,
   "agent_session_id" => agent_session.public_id,
-  "execution_session_id" => execution_session.public_id,
-  "runtime_fingerprint" => execution_runtime.runtime_fingerprint,
+  "executor_session_id" => executor_session.public_id,
+  "executor_fingerprint" => executor_program.executor_fingerprint,
   "program_fingerprint" => agent_program_version.fingerprint,
   "machine_credential_redacted" => machine_credential.to_s.sub(/:.+\z/, ":REDACTED"),
 })
@@ -1325,7 +1325,8 @@ Acceptance::ReviewArtifacts.write_turns!(
   turn: turn,
   workflow_run: workflow_run,
   agent_program_version: agent_program_version,
-  execution_runtime: execution_runtime,
+  executor_program: executor_program,
+  executor_machine_credential: executor_machine_credential,
   selector: selector,
   diagnostics_turn: main_diagnostics_turn,
   source_transcript: source_transcript,
@@ -1385,7 +1386,7 @@ Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
   machine_credential: machine_credential,
   agent_program: agent_program,
   agent_program_version: agent_program_version,
-  execution_runtime: execution_runtime,
+  executor_program: executor_program,
   skill_source_manifest_path: skill_sources.fetch("manifest_path"),
   docker_container: docker_container,
   runtime_base_url: runtime_base_url,
@@ -1501,7 +1502,7 @@ summary = {
   "workflow_run_id" => workflow_run.public_id,
   "agent_program_id" => agent_program.public_id,
   "agent_program_version_id" => agent_program_version.public_id,
-  "execution_runtime_id" => execution_runtime.public_id,
+  "executor_program_id" => executor_program.public_id,
   "selector" => selector,
   "workflow_state" => workflow_run.lifecycle_state,
   "turn_state" => turn.lifecycle_state,

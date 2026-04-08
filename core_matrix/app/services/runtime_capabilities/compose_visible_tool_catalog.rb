@@ -3,10 +3,10 @@ module RuntimeCapabilities
     SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
     DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
 
-    def initialize(conversation:, agent_program_version:, execution_runtime:)
+    def initialize(conversation:, agent_program_version:, executor_program:)
       @conversation = conversation
       @agent_program_version = agent_program_version
-      @execution_runtime = execution_runtime
+      @executor_program = executor_program
     end
 
     def call
@@ -17,7 +17,7 @@ module RuntimeCapabilities
 
     def contract
       @contract ||= RuntimeCapabilityContract.build(
-        execution_runtime: @execution_runtime,
+        executor_program: @executor_program,
         agent_program_version: @agent_program_version,
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )

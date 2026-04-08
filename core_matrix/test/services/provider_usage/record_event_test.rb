@@ -5,11 +5,11 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
     installation = create_installation!
     user = create_user!(installation: installation)
     agent_program = create_agent_program!(installation: installation)
-    execution_runtime = create_execution_runtime!(installation: installation)
+    executor_program = create_executor_program!(installation: installation)
     agent_program_version = create_agent_program_version!(
       installation: installation,
       agent_program: agent_program,
-      execution_runtime: execution_runtime
+      executor_program: executor_program
     )
     binding = create_user_program_binding!(
       installation: installation,

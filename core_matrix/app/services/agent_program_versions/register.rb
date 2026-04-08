@@ -5,12 +5,12 @@ module AgentProgramVersions
 
     Result = Struct.new(
       :enrollment,
-      :execution_runtime,
+      :executor_program,
       :deployment,
       :agent_session,
-      :execution_session,
+      :executor_session,
       :session_credential,
-      :execution_session_credential,
+      :executor_session_credential,
       keyword_init: true
     )
 
@@ -20,11 +20,11 @@ module AgentProgramVersions
 
     def initialize(
       enrollment_token:,
-      runtime_fingerprint: nil,
-      runtime_kind: nil,
-      runtime_connection_metadata: nil,
-      execution_capability_payload: nil,
-      execution_tool_catalog: nil,
+      executor_fingerprint: nil,
+      executor_kind: nil,
+      executor_connection_metadata: nil,
+      executor_capability_payload: nil,
+      executor_tool_catalog: nil,
       fingerprint:,
       endpoint_metadata:,
       protocol_version:,
@@ -37,11 +37,11 @@ module AgentProgramVersions
       default_config_snapshot:
     )
       @enrollment_token = enrollment_token
-      @runtime_fingerprint = runtime_fingerprint
-      @runtime_kind = runtime_kind || "local"
-      @runtime_connection_metadata = runtime_connection_metadata || endpoint_metadata
-      @execution_capability_payload = execution_capability_payload
-      @execution_tool_catalog = execution_tool_catalog
+      @executor_fingerprint = executor_fingerprint
+      @executor_kind = executor_kind || "local"
+      @executor_connection_metadata = executor_connection_metadata || endpoint_metadata
+      @executor_capability_payload = executor_capability_payload
+      @executor_tool_catalog = executor_tool_catalog
       @fingerprint = fingerprint
       @endpoint_metadata = endpoint_metadata
       @protocol_version = protocol_version
@@ -60,16 +60,16 @@ module AgentProgramVersions
       raise ExpiredEnrollment, "enrollment token has expired" if enrollment.expired?
 
       ApplicationRecord.transaction do
-        execution_runtime = register_execution_runtime(enrollment:)
+        executor_program = register_executor_program(enrollment:)
 
         deployment = find_or_create_program_version!(agent_program: enrollment.agent_program)
-        enrollment.agent_program.update!(default_execution_runtime: execution_runtime) if execution_runtime.present?
+        enrollment.agent_program.update!(default_executor_program: executor_program) if executor_program.present?
 
         AgentSession.where(agent_program: enrollment.agent_program, lifecycle_state: "active").update_all(
           lifecycle_state: "stale",
           updated_at: Time.current
         )
-        stale_existing_execution_sessions!(execution_runtime:)
+        stale_existing_executor_sessions!(executor_program:)
 
         session_credential, session_credential_digest = AgentSession.issue_session_credential
         session_token, session_token_digest = AgentSession.issue_session_token
@@ -87,68 +87,68 @@ module AgentProgramVersions
           last_heartbeat_at: Time.current
         )
 
-        execution_session, execution_session_credential = create_execution_session(enrollment:, execution_runtime:)
+        executor_session, executor_session_credential = create_executor_session(enrollment:, executor_program:)
 
         enrollment.consume!
-        record_audit!(enrollment:, deployment:, agent_session:, execution_runtime:)
+        record_audit!(enrollment:, deployment:, agent_session:, executor_program:)
 
         Result.new(
           enrollment: enrollment,
-          execution_runtime: execution_runtime,
+          executor_program: executor_program,
           deployment: deployment,
           agent_session: agent_session,
-          execution_session: execution_session,
+          executor_session: executor_session,
           session_credential: session_credential,
-          execution_session_credential: execution_session_credential
+          executor_session_credential: executor_session_credential
         )
       end
     end
 
     private
 
-    def register_execution_runtime(enrollment:)
-      return nil if @runtime_fingerprint.blank?
+    def register_executor_program(enrollment:)
+      return nil if @executor_fingerprint.blank?
 
-      execution_runtime = ExecutionRuntimes::Reconcile.call(
+      executor_program = ExecutorPrograms::Reconcile.call(
         installation: enrollment.installation,
-        runtime_fingerprint: @runtime_fingerprint,
-        kind: @runtime_kind,
-        connection_metadata: @runtime_connection_metadata
+        executor_fingerprint: @executor_fingerprint,
+        kind: @executor_kind,
+        connection_metadata: @executor_connection_metadata
       )
-      ExecutionRuntimes::RecordCapabilities.call(
-        execution_runtime: execution_runtime,
-        capability_payload: @execution_capability_payload || {},
-        tool_catalog: @execution_tool_catalog || []
+      ExecutorPrograms::RecordCapabilities.call(
+        executor_program: executor_program,
+        capability_payload: @executor_capability_payload || {},
+        tool_catalog: @executor_tool_catalog || []
       )
-      execution_runtime
+      executor_program
     end
 
-    def stale_existing_execution_sessions!(execution_runtime:)
-      return if execution_runtime.blank?
+    def stale_existing_executor_sessions!(executor_program:)
+      return if executor_program.blank?
 
-      ExecutionSession.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
+      ExecutorSession.where(executor_program: executor_program, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
         updated_at: Time.current
       )
     end
 
-    def create_execution_session(enrollment:, execution_runtime:)
-      return [nil, nil] if execution_runtime.blank?
+    def create_executor_session(enrollment:, executor_program:)
+      return [nil, nil] if executor_program.blank?
 
-      execution_credential, execution_credential_digest = ExecutionSession.issue_session_credential
-      execution_token, execution_token_digest = ExecutionSession.issue_session_token
-      execution_session = ExecutionSession.create!(
+      execution_credential, execution_credential_digest = ExecutorSession.issue_session_credential
+      _execution_token, session_token_digest = ExecutorSession.issue_session_token
+      executor_session = ExecutorSession.create!(
         installation: enrollment.installation,
-        execution_runtime: execution_runtime,
+        executor_program: executor_program,
         session_credential_digest: execution_credential_digest,
-        session_token_digest: execution_token_digest,
-        endpoint_metadata: @runtime_connection_metadata,
+        session_token_digest: session_token_digest,
+        endpoint_metadata: @executor_connection_metadata,
         lifecycle_state: "active"
       )
-      [execution_session, execution_credential]
+      [executor_session, execution_credential]
     end
 
-    def record_audit!(enrollment:, deployment:, agent_session:, execution_runtime:)
+    def record_audit!(enrollment:, deployment:, agent_session:, executor_program:)
       AuditLog.record!(
         installation: enrollment.installation,
         action: "agent_session.registered",
@@ -156,7 +156,7 @@ module AgentProgramVersions
         metadata: {
           "agent_program_id" => deployment.agent_program_id,
           "agent_program_version_id" => deployment.id,
-          "execution_runtime_id" => execution_runtime&.id,
+          "executor_program_id" => executor_program&.id,
         }.compact
       )
     end

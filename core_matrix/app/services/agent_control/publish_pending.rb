@@ -4,18 +4,18 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, execution_session: nil, resolved_delivery_endpoint: nil, occurred_at: Time.current)
+    def initialize(mailbox_item: nil, deployment: nil, agent_session: nil, executor_session: nil, resolved_delivery_endpoint: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
       @deployment = deployment
       @agent_session = agent_session
-      @execution_session = execution_session
+      @executor_session = executor_session
       @resolved_delivery_endpoint = resolved_delivery_endpoint
       @occurred_at = occurred_at
     end
 
     def call
       return publish_for_deployment! if @deployment.present?
-      return publish_for_execution_session! if @execution_session.present?
+      return publish_for_executor_session! if @executor_session.present?
       return unless @mailbox_item.present?
 
       resolution = routing_resolution_for(@mailbox_item)
@@ -45,12 +45,12 @@ module AgentControl
       end
     end
 
-    def publish_for_execution_session!
-      mailbox_items = Poll.call(execution_session: @execution_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
+    def publish_for_executor_session!
+      mailbox_items = Poll.call(executor_session: @executor_session, limit: Poll::DEFAULT_LIMIT, occurred_at: @occurred_at)
       serialized_items = SerializeMailboxItems.call(mailbox_items)
 
       mailbox_items.zip(serialized_items).each do |mailbox_item, serialized_item|
-        broadcast(mailbox_item:, deployment: @execution_session, serialized_item:)
+        broadcast(mailbox_item:, deployment: @executor_session, serialized_item:)
       end
     end
 
@@ -61,7 +61,7 @@ module AgentControl
       case delivery_endpoint
       when AgentSession
         delivery_endpoint.agent_program_version
-      when ExecutionSession
+      when ExecutorSession
         delivery_endpoint
       else
         nil

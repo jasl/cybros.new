@@ -6,15 +6,15 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment: nil, agent_session: nil, execution_session: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
+    def initialize(deployment: nil, agent_session: nil, executor_session: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
       @deployment = deployment
       @agent_session = agent_session
-      @execution_session = execution_session
+      @executor_session = executor_session
       @limit = [limit.to_i, 1].max
       @occurred_at = occurred_at
       @resolution_cache = ResolveTargetRuntime::SessionCache.new(
         agent_session: @agent_session,
-        execution_session: @execution_session
+        executor_session: @executor_session
       )
     end
 
@@ -49,7 +49,7 @@ module AgentControl
     private
 
     def touch_runtime_activity!
-      return if @execution_session.present?
+      return if @executor_session.present?
 
       TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
     end
@@ -85,8 +85,8 @@ module AgentControl
 
     def candidate_scope_relation(relation)
       if execution_poll?
-        ResolveTargetRuntime.candidate_scope_for_execution_session(
-          execution_session: @execution_session,
+        ResolveTargetRuntime.candidate_scope_for_executor_session(
+          executor_session: @executor_session,
           relation: relation
         )
       else
@@ -119,7 +119,7 @@ module AgentControl
     end
 
     def execution_poll?
-      @execution_session.present?
+      @executor_session.present?
     end
 
     def resolution_for(mailbox_item)
@@ -133,18 +133,18 @@ module AgentControl
 
     def execution_resolution
       @execution_resolution ||= ResolveTargetRuntime::Result.new(
-        runtime_plane: ResolveTargetRuntime::EXECUTION_PLANE,
-        execution_runtime: @execution_session.execution_runtime,
-        delivery_endpoint: @execution_session
+        control_plane: ResolveTargetRuntime::EXECUTOR_PLANE,
+        executor_program: @executor_session.executor_program,
+        delivery_endpoint: @executor_session
       )
     end
 
     def lease_owner
-      execution_poll? ? @execution_session : @deployment
+      execution_poll? ? @executor_session : @deployment
     end
 
     def installation_id
-      execution_poll? ? @execution_session.execution_runtime.installation_id : @deployment.installation_id
+      execution_poll? ? @executor_session.executor_program.installation_id : @deployment.installation_id
     end
   end
 end

@@ -62,7 +62,7 @@ test "runtime foundation metadata exposes supported local toolchains" do
   get "/runtime/manifest"
 
   body = JSON.parse(response.body)
-  foundation = body.fetch("execution_capability_payload").fetch("runtime_foundation")
+  foundation = body.fetch("executor_capability_payload").fetch("runtime_foundation")
 
   assert_equal "ubuntu-24.04", foundation.fetch("base_image")
   assert_includes foundation.fetch("toolchains"), "ruby"

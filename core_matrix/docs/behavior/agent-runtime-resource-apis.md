@@ -1,4 +1,4 @@
-# Program And Execution Runtime Resource APIs
+# Agent And Executor Runtime Resource APIs
 
 ## Purpose
 
@@ -10,7 +10,7 @@ Core Matrix exposes two machine-facing runtime resource planes for:
 - conversation-scoped supervision status refresh and bounded control dispatch
 - workflow-owned human interaction request creation
 - workflow-owned `ToolInvocation` creation on the program plane
-- workflow-owned `CommandRun` and `ProcessRun` creation on the execution plane
+- workflow-owned `CommandRun` and `ProcessRun` creation on the executor plane
 - mailbox-driven execution delivery and close control
 
 The resource plane stays a thin HTTP boundary over authenticated lookups,
@@ -42,7 +42,7 @@ orchestration are still defined in:
 ## Authentication And Lookup Scope
 
 - program-plane endpoints authenticate `AgentSession`
-- execution-plane endpoints authenticate `ExecutionSession`
+- executor-plane endpoints authenticate `ExecutorSession`
 - lookups are scoped to the authenticated session owner's installation
 - lookups resolve resources by `public_id`, never raw internal `bigint` ids
 - conversations are resolved only while `deletion_state = retained`
@@ -58,12 +58,12 @@ orchestration are still defined in:
 
 ### Delivery Paths
 
-- `POST /program_api/control/poll` is the durable fallback transport for pending
+- `POST /agent_api/control/poll` is the durable fallback transport for pending
   program-plane mailbox items
-- `POST /program_api/control/report` carries program-plane reports back into the
+- `POST /agent_api/control/report` carries program-plane reports back into the
   kernel
-- `POST /execution_api/control/report` carries execution-plane reports for
-  execution-owned resources such as `ProcessRun`
+- `POST /executor_api/control/report` carries executor-plane reports for
+  executor-owned resources such as `ProcessRun`
 - conversation-scoped status refresh and guidance requests are serialized into
   the same mailbox envelope after `ConversationControl::DispatchRequest`
 - `/cable` may stream the same mailbox-item envelope over `AgentControlChannel`
@@ -71,7 +71,7 @@ orchestration are still defined in:
   the same mailbox item envelope:
   - `item_id`
   - `item_type`
-  - `runtime_plane`
+  - `control_plane`
   - `target_kind`
   - `target_ref`
   - `logical_work_id`
@@ -86,15 +86,15 @@ orchestration are still defined in:
   - `lease_timeout_seconds`
   - optional `execution_hard_deadline_at`
   - `payload`
-- `runtime_plane` is explicit:
+- `control_plane` is explicit:
   - `program` for agent-loop work and program-owned close control
-  - `execution` for `ExecutionRuntime`-owned resources such as
+  - `executor` for `ExecutorProgram`-owned resources such as
     `ProcessRun`
 - mailbox rows persist routing semantics as durable columns:
-  - `runtime_plane`
+  - `control_plane`
   - `target_kind`
   - `target_ref`
-  - optional `target_execution_runtime_id` for execution-plane work
+  - optional `target_executor_program_id` for executor-plane work
 - `payload` now carries only family-specific request data; routing identity is
   not reconstructed from payload shape
 - for `program` plane close work, the durable owner fallback is resolved from
@@ -103,11 +103,11 @@ orchestration are still defined in:
   - `SubagentSession` falls back to the logical `agent_program`
     associated with its owner conversation, or its origin turn when that turn
     exists
-- for `execution` plane work:
-  - `target_ref` is the owning `ExecutionRuntime.public_id`
-  - `target_execution_runtime_id` stores the owning
-    `ExecutionRuntime` foreign key on the mailbox row
-  - if no active execution session currently holds the resource lease, the
+- for `executor` plane work:
+  - `target_ref` is the owning `ExecutorProgram.public_id`
+  - `target_executor_program_id` stores the owning
+    `ExecutorProgram` foreign key on the mailbox row
+  - if no active executor session currently holds the resource lease, the
     mailbox row still records the owning turn program version's logical
     `agent_program` as the durable installation target
   - the live delivery endpoint is resolved separately through the shared
@@ -121,7 +121,7 @@ orchestration are still defined in:
   `AgentTaskRun` is still `queued`; interrupt-canceled leased assignments are
   marked `canceled` and have their lease cleared before later polls
 - `ResolveTargetRuntime`, `Poll`, and `PublishPending` now share the same
-  durable mailbox routing contract for both program-plane and execution-plane
+  durable mailbox routing contract for both program-plane and executor-plane
   delivery
 - `AgentControl::Report` is a thin ingress shell for:
   - agent-session activity touch
@@ -140,8 +140,8 @@ orchestration are still defined in:
 - `process_output` is the live output report for running detached
   `ProcessRun(kind = "background_service")` resources:
   - it is accepted only for `ProcessRun`
-  - the reporting execution session must belong to the owning execution
-    runtime
+  - the reporting executor session must belong to the owning
+    `ExecutorProgram`
   - when a process lease is active, the report also heartbeats that lease
   - payload carries `output_chunks`, each with transport-only stdout/stderr
     text
@@ -150,7 +150,7 @@ orchestration are still defined in:
 - `process_started` is the runtime-side activation report for a provisioned
   detached `ProcessRun`:
   - the kernel creates the durable resource first through
-    `POST /execution_api/process_runs`
+    `POST /executor_api/process_runs`
   - the runtime reports `process_started` only after the local process handle
     is live
   - the report transitions the `ProcessRun` from `starting` to `running`
@@ -164,8 +164,8 @@ orchestration are still defined in:
 - short-lived command output does not use `process_output`; it is reported
   through execution progress as `runtime.tool_invocation.output`
 - short-lived command resources are created in two steps before local spawn:
-  - `POST /program_api/tool_invocations`
-  - `POST /execution_api/command_runs`
+  - `POST /agent_api/tool_invocations`
+  - `POST /executor_api/command_runs`
 - those create APIs are valid only while the backing parent execution is still
   live:
   - `tool_invocations` require `AgentTaskRun.lifecycle_state = running` and no
@@ -175,7 +175,7 @@ orchestration are still defined in:
   - `command_run_activate` also rejects activation once the parent execution is
     closing or terminal
 - detached long-lived process resources are created before local spawn through:
-  - `POST /execution_api/process_runs`
+  - `POST /executor_api/process_runs`
 - that create payload includes `tool_name = "process_exec"` so the kernel can
   resolve the frozen governed `ToolBinding` before it allocates the durable
   `ProcessRun`
@@ -204,8 +204,8 @@ orchestration are still defined in:
 - terminal process close reports may also carry `output_chunks`; those chunks
   are broadcast before the terminal `runtime.process_run.*` event and are not
   persisted durably
-- execution-owned close reports are only accepted from the active
-  `ExecutionSession` attached to the owning execution runtime
+- executor-owned close reports are only accepted from the active
+  `ExecutorSession` attached to the owning `ExecutorProgram`
 - `deployment_health_report` now routes through `HandleHealthReport` and
   refreshes session health plus `control_activity_state`
 - duplicate control reports are idempotent by `protocol_message_id`
@@ -321,7 +321,7 @@ orchestration are still defined in:
   `tool_catalog`
 - capability endpoints also expose:
   - `program_plane`
-  - `execution_plane`
+  - `executor_plane`
   - `effective_tool_catalog`
   - `governed_effective_tool_catalog`
 - those capability sections and the conversation-facing runtime capability
@@ -344,18 +344,18 @@ orchestration are still defined in:
   bindings instead of bypassing the task boundary with source-specific audit
   paths
 - runtime-owned tool execution now requests kernel-owned `ToolInvocation`
-  resources through `POST /program_api/tool_invocations` before local side
+  resources through `POST /agent_api/tool_invocations` before local side
   effects begin
 - command tools that need an attached process handle additionally request one
-  `CommandRun` through `POST /execution_api/command_runs`
+  `CommandRun` through `POST /executor_api/command_runs`
 - `CommandRun` creation is an allocation step, not proof that the local
   command already exists:
   - create returns `lifecycle_state = "starting"`
-  - runtime must follow with `POST /execution_api/command_runs/:id/activate`
+  - runtime must follow with `POST /executor_api/command_runs/:id/activate`
     after the local subprocess or PTY session is actually live
 - detached long-lived environment processes request one `ProcessRun` through
-  `POST /execution_api/process_runs` before local spawn
-- `POST /execution_api/process_runs` still resolves the frozen `process_exec`
+  `POST /executor_api/process_runs` before local spawn
+- `POST /executor_api/process_runs` still resolves the frozen `process_exec`
   `ToolBinding` for the owning `AgentTaskRun`; long-lived process creation does
   not bypass governed tool visibility just because it materializes a
   `ProcessRun` instead of a `ToolInvocation`

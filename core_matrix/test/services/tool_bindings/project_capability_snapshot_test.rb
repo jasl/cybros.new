@@ -6,7 +6,7 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
 
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      execution_runtime: context.fetch(:execution_runtime)
+      executor_program: context.fetch(:executor_program)
     )
 
     definitions = ToolDefinition.where(

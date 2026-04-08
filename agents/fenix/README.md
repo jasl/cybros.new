@@ -52,13 +52,13 @@ pairing:
 - tool catalog
 - `profile_catalog`
 - `program_plane`
-- `execution_plane`
+- `executor_plane`
 - `effective_tool_catalog`
 - config schema snapshots
 - default config snapshot
 
 The manifest now also carries a small runtime-foundation block inside
-`execution_capability_payload.runtime_foundation` so operators can inspect the
+`executor_capability_payload.runtime_foundation` so operators can inspect the
 expected host/toolchain baseline without reading deployment docs first. The
 current baseline is:
 
@@ -84,7 +84,7 @@ The manifest now declares runtime-owned profile and subagent defaults:
 The current pairing contract models `Fenix` as one process serving both:
 
 - `AgentRuntime`
-- `ExecutionRuntime`
+- `ExecutorProgram`
 
 That dual role is explicit in the manifest even though the current runtime still ships it
 as one bundled runtime.
@@ -94,8 +94,8 @@ Normal execution and close control do not use a runtime callback endpoint.
 control plane:
 
 - realtime push over `/cable`
-- `POST /program_api/control/poll` fallback delivery
-- `POST /program_api/control/report` for incremental reports back into the kernel
+- `POST /agent_api/control/poll` fallback delivery
+- `POST /agent_api/control/report` for incremental reports back into the kernel
 
 The manifest therefore exists for registration and capability advertisement,
 not for direct execution dispatch. The runtime still keeps deterministic local

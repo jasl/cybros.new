@@ -2,11 +2,11 @@ module Installations
   class BootstrapBundledAgentBinding
     Result = Struct.new(
       :agent_program,
-      :execution_runtime,
+      :executor_program,
       :deployment,
       :capability_snapshot,
       :agent_session,
-      :execution_session,
+      :executor_session,
       :binding,
       :workspace,
       keyword_init: true
@@ -36,11 +36,11 @@ module Installations
 
       Result.new(
         agent_program: registry.agent_program,
-        execution_runtime: registry.execution_runtime,
+        executor_program: registry.executor_program,
         deployment: registry.deployment,
         capability_snapshot: registry.capability_snapshot,
         agent_session: registry.agent_session,
-        execution_session: registry.execution_session,
+        executor_session: registry.executor_session,
         binding: binding_result.binding,
         workspace: binding_result.workspace
       )

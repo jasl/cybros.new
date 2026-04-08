@@ -371,7 +371,7 @@ It should represent:
 
 - local machine, container, or future remote execution target
 - environment identity and connection metadata
-- future split point for separating agent runtime from code execution runtime
+- future split point for separating agent programs from code executor programs
 
 This is the durable owner boundary for environment-backed runtime resources,
 while delivery may still reuse the currently active deployment endpoint.

@@ -1,12 +1,12 @@
 module ToolGovernanceTestSupport
   private
 
-  def governed_execution_tool_catalog
+  def governed_executor_tool_catalog
     [
       {
         "tool_name" => "exec_command",
-        "tool_kind" => "execution_runtime",
-        "implementation_source" => "execution_runtime",
+        "tool_kind" => "executor_program",
+        "implementation_source" => "executor_program",
         "implementation_ref" => "env/exec_command",
         "input_schema" => { "type" => "object", "properties" => {} },
         "result_schema" => { "type" => "object", "properties" => {} },
@@ -62,12 +62,12 @@ module ToolGovernanceTestSupport
   end
 
   def build_governed_tool_context!(
-    execution_tool_catalog: governed_execution_tool_catalog,
+    executor_tool_catalog: governed_executor_tool_catalog,
     agent_tool_catalog: governed_agent_tool_catalog,
     profile_catalog: governed_profile_catalog
   )
     context = build_agent_control_context!
-    context.fetch(:execution_runtime).update!(tool_catalog: execution_tool_catalog)
+    context.fetch(:executor_program).update!(tool_catalog: executor_tool_catalog)
 
     activate_program_version!(
       context,

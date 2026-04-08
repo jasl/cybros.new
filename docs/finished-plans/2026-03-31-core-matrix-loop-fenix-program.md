@@ -104,7 +104,7 @@ assert_equal "2026-03-31", manifest.fetch("protocol_version")
 assert_equal "mailbox-first", manifest.dig("program_contract", "transport")
 assert_equal ["prepare_round", "execute_program_tool"], manifest.dig("program_contract", "methods")
 assert_equal ["websocket_push", "poll"], manifest.dig("program_contract", "delivery")
-assert_equal "/program_api/control/report", manifest.dig("control_plane", "report_path")
+assert_equal "/agent_api/control/report", manifest.dig("control_plane", "report_path")
 ```
 
 **Step 2: Run the focused tests and confirm they fail**

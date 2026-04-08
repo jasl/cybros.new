@@ -32,11 +32,11 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     installation = Installation.first || create_installation!(name: "Execution Assignment Contract #{SecureRandom.uuid}")
     user = create_user!(installation: installation)
     agent_program = create_agent_program!(installation: installation)
-    execution_runtime = create_execution_runtime!(installation: installation)
+    executor_program = create_executor_program!(installation: installation)
     agent_program_version = create_agent_program_version!(
       installation: installation,
       agent_program: agent_program,
-      execution_runtime: execution_runtime
+      executor_program: executor_program
     )
     user_program_binding = create_user_program_binding!(
       installation: installation,
@@ -53,7 +53,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         installation: installation,
         user: user,
         agent_program: agent_program,
-        execution_runtime: execution_runtime,
+        executor_program: executor_program,
         agent_program_version: agent_program_version,
         user_program_binding: user_program_binding,
         workspace: workspace,
@@ -67,9 +67,9 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    context[:execution_session] = create_execution_session!(
+    context[:executor_session] = create_executor_session!(
       installation: context[:installation],
-      execution_runtime: context[:execution_runtime]
+      executor_program: context[:executor_program]
     )
 
     owner_conversation = Conversations::CreateRoot.call(
@@ -79,7 +79,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate work",
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -123,7 +123,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       content: "Please calculate 2 + 2.",
       sender_kind: "owner_agent",
       sender_conversation: owner_conversation,
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -245,7 +245,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     payload["runtime_context"] = payload.fetch("runtime_context").merge(
       "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
       "agent_program_version_id" => "agent-program-version-public-id",
-      "execution_runtime_id" => "execution-runtime-public-id"
+      "executor_program_id" => "execution-runtime-public-id"
     )
 
     serialized.merge(

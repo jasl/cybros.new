@@ -37,7 +37,7 @@ namespace :runtime do
             "mailbox_item_id" => result.mailbox_item_id,
             "logical_work_id" => result.logical_work_id,
             "attempt_no" => result.attempt_no,
-            "runtime_plane" => result.runtime_plane,
+            "control_plane" => result.control_plane,
             "status" => result.status,
             "output" => result.output_payload,
             "error" => result.error_payload,
@@ -79,7 +79,7 @@ namespace :runtime do
             "mailbox_item_id" => mailbox_result.mailbox_item_id,
             "logical_work_id" => mailbox_result.logical_work_id,
             "attempt_no" => mailbox_result.attempt_no,
-            "runtime_plane" => mailbox_result.runtime_plane,
+            "control_plane" => mailbox_result.control_plane,
             "status" => mailbox_result.status,
             "output" => mailbox_result.output_payload,
             "error" => mailbox_result.error_payload,
@@ -128,16 +128,16 @@ namespace :runtime do
   desc "Register this Fenix runtime with Core Matrix, then handshake, heartbeat, and refresh capabilities"
   task pair_with_core_matrix: :environment do
     manifest = pairing_manifest_payload
-    runtime_fingerprint = ENV.fetch("FENIX_RUNTIME_FINGERPRINT", manifest.fetch("runtime_fingerprint"))
+    executor_fingerprint = ENV.fetch("FENIX_RUNTIME_FINGERPRINT", manifest.fetch("executor_fingerprint"))
 
     registration = runtime_client(machine_credential: nil).register!(
       enrollment_token: ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      runtime_fingerprint: manifest.fetch("runtime_fingerprint"),
-      runtime_kind: manifest.fetch("runtime_kind"),
-      runtime_connection_metadata: manifest.fetch("runtime_connection_metadata"),
-      execution_capability_payload: manifest.fetch("execution_capability_payload"),
-      execution_tool_catalog: manifest.fetch("execution_tool_catalog"),
-      fingerprint: runtime_fingerprint,
+      executor_fingerprint: manifest.fetch("executor_fingerprint"),
+      executor_kind: manifest.fetch("executor_kind"),
+      executor_connection_metadata: manifest.fetch("executor_connection_metadata"),
+      executor_capability_payload: manifest.fetch("executor_capability_payload"),
+      executor_tool_catalog: manifest.fetch("executor_tool_catalog"),
+      fingerprint: executor_fingerprint,
       endpoint_metadata: manifest.fetch("endpoint_metadata"),
       protocol_version: manifest.fetch("protocol_version"),
       sdk_version: manifest.fetch("sdk_version"),
@@ -158,11 +158,11 @@ namespace :runtime do
       {
         "registration" => registration,
         "capabilities_handshake" => client.capabilities_handshake!(
-          fingerprint: runtime_fingerprint,
+          fingerprint: executor_fingerprint,
           protocol_version: manifest.fetch("protocol_version"),
           sdk_version: manifest.fetch("sdk_version"),
-          execution_capability_payload: manifest.fetch("execution_capability_payload"),
-          execution_tool_catalog: manifest.fetch("execution_tool_catalog"),
+          executor_capability_payload: manifest.fetch("executor_capability_payload"),
+          executor_tool_catalog: manifest.fetch("executor_tool_catalog"),
           protocol_methods: manifest.fetch("protocol_methods"),
           tool_catalog: manifest.fetch("tool_catalog"),
           profile_catalog: manifest.fetch("profile_catalog"),
@@ -181,8 +181,8 @@ namespace :runtime do
     )
   end
 
-  desc "Exercise non-control program_api resource endpoints through the Fenix runtime client"
-  task program_api_smoke: :environment do
+  desc "Exercise non-control agent_api resource endpoints through the Fenix runtime client"
+  task agent_api_smoke: :environment do
     client = runtime_client
     workspace_id = ENV.fetch("CORE_MATRIX_WORKSPACE_ID")
     conversation_id = ENV.fetch("CORE_MATRIX_CONVERSATION_ID")

@@ -8,11 +8,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, execution_session: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
+    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
       raw_payload = payload.presence || kwargs
       @deployment = deployment
       @agent_session = agent_session
-      @execution_session = execution_session
+      @executor_session = executor_session
       @resource = resource
       @payload = raw_payload.deep_stringify_keys
       @method_id = method_id || @payload.fetch("method_id")
@@ -66,7 +66,7 @@ module AgentControl
       receipt = AgentControlReportReceipt.new(
         installation_id: @deployment.installation_id,
         agent_session: resolved_agent_session,
-        execution_session: @execution_session,
+        executor_session: @executor_session,
         protocol_message_id: @protocol_message_id,
         method_id: @method_id,
         logical_work_id: @payload["logical_work_id"],
@@ -93,7 +93,7 @@ module AgentControl
       @report_handler ||= ReportDispatch.call(
         deployment: @deployment,
         agent_session: resolved_agent_session,
-        execution_session: @execution_session,
+        executor_session: @executor_session,
         resource: @resource,
         method_id: @method_id,
         payload: @payload,
@@ -129,8 +129,8 @@ module AgentControl
         occurred_at: @occurred_at,
       }
 
-      if @execution_session.present?
-        Poll.call(execution_session: @execution_session, **poll_arguments)
+      if @executor_session.present?
+        Poll.call(executor_session: @executor_session, **poll_arguments)
       else
         Poll.call(deployment: @deployment, agent_session: resolved_agent_session, **poll_arguments)
       end

@@ -51,7 +51,7 @@ invalidation, auditability, and scheduling eligibility under kernel authority.
 - all three lifecycle services write audit rows against the affected agent
   session or `AgentProgramVersion`
 - audit metadata includes the agent program reference and any related default
-  execution runtime reference when present
+  executor program reference when present
 - actor attribution is supported for rotation, revocation, and retirement
 
 ## Failure Modes

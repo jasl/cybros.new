@@ -59,10 +59,10 @@ module AgentControl
         installation: @resource.installation,
         target_agent_program: target_agent_program,
         target_agent_program_version: target_deployment,
-        target_execution_runtime: execution_plane? ? ClosableResourceRouting.execution_runtime_for(@resource) : nil,
+        target_executor_program: executor_plane? ? ClosableResourceRouting.executor_program_for(@resource) : nil,
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
-        runtime_plane: runtime_plane,
+        control_plane: control_plane,
         logical_work_id: agent_task_run&.logical_work_id || "close:#{@resource.class.name}:#{@resource.public_id}",
         attempt_no: agent_task_run&.attempt_no || 1,
         protocol_message_id: @protocol_message_id,
@@ -95,11 +95,11 @@ module AgentControl
     end
 
     def delivery_endpoint
-      if execution_plane?
-        execution_runtime = ClosableResourceRouting.execution_runtime_for(@resource)
-        return if execution_runtime.blank?
+      if executor_plane?
+        executor_program = ClosableResourceRouting.executor_program_for(@resource)
+        return if executor_program.blank?
 
-        return ExecutionSessions::ResolveActiveSession.call(execution_runtime: execution_runtime)
+        return ExecutorSessions::ResolveActiveSession.call(executor_program: executor_program)
       end
 
       return @resource.holder_agent_session if @resource.respond_to?(:holder_agent_session)
@@ -114,11 +114,11 @@ module AgentControl
       @resource if @resource.is_a?(AgentTaskRun)
     end
 
-    def runtime_plane
-      execution_plane? ? "execution" : "program"
+    def control_plane
+      executor_plane? ? "executor" : "program"
     end
 
-    def execution_plane?
+    def executor_plane?
       @resource.is_a?(ProcessRun)
     end
   end

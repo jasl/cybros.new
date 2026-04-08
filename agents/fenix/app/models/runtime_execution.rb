@@ -14,7 +14,7 @@ class RuntimeExecution < ApplicationRecord
   validates :protocol_message_id, presence: true
   validates :logical_work_id, presence: true
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
-  validates :runtime_plane, presence: true
+  validates :control_plane, presence: true
   validates :item_type, presence: true
   validates :request_kind, presence: true
   validate :request_payload_must_be_hash
@@ -60,7 +60,7 @@ class RuntimeExecution < ApplicationRecord
       "protocol_message_id" => protocol_message_id,
       "logical_work_id" => logical_work_id,
       "attempt_no" => attempt_no,
-      "runtime_plane" => runtime_plane,
+      "control_plane" => control_plane,
       "payload" => request_payload.deep_stringify_keys,
     }
   end

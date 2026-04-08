@@ -8,7 +8,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     )
     deployment_id = context[:agent_program_version].id
@@ -34,7 +34,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
     turn = Turns::StartUserTurn.call(
       conversation: Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
+      executor_program: context[:executor_program],
       agent_program_version: context[:agent_program_version]
     ),
       content: "Original input",
