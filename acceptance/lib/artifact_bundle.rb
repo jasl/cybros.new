@@ -6,6 +6,7 @@ module Acceptance
     module_function
 
     def write_review_index!(path:, summary:)
+      load_bundle = summary["benchmark_mode"] == "multi_fenix_core_matrix_load"
       lines = [
         "# Review Index",
         "",
@@ -41,11 +42,18 @@ module Acceptance
         "- [Conversation Debug Export](../exports/conversation-debug-export.zip)",
         "- [Playable Outputs](../playable/)",
       ]
+      if load_bundle
+        lines.insert(21, "- [Load Summary](load-summary.md)")
+        lines.insert(-1, "- [Aggregated Metrics](../evidence/aggregated-metrics.json)")
+        lines.insert(-1, "- [Runtime Topology](../evidence/runtime-topology.json)")
+        lines.insert(-1, "- [Workload Profile](../evidence/workload-profile.json)")
+      end
 
       write_text(path, lines.join("\n") + "\n")
     end
 
     def write_root_readme!(path:, artifact_stamp:, summary:)
+      load_bundle = summary["benchmark_mode"] == "multi_fenix_core_matrix_load"
       lines = [
         "# Acceptance Artifact Bundle",
         "",
@@ -75,27 +83,39 @@ module Acceptance
         "Canonical machine-readable entrypoints live under `review/`, `evidence/`, and `logs/`.",
         "- `evidence/artifact-manifest.json` lists the preferred paths for callers.",
       ]
+      if load_bundle
+        lines.insert(9, "- [Load summary](review/load-summary.md)")
+        lines.insert(10, "- [Aggregated metrics](evidence/aggregated-metrics.json)")
+      end
 
       write_text(path, lines.join("\n") + "\n")
     end
 
     def write_manifest!(path:, artifact_stamp:, summary:)
+      entry_points = {
+        "review_index" => "review/index.md",
+        "turn_runtime_transcript" => "review/turn-runtime-transcript.md",
+        "conversation_transcript" => "review/conversation-transcript.md",
+        "supervision_eval_bundle" => "review/supervision-eval-bundle.json",
+        "benchmark_summary" => "evidence/run-summary.json",
+        "turn_runtime_evidence" => "evidence/turn-runtime-evidence.json",
+        "subagent_runtime_snapshots" => "evidence/subagent-runtime-snapshots.json",
+        "capability_activation" => "evidence/capability-activation.json",
+        "failure_classification" => "evidence/failure-classification.json",
+        "phase_events" => "logs/phase-events.jsonl",
+        "live_progress_feed" => "logs/live-progress-events.jsonl",
+        "playable_outputs" => "playable/",
+      }
+      if summary["benchmark_mode"] == "multi_fenix_core_matrix_load"
+        entry_points["load_summary"] = "review/load-summary.md"
+        entry_points["aggregated_metrics"] = "evidence/aggregated-metrics.json"
+        entry_points["runtime_topology"] = "evidence/runtime-topology.json"
+        entry_points["workload_profile"] = "evidence/workload-profile.json"
+      end
+
       write_json(path, {
         "artifact_stamp" => artifact_stamp,
-        "entry_points" => {
-          "review_index" => "review/index.md",
-          "turn_runtime_transcript" => "review/turn-runtime-transcript.md",
-          "conversation_transcript" => "review/conversation-transcript.md",
-          "supervision_eval_bundle" => "review/supervision-eval-bundle.json",
-          "benchmark_summary" => "evidence/run-summary.json",
-          "turn_runtime_evidence" => "evidence/turn-runtime-evidence.json",
-          "subagent_runtime_snapshots" => "evidence/subagent-runtime-snapshots.json",
-          "capability_activation" => "evidence/capability-activation.json",
-          "failure_classification" => "evidence/failure-classification.json",
-          "phase_events" => "logs/phase-events.jsonl",
-          "live_progress_feed" => "logs/live-progress-events.jsonl",
-          "playable_outputs" => "playable/",
-        },
+        "entry_points" => entry_points,
         "summary" => {
           "benchmark_outcome" => summary.fetch("benchmark_outcome"),
           "workload_outcome" => summary.fetch("workload_outcome"),

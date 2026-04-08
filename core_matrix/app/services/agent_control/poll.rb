@@ -19,31 +19,40 @@ module AgentControl
     end
 
     def call
-      touch_runtime_activity!
-      progress_close_requests!
+      payload = poll_event_payload
 
-      deliveries = []
+      ActiveSupport::Notifications.instrument("perf.agent_control.poll", payload) do
+        touch_runtime_activity!
+        progress_close_requests!
 
-      candidate_scope.limit(@limit * 10).each do |mailbox_item|
-        break if deliveries.size >= @limit
-        resolution = resolution_for(mailbox_item)
-        next unless delivery_candidate?(mailbox_item, resolution)
+        deliveries = []
 
-        if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
-          deliveries << mailbox_item
-          next
+        candidate_scope.limit(@limit * 10).each do |mailbox_item|
+          break if deliveries.size >= @limit
+          resolution = resolution_for(mailbox_item)
+          next unless delivery_candidate?(mailbox_item, resolution)
+
+          if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
+            deliveries << mailbox_item
+            next
+          end
+
+          leased_item = LeaseMailboxItem.call(
+            mailbox_item: mailbox_item,
+            deployment: lease_owner,
+            resolved_delivery_endpoint: resolution.delivery_endpoint,
+            occurred_at: @occurred_at
+          )
+          next unless leased_item.present?
+
+          publish_mailbox_lease_event!(leased_item)
+          deliveries << leased_item
         end
 
-        leased_item = LeaseMailboxItem.call(
-          mailbox_item: mailbox_item,
-          deployment: lease_owner,
-          resolved_delivery_endpoint: resolution.delivery_endpoint,
-          occurred_at: @occurred_at
-        )
-        deliveries << leased_item if leased_item.present?
+        payload["delivery_count"] = deliveries.size
+        payload["success"] = true
+        deliveries
       end
-
-      deliveries
     end
 
     private
@@ -145,6 +154,49 @@ module AgentControl
 
     def installation_id
       execution_poll? ? @executor_session.executor_program.installation_id : @deployment.installation_id
+    end
+
+    def publish_mailbox_lease_event!(mailbox_item)
+      payload = {
+        "mailbox_item_public_id" => mailbox_item.public_id,
+        "item_type" => mailbox_item.item_type,
+        "control_plane" => mailbox_item.control_plane,
+        "success" => true,
+      }
+      if execution_poll?
+        payload["executor_session_public_id"] = @executor_session.public_id
+      else
+        payload["agent_program_public_id"] = @deployment.agent_program.public_id
+        payload["agent_session_public_id"] = resolved_agent_session&.public_id
+      end
+      if mailbox_item.available_at.present?
+        payload["lease_latency_ms"] = ((@occurred_at - mailbox_item.available_at) * 1000.0).round(3)
+      end
+
+      ActiveSupport::Notifications.instrument("perf.agent_control.mailbox_item_leased", payload)
+    end
+
+    def poll_event_payload
+      payload = {
+        "control_plane" => execution_poll? ? "executor" : "program",
+        "delivery_count" => 0,
+        "success" => false,
+      }
+
+      if execution_poll?
+        payload["executor_session_public_id"] = @executor_session.public_id
+      else
+        payload["agent_program_public_id"] = @deployment.agent_program.public_id
+        payload["agent_session_public_id"] = resolved_agent_session&.public_id
+      end
+
+      payload
+    end
+
+    def resolved_agent_session
+      return @resolved_agent_session if defined?(@resolved_agent_session)
+
+      @resolved_agent_session = @agent_session || @deployment&.active_agent_session || @deployment&.most_recent_agent_session
     end
   end
 end

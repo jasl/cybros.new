@@ -18,6 +18,57 @@ module Fenix
         new(...).call
       end
 
+      def self.execution_event_payload(mailbox_item)
+        mailbox_item = mailbox_item.deep_stringify_keys
+        task_payload = mailbox_item.fetch("payload", {})
+        runtime_context = task_payload.fetch("runtime_context", {})
+        task = task_payload.fetch("task", {})
+
+        {
+          "mailbox_item_public_id" => mailbox_item["item_id"],
+          "control_plane" => mailbox_item["control_plane"],
+          "item_type" => mailbox_item.fetch("item_type", "execution_assignment"),
+          "agent_program_public_id" => runtime_context["agent_program_id"],
+          "user_public_id" => runtime_context["user_id"],
+          "conversation_public_id" => task["conversation_id"],
+          "turn_public_id" => task["turn_id"],
+          "workflow_node_public_id" => task["workflow_node_id"],
+        }.compact
+      end
+
+      def self.instrument_execution(mailbox_item:, notifier: ActiveSupport::Notifications)
+        payload = execution_event_payload(mailbox_item).merge(
+          "success" => false
+        )
+
+        notifier.instrument("perf.runtime.mailbox_execution", payload) do
+          result = yield
+          payload["success"] = true
+          apply_execution_result!(payload, result)
+          result
+        end
+      rescue StandardError => error
+        payload["metadata"] = {
+          "error_class" => error.class.name,
+          "message" => error.message,
+        }
+        raise
+      end
+
+      def self.apply_execution_result!(payload, result)
+        metadata = {}
+
+        if result.respond_to?(:status)
+          metadata["execution_status"] = result.status
+        elsif result.is_a?(Hash)
+          metadata["execution_status"] = result["status"] || result[:status]
+        elsif result.is_a?(Symbol)
+          metadata["execution_status"] = result.to_s
+        end
+
+        payload["metadata"] = metadata if metadata.present?
+      end
+
       def initialize(mailbox_item:, deliver_reports: false, control_client: nil, inline: false)
         @mailbox_item = mailbox_item.deep_stringify_keys
         @deliver_reports = deliver_reports
@@ -65,40 +116,50 @@ module Fenix
       end
 
       def handle_agent_task_close!
-        report_close_lifecycle! if @deliver_reports
-        :handled
+        self.class.instrument_execution(mailbox_item: @mailbox_item) do
+          report_close_lifecycle! if @deliver_reports
+          :handled
+        end
       end
 
       def handle_process_run_close!
-        if defined?(Fenix::Processes::Manager)
-          Fenix::Processes::Manager.close!(
-            mailbox_item: @mailbox_item,
-            deliver_reports: @deliver_reports,
-            control_client: resolved_control_client_if_needed
-          )
-        else
-          report_close_failure!("local process manager is not available")
-          :unsupported
+        self.class.instrument_execution(mailbox_item: @mailbox_item) do
+          if defined?(Fenix::Processes::Manager)
+            Fenix::Processes::Manager.close!(
+              mailbox_item: @mailbox_item,
+              deliver_reports: @deliver_reports,
+              control_client: resolved_control_client_if_needed
+            )
+          else
+            report_close_failure!("local process manager is not available")
+            :unsupported
+          end
         end
       end
 
       def handle_subagent_session_close!
-        report_close_lifecycle! if @deliver_reports
-        :handled
+        self.class.instrument_execution(mailbox_item: @mailbox_item) do
+          report_close_lifecycle! if @deliver_reports
+          :handled
+        end
       end
 
       def execute_inline!
-        Fenix::Runtime::ExecuteMailboxItem.call(
-          mailbox_item: @mailbox_item,
-          deliver_reports: @deliver_reports,
-          control_client: resolved_control_client_if_needed
-        )
+        self.class.instrument_execution(mailbox_item: @mailbox_item) do
+          Fenix::Runtime::ExecuteMailboxItem.call(
+            mailbox_item: @mailbox_item,
+            deliver_reports: @deliver_reports,
+            control_client: resolved_control_client_if_needed
+          )
+        end
       end
 
       def enqueue_execution!
         Fenix::Runtime::MailboxExecutionJob.perform_later(
           @mailbox_item,
-          deliver_reports: @deliver_reports
+          deliver_reports: @deliver_reports,
+          enqueued_at_iso8601: Time.current.iso8601(6),
+          queue_name: Fenix::Runtime::MailboxExecutionJob.queue_name
         )
 
         QueuedMailboxExecution.new(

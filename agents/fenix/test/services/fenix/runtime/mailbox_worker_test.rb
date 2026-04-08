@@ -132,7 +132,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal "failed", result.fetch("status")
     assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
-    assert_equal "executor_tool_slice_not_ready", client.reported_payloads.last.dig("terminal_payload", "code")
+    assert_equal "invalid_deterministic_tool_request", client.reported_payloads.last.dig("terminal_payload", "code")
   end
 
   private

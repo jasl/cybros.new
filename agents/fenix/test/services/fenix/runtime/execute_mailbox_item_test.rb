@@ -65,6 +65,25 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     Fenix::Skills::Load.define_singleton_method(:call, original_load) if original_load
   end
 
+  test "deterministic tool execution assignments emit started and completed terminal reports" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execution_assignment_mailbox_item(
+        mode: "deterministic_tool",
+        task_payload: { "expression" => "7 + 5" }
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal 12, result.dig("output", "result")
+    assert_equal ["execution_started", "execution_complete"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
+    assert_equal "The calculator returned 12.", client.reported_payloads.last.dig("terminal_payload", "content")
+  end
+
   test "skills execution assignments emit started before deterministic scope failures" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 

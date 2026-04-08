@@ -137,6 +137,87 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     ENV["FENIX_HOME_ROOT"] = previous_home_root
   end
 
+  test "run_fenix_runtime_task! lets explicit runtime env override the forwarded fenix home root" do
+    captured = nil
+    previous_home_root = ENV["FENIX_HOME_ROOT"]
+    ENV["FENIX_HOME_ROOT"] = "/tmp/acceptance-fenix-home"
+
+    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
+      with_redefined_singleton_method(Open3, :capture3, lambda { |*args, **kwargs|
+        captured = { args:, kwargs: }
+        ['{"items":[]}', "", Struct.new(:success?, :exitstatus).new(true, 0)]
+      }) do
+        with_redefined_singleton_method(
+          ManualAcceptanceSupport,
+          :fenix_project_root,
+          -> { Pathname.new("/tmp/fenix-project") }
+        ) do
+          ManualAcceptanceSupport.run_fenix_runtime_task!(
+            task_name: "runtime:control_loop_once",
+            machine_credential: "program-secret",
+            executor_machine_credential: "execution-secret",
+            env: {
+              "FENIX_HOME_ROOT" => "/tmp/fenix-slot-home",
+              "CYBROS_PERF_EVENTS_PATH" => "/tmp/fenix-slot-events.ndjson",
+              "CYBROS_PERF_INSTANCE_LABEL" => "fenix-03",
+            }
+          )
+        end
+      end
+    end
+
+    env = captured.fetch(:args).first
+    assert_equal "/tmp/fenix-slot-home", env.fetch("FENIX_HOME_ROOT")
+    assert_equal "/tmp/fenix-slot-events.ndjson", env.fetch("CYBROS_PERF_EVENTS_PATH")
+    assert_equal "fenix-03", env.fetch("CYBROS_PERF_INSTANCE_LABEL")
+  ensure
+    ENV["FENIX_HOME_ROOT"] = previous_home_root
+  end
+
+  test "with_fenix_control_worker! lets explicit runtime env override the forwarded fenix home root" do
+    captured = nil
+    yielded_pid = nil
+    previous_home_root = ENV["FENIX_HOME_ROOT"]
+    ENV["FENIX_HOME_ROOT"] = "/tmp/acceptance-fenix-home"
+
+    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
+      with_redefined_singleton_method(Process, :spawn, lambda { |*args, **kwargs|
+        captured = { args:, kwargs: }
+        43_210
+      }) do
+        with_redefined_singleton_method(ManualAcceptanceSupport, :wait_for_worker_ready!, ->(reader:, pid:, timeout_seconds: 15) { nil }) do
+          with_redefined_singleton_method(ManualAcceptanceSupport, :stop_fenix_control_worker!, ->(pid) { nil }) do
+            with_redefined_singleton_method(
+              ManualAcceptanceSupport,
+              :fenix_project_root,
+              -> { Pathname.new("/tmp/fenix-project") }
+            ) do
+              ManualAcceptanceSupport.with_fenix_control_worker!(
+                machine_credential: "program-secret",
+                executor_machine_credential: "execution-secret",
+                env: {
+                  "FENIX_HOME_ROOT" => "/tmp/fenix-slot-home",
+                  "CYBROS_PERF_EVENTS_PATH" => "/tmp/fenix-slot-events.ndjson",
+                  "CYBROS_PERF_INSTANCE_LABEL" => "fenix-03",
+                }
+              ) do |pid|
+                yielded_pid = pid
+              end
+            end
+          end
+        end
+      end
+    end
+
+    env = captured.fetch(:args).first
+    assert_equal 43_210, yielded_pid
+    assert_equal "/tmp/fenix-slot-home", env.fetch("FENIX_HOME_ROOT")
+    assert_equal "/tmp/fenix-slot-events.ndjson", env.fetch("CYBROS_PERF_EVENTS_PATH")
+    assert_equal "fenix-03", env.fetch("CYBROS_PERF_INSTANCE_LABEL")
+  ensure
+    ENV["FENIX_HOME_ROOT"] = previous_home_root
+  end
+
   test "reconnect_application_record! re-establishes and checks out through with_connection" do
     calls = []
 

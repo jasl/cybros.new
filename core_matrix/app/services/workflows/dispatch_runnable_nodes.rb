@@ -32,7 +32,12 @@ module Workflows
 
       dispatched_node_ids.each do |workflow_node_id|
         workflow_node = WorkflowNode.find_by_public_id!(workflow_node_id)
-        Workflows::ExecuteNodeJob.set(queue: queue_name_for(workflow_node)).perform_later(workflow_node_id)
+        queue_name = queue_name_for(workflow_node)
+        Workflows::ExecuteNodeJob.set(queue: queue_name).perform_later(
+          workflow_node_id,
+          enqueued_at_iso8601: Time.current.iso8601(6),
+          queue_name: queue_name
+        )
       end
 
       WorkflowNode.where(public_id: dispatched_node_ids).order(:ordinal).to_a

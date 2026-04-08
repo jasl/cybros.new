@@ -322,7 +322,7 @@ module ManualAcceptanceSupport
     }
   end
 
-  def run_fenix_mailbox_pump_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true)
+  def run_fenix_mailbox_pump_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, env: {})
     run_fenix_runtime_task!(
       task_name: "runtime:mailbox_pump_once",
       machine_credential:,
@@ -330,11 +330,11 @@ module ManualAcceptanceSupport
       env: {
         "LIMIT" => limit.to_s,
         "INLINE" => inline ? "true" : "false",
-      }
+      }.merge(env)
     )
   end
 
-  def run_fenix_control_loop_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5)
+  def run_fenix_control_loop_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5, env: {})
     run_fenix_runtime_task!(
       task_name: "runtime:control_loop_once",
       machine_credential:,
@@ -343,7 +343,7 @@ module ManualAcceptanceSupport
         "LIMIT" => limit.to_s,
         "INLINE" => inline ? "true" : "false",
         "REALTIME_TIMEOUT_SECONDS" => realtime_timeout_seconds.to_s,
-      }
+      }.merge(env)
     )
   end
 
@@ -374,7 +374,7 @@ module ManualAcceptanceSupport
     JSON.parse(stdout)
   end
 
-  def with_fenix_control_worker!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5)
+  def with_fenix_control_worker!(machine_credential:, executor_machine_credential: machine_credential, limit: 10, inline: true, realtime_timeout_seconds: 5, env: {})
     project_root = fenix_project_root
     task_env = {
       "CORE_MATRIX_BASE_URL" => CONTROL_BASE_URL,
@@ -384,7 +384,7 @@ module ManualAcceptanceSupport
       "LIMIT" => limit.to_s,
       "INLINE" => inline ? "true" : "false",
       "REALTIME_TIMEOUT_SECONDS" => realtime_timeout_seconds.to_s,
-    }.merge(forwarded_fenix_env)
+    }.merge(forwarded_fenix_env).merge(env)
 
     reader, writer = IO.pipe
     pid = nil

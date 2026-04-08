@@ -18,13 +18,7 @@ module UserProgramBindings
       validate_visibility!
 
       ApplicationRecord.transaction do
-        binding = UserProgramBinding.find_or_create_by!(
-          installation: @user.installation,
-          user: @user,
-          agent_program: @agent_program
-        ) do |record|
-          record.preferences = {}
-        end
+        binding = find_or_create_binding!
         workspace = Workspaces::CreateDefault.call(user_program_binding: binding)
 
         Result.new(binding: binding, workspace: workspace)
@@ -44,6 +38,22 @@ module UserProgramBindings
       return if @agent_program.owner_user_id == @user.id
 
       raise AccessDenied, "user cannot enable this personal agent program"
+    end
+
+    def find_or_create_binding!
+      UserProgramBinding.find_or_create_by!(
+        installation: @user.installation,
+        user: @user,
+        agent_program: @agent_program
+      ) do |record|
+        record.preferences = {}
+      end
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+      UserProgramBinding.find_by(
+        installation: @user.installation,
+        user: @user,
+        agent_program: @agent_program
+      ) || raise
     end
   end
 end

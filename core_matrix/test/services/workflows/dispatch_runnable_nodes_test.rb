@@ -13,6 +13,25 @@ class Workflows::DispatchRunnableNodesTest < ActiveSupport::TestCase
     end
   end
 
+  test "enqueues execute node jobs with queue timing metadata" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+
+    assert_enqueued_with(
+      job: Workflows::ExecuteNodeJob,
+      queue: "llm_dev",
+      args: ->(job_args) do
+        job_args.first == workflow_run.workflow_nodes.find_by!(node_key: "turn_step").public_id &&
+          job_args.second.is_a?(Hash) &&
+          job_args.second[:queue_name] == "llm_dev" &&
+          Time.iso8601(job_args.second.fetch(:enqueued_at_iso8601)).is_a?(Time)
+      rescue ArgumentError, KeyError
+        false
+      end
+    ) do
+      Workflows::DispatchRunnableNodes.call(workflow_run: workflow_run.reload)
+    end
+  end
+
   test "enqueues tool call nodes onto the tool_calls queue" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(

@@ -35,9 +35,20 @@ module Fenix
           runtime_context: mailbox_payload.fetch("runtime_context", {})
         )
 
-        return emit_execution_completion(dispatch.fetch("output"), reports: reports) if dispatch.fetch("kind") == "skill_flow"
+        case dispatch.fetch("kind")
+        when "skill_flow"
+          emit_execution_completion(dispatch.fetch("output"), reports: reports)
+        when "deterministic_tool"
+          emit_execution_completion(
+            Fenix::Runtime::Assignments::DeterministicTool.call(
+              task_payload: mailbox_payload.fetch("task_payload", {})
+            ),
+            reports: reports
+          )
+        else
+          fail_execution_assignment!(reports: reports)
+        end
 
-        fail_execution_assignment!(reports: reports)
       rescue StandardError => error
         emit_execution_failure(execution_assignment_error_payload_for(error), reports: defined?(reports) ? reports : [])
       end
@@ -226,6 +237,13 @@ module Fenix
           {
             "classification" => "semantic",
             "code" => "reserved_skill_name",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Runtime::Assignments::DeterministicTool::InvalidRequestError
+          {
+            "classification" => "semantic",
+            "code" => "invalid_deterministic_tool_request",
             "message" => error.message,
             "retryable" => false,
           }

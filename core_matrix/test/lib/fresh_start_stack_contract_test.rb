@@ -131,4 +131,46 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
 
     assert gemfile.exist?, "expected acceptance harness to provide a dedicated Gemfile"
   end
+
+  test "multi-fenix load smoke wrapper delegates through the shared load harness with the smoke profile" do
+    script = Rails.root.join("../acceptance/bin/multi_fenix_core_matrix_load_smoke.sh").read
+
+    assert_includes script, 'MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-smoke}"'
+    assert_includes script, "run_multi_fenix_core_matrix_load.sh"
+  end
+
+  test "multi-fenix load target wrapper delegates through the shared load harness with the target profile" do
+    script = Rails.root.join("../acceptance/bin/multi_fenix_core_matrix_load_target.sh").read
+
+    assert_includes script, 'MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-target_8_fenix}"'
+    assert_includes script, "run_multi_fenix_core_matrix_load.sh"
+  end
+
+  test "shared multi-fenix load harness wires core matrix perf output and starts extra runtime servers" do
+    script = Rails.root.join("../acceptance/bin/run_multi_fenix_core_matrix_load.sh").read
+
+    assert_includes script, 'CORE_MATRIX_PERF_EVENTS_PATH="${ARTIFACT_DIR}/evidence/core-matrix-events.ndjson"'
+    assert_includes script, 'bash "${SCRIPT_DIR}/fresh_start_stack.sh"'
+    assert_includes script, 'for index in $(seq 2 "${RUNTIME_COUNT}")'
+    assert_includes script, 'bin/rails server -d -b 127.0.0.1 -p "${runtime_port}" -P "${pidfile}"'
+    assert_includes script, 'bin/rails runner "${REPO_ROOT}/acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb"'
+  end
+
+  test "fresh start forwards core matrix perf event env into the server and jobs processes" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, 'CORE_MATRIX_PERF_EVENTS_PATH="${CORE_MATRIX_PERF_EVENTS_PATH:-}"'
+    assert_includes script, 'CORE_MATRIX_PERF_INSTANCE_LABEL="${CORE_MATRIX_PERF_INSTANCE_LABEL:-}"'
+    assert_includes script, "export CORE_MATRIX_PERF_EVENTS_PATH"
+    assert_includes script, "export CORE_MATRIX_PERF_INSTANCE_LABEL"
+  end
+
+  test "acceptance readme documents the multi-fenix load wrappers and artifact locations" do
+    readme = Rails.root.join("../acceptance/README.md").read
+
+    assert_includes readme, "bash acceptance/bin/multi_fenix_core_matrix_load_smoke.sh"
+    assert_includes readme, "bash acceptance/bin/multi_fenix_core_matrix_load_target.sh"
+    assert_includes readme, "acceptance/artifacts/<artifact-stamp>/review/load-summary.md"
+    assert_includes readme, "acceptance/artifacts/<artifact-stamp>/evidence/aggregated-metrics.json"
+  end
 end

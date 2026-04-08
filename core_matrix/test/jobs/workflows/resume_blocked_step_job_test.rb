@@ -19,7 +19,17 @@ class Workflows::ResumeBlockedStepJobTest < ActiveJob::TestCase
       blocking_resource_id: workflow_node.public_id
     )
 
-    assert_enqueued_with(job: Workflows::ExecuteNodeJob, args: [workflow_node.public_id]) do
+    assert_enqueued_with(
+      job: Workflows::ExecuteNodeJob,
+      args: ->(job_args) do
+        job_args.first == workflow_node.public_id &&
+          job_args.second.is_a?(Hash) &&
+          job_args.second[:queue_name] == "llm_dev" &&
+          Time.iso8601(job_args.second.fetch(:enqueued_at_iso8601)).is_a?(Time)
+      rescue ArgumentError, KeyError
+        false
+      end
+    ) do
       Workflows::ResumeBlockedStepJob.perform_now(workflow_run.public_id)
     end
 

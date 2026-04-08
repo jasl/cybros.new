@@ -12,7 +12,17 @@ module Workspaces
     end
 
     def call
-      existing_workspace || Workspace.create!(
+      existing_workspace || create_default_workspace!
+    end
+
+    def existing_workspace
+      Workspace.find_by(user_program_binding: @user_program_binding, is_default: true)
+    end
+
+    private
+
+    def create_default_workspace!
+      Workspace.create!(
         installation: @user_program_binding.installation,
         user: @user_program_binding.user,
         user_program_binding: @user_program_binding,
@@ -20,10 +30,8 @@ module Workspaces
         privacy: "private",
         is_default: true
       )
-    end
-
-    def existing_workspace
-      Workspace.find_by(user_program_binding: @user_program_binding, is_default: true)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+      existing_workspace || raise
     end
   end
 end

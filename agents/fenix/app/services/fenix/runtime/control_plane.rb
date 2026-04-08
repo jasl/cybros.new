@@ -6,6 +6,20 @@ module Fenix
       class << self
         attr_writer :client
 
+        def poll(limit:, client: self.client, notifier: ActiveSupport::Notifications)
+          payload = {
+            "success" => false,
+            "mailbox_item_count" => 0,
+          }
+
+          notifier.instrument("perf.runtime.control_plane_poll", payload) do
+            mailbox_items = client.poll(limit: limit)
+            payload["mailbox_item_count"] = mailbox_items.size
+            payload["success"] = true
+            mailbox_items
+          end
+        end
+
         def client
           @client ||= build_default_client
         end

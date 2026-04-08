@@ -97,7 +97,17 @@ module ProviderExecution
         execution_hard_deadline_at: request_started_at + timeout,
         lease_timeout_seconds: [timeout.to_f.ceil + @lease_grace.to_i, 1].max
       )
-      receipt = wait_for_terminal_receipt!(mailbox_item, timeout:)
+      wait_payload = {
+        "agent_program_public_id" => @agent_program_version.agent_program.public_id,
+        "mailbox_item_public_id" => mailbox_item.public_id,
+        "request_kind" => request_kind,
+        "success" => false,
+      }
+      receipt = ActiveSupport::Notifications.instrument("perf.provider_execution.program_mailbox_exchange_wait", wait_payload) do
+        waited_receipt = wait_for_terminal_receipt!(mailbox_item, timeout:, event_payload: wait_payload)
+        wait_payload["success"] = true
+        waited_receipt
+      end
       report_payload = receipt.payload.deep_stringify_keys
 
       return report_payload.fetch("response_payload") if report_payload.fetch("method_id") == "agent_program_completed"
@@ -109,7 +119,7 @@ module ProviderExecution
       )
     end
 
-    def wait_for_terminal_receipt!(mailbox_item, timeout:)
+    def wait_for_terminal_receipt!(mailbox_item, timeout:, event_payload: nil)
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout.to_f
       poll_attempt = 0
 
@@ -117,9 +127,13 @@ module ProviderExecution
         receipt = AgentControlReportReceipt.uncached do
           AgentControlReportReceipt.find_by(mailbox_item_id: mailbox_item.id, method_id: TERMINAL_METHODS)
         end
-        return receipt if receipt.present?
+        if receipt.present?
+          event_payload["poll_attempts"] = poll_attempt if event_payload
+          return receipt
+        end
 
         if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+          event_payload["poll_attempts"] = poll_attempt if event_payload
           raise TimeoutError.new(
             code: "mailbox_timeout",
             message: "timed out waiting for agent program report",
@@ -129,6 +143,7 @@ module ProviderExecution
         end
 
         poll_attempt += 1
+        event_payload["poll_attempts"] = poll_attempt if event_payload
         @sleeper.call(poll_interval_for_attempt(poll_attempt))
       end
     end

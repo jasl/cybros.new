@@ -113,6 +113,54 @@ module Acceptance
       lines.join("\n")
     end
 
+    def load_summary_markdown(report)
+      lines = [
+        "# Multi-Fenix Load Summary",
+        "",
+        "## Configuration",
+        "",
+        "- Profile: `#{report.dig("benchmark_configuration", "profile_name")}`",
+        "- Runtime count: `#{report.dig("benchmark_configuration", "runtime_count")}`",
+        "- Outcome: `#{report.dig("outcome", "classification")}`",
+        "",
+        "## Structural Failures",
+        "",
+      ]
+
+      structural_failures = Array(report.fetch("structural_failures", []))
+      if structural_failures.any?
+        structural_failures.each { |entry| lines << "- #{entry}" }
+      else
+        lines << "- none"
+      end
+
+      lines << ""
+      lines << "## Capacity Symptoms"
+      lines << ""
+
+      capacity_symptoms = Array(report.fetch("capacity_symptoms", []))
+      if capacity_symptoms.any?
+        capacity_symptoms.each do |entry|
+          detail = entry["observed_ms"] || entry["count"]
+          lines << "- `#{entry.fetch("kind")}`: `#{detail}`"
+        end
+      else
+        lines << "- none"
+      end
+
+      lines << ""
+      lines << "## Bottleneck Indicators"
+      lines << ""
+
+      Array(report.fetch("strongest_bottleneck_indicators", [])).each do |entry|
+        detail = entry["observed_ms"] || entry["count"]
+        lines << "- `#{entry.fetch("kind")}`: `#{detail}`"
+      end
+
+      lines << ""
+      lines.join("\n")
+    end
+
     def determine_workload_outcome(workflow_run:, runtime_validation:, host_validation:, playwright_validation:, generated_app_dir:)
       return "complete" if workflow_run.lifecycle_state == "completed" &&
         Acceptance::HostValidation.runtime_validation_passed?(runtime_validation) &&

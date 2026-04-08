@@ -15,7 +15,7 @@ module Fenix
       end
 
       def call
-        @control_client.poll(limit: @limit).map do |mailbox_item|
+        Fenix::Runtime::ControlPlane.poll(limit: @limit, client: @control_client).map do |mailbox_item|
           resolved_mailbox_worker.call(
             mailbox_item: mailbox_item,
             deliver_reports: true,

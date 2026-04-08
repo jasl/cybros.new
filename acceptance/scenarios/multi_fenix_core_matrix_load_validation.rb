@@ -1,0 +1,215 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "json"
+require "pathname"
+require "time"
+
+require_relative "../lib/boot"
+require_relative "../lib/perf/profile"
+require_relative "../lib/perf/topology"
+require_relative "../lib/perf/workload_manifest"
+require_relative "../lib/perf/runtime_registration_matrix"
+require_relative "../lib/perf/workload_driver"
+require_relative "../lib/perf/event_reader"
+require_relative "../lib/perf/metrics_aggregator"
+require_relative "../lib/perf/report_builder"
+
+def write_json(path, payload)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, JSON.pretty_generate(payload) + "\n")
+end
+
+def write_text(path, contents)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.binwrite(path, contents)
+end
+
+def append_jsonl(path, payload)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.open(path, "a") { |file| file.puts(JSON.generate(payload)) }
+end
+
+def decorate_boot_states!(registration_matrix, topology)
+  topology.runtime_slots.each do |slot|
+    registration = registration_matrix.fetch("runtime_registrations").find { |entry| entry.fetch("slot_label") == slot.label }
+    next unless registration
+
+    next unless slot.runtime_boot_json_path.exist?
+
+    payload = JSON.parse(slot.runtime_boot_json_path.read)
+    registration["boot_status"] = payload.fetch("event", "ready") == "ready" ? "ready" : "failed"
+    registration["boot_error"] = payload["error"] || payload["message"] unless registration["boot_status"] == "ready"
+  rescue JSON::ParserError => error
+    registration["boot_status"] = "failed"
+    registration["boot_error"] = "invalid boot json: #{error.message}"
+  end
+end
+
+def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:, registration:, task:, slot_label:, event_output_path:)
+  started_at = Time.now
+  run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+    conversation: conversation,
+    agent_program_version: agent_program_version,
+    content: task.fetch("content"),
+    root_node_key: "agent_turn_step",
+    root_node_type: "turn_step",
+    decision_source: "agent_program",
+    initial_kind: "turn_step",
+    initial_payload: { "mode" => task.fetch("mode") }.merge(task.fetch("extra_payload", {}))
+  )
+  agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run), timeout_seconds: 30)
+  terminal_payload = agent_task_run.terminal_payload || {}
+  execution = {
+    "status" => agent_task_run.lifecycle_state == "completed" ? "completed" : "failed",
+    "output" => terminal_payload["output"],
+    "error" => agent_task_run.lifecycle_state == "completed" ? nil : terminal_payload,
+  }
+  finished_at = Time.now
+
+  append_jsonl(
+    event_output_path,
+    {
+      "recorded_at" => finished_at.utc.iso8601(6),
+      "source_app" => "acceptance",
+      "instance_label" => slot_label,
+      "event_name" => "benchmark.workload.item_completed",
+      "duration_ms" => ((finished_at - started_at) * 1000.0).round(3),
+      "success" => execution.fetch("status") == "completed" || execution.fetch("status") == "ok",
+      "conversation_public_id" => conversation.public_id,
+      "turn_public_id" => run.fetch(:turn).public_id,
+      "agent_program_public_id" => agent_program_version.agent_program.public_id,
+    }
+  )
+
+  {
+    "status" => execution.fetch("status"),
+    "conversation_public_id" => conversation.public_id,
+    "turn_public_id" => run.fetch(:turn).public_id,
+    "workflow_run_public_id" => run.fetch(:workflow_run).public_id,
+    "agent_task_run_public_id" => agent_task_run.public_id,
+    "runtime_output" => execution["output"],
+    "runtime_error" => execution["error"],
+  }
+end
+
+def with_runtime_control_workers!(registrations, index = 0, &block)
+  return yield if index >= registrations.length
+
+  registration = registrations.fetch(index)
+  ManualAcceptanceSupport.with_fenix_control_worker!(
+    machine_credential: registration.fetch("machine_credential"),
+    executor_machine_credential: registration.fetch("executor_machine_credential"),
+    limit: 1,
+    env: registration.fetch("runtime_task_env")
+  ) do
+    with_runtime_control_workers!(registrations, index + 1, &block)
+  end
+end
+
+repo_root = AcceptanceHarness.repo_root
+acceptance_root = AcceptanceHarness.acceptance_root
+profile = Acceptance::Perf::Profile.fetch(ENV.fetch("MULTI_FENIX_LOAD_PROFILE", "smoke"))
+artifact_stamp = ENV.fetch("MULTI_FENIX_LOAD_ARTIFACT_STAMP") do
+  "#{Time.now.utc.strftime("%Y-%m-%d-%H%M%S")}-multi-fenix-core-matrix-load-#{profile.name}"
+end
+topology = Acceptance::Perf::Topology.build(
+  profile: profile,
+  repo_root: repo_root,
+  acceptance_root: acceptance_root,
+  artifact_stamp: artifact_stamp
+)
+manifest = Acceptance::Perf::WorkloadManifest.for_profile(profile)
+
+ManualAcceptanceSupport.reset_backend_state!
+bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+
+registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
+  installation: bootstrap.installation,
+  actor: bootstrap.user,
+  topology: topology,
+  create_external_agent_program: ManualAcceptanceSupport.method(:create_external_agent_program!),
+  register_external_runtime: ManualAcceptanceSupport.method(:register_external_runtime!)
+)
+decorate_boot_states!(registration_matrix, topology)
+
+driver_report =
+  if registration_matrix.fetch("runtime_registrations").all? { |entry| entry.fetch("boot_status", "ready") == "ready" }
+    with_runtime_control_workers!(registration_matrix.fetch("runtime_registrations")) do
+      Acceptance::Perf::WorkloadDriver.call(
+        manifest: manifest,
+        registration_matrix: registration_matrix,
+        create_conversation: lambda do |agent_program_version:|
+          ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
+        end,
+        execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+          execute_mailbox_task_on_conversation!(
+            conversation: conversation,
+            agent_program_version: registration.fetch("agent_program_version"),
+            registration: registration,
+            task: task,
+            slot_label: registration.fetch("slot_label"),
+            event_output_path: registration.fetch("event_output_path")
+          ).merge("slot_index" => slot_index)
+        end
+      )
+    end
+  else
+    Acceptance::Perf::WorkloadDriver.call(
+      manifest: manifest,
+      registration_matrix: registration_matrix,
+      create_conversation: lambda do |agent_program_version:|
+        ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
+      end,
+      execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+        execute_mailbox_task_on_conversation!(
+          conversation: conversation,
+          agent_program_version: registration.fetch("agent_program_version"),
+          registration: registration,
+          task: task,
+          slot_label: registration.fetch("slot_label"),
+          event_output_path: registration.fetch("event_output_path")
+        ).merge("slot_index" => slot_index)
+      end
+    )
+  end
+
+event_paths = [registration_matrix.fetch("core_matrix_events_path")] +
+  registration_matrix.fetch("runtime_registrations").map { |entry| entry.fetch("event_output_path") }
+existing_event_paths = event_paths.map { |path| Pathname(path) }.select(&:exist?)
+metrics = Acceptance::Perf::MetricsAggregator.call(event_paths: existing_event_paths)
+summary = Acceptance::Perf::ReportBuilder.call(
+  profile_name: profile.name,
+  runtime_count: registration_matrix.fetch("runtime_count"),
+  metrics: metrics,
+  structural_failures: driver_report.fetch("structural_failures"),
+  artifact_paths: {
+    "aggregated_metrics" => "evidence/aggregated-metrics.json",
+    "runtime_topology" => "evidence/runtime-topology.json",
+    "workload_profile" => "evidence/workload-profile.json",
+  }
+).merge(
+  "completed_workload_items" => driver_report.fetch("completed_workload_items"),
+  "runtime_count" => registration_matrix.fetch("runtime_count")
+)
+
+artifact_dir = topology.artifact_root
+write_json(artifact_dir.join("evidence", "runtime-topology.json"), {
+  "profile_name" => profile.name,
+  "runtime_count" => registration_matrix.fetch("runtime_count"),
+  "runtime_registrations" => registration_matrix.fetch("runtime_registrations").map do |entry|
+    entry.slice("slot_label", "runtime_base_url", "event_output_path", "boot_status", "boot_error")
+  end,
+})
+write_json(artifact_dir.join("evidence", "workload-profile.json"), {
+  "profile_name" => manifest.profile_name,
+  "conversation_count" => manifest.conversation_count,
+  "max_in_flight_per_conversation" => manifest.max_in_flight_per_conversation,
+  "request_corpus" => manifest.request_corpus,
+})
+write_json(artifact_dir.join("evidence", "aggregated-metrics.json"), metrics)
+write_json(artifact_dir.join("evidence", "run-summary.json"), summary)
+write_text(artifact_dir.join("review", "load-summary.md"), Acceptance::BenchmarkReporting.load_summary_markdown(summary))
+
+puts JSON.pretty_generate(summary)

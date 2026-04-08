@@ -53,6 +53,41 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
     assert_equal "agent-program-1", result.dig("output", "agent_program_id")
   end
 
+  test "publishes queue delay perf event when mailbox execution job starts" do
+    events = []
+    result = nil
+
+    ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.runtime.mailbox_execution_queue_delay") do
+      result = with_dispatch_mode_stub(
+        ->(task_payload:, runtime_context:) do
+          {
+            "kind" => "skill_flow",
+            "output" => {
+              "mode" => task_payload.fetch("mode"),
+              "agent_program_id" => runtime_context.fetch("agent_program_id"),
+            },
+          }
+        end
+      ) do
+        freeze_time do
+          Fenix::Runtime::MailboxExecutionJob.perform_now(
+            execution_assignment_mailbox_item,
+            deliver_reports: false,
+            enqueued_at_iso8601: 1.5.seconds.ago.iso8601(6),
+            queue_name: "runtime_control"
+          )
+        end
+      end
+    end
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal 1, events.length
+    assert_equal true, events.first.fetch("success")
+    assert_equal "mailbox-item-1", events.first.fetch("mailbox_item_public_id")
+    assert_equal "runtime_control", events.first.fetch("queue_name")
+    assert_operator events.first.fetch("queue_delay_ms"), :>=, 1500.0
+  end
+
   private
 
   def execution_assignment_mailbox_item

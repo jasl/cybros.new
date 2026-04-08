@@ -10,7 +10,10 @@ NEXUS_ROOT="${NEXUS_PROJECT_ROOT:-${REPO_ROOT}/images/nexus}"
 LOG_DIR="${ACCEPTANCE_ROOT}/logs"
 
 CORE_MATRIX_BASE_URL="${CORE_MATRIX_BASE_URL:-http://127.0.0.1:3000}"
+CORE_MATRIX_PERF_EVENTS_PATH="${CORE_MATRIX_PERF_EVENTS_PATH:-}"
+CORE_MATRIX_PERF_INSTANCE_LABEL="${CORE_MATRIX_PERF_INSTANCE_LABEL:-}"
 FENIX_RUNTIME_BASE_URL="${FENIX_RUNTIME_BASE_URL:-http://127.0.0.1:3101}"
+FENIX_RUNTIME_COUNT="${FENIX_RUNTIME_COUNT:-1}"
 FENIX_RUNTIME_MODE="${FENIX_RUNTIME_MODE:-host}"
 FENIX_DOCKER_CONTAINER="${FENIX_DOCKER_CONTAINER:-fenix-capstone}"
 FENIX_DOCKER_PROXY_CONTAINER="${FENIX_DOCKER_PROXY_CONTAINER:-fenix-capstone-proxy}"
@@ -19,8 +22,12 @@ FENIX_DOCKER_IMAGE="${FENIX_DOCKER_IMAGE:-fenix-capstone-image}"
 FENIX_DOCKER_PROXY_PORT="${FENIX_DOCKER_PROXY_PORT:-3310}"
 FENIX_DOCKER_WORKSPACE_ROOT="${FENIX_DOCKER_WORKSPACE_ROOT:-${REPO_ROOT}/tmp/fenix}"
 FENIX_DOCKER_ENV_FILE="${FENIX_DOCKER_ENV_FILE:-${FENIX_ROOT}/.env}"
+FENIX_DOCKER_STORAGE_VOLUME="${FENIX_DOCKER_STORAGE_VOLUME:-fenix_capstone_storage}"
+FENIX_DOCKER_PROXY_ROUTES_VOLUME="${FENIX_DOCKER_PROXY_ROUTES_VOLUME:-fenix_capstone_proxy_routes}"
 FENIX_HOME_ROOT="${FENIX_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-fenix-home}"
 FENIX_DOCKER_HOME_ROOT="${FENIX_DOCKER_HOME_ROOT:-/rails/storage/fenix-home}"
+CYBROS_PERF_EVENTS_PATH="${CYBROS_PERF_EVENTS_PATH:-}"
+CYBROS_PERF_INSTANCE_LABEL="${CYBROS_PERF_INSTANCE_LABEL:-}"
 RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
 
 mkdir -p "${LOG_DIR}"
@@ -39,6 +46,11 @@ require_command curl
 require_command lsof
 require_command python3
 require_command rbenv
+
+if ! [[ "${FENIX_RUNTIME_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "invalid FENIX_RUNTIME_COUNT: ${FENIX_RUNTIME_COUNT}" >&2
+  exit 1
+fi
 
 if [[ "${FENIX_RUNTIME_MODE}" == "docker" ]]; then
   require_command docker
@@ -293,6 +305,12 @@ recreate_docker_capstone_stack() {
   wait_for_container_absent "${FENIX_DOCKER_PROXY_CONTAINER}"
   remove_volume_if_present "fenix_capstone_storage"
   remove_volume_if_present "fenix_capstone_proxy_routes"
+  if [[ "${FENIX_DOCKER_STORAGE_VOLUME}" != "fenix_capstone_storage" ]]; then
+    remove_volume_if_present "${FENIX_DOCKER_STORAGE_VOLUME}"
+  fi
+  if [[ "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}" != "fenix_capstone_proxy_routes" ]]; then
+    remove_volume_if_present "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}"
+  fi
 
   docker run -d \
     --name "${FENIX_DOCKER_CONTAINER}" \
@@ -304,9 +322,11 @@ recreate_docker_capstone_stack() {
     -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
     -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
+    ${CYBROS_PERF_EVENTS_PATH:+-e "CYBROS_PERF_EVENTS_PATH=${CYBROS_PERF_EVENTS_PATH}"} \
+    ${CYBROS_PERF_INSTANCE_LABEL:+-e "CYBROS_PERF_INSTANCE_LABEL=${CYBROS_PERF_INSTANCE_LABEL}"} \
     -v "${FENIX_DOCKER_WORKSPACE_ROOT}:/workspace" \
-    -v "fenix_capstone_storage:/rails/storage" \
-    -v "fenix_capstone_proxy_routes:/rails/tmp/dev-proxy" \
+    -v "${FENIX_DOCKER_STORAGE_VOLUME}:/rails/storage" \
+    -v "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}:/rails/tmp/dev-proxy" \
     "${FENIX_DOCKER_IMAGE}" \
     >/dev/null
 
@@ -319,8 +339,10 @@ recreate_docker_capstone_stack() {
     -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
     -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
+    ${CYBROS_PERF_EVENTS_PATH:+-e "CYBROS_PERF_EVENTS_PATH=${CYBROS_PERF_EVENTS_PATH}"} \
+    ${CYBROS_PERF_INSTANCE_LABEL:+-e "CYBROS_PERF_INSTANCE_LABEL=${CYBROS_PERF_INSTANCE_LABEL}"} \
     -v "${FENIX_DOCKER_WORKSPACE_ROOT}:/workspace" \
-    -v "fenix_capstone_proxy_routes:/rails/tmp/dev-proxy" \
+    -v "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}:/rails/tmp/dev-proxy" \
     "${FENIX_DOCKER_IMAGE}" \
     /rails/bin/fenix-dev-proxy \
     >/dev/null
@@ -375,6 +397,8 @@ stop_matching_process "solid-queue-fork-supervisor"
 clear_server_pidfile "${CORE_MATRIX_ROOT}"
 reset_project_database "core-matrix" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-db-reset.log"
 
+export CORE_MATRIX_PERF_EVENTS_PATH
+export CORE_MATRIX_PERF_INSTANCE_LABEL
 start_rails_server_daemon "core-matrix-server" "${CORE_MATRIX_ROOT}" "${CORE_MATRIX_HOST}" "${CORE_MATRIX_PORT}" "${LOG_DIR}/core-matrix-server.log"
 CORE_MATRIX_SERVER_PID="${STARTED_PID}"
 start_project_process "core-matrix-jobs" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-jobs.log" bin/jobs start
@@ -384,6 +408,8 @@ wait_for_http_ok "${CORE_MATRIX_BASE_URL}/up"
 
 if [[ "${FENIX_RUNTIME_MODE}" == "host" ]]; then
   export FENIX_HOME_ROOT
+  export CYBROS_PERF_EVENTS_PATH
+  export CYBROS_PERF_INSTANCE_LABEL
   stop_listening_port "${FENIX_RUNTIME_PORT}"
   stop_matching_process "${FENIX_ROOT}/bin/rails" "server"
   clear_server_pidfile "${FENIX_ROOT}"
@@ -418,10 +444,12 @@ core_matrix_base_url=${CORE_MATRIX_BASE_URL}
 core_matrix_server_pid=${CORE_MATRIX_SERVER_PID}
 core_matrix_jobs_pid=${CORE_MATRIX_JOBS_PID}
 fenix_runtime_mode=${FENIX_RUNTIME_MODE}
+fenix_runtime_count=${FENIX_RUNTIME_COUNT}
 fenix_runtime_base_url=${FENIX_RUNTIME_BASE_URL}
 fenix_runtime_server_pid=${FENIX_RUNTIME_PID}
 fenix_home_root=${FENIX_HOME_ROOT}
 fenix_docker_container=${FENIX_DOCKER_CONTAINER}
+fenix_docker_storage_volume=${FENIX_DOCKER_STORAGE_VOLUME}
 fenix_docker_status=${DOCKER_STATUS}
 log_dir=${LOG_DIR}
 EOF
