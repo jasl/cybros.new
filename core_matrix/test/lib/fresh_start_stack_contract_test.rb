@@ -165,6 +165,16 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "export CORE_MATRIX_PERF_INSTANCE_LABEL"
   end
 
+  test "fresh start resets rails projects through db:prepare and explicit secondary database migrations" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, '"${RUBY_BIN}" bin/rails db:prepare'
+    assert_includes script, 'local -a extra_tasks=()'
+    assert_includes script, 'if [[ "${#extra_tasks[@]}" -gt 0 ]]; then'
+    assert_includes script, 'reset_project_database "core-matrix" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-db-reset.log" "db:migrate:queue" "db:migrate:cable"'
+    refute_includes script, 'rm -f db/schema.rb'
+  end
+
   test "acceptance readme documents the multi-fenix load wrappers and artifact locations" do
     readme = Rails.root.join("../acceptance/README.md").read
 

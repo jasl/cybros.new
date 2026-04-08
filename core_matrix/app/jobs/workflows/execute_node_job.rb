@@ -6,6 +6,8 @@ module Workflows
 
     def perform(workflow_node_id, enqueued_at_iso8601: nil, queue_name: nil)
       workflow_node = WorkflowNode.find_by_public_id!(workflow_node_id)
+      return if workflow_node.workflow_run.waiting?
+
       publish_queue_delay_event!(workflow_node, enqueued_at_iso8601:, queue_name:)
       return if workflow_node.terminal? || workflow_node.running?
 

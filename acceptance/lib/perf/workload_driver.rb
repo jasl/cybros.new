@@ -20,14 +20,15 @@ module Acceptance
 
         assignments = build_assignments
         results = execute_assignments(assignments)
+        flattened_results = Array(results).flatten
 
         {
           "benchmark_mode" => "multi_fenix_core_matrix_load",
           "outcome" => { "classification" => "descriptive_baseline" },
           "structural_failures" => [],
-          "completed_workload_items" => results.count,
+          "completed_workload_items" => flattened_results.count,
           "runtime_assignments" => serialize_runtime_assignments,
-          "workload_results" => results.map { |result| serialize_workload_result(result) },
+          "workload_results" => flattened_results.map { |result| serialize_workload_result(result) },
           "bottleneck_hints" => [],
         }
       end
@@ -60,12 +61,11 @@ module Acceptance
 
         Array.new(@manifest.conversation_count) do |index|
           registration = runtime_registrations.fetch(index % runtime_registrations.length)
-          task = tasks.fetch(index % tasks.length)
 
           {
             "slot_index" => index + 1,
             "slot_label" => registration.fetch("slot_label"),
-            "task" => task,
+            "tasks" => build_task_sequence(tasks, index),
             "registration" => registration,
           }
         end
@@ -97,14 +97,29 @@ module Acceptance
         conversation = @create_conversation.call(
           agent_program_version: assignment.fetch("registration").fetch("agent_program_version")
         )
-        execution = @execute_workload_item.call(
-          conversation: conversation.fetch(:conversation, conversation.fetch("conversation", conversation)),
-          registration: assignment.fetch("registration"),
-          task: assignment.fetch("task"),
-          slot_index: assignment.fetch("slot_index")
-        )
+        shared_conversation = conversation.fetch(:conversation, conversation.fetch("conversation", conversation))
 
-        assignment.merge("conversation" => conversation, "execution" => execution)
+        assignment.fetch("tasks").each_with_index.map do |task, task_index|
+          execution = @execute_workload_item.call(
+            conversation: shared_conversation,
+            registration: assignment.fetch("registration"),
+            task: task,
+            slot_index: assignment.fetch("slot_index")
+          )
+
+          assignment.merge(
+            "conversation" => conversation,
+            "task" => task,
+            "task_sequence" => task_index + 1,
+            "execution" => execution
+          )
+        end
+      end
+
+      def build_task_sequence(tasks, assignment_index)
+        Array.new(@manifest.turns_per_conversation) do |task_index|
+          tasks.fetch((assignment_index + task_index) % tasks.length)
+        end
       end
 
       def with_database_connection
@@ -124,6 +139,7 @@ module Acceptance
           "slot_index" => result.fetch("slot_index"),
           "slot_label" => result.fetch("slot_label"),
           "event_output_path" => result.fetch("registration").fetch("event_output_path"),
+          "task_sequence" => result.fetch("task_sequence"),
           "task" => result.fetch("task"),
           "execution" => result.fetch("execution"),
         }

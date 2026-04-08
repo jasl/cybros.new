@@ -12,6 +12,7 @@ require_relative "../lib/perf/topology"
 require_relative "../lib/perf/workload_manifest"
 require_relative "../lib/perf/runtime_registration_matrix"
 require_relative "../lib/perf/workload_driver"
+require_relative "../lib/perf/workload_executor"
 require_relative "../lib/perf/event_reader"
 require_relative "../lib/perf/metrics_aggregator"
 require_relative "../lib/perf/report_builder"
@@ -47,8 +48,7 @@ def decorate_boot_states!(registration_matrix, topology)
   end
 end
 
-def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:, registration:, task:, slot_label:, event_output_path:)
-  started_at = Time.now
+def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:, registration:, task:, slot_label:)
   run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
     agent_program_version: agent_program_version,
@@ -66,22 +66,6 @@ def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:,
     "output" => terminal_payload["output"],
     "error" => agent_task_run.lifecycle_state == "completed" ? nil : terminal_payload,
   }
-  finished_at = Time.now
-
-  append_jsonl(
-    event_output_path,
-    {
-      "recorded_at" => finished_at.utc.iso8601(6),
-      "source_app" => "acceptance",
-      "instance_label" => slot_label,
-      "event_name" => "benchmark.workload.item_completed",
-      "duration_ms" => ((finished_at - started_at) * 1000.0).round(3),
-      "success" => execution.fetch("status") == "completed" || execution.fetch("status") == "ok",
-      "conversation_public_id" => conversation.public_id,
-      "turn_public_id" => run.fetch(:turn).public_id,
-      "agent_program_public_id" => agent_program_version.agent_program.public_id,
-    }
-  )
 
   {
     "status" => execution.fetch("status"),
@@ -91,6 +75,27 @@ def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:,
     "agent_task_run_public_id" => agent_task_run.public_id,
     "runtime_output" => execution["output"],
     "runtime_error" => execution["error"],
+  }
+end
+
+def execute_program_exchange_task_on_conversation!(conversation:, agent_program_version:, task:)
+  run = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+    conversation: conversation,
+    agent_program_version: agent_program_version,
+    content: task.fetch("content"),
+    selector_source: task.fetch("selector_source", "manual"),
+    selector: task.fetch("selector")
+  )
+  workflow_run = run.fetch(:workflow_run).reload
+  turn = run.fetch(:turn).reload
+
+  {
+    "status" => workflow_run.lifecycle_state == "completed" ? "completed" : "failed",
+    "conversation_public_id" => conversation.public_id,
+    "turn_public_id" => turn.public_id,
+    "workflow_run_public_id" => workflow_run.public_id,
+    "runtime_output" => turn.selected_output_message&.content,
+    "runtime_error" => workflow_run.lifecycle_state == "completed" ? nil : workflow_run.reload.error_payload,
   }
 end
 
@@ -121,6 +126,27 @@ topology = Acceptance::Perf::Topology.build(
   artifact_stamp: artifact_stamp
 )
 manifest = Acceptance::Perf::WorkloadManifest.for_profile(profile)
+workload_executor = Acceptance::Perf::WorkloadExecutor.new(
+  run_execution_assignment: lambda do |conversation:, registration:, task:, slot_index:|
+    execute_mailbox_task_on_conversation!(
+      conversation: conversation,
+      agent_program_version: registration.fetch("agent_program_version"),
+      registration: registration,
+      task: task,
+      slot_label: registration.fetch("slot_label")
+    ).merge("slot_index" => slot_index)
+  end,
+  run_program_exchange: lambda do |conversation:, registration:, task:, slot_index:|
+    execute_program_exchange_task_on_conversation!(
+      conversation: conversation,
+      agent_program_version: registration.fetch("agent_program_version"),
+      task: task
+    ).merge("slot_index" => slot_index)
+  end,
+  append_event: lambda do |path:, payload:|
+    append_jsonl(path, payload)
+  end
+)
 
 ManualAcceptanceSupport.reset_backend_state!
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
@@ -144,14 +170,13 @@ driver_report =
           ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
         end,
         execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
-          execute_mailbox_task_on_conversation!(
+          workload_executor.call(
             conversation: conversation,
-            agent_program_version: registration.fetch("agent_program_version"),
             registration: registration,
             task: task,
-            slot_label: registration.fetch("slot_label"),
+            slot_index: slot_index,
             event_output_path: registration.fetch("event_output_path")
-          ).merge("slot_index" => slot_index)
+          )
         end
       )
     end
@@ -159,20 +184,19 @@ driver_report =
     Acceptance::Perf::WorkloadDriver.call(
       manifest: manifest,
       registration_matrix: registration_matrix,
-      create_conversation: lambda do |agent_program_version:|
-        ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
-      end,
-      execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
-        execute_mailbox_task_on_conversation!(
-          conversation: conversation,
-          agent_program_version: registration.fetch("agent_program_version"),
-          registration: registration,
-          task: task,
-          slot_label: registration.fetch("slot_label"),
-          event_output_path: registration.fetch("event_output_path")
-        ).merge("slot_index" => slot_index)
-      end
-    )
+        create_conversation: lambda do |agent_program_version:|
+          ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
+        end,
+        execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+          workload_executor.call(
+            conversation: conversation,
+            registration: registration,
+            task: task,
+            slot_index: slot_index,
+            event_output_path: registration.fetch("event_output_path")
+          )
+        end
+      )
   end
 
 event_paths = [registration_matrix.fetch("core_matrix_events_path")] +
@@ -203,10 +227,7 @@ write_json(artifact_dir.join("evidence", "runtime-topology.json"), {
   end,
 })
 write_json(artifact_dir.join("evidence", "workload-profile.json"), {
-  "profile_name" => manifest.profile_name,
-  "conversation_count" => manifest.conversation_count,
-  "max_in_flight_per_conversation" => manifest.max_in_flight_per_conversation,
-  "request_corpus" => manifest.request_corpus,
+  **manifest.artifact_payload,
 })
 write_json(artifact_dir.join("evidence", "aggregated-metrics.json"), metrics)
 write_json(artifact_dir.join("evidence", "run-summary.json"), summary)

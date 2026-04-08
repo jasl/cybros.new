@@ -249,14 +249,22 @@ reset_project_database() {
   local name="$1"
   local project_root="$2"
   local log_path="$3"
+  shift 3
+  local -a extra_tasks=()
+  if [[ "$#" -gt 0 ]]; then
+    extra_tasks=("$@")
+  fi
 
   (
     cd "${project_root}"
     export DISABLE_DATABASE_ENVIRONMENT_CHECK=1
     "${RUBY_BIN}" bin/rails db:drop >>"${log_path}" 2>&1 || true
-    rm -f db/schema.rb
-    "${RUBY_BIN}" bin/rails db:create >>"${log_path}" 2>&1
-    "${RUBY_BIN}" bin/rails db:migrate >>"${log_path}" 2>&1
+    "${RUBY_BIN}" bin/rails db:prepare >>"${log_path}" 2>&1
+    if [[ "${#extra_tasks[@]}" -gt 0 ]]; then
+      for task in "${extra_tasks[@]}"; do
+        "${RUBY_BIN}" bin/rails "${task}" >>"${log_path}" 2>&1
+      done
+    fi
     "${RUBY_BIN}" bin/rails db:seed >>"${log_path}" 2>&1
   )
 }
@@ -265,7 +273,7 @@ reset_docker_database() {
   local container_name="$1"
 
   docker exec "${container_name}" sh -lc \
-    "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && rm -f db/schema.rb && bin/rails db:create && bin/rails db:migrate && bin/rails db:seed" \
+    "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:prepare && bin/rails db:seed" \
     >>"${LOG_DIR}/fenix-docker-db-reset.log" 2>&1
 }
 
@@ -395,7 +403,7 @@ stop_listening_port "${CORE_MATRIX_PORT}"
 stop_matching_process "${CORE_MATRIX_ROOT}/bin/jobs" "start"
 stop_matching_process "solid-queue-fork-supervisor"
 clear_server_pidfile "${CORE_MATRIX_ROOT}"
-reset_project_database "core-matrix" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-db-reset.log"
+reset_project_database "core-matrix" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-db-reset.log" "db:migrate:queue" "db:migrate:cable"
 
 export CORE_MATRIX_PERF_EVENTS_PATH
 export CORE_MATRIX_PERF_INSTANCE_LABEL

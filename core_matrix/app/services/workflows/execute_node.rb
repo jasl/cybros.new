@@ -13,6 +13,7 @@ module Workflows
 
     def call
       current_node = WorkflowNode.find_by_public_id!(@workflow_node.public_id)
+      return current_node if current_node.workflow_run.waiting?
       return current_node if current_node.terminal? || current_node.running?
 
       case current_node.node_type
