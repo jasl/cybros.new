@@ -186,6 +186,34 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     assert_equal true, terminated.tool_result.fetch("session_closed")
   end
 
+  test "one-shot exec_command does not leave a listed local handle behind" do
+    executor = build_executor(
+      allowed_tool_names: %w[exec_command command_run_list]
+    )
+
+    executor.call(
+      tool_call: {
+        "call_id" => "tool-call-one-shot-1",
+        "tool_name" => "exec_command",
+        "arguments" => {
+          "command_line" => "printf 'done\\n'",
+          "timeout_seconds" => 5,
+          "pty" => false,
+        },
+      }
+    )
+
+    listed = executor.call(
+      tool_call: {
+        "call_id" => "tool-call-one-shot-2",
+        "tool_name" => "command_run_list",
+        "arguments" => {},
+      }
+    )
+
+    assert_equal [], listed.tool_result.fetch("entries")
+  end
+
   test "raises when the tool is not visible for this execution" do
     executor = build_executor(allowed_tool_names: [])
 

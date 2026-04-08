@@ -91,6 +91,7 @@ module Fenix
 
           return snapshot_for(entry) if entry.wait_thread&.alive? && !entry.session_closed
 
+          synchronize { entries.delete(command_run_id) }
           close_entry(entry)
           snapshot_for(entry)
         end
