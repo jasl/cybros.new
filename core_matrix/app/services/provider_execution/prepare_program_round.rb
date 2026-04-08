@@ -54,6 +54,7 @@ module ProviderExecution
         "messages" => @transcript,
         "context_imports" => execution_context.fetch("context_imports", []),
         "projection_fingerprint" => execution_context["projection_fingerprint"],
+        "work_context_view" => ProviderExecution::BuildWorkContextView.call(workflow_node: @workflow_node),
       }.compact
     end
 

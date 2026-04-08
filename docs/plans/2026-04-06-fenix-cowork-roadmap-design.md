@@ -2,406 +2,406 @@
 
 ## Goal
 
-Reposition `Fenix` from "default runtime validation product" into the default
-adaptive cowork agent on top of `CoreMatrix`, while preserving `CoreMatrix` as a
-general agent kernel and using the existing `acceptance/` harness as the main
-proof surface for real loop behavior.
-
-## Product Definition
-
-- `CoreMatrix` remains the general agent kernel.
-- `Fenix` becomes the default adaptive cowork agent.
-- "Coding" is treated as a core computer-use capability, not the product
-  category.
-- The first strong validation battlefield stays "real work inside an existing
-  codebase", but the product definition is broader: research, environment setup,
-  software creation, and other real-world tasks.
-
-## External References
+Reposition `Fenix` as the default cowork agent on top of `CoreMatrix`, while
+rewriting this roadmap around the current codebase instead of treating the
+product as a greenfield design.
+
+## What This Document Is
+
+This document is a status-aware roadmap and calibration pass.
 
-We are intentionally borrowing from two mature products for different reasons:
-
-- `Claude Cowork` / `Claude Code`
-  - internal organization model
-  - coordinator-first task synthesis
-  - worker/subagent structuring
-  - layered instruction files
-  - memory scopes and host isolation
-- `OpenClaw`
-  - product packaging
-  - out-of-box usefulness
-  - personal-agent framing
-  - user expectation that the default agent is worth using immediately
+It does three things:
+
+- preserve the stable product thesis
+- record which parts of the cowork stack are already landed, partially landed,
+  or still missing
+- remove planning assumptions that no longer match the current runtime,
+  supervision, and acceptance contracts
 
-We do not want a copycat. The target is to land the mature baseline first, then
-differentiate through stronger program-level customizability and a cleaner
-kernel/program split.
-
-## Core Product Thesis
+Status labels in this document mean:
 
-The default cowork agent should feel like:
+- `landed`: the capability exists as a real product or platform surface
+- `partial`: the capability exists, but the product contract is still soft or
+  incomplete
+- `missing`: the capability is still largely future work
+- `stale assumption`: an older planning statement that should no longer be
+  treated as current truth
 
-- assistant-first on the surface
-- operator-first in its execution core
+This document is not a fresh architecture proposal. Current code, current
+acceptance flows, and later finished plans take precedence over older
+exploration notes.
 
-Simple tasks should stay light. Complex tasks should automatically shift into a
-structured work mode with planning, execution, verification, supervision, and
-delivery.
-
-## Capability Model
+## Stable Product Thesis
 
-The complete capability model for the target product is:
+The parts of the April 6 thesis that still hold are:
 
-1. `Adaptive interaction`
-   - simple tasks handled conversationally
-   - complex tasks routed into structured work
-2. `Execution harness`
-   - shell, files, browser, processes, web access, scripting, and data handling
-3. `Multi-agent orchestration`
-   - main agent synthesis
-   - delegated worker roles
-   - controlled parallelism
-4. `Persistent personalization`
-   - user-specific preferences
-   - workspace intelligence
-   - programmable roles, skills, and policies
-5. `Supervision and delivery`
-   - visible progress
-   - current focus
-   - blockers
-   - next-step hints
-   - final evidence-backed handoff
-6. `Ambient operation`
-   - scheduled work
-   - triggered work
-   - long-running background sessions
+- `CoreMatrix` should remain the kernel and platform substrate.
+- `Fenix` should remain the default bundled cowork agent program.
+- simple requests should stay conversational and lightweight
+- complex requests should move into a structured work loop with planning,
+  execution, supervision, and evidence-backed delivery
+- the strongest validation surface should remain real work inside an existing
+  workspace, not synthetic demos
+- the default agent should be useful out of the box, while still allowing
+  deeper customization over time
 
-## Dual Roadmap
+## Current State Snapshot
 
-### Fenix roadmap
+The current codebase is materially further along than the original roadmap
+assumed.
 
-#### F1: Solo Adaptive Cowork
+- code-owned prompt layers already exist at
+  `agents/fenix/prompts/SOUL.md`, `USER.md`, and `OPERATOR.md`
+- workspace bootstrapping and `.fenix` runtime state already exist, including
+  root memory, daily memory, conversation context files, operator state, and
+  per-conversation attachments/artifacts/runs
+- skill loading, skill installation, plugin catalogs, and round-time skill
+  selection already exist in `Fenix`
+- subagent tools and subagent identity projection already exist in the runtime
+  contract
+- the top-level `acceptance/` harness already owns the main benchmark surface,
+  including the `2048` capstone bundle, replay inputs, and capability-oriented
+  evidence
+- supervision has already moved into a plan-first direction in `CoreMatrix`
+- automation turns, schedule/webhook origins, auto-resume paths, and heartbeat
+  infrastructure already exist as part of the platform substrate
 
-Ship a default cowork agent that is immediately useful for real tasks.
+The main roadmap question is therefore no longer "how do we invent the cowork
+stack?" It is "which parts are stable platform, which parts are stable product,
+and which parts still need a clearer contract?"
 
-Primary outcomes:
+## Capability Roadmap By Area
 
-- `Assistant Mode` for light tasks
-- `Work Mode` for structured tasks
-- durable delivery summaries
-- automatic skill selection
-- explicit user/workspace/conversation context layering
+### Adaptive Interaction: `partial`
 
-#### F2: Directed Cowork
+Current state:
 
-Add main-agent-led delegated execution.
+- `Fenix` already assembles a layered round prompt from code-owned instructions,
+  workspace overrides, root memory, conversation summary, and selected skills
+- the runtime already distinguishes between main-agent and subagent context
+- current supervision work already assumes a structured task model with active
+  plan items and recent progress summaries
 
-Primary outcomes:
+What is still missing:
 
-- `Lead Mode`
-- formal delegated roles
-- work packages
-- subagent orchestration
-- synthesis-first coordinator behavior
+- a stable product contract for when the default experience stays lightweight
+  versus when it shifts into structured cowork
+- durable semantics for `Assistant Mode`, `Work Mode`, and `Lead Mode`
+- a clear rule for when those names are user-facing product concepts versus
+  internal implementation language
 
-Initial role set:
+Roadmap implication:
 
-- `researcher`
-- `planner`
-- `implementer`
-- `reviewer`
+The next interaction work should build on the existing plan, skill, and
+operator-state surfaces rather than inventing a second mode system.
 
-#### F3: Programmable Personal Cowork
+### Execution Harness: `landed`
 
-Make `Fenix` programmable at the agent-program layer without requiring kernel
-changes.
+Current state:
 
-Primary outcomes:
+- `Fenix` already exposes the core execution families needed for cowork work:
+  workspace, memory, shell command execution, long-running processes, browser
+  sessions, and web access
+- the mailbox-first runtime contract is already in place
+- the acceptance harness already treats real execution evidence as the primary
+  proof surface
 
-- editable layered instruction files
-- workspace-scoped shared intelligence
-- user-scoped private preferences
-- programmable roles
-- skills and policy bundles
-- controlled self-improvement proposals that modify these files
+What is still missing:
 
-### CoreMatrix roadmap
+- continued hardening and cleanup
+- sharper product-level wording around what is visible to the user versus what
+  stays as debug/runtime detail
 
-#### K1: Agent Loop Kernel
+Roadmap implication:
 
-Provide the stable execution substrate:
+This area is no longer greenfield roadmap scope. It is mostly platform
+hardening, acceptance hardening, and UI/wording cleanup.
 
-- workflow state
-- mailbox-first control
-- runtime registration and capability handshake
-- durable tool governance
-- resource lifecycle
+### Multi-Agent Orchestration: `partial`
 
-#### K2: Supervision + Control Plane
+Current state:
 
-Provide the platform substrate for cowork supervision:
+- subagent tools already exist: spawn, send, wait, close, and list
+- runtime payloads already carry `is_subagent`, `subagent_session_id`,
+  `parent_subagent_session_id`, `subagent_depth`, and allowed tool surfaces
+- `CoreMatrix` already tracks subagent sessions and exposes subagent activity
+  into supervision surfaces
 
-- supervision state
-- sidechat
-- activity feed
-- active subagents
-- plan/progress projections
-- control requests
+What is still missing:
 
-#### K3: Ambient Runtime
+- a stable product contract for delegated roles
+- explicit work-package semantics beyond low-level subagent control
+- a polished "lead agent" behavior model that feels intentional to the user
 
-Provide:
+Roadmap implication:
 
-- scheduled runs
-- external triggers
-- background sessions
-- resume/recovery behavior
+The next step is not to prove that subagents are technically possible. The next
+step is to turn the existing substrate into a real delegated cowork product
+surface with roles, handoff rules, and summary contracts.
 
-#### K4: Multi-Program Platform
+### Memory And Customization: `partial`
 
-Prove the kernel/program split by supporting multiple agent programs beyond
-`Fenix`.
+Current state:
 
-## Current Planning Assumption
+- code-owned prompt layers already exist
+- workspace overrides already exist for `SOUL.md` and `USER.md`
+- workspace-level memory already exists through `MEMORY.md` and
+  `.fenix/.../memory`
+- plugin catalogs already compose from bundled system plugins, curated plugins,
+  and workspace plugins
+- skills already compose from bundled system skills, curated skills, and live
+  installed skills
+- environment overlays already exist across workspace, program-version, and
+  conversation scopes
 
-For planning purposes, `K1` and `K2` are treated as mostly landed or close to
-landed. The next concrete work should therefore:
+What is still missing:
 
-- keep `F1/F2/F3` as product targets
-- treat `K1/K2` as gap-audit and hardening topics
-- delay `K3/K4` until after the first cowork benchmark improvements are in place
+- a settled user-scoped private customization model
+- a documented authoring model for workspace intelligence as a product feature,
+  not just as scattered runtime files
+- a final decision on which surfaces are durable public product surfaces versus
+  implementation details
 
-## Context Model
+Roadmap implication:
 
-The intended logical hierarchy is:
+Customization work should start from the surfaces that already exist today and
+only promote additional layers once they have a real owner and a clear
+lifecycle.
 
-- `user`
-- `workspace`
-- `conversation`
+### Supervision And Delivery: `landed`
 
-Meaning:
+Current state:
 
-- `user` owns long-lived personal preferences
-- `workspace` accumulates shared intelligence for that work domain
-- `conversation` carries task-local state and transient execution context
+- `CoreMatrix` already owns supervision state, turn todo plans, current focus,
+  recent progress, and app-facing supervision contracts
+- later plans already re-centered supervision around plan-first semantics
+- the acceptance harness already produces replayable supervision evidence,
+  capability activation outputs, failure classification outputs, and artifact
+  bundles
+- cowork-facing UI work is already framed around one runtime story plus one
+  semantic supervision view
 
-This is more accurate for the target product than the current informal
-`root/conversation/daily` memory framing.
+What is still missing:
 
-## Customization Model
+- continued cleanup of semantic boundaries so platform-owned supervision stays
+  generic and agent-owned task semantics stay in the agent program
+- continued convergence between cowork wording, verbose wording, and acceptance
+  replay surfaces
 
-### Code-owned preset layer
+Roadmap implication:
 
-Product-owned prompt files should live in source control and load at runtime.
+This area should no longer be described as future roadmap aspiration. It is an
+active product surface that is already landed and still being refined.
 
-This layer defines:
+### Ambient Operation: `partial`
 
-- core identity
-- operator posture
-- default work style
-- baseline safety and delivery behavior
+Current state:
 
-This should remain code-owned and versioned in the repository, not embedded as
-long string constants.
+- automation conversations and automation turns already exist
+- turn origin kinds already include schedule and webhook forms
+- heartbeat and auto-resume substrate already exist
+- background service execution is already part of the runtime control surface
 
-### User layer
+What is still missing:
 
-Private, cross-workspace instructions for a user.
+- a clean user-facing product model for "ambient cowork"
+- one shared understanding of when work is interactive, background, scheduled,
+  or resume-driven
+- a durable contract for how ambient work appears in supervision and final
+  delivery
 
-Examples:
+Roadmap implication:
 
-- explanation depth
-- communication style
-- personal environments
-- personal workflow quirks
-- private long-lived memory
+The platform substrate is already partially present. The remaining work is
+mostly product-modeling and supervision-modeling, not raw scheduler invention.
 
-### Workspace intelligence layer
+## Kernel / Program Split Status
 
-Shared intelligence for a workspace.
+### CoreMatrix: `landed as kernel/platform, still refining semantics`
 
-Examples:
+`CoreMatrix` already owns most of the substrate that the original roadmap
+described as `K1` and `K2`, plus part of `K3`.
 
-- conventions
-- recurring workflows
-- common gotchas
-- team-level task decomposition patterns
-- workspace-specific skills and role definitions
+That includes:
 
-### Conversation layer
+- `AgentProgram`, `AgentProgramVersion`, `ExecutorProgram`, `AgentSession`, and
+  `ExecutorSession`
+- turn-scoped runtime binding and capability freezing
+- automation turn entry
+- supervision state and turn todo plans
+- acceptance-harness integration and replay-oriented evidence
 
-Task-local state.
+The main remaining kernel question is not whether the kernel exists. It is
+whether the kernel is still carrying product semantics that should move outward
+to the agent program boundary.
 
-Examples:
+### Fenix: `landed as bundled default agent program, still maturing as product`
 
-- conversation summary
-- transient memory
-- operator state
-- current work package state
+`Fenix` already owns:
 
-## Proposed File System Model
+- code-owned prompts
+- workspace bootstrap and runtime state seeding
+- prompt assembly
+- workspace environment overlays
+- skills flow
+- plugin catalogs
+- operator snapshots
+- runtime-side execution helpers
 
-### Code-owned presets
+The main remaining product question is not whether `Fenix` is real. It is
+which of its current capabilities should become stable cowork UX contracts.
 
-- `agents/fenix/prompts/SOUL.md`
-- `agents/fenix/prompts/USER.md`
-- `agents/fenix/prompts/OPERATOR.md`
+### Split Quality: `stronger than the original roadmap assumed`
 
-### User layer
+The current split is materially clearer than the April 6 document assumed, but
+it is not finished.
 
-- `~/.fenix/users/<user_public_id>/FENIX.md`
-- `~/.fenix/users/<user_public_id>/rules/*.md`
-- `~/.fenix/users/<user_public_id>/agents/*.md`
-- `~/.fenix/users/<user_public_id>/skills/*`
-- `~/.fenix/users/<user_public_id>/policies/*.yml`
+The strongest remaining boundary work is around:
 
-### Workspace layer
+- supervision semantics
+- role/delegation packaging
+- customization ownership
+- ambient cowork product behavior
 
-- `<workspace>/.fenix/workspace/FENIX.md`
-- `<workspace>/.fenix/workspace/rules/*.md`
-- `<workspace>/.fenix/workspace/agents/*.md`
-- `<workspace>/.fenix/workspace/skills/*`
-- `<workspace>/.fenix/workspace/policies/*.yml`
-- `<workspace>/.fenix/workspace/memory/*.md`
+## Stale Assumptions To Remove
 
-### Conversation layer
+The following statements from the original roadmap should no longer be treated
+as current truth.
 
-- `<workspace>/.fenix/conversations/<conversation_public_id>/summary.md`
-- `<workspace>/.fenix/conversations/<conversation_public_id>/memory.md`
-- `<workspace>/.fenix/conversations/<conversation_public_id>/operator_state.json`
+### `K1` and `K2` are "mostly landed or close to landed": `stale assumption`
 
-## Acceptance Model
+That statement is now too weak.
 
-The `acceptance/` harness is not a secondary demo harness. It is the main
-manual benchmark surface for validating real agent-loop behavior.
+The better current summary is:
 
-The benchmark suite should have two classes of scenarios:
+- `K1`: landed
+- `K2`: landed and still being refined
+- `K3`: partially landed
+- `K4`: still future-facing
 
-### Primitive validations
+### The context model is already `user / workspace / conversation`: `stale assumption`
 
-Small contract-oriented scenarios, including:
+That hierarchy is still a useful product intention, but it is not the current
+runtime file-system fact.
 
-- skills loading
-- subagent wait-all
-- governed tool and governed MCP flows
-- human interaction pause/resume
-- process lifecycle closure
+Current runtime state is actually organized around:
 
-### Cowork capstones
+- `.fenix/agent_program_versions/<id>/memory/...`
+- `.fenix/agent_program_versions/<id>/conversations/<id>/context/...`
 
-Real workload scenarios that activate multiple capabilities at once.
+Any future `user / workspace / conversation` model should be introduced as an
+explicit design decision, not treated as if it already exists.
 
-Target capstones:
+### The proposed file-system model is current truth: `stale assumption`
 
-- `2048 build capstone`
-- `repo research capstone`
-- `environment bootstrap capstone`
-- `bugfix with subagents capstone`
+The original doc described:
 
-## Acceptance Philosophy
+- `~/.fenix/users/<user_public_id>/...`
+- `<workspace>/.fenix/workspace/...`
+- `<workspace>/.fenix/conversations/<conversation_public_id>/...`
 
-The benchmark should not score only "did the task succeed?"
+That is not the current implementation.
 
-The primary acceptance questions are:
+Current facts are:
 
-1. Did the expected capabilities activate?
-2. Did the loop behave correctly?
-3. If failure occurred, is the failure explainable?
-4. Are the durable records and exported artifacts correct?
+- `SOUL.md` and `USER.md` can already be overridden from the workspace root
+- `OPERATOR.md` currently remains code-owned in the bundled prompt set
+- workspace plugins live under `.fenix/plugins`
+- workspace and conversation state live under the program-version-scoped
+  `.fenix` layout
+- a user-scoped private home directory model is not yet implemented as a real
+  contract
 
-## Capability-first Scoring
+### `OPERATOR` belongs to the same editable preset layer as `SOUL` and `USER`: `stale assumption`
 
-Each capstone should produce:
+Today, `SOUL.md` and `USER.md` are part of the workspace override surface.
+`OPERATOR.md` is still bundled from the repository and only injected for the
+main non-subagent profile.
 
-- `run-summary.json`
-- `capability-activation.json`
-- `failure-classification.json`
+If `OPERATOR` should become editable later, that needs its own design pass.
 
-### Capability activation
+### Acceptance is mainly a future benchmark plan: `stale assumption`
 
-Required and optional capabilities are declared by scenario contract and are
-evaluated using evidence in this order:
+The acceptance model is already much more real than the original roadmap
+described.
 
-1. durable DB/workflow state
-2. exported artifacts
-3. workspace or host artifacts
-4. transcript and supervision text
-5. model self-report only as supporting context
+The current harness already has:
 
-### Failure classification
+- primitive validation scenarios
+- the `2048` capstone bundle
+- capability activation reporting
+- failure classification reporting
+- replayable supervision evaluation inputs
 
-Failures should be classified into:
+Future roadmap work should extend that evidence model, not describe it as if it
+is still hypothetical.
 
-- `model_variance`
-- `environment_defect`
-- `agent_design_gap`
-- `kernel_gap`
-- `harness_gap`
-- `user_input_gap`
-- `unknown`
+### `F1 / F2 / F3` and `K1 / K2 / K3 / K4` are the right next planning frame: `stale assumption`
 
-Outcome states should distinguish:
+Those labels were useful while the architecture was still less settled.
 
-- `pass_clean`
-- `pass_recovered`
-- `pass_diagnostic`
-- `fail_model`
-- `fail_system`
-- `fail_harness`
+They are now too linear for the current state of the repo. The next planning
+work should follow product seams and ownership seams, not the original phase
+labels.
 
-This allows environment defects surfaced by `Fenix` to count as useful runs
-even when the workload itself is not completed cleanly.
+## Next Planning Focus
 
-## 2048 as the Benchmark Mother Scenario
+The most useful next planning threads are now the following.
 
-The existing `2048` capstone should remain in place and become the benchmark
-mother scenario.
+### 1. Interaction Contract
 
-Why:
+Define:
 
-- it already spans coding, build, test, browser verification, supervision,
-  transcript export, debug export, and workspace artifacts
-- it already produces the richest evidence set
-- it is the best first place to land capability-first scoring before adding new
-  capstones
+- when the default experience stays lightweight
+- when it enters structured cowork behavior
+- whether `Assistant Mode`, `Work Mode`, and `Lead Mode` are real product
+  surfaces or only internal shorthand
 
-For `2048`, initial required capabilities should be:
+This should build on the existing prompt, plan, and supervision stack.
 
-- `workspace_editing`
-- `command_execution`
-- `browser_verification`
-- `supervision`
-- `export_roundtrip`
+### 2. Customization And Memory Ownership
 
-Initial optional capabilities:
+Define:
 
-- `skills`
-- `subagents`
+- which customization surfaces are already durable
+- which ones are still implementation details
+- whether a user-scoped private layer should exist at all
+- how workspace intelligence should be authored, shared, and versioned
 
-## Gap Audit Method
+This work should start from the existing prompt, memory, plugin, skill, and env
+overlay surfaces rather than from the old speculative file layout.
 
-After this design is recorded, the next planning step should be a structured
-gap audit against the current codebase.
+### 3. Delegated Cowork Productization
 
-Use this matrix:
+Define:
 
-| Capability | Target Layer | Current State | Evidence | Next Action |
-| --- | --- | --- | --- | --- |
+- the role model for delegated workers
+- the contract for work packages and handoff summaries
+- what the user should see when the main agent delegates work
+- how much of the current subagent surface remains low-level runtime detail
 
-Each capability should be marked:
+The technical substrate already exists. The missing work is product shaping.
 
-- `done`
-- `partial`
-- `missing`
-- `misplaced`
+### 4. Ambient Cowork Model
 
-The evidence column must prefer acceptance proof over code existence.
+Define:
 
-## Immediate Next Move
+- how scheduled, webhook-driven, resume-driven, and background work fit into one
+  product story
+- how ambient work appears in supervision and final delivery
+- how the default bundled agent should behave when work continues without active
+  foreground interaction
 
-The immediate implementation focus should be:
+This is the main roadmap topic that sits on top of the already-partial
+automation and runtime-recovery substrate.
 
-1. upgrade the `2048` capstone into a capability-first benchmark template
-2. add shared acceptance helpers for capability activation and failure
-   classification
-3. then use that template for later cowork capstones
+## Summary
+
+`Fenix` is no longer a mostly hypothetical cowork roadmap. It is already a real
+bundled agent program with meaningful runtime, supervision, customization, and
+acceptance surfaces.
+
+The next stage of planning should therefore stop treating the project as a
+greenfield build. The right job now is to clarify product contracts, tighten
+the kernel/program boundary, and turn already-landed technical capabilities
+into a cleaner cowork product.

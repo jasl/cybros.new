@@ -1,13 +1,32 @@
 #!/usr/bin/env node
 
-import { chromium } from "playwright";
+import { execFileSync } from "node:child_process";
+import process from "node:process";
 import { createInterface } from "node:readline";
+import { chromium } from "playwright";
 
 let browser = null;
 let page = null;
 
-function chromiumExecutablePath() {
-  return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
+function configuredExecutablePath() {
+  return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || findChromiumExecutablePath();
+}
+
+function findChromiumExecutablePath() {
+  try {
+    const output = execFileSync(
+      "/bin/sh",
+      [
+        "-lc",
+        "command -v chromium || command -v chromium-browser || command -v google-chrome || command -v google-chrome-stable"
+      ],
+      { encoding: "utf8" }
+    ).trim();
+
+    return output || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function ensurePage() {
@@ -16,7 +35,7 @@ async function ensurePage() {
   const configuration = {
     headless: true,
   };
-  const executablePath = chromiumExecutablePath();
+  const executablePath = configuredExecutablePath();
   if (executablePath) {
     configuration.executablePath = executablePath;
   }
@@ -25,11 +44,14 @@ async function ensurePage() {
     browser = await chromium.launch(configuration);
   } catch (error) {
     if (!executablePath) {
-      throw new Error(`could not launch Playwright Chromium; run 'npx playwright install chromium' or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH (${error.message})`);
+      throw new Error(
+        `could not launch Playwright Chromium; install Chromium on the host, run 'pnpm exec playwright install chromium', or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH (${error.message})`
+      );
     }
 
     throw error;
   }
+
   page = await browser.newPage();
   return page;
 }
@@ -55,7 +77,11 @@ async function dispatch(command, argumentsPayload) {
     }
     case "screenshot": {
       const activePage = await ensurePage();
-      const image = await activePage.screenshot({ fullPage: argumentsPayload.full_page !== false, type: "png" });
+      const image = await activePage.screenshot({
+        fullPage: argumentsPayload.full_page !== false,
+        type: "png",
+      });
+
       return {
         current_url: activePage.url(),
         mime_type: "image/png",
@@ -75,13 +101,37 @@ async function dispatch(command, argumentsPayload) {
   }
 }
 
+async function closeBrowser() {
+  if (!browser) return;
+
+  await browser.close().catch(() => undefined);
+  browser = null;
+  page = null;
+}
+
 const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
+
+process.on("SIGINT", async () => {
+  await closeBrowser();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  await closeBrowser();
+  process.exit(0);
+});
+
+readline.on("close", async () => {
+  await closeBrowser();
+  process.exit(0);
+});
 
 readline.on("line", async line => {
   try {
     const payload = JSON.parse(line);
     const responsePayload = await dispatch(payload.command, payload.arguments || {});
     process.stdout.write(`${JSON.stringify({ payload: responsePayload })}\n`);
+
     if (payload.command === "close") {
       process.exit(0);
     }

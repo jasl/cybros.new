@@ -3,13 +3,10 @@
 require "date"
 require "fileutils"
 require "json"
-require "net/http"
-require "open3"
 require "pathname"
 require "socket"
 require "time"
 require "timeout"
-require "uri"
 require "set"
 require_relative "../lib/boot"
 require_relative "../lib/conversation_control_phrase_matrix"
@@ -20,16 +17,8 @@ $stderr.sync = true
 
 OPERATOR_NAME = "Codex".freeze
 RUNTIME_MODE = "Core Matrix host runtime + Dockerized Fenix".freeze
-EXPECTED_SKILL_DAG_SHAPE = ["agent_turn_step"].freeze
 SUPERVISION_PROMPT = "Please tell me what you are doing right now and what changed most recently.".freeze
 TERMINAL_WORK_SEGMENT_STATES = %w[completed failed interrupted canceled].freeze
-EXPECTED_SKILL_CONVERSATION_STATE = {
-  "conversation_state" => "active",
-  "workflow_lifecycle_state" => "completed",
-  "workflow_wait_state" => "ready",
-  "turn_lifecycle_state" => "active",
-  "agent_task_run_state" => "completed",
-}.freeze
 CAPABILITY_CONTRACT = {
   "scenario" => "fenix_2048_capstone",
   "capabilities" => [
@@ -38,7 +27,6 @@ CAPABILITY_CONTRACT = {
     { "key" => "browser_verification", "required" => true },
     { "key" => "supervision", "required" => true },
     { "key" => "export_roundtrip", "required" => true },
-    { "key" => "skills", "required" => false },
     { "key" => "subagents", "required" => false },
   ],
 }.freeze
@@ -50,7 +38,7 @@ end
 artifact_dir = repo_root.join("acceptance", "artifacts", artifact_stamp)
 workspace_root = Pathname.new(ENV.fetch("CAPSTONE_WORKSPACE_ROOT", repo_root.join("tmp", "fenix").to_s)).expand_path
 generated_app_dir = workspace_root.join("game-2048")
-skill_source_root = workspace_root.join("skill-sources")
+runtime_workspace_root = Pathname.new(ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace"))
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 docker_container = ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
 executor_fingerprint = ENV.fetch("CAPSTONE_EXECUTOR_FINGERPRINT", "capstone-fenix-executor-program-v1")
@@ -73,39 +61,9 @@ supervision_stall_threshold_ms = Integer(
 max_turn_attempts = Integer(ENV.fetch("CAPSTONE_MAX_TURN_ATTEMPTS", "3"))
 validation_note_limit = Integer(ENV.fetch("CAPSTONE_VALIDATION_NOTE_LIMIT", "1200"))
 control_acceptance_enabled = ENV["CAPSTONE_ENABLE_CONTROL_ACCEPTANCE"] == "1"
-
-prompt = <<~PROMPT
-Use `$using-superpowers`.
-`$find-skills` is installed and available if you need to discover or inspect additional skills.
-
-No screenshots or visual design review are needed.
-You must still start the app and verify it in a browser session.
-The design is approved.
-Proceed autonomously now without asking more questions unless you are genuinely blocked.
-
-Build a complete browser-playable React 2048 game in `/workspace/game-2048`.
-
-Requirements:
-- use modern React + Vite + TypeScript
-- implement real 2048 rules: movement, merging, random tile spawning, score tracking, win/game-over behavior, and restart
-- support both arrow keys and WASD
-- add automated tests for the game logic
-- run the tests and production build successfully
-- ensure the final Vite/Vitest configuration keeps `npm run build` passing
-- start the app on `0.0.0.0:4173`
-- verify it in a browser session
-- use subagents when genuinely helpful
-- end with a concise completion note
-
-Acceptance harness requirements:
-- render the board as a visible 4x4 grid with exactly 16 cells
-- expose the board with `data-testid="board"` and `role="grid"` with an accessible name containing `2048 board`
-- expose each cell with `role="gridcell"`
-- expose score with `data-testid="score"`
-- expose game status text with `data-testid="status"`
-- expose a game-over status through `data-testid="status"` that visibly contains the words `Game over` when no moves remain
-- expose restart or new-game control with `data-testid="restart"`
-PROMPT
+prompt = Acceptance::CapstoneAppApiRoundtrip.prompt(
+  generated_app_dir: runtime_workspace_root.join("game-2048").to_s
+)
 
 def write_json(path, payload)
   FileUtils.mkdir_p(File.dirname(path))
@@ -304,27 +262,6 @@ def semantic_terms(text)
     .uniq
 end
 
-def capture_command(*command, chdir:, env: {})
-  stdout, stderr, status = Open3.capture3(env, *command, chdir: chdir.to_s)
-  {
-    "command" => command.join(" "),
-    "cwd" => chdir.to_s,
-    "success" => status.success?,
-    "exit_status" => status.exitstatus,
-    "stdout" => stdout,
-    "stderr" => stderr,
-  }
-end
-
-def capture_command!(*command, chdir:, env: {}, failure_label: nil)
-  result = capture_command(*command, chdir:, env:)
-  return result if result.fetch("success")
-
-  label = failure_label || command.join(" ")
-  details = result.fetch("stderr").presence || result.fetch("stdout").presence || "no output"
-  raise "#{label} failed:\n#{details}"
-end
-
 def wait_for_tcp_port!(host:, port:, timeout_seconds:)
   deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
 
@@ -476,225 +413,6 @@ def supervise_conversation_progress!(
 
     sleep(poll_interval_seconds)
   end
-end
-
-def download_text!(url)
-  uri = URI(url)
-  response = Net::HTTP.get_response(uri)
-  raise "download failed for #{url}: HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
-
-  response.body.to_s
-end
-
-def prepare_skill_sources!(skill_source_root:)
-  superpowers_repo_dir = skill_source_root.join("superpowers")
-  using_superpowers_dir = skill_source_root.join("using-superpowers")
-  find_skills_dir = skill_source_root.join("find-skills")
-  skill_source_manifest = skill_source_root.join("skill-source-manifest.json")
-
-  FileUtils.rm_rf(skill_source_root)
-  FileUtils.mkdir_p(skill_source_root)
-
-  clone_result = capture_command!(
-    "git", "clone", "--depth", "1", "https://github.com/obra/superpowers.git", superpowers_repo_dir.to_s,
-    chdir: skill_source_root.parent,
-    failure_label: "clone superpowers"
-  )
-  superpowers_revision = capture_command!(
-    "git", "rev-parse", "HEAD",
-    chdir: superpowers_repo_dir,
-    failure_label: "read superpowers revision"
-  ).fetch("stdout").strip
-
-  FileUtils.mkdir_p(using_superpowers_dir)
-  FileUtils.cp(superpowers_repo_dir.join("skills", "using-superpowers", "SKILL.md"), using_superpowers_dir.join("SKILL.md"))
-  FileUtils.cp_r(superpowers_repo_dir.join("skills"), using_superpowers_dir.join("skills"))
-
-  FileUtils.mkdir_p(find_skills_dir)
-  find_skills_body = download_text!("https://raw.githubusercontent.com/vercel-labs/skills/main/skills/find-skills/SKILL.md")
-  write_text(find_skills_dir.join("SKILL.md"), find_skills_body)
-
-  manifest = {
-    "superpowers_repo" => {
-      "source_url" => "https://github.com/obra/superpowers",
-      "revision" => superpowers_revision,
-      "clone_root" => superpowers_repo_dir.to_s,
-      "installed_skill_root" => using_superpowers_dir.to_s,
-      "installed_skill_name" => "using-superpowers",
-    },
-    "find_skills" => {
-      "source_url" => "https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md",
-      "raw_url" => "https://raw.githubusercontent.com/vercel-labs/skills/main/skills/find-skills/SKILL.md",
-      "installed_skill_root" => find_skills_dir.to_s,
-      "installed_skill_name" => "find-skills",
-    },
-    "clone_command" => clone_result.fetch("command"),
-  }
-  write_json(skill_source_manifest, manifest)
-
-  {
-    "manifest" => manifest,
-    "manifest_path" => skill_source_manifest.to_s,
-    "using_superpowers_dir" => using_superpowers_dir.to_s,
-    "find_skills_dir" => find_skills_dir.to_s,
-  }
-end
-
-def runtime_visible_workspace_path(host_path:, workspace_root:, runtime_worker_boot:)
-  return host_path.to_s if runtime_worker_boot.blank?
-
-  host_path = Pathname.new(host_path).expand_path
-  workspace_root = Pathname.new(workspace_root).expand_path
-  docker_workspace_root = Pathname.new(ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace"))
-
-  relative_path = host_path.relative_path_from(workspace_root)
-  docker_workspace_root.join(relative_path).to_s
-rescue ArgumentError
-  raise "#{host_path} is outside workspace root #{workspace_root}"
-end
-
-def serialize_skill_validation_run(run)
-  {
-    "conversation_id" => run.fetch(:conversation).public_id,
-    "turn_id" => run.fetch(:turn).public_id,
-    "workflow_run_id" => run.fetch(:workflow_run).public_id,
-    "agent_task_run_id" => run.fetch(:agent_task_run).public_id,
-    "dag_shape" => ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)),
-    "conversation_state" => ManualAcceptanceSupport.workflow_state_hash(
-      conversation: run.fetch(:conversation),
-      workflow_run: run.fetch(:workflow_run),
-      turn: run.fetch(:turn),
-      agent_task_run: run.fetch(:agent_task_run)
-    ),
-    "runtime_execution_status" => run.fetch(:execution).fetch("status"),
-    "runtime_output" => run.fetch(:execution)["output"],
-    "report_results" => run.fetch(:report_results),
-  }
-end
-
-def skill_validation_passed?(serialized_run)
-  serialized_run.fetch("dag_shape") == EXPECTED_SKILL_DAG_SHAPE &&
-    EXPECTED_SKILL_CONVERSATION_STATE.all? do |key, value|
-      serialized_run.fetch("conversation_state")[key] == value
-    end
-end
-
-def execute_runtime_worker_skill_turn!(agent_program_version:, content:, mode:, extra_payload:, timeout_seconds: 60)
-  conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
-  run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
-    conversation: conversation_context.fetch(:conversation),
-    agent_program_version: agent_program_version,
-    content: content,
-    root_node_key: "agent_turn_step",
-    root_node_type: "turn_step",
-    decision_source: "agent_program",
-    initial_kind: "turn_step",
-    initial_payload: { "mode" => mode }.merge(extra_payload)
-  )
-  agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(
-    agent_task_run: run.fetch(:agent_task_run),
-    timeout_seconds: timeout_seconds
-  )
-  workflow_run = ManualAcceptanceSupport.wait_for_workflow_run_terminal!(
-    workflow_run: run.fetch(:workflow_run),
-    timeout_seconds: timeout_seconds
-  )
-  turn = run.fetch(:turn).reload
-
-  run.merge(
-    conversation: conversation_context.fetch(:conversation).reload,
-    turn: turn,
-    workflow_run: workflow_run.reload,
-    agent_task_run: agent_task_run.reload,
-    execution: {
-      "status" => agent_task_run.lifecycle_state,
-      "output" => agent_task_run.terminal_payload["output"],
-      "terminal_payload" => agent_task_run.terminal_payload,
-    },
-    report_results: ManualAcceptanceSupport.report_results_for(agent_task_run: agent_task_run)
-  )
-end
-
-def install_and_validate_skills!(agent_program_version:, skill_sources:, workspace_root:, runtime_worker_boot:)
-  using_superpowers_source_path = runtime_visible_workspace_path(
-    host_path: skill_sources.fetch("using_superpowers_dir"),
-    workspace_root: workspace_root,
-    runtime_worker_boot: runtime_worker_boot
-  )
-  find_skills_source_path = runtime_visible_workspace_path(
-    host_path: skill_sources.fetch("find_skills_dir"),
-    workspace_root: workspace_root,
-    runtime_worker_boot: runtime_worker_boot
-  )
-
-  using_superpowers_install = execute_runtime_worker_skill_turn!(
-    agent_program_version: agent_program_version,
-    content: "Install using-superpowers from the staged GitHub source.",
-    mode: "skills_install",
-    extra_payload: { "source_path" => using_superpowers_source_path }
-  )
-  using_superpowers_load = execute_runtime_worker_skill_turn!(
-    agent_program_version: agent_program_version,
-    content: "Load the using-superpowers skill.",
-    mode: "skills_load",
-    extra_payload: { "skill_name" => "using-superpowers" }
-  )
-  using_superpowers_read = execute_runtime_worker_skill_turn!(
-    agent_program_version: agent_program_version,
-    content: "Read the brainstorming skill nested under using-superpowers.",
-    mode: "skills_read_file",
-    extra_payload: {
-      "skill_name" => "using-superpowers",
-      "relative_path" => "skills/brainstorming/SKILL.md",
-    }
-  )
-  find_skills_install = execute_runtime_worker_skill_turn!(
-    agent_program_version: agent_program_version,
-    content: "Install find-skills from the staged GitHub source.",
-    mode: "skills_install",
-    extra_payload: { "source_path" => find_skills_source_path }
-  )
-  find_skills_load = execute_runtime_worker_skill_turn!(
-    agent_program_version: agent_program_version,
-    content: "Load the find-skills skill.",
-    mode: "skills_load",
-    extra_payload: { "skill_name" => "find-skills" }
-  )
-
-  using_superpowers_payload = {
-    "install" => serialize_skill_validation_run(using_superpowers_install),
-    "load" => serialize_skill_validation_run(using_superpowers_load),
-    "read" => serialize_skill_validation_run(using_superpowers_read),
-    "host_source_path" => skill_sources.fetch("using_superpowers_dir"),
-    "runtime_source_path" => using_superpowers_source_path,
-    "install_activation_state" => using_superpowers_install.fetch(:execution).dig("output", "activation_state"),
-    "loaded_name" => using_superpowers_load.fetch(:execution).dig("output", "name"),
-    "read_relative_path" => "skills/brainstorming/SKILL.md",
-    "read_content_excerpt" => using_superpowers_read.fetch(:execution).dig("output", "content").to_s.lines.first(5).join,
-  }
-  find_skills_payload = {
-    "install" => serialize_skill_validation_run(find_skills_install),
-    "load" => serialize_skill_validation_run(find_skills_load),
-    "host_source_path" => skill_sources.fetch("find_skills_dir"),
-    "runtime_source_path" => find_skills_source_path,
-    "install_activation_state" => find_skills_install.fetch(:execution).dig("output", "activation_state"),
-    "loaded_name" => find_skills_load.fetch(:execution).dig("output", "name"),
-  }
-
-  {
-    "passed" => [
-      using_superpowers_payload.fetch("install"),
-      using_superpowers_payload.fetch("load"),
-      using_superpowers_payload.fetch("read"),
-      find_skills_payload.fetch("install"),
-      find_skills_payload.fetch("load"),
-    ].all? { |entry| skill_validation_passed?(entry) },
-    "expected_dag_shape" => EXPECTED_SKILL_DAG_SHAPE,
-    "expected_conversation_state" => EXPECTED_SKILL_CONVERSATION_STATE,
-    "skill_sources" => skill_sources.fetch("manifest"),
-    "using_superpowers" => using_superpowers_payload,
-    "find_skills" => find_skills_payload,
-  }
 end
 
 def evaluate_control_intent_case!(category:, entry:, supervision_session_id:, actor:, conversation:)
@@ -899,8 +617,7 @@ when "bootstrap"
     installation: bootstrap.installation,
     runtime_base_url: runtime_base_url,
     executor_fingerprint: executor_fingerprint,
-    fingerprint: program_fingerprint,
-    sdk_version: "fenix-0.1.0"
+    fingerprint: program_fingerprint
   )
 
   machine_credential = bundled.fetch(:machine_credential)
@@ -911,20 +628,20 @@ when "bootstrap"
   agent_session = bundled.fetch(:runtime).agent_session
   executor_session = bundled.fetch(:runtime).executor_session
 
-  bootstrap_state = {
-    "scenario_date" => scenario_date,
-    "machine_credential" => machine_credential,
-    "executor_machine_credential" => executor_machine_credential,
-    "agent_program_id" => agent_program.public_id,
-    "agent_program_version_id" => agent_program_version.public_id,
-    "executor_program_id" => executor_program.public_id,
-    "agent_session_id" => agent_session.public_id,
-    "executor_session_id" => executor_session.public_id,
-    "runtime_base_url" => runtime_base_url,
-    "docker_container" => docker_container,
-    "executor_fingerprint" => executor_fingerprint,
-    "program_fingerprint" => program_fingerprint,
-  }
+  bootstrap_state = Acceptance::CapstoneAppApiRoundtrip.bootstrap_state(
+    scenario_date: scenario_date,
+    machine_credential: machine_credential,
+    executor_machine_credential: executor_machine_credential,
+    agent_program: agent_program,
+    agent_program_version: agent_program_version,
+    executor_program: executor_program,
+    agent_session: agent_session,
+    executor_session: executor_session,
+    runtime_base_url: runtime_base_url,
+    docker_container: docker_container,
+    executor_fingerprint: executor_fingerprint,
+    program_fingerprint: program_fingerprint
+  )
 
   write_json(bootstrap_state_path, bootstrap_state)
   puts JSON.pretty_generate(bootstrap_state)
@@ -947,53 +664,23 @@ else
   raise "unsupported CAPSTONE_PHASE: #{capstone_phase}"
 end
 
-skill_sources = prepare_skill_sources!(skill_source_root:)
-log_capstone_phase(
-  artifact_dir: artifact_dir,
-  phase: "skill_sources_prepared",
-  details: {
-    "workspace_root" => workspace_root.to_s,
-    "skill_source_manifest_path" => skill_sources.fetch("manifest_path"),
-  }
-)
-skills_validation = install_and_validate_skills!(
+write_json(artifact_dir.join("evidence", "acceptance-registration.json"), Acceptance::CapstoneAppApiRoundtrip.registration_artifact(
+  agent_program: agent_program,
   agent_program_version: agent_program_version,
-  skill_sources:,
-  workspace_root:,
-  runtime_worker_boot:
-)
-log_capstone_phase(
-  artifact_dir: artifact_dir,
-  phase: "skills_validated",
-  details: {
-    "passed" => skills_validation.fetch("passed"),
-    "skill_count" => skills_validation.fetch("skill_sources").size,
-  }
-)
-
-write_json(artifact_dir.join("evidence", "acceptance-registration.json"), {
-  "agent_program_id" => agent_program.public_id,
-  "agent_program_display_name" => agent_program.display_name,
-  "agent_program_version_id" => agent_program_version.public_id,
-  "executor_program_id" => executor_program.public_id,
-  "executor_program_display_name" => executor_program.display_name,
+  executor_program: executor_program,
+  machine_credential: machine_credential
+).merge(
   "agent_session_id" => agent_session.public_id,
-  "executor_session_id" => executor_session.public_id,
-  "executor_fingerprint" => executor_program.executor_fingerprint,
-  "program_fingerprint" => agent_program_version.fingerprint,
-  "machine_credential_redacted" => machine_credential.to_s.sub(/:.+\z/, ":REDACTED"),
-})
-write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), {
-  "scenario_date" => scenario_date,
-  "operator" => OPERATOR_NAME,
-  "selector" => selector,
-  "attempt_count" => 0,
-  "workspace_root" => workspace_root.to_s,
-  "generated_app_dir" => generated_app_dir.to_s,
-  "skill_source_manifest_path" => skill_sources.fetch("manifest_path"),
-  "prompt" => prompt,
-})
-write_json(artifact_dir.join("evidence", "skills-validation.json"), skills_validation)
+  "executor_session_id" => executor_session.public_id
+))
+write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), Acceptance::CapstoneAppApiRoundtrip.run_bootstrap_artifact(
+  scenario_date: scenario_date,
+  operator_name: OPERATOR_NAME,
+  selector: selector,
+  workspace_root: workspace_root,
+  generated_app_dir: generated_app_dir,
+  prompt: prompt
+))
 write_json(artifact_dir.join("evidence", "attempt-history.json"), [])
 write_json(artifact_dir.join("evidence", "rescue-history.json"), [])
 
@@ -1252,16 +939,14 @@ end) do |entry, memo|
   bucket["output_tokens_total"] += entry["output_tokens"].to_i
 end.values.sort_by { |entry| [entry["provider_handle"], entry["model_ref"], entry["operation_kind"]] }
 
-write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), {
-  "scenario_date" => scenario_date,
-  "operator" => OPERATOR_NAME,
-  "selector" => selector,
-  "attempt_count" => attempt_history.length,
-  "workspace_root" => workspace_root.to_s,
-  "generated_app_dir" => generated_app_dir.to_s,
-  "skill_source_manifest_path" => skill_sources.fetch("manifest_path"),
-  "prompt" => prompt,
-})
+write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), Acceptance::CapstoneAppApiRoundtrip.run_bootstrap_artifact(
+  scenario_date: scenario_date,
+  operator_name: OPERATOR_NAME,
+  selector: selector,
+  workspace_root: workspace_root,
+  generated_app_dir: generated_app_dir,
+  prompt: prompt
+).merge("attempt_count" => attempt_history.length))
 host_validation_notes = host_validation_bundle.fetch("host_validation_notes")
 host_validation = host_validation_bundle.fetch("host_validation")
 playwright_validation = host_validation_bundle.fetch("playwright_validation")
@@ -1326,7 +1011,6 @@ Acceptance::ReviewArtifacts.write_turns!(
   workflow_run: workflow_run,
   agent_program_version: agent_program_version,
   executor_program: executor_program,
-  executor_machine_credential: executor_machine_credential,
   selector: selector,
   diagnostics_turn: main_diagnostics_turn,
   source_transcript: source_transcript,
@@ -1352,7 +1036,6 @@ Acceptance::ReviewArtifacts.write_turns!(
     "evidence/subagent-runtime-snapshots.json",
     "evidence/attempt-history.json",
     "evidence/rescue-history.json",
-    "evidence/skills-validation.json",
     "logs/phase-events.jsonl",
     "logs/live-progress-events.jsonl",
     "logs/supervision-session.json",
@@ -1384,10 +1067,10 @@ Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
   path: artifact_dir.join("review", "runtime-and-bindings.md"),
   workspace_root: workspace_root,
   machine_credential: machine_credential,
+  executor_machine_credential: executor_machine_credential,
   agent_program: agent_program,
   agent_program_version: agent_program_version,
   executor_program: executor_program,
-  skill_source_manifest_path: skill_sources.fetch("manifest_path"),
   docker_container: docker_container,
   runtime_base_url: runtime_base_url,
   runtime_worker_boot: runtime_worker_boot
@@ -1421,7 +1104,6 @@ capability_report = Acceptance::CapabilityActivation.build(
   subagent_sessions: subagent_sessions,
   artifact_paths: {
     "workspace_validation" => artifact_dir.join("review", "workspace-validation.md"),
-    "skills_validation" => artifact_dir.join("evidence", "skills-validation.json"),
     "supervision_session" => artifact_dir.join("logs", "supervision-session.json"),
     "supervision_polls" => artifact_dir.join("logs", "supervision-polls.json"),
     "supervision_final" => artifact_dir.join("logs", "supervision-final.json"),
@@ -1441,7 +1123,6 @@ capability_report = Acceptance::CapabilityActivation.build(
   workspace_paths: {
     "generated_app_dir" => generated_app_dir,
   },
-  skill_validation: skills_validation,
   transcript_roundtrip_match: transcript_roundtrip_match,
   supervision_trace: supervision_trace
 )
@@ -1523,7 +1204,6 @@ summary = {
   "tool_call_count" => tool_invocations.length,
   "subagent_session_count" => subagent_sessions.length,
   "subagent_runtime_snapshot_count" => subagent_runtime_snapshots.length,
-  "skills_validation_path" => artifact_dir.join("evidence", "skills-validation.json").to_s,
   "capability_activation_path" => artifact_dir.join("evidence", "capability-activation.json").to_s,
   "failure_classification_path" => artifact_dir.join("evidence", "failure-classification.json").to_s,
   "phase_events_path" => artifact_dir.join("logs", "phase-events.jsonl").to_s,

@@ -1,0 +1,9 @@
+{
+  "name": "fenix-runtime",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE.md",
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

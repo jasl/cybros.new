@@ -1,41 +1,14 @@
 require "test_helper"
+require "tmpdir"
 require "timeout"
 
 class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
-  test "executes calculator through the shared program executor" do
-    executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => ["calculator"] },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
-
-    result = executor.call(
-      tool_call: {
-        "call_id" => "tool-call-1",
-        "tool_name" => "calculator",
-        "arguments" => { "expression" => "2 + 2" },
-      }
-    )
-
-    assert_equal "calculator", result.tool_call.fetch("tool_name")
-    assert_equal 4, result.tool_result
-    assert_equal [], result.output_chunks
+  teardown do
+    Fenix::Runtime::CommandRunRegistry.reset! if defined?(Fenix::Runtime::CommandRunRegistry)
   end
 
-  test "captures streamed output for exec command without using the control plane" do
-    executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => ["exec_command"] },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
+  test "captures streamed output for one-shot exec_command" do
+    executor = build_executor(allowed_tool_names: ["exec_command"])
 
     result = executor.call(
       tool_call: {
@@ -59,53 +32,11 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     assert_equal "hello\n", result.output_chunks.first.fetch("text")
   end
 
-  test "one-shot exec_command scrubs binary output into UTF-8-safe text" do
-    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
-      binary_bytes = "\x89PNG\r\n\x1A\nbinary".b
-      File.binwrite(File.join(workspace_root, "logo.png"), binary_bytes)
-
-      executor = Fenix::Runtime::ProgramToolExecutor.new(
-        context: {
-          "workflow_node_id" => "workflow-node-binary-1",
-          "conversation_id" => "conversation-binary-1",
-          "turn_id" => "turn-binary-1",
-          "agent_context" => { "allowed_tool_names" => ["exec_command"] },
-          "workspace_context" => { "workspace_root" => workspace_root },
-        }
-      )
-
-      result = executor.call(
-        tool_call: {
-          "call_id" => "tool-call-binary-1",
-          "tool_name" => "exec_command",
-          "arguments" => {
-            "command_line" => "cat logo.png",
-            "timeout_seconds" => 5,
-            "pty" => false,
-          },
-        },
-        command_run: {
-          "command_run_id" => "command-run-binary-1",
-        }
-      )
-
-      assert_equal binary_bytes.bytesize, result.tool_result.fetch("stdout_bytes")
-      assert result.tool_result.fetch("stdout").valid_encoding?
-      assert_equal Encoding::UTF_8, result.tool_result.fetch("stdout").encoding
-      assert result.output_chunks.all? { |chunk| chunk.fetch("text").valid_encoding? }
-    end
-  end
-
   test "exec_command runs relative to the workspace root" do
     Dir.mktmpdir("fenix-workspace-") do |workspace_root|
-      executor = Fenix::Runtime::ProgramToolExecutor.new(
-        context: {
-          "workflow_node_id" => "workflow-node-1",
-          "conversation_id" => "conversation-1",
-          "turn_id" => "turn-1",
-          "agent_context" => { "allowed_tool_names" => ["exec_command"] },
-          "workspace_context" => { "workspace_root" => workspace_root },
-        }
+      executor = build_executor(
+        allowed_tool_names: ["exec_command"],
+        workspace_root: workspace_root
       )
 
       result = executor.call(
@@ -127,97 +58,8 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     end
   end
 
-  test "times out one-shot exec_command even when the command spawns a child shell" do
-    executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "agent_task_run_id" => "task-1",
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => ["exec_command"] },
-        "workspace_context" => { "workspace_root" => Dir.pwd },
-      }
-    )
-
-    error = assert_raises(Timeout::Error) do
-      Timeout.timeout(4) do
-        executor.call(
-          tool_call: {
-            "call_id" => "tool-call-timeout-1",
-            "tool_name" => "exec_command",
-            "arguments" => {
-              "command_line" => "sh -c 'while :; do sleep 1; done'",
-              "timeout_seconds" => 1,
-              "pty" => false,
-            },
-          },
-          command_run: {
-            "command_run_id" => "command-run-timeout-1",
-          }
-        )
-      end
-    end
-
-    assert_match(/exec_command timed out after 1 seconds/, error.message)
-    assert_nil Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: "command-run-timeout-1")
-  end
-
-  test "process_exec tolerates the default null control client" do
-    original_call = Fenix::Processes::Launcher.method(:call)
-    routed_control_client = nil
-
-    Fenix::Processes::Launcher.define_singleton_method(:call) do |**kwargs|
-      routed_control_client = kwargs.fetch(:control_client)
-      kwargs.fetch(:control_client).report!(payload: { "method_id" => "process_started" })
-      {
-        "process_run_id" => kwargs.fetch(:process_run).fetch("process_run_id"),
-        "lifecycle_state" => "running",
-      }
-    end
-
-    executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => ["process_exec"] },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
-
-    result = executor.call(
-      tool_call: {
-        "call_id" => "tool-call-3",
-        "tool_name" => "process_exec",
-        "arguments" => {
-          "command_line" => "bin/dev",
-        },
-      },
-      process_run: {
-        "process_run_id" => "process-run-1",
-      }
-    )
-
-    assert_equal "process_exec", result.tool_call.fetch("tool_name")
-    assert_equal "process-run-1", result.tool_result.fetch("process_run_id")
-    assert_equal "running", result.tool_result.fetch("lifecycle_state")
-    assert_respond_to routed_control_client, :report!
-  ensure
-    Fenix::Processes::Launcher.define_singleton_method(:call, original_call)
-  end
-
-  test "attached command runs stay reusable across workflow nodes within the same turn" do
-    starting_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => {
-          "allowed_tool_names" => %w[exec_command write_stdin],
-        },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
+  test "attached command runs stay reusable across executor calls" do
+    starting_executor = build_executor(allowed_tool_names: %w[exec_command write_stdin])
 
     started = starting_executor.call(
       tool_call: {
@@ -233,17 +75,7 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
       }
     )
 
-    continuing_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-2",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => {
-          "allowed_tool_names" => %w[exec_command write_stdin],
-        },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
+    continuing_executor = build_executor(allowed_tool_names: %w[exec_command write_stdin])
 
     finished = continuing_executor.call(
       tool_call: {
@@ -258,94 +90,23 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
       }
     )
 
-    assert_equal "command-run-attached-1", finished.tool_result.fetch("command_run_id")
-    assert_equal 0, finished.tool_result.fetch("exit_status")
+    assert_equal "command-run-attached-1", started.tool_result.fetch("command_run_id")
+    assert_equal true, started.tool_result.fetch("attached")
     assert_equal true, finished.tool_result.fetch("session_closed")
-    assert_equal "hello\n", finished.tool_result.fetch("stdout_tail")
+    assert_equal 0, finished.tool_result.fetch("exit_status")
+    assert_equal "stdout", finished.output_chunks.first.fetch("stream")
+    assert_equal "hello\n", finished.output_chunks.first.fetch("text")
   end
 
-  test "write_stdin wait_for_exit scrubs binary attached output into UTF-8-safe text" do
-    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
-      binary_bytes = "\x89PNG\r\n\x1A\nbinary".b
-      File.binwrite(File.join(workspace_root, "logo.png"), binary_bytes)
+  test "command_run_wait returns a timed out snapshot while an attached command is still running" do
+    executor = build_executor(allowed_tool_names: %w[exec_command command_run_wait])
 
-      starting_executor = Fenix::Runtime::ProgramToolExecutor.new(
-        context: {
-          "workflow_node_id" => "workflow-node-binary-attached-1",
-          "conversation_id" => "conversation-binary-attached-1",
-          "turn_id" => "turn-binary-attached-1",
-          "agent_context" => {
-            "allowed_tool_names" => %w[exec_command write_stdin],
-          },
-          "workspace_context" => { "workspace_root" => workspace_root },
-        }
-      )
-
-      started = starting_executor.call(
-        tool_call: {
-          "call_id" => "tool-call-binary-attached-1",
-          "tool_name" => "exec_command",
-          "arguments" => {
-            "command_line" => "cat logo.png",
-            "pty" => true,
-          },
-        },
-        command_run: {
-          "command_run_id" => "command-run-binary-attached-1",
-        }
-      )
-
-      finishing_executor = Fenix::Runtime::ProgramToolExecutor.new(
-        context: {
-          "workflow_node_id" => "workflow-node-binary-attached-2",
-          "conversation_id" => "conversation-binary-attached-1",
-          "turn_id" => "turn-binary-attached-1",
-          "agent_context" => {
-            "allowed_tool_names" => %w[exec_command write_stdin],
-          },
-          "workspace_context" => { "workspace_root" => workspace_root },
-        }
-      )
-
-      finished = finishing_executor.call(
-        tool_call: {
-          "call_id" => "tool-call-binary-attached-2",
-          "tool_name" => "write_stdin",
-          "arguments" => {
-            "command_run_id" => started.tool_result.fetch("command_run_id"),
-            "text" => "",
-            "eof" => true,
-            "wait_for_exit" => true,
-          },
-        }
-      )
-
-      assert_equal binary_bytes.bytesize, finished.tool_result.fetch("stdout_bytes")
-      assert finished.tool_result.fetch("stdout_tail").valid_encoding?
-      assert_equal Encoding::UTF_8, finished.tool_result.fetch("stdout_tail").encoding
-      assert finished.output_chunks.all? { |chunk| chunk.fetch("text").valid_encoding? }
-    end
-  end
-
-  test "command_run_wait times out promptly for attached commands and keeps the handle available" do
-    starting_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => {
-          "allowed_tool_names" => %w[exec_command command_run_wait command_run_terminate],
-        },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
-
-    started = starting_executor.call(
+    started = executor.call(
       tool_call: {
         "call_id" => "tool-call-attached-timeout-1",
         "tool_name" => "exec_command",
         "arguments" => {
-          "command_line" => "trap '' TERM; while :; do sleep 1; done",
+          "command_line" => "sleep 2",
           "pty" => true,
         },
       },
@@ -353,199 +114,250 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
         "command_run_id" => "command-run-attached-timeout-1",
       }
     )
-    command_run_id = started.tool_result.fetch("command_run_id")
 
-    waiting_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-2",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => {
-          "allowed_tool_names" => %w[command_run_wait command_run_terminate],
+    waiting = executor.call(
+      tool_call: {
+        "call_id" => "tool-call-attached-timeout-2",
+        "tool_name" => "command_run_wait",
+        "arguments" => {
+          "command_run_id" => started.tool_result.fetch("command_run_id"),
+          "timeout_seconds" => 1,
         },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
       }
     )
 
-    error = assert_raises(Timeout::Error) do
-      Timeout.timeout(4) do
-        waiting_executor.call(
-          tool_call: {
-            "call_id" => "tool-call-attached-timeout-2",
-            "tool_name" => "command_run_wait",
-            "arguments" => {
-              "command_run_id" => command_run_id,
-              "timeout_seconds" => 1,
-            },
-          }
-        )
-      end
-    end
-
-    assert_match(/timed out after 1 seconds/, error.message)
-
-    snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id: command_run_id)
-    assert_equal "running", snapshot.fetch("lifecycle_state")
-    assert_equal false, snapshot.fetch("session_closed")
-  ensure
-    Fenix::Runtime::CommandRunRegistry.terminate(command_run_id:) if command_run_id.present?
+    assert_equal "command-run-attached-timeout-1", waiting.tool_result.fetch("command_run_id")
+    assert_equal false, waiting.tool_result.fetch("session_closed")
+    assert_equal true, waiting.tool_result.fetch("timed_out")
+    assert_equal "running", waiting.tool_result.fetch("lifecycle_state")
   end
 
-  test "write_stdin wait_for_exit times out promptly for attached commands and keeps the handle available" do
-    starting_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => {
-          "allowed_tool_names" => %w[exec_command write_stdin command_run_terminate],
-        },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
+  test "command run list read output and terminate operate on owned local handles" do
+    executor = build_executor(
+      allowed_tool_names: %w[exec_command command_run_list command_run_read_output command_run_terminate]
     )
 
-    started = starting_executor.call(
+    started = executor.call(
       tool_call: {
-        "call_id" => "tool-call-attached-timeout-3",
+        "call_id" => "tool-call-list-1",
         "tool_name" => "exec_command",
         "arguments" => {
-          "command_line" => "cat >/dev/null; trap '' TERM; while :; do sleep 1; done",
+          "command_line" => "printf 'ready\\n'; cat",
           "pty" => true,
         },
       },
       command_run: {
-        "command_run_id" => "command-run-attached-timeout-2",
+        "command_run_id" => "command-run-list-1",
       }
     )
-    command_run_id = started.tool_result.fetch("command_run_id")
 
-    writing_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-2",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => {
-          "allowed_tool_names" => %w[write_stdin command_run_terminate],
+    read = executor.call(
+      tool_call: {
+        "call_id" => "tool-call-list-2",
+        "tool_name" => "command_run_read_output",
+        "arguments" => {
+          "command_run_id" => started.tool_result.fetch("command_run_id"),
         },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
       }
     )
 
-    error = assert_raises(Timeout::Error) do
-      Timeout.timeout(4) do
-        writing_executor.call(
+    listed = executor.call(
+      tool_call: {
+        "call_id" => "tool-call-list-3",
+        "tool_name" => "command_run_list",
+        "arguments" => {},
+      }
+    )
+
+    terminated = executor.call(
+      tool_call: {
+        "call_id" => "tool-call-list-4",
+        "tool_name" => "command_run_terminate",
+        "arguments" => {
+          "command_run_id" => started.tool_result.fetch("command_run_id"),
+        },
+      }
+    )
+
+    assert_equal "command-run-list-1", read.tool_result.fetch("command_run_id")
+    assert_includes read.tool_result.fetch("stdout_tail"), "ready"
+    assert_equal ["command-run-list-1"], listed.tool_result.fetch("entries").map { |entry| entry.fetch("command_run_id") }
+    assert_equal true, terminated.tool_result.fetch("terminated")
+    assert_equal true, terminated.tool_result.fetch("session_closed")
+  end
+
+  test "raises when the tool is not visible for this execution" do
+    executor = build_executor(allowed_tool_names: [])
+
+    error = assert_raises(Fenix::Runtime::ProgramToolExecutor::ToolNotAllowedError) do
+      executor.call(
+        tool_call: {
+          "call_id" => "tool-call-hidden-1",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "pwd",
+          },
+        }
+      )
+    end
+
+    assert_match(/tool exec_command is not visible/i, error.message)
+    assert_equal "tool_not_allowed", Fenix::Runtime::ProgramToolExecutor.error_payload_for(error).fetch("code")
+  end
+
+  test "maps command validation failures to semantic error payloads" do
+    executor = build_executor(allowed_tool_names: ["command_run_read_output"])
+
+    error = assert_raises(Fenix::Runtime::ToolExecutors::ExecCommand::ValidationError) do
+      executor.call(
+        tool_call: {
+          "call_id" => "tool-call-missing-1",
+          "tool_name" => "command_run_read_output",
+          "arguments" => {
+            "command_run_id" => "missing-command-run",
+          },
+        }
+      )
+    end
+
+    assert_equal "validation_error", Fenix::Runtime::ProgramToolExecutor.error_payload_for(error).fetch("code")
+  end
+
+  test "routes browser tools through the browser session manager" do
+    executor = build_executor(
+      allowed_tool_names: %w[
+        browser_open
+        browser_navigate
+        browser_get_content
+        browser_screenshot
+        browser_list
+        browser_session_info
+        browser_close
+      ]
+    )
+    calls = []
+    session_manager_stub = lambda do |**kwargs|
+      calls << kwargs.deep_stringify_keys
+
+      case kwargs.fetch(:action)
+      when "open"
+        { "browser_session_id" => "browser-session-1", "current_url" => kwargs.fetch(:url) }
+      when "navigate"
+        { "browser_session_id" => kwargs.fetch(:browser_session_id), "current_url" => kwargs.fetch(:url) }
+      when "get_content"
+        { "browser_session_id" => kwargs.fetch(:browser_session_id), "current_url" => "https://example.com/play", "content" => "2048 ready" }
+      when "screenshot"
+        { "browser_session_id" => kwargs.fetch(:browser_session_id), "current_url" => "https://example.com/play", "mime_type" => "image/png", "image_base64" => "cG5n" }
+      when "list"
+        { "entries" => [{ "browser_session_id" => "browser-session-1", "current_url" => "https://example.com/play" }] }
+      when "info"
+        { "browser_session_id" => kwargs.fetch(:browser_session_id), "current_url" => "https://example.com/play" }
+      when "close"
+        { "browser_session_id" => kwargs.fetch(:browser_session_id), "closed" => true }
+      else
+        raise "unexpected browser action #{kwargs.fetch(:action)}"
+      end
+    end
+
+    with_session_manager_stub(session_manager_stub) do
+      opened = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-browser-1",
+          "tool_name" => "browser_open",
+          "arguments" => { "url" => "https://example.com/play" },
+        }
+      )
+      content = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-browser-2",
+          "tool_name" => "browser_get_content",
+          "arguments" => { "browser_session_id" => "browser-session-1" },
+        }
+      )
+      screenshot = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-browser-3",
+          "tool_name" => "browser_screenshot",
+          "arguments" => { "browser_session_id" => "browser-session-1", "full_page" => false },
+        }
+      )
+      listed = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-browser-4",
+          "tool_name" => "browser_list",
+          "arguments" => {},
+        }
+      )
+      info = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-browser-5",
+          "tool_name" => "browser_session_info",
+          "arguments" => { "browser_session_id" => "browser-session-1" },
+        }
+      )
+      closed = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-browser-6",
+          "tool_name" => "browser_close",
+          "arguments" => { "browser_session_id" => "browser-session-1" },
+        }
+      )
+
+      assert_equal "https://example.com/play", opened.tool_result.fetch("current_url")
+      assert_equal "2048 ready", content.tool_result.fetch("content")
+      assert_equal "image/png", screenshot.tool_result.fetch("mime_type")
+      assert_equal 1, listed.tool_result.fetch("entries").size
+      assert_equal "https://example.com/play", info.tool_result.fetch("current_url")
+      assert_equal true, closed.tool_result.fetch("closed")
+    end
+
+    assert_equal %w[open get_content screenshot list info close], calls.map { |entry| entry.fetch("action") }
+    assert_equal "turn-1", calls.first.fetch("agent_task_run_id")
+    assert_equal false, calls.third.fetch("full_page")
+  end
+
+  test "maps browser validation failures to semantic error payloads" do
+    executor = build_executor(allowed_tool_names: ["browser_session_info"])
+
+    error = assert_raises(Fenix::Browser::SessionManager::ValidationError) do
+      with_session_manager_stub(->(**) { raise Fenix::Browser::SessionManager::ValidationError, "unknown browser session" }) do
+        executor.call(
           tool_call: {
-            "call_id" => "tool-call-attached-timeout-4",
-            "tool_name" => "write_stdin",
-            "arguments" => {
-              "command_run_id" => command_run_id,
-              "text" => "hello\n",
-              "eof" => true,
-              "wait_for_exit" => true,
-              "timeout_seconds" => 1,
-            },
+            "call_id" => "tool-call-browser-missing-1",
+            "tool_name" => "browser_session_info",
+            "arguments" => { "browser_session_id" => "browser-session-missing" },
           }
         )
       end
     end
 
-    assert_match(/timed out after 1 seconds/, error.message)
-
-    snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id: command_run_id)
-    assert_equal "running", snapshot.fetch("lifecycle_state")
-    assert_equal false, snapshot.fetch("session_closed")
-  ensure
-    Fenix::Runtime::CommandRunRegistry.terminate(command_run_id:) if command_run_id.present?
+    assert_equal "validation_error", Fenix::Runtime::ProgramToolExecutor.error_payload_for(error).fetch("code")
   end
 
-  test "browser tools use the turn as the stable execution owner when agent task run id is absent" do
-    routed_owner_ids = []
-    original_call = Fenix::Plugins::System::Browser::Runtime.method(:call)
+  private
 
-    Fenix::Plugins::System::Browser::Runtime.define_singleton_method(:call) do |**kwargs|
-      routed_owner_ids << kwargs.fetch(:current_agent_task_run_id)
-      {
-        "browser_session_id" => "browser-session-1",
-        "current_url" => "https://example.com",
-        "content" => "Example page",
-      }
+  def with_session_manager_stub(callable)
+    session_manager_class = Fenix::Browser::SessionManager
+    singleton_class = session_manager_class.singleton_class
+    original_call = session_manager_class.method(:call)
+
+    singleton_class.send(:define_method, :call, callable)
+    yield
+  ensure
+    singleton_class.send(:define_method, :call) do |*args, **kwargs, &block|
+      original_call.call(*args, **kwargs, &block)
     end
+  end
 
-    opening_executor = Fenix::Runtime::ProgramToolExecutor.new(
+  def build_executor(allowed_tool_names:, workspace_root: Dir.pwd)
+    Fenix::Runtime::ProgramToolExecutor.new(
       context: {
         "workflow_node_id" => "workflow-node-1",
         "conversation_id" => "conversation-1",
         "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => %w[browser_open browser_get_content] },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
+        "agent_context" => { "allowed_tool_names" => allowed_tool_names },
+        "workspace_context" => { "workspace_root" => workspace_root },
       }
     )
-    continuing_executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-2",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => %w[browser_open browser_get_content] },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
-
-    opening_executor.call(
-      tool_call: {
-        "call_id" => "tool-call-browser-1",
-        "tool_name" => "browser_open",
-        "arguments" => { "url" => "https://example.com" },
-      }
-    )
-    continuing_executor.call(
-      tool_call: {
-        "call_id" => "tool-call-browser-2",
-        "tool_name" => "browser_get_content",
-        "arguments" => { "browser_session_id" => "browser-session-1" },
-      }
-    )
-
-    assert_equal %w[turn-1 turn-1], routed_owner_ids
-  ensure
-    Fenix::Plugins::System::Browser::Runtime.define_singleton_method(:call, original_call)
-  end
-
-  test "process tools use the turn as the stable execution owner when agent task run id is absent" do
-    routed_process_run = nil
-    routed_owner_ids = []
-    original_call = Fenix::Plugins::System::Process::Runtime.method(:call)
-
-    Fenix::Plugins::System::Process::Runtime.define_singleton_method(:call) do |**kwargs|
-      routed_process_run = kwargs.fetch(:process_run)
-      routed_owner_ids << kwargs.fetch(:current_agent_task_run_id)
-      {
-        "process_run_id" => kwargs.fetch(:process_run).fetch("process_run_id"),
-        "lifecycle_state" => "running",
-      }
-    end
-
-    executor = Fenix::Runtime::ProgramToolExecutor.new(
-      context: {
-        "workflow_node_id" => "workflow-node-1",
-        "conversation_id" => "conversation-1",
-        "turn_id" => "turn-1",
-        "agent_context" => { "allowed_tool_names" => ["process_exec"] },
-        "workspace_context" => { "workspace_root" => Fenix::Workspace::Layout.default_root },
-      }
-    )
-
-    result = executor.call(
-      tool_call: {
-        "call_id" => "tool-call-process-1",
-        "tool_name" => "process_exec",
-        "arguments" => { "command_line" => "bin/dev" },
-      }
-    )
-
-    assert_match(/\Aprocess-run-/, result.tool_result.fetch("process_run_id"))
-    assert_equal %w[turn-1], routed_owner_ids
-    assert_equal "turn-1", routed_process_run.fetch("agent_task_run_id")
-  ensure
-    Fenix::Plugins::System::Process::Runtime.define_singleton_method(:call, original_call)
   end
 end

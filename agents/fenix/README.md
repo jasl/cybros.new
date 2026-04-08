@@ -7,6 +7,27 @@ Fenix has two jobs:
 - ship as a usable general assistant product
 - serve as the first technical validation program for the Core Matrix loop
 
+## Monorepo Role
+
+`agents/fenix` is the active cowork app in this monorepo.
+
+- active runtime/product work lands in `agents/fenix`
+- legacy reference material stays in `agents/fenix.old`
+- the default Docker runtime base lives in `images/nexus`
+
+## Verification
+
+Run the documented project checks from the app directory:
+
+```bash
+cd agents/fenix
+bin/brakeman --no-pager
+bin/bundler-audit
+bin/rubocop -f github
+bin/rails db:test:prepare
+bin/rails test
+```
+
 ## Product Definition
 
 Fenix is a practical assistant that combines:
@@ -62,13 +83,10 @@ The manifest now also carries a small runtime-foundation block inside
 expected host/toolchain baseline without reading deployment docs first. The
 current baseline is:
 
-- canonical container base: Ubuntu 24.04
+- canonical Docker base: [images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus) on Ubuntu 24.04
+- installable tool versions pinned in [versions.env](/Users/jasl/Workspaces/Ruby/cybros/images/nexus/versions.env)
 - Ruby pinned by [.ruby-version](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/.ruby-version)
-- Node pinned by [.node-version](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/.node-version)
-- Python pinned by [.python-version](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/.python-version)
-- shared bootstrap scripts:
-  - [bootstrap-runtime-deps.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps.sh)
-  - [bootstrap-runtime-deps-darwin.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps-darwin.sh)
+- bare-metal host validator: [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/check-runtime-host)
 
 The manifest now declares runtime-owned profile and subagent defaults:
 
@@ -195,8 +213,9 @@ Browser sessions remain runtime-local handles rather than kernel-owned
 resources. The first cut uses Playwright-managed Chromium through
 [session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/browser/session_host.mjs).
 
-The Docker build installs the Playwright browser bundle during image creation.
-Operators can still override the browser executable path with:
+Docker deployments inherit Playwright plus Chromium from
+[images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus). Bare-metal
+operators can override the browser executable path with:
 
 - `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
 
@@ -384,33 +403,37 @@ same kernel-facing operation.
 `Fenix` now documents one concrete distribution shape that matches the pairing
 manifest:
 
-- Docker Compose is the default deployment path
+- Docker on top of `images/nexus` is the default deployment path
 - Ubuntu 24.04 is the canonical bare-metal host
 - macOS remains a best-effort development environment
 
-### Docker Compose
+### Docker On `images/nexus`
 
-Use [docker-compose.fenix.yml](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/docker-compose.fenix.yml)
-as the default sample:
+Build the cowork runtime base first, then build the app image on top of it:
+
+```bash
+docker build -f images/nexus/Dockerfile -t nexus-local .
+docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f agents/fenix/Dockerfile -t fenix-local agents/fenix
+```
+
+For local container runs:
 
 1. Copy [env.sample](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/env.sample) to `.env`
-2. Fill in the Core Matrix credential and either:
+2. Fill in `CORE_MATRIX_MACHINE_CREDENTIAL` and either:
    - keep runtime secrets in the env file for container deployments, or
    - leave them blank and mount Rails credentials intentionally
-3. Start the stack with Docker Compose, or use the same file with
-   `docker run --env-file ./.env <image_name>`
+3. Start the app image with `docker run --env-file ./.env -p 3101:80 fenix-local`
 
-- `fenix`
-  - main Rails runtime
-  - loads `./.env` through Compose `env_file`
-  - mounts `./tmp/docker-workspace:/workspace`
-  - persists SQLite state in `/rails/storage`
-  - exposes `3101 -> 80`
-- `fenix-dev-proxy`
-  - runs [bin/fenix-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/fenix-dev-proxy)
-  - loads `./.env` through Compose `env_file`
-  - serves the fixed-port developer proxy on `3310`
-  - shares `tmp/dev-proxy/routes.caddy` through the `fenix_proxy_routes` volume
+The app image intentionally owns only app-local responsibilities:
+
+- copy source into `/rails`
+- install gems from `Gemfile.lock`
+- precompile bootsnap caches
+- provide the Rails entrypoint and default server command
+
+The broad cowork toolchain baseline lives in
+[images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus), not in the
+`fenix` app image.
 
 Key environment variables in the sample:
 
@@ -431,42 +454,31 @@ Key environment variables in the sample:
     terminator changes the public scheme/host/port
 - `CORE_MATRIX_BASE_URL`
 - `CORE_MATRIX_MACHINE_CREDENTIAL`
-- `PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright`
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=...`
+  - optional bare-metal override when Chromium is not on `PATH`
 - `FENIX_DEV_PROXY_PORT=3310`
 - `FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy`
-
-Named volumes in the sample:
-
-- `fenix_storage`
-  - persists `production.sqlite3` under `/rails/storage`
-- `fenix_proxy_routes`
-  - shares the generated Caddy route fragments between `fenix` and
-    `fenix-dev-proxy`
 
 ### Ubuntu 24.04 Bare Metal
 
 The canonical bare-metal target is Ubuntu 24.04. Operators should:
 
-- install runtime dependencies with
-  [bootstrap-runtime-deps.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps.sh)
-- run `npm ci`
-- run `npx playwright install chromium`
+- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/check-runtime-host)
+- satisfy any missing prerequisites it reports
 - provide `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_MACHINE_CREDENTIAL`
 - provide runtime secrets either through ENV or by populating Rails credentials
   with `bin/rails credentials:edit`
-- start the Rails runtime and, when proxy paths are needed, start
-  `bin/fenix-dev-proxy`
+- start the Rails runtime and any app-local worker processes the deployment
+  topology requires
 
 ### macOS Development Caveats
 
 macOS is supported for development and validation, but not treated as the
 canonical appliance baseline:
 
-- use
-  [bootstrap-runtime-deps-darwin.sh](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/bootstrap-runtime-deps-darwin.sh)
-- run `npm ci`
-- run `npx playwright install chromium`
-- keep using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only if you intentionally
+- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/check-runtime-host)
+- satisfy any missing prerequisites it reports
+- keep using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when you intentionally
   want a non-default browser binary
 
 ## License

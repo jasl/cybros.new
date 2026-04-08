@@ -65,7 +65,7 @@ module SubagentSessions
             selector_source: @origin_turn.resolved_model_selection_snapshot["selector_source"] || "conversation",
             selector: @origin_turn.normalized_selector,
             initial_kind: "subagent_step",
-            initial_payload: @task_payload.presence || { "delivery_kind" => "subagent_spawn" },
+            initial_payload: initial_payload(conversation: conversation),
             origin_turn: @origin_turn,
             subagent_session: session
           )
@@ -169,6 +169,25 @@ module SubagentSessions
         "scope" => session.scope,
         "parent_subagent_session_id" => session.parent_subagent_session&.public_id,
         "subagent_depth" => session.depth,
+      }.compact
+    end
+
+    def initial_payload(conversation:)
+      @initial_payload ||= begin
+        payload = @task_payload.deep_dup
+        payload["delivery_kind"] ||= "subagent_spawn"
+        payload["delegation_package"] = delegation_package(conversation:)
+        payload
+      end
+    end
+
+    def delegation_package(conversation:)
+      {
+        "owner_conversation_id" => conversation.public_id,
+        "origin_turn_id" => @origin_turn.public_id,
+        "scope" => @scope,
+        "profile_key" => resolved_profile_key(conversation:),
+        "content" => @content,
       }.compact
     end
 

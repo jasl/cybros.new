@@ -1,62 +1,67 @@
+require "json"
+
 module Fenix
   module Prompts
     class Assembler
-      AGENT_PROMPT = <<~TEXT.freeze
-        You are Fenix, the default agent runtime for Core Matrix.
-        Follow the code-owned agent instructions first, then apply workspace overrides.
-      TEXT
-
       def self.call(...)
         new(...).call
       end
 
-      def initialize(workspace_root:, conversation_id:, agent_program_version_id: nil, profile: "main", is_subagent: false)
-        @layout = Fenix::Workspace::Layout.new(workspace_root:, conversation_id:, agent_program_version_id:)
-        @memory_store = Fenix::Memory::Store.new(workspace_root:, conversation_id:, agent_program_version_id:)
-        @profile = profile
-        @is_subagent = is_subagent
+      def initialize(profile:, is_subagent:, workspace_instructions:, skill_overlay:, durable_state:, execution_context:)
+        @profile = profile.to_s
+        @is_subagent = is_subagent == true
+        @workspace_instructions = workspace_instructions
+        @skill_overlay = Array(skill_overlay).filter_map(&:presence)
+        @durable_state = durable_state.presence
+        @execution_context = execution_context.presence || {}
       end
 
       def call
-        payload = {
-          "agent_prompt" => AGENT_PROMPT,
-          "soul" => prompt_contents("SOUL.md", built_in_prompt("SOUL.md")),
-          "user" => prompt_contents("USER.md", built_in_prompt("USER.md")),
-          "memory" => @memory_store.root_memory,
-          "conversation_summary" => @memory_store.conversation_summary,
+        {
+          "system_prompt" => [
+            section("Code-Owned Base", prompt_file("SOUL.md")),
+            section("Role Overlay", role_overlay),
+            section("Workspace Instructions", workspace_instruction_text),
+            section("Skill Overlay", skill_overlay_text),
+            section("CoreMatrix Durable State", durable_state_text),
+            section("Execution-Local Fenix Context", execution_context_text),
+          ].join("\n\n"),
         }
-
-        return payload unless include_operator_layer?
-
-        payload.merge(
-          "operator_prompt" => built_in_prompt("OPERATOR.md"),
-          "operator_state" => current_operator_state
-        )
       end
 
       private
 
-      def include_operator_layer?
-        @profile == "main" && !@is_subagent
+      def section(title, body)
+        "## #{title}\n#{body.to_s.strip}"
       end
 
-      def current_operator_state
-        path = @layout.conversation_operator_state_file
-        return {} unless path&.exist?
-
-        JSON.parse(path.read)
-      rescue JSON::ParserError
-        {}
+      def role_overlay
+        prompt_file(@is_subagent || @profile == "researcher" ? "WORKER.md" : "USER.md")
       end
 
-      def prompt_contents(filename, fallback)
-        override = @layout.workspace_root.join(filename)
-        return override.read if override.exist?
-
-        fallback
+      def workspace_instruction_text
+        @workspace_instructions.presence || "No workspace instructions provided."
       end
 
-      def built_in_prompt(filename)
+      def skill_overlay_text
+        return "No active skills loaded." if @skill_overlay.empty?
+
+        @skill_overlay.join("\n\n")
+      end
+
+      def durable_state_text
+        return "No durable state view provided by CoreMatrix." unless @durable_state.present?
+
+        JSON.pretty_generate(@durable_state)
+      end
+
+      def execution_context_text
+        return "No execution-local context provided." if @execution_context.blank?
+
+        JSON.pretty_generate(@execution_context)
+      end
+
+      def prompt_file(filename)
         Rails.root.join("prompts", filename).read
       end
     end

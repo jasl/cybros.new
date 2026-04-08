@@ -29,7 +29,7 @@ module Fenix
 
       def call
         realtime_result = build_realtime_session.call
-        poll_results = recover_pending_mailbox_work(realtime_result:)
+        poll_results = recover_pending_mailbox_work(realtime_result: realtime_result)
 
         if realtime_result.processed_count.positive?
           Result.new(
@@ -77,7 +77,7 @@ module Fenix
           if result.respond_to?(:mailbox_item_id)
             result.mailbox_item_id
           elsif result.is_a?(Hash)
-            result["item_id"] || result[:item_id]
+            result["item_id"] || result[:item_id] || result["mailbox_item_id"] || result[:mailbox_item_id]
           end
 
         return if mailbox_item_id.blank?

@@ -1,166 +1,41 @@
 require "test_helper"
 
 class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
-  FakeControlClient = Struct.new(:mailbox_items, :reported_payloads, keyword_init: true) do
+  FakeControlClient = Struct.new(:mailbox_items, keyword_init: true) do
     def poll(limit:)
       Array(mailbox_items).first(limit)
     end
-
-    def report!(payload:)
-      reported_payloads << payload.deep_dup
-      { "result" => "accepted" }
-    end
-
-    def create_tool_invocation!(agent_task_run_id:, tool_name:, request_payload:, idempotency_key: nil, stream_output: false, metadata: {})
-      @delegate ||= ActiveSupport::TestCase::RuntimeControlClientDouble.new(
-        mailbox_items: [],
-        reported_payloads: [],
-        tool_invocation_requests: [],
-        command_run_requests: [],
-        command_run_activations: [],
-        process_run_requests: [],
-        tool_invocations_by_key: {},
-        tool_invocations_by_id: {},
-        command_runs_by_invocation: {}
-      )
-      @delegate.create_tool_invocation!(
-        agent_task_run_id: agent_task_run_id,
-        tool_name: tool_name,
-        request_payload: request_payload,
-        idempotency_key: idempotency_key,
-        stream_output: stream_output,
-        metadata: metadata
-      )
-    end
-
-    def create_command_run!(tool_invocation_id:, command_line:, timeout_seconds: nil, pty: false, metadata: {})
-      @delegate ||= ActiveSupport::TestCase::RuntimeControlClientDouble.new(
-        mailbox_items: [],
-        reported_payloads: [],
-        tool_invocation_requests: [],
-        command_run_requests: [],
-        command_run_activations: [],
-        process_run_requests: [],
-        tool_invocations_by_key: {},
-        tool_invocations_by_id: {},
-        command_runs_by_invocation: {}
-      )
-      @delegate.create_command_run!(
-        tool_invocation_id: tool_invocation_id,
-        command_line: command_line,
-        timeout_seconds: timeout_seconds,
-        pty: pty,
-        metadata: metadata
-      )
-    end
-
-    def activate_command_run!(command_run_id:)
-      @delegate.activate_command_run!(command_run_id: command_run_id)
-    end
   end
 
-  setup do
-    @original_client = Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client) ?
-      Fenix::Runtime::ControlPlane.instance_variable_get(:@client) :
-      :__undefined__
-  end
-
-  teardown do
-    if @original_client == :__undefined__
-      Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
-    else
-      Fenix::Runtime::ControlPlane.client = @original_client
-    end
-  end
-
-  test "poll tick dispatches an execution assignment and forwards incremental reports" do
+  test "poll tick dispatches each mailbox item through the configured worker" do
     client = FakeControlClient.new(
       mailbox_items: [
-        runtime_assignment_payload(mode: "deterministic_tool").merge("item_type" => "execution_assignment"),
-      ],
-      reported_payloads: []
+        { "item_id" => "item-1", "control_plane" => "program" },
+        { "item_id" => "item-2", "control_plane" => "executor" },
+      ]
     )
-    Fenix::Runtime::ControlPlane.client = client
-
-    assert_enqueued_jobs 1 do
-      Fenix::Runtime::MailboxPump.call(limit: 10)
+    invocations = []
+    mailbox_worker = lambda do |mailbox_item:, deliver_reports:, control_client:, inline:|
+      invocations << {
+        mailbox_item: mailbox_item.deep_dup,
+        deliver_reports: deliver_reports,
+        control_client: control_client,
+        inline: inline,
+      }
+      { "item_id" => mailbox_item.fetch("item_id"), "status" => "completed" }
     end
 
-    perform_enqueued_jobs
-
-    assert_equal %w[execution_started execution_progress execution_complete],
-      client.reported_payloads.map { |payload| payload.fetch("method_id") }
-  end
-
-  test "inline poll tick runs the mailbox item to completion without enqueuing a job" do
-    client = FakeControlClient.new(
-      mailbox_items: [
-        runtime_assignment_payload(mode: "deterministic_tool").merge("item_type" => "execution_assignment"),
-      ],
-      reported_payloads: []
+    results = Fenix::Runtime::MailboxPump.call(
+      limit: 10,
+      control_client: client,
+      mailbox_worker: mailbox_worker,
+      inline: true
     )
-    Fenix::Runtime::ControlPlane.client = client
 
-    results = nil
-
-    assert_enqueued_jobs 0 do
-      results = Fenix::Runtime::MailboxPump.call(limit: 10, inline: true)
-    end
-
-    assert_equal 1, results.length
-    assert_equal "completed", results.first.status
-    assert_equal %w[execution_started execution_progress execution_complete],
-      client.reported_payloads.map { |payload| payload.fetch("method_id") }
-  end
-
-  test "poll tick handles agent task close requests locally and reports close lifecycle" do
-    agent_task_run_id = "task-#{SecureRandom.uuid}"
-    stdin = nil
-    stdout = nil
-    stderr = nil
-    wait_thread = nil
-
-    begin
-      stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", "cat")
-      Fenix::Runtime::CommandRunRegistry.register(
-        command_run_id: "command-run-#{SecureRandom.uuid}",
-        agent_task_run_id: agent_task_run_id,
-        stdin: stdin,
-        stdout: stdout,
-        stderr: stderr,
-        wait_thread: wait_thread
-      )
-
-      client = FakeControlClient.new(
-        mailbox_items: [
-          {
-            "item_type" => "resource_close_request",
-            "item_id" => "close-mailbox-1",
-            "protocol_message_id" => "close-request-1",
-            "control_plane" => "program",
-            "payload" => {
-              "resource_type" => "AgentTaskRun",
-              "resource_id" => agent_task_run_id,
-            },
-          },
-        ],
-        reported_payloads: []
-      )
-      Fenix::Runtime::ControlPlane.client = client
-
-      assert_enqueued_jobs 0 do
-        Fenix::Runtime::MailboxPump.call(limit: 10)
-      end
-
-      assert_equal %w[resource_close_acknowledged resource_closed],
-        client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    ensure
-      stdin&.close unless stdin.nil? || stdin.closed?
-      stdout&.close unless stdout.nil? || stdout.closed?
-      stderr&.close unless stderr.nil? || stderr.closed?
-      Process.kill("KILL", wait_thread.pid) if wait_thread&.alive?
-    end
-  rescue Errno::ESRCH
-    nil
+    assert_equal %w[item-1 item-2], results.map { |entry| entry.fetch("item_id") }
+    assert_equal 2, invocations.length
+    assert invocations.all? { |entry| entry.fetch(:deliver_reports) == true }
+    assert invocations.all? { |entry| entry.fetch(:control_client).equal?(client) }
+    assert invocations.all? { |entry| entry.fetch(:inline) == true }
   end
 end

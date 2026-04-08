@@ -18,46 +18,269 @@ module Fenix
           end
         end
 
+        def executor_tool_catalog
+          REGISTRY.values.map { |entry| entry.fetch(:catalog_entry).deep_dup }
+        end
+
         private
 
-        def register!(entries, tool_names, executor:, projector:, registry_backed: false)
-          Array(tool_names).each do |tool_name|
-            raise ArgumentError, "duplicate tool registry entry #{tool_name}" if entries.key?(tool_name)
+        def register!(entries, catalog_entry:, executor:, projector:, registry_backed: true)
+          normalized_catalog_entry = catalog_entry.deep_dup
+          normalized_catalog_entry["idempotency_policy"] ||= "best_effort"
 
-            entries[tool_name] = {
-              executor: executor,
-              projector: projector,
-              registry_backed: registry_backed,
-            }.freeze
-          end
+          tool_name = normalized_catalog_entry.fetch("tool_name")
+          raise ArgumentError, "duplicate tool registry entry #{tool_name}" if entries.key?(tool_name)
+
+          entries[tool_name] = {
+            executor: executor,
+            projector: projector,
+            registry_backed: registry_backed,
+            catalog_entry: normalized_catalog_entry.freeze,
+          }.freeze
         end
       end
 
       entries = {}
-      register!(entries, %w[calculator],
-        executor: Fenix::Runtime::ToolExecutors::Calculator,
-        projector: Fenix::Hooks::ToolResultProjectors::Calculator)
-      register!(entries, %w[command_run_list command_run_read_output command_run_terminate command_run_wait exec_command write_stdin],
-        executor: Fenix::Runtime::ToolExecutors::ExecCommand,
-        projector: Fenix::Hooks::ToolResultProjectors::ExecCommand,
-        registry_backed: true)
-      register!(entries, %w[process_exec process_list process_proxy_info process_read_output],
-        executor: Fenix::Runtime::ToolExecutors::Process,
-        projector: Fenix::Hooks::ToolResultProjectors::Process,
-        registry_backed: true)
-      register!(entries, %w[browser_close browser_get_content browser_list browser_navigate browser_open browser_screenshot browser_session_info],
-        executor: Fenix::Runtime::ToolExecutors::Browser,
-        projector: Fenix::Hooks::ToolResultProjectors::Browser,
-        registry_backed: true)
-      register!(entries, %w[workspace_find workspace_read workspace_stat workspace_tree workspace_write],
-        executor: Fenix::Runtime::ToolExecutors::Workspace,
-        projector: Fenix::Hooks::ToolResultProjectors::Workspace)
-      register!(entries, %w[memory_append_daily memory_compact_summary memory_get memory_list memory_search memory_store],
-        executor: Fenix::Runtime::ToolExecutors::Memory,
-        projector: Fenix::Hooks::ToolResultProjectors::Memory)
-      register!(entries, %w[firecrawl_scrape firecrawl_search web_fetch web_search],
-        executor: Fenix::Runtime::ToolExecutors::Web,
-        projector: Fenix::Hooks::ToolResultProjectors::Web)
+
+      [
+        {
+          "tool_name" => "exec_command",
+          "tool_kind" => "executor_program",
+          "operator_group" => "command_run",
+          "resource_identity_kind" => "command_run",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/exec_command",
+          "supports_streaming_output" => true,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_line" => { "type" => "string" },
+              "timeout_seconds" => { "type" => "integer" },
+              "pty" => { "type" => "boolean" },
+            },
+            "required" => ["command_line"],
+          },
+        },
+        {
+          "tool_name" => "write_stdin",
+          "tool_kind" => "executor_program",
+          "operator_group" => "command_run",
+          "resource_identity_kind" => "command_run",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/exec_command",
+          "supports_streaming_output" => true,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_run_id" => { "type" => "string" },
+              "text" => { "type" => "string" },
+              "eof" => { "type" => "boolean" },
+              "wait_for_exit" => { "type" => "boolean" },
+              "timeout_seconds" => { "type" => "integer" },
+            },
+            "required" => ["command_run_id"],
+          },
+        },
+        {
+          "tool_name" => "command_run_list",
+          "tool_kind" => "executor_program",
+          "operator_group" => "command_run",
+          "resource_identity_kind" => "command_run",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/exec_command",
+          "supports_streaming_output" => false,
+          "input_schema" => { "type" => "object", "properties" => {} },
+        },
+        {
+          "tool_name" => "command_run_read_output",
+          "tool_kind" => "executor_program",
+          "operator_group" => "command_run",
+          "resource_identity_kind" => "command_run",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/exec_command",
+          "supports_streaming_output" => true,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_run_id" => { "type" => "string" },
+            },
+            "required" => ["command_run_id"],
+          },
+        },
+        {
+          "tool_name" => "command_run_wait",
+          "tool_kind" => "executor_program",
+          "operator_group" => "command_run",
+          "resource_identity_kind" => "command_run",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/exec_command",
+          "supports_streaming_output" => true,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_run_id" => { "type" => "string" },
+              "timeout_seconds" => { "type" => "integer" },
+            },
+            "required" => ["command_run_id"],
+          },
+        },
+        {
+          "tool_name" => "command_run_terminate",
+          "tool_kind" => "executor_program",
+          "operator_group" => "command_run",
+          "resource_identity_kind" => "command_run",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/exec_command",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_run_id" => { "type" => "string" },
+            },
+            "required" => ["command_run_id"],
+          },
+        },
+      ].each do |catalog_entry|
+        register!(
+          entries,
+          catalog_entry: catalog_entry,
+          executor: Fenix::Runtime::ToolExecutors::ExecCommand,
+          projector: Fenix::Hooks::ToolResultProjectors::ExecCommand
+        )
+      end
+
+      [
+        {
+          "tool_name" => "browser_open",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "url" => { "type" => "string" },
+            },
+          },
+        },
+        {
+          "tool_name" => "browser_list",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {},
+          },
+        },
+        {
+          "tool_name" => "browser_navigate",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "browser_session_id" => { "type" => "string" },
+              "url" => { "type" => "string" },
+            },
+            "required" => ["browser_session_id", "url"],
+          },
+        },
+        {
+          "tool_name" => "browser_session_info",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "browser_session_id" => { "type" => "string" },
+            },
+            "required" => ["browser_session_id"],
+          },
+        },
+        {
+          "tool_name" => "browser_get_content",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "browser_session_id" => { "type" => "string" },
+            },
+            "required" => ["browser_session_id"],
+          },
+        },
+        {
+          "tool_name" => "browser_screenshot",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "browser_session_id" => { "type" => "string" },
+              "full_page" => { "type" => "boolean" },
+            },
+            "required" => ["browser_session_id"],
+          },
+        },
+        {
+          "tool_name" => "browser_close",
+          "tool_kind" => "executor_program",
+          "operator_group" => "browser_session",
+          "resource_identity_kind" => "browser_session",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/browser",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "browser_session_id" => { "type" => "string" },
+            },
+            "required" => ["browser_session_id"],
+          },
+        },
+      ].each do |catalog_entry|
+        register!(
+          entries,
+          catalog_entry: catalog_entry,
+          executor: Fenix::Runtime::ToolExecutors::Browser,
+          projector: Fenix::Hooks::ToolResultProjectors::Browser
+        )
+      end
 
       REGISTRY = entries.freeze
       private_constant :REGISTRY

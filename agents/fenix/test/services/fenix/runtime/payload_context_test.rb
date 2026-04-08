@@ -1,67 +1,76 @@
 require "test_helper"
+require "tmpdir"
 
 class Fenix::Runtime::PayloadContextTest < ActiveSupport::TestCase
-  test "normalizes shared payload context from the execution payload" do
-    payload = runtime_assignment_payload.fetch("payload")
+  test "hydrates memory and lazy skill context from workspace files and transcript references" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      root = Pathname.new(workspace_root)
+      root.join("MEMORY.md").write("Workspace memory\n")
+      summary_root = root.join(".fenix", "conversations", "conversation-1", "context")
+      FileUtils.mkdir_p(summary_root)
+      summary_root.join("summary.md").write("Conversation summary\n")
 
-    context = Fenix::Runtime::PayloadContext.call(payload:)
+      skills_root = root.join("skills")
+      system_root = skills_root.join(".system")
+      live_root = skills_root.join("live")
+      curated_root = skills_root.join(".curated")
+      write_skill(system_root, "deploy-agent", "Deploy agents safely", "Use evidence-backed deploy steps.")
 
-    assert_equal payload.dig("task", "agent_task_run_id"), context.fetch("agent_task_run_id")
-    assert_equal payload.dig("task", "workflow_run_id"), context.fetch("workflow_run_id")
-    assert_equal payload.dig("task", "workflow_node_id"), context.fetch("workflow_node_id")
-    assert_equal payload.dig("task", "conversation_id"), context.fetch("conversation_id")
-    assert_equal payload.dig("task", "turn_id"), context.fetch("turn_id")
-    assert_equal payload.dig("task", "kind"), context.fetch("kind")
-    assert_equal payload.fetch("task_payload"), context.fetch("task_payload")
-    assert_equal payload.dig("runtime_context", "logical_work_id"), context.fetch("logical_work_id")
-    assert_equal payload.dig("runtime_context", "attempt_no"), context.fetch("attempt_no")
-    assert_equal payload.dig("runtime_context", "control_plane"), context.fetch("control_plane")
-    assert_equal payload.dig("runtime_context", "agent_program_version_id"),
-      context.dig("runtime_identity", "agent_program_version_id")
-    assert_equal payload.dig("conversation_projection", "messages"), context.fetch("context_messages")
-    assert_equal payload.dig("conversation_projection", "context_imports"), context.fetch("context_imports")
-    assert_equal payload.dig("conversation_projection", "prior_tool_results"), context.fetch("prior_tool_results")
-    assert_equal payload.dig("provider_context", "budget_hints"), context.fetch("budget_hints")
-    assert_equal payload.dig("provider_context", "provider_execution"), context.fetch("provider_execution")
-    assert_equal payload.dig("provider_context", "model_context"), context.fetch("model_context")
-    assert_equal payload.dig("capability_projection", "tool_surface").map { |entry| entry.fetch("tool_name") },
-      context.dig("agent_context", "allowed_tool_names")
-    assert_equal payload.dig("capability_projection", "profile_key"), context.dig("agent_context", "profile")
-    assert_equal payload.dig("capability_projection", "is_subagent"), context.dig("agent_context", "is_subagent")
-    assert context.dig("workspace_context", "workspace_root").present?
-    assert context.dig("workspace_context", "env_overlay").is_a?(Hash)
-    assert context.dig("workspace_context", "prompts").is_a?(Hash)
+      context = Fenix::Runtime::PayloadContext.call(
+        payload: {
+          "task" => {
+            "workflow_node_id" => "workflow-node-1",
+            "conversation_id" => "conversation-1",
+            "turn_id" => "turn-1",
+            "kind" => "turn_step",
+          },
+          "round_context" => {
+            "messages" => [
+              { "role" => "user", "content" => "Use $deploy-agent before delivery." },
+            ],
+            "context_imports" => [],
+          },
+          "agent_context" => {
+            "profile" => "main",
+            "allowed_tool_names" => %w[compact_context],
+          },
+          "provider_context" => {},
+          "runtime_context" => {
+            "agent_program_version_id" => "agent-program-version-1",
+          },
+          "workspace_context" => {
+            "workspace_root" => workspace_root,
+          },
+        },
+        memory_store: Fenix::Memory::Store.new(workspace_root: workspace_root, conversation_id: "conversation-1"),
+        skills_catalog: Fenix::Skills::Catalog.new(
+          system_root: system_root,
+          live_root: live_root,
+          curated_root: curated_root
+        )
+      )
+
+      assert_includes context.dig("memory_context", "summary"), "Workspace memory"
+      assert_includes context.dig("memory_context", "summary"), "Conversation summary"
+      assert_equal ["deploy-agent"], context.dig("skill_context", "active_skill_names")
+      assert_includes context.dig("skill_context", "active_skill_contents", 0), "Use evidence-backed deploy steps."
+    end
   end
 
-  test "falls back to mailbox defaults when runtime context omits shared execution fields" do
-    mailbox_item = runtime_assignment_payload
-    mailbox_item["logical_work_id"] = "logical-work-from-mailbox"
-    mailbox_item["attempt_no"] = 3
-    mailbox_item["control_plane"] = "program"
-    mailbox_item.fetch("payload")["runtime_context"] = {
-      "agent_program_version_id" => "agent-program-version-public-id",
-    }
+  private
 
-    context = Fenix::Runtime::PayloadContext.call(
-      payload: mailbox_item.fetch("payload"),
-      defaults: mailbox_item.slice("logical_work_id", "attempt_no", "control_plane")
+  def write_skill(root, name, description, body)
+    skill_root = root.join(name)
+    FileUtils.mkdir_p(skill_root)
+    skill_root.join("SKILL.md").write(
+      <<~MARKDOWN
+        ---
+        name: #{name}
+        description: #{description}
+        ---
+
+        #{body}
+      MARKDOWN
     )
-
-    assert_equal "logical-work-from-mailbox", context.fetch("logical_work_id")
-    assert_equal 3, context.fetch("attempt_no")
-    assert_equal "program", context.fetch("control_plane")
-  end
-
-  test "accepts compact program payloads that use round_context and agent_context" do
-    payload = shared_contract_fixture("core_matrix_fenix_prepare_round_mailbox_item").fetch("payload")
-
-    context = Fenix::Runtime::PayloadContext.call(payload:)
-
-    assert_equal payload.dig("round_context", "messages"), context.fetch("context_messages")
-    assert_equal payload.dig("round_context", "context_imports"), context.fetch("context_imports")
-    assert_equal [], context.fetch("prior_tool_results")
-    assert_equal payload.dig("agent_context", "allowed_tool_names"), context.dig("agent_context", "allowed_tool_names")
-    assert_equal payload.dig("agent_context", "profile"), context.dig("agent_context", "profile")
-    assert_equal payload.dig("agent_context", "is_subagent"), context.dig("agent_context", "is_subagent")
   end
 end

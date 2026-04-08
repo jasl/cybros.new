@@ -6,6 +6,7 @@ ACCEPTANCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${ACCEPTANCE_ROOT}/.." && pwd)"
 CORE_MATRIX_ROOT="${REPO_ROOT}/core_matrix"
 FENIX_ROOT="${FENIX_PROJECT_ROOT:-${REPO_ROOT}/agents/fenix}"
+NEXUS_ROOT="${NEXUS_PROJECT_ROOT:-${REPO_ROOT}/images/nexus}"
 LOG_DIR="${ACCEPTANCE_ROOT}/logs"
 
 CORE_MATRIX_BASE_URL="${CORE_MATRIX_BASE_URL:-http://127.0.0.1:3000}"
@@ -13,6 +14,7 @@ FENIX_RUNTIME_BASE_URL="${FENIX_RUNTIME_BASE_URL:-http://127.0.0.1:3101}"
 FENIX_RUNTIME_MODE="${FENIX_RUNTIME_MODE:-host}"
 FENIX_DOCKER_CONTAINER="${FENIX_DOCKER_CONTAINER:-fenix-capstone}"
 FENIX_DOCKER_PROXY_CONTAINER="${FENIX_DOCKER_PROXY_CONTAINER:-fenix-capstone-proxy}"
+NEXUS_DOCKER_IMAGE="${NEXUS_DOCKER_IMAGE:-nexus-capstone-base}"
 FENIX_DOCKER_IMAGE="${FENIX_DOCKER_IMAGE:-fenix-capstone-image}"
 FENIX_DOCKER_PROXY_PORT="${FENIX_DOCKER_PROXY_PORT:-3310}"
 FENIX_DOCKER_WORKSPACE_ROOT="${FENIX_DOCKER_WORKSPACE_ROOT:-${REPO_ROOT}/tmp/fenix}"
@@ -264,7 +266,8 @@ remove_volume_if_present() {
 }
 
 rebuild_docker_capstone_image() {
-  docker build -t "${FENIX_DOCKER_IMAGE}" "${FENIX_ROOT}" >>"${LOG_DIR}/fenix-docker-build.log" 2>&1
+  docker build -t "${NEXUS_DOCKER_IMAGE}" -f "${NEXUS_ROOT}/Dockerfile" "${REPO_ROOT}" >>"${LOG_DIR}/fenix-docker-build.log" 2>&1
+  docker build --build-arg "NEXUS_BASE_IMAGE=${NEXUS_DOCKER_IMAGE}" -t "${FENIX_DOCKER_IMAGE}" -f "${FENIX_ROOT}/Dockerfile" "${FENIX_ROOT}" >>"${LOG_DIR}/fenix-docker-build.log" 2>&1
 }
 
 recreate_docker_capstone_stack() {
@@ -294,7 +297,7 @@ recreate_docker_capstone_stack() {
     "${docker_env_args[@]}" \
     -e "RAILS_ENV=production" \
     -e "FENIX_PUBLIC_BASE_URL=${FENIX_RUNTIME_BASE_URL}" \
-    -e "PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright" \
+    -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
     -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
     -v "${FENIX_DOCKER_WORKSPACE_ROOT}:/workspace" \
@@ -308,7 +311,7 @@ recreate_docker_capstone_stack() {
     -p "${FENIX_DOCKER_PROXY_PORT}:${FENIX_DOCKER_PROXY_PORT}" \
     "${docker_env_args[@]}" \
     -e "RAILS_ENV=production" \
-    -e "PLAYWRIGHT_BROWSERS_PATH=/rails/.playwright" \
+    -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
     -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
     -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
     -v "${FENIX_DOCKER_WORKSPACE_ROOT}:/workspace" \

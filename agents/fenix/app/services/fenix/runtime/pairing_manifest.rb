@@ -1,10 +1,37 @@
-require "socket"
-
 module Fenix
   module Runtime
     class PairingManifest
       PROTOCOL_VERSION = "agent-program/2026-04-01".freeze
       SDK_VERSION = "fenix-0.1.0".freeze
+      EXECUTOR_KIND = "local".freeze
+      DEFAULT_EXECUTOR_FINGERPRINT = "bundled-fenix-environment".freeze
+      PROGRAM_TOOL_CATALOG = [
+        {
+          "tool_name" => "compact_context",
+          "tool_kind" => "agent_observation",
+          "operator_group" => "agent_core",
+          "resource_identity_kind" => "agent_context",
+          "mutates_state" => false,
+          "implementation_source" => "agent",
+          "implementation_ref" => "fenix/hooks/compact_context",
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "messages" => { "type" => "array" },
+              "budget_hints" => { "type" => "object" },
+            },
+          },
+          "result_schema" => {
+            "type" => "object",
+            "properties" => {
+              "messages" => { "type" => "array" },
+              "compacted" => { "type" => "boolean" },
+            },
+          },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ].freeze
       PROTOCOL_METHOD_IDS = %w[
         agent_health
         capabilities_handshake
@@ -19,96 +46,6 @@ module Fenix
         resource_close_acknowledged
         resource_closed
         resource_close_failed
-      ].freeze
-      CODE_OWNED_TOOL_CATALOG = [
-        {
-          "tool_name" => "compact_context",
-          "tool_kind" => "agent_observation",
-          "operator_group" => "agent_core",
-          "resource_identity_kind" => "agent_context",
-          "mutates_state" => false,
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/hooks/compact_context",
-          "input_schema" => {
-            "type" => "object",
-            "properties" => {
-              "messages" => { "type" => "array" },
-              "budget_hints" => { "type" => "object" },
-              "likely_model" => { "type" => "string" },
-            },
-          },
-          "result_schema" => {
-            "type" => "object",
-            "properties" => {
-              "messages" => { "type" => "array" },
-              "compacted" => { "type" => "boolean" },
-            },
-          },
-          "streaming_support" => false,
-          "idempotency_policy" => "best_effort",
-        },
-        {
-          "tool_name" => "estimate_messages",
-          "tool_kind" => "agent_observation",
-          "operator_group" => "agent_core",
-          "resource_identity_kind" => "agent_context",
-          "mutates_state" => false,
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/hooks/estimate_messages",
-          "input_schema" => { "type" => "object", "properties" => { "messages" => { "type" => "array" } } },
-          "result_schema" => { "type" => "object", "properties" => { "message_count" => { "type" => "integer" } } },
-          "streaming_support" => false,
-          "idempotency_policy" => "best_effort",
-        },
-        {
-          "tool_name" => "estimate_tokens",
-          "tool_kind" => "agent_observation",
-          "operator_group" => "agent_core",
-          "resource_identity_kind" => "agent_context",
-          "mutates_state" => false,
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/hooks/estimate_tokens",
-          "input_schema" => {
-            "type" => "object",
-            "properties" => {
-              "messages" => { "type" => "array" },
-              "likely_model" => { "type" => "string" },
-            },
-          },
-          "result_schema" => { "type" => "object", "properties" => { "token_estimate" => { "type" => "integer" } } },
-          "streaming_support" => false,
-          "idempotency_policy" => "best_effort",
-        },
-        {
-          "tool_name" => "calculator",
-          "tool_kind" => "agent_observation",
-          "operator_group" => "agent_core",
-          "resource_identity_kind" => "agent_context",
-          "mutates_state" => false,
-          "implementation_source" => "agent",
-          "implementation_ref" => "fenix/runtime/calculator",
-          "input_schema" => {
-            "type" => "object",
-            "properties" => {
-              "expression" => { "type" => "string" },
-            },
-          },
-          "result_schema" => {
-            "type" => "object",
-            "properties" => {
-              "value" => { "type" => "integer" },
-            },
-          },
-          "streaming_support" => false,
-          "idempotency_policy" => "best_effort",
-        },
-      ].freeze
-      SUBAGENT_TOOL_NAMES = %w[
-        subagent_spawn
-        subagent_send
-        subagent_wait
-        subagent_close
-        subagent_list
       ].freeze
       CONFIG_SCHEMA_SNAPSHOT = {
         "type" => "object",
@@ -160,7 +97,6 @@ module Fenix
           "selector" => "role:main",
         },
         "model_slots" => {
-          "research" => { "selector" => "role:researcher" },
           "summary" => { "selector" => "role:summary" },
         },
         "subagents" => {
@@ -169,13 +105,16 @@ module Fenix
           "max_depth" => 3,
         },
       }.freeze
-      EXECUTION_RUNTIME_KIND = "local".freeze
+      RESERVED_SUBAGENT_TOOL_NAMES = %w[
+        subagent_spawn
+        subagent_send
+        subagent_wait
+        subagent_close
+        subagent_list
+      ].freeze
+
       def self.call(...)
         new(...).call
-      end
-
-      def self.program_tool_catalog
-        new(base_url: "http://runtime.invalid").program_tool_catalog
       end
 
       def initialize(base_url:)
@@ -187,12 +126,11 @@ module Fenix
           "agent_key" => "fenix",
           "display_name" => "Fenix",
           "includes_executor_program" => true,
-          "executor_kind" => EXECUTION_RUNTIME_KIND,
+          "executor_kind" => EXECUTOR_KIND,
           "executor_fingerprint" => executor_fingerprint,
           "executor_connection_metadata" => endpoint_metadata,
           "executor_capability_payload" => executor_capability_payload,
           "executor_tool_catalog" => executor_tool_catalog,
-          "operator_groups" => operator_groups,
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "endpoint_metadata" => endpoint_metadata,
@@ -209,10 +147,6 @@ module Fenix
         }
       end
 
-      def program_tool_catalog
-        @program_tool_catalog ||= CODE_OWNED_TOOL_CATALOG + plugin_catalog.program_tool_catalog
-      end
-
       private
 
       def endpoint_metadata
@@ -221,6 +155,10 @@ module Fenix
           "base_url" => @base_url,
           "runtime_manifest_path" => "/runtime/manifest",
         }
+      end
+
+      def executor_fingerprint
+        ENV["FENIX_RUNTIME_FINGERPRINT"].presence || DEFAULT_EXECUTOR_FINGERPRINT
       end
 
       def program_contract
@@ -234,6 +172,32 @@ module Fenix
 
       def protocol_methods
         PROTOCOL_METHOD_IDS.map { |method_id| { "method_id" => method_id } }
+      end
+
+      def program_tool_catalog
+        PROGRAM_TOOL_CATALOG
+      end
+
+      def executor_tool_catalog
+        Fenix::Runtime::SystemToolRegistry.executor_tool_catalog
+      end
+
+      def profile_catalog
+        allowed_tool_names = effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
+
+        {
+          "main" => {
+            "label" => "Main",
+            "description" => "Primary interactive profile",
+            "allowed_tool_names" => allowed_tool_names + RESERVED_SUBAGENT_TOOL_NAMES,
+          },
+          "researcher" => {
+            "label" => "Researcher",
+            "description" => "Delegated research profile",
+            "default_subagent_profile" => true,
+            "allowed_tool_names" => allowed_tool_names + (RESERVED_SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
+          },
+        }
       end
 
       def program_plane
@@ -256,60 +220,21 @@ module Fenix
         }
       end
 
-      def executor_tool_catalog
-        @executor_tool_catalog ||= plugin_catalog.executor_tool_catalog
-      end
-
-      def profile_catalog
-        tool_names = effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
-
-        {
-          "main" => {
-            "label" => "Main",
-            "description" => "Primary interactive profile",
-            "allowed_tool_names" => tool_names + SUBAGENT_TOOL_NAMES,
-          },
-          "researcher" => {
-            "label" => "Researcher",
-            "description" => "Delegated research profile",
-            "default_subagent_profile" => true,
-            "allowed_tool_names" => tool_names + (SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
-          },
-        }
-      end
-
       def executor_capability_payload
         {
-          "attachment_access" => {
-            "request_attachment" => true,
-          },
           "runtime_foundation" => runtime_foundation,
-          "fixed_port_dev_proxy" => {
-            "external_port_env" => "FENIX_DEV_PROXY_PORT",
-            "default_external_port" => 3310,
-            "routes_file_env" => "FENIX_DEV_PROXY_ROUTES_FILE",
-            "path_prefix_template" => "/dev/<process_run_id>",
-          },
         }
-      end
-
-      def operator_groups
-        @operator_groups ||= Fenix::Operator::Catalog.new(tool_catalog: effective_tool_catalog).groups
       end
 
       def runtime_foundation
         {
-          "base_image" => "ubuntu-24.04",
-          "toolchains" => %w[ruby node python],
-          "versions" => {
-            "ruby" => version_file_contents(".ruby-version"),
-            "node" => version_file_contents(".node-version"),
-            "python" => version_file_contents(".python-version"),
-          }.compact,
-          "bootstrap_scripts" => [
-            "/rails/scripts/bootstrap-runtime-deps.sh",
-            "/rails/scripts/bootstrap-runtime-deps-darwin.sh",
-          ],
+          "docker_base_project" => "images/nexus",
+          "canonical_host_os" => "ubuntu-24.04",
+          "bare_metal_validator" => "bin/check-runtime-host",
+          "version_sources" => {
+            "ruby" => ".ruby-version",
+            "docker_runtime" => "images/nexus/versions.env",
+          },
         }
       end
 
@@ -328,21 +253,6 @@ module Fenix
         end
 
         ordinary_order.map { |tool_name| ordinary_entries.fetch(tool_name) }
-      end
-
-      def executor_fingerprint
-        "fenix:#{Socket.gethostname}"
-      end
-
-      def plugin_catalog
-        @plugin_catalog ||= Fenix::Plugins::Registry.default.catalog
-      end
-
-      def version_file_contents(relative_path)
-        path = Rails.root.join(relative_path)
-        return unless path.exist?
-
-        path.read.strip
       end
     end
   end

@@ -1,4 +1,5 @@
 require "test_helper"
+require "tmpdir"
 
 class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "host playability script treats hyphenated game-over status as terminal" do
@@ -53,6 +54,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, 'artifact_dir.join("evidence", "capability-activation.json")'
     assert_includes scenario, 'artifact_dir.join("review", "capability-activation.md")'
+    refute_includes scenario, '{ "key" => "skills", "required" => false }'
   end
 
   test "acceptance scenario writes failure classification benchmark output" do
@@ -69,12 +71,18 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::FailureClassification"
   end
 
-  test "acceptance scenario maps staged skill sources into the docker workspace mount" do
+  test "acceptance scenario uses shared capstone roundtrip helper and avoids staged skill dependencies" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    boot = Rails.root.join("../acceptance/lib/boot.rb").read
+    helper = Rails.root.join("../acceptance/lib/capstone_app_api_roundtrip.rb")
 
-    assert_includes scenario, "def runtime_visible_workspace_path"
-    assert_includes scenario, 'ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace")'
-    assert_includes scenario, '"runtime_source_path"'
+    assert helper.exist?, "expected shared capstone roundtrip helper to exist"
+    assert_includes boot, "require_relative 'capstone_app_api_roundtrip'"
+    assert_includes scenario, "Acceptance::CapstoneAppApiRoundtrip"
+    refute_includes scenario, "Use `$using-superpowers`."
+    refute_includes scenario, "`$find-skills` is installed and available"
+    refute_includes scenario, "prepare_skill_sources!"
+    refute_includes scenario, "install_and_validate_skills!"
   end
 
   test "shell-driven capstone skips redundant backend reset during bootstrap" do
@@ -95,7 +103,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "acceptance scenario checkpoints benchmark artifacts before the final export phase" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'write_json(artifact_dir.join("evidence", "skills-validation.json"), skills_validation)'
+    refute_includes scenario, 'write_json(artifact_dir.join("evidence", "skills-validation.json"), skills_validation)'
+    refute_includes scenario, '"skill_source_manifest_path"'
     assert_includes scenario, 'write_json(artifact_dir.join("evidence", "attempt-history.json"), attempt_history)'
     assert_includes scenario, 'write_json(artifact_dir.join("evidence", "rescue-history.json"), rescue_history)'
     assert_includes scenario, 'write_text(artifact_dir.join("evidence", "terminal-failure.txt"), terminal_failure_message)'
@@ -123,14 +132,30 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
   test "acceptance scenario uses executor bootstrap and registration identifiers" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    helper = Rails.root.join("../acceptance/lib/capstone_app_api_roundtrip.rb").read
 
     assert_includes scenario, '"executor_machine_credential"'
     assert_includes scenario, '"executor_program_id"'
-    assert_includes scenario, '"executor_program_display_name"'
+    assert_includes helper, "'executor_program_display_name'"
     assert_includes scenario, '"executor_session_id"'
-    assert_includes scenario, '"executor_fingerprint"'
+    assert_includes helper, "'executor_fingerprint'"
     assert_includes scenario, "ExecutorProgram.find_by_public_id!"
     assert_includes scenario, "ExecutorSession.find_by_public_id!"
+  end
+
+  test "acceptance registration artifact redacts machine credentials with a non-reversible fingerprint" do
+    require Rails.root.join("../acceptance/lib/credential_redaction")
+    require Rails.root.join("../acceptance/lib/capstone_app_api_roundtrip")
+
+    artifact = Acceptance::CapstoneAppApiRoundtrip.registration_artifact(
+      agent_program: Struct.new(:public_id, :display_name).new("agent_123", "Fenix"),
+      agent_program_version: Struct.new(:public_id, :fingerprint).new("agent_version_123", "program-fingerprint"),
+      executor_program: Struct.new(:public_id, :display_name, :executor_fingerprint).new("executor_123", "Executor", "executor-fingerprint"),
+      machine_credential: "0123456789abcdef"
+    )
+
+    assert_equal "sha256:9f9f5111f7b2:REDACTED", artifact.fetch("machine_credential_redacted")
+    refute_equal "0123456789abcdef", artifact.fetch("machine_credential_redacted")
   end
 
   test "acceptance gate requires plan-first supervision replay bundles and runtime evidence" do
@@ -196,6 +221,52 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ReviewArtifacts.write_workspace_artifacts!"
   end
 
+  test "acceptance scenario sends the executor credential to runtime bindings review output only" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    write_turns_call = scenario[/Acceptance::ReviewArtifacts\.write_turns!\([\s\S]*?\n\)\nAcceptance::ReviewArtifacts\.write_collaboration_notes!/m]
+    runtime_bindings_call = scenario[/Acceptance::ReviewArtifacts\.write_runtime_and_bindings!\([\s\S]*?\n\)\nAcceptance::ReviewArtifacts\.write_workspace_artifacts!/m]
+
+    assert_includes runtime_bindings_call, "executor_machine_credential: executor_machine_credential"
+    refute_includes write_turns_call, "executor_machine_credential: executor_machine_credential"
+  end
+
+  test "review artifacts drop staged skill-source bookkeeping" do
+    helper = Rails.root.join("../acceptance/lib/review_artifacts.rb").read
+
+    refute_includes helper, "skill_source_manifest_path:"
+    refute_includes helper, "Skill source manifest"
+    refute_includes helper, "staged GitHub skill sources"
+  end
+
+  test "runtime bindings review artifact preserves distinct agent and executor credentials" do
+    require Rails.root.join("../acceptance/lib/credential_redaction")
+    require Rails.root.join("../acceptance/lib/review_artifacts")
+
+    Dir.mktmpdir do |dir|
+      artifact_path = Pathname.new(dir).join("runtime-and-bindings.md")
+
+      Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
+        path: artifact_path,
+        workspace_root: Pathname.new("/tmp/fenix-workspace"),
+        machine_credential: "0123456789abcdef",
+        executor_machine_credential: "fedcba9876543210",
+        agent_program: Struct.new(:public_id).new("agent_123"),
+        agent_program_version: Struct.new(:public_id).new("agent_version_123"),
+        executor_program: Struct.new(:public_id).new("executor_123"),
+        docker_container: "fenix-capstone",
+        runtime_base_url: "http://127.0.0.1:3101",
+        runtime_worker_boot: nil
+      )
+
+      artifact = artifact_path.read
+
+      assert_includes artifact, "FENIX_MACHINE_CREDENTIAL=sha256:9f9f5111f7b2:REDACTED"
+      assert_includes artifact, "FENIX_EXECUTION_MACHINE_CREDENTIAL=sha256:3465f6e6975b:REDACTED"
+      refute_includes artifact, "0123456789abcdef"
+      refute_includes artifact, "fedcba9876543210"
+    end
+  end
+
   test "acceptance scenario uses shared host validation helper" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
@@ -210,13 +281,45 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes helper, "def write_playability_verification!"
   end
 
-  test "acceptance scenario makes the game-over status contract explicit" do
+  test "manual acceptance support derives bundled runtime identity from the live manifest" do
+    helper = Rails.root.join("../core_matrix/script/manual/manual_acceptance_support.rb").read
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes helper, 'agent_key: manifest.fetch("agent_key")'
+    assert_includes helper, 'display_name: manifest.fetch("display_name")'
+    assert_includes helper, 'sdk_version: manifest.fetch("sdk_version")'
+    refute_includes helper, 'agent_key: "fenix"'
+    refute_includes helper, 'display_name: "Bundled Fenix"'
+    refute_includes scenario, 'sdk_version: "fenix-0.1.0"'
+  end
+
+  test "manual acceptance support still allows explicit sdk version override for rotation validations" do
+    helper = Rails.root.join("../core_matrix/script/manual/manual_acceptance_support.rb").read
+    rotation = Rails.root.join("../acceptance/scenarios/bundled_rotation_validation.rb").read
+
+    assert_includes helper, 'resolved_sdk_version = sdk_version || manifest.fetch("sdk_version")'
+    assert_includes helper, "sdk_version: resolved_sdk_version"
+    assert_includes rotation, 'sdk_version: "fenix-0.2.0"'
+    assert_includes rotation, 'sdk_version: "fenix-0.0.9"'
+  end
+
+  test "acceptance docs no longer prescribe staged workflow skills for the fenix capstone" do
+    readme = Rails.root.join("../acceptance/README.md").read
+    checklist = Rails.root.join("../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md").read
+
+    assert_includes readme, "bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh"
+    refute_includes checklist, "using-superpowers"
+    refute_includes checklist, "find-skills"
+    refute_includes checklist, "GitHub-sourced skills"
+  end
+
+  test "acceptance scenario makes the game-over status contract explicit" do
+    prompt_helper = Rails.root.join("../acceptance/lib/capstone_app_api_roundtrip.rb").read
     helper = Rails.root.join("../acceptance/lib/host_validation.rb").read
 
-    assert_includes scenario,
+    assert_includes prompt_helper,
       "- expose a game-over status through `data-testid=\"status\"` that visibly contains the words `Game over` when no moves remain"
-    assert_includes scenario,
+    assert_includes prompt_helper,
       "- if the board reaches a terminal no-moves state, the visible status must contain the exact words `Game over`"
     assert_includes helper, "def playability_failure_observations(playwright_validation:)"
   end

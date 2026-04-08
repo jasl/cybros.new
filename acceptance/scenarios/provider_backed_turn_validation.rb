@@ -16,8 +16,7 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-provider-backed-environment",
-  fingerprint: fingerprint,
-  sdk_version: "fenix-0.1.0"
+  fingerprint: fingerprint
 )
 conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
 run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(

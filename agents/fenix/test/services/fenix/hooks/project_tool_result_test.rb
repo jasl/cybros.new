@@ -1,47 +1,37 @@
 require "test_helper"
 
 class Fenix::Hooks::ProjectToolResultTest < ActiveSupport::TestCase
-  test "projects calculator results through the registry-backed dispatcher" do
+  test "projects exec command results through the registry projector" do
     projection = Fenix::Hooks::ProjectToolResult.call(
-      tool_call: { "tool_name" => "calculator" },
-      tool_result: 4
+      tool_call: { "tool_name" => "exec_command" },
+      tool_result: {
+        "command_run_id" => "command-run-1",
+        "exit_status" => 0,
+        "stdout_bytes" => 6,
+        "stderr_bytes" => 0,
+        "output_streamed" => true,
+      }
     )
 
-    assert_equal "calculator", projection.fetch("tool_name")
-    assert_equal "The calculator returned 4.", projection.fetch("content")
+    assert_equal "exec_command", projection.fetch("tool_name")
+    assert_equal "command-run-1", projection.fetch("command_run_id")
+    assert_match(/status 0/, projection.fetch("content"))
   end
 
-  test "reuses the shared search projector for web and firecrawl search tools" do
-    tool_result = {
-      "provider" => "demo",
-      "query" => "fenix",
-      "results" => [
-        { "title" => "Fenix", "url" => "https://example.test/fenix" },
-      ],
-    }
-
-    web_projection = Fenix::Hooks::ProjectToolResult.call(
-      tool_call: { "tool_name" => "web_search" },
-      tool_result: tool_result
-    )
-    firecrawl_projection = Fenix::Hooks::ProjectToolResult.call(
-      tool_call: { "tool_name" => "firecrawl_search" },
-      tool_result: tool_result
+  test "projects browser screenshot results through the registry projector" do
+    projection = Fenix::Hooks::ProjectToolResult.call(
+      tool_call: { "tool_name" => "browser_screenshot" },
+      tool_result: {
+        "browser_session_id" => "browser-session-1",
+        "current_url" => "http://127.0.0.1:4173",
+        "mime_type" => "image/png",
+        "image_base64" => "cG5n",
+      }
     )
 
-    assert_equal "1. Fenix - https://example.test/fenix", web_projection.fetch("content")
-    assert_equal web_projection.fetch("content"), firecrawl_projection.fetch("content")
-    assert_equal "demo", firecrawl_projection.fetch("provider")
-  end
-
-  test "raises for unsupported tool projections" do
-    error = assert_raises(ArgumentError) do
-      Fenix::Hooks::ProjectToolResult.call(
-        tool_call: { "tool_name" => "workspace_delete" },
-        tool_result: {}
-      )
-    end
-
-    assert_includes error.message, "workspace_delete"
+    assert_equal "browser_screenshot", projection.fetch("tool_name")
+    assert_equal "browser-session-1", projection.fetch("browser_session_id")
+    assert_equal "image/png", projection.fetch("mime_type")
+    assert_match(/Captured screenshot/, projection.fetch("content"))
   end
 end

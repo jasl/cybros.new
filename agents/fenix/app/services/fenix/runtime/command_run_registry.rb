@@ -1,8 +1,6 @@
 module Fenix
   module Runtime
     class CommandRunRegistry
-      # Attached command handles are runtime-local execution projections.
-      # Kernel-owned CommandRun records remain the only durable source of truth.
       LocalHandle = Struct.new(
         :command_run_id,
         :agent_task_run_id,
@@ -77,9 +75,7 @@ module Fenix
         end
 
         def lookup(command_run_id:)
-          synchronize do
-            entries[command_run_id]
-          end
+          synchronize { entries[command_run_id] }
         end
 
         def output_snapshot(command_run_id:)
@@ -90,7 +86,7 @@ module Fenix
         end
 
         def release(command_run_id:)
-          entry = lookup(command_run_id:)
+          entry = lookup(command_run_id: command_run_id)
           return if entry.nil?
 
           return snapshot_for(entry) if entry.wait_thread&.alive? && !entry.session_closed
@@ -99,20 +95,8 @@ module Fenix
           snapshot_for(entry)
         end
 
-        def discard(command_run_id:)
-          entry = synchronize do
-            entries.delete(command_run_id)
-          end
-          return if entry.nil?
-
-          close_entry(entry, signal_process: true)
-          snapshot_for(entry)
-        end
-
         def terminate(command_run_id:)
-          entry = synchronize do
-            entries.delete(command_run_id)
-          end
+          entry = synchronize { entries.delete(command_run_id) }
           return if entry.nil?
 
           close_entry(entry, signal_process: true)
@@ -120,20 +104,6 @@ module Fenix
             "terminated" => true,
             "session_closed" => true
           )
-        end
-
-        def terminate_for_agent_task(agent_task_run_id:)
-          command_runs = synchronize do
-            entries.values.select { |entry| entry.agent_task_run_id == agent_task_run_id }
-          end
-
-          command_runs.each do |entry|
-            close_entry(entry, signal_process: true)
-          end
-
-          synchronize do
-            entries.delete_if { |_command_run_id, entry| entry.agent_task_run_id == agent_task_run_id }
-          end
         end
 
         def reset!

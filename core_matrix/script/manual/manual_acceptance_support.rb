@@ -547,10 +547,10 @@ module ManualAcceptanceSupport
         enrollment_token: enrollment_token,
         executor_fingerprint: executor_fingerprint,
         executor_kind: "local",
-        executor_connection_metadata: manifest.fetch("executor_connection_metadata", {
-          "transport" => "http",
-          "base_url" => runtime_base_url,
-        }),
+        executor_connection_metadata: manifest.fetch(
+          "executor_connection_metadata",
+          default_executor_connection_metadata(runtime_base_url:)
+        ),
         fingerprint: fingerprint,
         endpoint_metadata: manifest.fetch("endpoint_metadata"),
         protocol_version: manifest.fetch("protocol_version"),
@@ -596,9 +596,10 @@ module ManualAcceptanceSupport
     runtime_base_url:,
     executor_fingerprint:,
     fingerprint:,
-    sdk_version:
+    sdk_version: nil
   )
     manifest = live_manifest(base_url: runtime_base_url)
+    resolved_sdk_version = sdk_version || manifest.fetch("sdk_version")
     session_credential = SecureRandom.hex(32)
     executor_session_credential = SecureRandom.hex(32)
     runtime = Installations::RegisterBundledAgentRuntime.call(
@@ -607,22 +608,22 @@ module ManualAcceptanceSupport
       executor_session_credential: executor_session_credential,
       configuration: {
         enabled: true,
-        agent_key: "fenix",
-        display_name: "Bundled Fenix",
+        agent_key: manifest.fetch("agent_key"),
+        display_name: manifest.fetch("display_name"),
         visibility: "global",
         lifecycle_state: "active",
-        executor_kind: "local",
+        executor_kind: manifest.fetch("executor_kind"),
         executor_fingerprint: executor_fingerprint,
-        connection_metadata: {
-          "transport" => "http",
-          "base_url" => runtime_base_url,
-        },
+        connection_metadata: manifest.fetch(
+          "executor_connection_metadata",
+          default_executor_connection_metadata(runtime_base_url:)
+        ),
         endpoint_metadata: manifest.fetch("endpoint_metadata"),
         executor_capability_payload: manifest.fetch("executor_capability_payload", {}),
         executor_tool_catalog: manifest.fetch("executor_tool_catalog", []),
         fingerprint: fingerprint,
         protocol_version: manifest.fetch("protocol_version"),
-        sdk_version: sdk_version,
+        sdk_version: resolved_sdk_version,
         protocol_methods: manifest.fetch("protocol_methods"),
         tool_catalog: manifest.fetch("tool_catalog"),
         profile_catalog: manifest.fetch("profile_catalog"),
@@ -637,6 +638,13 @@ module ManualAcceptanceSupport
       runtime: runtime,
       machine_credential: runtime.session_credential || session_credential,
       executor_machine_credential: runtime.executor_session_credential || executor_session_credential,
+    }
+  end
+
+  def default_executor_connection_metadata(runtime_base_url:)
+    {
+      "transport" => "http",
+      "base_url" => runtime_base_url,
     }
   end
 

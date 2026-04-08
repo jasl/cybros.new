@@ -40,4 +40,36 @@ class ProviderExecution::PrepareProgramRoundTest < ActiveSupport::TestCase
     )
     assert_equal "prepare-round:#{context.fetch(:workflow_node).public_id}", request_payload.fetch("runtime_context").fetch("logical_work_id")
   end
+
+  test "includes work_context_view in the prepare_round payload" do
+    context = build_governed_tool_context!
+    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "assistant", "content" => "Round prepared" },
+          ],
+          "visible_tool_names" => ["workspace_write_file"],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ]
+    )
+    transcript = [
+      { "role" => "user", "content" => "Prepare the work context" },
+    ]
+
+    ProviderExecution::PrepareProgramRound.call(
+      workflow_node: context.fetch(:workflow_node),
+      transcript: transcript,
+      program_exchange: program_exchange
+    )
+
+    request_payload = program_exchange.prepare_round_requests.last
+
+    assert_equal(
+      ProviderExecution::BuildWorkContextView.call(workflow_node: context.fetch(:workflow_node)),
+      request_payload.fetch("round_context").fetch("work_context_view")
+    )
+  end
 end

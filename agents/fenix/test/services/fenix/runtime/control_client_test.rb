@@ -4,39 +4,9 @@ require "net/http"
 class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
   Response = Struct.new(:code, :body, keyword_init: true)
 
-  test "uses ssl when the configured core matrix base url is https" do
-    observed = nil
-    response = Response.new(code: "200", body: JSON.generate({ "result" => "accepted" }))
-    http = Object.new
-    http.define_singleton_method(:request) { |_request| response }
-
-    with_stubbed_http_start do
-      ::Net::HTTP.singleton_class.define_method(:start) do |host, port, use_ssl: false, open_timeout: nil, read_timeout: nil, write_timeout: nil, &block|
-        observed = { host:, port:, use_ssl:, open_timeout:, read_timeout:, write_timeout: }
-        block.call(http)
-      end
-
-      client = Fenix::Runtime::ControlClient.new(
-        base_url: "https://core-matrix.example.test",
-        machine_credential: "secret",
-        open_timeout: 3,
-        read_timeout: 11,
-        write_timeout: 17
-      )
-
-      client.report!(payload: { "method_id" => "execution_started" })
-    end
-
-    assert_equal "core-matrix.example.test", observed.fetch(:host)
-    assert_equal 443, observed.fetch(:port)
-    assert_equal true, observed.fetch(:use_ssl)
-    assert_equal 3, observed.fetch(:open_timeout)
-    assert_equal 11, observed.fetch(:read_timeout)
-    assert_equal 17, observed.fetch(:write_timeout)
-  end
-
-  test "register posts without machine credentials while authenticated endpoints include them" do
+  test "poll merges program and executor mailbox items and routes reports by control plane" do
     requests = []
+    mailbox_items = nil
 
     with_captured_requests(requests) do
       client = Fenix::Runtime::ControlClient.new(
@@ -45,12 +15,44 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
         execution_machine_credential: "execution-secret"
       )
 
+      mailbox_items = client.poll(limit: 5)
+      client.report!(payload: { "method_id" => "execution_started" })
+      client.report!(payload: { "method_id" => "process_started" })
+      client.report!(payload: { "method_id" => "resource_closed", "resource_type" => "ProcessRun" })
+    end
+
+    assert_equal %w[program-1 executor-1], mailbox_items.map { |item| item.fetch("item_id") }
+    assert_equal [
+      "POST /agent_api/control/poll",
+      "POST /executor_api/control/poll",
+      "POST /agent_api/control/report",
+      "POST /executor_api/control/report",
+      "POST /executor_api/control/report",
+    ], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
+    assert_equal [
+      %(Token token="secret"),
+      %(Token token="execution-secret"),
+      %(Token token="secret"),
+      %(Token token="execution-secret"),
+      %(Token token="execution-secret"),
+    ], requests.map { |entry| entry.fetch(:authorization) }
+  end
+
+  test "register omits authorization while heartbeat uses the program credential" do
+    requests = []
+
+    with_captured_requests(requests) do
+      client = Fenix::Runtime::ControlClient.new(
+        base_url: "https://core-matrix.example.test",
+        machine_credential: "secret"
+      )
+
       client.register!(
-        enrollment_token: "enroll-123",
-        executor_fingerprint: "fenix:test",
-        executor_connection_metadata: { "transport" => "http" },
-        fingerprint: "deployment-fingerprint",
-        endpoint_metadata: { "base_url" => "https://fenix.example.test" },
+        enrollment_token: "enrollment-token",
+        executor_fingerprint: "bundled-fenix-environment",
+        executor_connection_metadata: { "transport" => "http", "base_url" => "http://fenix.example.test:3101" },
+        fingerprint: "bundled-fenix-release-0.1.0",
+        endpoint_metadata: { "transport" => "http", "base_url" => "http://fenix.example.test:3101", "runtime_manifest_path" => "/runtime/manifest" },
         protocol_version: "agent-program/2026-04-01",
         sdk_version: "fenix-0.1.0"
       )
@@ -60,154 +62,111 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
     register_request = requests.fetch(0)
     heartbeat_request = requests.fetch(1)
 
-    assert_equal "POST", register_request.fetch(:method)
     assert_equal "/agent_api/registrations", register_request.fetch(:path)
     assert_nil register_request.fetch(:authorization)
-    assert_equal "enroll-123", register_request.fetch(:json_body).fetch("enrollment_token")
+    assert_equal "enrollment-token", register_request.fetch(:json_body).fetch("enrollment_token")
 
-    assert_equal "POST", heartbeat_request.fetch(:method)
     assert_equal "/agent_api/heartbeats", heartbeat_request.fetch(:path)
     assert_equal %(Token token="secret"), heartbeat_request.fetch(:authorization)
     assert_equal "healthy", heartbeat_request.fetch(:json_body).fetch("health_status")
   end
 
-  test "covers pairing, transcript, variable, human interaction, and runtime resource endpoints" do
+  test "health and capabilities endpoints use the program credential" do
     requests = []
 
     with_captured_requests(requests) do
       client = Fenix::Runtime::ControlClient.new(
         base_url: "https://core-matrix.example.test",
-        machine_credential: "secret",
-        execution_machine_credential: "execution-secret"
+        machine_credential: "secret"
       )
 
       client.health
       client.capabilities_refresh
       client.capabilities_handshake!(
-        fingerprint: "deployment-fingerprint",
+        fingerprint: "bundled-fenix-release-0.1.0",
         protocol_version: "agent-program/2026-04-01",
         sdk_version: "fenix-0.1.0",
-        protocol_methods: [{ "method_id" => "agent_health" }]
+        protocol_methods: [{ "method_id" => "execution_started" }],
+        tool_catalog: [{ "tool_name" => "compact_context" }]
       )
-      client.conversation_transcript_list(conversation_id: "conversation-1", limit: 10)
-      client.conversation_variables_get(workspace_id: "workspace-1", conversation_id: "conversation-1", key: "customer_name")
-      client.conversation_variables_mget(workspace_id: "workspace-1", conversation_id: "conversation-1", keys: %w[a b])
-      client.conversation_variables_exists(workspace_id: "workspace-1", conversation_id: "conversation-1", key: "customer_name")
-      client.conversation_variables_list_keys(workspace_id: "workspace-1", conversation_id: "conversation-1", limit: 5)
-      client.conversation_variables_resolve(workspace_id: "workspace-1", conversation_id: "conversation-1")
-      client.conversation_variables_set(
-        workspace_id: "workspace-1",
-        conversation_id: "conversation-1",
-        key: "customer_name",
-        typed_value_payload: { "type" => "string", "value" => "Acme" }
-      )
-      client.conversation_variables_delete(workspace_id: "workspace-1", conversation_id: "conversation-1", key: "customer_name")
-      client.conversation_variables_promote(workspace_id: "workspace-1", conversation_id: "conversation-1", key: "customer_name")
-      client.workspace_variables_list(workspace_id: "workspace-1")
-      client.workspace_variables_get(workspace_id: "workspace-1", key: "support_tier")
-      client.workspace_variables_mget(workspace_id: "workspace-1", keys: %w[support_tier locale])
-      client.workspace_variables_write(
-        workspace_id: "workspace-1",
-        key: "support_tier",
-        typed_value_payload: { "type" => "string", "value" => "gold" },
-        source_kind: "agent_runtime_smoke"
-      )
-      client.request_human_interaction!(
-        workflow_node_id: "workflow-node-1",
-        request_type: "ApprovalRequest",
-        request_payload: { "approval_scope" => "publish" }
-      )
-      client.create_tool_invocation!(
-        agent_task_run_id: "task-1",
-        tool_name: "exec_command",
-        request_payload: { "command_line" => "pwd" }
-      )
-      client.create_command_run!(tool_invocation_id: "tool-invocation-1", command_line: "pwd")
-      client.activate_command_run!(command_run_id: "command-run-1")
-      client.create_process_run!(
-        agent_task_run_id: "task-1",
-        tool_name: "process_exec",
-        kind: "background_service",
-        command_line: "npm run dev"
-      )
-      client.request_attachment!(turn_id: "turn-1", attachment_id: "attachment-1")
-      client.poll(limit: 5)
-      client.report!(payload: { "method_id" => "process_started", "resource_type" => "ProcessRun", "resource_id" => "process-run-1" })
-      client.report!(payload: { "method_id" => "execution_started" })
     end
 
     assert_equal [
       "GET /agent_api/health",
       "GET /agent_api/capabilities",
       "POST /agent_api/capabilities",
-      "GET /agent_api/conversation_transcripts?conversation_id=conversation-1&limit=10",
-      "GET /agent_api/conversation_variables/get?workspace_id=workspace-1&conversation_id=conversation-1&key=customer_name",
-      "POST /agent_api/conversation_variables/mget",
-      "GET /agent_api/conversation_variables/exists?workspace_id=workspace-1&conversation_id=conversation-1&key=customer_name",
-      "GET /agent_api/conversation_variables/list_keys?workspace_id=workspace-1&conversation_id=conversation-1&limit=5",
-      "GET /agent_api/conversation_variables/resolve?workspace_id=workspace-1&conversation_id=conversation-1",
-      "POST /agent_api/conversation_variables/set",
-      "POST /agent_api/conversation_variables/delete",
-      "POST /agent_api/conversation_variables/promote",
-      "GET /agent_api/workspace_variables?workspace_id=workspace-1",
-      "GET /agent_api/workspace_variables/get?workspace_id=workspace-1&key=support_tier",
-      "POST /agent_api/workspace_variables/mget",
-      "POST /agent_api/workspace_variables/write",
-      "POST /agent_api/human_interactions",
-      "POST /agent_api/tool_invocations",
-      "POST /executor_api/command_runs",
-      "POST /executor_api/command_runs/command-run-1/activate",
-      "POST /executor_api/process_runs",
-      "POST /executor_api/attachments/request",
-      "POST /agent_api/control/poll",
-      "POST /executor_api/control/poll",
-      "POST /executor_api/control/report",
-      "POST /agent_api/control/report",
     ], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
-    assert_equal Array.new(18, %(Token token="secret")) +
-      Array.new(4, %(Token token="execution-secret")) +
-      [%(Token token="secret"), %(Token token="execution-secret"), %(Token token="execution-secret"), %(Token token="secret")],
-      requests.map { |entry| entry.fetch(:authorization) }
-    assert_equal "ApprovalRequest", requests.fetch(16).fetch(:json_body).fetch("request_type")
-    assert_equal "process_started", requests.fetch(24).fetch(:json_body).fetch("method_id")
-    assert_equal "execution_started", requests.fetch(25).fetch(:json_body).fetch("method_id")
+    assert_equal [
+      %(Token token="secret"),
+      %(Token token="secret"),
+      %(Token token="secret"),
+    ], requests.map { |entry| entry.fetch(:authorization) }
+    assert_equal "bundled-fenix-release-0.1.0", requests.fetch(2).dig(:json_body, "fingerprint")
+  end
+
+  test "report treats stale 409 responses as idempotent replays" do
+    requests = []
+
+    with_captured_requests(
+      requests,
+      responses: {
+        "/agent_api/control/report" => { code: "409", body: { "result" => "stale", "mailbox_items" => [] } },
+      }
+    ) do
+      client = Fenix::Runtime::ControlClient.new(
+        base_url: "https://core-matrix.example.test",
+        machine_credential: "secret"
+      )
+
+      response = client.report!(payload: { "method_id" => "agent_program_completed" })
+
+      assert_equal "stale", response.fetch("result")
+    end
+
+    assert_equal ["POST /agent_api/control/report"], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
   end
 
   private
 
-  def with_captured_requests(requests)
-    with_stubbed_http_start do
-      response_for = method(:default_response_for)
+  def with_captured_requests(requests, responses: {})
+    original_start = Net::HTTP.method(:start)
+    resolver = method(:response_for)
 
-      ::Net::HTTP.singleton_class.define_method(:start) do |_host, _port, **_kwargs, &block|
-        http = Object.new
-        http.define_singleton_method(:request) do |request|
-          requests << {
-            method: request.method,
-            path: request.path,
-            authorization: request["Authorization"],
-            json_body: request.body.present? ? JSON.parse(request.body) : nil,
-          }
-          Response.new(code: "200", body: JSON.generate(response_for.call(request)))
-        end
+    Net::HTTP.singleton_class.define_method(:start) do |_host, _port, **_kwargs, &block|
+      http = Object.new
+      http.define_singleton_method(:request) do |request|
+        requests << {
+          method: request.method,
+          path: request.path,
+          authorization: request["Authorization"],
+          json_body: request.body.present? ? JSON.parse(request.body) : nil,
+        }
 
-        block.call(http)
+        response = responses.fetch(request.path, { code: "200", body: resolver.call(request.path) })
+
+        Response.new(code: response.fetch(:code), body: JSON.generate(response.fetch(:body)))
       end
 
-      yield
+      block.call(http)
     end
-  end
 
-  def default_response_for(request)
-    return { "mailbox_items" => [] } if ["/agent_api/control/poll", "/executor_api/control/poll"].include?(request.path)
-
-    { "result" => "accepted" }
-  end
-
-  def with_stubbed_http_start
-    original_start = ::Net::HTTP.method(:start)
     yield
   ensure
-    ::Net::HTTP.singleton_class.define_method(:start, original_start)
+    Net::HTTP.singleton_class.define_method(:start, original_start)
+  end
+
+  def response_for(path)
+    case path
+    when "/agent_api/control/poll"
+      { "mailbox_items" => [{ "item_id" => "program-1", "control_plane" => "program" }] }
+    when "/executor_api/control/poll"
+      { "mailbox_items" => [{ "item_id" => "executor-1", "control_plane" => "executor" }] }
+    when "/agent_api/health"
+      { "status" => "ok" }
+    when "/agent_api/capabilities"
+      { "result" => "accepted" }
+    else
+      { "result" => "accepted" }
+    end
   end
 end

@@ -2,6 +2,8 @@ module Fenix
   module Runtime
     class ProgramToolExecutor
       Result = Struct.new(:tool_call, :tool_result, :output_chunks, keyword_init: true)
+      UnsupportedToolError = Class.new(StandardError)
+      ToolNotAllowedError = Class.new(UnsupportedToolError)
 
       class ProgressCollector
         attr_reader :output_chunks
@@ -15,19 +17,11 @@ module Fenix
           normalized_payload = progress_payload.deep_stringify_keys
           tool_output = normalized_payload["tool_invocation_output"]
           @output_chunks.concat(Array(tool_output&.fetch("output_chunks", []))) if tool_output.present?
-          @delegate&.progress!(progress_payload:)
+          @delegate&.progress!(progress_payload: progress_payload)
         end
       end
 
       class NullControlClient
-        def activate_command_run!(command_run_id:)
-          {
-            "method_id" => "command_run_activate",
-            "result" => "activated",
-            "command_run_id" => command_run_id,
-          }
-        end
-
         def report!(payload:)
           payload
         end
@@ -39,25 +33,28 @@ module Fenix
 
       def self.error_payload_for(error)
         case error
-        when Fenix::Hooks::ReviewToolCall::ToolNotVisibleError
+        when ToolNotAllowedError
           {
             "classification" => "authorization",
             "code" => "tool_not_allowed",
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Hooks::ReviewToolCall::UnsupportedToolError
+        when UnsupportedToolError
           {
             "classification" => "semantic",
             "code" => "unsupported_tool",
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Plugins::System::Workspace::Runtime::ValidationError,
-          Fenix::Plugins::System::Memory::Runtime::ValidationError,
-          Fenix::Plugins::System::Web::Runtime::ValidationError,
-          Fenix::Plugins::System::Browser::Runtime::ValidationError,
-          Fenix::Plugins::System::Process::Runtime::ValidationError
+        when Fenix::Runtime::ToolExecutors::ExecCommand::ValidationError
+          {
+            "classification" => "semantic",
+            "code" => "validation_error",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when Fenix::Browser::SessionManager::ValidationError
           {
             "classification" => "semantic",
             "code" => "validation_error",
@@ -82,30 +79,16 @@ module Fenix
       end
 
       def call(tool_call:, tool_invocation: nil, command_run: nil, process_run: nil)
-        reviewed_tool_call = Fenix::Hooks::ReviewToolCall.call(
-          tool_call: tool_call.deep_stringify_keys,
-          allowed_tool_names: @context.dig("agent_context", "allowed_tool_names")
-        )
-
         execute(
-          tool_call: reviewed_tool_call,
+          tool_call: validate_tool_call!(tool_call),
           tool_invocation: tool_invocation,
           command_run: command_run,
           process_run: process_run
         )
       end
 
-      def assert_execution_topology_supported!(tool_name:)
-        return unless registry_backed_tool?(tool_name)
-
-        Fenix::Runtime::ExecutionTopology.assert_registry_backed_execution_supported!(tool_name:)
-      end
-
-      public :assert_execution_topology_supported!
-
       def execute(tool_call:, tool_invocation: nil, command_run: nil, process_run: nil)
         normalized_tool_call = tool_call.deep_stringify_keys
-        assert_execution_topology_supported!(tool_name: normalized_tool_call.fetch("tool_name"))
         tool_registry_entry = Fenix::Runtime::SystemToolRegistry.fetch!(normalized_tool_call.fetch("tool_name"))
         tool_result = tool_registry_entry.fetch(:executor).call(
           tool_call: normalized_tool_call,
@@ -121,21 +104,28 @@ module Fenix
 
         Result.new(
           tool_call: normalized_tool_call,
-          tool_result:,
+          tool_result: tool_result,
           output_chunks: @collector.output_chunks.map(&:deep_stringify_keys)
         )
       end
 
       private
 
+      def validate_tool_call!(tool_call)
+        tool_call = tool_call.deep_stringify_keys
+        tool_name = tool_call.fetch("tool_name")
+        raise UnsupportedToolError, "unsupported tool #{tool_name}" unless Fenix::Runtime::SystemToolRegistry.supported_tool_names.include?(tool_name)
+        unless Array(@context.dig("agent_context", "allowed_tool_names")).map(&:to_s).include?(tool_name)
+          raise ToolNotAllowedError, "tool #{tool_name} is not visible for this assignment"
+        end
+
+        tool_call
+      end
+
       def current_execution_owner_id
         @context["agent_task_run_id"].presence ||
           @context["turn_id"].presence ||
           @context.fetch("workflow_node_id")
-      end
-
-      def registry_backed_tool?(tool_name)
-        Fenix::Runtime::ExecutionTopology.registry_backed_tool_name?(tool_name)
       end
     end
   end

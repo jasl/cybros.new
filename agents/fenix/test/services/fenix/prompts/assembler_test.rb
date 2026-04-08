@@ -1,59 +1,55 @@
 require "test_helper"
 
 class Fenix::Prompts::AssemblerTest < ActiveSupport::TestCase
-  test "assembler prefers workspace overrides and conversation summaries without requiring workspace agents file" do
-    Dir.mktmpdir do |tmpdir|
-      root = Pathname.new(tmpdir)
-      Fenix::Workspace::Bootstrap.call(workspace_root: root, conversation_id: "conversation_123")
+  test "assembles the prompt layers in the approved order for the main profile" do
+    assembled = Fenix::Prompts::Assembler.call(
+      profile: "main",
+      is_subagent: false,
+      workspace_instructions: "Keep changes scoped to agents/fenix.",
+      skill_overlay: ["Skill overlay: use test-driven development when adding behavior."],
+      durable_state: {
+        "plan_status" => "in_progress",
+        "active_goal" => "Ship the 2048 capstone",
+      },
+      execution_context: {
+        "memory" => "No conversation memory loaded.",
+        "runtime" => {
+          "logical_work_id" => "prepare-round:workflow-node-1",
+        },
+      }
+    )
 
-      root.join("SOUL.md").write("workspace soul\n")
-      root.join("MEMORY.md").write("workspace memory\n")
-      root.join(".fenix/conversations/conversation_123/context/summary.md").write("conversation summary\n")
+    system_prompt = assembled.fetch("system_prompt")
 
-      assembled = Fenix::Prompts::Assembler.call(workspace_root: root, conversation_id: "conversation_123")
-
-      assert_includes assembled.fetch("agent_prompt"), "Fenix"
-      assert_equal "workspace soul\n", assembled.fetch("soul")
-      assert_equal "workspace memory\n", assembled.fetch("memory")
-      assert_equal "conversation summary\n", assembled.fetch("conversation_summary")
-      refute root.join("AGENTS.md").exist?
-      assert assembled.fetch("user").present?
-    end
+    assert system_prompt.index("## Code-Owned Base") < system_prompt.index("## Role Overlay")
+    assert system_prompt.index("## Role Overlay") < system_prompt.index("## Workspace Instructions")
+    assert system_prompt.index("## Workspace Instructions") < system_prompt.index("## Skill Overlay")
+    assert system_prompt.index("## Skill Overlay") < system_prompt.index("## CoreMatrix Durable State")
+    assert system_prompt.index("## CoreMatrix Durable State") < system_prompt.index("## Execution-Local Fenix Context")
+    assert_includes system_prompt, "You are Fenix."
+    assert_includes system_prompt, "Serve the active user"
+    assert_includes system_prompt, "Keep changes scoped to agents/fenix."
+    assert_includes system_prompt, "Skill overlay: use test-driven development"
+    assert_includes system_prompt, "\"plan_status\": \"in_progress\""
+    assert_includes system_prompt, "\"logical_work_id\": \"prepare-round:workflow-node-1\""
   end
 
-  test "assembler includes operator prompt and structured operator state for the main profile only" do
-    Dir.mktmpdir do |tmpdir|
-      root = Pathname.new(tmpdir)
-      Fenix::Workspace::Bootstrap.call(workspace_root: root, conversation_id: "conversation_123")
-      root.join(".fenix/conversations/conversation_123/context/operator_state.json").write(
-        JSON.pretty_generate(
-          {
-            "workspace" => { "highlights" => [{ "path" => "notes", "node_type" => "directory" }] },
-            "process_runs" => [{ "process_run_id" => "process-run-1", "stdout_tail" => "x" * 4000 }],
-          }
-        )
-      )
+  test "uses the worker overlay for subagent executions" do
+    assembled = Fenix::Prompts::Assembler.call(
+      profile: "researcher",
+      is_subagent: true,
+      workspace_instructions: nil,
+      skill_overlay: [],
+      durable_state: nil,
+      execution_context: {}
+    )
 
-      assembled = Fenix::Prompts::Assembler.call(
-        workspace_root: root,
-        conversation_id: "conversation_123",
-        profile: "main",
-        is_subagent: false
-      )
-      subagent = Fenix::Prompts::Assembler.call(
-        workspace_root: root,
-        conversation_id: "conversation_123",
-        profile: "researcher",
-        is_subagent: true
-      )
+    system_prompt = assembled.fetch("system_prompt")
 
-      assert_includes assembled.fetch("operator_prompt"), "resource-first operator surface"
-      assert_equal "notes", assembled.dig("operator_state", "workspace", "highlights", 0, "path")
-      refute_includes assembled.fetch("agent_prompt"), "x" * 100
-      refute_includes assembled.fetch("operator_prompt"), "x" * 100
-      assert assembled.fetch("operator_state").to_json.bytesize < 10_000
-      refute subagent.key?("operator_prompt")
-      refute subagent.key?("operator_state")
-    end
+    assert_includes system_prompt, "You are a delegated Fenix worker."
+    refute_includes system_prompt, "Serve the active user"
+    assert_includes system_prompt, "No workspace instructions provided."
+    assert_includes system_prompt, "No active skills loaded."
+    assert_includes system_prompt, "No durable state view provided by CoreMatrix."
   end
 end

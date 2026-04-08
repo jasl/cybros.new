@@ -1,14 +1,17 @@
 require "test_helper"
 
 class FreshStartStackContractTest < ActiveSupport::TestCase
-  test "docker fresh start rebuilds the fenix image from the current source tree" do
+  test "docker fresh start rebuilds nexus before the fenix app image" do
     script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
-    build_index = script.index("docker build -t \"${FENIX_DOCKER_IMAGE}\" \"${FENIX_ROOT}\"")
+    base_build_index = script.index("docker build -t \"${NEXUS_DOCKER_IMAGE}\" -f \"${NEXUS_ROOT}/Dockerfile\" \"${REPO_ROOT}\"")
+    app_build_index = script.index("docker build --build-arg \"NEXUS_BASE_IMAGE=${NEXUS_DOCKER_IMAGE}\" -t \"${FENIX_DOCKER_IMAGE}\" -f \"${FENIX_ROOT}/Dockerfile\" \"${FENIX_ROOT}\"")
     run_index = script.index("docker run -d \\")
 
-    assert build_index.present?, "expected fresh_start_stack.sh to rebuild the Docker image"
+    assert base_build_index.present?, "expected fresh_start_stack.sh to build the shared nexus base image"
+    assert app_build_index.present?, "expected fresh_start_stack.sh to rebuild the fenix app image against the shared nexus base image"
     assert run_index.present?, "expected fresh_start_stack.sh to run the Docker container"
-    assert_operator build_index, :<, run_index
+    assert_operator base_build_index, :<, app_build_index
+    assert_operator app_build_index, :<, run_index
   end
 
   test "docker fresh start waits for old container names to disappear before reuse" do
@@ -33,13 +36,20 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "exec bash \"${SCRIPT_DIR}/fenix_capstone_app_api_roundtrip_validation.sh\" \"$@\""
   end
 
-  test "fenix runtime activation bootstraps the container and starts bin/runtime-worker" do
+  test "generic docker runtime activation starts bin/runtime-worker without legacy bootstrap expectations" do
+    script = Rails.root.join("../acceptance/bin/activate_agent_docker_runtime.sh").read
+
+    assert_includes script, "docker exec -d -w /rails \"${AGENT_DOCKER_CONTAINER}\" /rails/bin/runtime-worker"
+    refute_includes script, "bootstrap-runtime-deps.sh"
+  end
+
+  test "fenix runtime activation is a thin wrapper around the generic docker activator" do
     script = Rails.root.join("../acceptance/bin/activate_fenix_docker_runtime.sh").read
 
-    assert_includes script, "bash scripts/bootstrap-runtime-deps.sh"
-    assert_includes script, "docker exec -d -w /rails \"${FENIX_DOCKER_CONTAINER}\" /rails/bin/runtime-worker"
-    assert_includes script, "CORE_MATRIX_MACHINE_CREDENTIAL=${FENIX_MACHINE_CREDENTIAL}"
-    assert_includes script, "CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL=${FENIX_EXECUTION_MACHINE_CREDENTIAL}"
+    assert_includes script, "activate_agent_docker_runtime.sh"
+    assert_includes script, "AGENT_DOCKER_IMAGE"
+    assert_includes script, "AGENT_DOCKER_CONTAINER"
+    assert_includes script, "exec bash \"${SCRIPT_DIR}/activate_agent_docker_runtime.sh\""
   end
 
   test "capstone orchestrator runs bootstrap before activation and execute" do

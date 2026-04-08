@@ -10,10 +10,6 @@ module Fenix
           @client ||= build_default_client
         end
 
-        def report!(payload:)
-          client.report!(payload:)
-        end
-
         private
 
         def build_default_client

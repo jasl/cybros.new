@@ -75,6 +75,61 @@ class SubagentSessions::WaitTest < ActiveSupport::TestCase
     assert_equal "Resume once the review lands", result.fetch("next_step_hint")
   end
 
+  test "wait returns a neutral result envelope for completed child work" do
+    session = create_terminal_subagent_session!(
+      observed_status: "completed",
+      close_state: "open",
+      close_outcome_kind: nil,
+      close_requested_at: nil,
+      close_acknowledged_at: nil
+    )
+    child_turn = Turns::StartAgentTurn.call(
+      conversation: session.conversation,
+      content: "Finish the child work",
+      sender_kind: "owner_agent",
+      sender_conversation: session.owner_conversation,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_workflow_run = create_workflow_run!(turn: child_turn)
+    child_workflow_node = create_workflow_node!(
+      workflow_run: child_workflow_run,
+      node_key: "subagent_step",
+      node_type: "subagent_step",
+      lifecycle_state: "completed",
+      decision_source: "agent_program",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago
+    )
+    child_task_run = create_agent_task_run!(
+      workflow_node: child_workflow_node,
+      kind: "subagent_step",
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago,
+      request_summary: "Finish the child work",
+      task_payload: { "delivery_kind" => "subagent_spawn" },
+      origin_turn: session.origin_turn,
+      subagent_session: session,
+      terminal_payload: { "output" => "Child work finished cleanly" }
+    )
+
+    result = SubagentSessions::Wait.call(
+      subagent_session: session,
+      timeout_seconds: 5,
+      poll_interval_seconds: 0.01
+    )
+
+    envelope = result.fetch("result_envelope")
+
+    assert_equal session.conversation.public_id, envelope.fetch("conversation_id")
+    assert_equal child_turn.public_id, envelope.fetch("turn_id")
+    assert_equal child_workflow_run.public_id, envelope.fetch("workflow_run_id")
+    assert_equal child_task_run.public_id, envelope.fetch("agent_task_run_id")
+    assert_equal "completed", envelope.fetch("lifecycle_state")
+    assert_equal "Child work finished cleanly", envelope.fetch("output")
+  end
+
   private
 
   def create_terminal_subagent_session!(observed_status:, close_state:, close_outcome_kind:, close_requested_at: Time.current, close_acknowledged_at: Time.current)

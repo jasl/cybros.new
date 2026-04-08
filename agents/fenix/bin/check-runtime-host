@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+versions_file="${script_dir}/../../../images/nexus/versions.env"
+
+# shellcheck disable=SC1090
+source "${versions_file}"
+
+lookup_path="${FENIX_HOST_CHECK_PATH:-$PATH}"
+host_os="${FENIX_HOST_CHECK_OS:-$(uname -s)}"
+browser_path="${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}"
+
+declare -a missing=()
+declare -a warnings=()
+resolved_command_path=""
+
+find_command() {
+  local command_name="$1"
+  PATH="${lookup_path}" command -v "${command_name}" 2>/dev/null || true
+}
+
+command_output() {
+  local command_path="$1"
+  shift
+
+  "${command_path}" "$@" 2>/dev/null | head -n 1 | tr -d '\r'
+}
+
+require_command() {
+  local command_name="$1"
+  local message="$2"
+  local command_path
+
+  command_path="$(find_command "${command_name}")"
+  if [[ -z "${command_path}" ]]; then
+    missing+=("${message}")
+    return 1
+  fi
+
+  resolved_command_path="${command_path}"
+}
+
+require_version_prefix() {
+  local command_name="$1"
+  local expected_prefix="$2"
+  local message="$3"
+  shift 3
+
+  require_command "${command_name}" "${message}" || return 0
+
+  local actual
+  actual="$(command_output "${resolved_command_path}" "$@")"
+  [[ "${actual}" == "${expected_prefix}"* ]] || missing+=("${message} (found '${actual}')")
+}
+
+require_version_value() {
+  local command_name="$1"
+  local expected_value="$2"
+  local message="$3"
+  shift 3
+
+  require_command "${command_name}" "${message}" || return 0
+
+  local actual
+  actual="$(command_output "${resolved_command_path}" "$@")"
+  [[ "${actual}" == "${expected_value}" ]] || missing+=("${message} (found '${actual}')")
+}
+
+require_last_field_value() {
+  local command_name="$1"
+  local expected_value="$2"
+  local message="$3"
+  shift 3
+
+  require_command "${command_name}" "${message}" || return 0
+
+  local actual
+  actual="$(command_output "${resolved_command_path}" "$@" | awk '{print $NF}')"
+  [[ "${actual}" == "${expected_value}" ]] || missing+=("${message} (found '${actual}')")
+}
+
+case "${host_os}" in
+  Darwin)
+    warnings+=("macOS is a best-effort bare-metal target; Docker on images/nexus remains the default deployment path.")
+    ;;
+  Linux)
+    if [[ -r /etc/os-release ]]; then
+      # shellcheck disable=SC1091
+      source /etc/os-release
+      if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
+        warnings+=("Ubuntu 24.04 is the canonical bare-metal target; continuing with a best-effort check on ${PRETTY_NAME:-Linux}.")
+      fi
+    fi
+    ;;
+  *)
+    echo "fenix host check: unsupported host OS '${host_os}'. Supported hosts are Linux and macOS." >&2
+    exit 1
+    ;;
+esac
+
+require_version_prefix "ruby" "ruby ${RUBY_VERSION}" "ruby ${RUBY_VERSION} is required" --version
+require_last_field_value "bundle" "${BUNDLER_VERSION}" "bundler ${BUNDLER_VERSION} is required" --version
+require_version_value "node" "v${NODE_VERSION}" "node ${NODE_VERSION} is required" --version
+require_version_value "npm" "${NPM_VERSION}" "npm ${NPM_VERSION} is required" --version
+require_command "corepack" "corepack is required" >/dev/null || true
+require_version_value "pnpm" "${PNPM_VERSION}" "pnpm ${PNPM_VERSION} is required" --version
+require_version_prefix "python3" "Python ${PYTHON_MAJOR_MINOR}" "python3 ${PYTHON_MAJOR_MINOR}.x is required" --version
+require_version_prefix "uv" "uv ${UV_VERSION}" "uv ${UV_VERSION} is required" --version
+
+for tool_name in git curl jq rg fd sqlite3; do
+  require_command "${tool_name}" "${tool_name} is required" >/dev/null || true
+done
+
+if [[ -n "${browser_path}" ]]; then
+  [[ -x "${browser_path}" ]] || missing+=("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH must point to an executable browser")
+else
+  for candidate in chromium chromium-browser google-chrome google-chrome-stable; do
+    browser_path="$(find_command "${candidate}")"
+    [[ -n "${browser_path}" ]] && break
+  done
+
+  [[ -n "${browser_path}" ]] || missing+=("install Chromium/Chrome or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
+fi
+
+if (( ${#missing[@]} > 0 )); then
+  {
+    echo "fenix host check: missing prerequisites:"
+    printf ' - %s\n' "${missing[@]}"
+  } >&2
+  exit 1
+fi
+
+if (( ${#warnings[@]} > 0 )); then
+  printf 'fenix host check: warning: %s\n' "${warnings[@]}"
+fi
+
+echo "fenix host check: host contract satisfied"

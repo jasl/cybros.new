@@ -1,0 +1,91 @@
+#!/usr/bin/env node
+
+import { chromium } from "playwright";
+import { createInterface } from "node:readline";
+
+let browser = null;
+let page = null;
+
+function chromiumExecutablePath() {
+  return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
+}
+
+async function ensurePage() {
+  if (page) return page;
+
+  const configuration = {
+    headless: true,
+  };
+  const executablePath = chromiumExecutablePath();
+  if (executablePath) {
+    configuration.executablePath = executablePath;
+  }
+
+  try {
+    browser = await chromium.launch(configuration);
+  } catch (error) {
+    if (!executablePath) {
+      throw new Error(`could not launch Playwright Chromium; run 'npx playwright install chromium' or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH (${error.message})`);
+    }
+
+    throw error;
+  }
+  page = await browser.newPage();
+  return page;
+}
+
+async function dispatch(command, argumentsPayload) {
+  switch (command) {
+    case "open": {
+      const activePage = await ensurePage();
+      if (argumentsPayload.url) {
+        await activePage.goto(argumentsPayload.url, { waitUntil: "networkidle" });
+      }
+      return { current_url: activePage.url() };
+    }
+    case "navigate": {
+      const activePage = await ensurePage();
+      await activePage.goto(argumentsPayload.url, { waitUntil: "networkidle" });
+      return { current_url: activePage.url() };
+    }
+    case "get_content": {
+      const activePage = await ensurePage();
+      const content = await activePage.locator("body").innerText().catch(async () => activePage.content());
+      return { current_url: activePage.url(), content };
+    }
+    case "screenshot": {
+      const activePage = await ensurePage();
+      const image = await activePage.screenshot({ fullPage: argumentsPayload.full_page !== false, type: "png" });
+      return {
+        current_url: activePage.url(),
+        mime_type: "image/png",
+        image_base64: image.toString("base64"),
+      };
+    }
+    case "close": {
+      if (browser) {
+        await browser.close();
+      }
+      browser = null;
+      page = null;
+      return { closed: true };
+    }
+    default:
+      throw new Error(`unsupported browser host command ${command}`);
+  }
+}
+
+const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
+
+readline.on("line", async line => {
+  try {
+    const payload = JSON.parse(line);
+    const responsePayload = await dispatch(payload.command, payload.arguments || {});
+    process.stdout.write(`${JSON.stringify({ payload: responsePayload })}\n`);
+    if (payload.command === "close") {
+      process.exit(0);
+    }
+  } catch (error) {
+    process.stdout.write(`${JSON.stringify({ error: error.message })}\n`);
+  }
+});

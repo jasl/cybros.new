@@ -5,7 +5,7 @@ module Fenix
         tool_name = tool_call.fetch("tool_name")
         Fenix::Runtime::SystemToolRegistry.fetch!(tool_name)
           .fetch(:projector)
-          .call(tool_name:, tool_result:)
+          .call(tool_name: tool_name, tool_result: tool_result)
       end
     end
   end

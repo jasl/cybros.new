@@ -126,6 +126,42 @@ class SubagentSessions::SpawnTest < ActiveSupport::TestCase
     assert_equal child_task_run.public_id, child_state.current_owner_public_id
   end
 
+  test "spawn persists a neutral delegation package in the child task payload" do
+    context = prepare_profile_aware_execution_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      executor_program: context[:executor_program],
+      agent_program_version: context[:agent_program_version]
+    )
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      agent_program_version: context[:agent_program_version],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    result = SubagentSessions::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Investigate this",
+      scope: "turn",
+      profile_key: "researcher",
+      task_payload: { "priority" => "high" }
+    )
+
+    child_task_run = AgentTaskRun.find_by!(public_id: result.fetch("agent_task_run_id"))
+    package = child_task_run.task_payload.fetch("delegation_package")
+
+    assert_equal "subagent_spawn", child_task_run.task_payload.fetch("delivery_kind")
+    assert_equal "high", child_task_run.task_payload.fetch("priority")
+    assert_equal owner_conversation.public_id, package.fetch("owner_conversation_id")
+    assert_equal owner_turn.public_id, package.fetch("origin_turn_id")
+    assert_equal "turn", package.fetch("scope")
+    assert_equal "researcher", package.fetch("profile_key")
+    assert_equal "Investigate this", package.fetch("content")
+  end
+
   test "conversation scoped spawn resolves explicit or default profile for reusable sessions" do
     profile_catalog = default_profile_catalog.deep_merge(
       "researcher" => {

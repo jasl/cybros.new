@@ -8,9 +8,11 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 
 ## Projects
 
-- `agents/fenix`: standalone Ruby on Rails application
+- `agents/fenix`: active cowork Ruby on Rails application
+- `agents/fenix.old`: legacy reference Rails application
 - `core_matrix`: main Ruby on Rails application
 - `core_matrix/vendor/simple_inference`: vendored Ruby gem maintained in-tree
+- `images/nexus`: Docker runtime base project for cowork agents
 
 ## Working Rules
 
@@ -61,4 +63,12 @@ bin/rails test:system
 ```bash
 cd core_matrix/vendor/simple_inference
 bundle exec rake
+```
+
+### `images/nexus`
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+docker build -f images/nexus/Dockerfile -t nexus-local .
+docker run --rm -v /Users/jasl/Workspaces/Ruby/cybros:/workspace nexus-local /workspace/images/nexus/verify.sh
 ```

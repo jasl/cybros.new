@@ -5,53 +5,29 @@ module Fenix
         new(...).call
       end
 
-      def initialize(payload:, defaults: {})
+      def initialize(payload:, defaults: {}, memory_store: nil, skills_catalog: nil)
         @payload = payload.deep_stringify_keys
         @defaults = defaults.deep_stringify_keys
+        @memory_store = memory_store
+        @skills_catalog = skills_catalog
       end
 
       def call
-        Fenix::Workspace::Bootstrap.call(
-          workspace_root:,
-          conversation_id:,
-          agent_program_version_id: runtime_identity.fetch("agent_program_version_id")
-        )
-
         {
-          "agent_task_run_id" => task["agent_task_run_id"],
-          "workflow_run_id" => task["workflow_run_id"],
+          "task" => task,
+          "conversation_id" => task["conversation_id"],
           "workflow_node_id" => task["workflow_node_id"],
-          "conversation_id" => conversation_id,
           "turn_id" => task["turn_id"],
           "kind" => task["kind"],
-          "task_payload" => @payload.fetch("task_payload", {}),
-          "logical_work_id" => runtime_context["logical_work_id"].presence || @defaults["logical_work_id"],
-          "attempt_no" => (runtime_context["attempt_no"].presence || @defaults["attempt_no"] || 1).to_i,
-          "control_plane" => runtime_context["control_plane"].presence || @defaults["control_plane"] || "program",
-          "context_messages" => normalized_messages,
-          "context_imports" => normalized_projection_entries("context_imports"),
-          "prior_tool_results" => normalized_projection_entries("prior_tool_results"),
-          "budget_hints" => provider_context.fetch("budget_hints", {}).deep_stringify_keys,
-          "agent_context" => normalized_agent_context,
-          "capability_projection" => capability_projection,
-          "provider_execution" => provider_context.fetch("provider_execution", {}).deep_stringify_keys,
-          "model_context" => provider_context.fetch("model_context", {}).deep_stringify_keys,
-          "runtime_identity" => runtime_identity,
-          "workspace_context" => {
-            "workspace_root" => workspace_root,
-            "env_overlay" => Fenix::Workspace::EnvOverlay.call(
-              workspace_root:,
-              conversation_id:,
-              agent_program_version_id: runtime_identity.fetch("agent_program_version_id")
-            ),
-            "prompts" => Fenix::Prompts::Assembler.call(
-              workspace_root:,
-              conversation_id:,
-              agent_program_version_id: runtime_identity.fetch("agent_program_version_id"),
-              profile: normalized_agent_context.fetch("profile", "main"),
-              is_subagent: normalized_agent_context.fetch("is_subagent", false)
-            ),
-          },
+          "agent_context" => agent_context,
+          "provider_context" => provider_context,
+          "runtime_context" => runtime_context,
+          "workspace_context" => workspace_context,
+          "transcript_messages" => transcript_messages,
+          "context_imports" => context_imports,
+          "work_context_view" => work_context_view,
+          "memory_context" => memory_context,
+          "skill_context" => skill_context,
         }.compact
       end
 
@@ -61,53 +37,45 @@ module Fenix
         @task ||= @payload.fetch("task").deep_stringify_keys
       end
 
-      def conversation_projection
-        @conversation_projection ||= @payload.fetch("round_context", @payload.fetch("conversation_projection", {})).deep_stringify_keys
+      def round_context
+        @round_context ||= @payload.fetch("round_context", {}).deep_stringify_keys
       end
 
-      def capability_projection
-        @capability_projection ||= @payload.fetch("capability_projection", {}).deep_stringify_keys
+      def agent_context
+        projected = @payload.fetch("agent_context", {}).deep_stringify_keys
+
+        {
+          "profile" => projected["profile"] || "main",
+          "is_subagent" => projected["is_subagent"] == true,
+          "subagent_session_id" => projected["subagent_session_id"],
+          "parent_subagent_session_id" => projected["parent_subagent_session_id"],
+          "subagent_depth" => projected["subagent_depth"],
+          "owner_conversation_id" => projected["owner_conversation_id"],
+          "allowed_tool_names" => Array(projected["allowed_tool_names"]).map(&:to_s),
+        }.compact
       end
 
       def provider_context
-        @provider_context ||= @payload.fetch("provider_context").deep_stringify_keys
+        @payload.fetch("provider_context", {}).deep_stringify_keys
       end
 
       def runtime_context
-        @runtime_context ||= @payload.fetch("runtime_context", {}).deep_stringify_keys
+        @payload.fetch("runtime_context", {}).deep_stringify_keys
       end
 
-      def normalized_agent_context
-        @normalized_agent_context ||= begin
-          projected_agent_context = @payload.fetch("agent_context", {}).deep_stringify_keys
+      def workspace_context
+        explicit = @payload.fetch("workspace_context", {}).deep_stringify_keys
+        workspace_root = explicit["workspace_root"].presence ||
+          @defaults["workspace_root"].presence ||
+          ENV["FENIX_WORKSPACE_ROOT"].presence ||
+          Dir.pwd
 
-          if projected_agent_context.present?
-            {
-              "profile" => projected_agent_context["profile"] || "main",
-              "is_subagent" => projected_agent_context["is_subagent"] == true,
-              "subagent_session_id" => projected_agent_context["subagent_session_id"],
-              "parent_subagent_session_id" => projected_agent_context["parent_subagent_session_id"],
-              "subagent_depth" => projected_agent_context["subagent_depth"],
-              "allowed_tool_names" => Array(projected_agent_context["allowed_tool_names"]).map(&:to_s),
-              "owner_conversation_id" => projected_agent_context["owner_conversation_id"],
-            }.compact
-          else
-            {
-              "profile" => capability_projection["profile_key"] || "main",
-              "is_subagent" => capability_projection["is_subagent"] == true,
-              "subagent_session_id" => capability_projection["subagent_session_id"],
-              "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
-              "subagent_depth" => capability_projection["subagent_depth"],
-              "allowed_tool_names" => Array(capability_projection["tool_surface"]).filter_map { |entry| entry["tool_name"] },
-              "owner_conversation_id" => capability_projection["owner_conversation_id"],
-            }.compact
-          end
-        end
+        explicit.merge("workspace_root" => Pathname.new(workspace_root).expand_path.to_s)
       end
 
-      def normalized_messages
-        Array(conversation_projection.fetch("messages", [])).map do |entry|
-          candidate = entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : {}
+      def transcript_messages
+        Array(round_context["messages"]).map do |entry|
+          candidate = entry.deep_stringify_keys
           {
             "role" => candidate.fetch("role"),
             "content" => candidate.fetch("content"),
@@ -115,24 +83,41 @@ module Fenix
         end
       end
 
-      def normalized_projection_entries(key)
-        Array(conversation_projection.fetch(key, [])).map do |entry|
-          entry.respond_to?(:deep_stringify_keys) ? entry.deep_stringify_keys : {}
-        end
+      def context_imports
+        Array(round_context["context_imports"]).map { |entry| entry.deep_stringify_keys }
       end
 
-      def runtime_identity
-        @runtime_identity ||= {
-          "agent_program_version_id" => runtime_context.fetch("agent_program_version_id"),
+      def work_context_view
+        value = round_context["work_context_view"]
+        value.respond_to?(:deep_stringify_keys) ? value.deep_stringify_keys : value
+      end
+
+      def memory_context
+        return @defaults.fetch("memory_context", {}) if @defaults.key?("memory_context")
+
+        memory_store.summary_payload
+      end
+
+      def skill_context
+        return @defaults.fetch("skill_context", {}) if @defaults.key?("skill_context")
+
+        selected_skills = skills_catalog.active_for_messages(messages: transcript_messages)
+
+        {
+          "active_skill_names" => selected_skills.map { |entry| entry.fetch("name") },
+          "active_skill_contents" => selected_skills.map { |entry| entry.fetch("skill_md") },
         }
       end
 
-      def workspace_root
-        @workspace_root ||= Fenix::Workspace::Layout.default_root
+      def memory_store
+        @memory_store ||= Fenix::Memory::Store.new(
+          workspace_root: workspace_context.fetch("workspace_root"),
+          conversation_id: task.fetch("conversation_id")
+        )
       end
 
-      def conversation_id
-        @conversation_id ||= task.fetch("conversation_id")
+      def skills_catalog
+        @skills_catalog ||= Fenix::Skills::Catalog.new
       end
     end
   end

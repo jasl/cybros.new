@@ -1,45 +1,118 @@
 require "test_helper"
+require "tmpdir"
 
 class Fenix::Runtime::ExecuteProgramToolTest < ActiveSupport::TestCase
-  test "builds program tool execution context from the shared payload context" do
-    payload = runtime_assignment_payload.fetch("payload").merge(
-      "program_tool_call" => {
-        "call_id" => "tool-call-1",
-        "tool_name" => "calculator",
-        "arguments" => { "expression" => "2 + 2" },
+  test "executes compact_context through the program tool path" do
+    response = Fenix::Runtime::ExecuteProgramTool.call(
+      payload: {
+        "task" => {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "turn_step",
+        },
+        "agent_context" => {
+          "profile" => "main",
+          "allowed_tool_names" => %w[compact_context],
+        },
+        "provider_context" => {},
+        "runtime_context" => {
+          "agent_program_version_id" => "agent-program-version-1",
+        },
+        "program_tool_call" => {
+          "call_id" => "tool-call-compact-1",
+          "tool_name" => "compact_context",
+          "arguments" => {
+            "messages" => [
+              { "role" => "system", "content" => "Base instructions" },
+              { "role" => "user", "content" => "Older context " * 20 },
+              { "role" => "assistant", "content" => "More old context " * 20 },
+              { "role" => "user", "content" => "Newest request" },
+            ],
+            "budget_hints" => {
+              "advisory_compaction_threshold_tokens" => 40,
+            },
+          },
+        },
       }
     )
-    captured_context = nil
-    executor_class = Fenix::Runtime::ProgramToolExecutor
-    original_new = executor_class.method(:new)
-    fake_executor = Struct.new(:context) do
-      def call(tool_call:, tool_invocation:, command_run:, process_run:)
-        Fenix::Runtime::ProgramToolExecutor::Result.new(
-          tool_call: tool_call,
-          tool_result: 4,
-          output_chunks: []
-        )
-      end
-    end
 
-    executor_class.define_singleton_method(:new) do |context:, **kwargs|
-      captured_context = context.deep_stringify_keys
-      fake_executor.new(context)
-    end
-
-    Fenix::Runtime::ExecuteProgramTool.call(payload:)
-
-    assert_equal Fenix::Runtime::PayloadContext.call(payload:), captured_context
-  ensure
-    executor_class.define_singleton_method(:new, original_new) if executor_class && original_new
+    assert_equal "ok", response.fetch("status")
+    assert_equal "compact_context", response.dig("program_tool_call", "tool_name")
+    assert_operator response.dig("result", "messages").size, :<=, 4
+    assert_includes response.dig("result", "messages").map { |entry| entry.fetch("content") }.join("\n"), "Earlier context compacted"
   end
 
-  test "supports program tool request payloads that do not include a conversation projection" do
-    payload = shared_contract_fixture("core_matrix_fenix_execute_program_tool_mailbox_item").fetch("payload")
+  test "returns a structured failure when the tool is not visible for this execution" do
+    response = Fenix::Runtime::ExecuteProgramTool.call(
+      payload: {
+        "task" => {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "turn_step",
+        },
+        "agent_context" => {
+          "profile" => "main",
+          "allowed_tool_names" => [],
+        },
+        "provider_context" => {},
+        "runtime_context" => {
+          "agent_program_version_id" => "agent-program-version-1",
+        },
+        "program_tool_call" => {
+          "call_id" => "tool-call-compact-hidden-1",
+          "tool_name" => "compact_context",
+          "arguments" => {
+            "messages" => [
+              { "role" => "user", "content" => "Do a compact." },
+            ],
+            "budget_hints" => {},
+          },
+        },
+      }
+    )
 
-    result = Fenix::Runtime::ExecuteProgramTool.call(payload:)
+    assert_equal "failed", response.fetch("status")
+    assert_equal "tool_not_allowed", response.dig("failure", "code")
+  end
 
-    assert_equal "ok", result.fetch("status")
-    assert_equal 4, result.fetch("result")
+  test "executes registry-backed executor tools through the program tool path" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      response = Fenix::Runtime::ExecuteProgramTool.call(
+        payload: {
+          "task" => {
+            "workflow_node_id" => "workflow-node-1",
+            "conversation_id" => "conversation-1",
+            "turn_id" => "turn-1",
+            "kind" => "turn_step",
+          },
+          "agent_context" => {
+            "profile" => "main",
+            "allowed_tool_names" => %w[exec_command],
+          },
+          "provider_context" => {},
+          "runtime_context" => {
+            "agent_program_version_id" => "agent-program-version-1",
+          },
+          "workspace_context" => {
+            "workspace_root" => workspace_root,
+          },
+          "program_tool_call" => {
+            "call_id" => "tool-call-exec-command-1",
+            "tool_name" => "exec_command",
+            "arguments" => {
+              "command_line" => "printf 'hello\\n'",
+            },
+          },
+        }
+      )
+
+      assert_equal "ok", response.fetch("status")
+      assert_equal "exec_command", response.dig("program_tool_call", "tool_name")
+      assert_equal 0, response.dig("result", "exit_status")
+      assert_equal 6, response.dig("result", "stdout_bytes")
+      assert_operator response.fetch("output_chunks").length, :>=, 1
+    end
   end
 end

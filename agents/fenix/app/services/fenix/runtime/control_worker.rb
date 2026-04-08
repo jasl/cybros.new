@@ -37,7 +37,7 @@ module Fenix
 
           iteration += 1
           result = run_control_loop
-          break if @stop_condition&.call(result:, iteration:)
+          break if @stop_condition&.call(result: result, iteration: iteration)
 
           sleep_after_iteration(result)
         end
@@ -76,11 +76,7 @@ module Fenix
       end
 
       def cleanup!
-        # Attached command handles are strictly worker-local and should not
-        # survive the worker lifecycle. Long-lived process handles remain in the
-        # process manager because they are separate local projections of
-        # kernel-owned ProcessRun resources.
-        Fenix::Runtime::CommandRunRegistry.reset!
+        Fenix::Runtime::CommandRunRegistry.reset! if defined?(Fenix::Runtime::CommandRunRegistry)
       end
 
       def sweep_local_process_handles!

@@ -38,6 +38,11 @@ cd /Users/jasl/Workspaces/Ruby/cybros
 bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
 ```
 
+That wrapper rebuilds `images/nexus`, rebuilds the `agents/fenix` app image on
+top of it, performs bootstrap registration, and then activates the Dockerized
+runtime through the generic `acceptance/bin/activate_agent_docker_runtime.sh`
+entrypoint via the thin Fenix-specific wrapper.
+
 Replay the supervision review surfaces from an existing evaluation bundle:
 
 ```bash

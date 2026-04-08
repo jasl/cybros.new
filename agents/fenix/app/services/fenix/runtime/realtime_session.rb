@@ -73,7 +73,7 @@ module Fenix
       private
 
       def default_websocket_factory(url, headers, &block)
-        WebSocket::Client::Simple.connect(url, headers:, &block)
+        WebSocket::Client::Simple.connect(url, headers: headers, &block)
       end
 
       def cable_url
@@ -194,12 +194,12 @@ module Fenix
 
       def build_result(status:, error_message: nil)
         Result.new(
-          status:,
+          status: status,
           processed_count: @processed_count,
           subscription_confirmed: @subscription_confirmed,
           disconnect_reason: @disconnect_reason,
           reconnect: @reconnect,
-          error_message:,
+          error_message: error_message,
           mailbox_results: @mailbox_results.dup
         )
       end

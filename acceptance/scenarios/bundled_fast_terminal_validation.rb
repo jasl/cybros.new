@@ -12,8 +12,7 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-bundled-fast-terminal-environment",
-  fingerprint: fingerprint,
-  sdk_version: "fenix-0.1.0"
+  fingerprint: fingerprint
 )
 
 run = ManualAcceptanceSupport.run_fenix_mailbox_task!(

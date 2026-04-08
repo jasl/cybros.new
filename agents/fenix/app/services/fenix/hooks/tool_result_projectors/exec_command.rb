@@ -6,17 +6,78 @@ module Fenix
           def call(tool_name:, tool_result:)
             case tool_name
             when "exec_command"
-              project_exec_command(tool_name:, tool_result:)
+              project_exec_command(tool_name: tool_name, tool_result: tool_result)
             when "command_run_list"
-              project_command_run_list(tool_name:, tool_result:)
+              {
+                "tool_name" => tool_name,
+                "content" => "Listed #{tool_result.fetch("entries").size} attached command runs.",
+                "entries" => tool_result.fetch("entries"),
+              }
             when "command_run_read_output"
-              project_command_run_read_output(tool_name:, tool_result:)
+              {
+                "tool_name" => tool_name,
+                "content" => "Read buffered output for command run #{tool_result.fetch("command_run_id")}.",
+                "command_run_id" => tool_result.fetch("command_run_id"),
+                "session_closed" => tool_result.fetch("session_closed"),
+                "stdout_tail" => tool_result.fetch("stdout_tail"),
+                "stderr_tail" => tool_result.fetch("stderr_tail"),
+                "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+                "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+              }
             when "command_run_terminate"
-              project_command_run_terminate(tool_name:, tool_result:)
+              {
+                "tool_name" => tool_name,
+                "content" => "Terminated command run #{tool_result.fetch("command_run_id")}.",
+                "command_run_id" => tool_result.fetch("command_run_id"),
+                "terminated" => tool_result.fetch("terminated"),
+                "session_closed" => tool_result.fetch("session_closed"),
+                "exit_status" => tool_result["exit_status"],
+                "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+                "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+                "stdout_tail" => tool_result.fetch("stdout_tail"),
+                "stderr_tail" => tool_result.fetch("stderr_tail"),
+              }.compact
             when "command_run_wait"
-              project_command_run_wait(tool_name:, tool_result:)
+              {
+                "tool_name" => tool_name,
+                "content" => attached_session_content(
+                  exit_status: tool_result.fetch("exit_status"),
+                  output_streamed: tool_result.fetch("output_streamed")
+                ),
+                "command_run_id" => tool_result.fetch("command_run_id"),
+                "session_closed" => tool_result.fetch("session_closed"),
+                "exit_status" => tool_result.fetch("exit_status"),
+                "output_streamed" => tool_result.fetch("output_streamed"),
+                "stdout_bytes" => tool_result.fetch("stdout_bytes"),
+                "stderr_bytes" => tool_result.fetch("stderr_bytes"),
+                "stdout_tail" => tool_result.fetch("stdout_tail"),
+                "stderr_tail" => tool_result.fetch("stderr_tail"),
+              }
             when "write_stdin"
-              project_write_stdin(tool_name:, tool_result:)
+              if tool_result.fetch("session_closed", false)
+                {
+                  "tool_name" => tool_name,
+                  "content" => attached_session_content(
+                    exit_status: tool_result.fetch("exit_status"),
+                    output_streamed: tool_result.fetch("output_streamed", false)
+                  ),
+                  "command_run_id" => tool_result.fetch("command_run_id"),
+                  "session_closed" => true,
+                  "exit_status" => tool_result.fetch("exit_status"),
+                  "output_streamed" => tool_result.fetch("output_streamed", false),
+                  "stdout_bytes" => tool_result.fetch("stdout_bytes", 0),
+                  "stderr_bytes" => tool_result.fetch("stderr_bytes", 0),
+                  "stdin_bytes" => tool_result.fetch("stdin_bytes", 0),
+                }
+              else
+                {
+                  "tool_name" => tool_name,
+                  "content" => "Wrote #{tool_result.fetch("stdin_bytes", 0)} bytes to command run.",
+                  "command_run_id" => tool_result.fetch("command_run_id"),
+                  "session_closed" => false,
+                  "stdin_bytes" => tool_result.fetch("stdin_bytes", 0),
+                }
+              end
             else
               raise ArgumentError, "unsupported exec command projection #{tool_name}"
             end
@@ -46,87 +107,6 @@ module Fenix
                 "output_streamed" => output_streamed,
                 "stdout_bytes" => tool_result.fetch("stdout_bytes", stdout.bytesize),
                 "stderr_bytes" => tool_result.fetch("stderr_bytes", stderr.bytesize),
-              }
-            end
-          end
-
-          def project_command_run_list(tool_name:, tool_result:)
-            {
-              "tool_name" => tool_name,
-              "content" => "Listed #{tool_result.fetch("entries").size} attached command runs.",
-              "entries" => tool_result.fetch("entries"),
-            }
-          end
-
-          def project_command_run_read_output(tool_name:, tool_result:)
-            {
-              "tool_name" => tool_name,
-              "content" => "Read buffered output for command run #{tool_result.fetch("command_run_id")}.",
-              "command_run_id" => tool_result.fetch("command_run_id"),
-              "session_closed" => tool_result.fetch("session_closed"),
-              "stdout_tail" => tool_result.fetch("stdout_tail"),
-              "stderr_tail" => tool_result.fetch("stderr_tail"),
-              "stdout_bytes" => tool_result.fetch("stdout_bytes"),
-              "stderr_bytes" => tool_result.fetch("stderr_bytes"),
-            }
-          end
-
-          def project_command_run_terminate(tool_name:, tool_result:)
-            {
-              "tool_name" => tool_name,
-              "content" => "Terminated command run #{tool_result.fetch("command_run_id")}.",
-              "command_run_id" => tool_result.fetch("command_run_id"),
-              "terminated" => tool_result.fetch("terminated"),
-              "session_closed" => tool_result.fetch("session_closed"),
-              "exit_status" => tool_result["exit_status"],
-              "stdout_bytes" => tool_result.fetch("stdout_bytes"),
-              "stderr_bytes" => tool_result.fetch("stderr_bytes"),
-              "stdout_tail" => tool_result.fetch("stdout_tail"),
-              "stderr_tail" => tool_result.fetch("stderr_tail"),
-            }.compact
-          end
-
-          def project_command_run_wait(tool_name:, tool_result:)
-            {
-              "tool_name" => tool_name,
-              "content" => attached_session_content(
-                exit_status: tool_result.fetch("exit_status"),
-                output_streamed: tool_result.fetch("output_streamed")
-              ),
-              "command_run_id" => tool_result.fetch("command_run_id"),
-              "session_closed" => tool_result.fetch("session_closed"),
-              "exit_status" => tool_result.fetch("exit_status"),
-              "output_streamed" => tool_result.fetch("output_streamed"),
-              "stdout_bytes" => tool_result.fetch("stdout_bytes"),
-              "stderr_bytes" => tool_result.fetch("stderr_bytes"),
-              "stdout_tail" => tool_result.fetch("stdout_tail"),
-              "stderr_tail" => tool_result.fetch("stderr_tail"),
-            }
-          end
-
-          def project_write_stdin(tool_name:, tool_result:)
-            if tool_result.fetch("session_closed", false)
-              {
-                "tool_name" => tool_name,
-                "content" => attached_session_content(
-                  exit_status: tool_result.fetch("exit_status"),
-                  output_streamed: tool_result.fetch("output_streamed", false)
-                ),
-                "command_run_id" => tool_result.fetch("command_run_id"),
-                "session_closed" => true,
-                "exit_status" => tool_result.fetch("exit_status"),
-                "output_streamed" => tool_result.fetch("output_streamed", false),
-                "stdout_bytes" => tool_result.fetch("stdout_bytes", 0),
-                "stderr_bytes" => tool_result.fetch("stderr_bytes", 0),
-                "stdin_bytes" => tool_result.fetch("stdin_bytes", 0),
-              }
-            else
-              {
-                "tool_name" => tool_name,
-                "content" => "Wrote #{tool_result.fetch("stdin_bytes", 0)} bytes to command run.",
-                "command_run_id" => tool_result.fetch("command_run_id"),
-                "session_closed" => false,
-                "stdin_bytes" => tool_result.fetch("stdin_bytes", 0),
               }
             end
           end

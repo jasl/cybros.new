@@ -6,35 +6,67 @@ module Fenix
       ValidationError = Class.new(StandardError)
       HostError = Class.new(StandardError)
 
-      LocalSession = Struct.new(:browser_session_id, :agent_task_run_id, :host, :current_url, keyword_init: true)
+      LocalSession = Struct.new(
+        :browser_session_id,
+        :agent_task_run_id,
+        :host,
+        :current_url,
+        keyword_init: true
+      )
 
       class PlaywrightHost
-        def initialize(session_id:, node_command: ENV.fetch("FENIX_NODE_COMMAND", "node"), script_path: Rails.root.join("scripts", "browser", "session_host.mjs"))
+        MANAGED_BROWSER_EXECUTABLE_NAMES = %w[headless_shell chrome chromium].freeze
+        DEFAULT_PLAYWRIGHT_BROWSER_ROOTS = [
+          "/workspace/.playwright",
+          "/opt/playwright",
+        ].freeze
+
+        def initialize(
+          session_id:,
+          node_command: ENV.fetch("FENIX_NODE_COMMAND", "node"),
+          script_path: Rails.root.join("scripts", "browser", "session_host.mjs"),
+          runtime_env: ENV.to_h,
+          playwright_browser_roots: DEFAULT_PLAYWRIGHT_BROWSER_ROOTS
+        )
           @session_id = session_id
           @node_command = node_command
-          @script_path = script_path
+          @script_path = Pathname.new(script_path).expand_path
+          @runtime_env = stringify_keys(runtime_env)
+          @playwright_browser_roots = Array(playwright_browser_roots)
         end
 
         def dispatch(command:, arguments:)
           ensure_started!
-          @stdin.puts(JSON.generate({ command:, arguments: }))
+          @stdin.puts(JSON.generate({ command: command, arguments: arguments }))
           @stdin.flush
+
           line = @stdout.gets
-          raise HostError, "browser host terminated unexpectedly" if line.blank?
+          raise HostError, unexpected_termination_message if line.blank?
 
           payload = JSON.parse(line)
           raise HostError, payload.fetch("error") if payload["error"].present?
 
           payload.fetch("payload", {})
+        rescue JSON::ParserError => error
+          raise HostError, "browser host returned invalid JSON: #{error.message}"
+        rescue IOError, SystemCallError => error
+          raise HostError, "browser host communication failed: #{error.message}"
         end
 
         def close
           @stdin&.close unless @stdin&.closed?
+          return unless @wait_thread
+
+          @wait_thread.join(0.5)
+          return unless @wait_thread.alive?
+
+          Process.kill("TERM", @wait_thread.pid)
+          @wait_thread.join(0.5)
+        rescue Errno::ESRCH, IOError
+          nil
+        ensure
           @stdout&.close unless @stdout&.closed?
           @stderr&.close unless @stderr&.closed?
-          @wait_thread&.join(0.5)
-        rescue IOError
-          nil
         end
 
         private
@@ -43,10 +75,68 @@ module Fenix
           return if @wait_thread&.alive?
 
           @stdin, @stdout, @stderr, @wait_thread = Open3.popen3(
+            browser_environment,
             @node_command,
             @script_path.to_s,
-            @session_id
+            chdir: Rails.root.to_s
           )
+        end
+
+        def browser_environment
+          environment = {}
+
+          browsers_path = resolved_playwright_browsers_path
+          if browsers_path.present?
+            environment["PLAYWRIGHT_BROWSERS_PATH"] = browsers_path
+          elsif @runtime_env.key?("PLAYWRIGHT_BROWSERS_PATH")
+            environment["PLAYWRIGHT_BROWSERS_PATH"] = @runtime_env.fetch("PLAYWRIGHT_BROWSERS_PATH")
+          end
+
+          executable_path = @runtime_env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
+          if executable_path.present?
+            environment["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"] = executable_path
+          end
+
+          environment
+        end
+
+        def resolved_playwright_browsers_path
+          playwright_browser_roots.find { |path| managed_browser_root?(path) }
+        end
+
+        def playwright_browser_roots
+          ([@runtime_env["PLAYWRIGHT_BROWSERS_PATH"]] + @playwright_browser_roots)
+            .compact
+            .map { |path| Pathname.new(path).expand_path.to_s }
+            .uniq
+        end
+
+        def managed_browser_root?(path)
+          return false if path.blank? || !Dir.exist?(path)
+
+          Dir.glob(File.join(path, "**", "*")).any? do |candidate|
+            File.file?(candidate) &&
+              File.executable?(candidate) &&
+              MANAGED_BROWSER_EXECUTABLE_NAMES.include?(File.basename(candidate))
+          end
+        end
+
+        def stringify_keys(value)
+          value.to_h.each_with_object({}) do |(key, entry), result|
+            result[key.to_s] = entry
+          end
+        end
+
+        def unexpected_termination_message
+          stderr_excerpt = @stderr&.read_nonblock(2048, exception: false)
+          return "browser host terminated unexpectedly" if stderr_excerpt.is_a?(Symbol)
+
+          stderr_excerpt = stderr_excerpt.to_s.strip
+          return "browser host terminated unexpectedly" if stderr_excerpt.blank?
+
+          "browser host terminated unexpectedly: #{stderr_excerpt}"
+        rescue IOError
+          "browser host terminated unexpectedly"
         end
       end
 
@@ -119,7 +209,7 @@ module Fenix
       end
 
       def initialize(action:, browser_session_id: nil, url: nil, full_page: true, host_factory: nil, agent_task_run_id: nil)
-        @action = action
+        @action = action.to_s
         @browser_session_id = browser_session_id
         @url = url
         @full_page = full_page
@@ -153,10 +243,18 @@ module Fenix
       private
 
       def open_session
+        host = nil
         session_id = "browser-session-#{SecureRandom.uuid}"
-        host = @host_factory.call(session_id:)
+        host = @host_factory.call(session_id: session_id)
         payload = host.dispatch(command: "open", arguments: { "url" => @url }.compact)
-        self.class.register(LocalSession.new(browser_session_id: session_id, agent_task_run_id: @agent_task_run_id, host:, current_url: payload["current_url"]))
+        self.class.register(
+          LocalSession.new(
+            browser_session_id: session_id,
+            agent_task_run_id: @agent_task_run_id,
+            host: host,
+            current_url: payload["current_url"]
+          )
+        )
         payload.merge("browser_session_id" => session_id)
       rescue StandardError
         host&.close
@@ -165,7 +263,7 @@ module Fenix
 
       def dispatch_to_existing_session(command, arguments)
         session = lookup_session!
-        payload = session.host.dispatch(command:, arguments:)
+        payload = session.host.dispatch(command: command, arguments: arguments)
         session.current_url = payload["current_url"] if payload["current_url"].present?
         self.class.update(session)
         payload.merge("browser_session_id" => session.browser_session_id)
@@ -198,7 +296,7 @@ module Fenix
       end
 
       def default_host_factory(session_id:)
-        PlaywrightHost.new(session_id:)
+        PlaywrightHost.new(session_id: session_id)
       end
     end
   end

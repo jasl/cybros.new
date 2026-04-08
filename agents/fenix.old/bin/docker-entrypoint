@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_UID="${APP_UID:-1000}"
+APP_GID="${APP_GID:-1000}"
+PROXY_ROUTES_FILE="${FENIX_DEV_PROXY_ROUTES_FILE:-/rails/tmp/dev-proxy/routes.caddy}"
+
+prepare_runtime_paths() {
+  local proxy_dir
+  proxy_dir="$(dirname "$PROXY_ROUTES_FILE")"
+
+  mkdir -p /rails/storage /rails/tmp "$proxy_dir"
+  chown -R "${APP_UID}:${APP_GID}" /rails/storage /rails/tmp
+}
+
+if [ "$(id -u)" = "0" ]; then
+  APP_PASSWD="$(getent passwd "$APP_UID")"
+  APP_USER="${APP_PASSWD%%:*}"
+  APP_HOME="$(echo "$APP_PASSWD" | cut -d: -f6)"
+
+  prepare_runtime_paths
+  exec env HOME="$APP_HOME" USER="$APP_USER" LOGNAME="$APP_USER" \
+    setpriv --reuid="$APP_UID" --regid="$APP_GID" --init-groups "$0" "$@"
+fi
+
+# If running the rails server then create or migrate existing database
+if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "${@}"

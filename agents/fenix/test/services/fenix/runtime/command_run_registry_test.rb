@@ -1,7 +1,8 @@
 require "test_helper"
+require "open3"
 
 class Fenix::Runtime::CommandRunRegistryTest < ActiveSupport::TestCase
-  test "list and output_snapshot expose local attached command projections" do
+  test "list and output snapshot expose local attached command projections" do
     stdin = nil
     stdout = nil
     stderr = nil
@@ -41,7 +42,7 @@ class Fenix::Runtime::CommandRunRegistryTest < ActiveSupport::TestCase
       assert_equal "hello from stdout\n", snapshot.fetch("stdout_tail")
       assert_equal "hello from stderr\n", snapshot.fetch("stderr_tail")
     ensure
-      Fenix::Runtime::CommandRunRegistry.reset!
+      Fenix::Runtime::CommandRunRegistry.reset! if defined?(Fenix::Runtime::CommandRunRegistry)
       stdin&.close unless stdin.nil? || stdin.closed?
       stdout&.close unless stdout.nil? || stdout.closed?
       stderr&.close unless stderr.nil? || stderr.closed?

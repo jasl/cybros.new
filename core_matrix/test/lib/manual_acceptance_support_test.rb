@@ -166,10 +166,89 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
             assert_equal "rt_123", result.fetch(:executor_program)
             assert_equal 1, registration_calls.length
             assert_equal 1, heartbeat_calls.length
+            registration_payload = registration_calls.first.fetch(1)
+
+            assert_equal(
+              {
+                "transport" => "http",
+                "base_url" => "http://127.0.0.1:3101",
+              },
+              registration_payload.fetch(:executor_connection_metadata)
+            )
           end
         end
       end
     end
+  end
+
+  test "register_bundled_runtime_from_manifest! preserves explicit executor connection metadata from the manifest" do
+    manifest = bundled_runtime_manifest(
+      "executor_connection_metadata" => {
+        "transport" => "unix",
+        "socket_path" => "/tmp/fenix-runtime.sock",
+      },
+    )
+    captured_configuration = nil
+
+    with_redefined_singleton_method(ManualAcceptanceSupport, :live_manifest, ->(base_url:) { manifest }) do
+      with_redefined_singleton_method(
+        Installations::RegisterBundledAgentRuntime,
+        :call,
+        lambda do |installation:, session_credential:, executor_session_credential:, configuration:|
+          captured_configuration = configuration
+          Struct.new(:session_credential, :executor_session_credential).new(
+            session_credential,
+            executor_session_credential
+          )
+        end
+      ) do
+        result = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+          installation: "installation",
+          runtime_base_url: "http://127.0.0.1:3101",
+          executor_fingerprint: "runtime-fingerprint",
+          fingerprint: "program-fingerprint"
+        )
+
+        assert_equal manifest.fetch("executor_connection_metadata"), captured_configuration.fetch(:connection_metadata)
+        assert result.fetch(:machine_credential).present?
+        assert result.fetch(:executor_machine_credential).present?
+      end
+    end
+  end
+
+  test "register_bundled_runtime_from_manifest! falls back to the runtime base url when executor connection metadata is omitted" do
+    manifest = bundled_runtime_manifest.except("executor_connection_metadata")
+    captured_configuration = nil
+
+    with_redefined_singleton_method(ManualAcceptanceSupport, :live_manifest, ->(base_url:) { manifest }) do
+      with_redefined_singleton_method(
+        Installations::RegisterBundledAgentRuntime,
+        :call,
+        lambda do |installation:, session_credential:, executor_session_credential:, configuration:|
+          captured_configuration = configuration
+          Struct.new(:session_credential, :executor_session_credential).new(
+            session_credential,
+            executor_session_credential
+          )
+        end
+      ) do
+        ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+          installation: "installation",
+          runtime_base_url: "http://127.0.0.1:3101",
+          executor_fingerprint: "runtime-fingerprint",
+          fingerprint: "program-fingerprint"
+        )
+      end
+    end
+
+    assert_equal(
+      {
+        "transport" => "http",
+        "base_url" => "http://127.0.0.1:3101",
+      },
+      captured_configuration.fetch(:connection_metadata)
+    )
+    assert_equal manifest.fetch("endpoint_metadata"), captured_configuration.fetch(:endpoint_metadata)
   end
 
   test "run_fenix_mailbox_task! forwards the execution machine credential to the realtime control loop" do
@@ -374,5 +453,32 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
   def stub_process_status(success:)
     Struct.new(:success?, :exitstatus).new(success, success ? 0 : 1)
+  end
+
+  def bundled_runtime_manifest(overrides = {})
+    {
+      "agent_key" => "fenix",
+      "display_name" => "Fenix",
+      "executor_kind" => "local",
+      "executor_connection_metadata" => {
+        "transport" => "http",
+        "base_url" => "http://127.0.0.1:3101/runtime",
+      },
+      "endpoint_metadata" => {
+        "transport" => "http",
+        "base_url" => "http://127.0.0.1:3101",
+        "runtime_manifest_path" => "/runtime/manifest",
+      },
+      "protocol_version" => "agent-program/2026-04-01",
+      "sdk_version" => "fenix-0.1.0",
+      "protocol_methods" => [],
+      "tool_catalog" => [],
+      "profile_catalog" => {},
+      "config_schema_snapshot" => {},
+      "conversation_override_schema_snapshot" => {},
+      "default_config_snapshot" => {},
+      "executor_capability_payload" => {},
+      "executor_tool_catalog" => [],
+    }.merge(overrides)
   end
 end

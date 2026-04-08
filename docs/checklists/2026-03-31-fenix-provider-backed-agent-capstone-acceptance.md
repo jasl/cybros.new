@@ -16,7 +16,7 @@ The goal is to prove that the product is not merely a runtime substrate. It
 must behave like a real coding agent that can:
 
 - receive a real user task through the normal conversation and turn model
-- decide how to use installed skills
+- decide how to use its built-in planning and optional app-local capabilities
 - use tools through a provider-backed agent loop
 - spawn and coordinate subagents when appropriate
 - edit a real workspace and run a real development server
@@ -36,11 +36,9 @@ The capstone task is fixed:
 
 - deploy a complete `Core Matrix` plus `Fenix` stack
 - run `Fenix` in Docker
+- build the Docker runtime on top of `images/nexus`
 - mount `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix` as the runtime
   workspace
-- install these GitHub-sourced skills into `Fenix`:
-  - stage the concrete `using-superpowers` skill package from `https://github.com/obra/superpowers`
-  - `https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md`
 - through a real conversation and turn sequence, have `Fenix` build a
   browser-based React `2048` game
 
@@ -83,8 +81,11 @@ portability:
   Dockerized runtime stack; the default external harness entrypoints are:
   - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/fresh_start_stack.sh`
   - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/run_with_fresh_start.sh`
+- the dedicated Fenix capstone entrypoint is
+  `/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh`
 - in Docker mode, rebuild the runtime image from the current
-  `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix` source tree before
+  `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix` source tree on top of the
+  current `/Users/jasl/Workspaces/Ruby/cybros/images/nexus` base before
   starting the containers; do not live-sync repo files into a running runtime
   container
 - if a validation script expects a runtime on a non-default port, pass the
@@ -114,7 +115,10 @@ portability:
 - the run must use the sectioned runtime contract above; no legacy flat
   `agent_context`, `context_messages`, or `program_tools` payloads may be used
 - the work must use the real tool surface rather than offline file injection
-- the work must be eligible to use installed skills and subagents
+- the work must rely on native runtime behavior rather than staged workflow
+  bootstrap skills
+- the work must be eligible to use app-local skills and subagents when the
+  product chooses that path
 - the run must leave proof that subagent work actually happened when the agent
   chooses that path
 
@@ -242,8 +246,8 @@ visibly incorrect.
 
 ## Subagent Verification
 
-Because the installed skill set includes `superpowers`, the acceptance run must
-look for real subagent work rather than assuming a single-agent path.
+The acceptance run must look for real subagent work rather than assuming a
+single-agent path.
 
 Subagent evidence may include:
 
@@ -324,7 +328,6 @@ contradiction; it is the point of the structured review.
 The capstone run passes only if all of the following are true:
 
 - the stack deploys successfully with Dockerized `Fenix`
-- the required skills are installed and usable
 - `Fenix` completes the workload through the real conversation and turn path
 - per-turn DAG and conversation-state records are complete
 - the final application is present under `tmp/fenix`
@@ -349,7 +352,6 @@ Any of the following is a blocking failure:
 
 - the workload only succeeds through deterministic test modes
 - the stack requires bypassing the normal conversation and turn flow
-- skills are installed but not actually usable by the agent
 - subagent capability is only advertised in metadata but never executable
 - the final application is a static UI without working `2048` rules
 - the source does not land in the mounted host workspace

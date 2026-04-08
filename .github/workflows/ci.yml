@@ -19,6 +19,7 @@ jobs:
     outputs:
       agent_fenix: ${{ steps.detect.outputs.agent_fenix }}
       core_matrix: ${{ steps.detect.outputs.core_matrix }}
+      images_nexus: ${{ steps.detect.outputs.images_nexus }}
       simple_inference: ${{ steps.detect.outputs.simple_inference }}
     steps:
       - name: Checkout code
@@ -47,6 +48,7 @@ jobs:
 
           agent_fenix=false
           core_matrix=false
+          images_nexus=false
           simple_inference=false
 
           echo "Changed files:"
@@ -64,10 +66,14 @@ jobs:
               AGENTS.md|.editorconfig|.gitattributes|.gitignore|.github/workflows/*)
                 agent_fenix=true
                 core_matrix=true
+                images_nexus=true
                 simple_inference=true
                 ;;
               agents/fenix/*)
                 agent_fenix=true
+                ;;
+              images/nexus/*)
+                images_nexus=true
                 ;;
               core_matrix/vendor/simple_inference/*)
                 core_matrix=true
@@ -82,8 +88,24 @@ jobs:
           {
             echo "agent_fenix=$agent_fenix"
             echo "core_matrix=$core_matrix"
+            echo "images_nexus=$images_nexus"
             echo "simple_inference=$simple_inference"
           } >> "$GITHUB_OUTPUT"
+
+  images_nexus_verify:
+    name: images/nexus / verify
+    needs: changes
+    if: needs.changes.outputs.images_nexus == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Build nexus runtime base
+        run: docker build -f images/nexus/Dockerfile -t nexus-local .
+
+      - name: Verify nexus runtime base
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" nexus-local /workspace/images/nexus/verify.sh
 
   agent_fenix_scan_ruby:
     name: agents/fenix / scan
@@ -147,7 +169,7 @@ jobs:
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
-  agent_fenixtest:
+  agent_fenix_test:
     name: agents/fenix / test
     needs: changes
     if: needs.changes.outputs.agent_fenix == 'true'

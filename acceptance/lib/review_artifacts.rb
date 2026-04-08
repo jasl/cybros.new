@@ -1,4 +1,6 @@
-require "fileutils"
+# frozen_string_literal: true
+
+require 'fileutils'
 
 module Acceptance
   module ReviewArtifacts
@@ -125,20 +127,21 @@ module Acceptance
         "",
         "- Keep the workspace disposable and expect a host-side dependency reinstall when the container writes platform-specific JavaScript dependencies into a shared mount.",
         "- Treat the provider-backed loop as the truth for acceptance. The agent message alone was not enough; the durable workflow, subagent session, export bundle, and host playability checks were needed to close the run.",
-        "- Keep the staged GitHub skill sources in the mounted workspace so the runtime can install and inspect them through the normal tool surface.",
+        "- Treat built-in runtime behavior as the acceptance baseline; do not depend on staged workflow bootstrap skills to make the capstone pass.",
         "",
       ])
 
       lines.join("\n")
     end
 
-    def write_runtime_and_bindings!(path:, workspace_root:, machine_credential:, agent_program:, agent_program_version:, executor_program:, skill_source_manifest_path:, docker_container:, runtime_base_url:, runtime_worker_boot:)
-      redacted_credential = machine_credential.to_s.sub(/:.+\z/, ":REDACTED")
+    def write_runtime_and_bindings!(path:, workspace_root:, machine_credential:, executor_machine_credential:, agent_program:, agent_program_version:, executor_program:, docker_container:, runtime_base_url:, runtime_worker_boot:)
+      redacted_machine_credential = Acceptance::CredentialRedaction.redact(machine_credential)
+      redacted_executor_machine_credential = Acceptance::CredentialRedaction.redact(executor_machine_credential)
       worker_commands = Array(runtime_worker_boot&.fetch("worker_commands", nil))
       standalone_solid_queue = runtime_worker_boot&.fetch("standalone_solid_queue", false)
       activation_command = <<~CMD.chomp
-        FENIX_MACHINE_CREDENTIAL=#{redacted_credential} \
-        FENIX_EXECUTION_MACHINE_CREDENTIAL=#{redacted_credential} \
+        FENIX_MACHINE_CREDENTIAL=#{redacted_machine_credential} \
+        FENIX_EXECUTION_MACHINE_CREDENTIAL=#{redacted_executor_machine_credential} \
         DOCKER_CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
         bash acceptance/bin/activate_fenix_docker_runtime.sh
       CMD
@@ -219,7 +222,6 @@ module Acceptance
         - Agent program `public_id`: `#{agent_program.public_id}`
         - Agent program version `public_id`: `#{agent_program_version.public_id}`
         - Executor program `public_id`: `#{executor_program.public_id}`
-        - Skill source manifest: `#{skill_source_manifest_path}`
 
         After runtime registration, the top-level automation recreated the
         Dockerized `Fenix` container with the issued machine credentials in its
