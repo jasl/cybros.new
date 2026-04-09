@@ -1,8 +1,10 @@
 # Plans Index
 
-This directory contains active execution plans for `core_matrix`.
+This directory contains active execution plans for the monorepo. Most plans are
+primarily for `core_matrix` or `agents/fenix`, and only currently executable,
+not-yet-completed work should remain here.
 
-## Current Status (`2026-04-09`)
+## Current Status (`2026-04-10`)
 
 The current active planning documents in this directory are:
 
@@ -12,6 +14,12 @@ The current active planning documents in this directory are:
 - [2026-04-03-recoverable-failure-step-resume-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-design.md)
 - [2026-04-03-recoverable-failure-step-resume-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-implementation.md)
 - [2026-04-06-fenix-cowork-roadmap-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-06-fenix-cowork-roadmap-design.md)
+- [2026-04-10-core-matrix-fenix-throughput-optimization-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-core-matrix-fenix-throughput-optimization-design.md)
+- [2026-04-10-core-matrix-fenix-throughput-optimization.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-core-matrix-fenix-throughput-optimization.md)
+- [2026-04-10-provider-transport-pooling-and-llm-dev-retuning-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-provider-transport-pooling-and-llm-dev-retuning-design.md)
+- [2026-04-10-provider-transport-pooling-and-llm-dev-retuning.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-provider-transport-pooling-and-llm-dev-retuning.md)
+- [2026-04-10-fenix-agent-executor-role-separation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-fenix-agent-executor-role-separation-design.md)
+- [2026-04-10-fenix-agent-executor-role-separation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-fenix-agent-executor-role-separation.md)
 
 Practical state:
 
