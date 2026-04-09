@@ -4,6 +4,24 @@ require "open3"
 require_relative "../../../../lib/fenix/runtime/python_bootstrap"
 
 class Fenix::Runtime::PythonBootstrapTest < ActiveSupport::TestCase
+  test "default_versions_path falls back to installed nexus versions when repo-local matrix is unavailable" do
+    Dir.mktmpdir("fenix-python-bootstrap-versions") do |tmpdir|
+      missing = Pathname(tmpdir).join("missing.env")
+      installed = Pathname(tmpdir).join("installed.env")
+      File.write(installed, "PYTHON_MAJOR_MINOR=3.12\n")
+
+      klass = Fenix::Runtime::PythonBootstrap.singleton_class
+      original_method = klass.instance_method(:default_versions_candidates)
+      klass.send(:define_method, :default_versions_candidates) { [missing, installed] }
+
+      begin
+        assert_equal installed, Fenix::Runtime::PythonBootstrap.send(:default_versions_path)
+      ensure
+        klass.send(:define_method, :default_versions_candidates, original_method)
+      end
+    end
+  end
+
   test "ensure_ready provisions a managed python runtime under fenix home root and prepends it to PATH" do
     Dir.mktmpdir("fenix-python-bootstrap") do |tmpdir|
       fake_bin = File.join(tmpdir, "bin")
@@ -28,6 +46,8 @@ class Fenix::Runtime::PythonBootstrapTest < ActiveSupport::TestCase
       assert_equal Pathname(home_root).join("toolchains", "python").to_s, env.fetch("UV_PYTHON_INSTALL_DIR")
       assert_equal "Python 3.12.0", Open3.capture2(env, root.join("bin", "python").to_s, "--version").first.strip
       assert_equal "Python 3.12.0", Open3.capture2(env, root.join("bin", "python3").to_s, "--version").first.strip
+      assert_match(/\Apip /, Open3.capture2(env, root.join("bin", "pip").to_s, "--version").first.strip)
+      assert_match(/\Apip /, Open3.capture2(env, root.join("bin", "pip3").to_s, "--version").first.strip)
     end
   end
 
@@ -80,8 +100,13 @@ class Fenix::Runtime::PythonBootstrapTest < ActiveSupport::TestCase
 #!/usr/bin/env bash
 echo "Python 3.12.0"
 PY
+        cat > "${target}/bin/pip" <<'PIP'
+#!/usr/bin/env bash
+echo "pip 25.0 from ${0%/*}/../lib/python3.12/site-packages/pip (python 3.12)"
+PIP
         cp "${target}/bin/python" "${target}/bin/python3"
-        chmod +x "${target}/bin/python" "${target}/bin/python3"
+        cp "${target}/bin/pip" "${target}/bin/pip3"
+        chmod +x "${target}/bin/python" "${target}/bin/python3" "${target}/bin/pip" "${target}/bin/pip3"
         exit 0
       fi
 

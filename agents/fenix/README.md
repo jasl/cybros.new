@@ -221,7 +221,9 @@ operators can override the browser executable path with:
 Bare-metal hosts also need a globally installed Playwright package that matches
 the Nexus matrix. `Fenix` then uses `uv` to provision a managed Python runtime
 under `FENIX_HOME_ROOT/python`, defaulting to `~/.fenix/python` when
-`FENIX_HOME_ROOT` is unset. A typical host bootstrap looks like:
+`FENIX_HOME_ROOT` is unset. Once the agent boots, `python`, `python3`, `pip`,
+and `pip3` resolve from that managed runtime inside the agent process. A
+typical host bootstrap looks like:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
@@ -229,6 +231,29 @@ npm install -g "playwright@$(awk -F= '/^PLAYWRIGHT_VERSION=/{print $2}' images/n
 playwright install chromium
 bin/check-runtime-host
 ```
+
+## Runtime Command Matrix
+
+Inside the running `Fenix` agent process, the out-of-the-box command surface is:
+
+- system-level commands available without bootstrap:
+  - `ruby`, `bundle`
+  - `node`, `npm`, `pnpm`, `corepack`
+  - `playwright`, `vite`, `create-vite`
+  - `uv`
+  - `go`
+  - `rustc`, `cargo`
+  - `git`, `curl`, `jq`, `rg`, `fd`, `sqlite3`
+  - Chromium/Chrome browser executables
+- managed runtime commands available after `Fenix` bootstraps the host:
+  - `python`, `python3`
+  - `pip`, `pip3`
+
+That split is intentional:
+
+- `images/nexus` provides the stable system toolchain directly
+- `Fenix` owns the managed Python runtime under `FENIX_HOME_ROOT/python`
+- agent-executed commands see both layers through the process `PATH`
 
 ## Operator Surface
 

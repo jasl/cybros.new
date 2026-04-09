@@ -16,12 +16,37 @@ because Docker cannot read `versions.env` before `FROM`.
 - Node LTS with `npm`, `corepack`, `pnpm`
 - `vite` and `create-vite`
 - Playwright with Chromium and Linux browser dependencies
-- `uv` plus a managed Python 3.12 runtime contract rooted at `FENIX_HOME_ROOT/python`
+- `uv` plus a managed Python 3.12 runtime contract rooted at `FENIX_HOME_ROOT/python`, exposing `python` and `pip` from that managed runtime once the agent bootstraps
 - Ruby 4.0.2 with Bundler 4.0.10 and native extension build prerequisites
 - Go
 - Rust
 - common CLI/build tools: `git`, `curl`, `jq`, `unzip`, `zip`, `ripgrep`,
   `fd`, `sqlite3`, `build-essential`, `pkg-config`
+
+## Command Availability
+
+`images/nexus` intentionally splits command availability into two layers.
+
+System-level commands are available directly from the image:
+
+- `ruby`, `bundle`
+- `node`, `npm`, `pnpm`, `corepack`
+- `playwright`, `vite`, `create-vite`
+- `uv`
+- `go`
+- `rustc`, `cargo`
+- `git`, `curl`, `jq`, `rg`, `fd`, `sqlite3`
+- Chromium/Chrome browser executables
+
+Managed Python commands are not prebound into the base image `PATH`. Instead,
+the agent bootstrap provisions `FENIX_HOME_ROOT/python` and then exposes:
+
+- `python`, `python3`
+- `pip`, `pip3`
+
+This keeps the durable system toolchain separate from the agent-owned Python
+runtime while still making `python` and `pip` transparently available inside a
+running `Fenix` process.
 
 ## Build
 

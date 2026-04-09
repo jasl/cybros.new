@@ -20,7 +20,7 @@ RUN set -a && \
     source /usr/local/share/nexus/versions.env && \
     set +a && \
     apt-get update -qq && \
-    apt-get install --no-install-recommends -y \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
       bash \
       bison \
       build-essential \
@@ -42,6 +42,7 @@ RUN set -a && \
       pkg-config \
       ripgrep \
       sqlite3 \
+      tzdata \
       unzip \
       xz-utils \
       zip \

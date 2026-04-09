@@ -81,6 +81,7 @@ browser_path="$(browser_executable)"
 [[ -n "${browser_path}" ]] || fail "chromium browser binary not found under ${PLAYWRIGHT_BROWSERS_PATH}"
 [[ -x "${browser_path}" ]] || fail "chromium browser binary is not executable: ${browser_path}"
 "${browser_path}" --version >/dev/null 2>&1 || fail "chromium browser failed to start: ${browser_path}"
+[[ -f /usr/share/zoneinfo/UTC ]] || fail "tzdata/zoneinfo files are missing from the runtime image"
 
 python_runtime_root="$(mktemp -d)"
 python_install_root="${python_runtime_root}/toolchains/python"
@@ -90,6 +91,9 @@ UV_PYTHON_INSTALL_DIR="${python_install_root}" uv venv --python "${PYTHON_MAJOR_
   fail "uv could not provision Python ${PYTHON_MAJOR_MINOR}.x under a runtime root"
 assert_prefix "Python ${PYTHON_MAJOR_MINOR}" "$("${python_venv_root}/bin/python3" --version)" "managed python3 version"
 assert_prefix "Python ${PYTHON_MAJOR_MINOR}" "$("${python_venv_root}/bin/python" --version)" "managed python version"
+[[ -x "${python_venv_root}/bin/pip" ]] || fail "managed pip command missing from provisioned runtime"
+[[ -x "${python_venv_root}/bin/pip3" ]] || fail "managed pip3 command missing from provisioned runtime"
+"${python_venv_root}/bin/pip" --version >/dev/null 2>&1 || fail "managed pip command failed to start"
 rm -rf "${python_runtime_root}"
 
 echo "nexus verify: ok"

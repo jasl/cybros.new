@@ -153,6 +153,9 @@ verify_managed_python_runtime() {
   python_output="$("${python_root}/bin/python" --version 2>/dev/null | head -n 1 | tr -d '\r')"
   [[ "${python_output}" == "Python ${PYTHON_MAJOR_MINOR}"* ]] || \
     missing+=("managed python runtime is not Python ${PYTHON_MAJOR_MINOR}.x (found '${python_output}')")
+
+  local pip_path="${python_root}/bin/pip"
+  [[ -x "${pip_path}" ]] || missing+=("managed pip command is missing from FENIX_HOME_ROOT/python/bin")
 }
 
 verify_managed_python_runtime

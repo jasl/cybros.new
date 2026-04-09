@@ -31,7 +31,14 @@ module Fenix
         private
 
         def default_versions_path
-          Pathname.new(__dir__).join("../../../../../images/nexus/versions.env").expand_path
+          default_versions_candidates.find(&:exist?) || default_versions_candidates.first
+        end
+
+        def default_versions_candidates
+          [
+            Pathname.new(__dir__).join("../../../../../images/nexus/versions.env").expand_path,
+            Pathname.new("/usr/local/share/nexus/versions.env")
+          ]
         end
 
         def load_versions(path)
