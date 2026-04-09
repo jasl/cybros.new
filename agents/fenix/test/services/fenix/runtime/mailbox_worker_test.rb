@@ -26,6 +26,8 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   teardown do
     clear_enqueued_jobs
     clear_performed_jobs
+    Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
+    Fenix::Processes::ProxyRegistry.reset! if defined?(Fenix::Processes::ProxyRegistry)
 
     if @original_control_plane_client == :__undefined__
       Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
@@ -70,7 +72,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal :handled, result
   end
 
-  test "process run close requests report failure when no local process manager is available" do
+  test "process run close requests report failure when the local handle is missing" do
     client = build_control_client
 
     result = Fenix::Runtime::MailboxWorker.call(
@@ -79,9 +81,44 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       control_client: client
     )
 
-    assert_equal :unsupported, result
+    assert_equal :handled, result
     assert_equal ["resource_close_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal "ProcessRun", client.reported_payloads.last.fetch("resource_type")
+  end
+
+  test "process run close requests are delegated to the local process manager when a durable process is present" do
+    client = build_control_client
+    process_run_id = "process-#{SecureRandom.uuid}"
+
+    Fenix::Processes::Manager.spawn!(
+      process_run_id: process_run_id,
+      runtime_owner_id: "task-1",
+      command_line: "trap 'exit 0' TERM; while :; do sleep 1; done",
+      control_client: client
+    )
+
+    assert_eventually do
+      client.reported_payloads.any? { |payload| payload["method_id"] == "process_started" && payload["resource_id"] == process_run_id }
+    end
+
+    result = Fenix::Runtime::MailboxWorker.call(
+      mailbox_item: close_request(resource_type: "ProcessRun", resource_id: process_run_id),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal :handled, result
+
+    assert_eventually do
+      client.reported_payloads.any? { |payload| payload["method_id"] == "resource_closed" && payload["resource_id"] == process_run_id }
+    end
+
+    method_ids = client.reported_payloads
+      .select { |payload| payload["resource_id"] == process_run_id }
+      .map { |payload| payload.fetch("method_id") }
+
+    assert_includes method_ids, "resource_close_acknowledged"
+    assert_includes method_ids, "resource_closed"
   end
 
   test "non-inline executable mailbox items enqueue the runtime mailbox job" do
@@ -173,5 +210,15 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
         },
       },
     }
+  end
+
+  def assert_eventually(timeout_seconds: 2)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    until yield
+      raise "condition was not met before timeout" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+
+      sleep(0.01)
+    end
   end
 end

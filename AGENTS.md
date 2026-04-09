@@ -9,7 +9,6 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 ## Projects
 
 - `agents/fenix`: active cowork Ruby on Rails application
-- `agents/fenix.old`: legacy reference Rails application
 - `core_matrix`: main Ruby on Rails application
 - `core_matrix/vendor/simple_inference`: vendored Ruby gem maintained in-tree
 - `images/nexus`: Docker runtime base project for cowork agents

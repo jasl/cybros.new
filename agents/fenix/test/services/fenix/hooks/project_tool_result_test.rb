@@ -34,4 +34,19 @@ class Fenix::Hooks::ProjectToolResultTest < ActiveSupport::TestCase
     assert_equal "image/png", projection.fetch("mime_type")
     assert_match(/Captured screenshot/, projection.fetch("content"))
   end
+
+  test "projects detached process results through the registry projector" do
+    projection = Fenix::Hooks::ProjectToolResult.call(
+      tool_call: { "tool_name" => "process_exec" },
+      tool_result: {
+        "process_run_id" => "process-run-1",
+        "lifecycle_state" => "running",
+        "proxy_path" => "/dev/process-run-1",
+      }
+    )
+
+    assert_equal "process_exec", projection.fetch("tool_name")
+    assert_equal "process-run-1", projection.fetch("process_run_id")
+    assert_match(%r{/dev/process-run-1}, projection.fetch("content"))
+  end
 end

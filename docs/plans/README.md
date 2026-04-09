@@ -2,7 +2,7 @@
 
 This directory contains active execution plans for `core_matrix`.
 
-## Current Status (`2026-04-08`)
+## Current Status (`2026-04-09`)
 
 The current active planning documents in this directory are:
 
@@ -26,6 +26,12 @@ Practical state:
   [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
 - The completed app-facing runtime/supervision contract is archived in
   [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md).
+- The completed April 8-9 `Fenix` cowork implementation, skills isolation,
+  process runtime restoration, contract audit, and load-harness plans were
+  archived to
+  [docs/finished-plans/fenix](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/README.md).
+- The remaining load-harness threshold work moved to
+  [docs/future-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/README.md).
 
 Earlier execution plans, implementation records, and accepted reset designs
 were archived to

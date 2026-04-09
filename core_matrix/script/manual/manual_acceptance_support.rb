@@ -347,6 +347,14 @@ module ManualAcceptanceSupport
     )
   end
 
+  def run_fenix_control_loop_for_registration!(registration:, **kwargs)
+    run_fenix_control_loop_once!(
+      machine_credential: registration_machine_credential(registration),
+      executor_machine_credential: registration_executor_machine_credential(registration),
+      **kwargs
+    )
+  end
+
   def run_fenix_runtime_task!(task_name:, machine_credential:, executor_machine_credential: machine_credential, env:)
     project_root = fenix_project_root
     task_env = {
@@ -408,6 +416,15 @@ module ManualAcceptanceSupport
     stop_fenix_control_worker!(pid) if pid.present?
   end
 
+  def with_fenix_control_worker_for_registration!(registration:, **kwargs, &block)
+    with_fenix_control_worker!(
+      machine_credential: registration_machine_credential(registration),
+      executor_machine_credential: registration_executor_machine_credential(registration),
+      **kwargs,
+      &block
+    )
+  end
+
   def fenix_project_root
     Pathname.new(ENV.fetch("FENIX_PROJECT_ROOT", Rails.root.join("..", "agents", "fenix").to_s))
   end
@@ -416,6 +433,24 @@ module ManualAcceptanceSupport
     {}.tap do |env|
       env["FENIX_HOME_ROOT"] = ENV["FENIX_HOME_ROOT"] if ENV["FENIX_HOME_ROOT"].present?
     end
+  end
+
+  def registration_machine_credential(registration)
+    registration_fetch(registration, :machine_credential)
+  end
+
+  def registration_executor_machine_credential(registration)
+    registration_fetch(registration, :executor_machine_credential, default: registration_machine_credential(registration))
+  end
+
+  def registration_fetch(registration, key, default: :__manual_acceptance_support_missing__)
+    [key, key.to_s, key.to_sym].uniq.each do |candidate|
+      return registration.fetch(candidate) if registration.respond_to?(:key?) && registration.key?(candidate)
+    end
+
+    return default unless default == :__manual_acceptance_support_missing__
+
+    raise KeyError, "key not found: #{key}"
   end
 
   def disconnect_application_record!

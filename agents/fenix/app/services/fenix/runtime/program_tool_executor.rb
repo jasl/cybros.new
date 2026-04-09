@@ -61,6 +61,13 @@ module Fenix
             "message" => error.message,
             "retryable" => false,
           }
+        when Fenix::Runtime::ToolExecutors::Process::ValidationError
+          {
+            "classification" => "semantic",
+            "code" => "validation_error",
+            "message" => error.message,
+            "retryable" => false,
+          }
         else
           {
             "classification" => "runtime",
@@ -96,7 +103,7 @@ module Fenix
           collector: @collector,
           control_client: @control_client,
           cancellation_probe: @cancellation_probe,
-          current_execution_owner_id: current_execution_owner_id,
+          current_runtime_owner_id: current_runtime_owner_id,
           tool_invocation: tool_invocation,
           command_run: command_run,
           process_run: process_run
@@ -122,7 +129,7 @@ module Fenix
         tool_call
       end
 
-      def current_execution_owner_id
+      def current_runtime_owner_id
         @context["agent_task_run_id"].presence ||
           @context["turn_id"].presence ||
           @context.fetch("workflow_node_id")

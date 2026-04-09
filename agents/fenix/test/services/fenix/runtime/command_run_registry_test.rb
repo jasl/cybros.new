@@ -14,7 +14,7 @@ class Fenix::Runtime::CommandRunRegistryTest < ActiveSupport::TestCase
 
       Fenix::Runtime::CommandRunRegistry.register(
         command_run_id: command_run_id,
-        agent_task_run_id: "task-1",
+        runtime_owner_id: "task-1",
         stdin: stdin,
         stdout: stdout,
         stderr: stderr,
@@ -31,11 +31,12 @@ class Fenix::Runtime::CommandRunRegistryTest < ActiveSupport::TestCase
         text: "hello from stderr\n"
       )
 
-      entries = Fenix::Runtime::CommandRunRegistry.list(agent_task_run_id: "task-1")
+      entries = Fenix::Runtime::CommandRunRegistry.list(runtime_owner_id: "task-1")
       snapshot = Fenix::Runtime::CommandRunRegistry.output_snapshot(command_run_id: command_run_id)
 
       assert_equal 1, entries.length
       assert_equal command_run_id, entries.first.fetch("command_run_id")
+      assert_equal "task-1", entries.first.fetch("runtime_owner_id")
       assert_equal "running", entries.first.fetch("lifecycle_state")
       assert_equal "hello from stdout\n".bytesize, entries.first.fetch("stdout_bytes")
       assert_equal "hello from stderr\n".bytesize, entries.first.fetch("stderr_bytes")

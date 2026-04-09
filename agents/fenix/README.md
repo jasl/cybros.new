@@ -12,7 +12,6 @@ Fenix has two jobs:
 `agents/fenix` is the active cowork app in this monorepo.
 
 - active runtime/product work lands in `agents/fenix`
-- legacy reference material stays in `agents/fenix.old`
 - the default Docker runtime base lives in `images/nexus`
 
 ## Verification
@@ -158,12 +157,12 @@ Detached long-lived services therefore follow this contract:
 - the persistent control worker reports `process_started`, `process_output`,
   `process_exited`, and `resource_close_*` over the control plane
 
-Long-lived services are now plugin-backed rather than hardcoded in the pairing
-manifest. `process_exec` routes through a dedicated process runtime family:
+Detached process tools are implemented directly in the runtime service layer:
 
-- [plugin.yml](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/plugins/system/process/plugin.yml)
-- [runtime.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/plugins/system/process/runtime.rb)
+- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/tool_executors/process.rb)
 - [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/launcher.rb)
+- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/manager.rb)
+- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/proxy_registry.rb)
 
 When a tool call passes `proxy_port`, `Fenix` also registers a stable fixed-port
 proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy

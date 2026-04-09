@@ -95,4 +95,39 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
     refute serialized.fetch("payload").key?("task")
   end
+
+  test "serializes execute_program_tool mailbox requests with the full tool envelope and scoped runtime context" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "execute_program_tool",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+        },
+        "program_tool_call" => {
+          "call_id" => "call-serialize",
+          "tool_name" => "exec_command",
+          "arguments" => { "cmd" => "pwd" },
+        },
+      },
+      logical_work_id: "program-tool:#{context.fetch(:workflow_node).public_id}:call-serialize",
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    serialized = AgentControl::SerializeMailboxItem.call(mailbox_item)
+
+    assert_equal "execute_program_tool", serialized.dig("payload", "request_kind")
+    assert_equal "call-serialize", serialized.dig("payload", "program_tool_call", "call_id")
+    assert_equal "exec_command", serialized.dig("payload", "program_tool_call", "tool_name")
+    assert_equal "pwd", serialized.dig("payload", "program_tool_call", "arguments", "cmd")
+    assert_equal context.fetch(:workflow_node).public_id, serialized.dig("payload", "task", "workflow_node_id")
+    assert_equal context.fetch(:agent_program).public_id, serialized.dig("payload", "runtime_context", "agent_program_id")
+    assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
+  end
 end

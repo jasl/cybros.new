@@ -16,40 +16,52 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 )
 
 result = nil
-close_loop = { "items" => [] }
 
-ManualAcceptanceSupport.with_fenix_control_worker!(
-  machine_credential: bundled.fetch(:machine_credential),
+ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
+  registration: bundled,
   realtime_timeout_seconds: delivery_mode == "realtime" ? 5 : 0
 ) do
-  result ||= begin
+  result = begin
     conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
     run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
       conversation: conversation_context.fetch(:conversation),
       deployment: bundled.fetch(:runtime).deployment,
       content: "Start a long-running background service and then close it gracefully.",
-      root_node_key: "agent_turn_step",
+      root_node_key: "turn_step",
       root_node_type: "turn_step",
-      decision_source: "agent_program",
-      initial_kind: "turn_step",
-      initial_payload: {
-        "mode" => "deterministic_tool",
-        "tool_name" => "process_exec",
-        "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
-      }
+      decision_source: "system"
     )
-    agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
-    process_run = ManualAcceptanceSupport.wait_for_process_run!(workflow_node: agent_task_run.workflow_node)
+    workflow_node = run.fetch(:workflow_run).workflow_nodes.find_by!(node_key: "turn_step")
+    round_bindings = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: workflow_node
+    ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
+    tool_result = ProviderExecution::RouteToolCall.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "call_id" => "acceptance-process-exec-1",
+        "tool_name" => "process_exec",
+        "arguments" => {
+          "kind" => "background_service",
+          "command_line" => "trap 'exit 0' TERM; while :; do sleep 1; done",
+        },
+        "provider_format" => "chat_completions",
+      },
+      round_bindings: round_bindings,
+      program_exchange: ProviderExecution::ProgramMailboxExchange.new(
+        agent_program_version: bundled.fetch(:runtime).deployment
+      )
+    )
+    process_run = ProcessRun.find_by_public_id!(tool_result.result.fetch("process_run_id"))
     ManualAcceptanceSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
 
     run.merge(
       conversation: conversation_context.fetch(:conversation).reload,
-      agent_task_run: agent_task_run,
+      workflow_node: workflow_node,
       process_run: process_run.reload,
-      report_results: ManualAcceptanceSupport.report_results_for(agent_task_run: agent_task_run),
+      tool_invocation: tool_result.tool_invocation.reload,
       execution: {
-        "status" => "completed",
-        "output" => agent_task_run.terminal_payload["output"],
+        "status" => tool_result.tool_invocation.reload.status,
+        "output" => tool_result.result,
       }
     )
   end
@@ -82,14 +94,10 @@ model_context = workflow_run.execution_snapshot.model_context
 process_run = result.fetch(:process_run).reload
 close_request = result.fetch(:close_request)
 
-expected_dag_shape = ["agent_turn_step"]
+expected_dag_shape = ["turn_step"]
 observed_dag_shape = ManualAcceptanceSupport.workflow_node_keys(workflow_run)
 expected_conversation_state = {
   "conversation_state" => "active",
-  "workflow_lifecycle_state" => "completed",
-  "workflow_wait_state" => "ready",
-  "turn_lifecycle_state" => "active",
-  "agent_task_run_state" => "completed",
   "process_lifecycle_state" => "stopped",
   "process_close_state" => "closed",
   "process_close_outcome_kind" => "graceful",
@@ -98,7 +106,6 @@ observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
   conversation: result.fetch(:conversation),
   workflow_run: workflow_run,
   turn: turn,
-  agent_task_run: result.fetch(:agent_task_run),
   extra: {
     "process_lifecycle_state" => process_run.reload.lifecycle_state,
     "process_close_state" => process_run.close_state,
@@ -121,9 +128,11 @@ ManualAcceptanceSupport.write_json(
       "conversation_id" => result.fetch(:conversation).public_id,
       "turn_id" => turn.public_id,
       "workflow_run_id" => workflow_run.public_id,
-      "agent_task_run_id" => result.fetch(:agent_task_run).public_id,
+      "workflow_node_id" => result.fetch(:workflow_node).public_id,
       "process_run_id" => process_run.public_id,
       "close_request_id" => close_request&.public_id,
+      "tool_invocation_id" => result.fetch(:tool_invocation).public_id,
+      "tool_invocation_status" => result.fetch(:tool_invocation).status,
       "provider_handle" => model_context["provider_handle"],
       "model_ref" => model_context["model_ref"],
       "api_model" => model_context["api_model"],
@@ -133,9 +142,7 @@ ManualAcceptanceSupport.write_json(
       "process_close_outcome_kind" => process_run.close_outcome_kind,
       "runtime_execution_status" => result.fetch(:execution).fetch("status"),
       "runtime_output" => result.fetch(:execution)["output"],
-      "close_loop_items" => close_loop.fetch("items").map { |item| item.slice("kind", "mailbox_item_id", "status") },
-      "report_results" => result.fetch(:report_results),
-      "workflow_node_event_states" => WorkflowNodeEvent.where(workflow_node: result.fetch(:agent_task_run).workflow_node).order(:ordinal).pluck(Arel.sql("payload ->> 'state'")),
+      "workflow_node_event_states" => WorkflowNodeEvent.where(workflow_node: result.fetch(:workflow_node)).order(:ordinal).pluck(Arel.sql("payload ->> 'state'")),
     }
   )
 )

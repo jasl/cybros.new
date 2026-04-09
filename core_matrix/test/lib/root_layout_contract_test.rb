@@ -1,11 +1,10 @@
 require "test_helper"
 
 class RootLayoutContractTest < ActiveSupport::TestCase
-  test "agents doc registers the active and legacy fenix projects plus nexus" do
+  test "agents doc registers the active fenix project plus nexus" do
     agents_doc = Rails.root.join("../AGENTS.md").read
 
     assert_includes agents_doc, "- `agents/fenix`: active cowork Ruby on Rails application"
-    assert_includes agents_doc, "- `agents/fenix.old`: legacy reference Rails application"
     assert_includes agents_doc, "- `images/nexus`: Docker runtime base project for cowork agents"
   end
 

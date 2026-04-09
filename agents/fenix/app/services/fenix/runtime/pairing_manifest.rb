@@ -42,6 +42,9 @@ module Fenix
         execution_progress
         execution_complete
         execution_fail
+        process_started
+        process_output
+        process_exited
         resource_close_request
         resource_close_acknowledged
         resource_closed

@@ -64,10 +64,7 @@ def report_results_for(agent_task_run:)
 end
 
 def run_fenix_control_loop!(registration:)
-  ManualAcceptanceSupport.run_fenix_control_loop_once!(
-    machine_credential: registration.fetch(:machine_credential),
-    executor_machine_credential: registration.fetch(:executor_machine_credential)
-  )
+  ManualAcceptanceSupport.run_fenix_control_loop_for_registration!(registration:)
 end
 
 def latest_mailbox_item_for!(agent_task_run)

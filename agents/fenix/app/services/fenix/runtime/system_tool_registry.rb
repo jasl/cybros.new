@@ -157,6 +157,83 @@ module Fenix
 
       [
         {
+          "tool_name" => "process_exec",
+          "tool_kind" => "executor_program",
+          "operator_group" => "process_run",
+          "resource_identity_kind" => "process_run",
+          "mutates_state" => true,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/process",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "command_line" => { "type" => "string" },
+              "kind" => { "type" => "string" },
+              "proxy_port" => { "type" => "integer" },
+            },
+            "required" => ["command_line"],
+          },
+        },
+        {
+          "tool_name" => "process_list",
+          "tool_kind" => "executor_program",
+          "operator_group" => "process_run",
+          "resource_identity_kind" => "process_run",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/process",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {},
+          },
+        },
+        {
+          "tool_name" => "process_proxy_info",
+          "tool_kind" => "executor_program",
+          "operator_group" => "process_run",
+          "resource_identity_kind" => "process_run",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/process",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "process_run_id" => { "type" => "string" },
+            },
+            "required" => ["process_run_id"],
+          },
+        },
+        {
+          "tool_name" => "process_read_output",
+          "tool_kind" => "executor_program",
+          "operator_group" => "process_run",
+          "resource_identity_kind" => "process_run",
+          "mutates_state" => false,
+          "implementation_source" => "executor_program",
+          "implementation_ref" => "fenix/runtime/tool_executors/process",
+          "supports_streaming_output" => false,
+          "input_schema" => {
+            "type" => "object",
+            "properties" => {
+              "process_run_id" => { "type" => "string" },
+            },
+            "required" => ["process_run_id"],
+          },
+        },
+      ].each do |catalog_entry|
+        register!(
+          entries,
+          catalog_entry: catalog_entry,
+          executor: Fenix::Runtime::ToolExecutors::Process,
+          projector: Fenix::Hooks::ToolResultProjectors::Process
+        )
+      end
+
+      [
+        {
           "tool_name" => "browser_open",
           "tool_kind" => "executor_program",
           "operator_group" => "browser_session",

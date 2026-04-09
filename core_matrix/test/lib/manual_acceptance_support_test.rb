@@ -287,6 +287,61 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     ENV["FENIX_HOME_ROOT"] = previous_home_root
   end
 
+  test "run_fenix_control_loop_for_registration! forwards string-keyed executor credentials" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      ManualAcceptanceSupport,
+      :run_fenix_control_loop_once!,
+      lambda do |**kwargs|
+        captured = kwargs
+        { "items" => [] }
+      end
+    ) do
+      result = ManualAcceptanceSupport.run_fenix_control_loop_for_registration!(
+        registration: {
+          "machine_credential" => "program-secret",
+          "executor_machine_credential" => "execution-secret",
+        },
+        limit: 3
+      )
+
+      assert_equal({ "items" => [] }, result)
+    end
+
+    assert_equal "program-secret", captured.fetch(:machine_credential)
+    assert_equal "execution-secret", captured.fetch(:executor_machine_credential)
+    assert_equal 3, captured.fetch(:limit)
+  end
+
+  test "with_fenix_control_worker_for_registration! falls back to the program credential when executor credential is absent" do
+    captured = nil
+    yielded = nil
+
+    with_redefined_singleton_method(
+      ManualAcceptanceSupport,
+      :with_fenix_control_worker!,
+      lambda do |**kwargs, &block|
+        captured = kwargs
+        block.call("pid-123")
+      end
+    ) do
+      ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
+        registration: {
+          machine_credential: "program-secret",
+        },
+        limit: 2
+      ) do |pid|
+        yielded = pid
+      end
+    end
+
+    assert_equal "program-secret", captured.fetch(:machine_credential)
+    assert_equal "program-secret", captured.fetch(:executor_machine_credential)
+    assert_equal 2, captured.fetch(:limit)
+    assert_equal "pid-123", yielded
+  end
+
   test "reconnect_application_record! re-establishes and checks out through with_connection" do
     calls = []
 

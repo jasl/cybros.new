@@ -30,6 +30,9 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     ], body.dig("program_contract", "methods")
     assert_includes protocol_method_ids, "capabilities_handshake"
     assert_includes protocol_method_ids, "execution_started"
+    assert_includes protocol_method_ids, "process_started"
+    assert_includes protocol_method_ids, "process_output"
+    assert_includes protocol_method_ids, "process_exited"
 
     assert_equal "program", body.dig("program_plane", "control_plane")
     assert_equal "executor", body.dig("executor_plane", "control_plane")
@@ -43,14 +46,21 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_open"
     assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_screenshot"
     assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "browser_session_info"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "process_exec"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "process_list"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "process_proxy_info"
+    assert_includes body.fetch("executor_tool_catalog").map { |entry| entry.fetch("tool_name") }, "process_read_output"
     refute_includes program_tool_names, "exec_command"
     assert_includes effective_tool_names, "compact_context"
     assert_includes effective_tool_names, "exec_command"
     assert_includes effective_tool_names, "browser_open"
+    assert_includes effective_tool_names, "process_exec"
     assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" && entry.fetch("operator_group") == "command_run" }
     assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "exec_command" && entry.fetch("supports_streaming_output") == true }
     assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "browser_open" && entry.fetch("operator_group") == "browser_session" }
     assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "browser_screenshot" && entry.fetch("supports_streaming_output") == false }
+    assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "process_exec" && entry.fetch("operator_group") == "process_run" }
+    assert body.fetch("executor_tool_catalog").any? { |entry| entry.fetch("tool_name") == "process_read_output" && entry.fetch("resource_identity_kind") == "process_run" }
 
     assert_includes body.fetch("profile_catalog").keys, "main"
     assert_includes body.fetch("profile_catalog").keys, "researcher"

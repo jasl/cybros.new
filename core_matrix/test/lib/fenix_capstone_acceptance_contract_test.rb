@@ -252,6 +252,17 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     refute_includes readme, "dedicated `3102` runtime"
   end
 
+  test "process run close validation uses the real program tool mailbox exchange path" do
+    scenario = Rails.root.join("../acceptance/scenarios/process_run_close_validation.rb").read
+
+    assert_includes scenario, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
+    assert_includes scenario, "registration: bundled"
+    assert_includes scenario, "ProviderExecution::RouteToolCall.call("
+    assert_includes scenario, "ProviderExecution::ProgramMailboxExchange.new("
+    assert_includes scenario, '"tool_name" => "process_exec"'
+    refute_includes scenario, '"mode" => "deterministic_tool"'
+  end
+
   test "acceptance scenario uses shared review artifacts helper" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/review_artifacts.rb")

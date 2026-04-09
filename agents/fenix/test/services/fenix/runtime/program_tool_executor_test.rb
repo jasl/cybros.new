@@ -5,6 +5,8 @@ require "timeout"
 class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
   teardown do
     Fenix::Runtime::CommandRunRegistry.reset! if defined?(Fenix::Runtime::CommandRunRegistry)
+    Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
+    Fenix::Processes::ProxyRegistry.reset! if defined?(Fenix::Processes::ProxyRegistry)
   end
 
   test "captures streamed output for one-shot exec_command" do
@@ -340,8 +342,114 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     end
 
     assert_equal %w[open get_content screenshot list info close], calls.map { |entry| entry.fetch("action") }
-    assert_equal "turn-1", calls.first.fetch("agent_task_run_id")
+    assert_equal "turn-1", calls.first.fetch("runtime_owner_id")
     assert_equal false, calls.third.fetch("full_page")
+  end
+
+  test "routes detached process tools through the process runtime slice" do
+    executor = build_executor(
+      allowed_tool_names: %w[
+        process_exec
+        process_list
+        process_read_output
+        process_proxy_info
+      ]
+    )
+    calls = []
+
+    with_process_runtime_stubs(
+      launcher: lambda do |**kwargs|
+        calls << ["launcher", kwargs.deep_stringify_keys]
+        {
+          "process_run_id" => kwargs.fetch(:process_run).fetch("process_run_id"),
+          "lifecycle_state" => "running",
+          "proxy_path" => "/dev/#{kwargs.fetch(:process_run).fetch("process_run_id")}",
+          "proxy_target_url" => "http://127.0.0.1:4100",
+        }
+      end,
+      manager_list: lambda do |runtime_owner_id:|
+        calls << ["manager_list", { "runtime_owner_id" => runtime_owner_id }]
+        [
+          {
+            "process_run_id" => "process-run-1",
+            "runtime_owner_id" => runtime_owner_id,
+            "lifecycle_state" => "running",
+          },
+        ]
+      end,
+      manager_output_snapshot: lambda do |process_run_id:|
+        calls << ["manager_output_snapshot", { "process_run_id" => process_run_id }]
+        {
+          "process_run_id" => process_run_id,
+          "runtime_owner_id" => "turn-1",
+          "lifecycle_state" => "running",
+          "stdout_tail" => "ready\n",
+          "stderr_tail" => "",
+          "stdout_bytes" => 6,
+          "stderr_bytes" => 0,
+        }
+      end,
+      proxy_lookup: lambda do |process_run_id:|
+        calls << ["proxy_lookup", { "process_run_id" => process_run_id }]
+        {
+          "process_run_id" => process_run_id,
+          "path_prefix" => "/dev/#{process_run_id}",
+          "target_url" => "http://127.0.0.1:4100",
+        }
+      end
+    ) do
+      started = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-process-1",
+          "tool_name" => "process_exec",
+          "arguments" => {
+            "command_line" => "bin/dev",
+            "kind" => "background_service",
+            "proxy_port" => 4100,
+          },
+        },
+        process_run: {
+          "process_run_id" => "process-run-1",
+          "runtime_owner_id" => "turn-1",
+        }
+      )
+
+      listed = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-process-2",
+          "tool_name" => "process_list",
+          "arguments" => {},
+        }
+      )
+
+      output = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-process-3",
+          "tool_name" => "process_read_output",
+          "arguments" => {
+            "process_run_id" => "process-run-1",
+          },
+        }
+      )
+
+      proxy = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-process-4",
+          "tool_name" => "process_proxy_info",
+          "arguments" => {
+            "process_run_id" => "process-run-1",
+          },
+        }
+      )
+
+      assert_equal "process-run-1", started.tool_result.fetch("process_run_id")
+      assert_equal "running", started.tool_result.fetch("lifecycle_state")
+      assert_equal ["process-run-1"], listed.tool_result.fetch("entries").map { |entry| entry.fetch("process_run_id") }
+      assert_equal "ready\n", output.tool_result.fetch("stdout_tail")
+      assert_equal "/dev/process-run-1", proxy.tool_result.fetch("proxy_path")
+      assert_equal "launcher", calls.first.first
+      assert_equal "process-run-1", calls.first.last.dig("process_run", "process_run_id")
+    end
   end
 
   test "maps browser validation failures to semantic error payloads" do
@@ -374,6 +482,69 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
   ensure
     singleton_class.send(:define_method, :call) do |*args, **kwargs, &block|
       original_call.call(*args, **kwargs, &block)
+    end
+  end
+
+  def with_process_runtime_stubs(launcher:, manager_list:, manager_output_snapshot:, proxy_lookup:)
+    processes_module_created = false
+
+    unless Fenix.const_defined?(:Processes, false)
+      Fenix.const_set(:Processes, Module.new)
+      processes_module_created = true
+    end
+
+    processes_module = Fenix.const_get(:Processes)
+    original_launcher = processes_module.const_get(:Launcher) if processes_module.const_defined?(:Launcher, false)
+    original_manager = processes_module.const_get(:Manager) if processes_module.const_defined?(:Manager, false)
+    original_proxy_registry = processes_module.const_get(:ProxyRegistry) if processes_module.const_defined?(:ProxyRegistry, false)
+
+    processes_module.send(:remove_const, :Launcher) if processes_module.const_defined?(:Launcher, false)
+    processes_module.send(:remove_const, :Manager) if processes_module.const_defined?(:Manager, false)
+    processes_module.send(:remove_const, :ProxyRegistry) if processes_module.const_defined?(:ProxyRegistry, false)
+
+    processes_module.const_set(
+      :Launcher,
+      Class.new do
+        define_singleton_method(:call, &launcher)
+      end
+    )
+    processes_module.const_set(
+      :Manager,
+      Class.new do
+        define_singleton_method(:list, &manager_list)
+        define_singleton_method(:lookup) do |process_run_id:|
+          Struct.new(:runtime_owner_id).new(
+            manager_output_snapshot.call(process_run_id: process_run_id).fetch("runtime_owner_id")
+          )
+        end
+        define_singleton_method(:output_snapshot, &manager_output_snapshot)
+        define_singleton_method(:proxy_info) do |process_run_id:|
+          proxy_lookup.call(process_run_id: process_run_id).transform_keys do |key|
+            key == "path_prefix" ? "proxy_path" : (key == "target_url" ? "proxy_target_url" : key)
+          end
+        end
+        define_singleton_method(:reset!) { nil }
+      end
+    )
+    processes_module.const_set(
+      :ProxyRegistry,
+      Class.new do
+        define_singleton_method(:lookup, &proxy_lookup)
+        define_singleton_method(:reset!) { nil }
+      end
+    )
+
+    yield
+  ensure
+    if Fenix.const_defined?(:Processes, false)
+      current_processes_module = Fenix.const_get(:Processes)
+      current_processes_module.send(:remove_const, :Launcher) if current_processes_module.const_defined?(:Launcher, false)
+      current_processes_module.send(:remove_const, :Manager) if current_processes_module.const_defined?(:Manager, false)
+      current_processes_module.send(:remove_const, :ProxyRegistry) if current_processes_module.const_defined?(:ProxyRegistry, false)
+      current_processes_module.const_set(:Launcher, original_launcher) if original_launcher
+      current_processes_module.const_set(:Manager, original_manager) if original_manager
+      current_processes_module.const_set(:ProxyRegistry, original_proxy_registry) if original_proxy_registry
+      Fenix.send(:remove_const, :Processes) if processes_module_created
     end
   end
 

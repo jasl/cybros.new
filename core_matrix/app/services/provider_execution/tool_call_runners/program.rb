@@ -204,7 +204,7 @@ module ProviderExecution
 
         {
           "process_run_id" => process_run.public_id,
-          "agent_task_run_id" => @workflow_node.turn.public_id,
+          "runtime_owner_id" => @workflow_node.turn.public_id,
         }
       end
 

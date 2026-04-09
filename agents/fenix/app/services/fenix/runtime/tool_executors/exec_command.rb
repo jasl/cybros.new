@@ -9,13 +9,13 @@ module Fenix
         class CancellationRequestedError < StandardError; end
 
         class << self
-          def call(tool_call:, context:, collector:, cancellation_probe:, current_execution_owner_id:, command_run: nil, **)
+          def call(tool_call:, context:, collector:, cancellation_probe:, current_runtime_owner_id:, command_run: nil, **)
             new_runtime(
               tool_call: tool_call,
               context: context,
               collector: collector,
               cancellation_probe: cancellation_probe,
-              current_execution_owner_id: current_execution_owner_id,
+              current_runtime_owner_id: current_runtime_owner_id,
               command_run: command_run
             ).call
           end
@@ -28,12 +28,12 @@ module Fenix
         end
 
         class Runtime
-          def initialize(tool_call:, context:, collector:, cancellation_probe:, current_execution_owner_id:, command_run: nil)
+          def initialize(tool_call:, context:, collector:, cancellation_probe:, current_runtime_owner_id:, command_run: nil)
             @tool_call = tool_call.deep_stringify_keys
             @context = context.deep_stringify_keys
             @collector = collector
             @cancellation_probe = cancellation_probe
-            @current_execution_owner_id = current_execution_owner_id
+            @current_runtime_owner_id = current_runtime_owner_id
             @command_run = command_run&.deep_stringify_keys
             @workspace_root = resolve_workspace_root
           end
@@ -41,7 +41,7 @@ module Fenix
           def call
             case @tool_call.fetch("tool_name")
             when "command_run_list"
-              { "entries" => Fenix::Runtime::CommandRunRegistry.list(agent_task_run_id: @current_execution_owner_id) }
+              { "entries" => Fenix::Runtime::CommandRunRegistry.list(runtime_owner_id: @current_runtime_owner_id) }
             when "command_run_read_output"
               execute_command_run_read_output
             when "command_run_terminate"
@@ -226,7 +226,7 @@ module Fenix
             )
             Fenix::Runtime::CommandRunRegistry.register(
               command_run_id: command_run_id,
-              agent_task_run_id: @current_execution_owner_id,
+              runtime_owner_id: @current_runtime_owner_id,
               stdin: stdin,
               stdout: stdout,
               stderr: stderr,
@@ -258,7 +258,7 @@ module Fenix
 
             Fenix::Runtime::CommandRunRegistry.register(
               command_run_id: command_run_id,
-              agent_task_run_id: @current_execution_owner_id,
+              runtime_owner_id: @current_runtime_owner_id,
               stdin: stdin,
               stdout: command_stdout,
               stderr: command_stderr,
@@ -431,7 +431,7 @@ module Fenix
           def lookup_owned_command_run!(command_run_id)
             command_run = Fenix::Runtime::CommandRunRegistry.lookup(command_run_id: command_run_id)
             raise ValidationError, "unknown command run #{command_run_id}" if command_run.blank?
-            unless command_run.agent_task_run_id == @current_execution_owner_id
+            unless command_run.runtime_owner_id == @current_runtime_owner_id
               raise ValidationError, "command run #{command_run_id} is not owned by this execution"
             end
 
@@ -450,9 +450,9 @@ module Fenix
 
             process_pid = pid.to_i
             [(-process_pid), process_pid].each do |target|
-              Process.kill("TERM", target)
+              ::Process.kill("TERM", target)
               sleep(0.1)
-              Process.kill("KILL", target)
+              ::Process.kill("KILL", target)
               return
             rescue Errno::ESRCH
               next
@@ -477,7 +477,7 @@ module Fenix
           end
 
           def monotonic_now
-            Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
           end
         end
       end

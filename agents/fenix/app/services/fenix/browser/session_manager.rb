@@ -8,7 +8,7 @@ module Fenix
 
       LocalSession = Struct.new(
         :browser_session_id,
-        :agent_task_run_id,
+        :runtime_owner_id,
         :host,
         :current_url,
         keyword_init: true
@@ -151,10 +151,10 @@ module Fenix
           end
         end
 
-        def list(agent_task_run_id: nil)
+        def list(runtime_owner_id: nil)
           synchronize do
             registry.values
-              .select { |session| agent_task_run_id.blank? || session.agent_task_run_id == agent_task_run_id }
+              .select { |session| runtime_owner_id.blank? || session.runtime_owner_id == runtime_owner_id }
               .sort_by(&:browser_session_id)
               .map { |session| snapshot_for(session) }
           end
@@ -188,7 +188,7 @@ module Fenix
         def snapshot_for(session)
           {
             "browser_session_id" => session.browser_session_id,
-            "agent_task_run_id" => session.agent_task_run_id,
+            "runtime_owner_id" => session.runtime_owner_id,
             "current_url" => session.current_url,
           }.compact
         end
@@ -208,13 +208,13 @@ module Fenix
         end
       end
 
-      def initialize(action:, browser_session_id: nil, url: nil, full_page: true, host_factory: nil, agent_task_run_id: nil)
+      def initialize(action:, browser_session_id: nil, url: nil, full_page: true, host_factory: nil, runtime_owner_id: nil)
         @action = action.to_s
         @browser_session_id = browser_session_id
         @url = url
         @full_page = full_page
         @host_factory = host_factory || method(:default_host_factory)
-        @agent_task_run_id = agent_task_run_id
+        @runtime_owner_id = runtime_owner_id
       end
 
       def call
@@ -250,7 +250,7 @@ module Fenix
         self.class.register(
           LocalSession.new(
             browser_session_id: session_id,
-            agent_task_run_id: @agent_task_run_id,
+            runtime_owner_id: @runtime_owner_id,
             host: host,
             current_url: payload["current_url"]
           )
@@ -280,15 +280,15 @@ module Fenix
       def lookup_session!
         session = self.class.lookup(browser_session_id: @browser_session_id)
         raise ValidationError, "unknown browser session #{@browser_session_id}" if session.blank?
-        if @agent_task_run_id.present? && session.agent_task_run_id != @agent_task_run_id
-          raise ValidationError, "browser session #{@browser_session_id} is not owned by this agent task"
+        if @runtime_owner_id.present? && session.runtime_owner_id != @runtime_owner_id
+          raise ValidationError, "browser session #{@browser_session_id} is not owned by this execution"
         end
 
         session
       end
 
       def list_sessions
-        { "entries" => self.class.list(agent_task_run_id: @agent_task_run_id) }
+        { "entries" => self.class.list(runtime_owner_id: @runtime_owner_id) }
       end
 
       def session_info

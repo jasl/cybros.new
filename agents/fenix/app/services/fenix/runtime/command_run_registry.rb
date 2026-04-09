@@ -3,7 +3,7 @@ module Fenix
     class CommandRunRegistry
       LocalHandle = Struct.new(
         :command_run_id,
-        :agent_task_run_id,
+        :runtime_owner_id,
         :stdin,
         :stdout,
         :stderr,
@@ -25,11 +25,11 @@ module Fenix
           sanitized.valid_encoding? ? sanitized : sanitized.scrub
         end
 
-        def register(command_run_id:, agent_task_run_id:, stdin:, stdout:, stderr:, wait_thread:)
+        def register(command_run_id:, runtime_owner_id:, stdin:, stdout:, stderr:, wait_thread:)
           synchronize do
             entries[command_run_id] = LocalHandle.new(
               command_run_id: command_run_id,
-              agent_task_run_id: agent_task_run_id,
+              runtime_owner_id: runtime_owner_id,
               stdin: stdin,
               stdout: stdout,
               stderr: stderr,
@@ -65,10 +65,10 @@ module Fenix
           end
         end
 
-        def list(agent_task_run_id: nil)
+        def list(runtime_owner_id: nil)
           synchronize do
             entries.values
-              .select { |entry| agent_task_run_id.blank? || entry.agent_task_run_id == agent_task_run_id }
+              .select { |entry| runtime_owner_id.blank? || entry.runtime_owner_id == runtime_owner_id }
               .sort_by(&:command_run_id)
               .map { |entry| snapshot_for(entry) }
           end
@@ -134,7 +134,7 @@ module Fenix
         def snapshot_for(entry)
           {
             "command_run_id" => entry.command_run_id,
-            "agent_task_run_id" => entry.agent_task_run_id,
+            "runtime_owner_id" => entry.runtime_owner_id,
             "lifecycle_state" => entry.session_closed || !entry.wait_thread&.alive? ? "stopped" : "running",
             "session_closed" => entry.session_closed,
             "exit_status" => entry.exit_status,

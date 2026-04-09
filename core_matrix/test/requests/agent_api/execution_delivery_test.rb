@@ -170,6 +170,53 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal first_updated_at, agent_task_run.reload.updated_at
   end
 
+  test "execution_interrupted terminalizes a leased assignment through the public report api" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-interrupt-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 30,
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    post "/agent_api/control/report",
+      params: {
+        method_id: "execution_interrupted",
+        protocol_message_id: "agent-interrupted-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        terminal_payload: { "reason" => "operator_interrupt" },
+      },
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+
+    agent_task_run.reload
+
+    assert_equal "interrupted", agent_task_run.lifecycle_state
+    assert_equal "execution_interrupted", agent_task_run.terminal_payload.fetch("terminal_method_id")
+    assert_equal "operator_interrupt", agent_task_run.terminal_payload.fetch("reason")
+    assert_equal "completed", mailbox_item.reload.status
+    assert_not agent_task_run.execution_lease.reload.active?
+  end
+
   test "agent_program_completed completes a leased mailbox request and reconstructs workflow refs through the public report api" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentProgramRequest.call(

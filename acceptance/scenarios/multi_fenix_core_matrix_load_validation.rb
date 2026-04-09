@@ -105,9 +105,8 @@ def with_runtime_control_workers!(registrations, index = 0, &block)
   return yield if index >= registrations.length
 
   registration = registrations.fetch(index)
-  ManualAcceptanceSupport.with_fenix_control_worker!(
-    machine_credential: registration.fetch("machine_credential"),
-    executor_machine_credential: registration.fetch("executor_machine_credential"),
+  ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
+    registration: registration,
     limit: 1,
     env: registration.fetch("runtime_task_env")
   ) do

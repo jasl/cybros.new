@@ -70,6 +70,6 @@ docker run --rm -v /Users/jasl/Workspaces/Ruby/cybros:/workspace nexus-local /wo
 
 - project shape and verification flow borrow from
   `references/original/references/codex-universal`
-- runtime dependency selection borrows from `agents/fenix.old`
+- runtime dependency selection tracks the active `agents/fenix` contract
 - version truth stays local to this subproject instead of copying the
   `codex-universal` matrix

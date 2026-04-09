@@ -423,7 +423,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal workflow_node, process_run.workflow_node
     assert_equal context.fetch(:conversation), process_run.conversation
     assert process_run.running?
-    assert_equal workflow_node.turn.public_id, request_payload.dig("runtime_resource_refs", "process_run", "agent_task_run_id")
+    assert_equal workflow_node.turn.public_id, request_payload.dig("runtime_resource_refs", "process_run", "runtime_owner_id")
   end
 
   test "normalizes provider-facing process_exec kind aliases before provisioning process runs" do

@@ -177,4 +177,57 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_nil mailbox_item.workflow_node
     assert_nil mailbox_item.execution_contract
   end
+
+  test "supports execute_program_tool requests while preserving program tool call payloads" do
+    context = build_agent_control_context!
+
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "execute_program_tool",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+        "program_tool_call" => {
+          "call_id" => "call-1",
+          "tool_name" => "exec_command",
+          "arguments" => { "cmd" => "pwd", "timeout_seconds" => 15 },
+        },
+        "runtime_context" => {
+          "agent_program_id" => context.fetch(:agent_program).public_id,
+          "user_id" => context.fetch(:user).public_id,
+        },
+      },
+      logical_work_id: "program-tool:#{context.fetch(:workflow_node).public_id}:call-1",
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    assert_equal "execute_program_tool", mailbox_item.payload.fetch("request_kind")
+    assert_equal "call-1", mailbox_item.payload.dig("program_tool_call", "call_id")
+    assert_equal "exec_command", mailbox_item.payload.dig("program_tool_call", "tool_name")
+    assert_equal "pwd", mailbox_item.payload.dig("program_tool_call", "arguments", "cmd")
+    assert_equal 15, mailbox_item.payload.dig("program_tool_call", "arguments", "timeout_seconds")
+    assert_equal context.fetch(:workflow_node).public_id, mailbox_item.payload.dig("task", "workflow_node_id")
+    assert_equal context.fetch(:agent_program).public_id, mailbox_item.payload.dig("runtime_context", "agent_program_id")
+    assert_equal context.fetch(:user).public_id, mailbox_item.payload.dig("runtime_context", "user_id")
+    assert_equal(
+      {
+        "program_tool_call" => {
+          "call_id" => "call-1",
+          "tool_name" => "exec_command",
+          "arguments" => { "cmd" => "pwd", "timeout_seconds" => 15 },
+        },
+        "runtime_context" => {
+          "agent_program_id" => context.fetch(:agent_program).public_id,
+          "user_id" => context.fetch(:user).public_id,
+        },
+      },
+      mailbox_item.payload_document.payload
+    )
+  end
 end

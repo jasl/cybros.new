@@ -16,6 +16,10 @@ class Fenix::Runtime::SystemToolRegistryTest < ActiveSupport::TestCase
         command_run_terminate
         command_run_wait
         exec_command
+        process_exec
+        process_list
+        process_proxy_info
+        process_read_output
         write_stdin
       ],
       Fenix::Runtime::SystemToolRegistry.supported_tool_names.sort
@@ -41,5 +45,18 @@ class Fenix::Runtime::SystemToolRegistryTest < ActiveSupport::TestCase
     assert_equal "browser_session", browser_open_entry.dig(:catalog_entry, "operator_group")
     assert_equal "browser_session", browser_open_entry.dig(:catalog_entry, "resource_identity_kind")
     assert_equal false, browser_open_entry.dig(:catalog_entry, "supports_streaming_output")
+  end
+
+  test "process registry entries expose the detached process executor slice" do
+    process_exec_entry = Fenix::Runtime::SystemToolRegistry.fetch!("process_exec")
+    process_proxy_info_entry = Fenix::Runtime::SystemToolRegistry.fetch!("process_proxy_info")
+
+    assert_equal true, process_exec_entry.fetch(:registry_backed)
+    assert_equal "process_run", process_exec_entry.dig(:catalog_entry, "operator_group")
+    assert_equal "process_run", process_exec_entry.dig(:catalog_entry, "resource_identity_kind")
+    assert_equal true, process_exec_entry.dig(:catalog_entry, "mutates_state")
+    assert_equal "executor_program", process_exec_entry.dig(:catalog_entry, "tool_kind")
+    assert_equal false, process_proxy_info_entry.dig(:catalog_entry, "mutates_state")
+    assert_equal ["process_run_id"], process_proxy_info_entry.dig(:catalog_entry, "input_schema", "required")
   end
 end
