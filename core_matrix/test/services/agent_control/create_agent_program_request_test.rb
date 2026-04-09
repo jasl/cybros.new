@@ -15,8 +15,13 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
       agent_program_version: context.fetch(:deployment),
       request_kind: "prepare_round",
       payload: {
-        "workflow_node_id" => context.fetch(:workflow_node).public_id,
-        "conversation_id" => context.fetch(:conversation).public_id,
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
       },
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
       attempt_no: 2,
@@ -35,6 +40,25 @@ class AgentControl::CreateAgentProgramRequestTest < ActiveSupport::TestCase
     assert_equal [mailbox_item], published
   ensure
     AgentControl::PublishPending.singleton_class.define_method(:call, original_publish_pending) if original_publish_pending
+  end
+
+  test "prepare_round rejects missing workflow task context" do
+    context = build_agent_control_context!
+
+    error = assert_raises(ArgumentError) do
+      AgentControl::CreateAgentProgramRequest.call(
+        agent_program_version: context.fetch(:deployment),
+        request_kind: "prepare_round",
+        payload: {
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+        logical_work_id: "prepare-round:missing-task",
+        attempt_no: 1,
+        dispatch_deadline_at: 5.minutes.from_now
+      )
+    end
+
+    assert_match(/missing task payload/i, error.message)
   end
 
   test "stores only the request body in the payload document and reconstructs structured runtime context on read" do

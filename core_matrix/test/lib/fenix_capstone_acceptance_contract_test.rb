@@ -257,8 +257,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
     assert_includes scenario, "registration: bundled"
-    assert_includes scenario, "ProviderExecution::RouteToolCall.call("
-    assert_includes scenario, "ProviderExecution::ProgramMailboxExchange.new("
+    assert_includes scenario, "ManualAcceptanceSupport.execute_program_tool_call!("
     assert_includes scenario, '"tool_name" => "process_exec"'
     refute_includes scenario, '"mode" => "deterministic_tool"'
   end

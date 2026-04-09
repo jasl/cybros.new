@@ -22,7 +22,7 @@ module Fenix
         private
 
         def arithmetic_output
-          result = Fenix::Hooks::Calculator.call(expression: expression)
+          result = Fenix::Agent::Hooks::Calculator.call(expression: expression)
 
           {
             "kind" => "calculator",
@@ -30,7 +30,7 @@ module Fenix
             "result" => result,
             "content" => "The calculator returned #{result}.",
           }
-        rescue Fenix::Hooks::Calculator::InvalidExpressionError => error
+        rescue Fenix::Agent::Hooks::Calculator::InvalidExpressionError => error
           raise InvalidRequestError, error.message
         end
 

@@ -101,7 +101,9 @@ module AgentControl
       return unless workflow_run.blocking_resource_type == "WorkflowNode"
       return unless workflow_run.blocking_resource_id == workflow_node.public_id
 
-      Workflows::ResumeBlockedStepJob.perform_later(workflow_run.public_id)
+      Workflows::ResumeBlockedStep.call(workflow_run: workflow_run)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound
+      nil
     end
   end
 end

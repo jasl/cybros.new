@@ -20,16 +20,18 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "returns deep-duped hashes and arrays while defaulting missing sections" do
     snapshot = TurnExecutionSnapshot.new(
-      "identity" => { "turn_id" => "turn-1" },
-      "task" => { "turn_id" => "turn-1" },
-      "conversation_projection" => { "messages" => [{ "role" => "user", "content" => "hello" }], "context_imports" => [], "prior_tool_results" => [] },
-      "capability_projection" => { "tool_surface" => [{ "tool_name" => "exec_command" }] },
-      "provider_context" => {
-        "provider_execution" => {},
-        "budget_hints" => {},
-        "model_context" => { "provider_handle" => "openai" },
-      },
-      "attachment_manifest" => [{ "attachment_id" => "att-1" }]
+      payload: {
+        "identity" => { "turn_id" => "turn-1" },
+        "task" => { "turn_id" => "turn-1" },
+        "conversation_projection" => { "messages" => [{ "role" => "user", "content" => "hello" }], "context_imports" => [], "prior_tool_results" => [] },
+        "capability_projection" => { "tool_surface" => [{ "tool_name" => "exec_command" }] },
+        "provider_context" => {
+          "provider_execution" => {},
+          "budget_hints" => {},
+          "model_context" => { "provider_handle" => "openai" },
+        },
+        "attachment_manifest" => [{ "attachment_id" => "att-1" }],
+      }
     )
 
     identity = snapshot.identity
@@ -48,5 +50,13 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal({ "tool_surface" => [{ "tool_name" => "exec_command" }] }, snapshot.capability_projection)
     assert_equal([], snapshot.model_input_attachments)
     assert_equal([], snapshot.attachment_diagnostics)
+  end
+
+  test "requires either a turn or an explicit payload" do
+    error = assert_raises(ArgumentError) do
+      TurnExecutionSnapshot.new
+    end
+
+    assert_match(/turn or payload/i, error.message)
   end
 end

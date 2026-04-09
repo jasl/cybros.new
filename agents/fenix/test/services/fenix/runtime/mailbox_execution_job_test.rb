@@ -3,8 +3,8 @@ require "test_helper"
 class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
   setup do
     @original_control_plane_client =
-      if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
-        Fenix::Runtime::ControlPlane.instance_variable_get(:@client)
+      if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
+        Fenix::Shared::ControlPlane.instance_variable_get(:@client)
       else
         :__undefined__
       end
@@ -15,9 +15,9 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
 
   teardown do
     if @original_control_plane_client == :__undefined__
-      Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
+      Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
     else
-      Fenix::Runtime::ControlPlane.client = @original_control_plane_client
+      Fenix::Shared::ControlPlane.client = @original_control_plane_client
     end
 
     ENV["CORE_MATRIX_BASE_URL"] = @original_core_matrix_base_url
@@ -29,7 +29,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
     ENV.delete("CORE_MATRIX_BASE_URL")
     ENV.delete("CORE_MATRIX_MACHINE_CREDENTIAL")
     ENV.delete("CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL")
-    Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
+    Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
 
     result = with_dispatch_mode_stub(
       ->(task_payload:, runtime_context:) do
@@ -92,7 +92,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
     ENV.delete("CORE_MATRIX_BASE_URL")
     ENV.delete("CORE_MATRIX_MACHINE_CREDENTIAL")
     ENV.delete("CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL")
-    Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
+    Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
 
     captured_client = nil
     original_execute = Fenix::Runtime::ExecuteMailboxItem.method(:call)
@@ -112,7 +112,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
     )
 
     assert_equal "ok", result.fetch("status")
-    assert_instance_of Fenix::Runtime::ControlClient, captured_client
+    assert_instance_of Fenix::Shared::ControlPlane::Client, captured_client
   ensure
     Fenix::Runtime::ExecuteMailboxItem.singleton_class.define_method(:call, original_execute) if original_execute
   end

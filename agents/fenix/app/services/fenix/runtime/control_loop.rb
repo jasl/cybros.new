@@ -19,7 +19,7 @@ module Fenix
       )
         @limit = limit
         @inline = inline
-        @control_client = control_client || Fenix::Runtime::ControlPlane.client
+        @control_client = control_client || Fenix::Shared::ControlPlane.client
         @session_factory = session_factory
         @timeout_seconds = timeout_seconds
         @mailbox_pump = mailbox_pump

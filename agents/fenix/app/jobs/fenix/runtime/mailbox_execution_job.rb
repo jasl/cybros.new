@@ -22,17 +22,17 @@ class Fenix::Runtime::MailboxExecutionJob < ApplicationJob
 
   def resolve_control_client(deliver_reports:, control_plane_context:)
     return nil unless deliver_reports
-    return Fenix::Runtime::ControlPlane.client if control_plane_context.blank?
+    return Fenix::Shared::ControlPlane.client if control_plane_context.blank?
 
     context = control_plane_context.deep_stringify_keys
 
-    Fenix::Runtime::ControlClient.new(
+    Fenix::Shared::ControlPlane::Client.new(
       base_url: context.fetch("base_url"),
       machine_credential: context.fetch("machine_credential"),
       execution_machine_credential: context.fetch("execution_machine_credential", context.fetch("machine_credential")),
-      open_timeout: context.fetch("open_timeout", Fenix::Runtime::ControlClient::DEFAULT_OPEN_TIMEOUT),
-      read_timeout: context.fetch("read_timeout", Fenix::Runtime::ControlClient::DEFAULT_READ_TIMEOUT),
-      write_timeout: context.fetch("write_timeout", Fenix::Runtime::ControlClient::DEFAULT_WRITE_TIMEOUT)
+      open_timeout: context.fetch("open_timeout", Fenix::Shared::ControlPlane::Client::DEFAULT_OPEN_TIMEOUT),
+      read_timeout: context.fetch("read_timeout", Fenix::Shared::ControlPlane::Client::DEFAULT_READ_TIMEOUT),
+      write_timeout: context.fetch("write_timeout", Fenix::Shared::ControlPlane::Client::DEFAULT_WRITE_TIMEOUT)
     )
   end
 

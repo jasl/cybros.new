@@ -130,7 +130,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     original_snapshot = workflow_run.execution_snapshot.to_h
     legacy_snapshot = TurnExecutionSnapshot.new(
-      original_snapshot.merge(
+      payload: original_snapshot.merge(
         "provider_context" => original_snapshot.fetch("provider_context").merge(
           "provider_execution" => original_snapshot.fetch("provider_context").fetch("provider_execution").except("loop_policy").merge(
             "loop_settings" => {
@@ -493,7 +493,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       "tool_name" => "calculator",
       "tool_kind" => "agent_observation",
       "implementation_source" => "agent",
-      "implementation_ref" => "fenix/runtime/calculator",
+      "implementation_ref" => "fenix/agent/calculator",
       "input_schema" => {
         "type" => "object",
         "properties" => {

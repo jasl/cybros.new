@@ -8,24 +8,16 @@ not-yet-completed work should remain here.
 
 The current active planning documents in this directory are:
 
-- [2026-04-03-multi-round-architecture-audit-and-reset-framework.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-multi-round-architecture-audit-and-reset-framework.md)
-- [2026-04-03-round-1-architecture-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-audit-design.md)
-- [2026-04-03-round-1-architecture-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-round-1-architecture-reset.md)
 - [2026-04-03-recoverable-failure-step-resume-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-design.md)
 - [2026-04-03-recoverable-failure-step-resume-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-implementation.md)
-- [2026-04-06-fenix-cowork-roadmap-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-06-fenix-cowork-roadmap-design.md)
-- [2026-04-10-core-matrix-fenix-throughput-optimization-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-core-matrix-fenix-throughput-optimization-design.md)
-- [2026-04-10-core-matrix-fenix-throughput-optimization.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-core-matrix-fenix-throughput-optimization.md)
-- [2026-04-10-provider-transport-pooling-and-llm-dev-retuning-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-provider-transport-pooling-and-llm-dev-retuning-design.md)
-- [2026-04-10-provider-transport-pooling-and-llm-dev-retuning.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-provider-transport-pooling-and-llm-dev-retuning.md)
-- [2026-04-10-fenix-agent-executor-role-separation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-fenix-agent-executor-role-separation-design.md)
-- [2026-04-10-fenix-agent-executor-role-separation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-10-fenix-agent-executor-role-separation.md)
 
 Practical state:
 
-- Round 1 reset batches have already landed in code and verification.
-- The recoverable-failure step-resume work is partially implemented and remains
-  another open closure item in this directory.
+- The March-April reset framework, round-1 audit, round-1 reset ledger, and
+  `Fenix` cowork roadmap have been archived because those tracks already
+  landed and were superseded by the completed implementation records.
+- The recoverable-failure step-resume work remains the only still-open
+  execution family in this directory.
 - Current acceptance runs now execute through the top-level
   [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
   not the old `core_matrix/script/manual/acceptance` path.
@@ -40,6 +32,11 @@ Practical state:
   [docs/finished-plans/fenix](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/README.md).
 - The remaining load-harness threshold work moved to
   [docs/future-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/README.md).
+- The completed April 10 throughput, provider transport, and `Fenix` role
+  separation plans were archived to
+  [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
+  and
+  [docs/finished-plans/fenix](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/README.md).
 
 Earlier execution plans, implementation records, and accepted reset designs
 were archived to

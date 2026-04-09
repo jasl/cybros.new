@@ -10,7 +10,7 @@ module Fenix
       end
 
       def call
-        assembled_prompt = Fenix::Prompts::Assembler.call(
+        assembled_prompt = Fenix::Agent::Prompts::Assembler.call(
           profile: @context.dig("agent_context", "profile") || "main",
           is_subagent: @context.dig("agent_context", "is_subagent") == true,
           workspace_instructions: workspace_instructions,
@@ -34,7 +34,7 @@ module Fenix
         workspace_root = @context.dig("workspace_context", "workspace_root")
         return nil if workspace_root.blank?
 
-        Fenix::Prompts::WorkspaceInstructionLoader.call(workspace_root: workspace_root)
+        Fenix::Agent::Prompts::WorkspaceInstructionLoader.call(workspace_root: workspace_root)
       end
 
       def skill_overlay

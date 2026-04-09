@@ -1,7 +1,7 @@
 require "json"
 
 def runtime_client(machine_credential: ENV["CORE_MATRIX_MACHINE_CREDENTIAL"], execution_machine_credential: ENV["CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL"])
-  Fenix::Runtime::ControlClient.new(
+  Fenix::Shared::ControlPlane::Client.new(
     base_url: ENV.fetch("CORE_MATRIX_BASE_URL"),
     machine_credential: machine_credential,
     execution_machine_credential: execution_machine_credential.presence || machine_credential
@@ -13,7 +13,7 @@ def boolean_env(name, default)
 end
 
 def pairing_manifest_payload
-  Fenix::Runtime::PairingManifest.call(
+  Fenix::Runtime::Manifest::PairingManifest.call(
     base_url: ENV.fetch("FENIX_PUBLIC_BASE_URL")
   )
 end

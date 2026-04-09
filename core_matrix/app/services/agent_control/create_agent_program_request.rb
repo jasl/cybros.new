@@ -29,6 +29,7 @@ module AgentControl
 
     def call
       raise ArgumentError, "unsupported request kind #{@request_kind}" unless REQUEST_KINDS.include?(@request_kind)
+      validate_task_payload!
 
       workflow_node = resolved_workflow_node
       execution_contract = workflow_node&.turn&.execution_contract
@@ -121,10 +122,14 @@ module AgentControl
 
     def extract_task_payload(payload)
       task = payload["task"]
-      return task if task.is_a?(Hash)
+      task if task.is_a?(Hash)
+    end
 
-      legacy_task = payload.slice("workflow_node_id", "workflow_run_id", "conversation_id", "turn_id", "kind")
-      legacy_task.presence
+    def validate_task_payload!
+      return unless %w[prepare_round execute_program_tool].include?(@request_kind)
+      return if extract_task_payload(@payload).present?
+
+      raise ArgumentError, "missing task payload for #{@request_kind}"
     end
   end
 end

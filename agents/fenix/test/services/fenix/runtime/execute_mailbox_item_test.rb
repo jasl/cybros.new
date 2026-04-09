@@ -105,6 +105,45 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal "tool_not_allowed", client.reported_payloads.last.dig("error_payload", "code")
   end
 
+  test "execute_program_tool forwards the control client into executor-backed process tools" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    received_control_client = nil
+    original_new = Fenix::Executor::ProgramToolExecutor.method(:new)
+
+    Fenix::Executor::ProgramToolExecutor.define_singleton_method(:new) do |context:, collector: nil, control_client: nil, cancellation_probe: nil|
+      received_control_client = control_client
+      Object.new.tap do |executor|
+        executor.define_singleton_method(:call) do |tool_call:, command_run: nil, process_run: nil|
+          Struct.new(:tool_result, :output_chunks).new(
+            {
+              "process_run_id" => "process-run-1",
+              "lifecycle_state" => "running",
+            },
+            []
+          )
+        end
+      end
+    end
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execute_program_tool_mailbox_item(
+        workspace_root: Dir.tmpdir,
+        allowed_tool_names: %w[process_exec],
+        tool_name: "process_exec",
+        arguments: {
+          "command_line" => "sleep 1",
+        }
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_same client, received_control_client
+  ensure
+    Fenix::Executor::ProgramToolExecutor.define_singleton_method(:new, original_new) if original_new
+  end
+
   test "supervision_status_refresh agent program requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
@@ -156,8 +195,8 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
 
   test "skills execution assignments emit started and completed terminal reports" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
-    original_load = Fenix::Skills::Load.method(:call)
-    Fenix::Skills::Load.define_singleton_method(:call) do |skill_name:, repository:|
+    original_load = Fenix::Agent::Skills::Load.method(:call)
+    Fenix::Agent::Skills::Load.define_singleton_method(:call) do |skill_name:, repository:|
       {
         "name" => skill_name,
         "scope" => [
@@ -187,7 +226,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
     assert_equal "portable-notes", client.reported_payloads.last.dig("terminal_payload", "name")
   ensure
-    Fenix::Skills::Load.define_singleton_method(:call, original_load) if original_load
+    Fenix::Agent::Skills::Load.define_singleton_method(:call, original_load) if original_load
   end
 
   test "deterministic tool execution assignments emit started and completed terminal reports" do
@@ -335,7 +374,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     }
   end
 
-  def execute_program_tool_mailbox_item(workspace_root:, allowed_tool_names:)
+  def execute_program_tool_mailbox_item(workspace_root:, allowed_tool_names:, tool_name: "exec_command", arguments: nil)
     {
       "item_type" => "agent_program_request",
       "item_id" => "mailbox-item-program-tool-1",
@@ -367,8 +406,8 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         },
         "program_tool_call" => {
           "call_id" => "tool-call-1",
-          "tool_name" => "exec_command",
-          "arguments" => {
+          "tool_name" => tool_name,
+          "arguments" => arguments || {
             "command_line" => "printf 'hello\\n'",
           },
         },

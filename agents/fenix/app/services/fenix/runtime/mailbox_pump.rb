@@ -9,13 +9,13 @@ module Fenix
 
       def initialize(limit: DEFAULT_LIMIT, control_client: nil, mailbox_worker: nil, inline: false)
         @limit = limit
-        @control_client = control_client || Fenix::Runtime::ControlPlane.client
+        @control_client = control_client || Fenix::Shared::ControlPlane.client
         @mailbox_worker = mailbox_worker
         @inline = inline
       end
 
       def call
-        Fenix::Runtime::ControlPlane.poll(limit: @limit, client: @control_client).map do |mailbox_item|
+        Fenix::Shared::ControlPlane.poll(limit: @limit, client: @control_client).map do |mailbox_item|
           resolved_mailbox_worker.call(
             mailbox_item: mailbox_item,
             deliver_reports: true,
@@ -29,9 +29,7 @@ module Fenix
 
       def resolved_mailbox_worker
         return @mailbox_worker if @mailbox_worker.present?
-        return Fenix::Runtime::MailboxWorker.method(:call) if defined?(Fenix::Runtime::MailboxWorker)
-
-        raise NotImplementedError, "Fenix::Runtime::MailboxWorker is required for non-test mailbox pumping"
+        Fenix::Runtime::MailboxWorker.method(:call)
       end
     end
   end

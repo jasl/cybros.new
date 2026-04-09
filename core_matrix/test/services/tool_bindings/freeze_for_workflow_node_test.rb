@@ -45,7 +45,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
           "tool_name" => "workspace_write_file",
           "tool_kind" => "effect_intent",
           "implementation_source" => "agent",
-          "implementation_ref" => "fenix/runtime/workspace_write_file",
+          "implementation_ref" => "fenix/agent/workspace_write_file",
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
@@ -60,7 +60,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     assert binding.present?
     assert_nil binding.agent_task_run
     assert_equal context.fetch(:workflow_node), binding.workflow_node
-    assert_equal "fenix/runtime/workspace_write_file", binding.tool_implementation.implementation_ref
+    assert_equal "fenix/agent/workspace_write_file", binding.tool_implementation.implementation_ref
     assert_equal true, binding.round_scoped
     assert_equal false, binding.parallel_safe
     assert_equal false, binding.tool_implementation.metadata.dig("execution_policy", "parallel_safe")
@@ -77,7 +77,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
             "tool_name" => "subagent_spawn",
             "tool_kind" => "effect_intent",
             "implementation_source" => "agent",
-            "implementation_ref" => "fenix/runtime/subagent_spawn",
+            "implementation_ref" => "fenix/agent/subagent_spawn",
             "input_schema" => { "type" => "object", "properties" => {} },
             "result_schema" => { "type" => "object", "properties" => {} },
             "streaming_support" => false,

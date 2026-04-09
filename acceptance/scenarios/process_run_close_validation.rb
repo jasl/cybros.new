@@ -35,7 +35,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    tool_result = ProviderExecution::RouteToolCall.call(
+    tool_result = ManualAcceptanceSupport.execute_program_tool_call!(
       workflow_node: workflow_node,
       tool_call: {
         "call_id" => "acceptance-process-exec-1",
@@ -47,9 +47,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: ProviderExecution::ProgramMailboxExchange.new(
-        agent_program_version: bundled.deployment
-      )
+      agent_program_version: bundled.deployment
     )
     process_run = ProcessRun.find_by_public_id!(tool_result.result.fetch("process_run_id"))
     ManualAcceptanceSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")

@@ -124,16 +124,11 @@ module Fenix
 
       def handle_process_run_close!
         self.class.instrument_execution(mailbox_item: @mailbox_item) do
-          if defined?(Fenix::Processes::Manager)
-            Fenix::Processes::Manager.close!(
-              mailbox_item: @mailbox_item,
-              deliver_reports: @deliver_reports,
-              control_client: resolved_control_client_if_needed
-            )
-          else
-            report_close_failure!("local process manager is not available")
-            :unsupported
-          end
+          Fenix::Executor::Processes::Manager.close!(
+            mailbox_item: @mailbox_item,
+            deliver_reports: @deliver_reports,
+            control_client: resolved_control_client_if_needed
+          )
         end
       end
 
@@ -186,23 +181,11 @@ module Fenix
         client.report!(payload: terminal)
       end
 
-      def report_close_failure!(message)
-        client = resolved_control_client_if_needed
-        return if client.blank?
-
-        client.report!(
-          payload: base_close_report("resource_close_failed").merge(
-            "close_outcome_kind" => "unsupported",
-            "close_outcome_payload" => { "message" => message }
-          )
-        )
-      end
-
       def resolved_control_client_if_needed
         return @control_client if @control_client.present?
         return nil unless @deliver_reports
 
-        @control_client = Fenix::Runtime::ControlPlane.client
+        @control_client = Fenix::Shared::ControlPlane.client
       end
 
       def serialized_control_plane_context

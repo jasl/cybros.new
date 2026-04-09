@@ -498,12 +498,20 @@ module ManualAcceptanceSupport
     end
   end
 
-  def wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds: 15, poll_interval_seconds: 0.1)
+  def wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds: 15, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil)
     deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
 
     loop do
       reloaded = workflow_run.reload
       return reloaded if %w[completed failed canceled].include?(reloaded.lifecycle_state)
+
+      if inline_if_queued
+        queued_node = next_inline_workflow_node(reloaded)
+        if queued_node.present?
+          execute_inline_if_queued!(workflow_node: queued_node, catalog:)
+          next
+        end
+      end
 
       if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
         raise "timed out waiting for workflow run #{reloaded.public_id} to finish"
@@ -765,7 +773,12 @@ module ManualAcceptanceSupport
       messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
     )
     execute_inline_if_queued!(workflow_node: dispatched_node, catalog: catalog) if inline_if_queued && dispatched_node.present?
-    wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds:)
+    wait_for_workflow_run_terminal!(
+      workflow_run:,
+      timeout_seconds:,
+      inline_if_queued:,
+      catalog:
+    )
   end
 
   def execute_provider_turn_on_conversation!(
@@ -796,6 +809,29 @@ module ManualAcceptanceSupport
       inline_if_queued: inline_if_queued
     )
     run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }
+  end
+
+  def execute_program_tool_call!(workflow_node:, tool_call:, round_bindings:, agent_program_version:, timeout_seconds: 30, poll_interval_seconds: 0.1)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    loop do
+      begin
+        return ProviderExecution::RouteToolCall.call(
+          workflow_node: workflow_node,
+          tool_call: tool_call,
+          round_bindings: round_bindings,
+          program_exchange: ProviderExecution::ProgramMailboxExchange.new(
+            agent_program_version: agent_program_version
+          )
+        )
+      rescue ProviderExecution::ProgramMailboxExchange::PendingResponse
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+          raise "timed out waiting for program tool call #{tool_call.fetch("call_id")} to finish"
+        end
+
+        sleep(poll_interval_seconds)
+      end
+    end
   end
 
   def run_fenix_mailbox_task!(
@@ -975,5 +1011,12 @@ module ManualAcceptanceSupport
       messages: current_node.workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
       catalog: catalog
     )
+  end
+
+  def next_inline_workflow_node(workflow_run)
+    workflow_run.workflow_nodes
+      .where(lifecycle_state: %w[queued pending])
+      .order(:ordinal, :created_at, :id)
+      .first
   end
 end

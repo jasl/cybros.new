@@ -113,11 +113,15 @@ module Fenix
       def execute_agent_program_request
         case request_kind
         when "prepare_round"
-          Fenix::Runtime::PrepareRound.call(payload: mailbox_payload)
+          Fenix::Agent::Program::PrepareRound.call(payload: mailbox_payload)
         when "execute_program_tool"
-          Fenix::Runtime::ExecuteProgramTool.call(payload: mailbox_payload)
+          Fenix::Agent::Program::ExecuteProgramTool.call(
+            payload: mailbox_payload,
+            supported_system_tool_names: Fenix::Executor::SystemToolRegistry.supported_tool_names,
+            system_tool_executor: system_tool_executor
+          )
         when "supervision_status_refresh", "supervision_guidance"
-          Fenix::Runtime::ExecuteConversationControlRequest.call(payload: mailbox_payload)
+          Fenix::Agent::Program::ExecuteConversationControlRequest.call(payload: mailbox_payload)
         else
           raise UnsupportedMailboxItemError, "unsupported agent program request #{request_kind.inspect}"
         end
@@ -193,6 +197,19 @@ module Fenix
         @mailbox_item.fetch("control_plane")
       end
 
+      def system_tool_executor
+        @system_tool_executor ||= lambda do |payload_context:, tool_call:, runtime_resource_refs:|
+          Fenix::Executor::ProgramToolExecutor.new(
+            context: payload_context,
+            control_client: @control_client
+          ).call(
+            tool_call: tool_call,
+            command_run: runtime_resource_refs["command_run"],
+            process_run: runtime_resource_refs["process_run"]
+          )
+        end
+      end
+
       def execution_assignment_report(method_id:, expected_duration_seconds: nil, terminal_payload: nil)
         {
           "method_id" => method_id,
@@ -209,35 +226,35 @@ module Fenix
 
       def execution_assignment_error_payload_for(error)
         case error
-        when Fenix::Skills::Repository::MissingScopeError, Fenix::Runtime::PayloadContext::MissingSkillsScopeError
+        when Fenix::Agent::Skills::Repository::MissingScopeError
           {
             "classification" => "configuration",
             "code" => "missing_skill_scope",
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Skills::PackageValidator::InvalidSkillPackage
+        when Fenix::Agent::Skills::PackageValidator::InvalidSkillPackage
           {
             "classification" => "semantic",
             "code" => "invalid_skill_package",
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Skills::Repository::SkillNotFound
+        when Fenix::Agent::Skills::Repository::SkillNotFound
           {
             "classification" => "semantic",
             "code" => "skill_not_found",
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Skills::Repository::InvalidFileReference
+        when Fenix::Agent::Skills::Repository::InvalidFileReference
           {
             "classification" => "semantic",
             "code" => "invalid_skill_file_reference",
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Skills::Repository::ReservedSkillNameError
+        when Fenix::Agent::Skills::Repository::ReservedSkillNameError
           {
             "classification" => "semantic",
             "code" => "reserved_skill_name",
@@ -251,7 +268,7 @@ module Fenix
             "message" => error.message,
             "retryable" => false,
           }
-        when Fenix::Runtime::ExecuteConversationControlRequest::InvalidRequestError
+        when Fenix::Agent::Program::ExecuteConversationControlRequest::InvalidRequestError
           {
             "classification" => "semantic",
             "code" => "invalid_conversation_control_request",
@@ -270,7 +287,7 @@ module Fenix
 
       def agent_program_request_error_payload_for(error)
         case error
-        when Fenix::Runtime::ExecuteConversationControlRequest::InvalidRequestError
+        when Fenix::Agent::Program::ExecuteConversationControlRequest::InvalidRequestError
           {
             "classification" => "semantic",
             "code" => "invalid_conversation_control_request",

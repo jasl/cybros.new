@@ -16,17 +16,17 @@ module Fenix
           when "raise_error"
             { "kind" => "raise_error" }
           when "skills_catalog_list"
-            skill_flow(Fenix::Skills::CatalogList.call(repository: repository))
+            skill_flow(Fenix::Agent::Skills::CatalogList.call(repository: repository))
           when "skills_load"
             skill_flow(
-              Fenix::Skills::Load.call(
+              Fenix::Agent::Skills::Load.call(
                 skill_name: @task_payload["skill_name"].to_s,
                 repository: repository
               )
             )
           when "skills_read_file"
             skill_flow(
-              Fenix::Skills::ReadFile.call(
+              Fenix::Agent::Skills::ReadFile.call(
                 skill_name: @task_payload["skill_name"].to_s,
                 relative_path: @task_payload["relative_path"].to_s,
                 repository: repository
@@ -34,7 +34,7 @@ module Fenix
             )
           when "skills_install"
             skill_flow(
-              Fenix::Skills::Install.call(
+              Fenix::Agent::Skills::Install.call(
                 source_path: @task_payload["source_path"].to_s,
                 repository: repository
               )
@@ -47,7 +47,7 @@ module Fenix
         private
 
         def repository
-          @repository ||= Fenix::Skills::Repository.from_runtime_context!(runtime_context: @runtime_context)
+          @repository ||= Fenix::Agent::Skills::Repository.from_runtime_context!(runtime_context: @runtime_context)
         end
 
         def skill_flow(output)

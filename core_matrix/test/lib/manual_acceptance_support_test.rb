@@ -5,6 +5,9 @@ require "tmpdir"
 class ManualAcceptanceSupportTest < ActiveSupport::TestCase
   ExecutionSnapshot = Struct.new(:conversation_projection)
   WorkflowRunDouble = Struct.new(:execution_snapshot)
+  InlineWorkflowRunDouble = Struct.new(:public_id, :lifecycle_state) do
+    def reload = self
+  end
   ReloadableDouble = Struct.new(:value) do
     def reload = self
   end
@@ -18,7 +21,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       with_redefined_singleton_method(
         ManualAcceptanceSupport,
         :wait_for_workflow_run_terminal!,
-        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1) { captured_timeout = timeout_seconds }
+        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil) { captured_timeout = timeout_seconds }
       ) do
         ManualAcceptanceSupport.execute_provider_workflow!(workflow_run:)
       end
@@ -35,7 +38,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       with_redefined_singleton_method(
         ManualAcceptanceSupport,
         :wait_for_workflow_run_terminal!,
-        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1) { captured_timeout = timeout_seconds }
+        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil) { captured_timeout = timeout_seconds }
       ) do
         ManualAcceptanceSupport.execute_provider_workflow!(workflow_run:, timeout_seconds: 42)
       end
@@ -88,6 +91,58 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal false, captured_inline_if_queued
   end
 
+  test "execute_program_tool_call! retries deferred mailbox exchanges until a terminal result arrives" do
+    workflow_node = Object.new
+    round_bindings = [:binding]
+    tool_call = {
+      "call_id" => "call-1",
+      "tool_name" => "process_exec",
+      "arguments" => {},
+    }
+    deployment = Object.new
+    result = Struct.new(:tool_invocation, :result).new(:invocation, { "process_run_id" => "process-1" })
+    attempts = 0
+    captured_kwargs = []
+
+    with_redefined_singleton_method(
+      ProviderExecution::RouteToolCall,
+      :call,
+      lambda do |**kwargs|
+        attempts += 1
+        captured_kwargs << kwargs
+
+        if attempts == 1
+          raise ProviderExecution::ProgramMailboxExchange::PendingResponse.new(
+            mailbox_item_public_id: "mailbox-item-1",
+            logical_work_id: "program-tool:node:call-1",
+            request_kind: "execute_program_tool"
+          )
+        end
+
+        result
+      end
+    ) do
+      returned = ManualAcceptanceSupport.execute_program_tool_call!(
+        workflow_node: workflow_node,
+        tool_call: tool_call,
+        round_bindings: round_bindings,
+        agent_program_version: deployment,
+        timeout_seconds: 1,
+        poll_interval_seconds: 0.0
+      )
+
+      assert_equal result, returned
+    end
+
+    assert_equal 2, attempts
+    captured_kwargs.each do |kwargs|
+      assert_equal workflow_node, kwargs.fetch(:workflow_node)
+      assert_equal tool_call, kwargs.fetch(:tool_call)
+      assert_equal round_bindings, kwargs.fetch(:round_bindings)
+      assert_instance_of ProviderExecution::ProgramMailboxExchange, kwargs.fetch(:program_exchange)
+    end
+  end
+
   test "execute_provider_workflow! can skip inline queued execution for real queue pressure runs" do
     workflow_run = WorkflowRunDouble.new(ExecutionSnapshot.new({ "messages" => [] }))
     dispatched_node = Struct.new(:public_id).new("node-public-id")
@@ -98,7 +153,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       with_redefined_singleton_method(
         ManualAcceptanceSupport,
         :wait_for_workflow_run_terminal!,
-        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1) { wait_called = true }
+        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil) { wait_called = true }
       ) do
         with_redefined_singleton_method(
           ManualAcceptanceSupport,
@@ -117,6 +172,41 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
     assert_equal true, wait_called
     assert_equal 0, inline_calls
+  end
+
+  test "wait_for_workflow_run_terminal! keeps draining queued nodes when inline execution is enabled" do
+    workflow_run = InlineWorkflowRunDouble.new("workflow-public-id", "active")
+    queued_node = Struct.new(:public_id).new("queued-node")
+    executed = []
+
+    with_redefined_singleton_method(
+      ManualAcceptanceSupport,
+      :next_inline_workflow_node,
+      lambda do |current_workflow_run|
+        current_workflow_run.lifecycle_state == "active" ? queued_node : nil
+      end
+    ) do
+      with_redefined_singleton_method(
+        ManualAcceptanceSupport,
+        :execute_inline_if_queued!,
+        lambda do |workflow_node:, catalog: nil|
+          executed << [workflow_node.public_id, catalog]
+          workflow_run.lifecycle_state = "completed"
+        end
+      ) do
+        result = ManualAcceptanceSupport.wait_for_workflow_run_terminal!(
+          workflow_run: workflow_run,
+          timeout_seconds: 1,
+          poll_interval_seconds: 0.0,
+          inline_if_queued: true,
+          catalog: :catalog_override
+        )
+
+        assert_equal workflow_run, result
+      end
+    end
+
+    assert_equal [["queued-node", :catalog_override]], executed
   end
 
   test "execute_inline_if_queued! forwards catalog overrides into execute node" do

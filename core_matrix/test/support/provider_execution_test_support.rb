@@ -266,7 +266,7 @@ module ProviderExecutionTestSupport
       "tool_name" => tool_name,
       "tool_kind" => "agent_observation",
       "implementation_source" => "agent",
-      "implementation_ref" => "fenix/runtime/#{tool_name}",
+      "implementation_ref" => "fenix/agent/#{tool_name}",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,

@@ -9,9 +9,13 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
       context: context,
       request_kind: "prepare_round",
       payload: {
-        "workflow_node_id" => context.fetch(:workflow_node).public_id,
-        "conversation_id" => context.fetch(:conversation).public_id,
-        "turn_id" => context.fetch(:turn).public_id,
+        "task" => {
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "kind" => context.fetch(:workflow_node).node_type,
+        },
       },
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}"
     )
@@ -41,9 +45,13 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
         context: context,
         request_kind: "prepare_round",
         payload: {
-          "workflow_node_id" => context.fetch(:workflow_node).public_id,
-          "conversation_id" => context.fetch(:conversation).public_id,
-          "turn_id" => context.fetch(:turn).public_id,
+          "task" => {
+            "workflow_node_id" => context.fetch(:workflow_node).public_id,
+            "workflow_run_id" => context.fetch(:workflow_run).public_id,
+            "conversation_id" => context.fetch(:conversation).public_id,
+            "turn_id" => context.fetch(:turn).public_id,
+            "kind" => context.fetch(:workflow_node).node_type,
+          },
         },
         logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}"
       )
@@ -235,7 +243,7 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
     assert_equal "Stop and summarize the blocker before coding.", projection.dig("latest_guidance", "content")
   end
 
-  test "enqueues a blocked workflow resume when a terminal agent program report arrives" do
+  test "resumes a blocked workflow inline when a terminal agent program report arrives" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentProgramRequest.call(
       agent_program_version: context.fetch(:deployment),
@@ -278,7 +286,7 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
       blocking_resource_id: context.fetch(:workflow_node).public_id
     )
 
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [context.fetch(:workflow_run).public_id]) do
+    assert_no_enqueued_jobs only: Workflows::ResumeBlockedStepJob do
       AgentControl::HandleAgentProgramReport.call(
         deployment: context.fetch(:deployment),
         method_id: "agent_program_completed",
@@ -296,5 +304,10 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
         }
       )
     end
+
+    assert_equal "ready", context.fetch(:workflow_run).reload.wait_state
+    assert_equal "pending", context.fetch(:workflow_node).reload.lifecycle_state
+    assert_equal mailbox_item.public_id,
+      context.fetch(:workflow_node).reload.metadata.dig("program_mailbox_exchange", "mailbox_item_id")
   end
 end

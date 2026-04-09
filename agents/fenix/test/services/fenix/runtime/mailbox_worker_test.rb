@@ -16,8 +16,8 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     clear_enqueued_jobs
     clear_performed_jobs
     @original_control_plane_client =
-      if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
-        Fenix::Runtime::ControlPlane.instance_variable_get(:@client)
+      if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
+        Fenix::Shared::ControlPlane.instance_variable_get(:@client)
       else
         :__undefined__
       end
@@ -26,13 +26,13 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   teardown do
     clear_enqueued_jobs
     clear_performed_jobs
-    Fenix::Processes::Manager.reset! if defined?(Fenix::Processes::Manager)
-    Fenix::Processes::ProxyRegistry.reset! if defined?(Fenix::Processes::ProxyRegistry)
+    Fenix::Executor::Processes::Manager.reset!
+    Fenix::Executor::Processes::ProxyRegistry.reset!
 
     if @original_control_plane_client == :__undefined__
-      Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
+      Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
     else
-      Fenix::Runtime::ControlPlane.client = @original_control_plane_client
+      Fenix::Shared::ControlPlane.client = @original_control_plane_client
     end
   end
 
@@ -90,7 +90,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     client = build_control_client
     process_run_id = "process-#{SecureRandom.uuid}"
 
-    Fenix::Processes::Manager.spawn!(
+    Fenix::Executor::Processes::Manager.spawn!(
       process_run_id: process_run_id,
       runtime_owner_id: "task-1",
       command_line: "trap 'exit 0' TERM; while :; do sleep 1; done",
@@ -122,7 +122,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   end
 
   test "non-inline executable mailbox items enqueue the runtime mailbox job" do
-    Fenix::Runtime::ControlPlane.client = build_control_client
+    Fenix::Shared::ControlPlane.client = build_control_client
     mailbox_item = execution_assignment_mailbox_item
 
     result = nil
@@ -137,7 +137,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
   test "queued executable mailbox items are settled by the runtime mailbox job" do
     client = build_control_client
-    Fenix::Runtime::ControlPlane.client = client
+    Fenix::Shared::ControlPlane.client = client
     mailbox_item = execution_assignment_mailbox_item
 
     assert_enqueued_with(job: Fenix::Runtime::MailboxExecutionJob) do
@@ -156,7 +156,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   end
 
   test "queued executable mailbox items serialize control plane context for out-of-process execution" do
-    client = Fenix::Runtime::ControlClient.new(
+    client = Fenix::Shared::ControlPlane::Client.new(
       base_url: "https://core-matrix.example.test",
       machine_credential: "program-secret",
       execution_machine_credential: "executor-secret"

@@ -12,6 +12,13 @@ of leaving only a volatile reference path behind.
 
 Recent archived records from the accepted provider-backed loop and reset batch:
 
+- [2026-04-03-multi-round-architecture-audit-and-reset-framework.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-multi-round-architecture-audit-and-reset-framework.md)
+- [2026-04-03-round-1-architecture-audit-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-round-1-architecture-audit-design.md)
+- [2026-04-03-round-1-architecture-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-round-1-architecture-reset.md)
+- [2026-04-10-core-matrix-fenix-throughput-optimization-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-10-core-matrix-fenix-throughput-optimization-design.md)
+- [2026-04-10-core-matrix-fenix-throughput-optimization.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-10-core-matrix-fenix-throughput-optimization.md)
+- [2026-04-10-provider-transport-pooling-and-llm-dev-retuning-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-10-provider-transport-pooling-and-llm-dev-retuning-design.md)
+- [2026-04-10-provider-transport-pooling-and-llm-dev-retuning.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-10-provider-transport-pooling-and-llm-dev-retuning.md)
 - [2026-04-06-fenix-app-ui-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-06-fenix-app-ui-contract.md)
 - [2026-04-07-plan-first-supervision-rebuild.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-07-plan-first-supervision-rebuild.md)
 - [2026-04-07-fenix-runtime-supervision-ui-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-07-fenix-runtime-supervision-ui-implementation.md)

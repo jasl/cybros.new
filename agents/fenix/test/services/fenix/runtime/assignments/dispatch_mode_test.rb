@@ -11,9 +11,9 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
   end
 
   test "dispatches skill catalog mode through the skills catalog service with a scoped repository" do
-    original_catalog_list = Fenix::Skills::CatalogList.method(:call)
+    original_catalog_list = Fenix::Agent::Skills::CatalogList.method(:call)
     captured_repository = nil
-    Fenix::Skills::CatalogList.define_singleton_method(:call) do |repository:|
+    Fenix::Agent::Skills::CatalogList.define_singleton_method(:call) do |repository:|
       captured_repository = repository
       "catalog-output"
     end
@@ -31,13 +31,13 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
     assert_equal "agent-program-1", captured_repository.scope_roots.agent_program_id
     assert_equal "user-1", captured_repository.scope_roots.user_id
   ensure
-    Fenix::Skills::CatalogList.define_singleton_method(:call, original_catalog_list) if original_catalog_list
+    Fenix::Agent::Skills::CatalogList.define_singleton_method(:call, original_catalog_list) if original_catalog_list
   end
 
   test "dispatches skill load mode with the requested payload" do
-    original_load = Fenix::Skills::Load.method(:call)
+    original_load = Fenix::Agent::Skills::Load.method(:call)
     captured_args = nil
-    Fenix::Skills::Load.define_singleton_method(:call) do |skill_name:, repository:|
+    Fenix::Agent::Skills::Load.define_singleton_method(:call) do |skill_name:, repository:|
       captured_args = {
         "skill_name" => skill_name,
         "agent_program_id" => repository.scope_roots.agent_program_id,
@@ -68,13 +68,13 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
       captured_args
     )
   ensure
-    Fenix::Skills::Load.define_singleton_method(:call, original_load) if original_load
+    Fenix::Agent::Skills::Load.define_singleton_method(:call, original_load) if original_load
   end
 
   test "dispatches skill read file mode with the requested payload" do
-    original_read_file = Fenix::Skills::ReadFile.method(:call)
+    original_read_file = Fenix::Agent::Skills::ReadFile.method(:call)
     captured_args = nil
-    Fenix::Skills::ReadFile.define_singleton_method(:call) do |skill_name:, relative_path:, repository:|
+    Fenix::Agent::Skills::ReadFile.define_singleton_method(:call) do |skill_name:, relative_path:, repository:|
       captured_args = {
         "skill_name" => skill_name,
         "relative_path" => relative_path,
@@ -108,13 +108,13 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
       captured_args
     )
   ensure
-    Fenix::Skills::ReadFile.define_singleton_method(:call, original_read_file) if original_read_file
+    Fenix::Agent::Skills::ReadFile.define_singleton_method(:call, original_read_file) if original_read_file
   end
 
   test "dispatches skill install mode with the requested payload" do
-    original_install = Fenix::Skills::Install.method(:call)
+    original_install = Fenix::Agent::Skills::Install.method(:call)
     captured_args = nil
-    Fenix::Skills::Install.define_singleton_method(:call) do |source_path:, repository:|
+    Fenix::Agent::Skills::Install.define_singleton_method(:call) do |source_path:, repository:|
       captured_args = {
         "source_path" => source_path,
         "agent_program_id" => repository.scope_roots.agent_program_id,
@@ -145,6 +145,6 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
       captured_args
     )
   ensure
-    Fenix::Skills::Install.define_singleton_method(:call, original_install) if original_install
+    Fenix::Agent::Skills::Install.define_singleton_method(:call, original_install) if original_install
   end
 end

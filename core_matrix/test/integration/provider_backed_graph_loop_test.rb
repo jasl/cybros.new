@@ -138,7 +138,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
       "tool_name" => "calculator",
       "tool_kind" => "agent_observation",
       "implementation_source" => "agent",
-      "implementation_ref" => "fenix/runtime/calculator",
+      "implementation_ref" => "fenix/agent/calculator",
       "input_schema" => {
         "type" => "object",
         "properties" => {

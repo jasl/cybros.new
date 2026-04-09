@@ -1,23 +1,12 @@
 class TurnExecutionSnapshot
-  def initialize(payload = nil, turn: nil, **legacy_payload)
-    if legacy_payload.present? && payload.nil? && turn.nil?
-      @legacy_payload = legacy_payload.deep_stringify_keys
-      @turn = nil
-      return
-    end
-
-    if payload.is_a?(Hash) && turn.nil?
-      @legacy_payload = payload.deep_stringify_keys
-      @turn = nil
-      return
-    end
-
+  def initialize(turn: nil, payload: nil)
+    raise ArgumentError, "turn or payload is required" if turn.nil? && payload.nil?
     @turn = turn
-    @legacy_payload = payload&.deep_stringify_keys
+    @payload = payload&.deep_stringify_keys
   end
 
   def to_h
-    return @legacy_payload.deep_dup if legacy_payload.present?
+    return payload.deep_dup if payload.present?
 
     {
       "identity" => identity,
@@ -34,7 +23,7 @@ class TurnExecutionSnapshot
   end
 
   def identity
-    return read_hash("identity") if legacy_payload.present?
+    return read_hash("identity") if payload.present?
 
     @identity ||= execution_contract&.identity || {}
   end
@@ -44,19 +33,19 @@ class TurnExecutionSnapshot
   end
 
   def turn_origin
-    return read_hash("turn_origin") if legacy_payload.present?
+    return read_hash("turn_origin") if payload.present?
 
     @turn_origin ||= execution_contract&.turn_origin_payload || {}
   end
 
   def task
-    return read_hash("task") if legacy_payload.present?
+    return read_hash("task") if payload.present?
 
     @task ||= execution_contract&.task || {}
   end
 
   def conversation_projection
-    return read_hash("conversation_projection") if legacy_payload.present?
+    return read_hash("conversation_projection") if payload.present?
 
     @conversation_projection ||= {
       "messages" => materialized_messages,
@@ -67,7 +56,7 @@ class TurnExecutionSnapshot
   end
 
   def capability_projection
-    return read_hash("capability_projection") if legacy_payload.present?
+    return read_hash("capability_projection") if payload.present?
 
     @capability_projection ||= begin
       snapshot = execution_capability_snapshot
@@ -89,13 +78,13 @@ class TurnExecutionSnapshot
   end
 
   def provider_context
-    return read_hash("provider_context") if legacy_payload.present?
+    return read_hash("provider_context") if payload.present?
 
     @provider_context ||= execution_contract&.provider_context_payload || {}
   end
 
   def runtime_context
-    return read_hash("runtime_context") if legacy_payload.present?
+    return read_hash("runtime_context") if payload.present?
 
     @runtime_context ||= begin
       if turn.blank?
@@ -131,19 +120,19 @@ class TurnExecutionSnapshot
   end
 
   def attachment_manifest
-    return read_array("attachment_manifest") if legacy_payload.present?
+    return read_array("attachment_manifest") if payload.present?
 
     @attachment_manifest ||= execution_contract&.attachment_manifest_payload || []
   end
 
   def model_input_attachments
-    return read_array("model_input_attachments") if legacy_payload.present?
+    return read_array("model_input_attachments") if payload.present?
 
     @model_input_attachments ||= execution_contract&.model_input_attachments_payload || []
   end
 
   def attachment_diagnostics
-    return read_array("attachment_diagnostics") if legacy_payload.present?
+    return read_array("attachment_diagnostics") if payload.present?
 
     @attachment_diagnostics ||= execution_contract&.attachment_diagnostics_payload || []
   end
@@ -151,7 +140,7 @@ class TurnExecutionSnapshot
   private
 
   attr_reader :turn
-  attr_reader :legacy_payload
+  attr_reader :payload
 
   def execution_contract
     @execution_contract ||= turn.execution_contract
@@ -234,12 +223,12 @@ class TurnExecutionSnapshot
   end
 
   def read_hash(key)
-    value = legacy_payload[key]
+    value = payload[key]
     value.is_a?(Hash) ? value.deep_dup : {}
   end
 
   def read_array(key)
-    value = legacy_payload[key]
+    value = payload[key]
     value.is_a?(Array) ? value.deep_dup : []
   end
 end

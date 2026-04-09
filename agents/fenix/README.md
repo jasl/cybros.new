@@ -129,7 +129,7 @@ Long-lived environment resources also require a persistent mailbox worker.
   - persistent websocket-first worker that retains local `ProcessRun` handles
     across mailbox iterations so later close requests can settle gracefully
 - `bin/jobs start`
-  - starts the local Solid Queue workers that execute `RuntimeExecutionJob`
+  - starts the local Solid Queue workers that execute `MailboxExecutionJob`
     across the runtime topology queues
   - only needed in the standalone worker topology, where the web process runs
     with `STANDALONE_SOLID_QUEUE=true`
@@ -159,10 +159,10 @@ Detached long-lived services therefore follow this contract:
 
 Detached process tools are implemented directly in the runtime service layer:
 
-- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/tool_executors/process.rb)
-- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/launcher.rb)
-- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/manager.rb)
-- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/processes/proxy_registry.rb)
+- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/executor/tool_executors/process.rb)
+- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/executor/processes/launcher.rb)
+- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/executor/processes/manager.rb)
+- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/executor/processes/proxy_registry.rb)
 
 When a tool call passes `proxy_port`, `Fenix` also registers a stable fixed-port
 proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy
@@ -211,6 +211,18 @@ Firecrawl-backed tools use:
 Browser sessions remain runtime-local handles rather than kernel-owned
 resources. The first cut uses Playwright-managed Chromium through
 [session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/browser/session_host.mjs).
+
+Internally, `Fenix` is now split into:
+
+- `Fenix::Agent`
+  - prompts, memory, skills, and agent-program request handling
+- `Fenix::Executor`
+  - command runs, detached processes, browser sessions, and executor tool registry
+- `Fenix::Shared`
+  - control-plane transport, environment overlays, and shared value objects
+
+`Fenix::Runtime` remains only as the appliance/entry layer that routes mailbox
+work, runs the control loop, and assembles the external manifest.
 
 Docker deployments inherit Playwright plus Chromium from
 [images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus). Bare-metal
@@ -347,62 +359,29 @@ Browser sessions currently expose:
 - `browser_screenshot`
 - `browser_close`
 
-For a full local smoke path, run:
+## Agent Tool Slice
 
-```bash
-bin/rails runner script/manual/operator_surface_smoke.rb
-```
+The built-in agent-program tools are currently:
 
-## Retained Hook Lifecycle
-
-`Fenix` keeps a stage-shaped runtime surface instead of collapsing behavior
-into one opaque callback.
-
-Current retained hooks:
-
-- `prepare_turn`
 - `compact_context`
-- `review_tool_call`
-- `project_tool_result`
-- `finalize_output`
-- `handle_error`
+- `calculator`
 
-The runtime executor calls them in order for successful execution and records a
-trace entry for each stage. Failure paths append `handle_error` and emit
-`execution_fail`.
+`compact_context` remains an agent-owned helper. It estimates token load from
+the provided messages, applies the advisory compaction threshold from
+`budget_hints`, and emits a compacted message list when necessary. The only
+current model hint consumed by this helper is:
 
-## Estimation Helpers
+- `payload.provider_context.model_context.model_slug`
 
-`Fenix` also retains local advisory helpers:
-
-- `estimate_tokens`
-- `estimate_messages`
-
-These are deliberately local runtime helpers rather than kernel primitives.
-They support preflight budgeting and compaction decisions before any future
-provider call.
-
-## Likely-Model Hints
-
-Assignments primarily carry model hints through:
-
-- `payload.model_context.model_ref`
-- `payload.model_context.api_model`
-
-`Fenix` also accepts older compatibility fallbacks such as
-`payload.model_context.likely_model` or `payload.provider_execution.model_ref`.
-When the estimated token load exceeds
-`payload.budget_hints.advisory_hints.recommended_compaction_threshold`,
-`compact_context`
-uses the resolved model hint to explain why compaction happened and records the
-before or after message counts in the hook trace.
+There is no separate `estimate_tokens` or `estimate_messages` runtime surface.
+Those heuristics now live inside the agent-owned tool implementation itself.
 
 ## Current Validation Path
 
 The current runtime validation path is intentionally small and deterministic:
 
-- `deterministic_tool` reviews a local calculator tool call, projects the tool
-  result, and finalizes a user-facing output
+- `deterministic_tool` validates a local calculator tool call and finalizes a
+  user-facing output
 - `raise_error` proves the error hook and terminal failure reporting
 
 This preserves the runtime-stage contract needed for later mixed
@@ -412,8 +391,8 @@ back into the kernel.
 Prompt building, prompt-template choice, and profile-specific tool semantics
 remain inside `Fenix`. Core Matrix computes and freezes the
 conversation-visible tool set into `agent_context.allowed_tool_names`, and
-`Fenix::Hooks::ReviewToolCall` treats that frozen set as a real execution-time
-constraint rather than trace-only metadata.
+`Fenix` enforces that frozen set at execution time when handling
+`execute_program_tool`.
 
 ## Skill Surface
 

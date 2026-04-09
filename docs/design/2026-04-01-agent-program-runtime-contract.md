@@ -78,11 +78,11 @@ Use the following existing code as the current baseline being corrected:
 - `core_matrix/app/services/provider_execution/execute_round_loop.rb`
 - `core_matrix/app/services/agent_control/handle_execution_report.rb`
 - `core_matrix/app/services/workflows/build_execution_snapshot.rb`
-- `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-- `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_program_tool.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_agent_program_request.rb`
+- `agents/fenix/app/services/fenix/shared/payload_context.rb`
+- `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
+- `agents/fenix/app/services/fenix/agent/program/prepare_round.rb`
+- `agents/fenix/app/services/fenix/agent/program/execute_program_tool.rb`
+- `agents/fenix/app/services/fenix/agent/program/execute_conversation_control_request.rb`
 
 ## Naming And Concept Model
 
@@ -715,10 +715,10 @@ This change should be made in one pass across:
 - `Workflows::BuildExecutionSnapshot`
 - `AgentControl::CreateExecutionAssignment`
 - `ProviderExecution::PrepareProgramRound`
-- `Fenix::Context::BuildExecutionContext`
-- `Fenix::Runtime::PrepareRound`
-- `Fenix::Runtime::ExecuteAssignment`
-- `Fenix::Runtime::ExecuteProgramTool`
+- `Fenix::Shared::PayloadContext`
+- `Fenix::Agent::Program::PrepareRound`
+- `Fenix::Runtime::ExecuteMailboxItem`
+- `Fenix::Agent::Program::ExecuteProgramTool`
 
 ## Tool Surface Reset
 
