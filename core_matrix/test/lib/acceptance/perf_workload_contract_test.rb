@@ -4,11 +4,20 @@ require Rails.root.join("../acceptance/lib/perf/workload_manifest")
 require Rails.root.join("../acceptance/lib/perf/workload_driver")
 
 class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
+  test "multi-fenix load scenario skips backend reset when the wrapper already provisioned a fresh stack" do
+    scenario = Rails.root.join("../acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb").read
+
+    assert_includes scenario, 'ENV.fetch("MULTI_FENIX_LOAD_STACK_ALREADY_RESET", "false")'
+    assert_includes scenario, "ManualAcceptanceSupport.reset_backend_state! unless stack_already_reset"
+  end
+
   test "smoke profile declares an execution-assignment workload with one turn per conversation" do
     profile = Acceptance::Perf::Profile.fetch("smoke")
 
     assert_equal "execution_assignment", profile.workload_kind
     assert_equal 1, profile.turns_per_conversation
+    assert_equal 1, profile.max_in_flight_per_conversation
+    assert_equal "correctness", profile.gate_contract.fetch("kind")
   end
 
   test "stress profile declares a mock program-exchange workload with repeated turns per conversation" do
@@ -16,7 +25,9 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
 
     assert_equal "program_exchange_mock", profile.workload_kind
     assert_operator profile.turns_per_conversation, :>, 1
+    assert_equal 1, profile.max_in_flight_per_conversation
     assert_operator profile.recommended_runner_db_pool, :>=, profile.conversation_count
+    assert_equal "pressure", profile.gate_contract.fetch("kind")
   end
 
   test "stress workload manifest uses provider-backed request corpus fields" do
@@ -26,6 +37,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
 
     assert_equal "program_exchange_mock", manifest.workload_kind
     assert_equal 3, manifest.turns_per_conversation
+    assert_equal 1, manifest.max_in_flight_per_conversation
 
     manifest.request_corpus.each do |entry|
       assert_equal "program_exchange_mock", entry.fetch("workload_kind")
@@ -41,6 +53,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       profile_name: "contract",
       conversation_count: 4,
       turns_per_conversation: 2,
+      max_in_flight_per_conversation: 1,
       workload_kind: "program_exchange_mock",
       deterministic: true,
       request_corpus: [{ "content" => "3", "workload_kind" => "program_exchange_mock" }]
@@ -51,6 +64,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
         "profile_name" => "contract",
         "conversation_count" => 4,
         "turns_per_conversation" => 2,
+        "max_in_flight_per_conversation" => 1,
         "workload_kind" => "program_exchange_mock",
         "request_corpus" => [{ "content" => "3", "workload_kind" => "program_exchange_mock" }],
       },
@@ -63,6 +77,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       profile_name: "contract",
       conversation_count: 2,
       turns_per_conversation: 3,
+      max_in_flight_per_conversation: 1,
       workload_kind: "execution_assignment",
       deterministic: true,
       request_corpus: [
@@ -112,6 +127,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       profile_name: "contract",
       conversation_count: 1,
       turns_per_conversation: 2,
+      max_in_flight_per_conversation: 1,
       workload_kind: "execution_assignment",
       deterministic: true,
       request_corpus: [

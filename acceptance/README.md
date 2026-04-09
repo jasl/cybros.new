@@ -57,6 +57,13 @@ cd /Users/jasl/Workspaces/Ruby/cybros
 bash acceptance/bin/multi_fenix_core_matrix_load_target.sh
 ```
 
+Run the stress profile when validating the real queue plane and pressure metrics:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/multi_fenix_core_matrix_load_stress.sh
+```
+
 Each load run writes an artifact bundle under `acceptance/artifacts/<artifact-stamp>/`
 with the key outputs in:
 
@@ -97,16 +104,21 @@ Current benchmark gate recommendations:
   - investigate if `poll_latency.fenix_control_plane.p95_ms > 300`
   - investigate if `poll_latency.core_matrix_control_plane.p99_ms > 50`
   - investigate any non-zero `database_checkout_pressure.timeout_count`
+- `stress` is the queue-plane pressure profile
+  - require non-zero `mailbox_lease_latency.count`
+  - require non-zero `mailbox_exchange_wait.count`
+  - require non-zero `queue_pressure.total_sample_count`
+  - require non-zero `database_checkout_pressure.checkout_wait.count`
+  - require `database_checkout_pressure.timeout_count: 0`
+  - investigate any `gate.outcome: failed`
 
-Residual risk:
+Current stabilization note:
 
-- the deterministic v1 workload currently leaves `mailbox_lease_latency`,
-  `mailbox_exchange_wait`, queue delay samples, and DB checkout wait samples
-  empty in the baseline artifacts
-- treat those fields as structural outputs that are wired correctly, but not yet
-  pressure-gated until a follow-up workload produces meaningful samples
-- follow-up tracking lives in
-  `docs/plans/2026-04-09-multi-fenix-core-matrix-load-harness-follow-up.md`
+- `smoke` and `target_8_fenix` are the stable local reference profiles
+- `stress` now routes through the real queue plane and emits pressure metrics,
+  but it should still be treated as an active stabilization profile until the
+  local jobs daemon startup path proves consistently healthy across fresh-start
+  runs
 
 Replay the supervision review surfaces from an existing evaluation bundle:
 

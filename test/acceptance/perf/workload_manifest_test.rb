@@ -14,6 +14,7 @@ module Acceptance
         assert_equal 1, manifest.max_in_flight_per_conversation
         assert_equal "deterministic_tool", manifest.request_corpus.first.fetch("mode")
         assert_equal({ "expression" => "7 + 5" }, manifest.request_corpus.first.fetch("extra_payload"))
+        assert_equal 1, manifest.artifact_payload.fetch("max_in_flight_per_conversation")
       end
 
       def test_request_corpus_is_stable_for_repeated_fetches

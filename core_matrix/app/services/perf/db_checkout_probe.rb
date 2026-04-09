@@ -3,45 +3,49 @@ module Perf
     CHECKOUT_EVENT = "perf.db.checkout".freeze
     TIMEOUT_EVENT = "perf.db.checkout_timeout".freeze
 
-    def self.call(...)
-      new(...).call
-    end
-
-    def initialize(operation_name:, pool: ActiveRecord::Base.connection_pool, notifier: ActiveSupport::Notifications, &block)
-      @operation_name = operation_name
-      @pool = pool
-      @notifier = notifier
-      @block = block
-    end
-
-    def call(&block)
-      callback = block || @block
-      raise ArgumentError, "block is required" unless callback
-
-      payload = {
-        "operation_name" => @operation_name,
-        "success" => false,
-      }
-      connection = nil
-
-      @notifier.instrument(CHECKOUT_EVENT, payload) do
-        connection = @pool.checkout
-        payload["success"] = true
-        callback.call(connection)
+    module InstrumentedCheckout
+      def checkout(...)
+        Perf::DbCheckoutProbe.instrument(pool: self) { super }
       end
-    rescue ActiveRecord::ConnectionTimeoutError => error
-      @notifier.instrument(
-        TIMEOUT_EVENT,
-        "operation_name" => @operation_name,
-        "success" => false,
-        "metadata" => {
-          "error_class" => error.class.name,
-          "message" => error.message,
+    end
+
+    class << self
+      def install!(pool_class: ActiveRecord::ConnectionAdapters::ConnectionPool)
+        return if pool_class < InstrumentedCheckout
+
+        pool_class.prepend(InstrumentedCheckout)
+      end
+
+      def instrument(pool:, notifier: ActiveSupport::Notifications)
+        payload = base_payload(pool: pool, success: false)
+
+        notifier.instrument(CHECKOUT_EVENT, payload) do
+          connection = yield
+          payload["success"] = true
+          connection
+        end
+      rescue ActiveRecord::ConnectionTimeoutError => error
+        notifier.instrument(
+          TIMEOUT_EVENT,
+          base_payload(pool: pool, success: false).merge(
+            "metadata" => {
+              "error_class" => error.class.name,
+              "message" => error.message,
+            }
+          )
+        )
+        raise
+      end
+
+      private
+
+      def base_payload(pool:, success:)
+        {
+          "operation_name" => "active_record.connection_pool.checkout",
+          "db_config_name" => pool.db_config.name,
+          "success" => success,
         }
-      )
-      raise
-    ensure
-      @pool.checkin(connection) if connection && @pool.respond_to?(:checkin)
+      end
     end
   end
 end

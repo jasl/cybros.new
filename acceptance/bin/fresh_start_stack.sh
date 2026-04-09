@@ -142,6 +142,68 @@ wait_for_container_absent() {
   return 1
 }
 
+core_matrix_worker_topology_ready() {
+  local project_root="$1"
+
+  (
+    cd "${project_root}"
+    "${RUBY_BIN}" bin/rails runner '
+      expected_queues = %w[llm_dev workflow_default tool_calls]
+      heartbeat_cutoff = 5.seconds.ago
+
+      live_pid = lambda do |pid|
+        next false unless pid
+
+        Process.kill(0, pid)
+        true
+      rescue Errno::ESRCH, Errno::EPERM
+        false
+      end
+
+      supervisor = SolidQueue::Process.find_by(kind: "Supervisor(fork)")
+      workers = SolidQueue::Process.where(kind: "Worker")
+      registered_queues =
+        workers.filter_map do |worker|
+          next unless worker.last_heartbeat_at && worker.last_heartbeat_at >= heartbeat_cutoff
+          next unless live_pid.call(worker.pid)
+
+          worker.metadata["queues"]
+        end.uniq
+
+      supervisor_ready =
+        supervisor &&
+        supervisor.last_heartbeat_at &&
+        supervisor.last_heartbeat_at >= heartbeat_cutoff &&
+        live_pid.call(supervisor.pid)
+
+      exit(supervisor_ready && expected_queues.all? { |queue| registered_queues.include?(queue) } ? 0 : 1)
+    ' >/dev/null 2>&1
+  )
+}
+
+fetch_core_matrix_jobs_supervisor_pid() {
+  local project_root="$1"
+
+  (
+    cd "${project_root}"
+    "${RUBY_BIN}" bin/rails runner '
+      heartbeat_cutoff = 5.seconds.ago
+      supervisor = SolidQueue::Process.find_by(kind: "Supervisor(fork)")
+
+      if supervisor&.last_heartbeat_at && supervisor.last_heartbeat_at >= heartbeat_cutoff
+        begin
+          Process.kill(0, supervisor.pid)
+          puts supervisor.pid
+        rescue Errno::ESRCH, Errno::EPERM
+          puts ""
+        end
+      else
+        puts ""
+      end
+    '
+  )
+}
+
 stop_listening_port() {
   local port="$1"
   local pids=()
@@ -228,21 +290,54 @@ PY
   fi
 }
 
-start_project_process() {
-  local name="$1"
-  local project_root="$2"
-  local log_path="$3"
-  local pid_path="${LOG_DIR}/${name}.pid"
-  shift 3
+wait_for_solid_queue_ready() {
+  local project_root="$1"
+  local attempts="${2:-30}"
 
-  (
-    cd "${project_root}"
-    nohup "${RUBY_BIN}" "$@" >>"${log_path}" 2>&1 </dev/null &
-    echo $! > "${pid_path}"
-  )
+  for _ in $(seq 1 "${attempts}"); do
+    if core_matrix_worker_topology_ready "${project_root}"; then
+      return 0
+    fi
 
-  STARTED_PID="$(cat "${pid_path}")"
-  rm -f "${pid_path}"
+    sleep 0.2
+  done
+
+  return 1
+}
+start_core_matrix_jobs_daemon() {
+  local attempts="${1:-3}"
+  local log_path="${LOG_DIR}/core-matrix-jobs.log"
+
+  for _ in $(seq 1 "${attempts}"); do
+    (
+      cd "${CORE_MATRIX_ROOT}"
+      "${RUBY_BIN}" - "${log_path}" <<'RUBY'
+log_path = ARGV.fetch(0)
+STDOUT.reopen(log_path, "a")
+STDERR.reopen(STDOUT)
+STDOUT.sync = true
+STDERR.sync = true
+Process.daemon(true, true)
+STDOUT.reopen(log_path, "a")
+STDERR.reopen(STDOUT)
+STDOUT.sync = true
+STDERR.sync = true
+exec("./bin/jobs", "start")
+RUBY
+    )
+
+    if wait_for_solid_queue_ready "${CORE_MATRIX_ROOT}"; then
+      STARTED_PID="$(fetch_core_matrix_jobs_supervisor_pid "${CORE_MATRIX_ROOT}")"
+      return 0
+    fi
+
+    stop_matching_process "${CORE_MATRIX_ROOT}/bin/jobs" "start"
+    stop_matching_process "solid-queue-fork-supervisor"
+    sleep 0.5
+  done
+
+  echo "timed out waiting for core-matrix jobs to become ready" >&2
+  return 1
 }
 
 reset_project_database() {
@@ -403,13 +498,13 @@ stop_listening_port "${CORE_MATRIX_PORT}"
 stop_matching_process "${CORE_MATRIX_ROOT}/bin/jobs" "start"
 stop_matching_process "solid-queue-fork-supervisor"
 clear_server_pidfile "${CORE_MATRIX_ROOT}"
-reset_project_database "core-matrix" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-db-reset.log" "db:migrate:queue" "db:migrate:cable"
+reset_project_database "core-matrix" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-db-reset.log" "db:schema:load:queue" "db:schema:load:cable"
 
 export CORE_MATRIX_PERF_EVENTS_PATH
 export CORE_MATRIX_PERF_INSTANCE_LABEL
 start_rails_server_daemon "core-matrix-server" "${CORE_MATRIX_ROOT}" "${CORE_MATRIX_HOST}" "${CORE_MATRIX_PORT}" "${LOG_DIR}/core-matrix-server.log"
 CORE_MATRIX_SERVER_PID="${STARTED_PID}"
-start_project_process "core-matrix-jobs" "${CORE_MATRIX_ROOT}" "${LOG_DIR}/core-matrix-jobs.log" bin/jobs start
+start_core_matrix_jobs_daemon
 CORE_MATRIX_JOBS_PID="${STARTED_PID}"
 
 wait_for_http_ok "${CORE_MATRIX_BASE_URL}/up"

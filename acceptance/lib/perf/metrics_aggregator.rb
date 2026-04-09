@@ -25,6 +25,7 @@ module Acceptance
           "mailbox_exchange_wait" => percentile_summary(events_named("perf.provider_execution.program_mailbox_exchange_wait").map { |event| event.fetch("duration_ms").to_f }),
           "queue_pressure" => {
             "max_queue_delay_ms" => queue_delay_values.max,
+            "total_sample_count" => queue_delay_values.count,
             "queues" => queue_pressure_by_queue,
           },
           "database_checkout_pressure" => {

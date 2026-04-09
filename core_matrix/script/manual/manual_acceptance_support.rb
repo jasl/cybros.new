@@ -774,12 +774,12 @@ module ManualAcceptanceSupport
     }
   end
 
-  def execute_provider_workflow!(workflow_run:, timeout_seconds: 3600, catalog: nil)
+  def execute_provider_workflow!(workflow_run:, timeout_seconds: 3600, catalog: nil, inline_if_queued: true)
     dispatched_node = Workflows::ExecuteRun.call(
       workflow_run: workflow_run,
       messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") }
     )
-    execute_inline_if_queued!(workflow_node: dispatched_node, catalog: catalog) if dispatched_node.present?
+    execute_inline_if_queued!(workflow_node: dispatched_node, catalog: catalog) if inline_if_queued && dispatched_node.present?
     wait_for_workflow_run_terminal!(workflow_run:, timeout_seconds:)
   end
 
@@ -791,7 +791,8 @@ module ManualAcceptanceSupport
     content:,
     selector_source: "conversation",
     selector:,
-    catalog: nil
+    catalog: nil,
+    inline_if_queued: true
   )
     run = start_turn_workflow_on_conversation!(
       conversation: conversation,
@@ -804,7 +805,11 @@ module ManualAcceptanceSupport
       selector_source: selector_source,
       selector: selector
     )
-    execute_provider_workflow!(workflow_run: run.fetch(:workflow_run), catalog: catalog)
+    execute_provider_workflow!(
+      workflow_run: run.fetch(:workflow_run),
+      catalog: catalog,
+      inline_if_queued: inline_if_queued
+    )
     run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }
   end
 

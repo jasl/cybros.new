@@ -146,43 +146,28 @@ module Fenix
         end
 
         def lookup(browser_session_id:)
-          synchronize do
-            registry[browser_session_id]
-          end
+          registry.lookup(key: browser_session_id)
         end
 
         def list(runtime_owner_id: nil)
-          synchronize do
-            registry.values
-              .select { |session| runtime_owner_id.blank? || session.runtime_owner_id == runtime_owner_id }
-              .sort_by(&:browser_session_id)
-              .map { |session| snapshot_for(session) }
-          end
+          registry.project_list(runtime_owner_id: runtime_owner_id) { |session| snapshot_for(session) }
         end
 
         def reset!
-          sessions = synchronize do
-            registry.values.tap { registry.clear }
-          end
+          sessions = registry.clear!
           sessions.each { |session| session.host.close }
         end
 
         def register(session)
-          synchronize do
-            registry[session.browser_session_id] = session
-          end
+          registry.store(session)
         end
 
         def remove(browser_session_id:)
-          synchronize do
-            registry.delete(browser_session_id)
-          end
+          registry.remove(key: browser_session_id)
         end
 
         def update(session)
-          synchronize do
-            registry[session.browser_session_id] = session
-          end
+          registry.store(session)
         end
 
         def snapshot_for(session)
@@ -196,15 +181,7 @@ module Fenix
         private
 
         def registry
-          @registry ||= {}
-        end
-
-        def mutex
-          @mutex ||= Mutex.new
-        end
-
-        def synchronize(&block)
-          mutex.synchronize(&block)
+          @registry ||= Fenix::Runtime::OwnedResourceRegistry.new(key_attr: :browser_session_id)
         end
       end
 

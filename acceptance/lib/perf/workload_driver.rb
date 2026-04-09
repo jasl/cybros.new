@@ -42,12 +42,19 @@ module Acceptance
       end
 
       def structural_failures
-        @registration_matrix.fetch('runtime_registrations').filter_map do |registration|
+        failures = @registration_matrix.fetch('runtime_registrations').filter_map do |registration|
           next if registration.fetch('boot_status', 'ready') == 'ready'
 
           "#{registration.fetch('slot_label')} failed to boot: #{registration.fetch('boot_error',
                                                                                     'unknown boot failure')}"
         end
+
+        if @manifest.respond_to?(:max_in_flight_per_conversation) &&
+            @manifest.max_in_flight_per_conversation.to_i != 1
+          failures << "unsupported max_in_flight_per_conversation=#{@manifest.max_in_flight_per_conversation}; current workload driver only supports sequential turns per conversation"
+        end
+
+        failures
       end
 
       def structural_failure_report(failures)

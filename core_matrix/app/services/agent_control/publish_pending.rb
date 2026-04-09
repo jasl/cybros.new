@@ -22,6 +22,7 @@ module AgentControl
       target_deployment = connected_target_for(@mailbox_item, resolution)
       return if target_deployment.blank?
 
+      prior_delivery_no = @mailbox_item.delivery_no
       leased_item = LeaseMailboxItem.call(
         mailbox_item: @mailbox_item,
         deployment: target_deployment,
@@ -30,6 +31,12 @@ module AgentControl
       )
       return if leased_item.blank?
 
+      publish_mailbox_lease_event!(
+        mailbox_item: leased_item,
+        target_deployment: target_deployment,
+        delivery_endpoint: resolution.delivery_endpoint,
+        prior_delivery_no: prior_delivery_no
+      )
       broadcast(mailbox_item: leased_item, deployment: target_deployment)
       leased_item
     end
@@ -76,6 +83,17 @@ module AgentControl
       ActionCable.server.broadcast(
         StreamName.for_deployment(deployment),
         serialized_item || SerializeMailboxItem.call(mailbox_item)
+      )
+    end
+
+    def publish_mailbox_lease_event!(mailbox_item:, target_deployment:, delivery_endpoint:, prior_delivery_no:)
+      return unless mailbox_item.delivery_no > prior_delivery_no.to_i
+
+      AgentControl::PublishMailboxLeaseEvent.call(
+        mailbox_item: mailbox_item,
+        agent_program_public_id: target_deployment.is_a?(AgentProgramVersion) ? target_deployment.agent_program.public_id : nil,
+        agent_session_public_id: delivery_endpoint.is_a?(AgentSession) ? delivery_endpoint.public_id : nil,
+        executor_session_public_id: delivery_endpoint.is_a?(ExecutorSession) ? delivery_endpoint.public_id : nil
       )
     end
   end

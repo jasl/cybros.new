@@ -146,10 +146,18 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "run_multi_fenix_core_matrix_load.sh"
   end
 
+  test "multi-fenix load stress wrapper delegates through the shared load harness with the stress profile" do
+    script = Rails.root.join("../acceptance/bin/multi_fenix_core_matrix_load_stress.sh").read
+
+    assert_includes script, 'MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-stress}"'
+    assert_includes script, "run_multi_fenix_core_matrix_load.sh"
+  end
+
   test "shared multi-fenix load harness wires core matrix perf output and starts extra runtime servers" do
     script = Rails.root.join("../acceptance/bin/run_multi_fenix_core_matrix_load.sh").read
 
     assert_includes script, 'CORE_MATRIX_PERF_EVENTS_PATH="${ARTIFACT_DIR}/evidence/core-matrix-events.ndjson"'
+    assert_includes script, 'export MULTI_FENIX_LOAD_STACK_ALREADY_RESET="true"'
     assert_includes script, 'bash "${SCRIPT_DIR}/fresh_start_stack.sh"'
     assert_includes script, 'for index in $(seq 2 "${RUNTIME_COUNT}")'
     assert_includes script, 'bin/rails server -d -b 127.0.0.1 -p "${runtime_port}" -P "${pidfile}"'
@@ -165,14 +173,43 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "export CORE_MATRIX_PERF_INSTANCE_LABEL"
   end
 
-  test "fresh start resets rails projects through db:prepare and explicit secondary database migrations" do
+  test "fresh start waits for the expected core matrix worker topology instead of any solid queue process" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, "wait_for_solid_queue_ready()"
+    assert_includes script, "start_core_matrix_jobs_daemon()"
+    assert_includes script, "expected_queues = %w[llm_dev workflow_default tool_calls]"
+    refute_includes script, "SolidQueue::Process.count.positive?"
+    assert_includes script, "timed out waiting for core-matrix jobs to become ready"
+  end
+
+  test "fresh start reports the actual solid queue supervisor pid instead of the starter shell pid" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, 'find_by(kind: "Supervisor(fork)")'
+  end
+
+  test "fresh start detaches core matrix jobs through a ruby daemon wrapper instead of shell-backgrounding bin/jobs directly" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, "Process.daemon(true, true)"
+    assert_includes script, 'exec("./bin/jobs", "start")'
+    refute_includes script, "nohup ./bin/jobs start"
+  end
+
+  test "fresh start resets rails projects through db:prepare and explicit secondary database schema loads" do
     script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
 
     assert_includes script, '"${RUBY_BIN}" bin/rails db:prepare'
     assert_includes script, "local -a extra_tasks=()"
     assert_includes script, "if [[ \"\${#extra_tasks[@]}\" -gt 0 ]]; then"
-    assert_includes script, "reset_project_database \"core-matrix\" \"\${CORE_MATRIX_ROOT}\" \"\${LOG_DIR}/core-matrix-db-reset.log\" \"db:migrate:queue\" \"db:migrate:cable\""
+    assert_includes script, "reset_project_database \"core-matrix\" \"\${CORE_MATRIX_ROOT}\" \"\${LOG_DIR}/core-matrix-db-reset.log\" \"db:schema:load:queue\" \"db:schema:load:cable\""
     refute_includes script, "rm -f db/schema.rb"
+  end
+
+  test "core matrix keeps queue and cable schema snapshots for fresh-start acceptance resets" do
+    assert Rails.root.join("db/queue_schema.rb").exist?
+    assert Rails.root.join("db/cable_schema.rb").exist?
   end
 
   test "acceptance readme documents the multi-fenix load wrappers and artifact locations" do
@@ -180,6 +217,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
 
     assert_includes readme, "bash acceptance/bin/multi_fenix_core_matrix_load_smoke.sh"
     assert_includes readme, "bash acceptance/bin/multi_fenix_core_matrix_load_target.sh"
+    assert_includes readme, "bash acceptance/bin/multi_fenix_core_matrix_load_stress.sh"
     assert_includes readme, "acceptance/artifacts/<artifact-stamp>/review/load-summary.md"
     assert_includes readme, "acceptance/artifacts/<artifact-stamp>/evidence/aggregated-metrics.json"
   end

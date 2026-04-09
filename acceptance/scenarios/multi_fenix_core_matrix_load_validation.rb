@@ -16,6 +16,7 @@ require_relative "../lib/perf/workload_executor"
 require_relative "../lib/perf/provider_catalog_override"
 require_relative "../lib/perf/event_reader"
 require_relative "../lib/perf/metrics_aggregator"
+require_relative "../lib/perf/gate_evaluator"
 require_relative "../lib/perf/report_builder"
 
 def write_json(path, payload)
@@ -86,7 +87,8 @@ def execute_program_exchange_task_on_conversation!(conversation:, agent_program_
     content: task.fetch("content"),
     selector_source: task.fetch("selector_source", "manual"),
     selector: task.fetch("selector"),
-    catalog: catalog
+    catalog: catalog,
+    inline_if_queued: false
   )
   workflow_run = run.fetch(:workflow_run).reload
   turn = run.fetch(:turn).reload
@@ -156,7 +158,10 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
   end
 )
 
-ManualAcceptanceSupport.reset_backend_state!
+stack_already_reset = ActiveModel::Type::Boolean.new.cast(
+  ENV.fetch("MULTI_FENIX_LOAD_STACK_ALREADY_RESET", "false")
+)
+ManualAcceptanceSupport.reset_backend_state! unless stack_already_reset
 bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
 
 registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
@@ -211,11 +216,18 @@ event_paths = [registration_matrix.fetch("core_matrix_events_path")] +
   registration_matrix.fetch("runtime_registrations").map { |entry| entry.fetch("event_output_path") }
 existing_event_paths = event_paths.map { |path| Pathname(path) }.select(&:exist?)
 metrics = Acceptance::Perf::MetricsAggregator.call(event_paths: existing_event_paths)
+gate_result = Acceptance::Perf::GateEvaluator.call(
+  profile: profile,
+  metrics: metrics,
+  structural_failures: driver_report.fetch("structural_failures"),
+  completed_workload_items: driver_report.fetch("completed_workload_items")
+)
 summary = Acceptance::Perf::ReportBuilder.call(
   profile_name: profile.name,
   runtime_count: registration_matrix.fetch("runtime_count"),
   metrics: metrics,
   structural_failures: driver_report.fetch("structural_failures"),
+  gate_result: gate_result,
   artifact_paths: {
     "aggregated_metrics" => "evidence/aggregated-metrics.json",
     "runtime_topology" => "evidence/runtime-topology.json",
@@ -225,6 +237,10 @@ summary = Acceptance::Perf::ReportBuilder.call(
   "completed_workload_items" => driver_report.fetch("completed_workload_items"),
   "runtime_count" => registration_matrix.fetch("runtime_count")
 )
+
+if gate_result["eligible"]
+  summary["outcome"]["classification"] = gate_result["passed"] ? "gate_passed" : "gate_failed"
+end
 
 artifact_dir = topology.artifact_root
 write_json(artifact_dir.join("evidence", "runtime-topology.json"), {

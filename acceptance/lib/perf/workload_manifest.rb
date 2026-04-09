@@ -54,6 +54,7 @@ module Acceptance
             profile_name: profile.name,
             conversation_count: profile.conversation_count,
             turns_per_conversation: profile.turns_per_conversation,
+            max_in_flight_per_conversation: profile.max_in_flight_per_conversation,
             workload_kind: profile.workload_kind,
             deterministic: profile.deterministic?,
             request_corpus: deep_freeze(
@@ -93,12 +94,18 @@ module Acceptance
         end
       end
 
-      attr_reader :conversation_count, :turns_per_conversation, :profile_name, :request_corpus, :workload_kind
+      attr_reader :conversation_count,
+                  :turns_per_conversation,
+                  :max_in_flight_per_conversation,
+                  :profile_name,
+                  :request_corpus,
+                  :workload_kind
 
-      def initialize(profile_name:, conversation_count:, turns_per_conversation:, workload_kind:, deterministic:, request_corpus:)
+      def initialize(profile_name:, conversation_count:, turns_per_conversation:, max_in_flight_per_conversation:, workload_kind:, deterministic:, request_corpus:)
         @profile_name = profile_name
         @conversation_count = conversation_count
         @turns_per_conversation = turns_per_conversation
+        @max_in_flight_per_conversation = max_in_flight_per_conversation
         @workload_kind = workload_kind
         @deterministic = deterministic
         @request_corpus = request_corpus
@@ -113,6 +120,7 @@ module Acceptance
           "profile_name" => profile_name,
           "conversation_count" => conversation_count,
           "turns_per_conversation" => turns_per_conversation,
+          "max_in_flight_per_conversation" => max_in_flight_per_conversation,
           "workload_kind" => workload_kind,
           "request_corpus" => request_corpus,
         }

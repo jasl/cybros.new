@@ -156,26 +156,6 @@ module AgentControl
       execution_poll? ? @executor_session.executor_program.installation_id : @deployment.installation_id
     end
 
-    def publish_mailbox_lease_event!(mailbox_item)
-      payload = {
-        "mailbox_item_public_id" => mailbox_item.public_id,
-        "item_type" => mailbox_item.item_type,
-        "control_plane" => mailbox_item.control_plane,
-        "success" => true,
-      }
-      if execution_poll?
-        payload["executor_session_public_id"] = @executor_session.public_id
-      else
-        payload["agent_program_public_id"] = @deployment.agent_program.public_id
-        payload["agent_session_public_id"] = resolved_agent_session&.public_id
-      end
-      if mailbox_item.available_at.present?
-        payload["lease_latency_ms"] = ((@occurred_at - mailbox_item.available_at) * 1000.0).round(3)
-      end
-
-      ActiveSupport::Notifications.instrument("perf.agent_control.mailbox_item_leased", payload)
-    end
-
     def poll_event_payload
       payload = {
         "control_plane" => execution_poll? ? "executor" : "program",
@@ -191,6 +171,21 @@ module AgentControl
       end
 
       payload
+    end
+
+    def publish_mailbox_lease_event!(mailbox_item)
+      AgentControl::PublishMailboxLeaseEvent.call(
+        mailbox_item: mailbox_item,
+        agent_program_public_id: execution_poll? ? nil : deployment_agent_program_public_id,
+        agent_session_public_id: execution_poll? ? nil : resolved_agent_session&.public_id,
+        executor_session_public_id: execution_poll? ? @executor_session.public_id : nil
+      )
+    end
+
+    def deployment_agent_program_public_id
+      return nil if execution_poll?
+
+      @deployment_agent_program_public_id ||= @deployment.agent_program.public_id
     end
 
     def resolved_agent_session

@@ -44,6 +44,7 @@ module Acceptance
           assert_equal 500.0, metrics.dig("turn_latency", "max_ms")
 
           assert_equal 450.0, metrics.dig("queue_pressure", "max_queue_delay_ms")
+          assert_equal 2, metrics.dig("queue_pressure", "total_sample_count")
           assert_equal 2, metrics.dig("database_checkout_pressure", "timeout_count")
           assert_equal 120.0, metrics.dig("mailbox_exchange_wait", "max_ms")
           assert_equal 80.0, metrics.dig("mailbox_lease_latency", "max_ms")
@@ -58,6 +59,12 @@ module Acceptance
             runtime_count: 2,
             metrics: metrics,
             structural_failures: ["fenix-02 failed to boot"],
+            gate_result: {
+              "kind" => "correctness",
+              "eligible" => true,
+              "passed" => false,
+              "failures" => ["completed_workload_items expected 4, observed 3"],
+            },
             artifact_paths: {
               "aggregated_metrics" => "evidence/aggregated-metrics.json",
               "runtime_topology" => "evidence/runtime-topology.json",
@@ -71,6 +78,8 @@ module Acceptance
 
           markdown = Acceptance::BenchmarkReporting.load_summary_markdown(report)
           assert_includes markdown, "Structural Failures"
+          assert_includes markdown, "## Gate"
+          assert_includes markdown, "completed_workload_items expected 4, observed 3"
           assert_includes markdown, "Capacity Symptoms"
         end
       end

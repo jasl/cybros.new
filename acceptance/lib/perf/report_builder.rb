@@ -5,12 +5,13 @@ module Acceptance
         new(...).call
       end
 
-      def initialize(profile_name:, runtime_count:, metrics:, structural_failures: [], artifact_paths: {})
+      def initialize(profile_name:, runtime_count:, metrics:, structural_failures: [], artifact_paths: {}, gate_result: nil)
         @profile_name = profile_name
         @runtime_count = runtime_count
         @metrics = metrics
         @structural_failures = Array(structural_failures)
         @artifact_paths = artifact_paths
+        @gate_result = gate_result
       end
 
       def call
@@ -28,7 +29,8 @@ module Acceptance
           "strongest_bottleneck_indicators" => strongest_bottleneck_indicators,
           "artifact_paths" => @artifact_paths,
           "metrics" => @metrics,
-        }
+          "gate" => @gate_result,
+        }.compact
       end
 
       private

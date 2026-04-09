@@ -26,8 +26,8 @@ module Fenix
         end
 
         def register(command_run_id:, runtime_owner_id:, stdin:, stdout:, stderr:, wait_thread:)
-          synchronize do
-            entries[command_run_id] = LocalHandle.new(
+          registry.store(
+            LocalHandle.new(
               command_run_id: command_run_id,
               runtime_owner_id: runtime_owner_id,
               stdin: stdin,
@@ -41,14 +41,11 @@ module Fenix
               stdout_tail: +"",
               stderr_tail: +""
             )
-          end
+          )
         end
 
         def append_output(command_run_id:, stream:, text:)
-          synchronize do
-            entry = entries[command_run_id]
-            return if entry.blank?
-
+          registry.mutate(key: command_run_id) do |entry|
             bytes = text.to_s.bytesize
             case stream
             when "stdout"
@@ -66,23 +63,15 @@ module Fenix
         end
 
         def list(runtime_owner_id: nil)
-          synchronize do
-            entries.values
-              .select { |entry| runtime_owner_id.blank? || entry.runtime_owner_id == runtime_owner_id }
-              .sort_by(&:command_run_id)
-              .map { |entry| snapshot_for(entry) }
-          end
+          registry.project_list(runtime_owner_id: runtime_owner_id) { |entry| snapshot_for(entry) }
         end
 
         def lookup(command_run_id:)
-          synchronize { entries[command_run_id] }
+          registry.lookup(key: command_run_id)
         end
 
         def output_snapshot(command_run_id:)
-          synchronize do
-            entry = entries[command_run_id]
-            snapshot_for(entry) if entry.present?
-          end
+          registry.project_entry(key: command_run_id) { |entry| snapshot_for(entry) }
         end
 
         def release(command_run_id:)
@@ -91,13 +80,13 @@ module Fenix
 
           return snapshot_for(entry) if entry.wait_thread&.alive? && !entry.session_closed
 
-          synchronize { entries.delete(command_run_id) }
+          registry.remove(key: command_run_id)
           close_entry(entry)
           snapshot_for(entry)
         end
 
         def terminate(command_run_id:)
-          entry = synchronize { entries.delete(command_run_id) }
+          entry = registry.remove(key: command_run_id)
           return if entry.nil?
 
           close_entry(entry, signal_process: true)
@@ -108,9 +97,7 @@ module Fenix
         end
 
         def reset!
-          command_runs = synchronize do
-            entries.values.tap { entries.clear }
-          end
+          command_runs = registry.clear!
 
           command_runs.each do |entry|
             close_entry(entry, signal_process: true)
@@ -119,16 +106,8 @@ module Fenix
 
         private
 
-        def entries
-          @entries ||= {}
-        end
-
-        def mutex
-          @mutex ||= Mutex.new
-        end
-
-        def synchronize(&block)
-          mutex.synchronize(&block)
+        def registry
+          @registry ||= Fenix::Runtime::OwnedResourceRegistry.new(key_attr: :command_run_id)
         end
 
         def snapshot_for(entry)
@@ -154,7 +133,7 @@ module Fenix
         end
 
         def close_entry(entry, signal_process: false)
-          synchronize do
+          registry.synchronize do
             return if entry.session_closed
 
             entry.stdin.close unless entry.stdin.closed?
@@ -171,7 +150,7 @@ module Fenix
           entry.stdout.close unless entry.stdout.closed?
           entry.stderr.close unless entry.stderr.closed?
           join_wait_thread(entry.wait_thread)
-          synchronize do
+          registry.synchronize do
             entry.exit_status ||= exit_status_for(entry)
             entry.session_closed = true
           end

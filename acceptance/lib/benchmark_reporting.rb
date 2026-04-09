@@ -135,6 +135,27 @@ module Acceptance
       end
 
       lines << ""
+      lines << "## Gate"
+      lines << ""
+
+      gate = report["gate"]
+      if !gate.nil? && !(gate.respond_to?(:empty?) && gate.empty?)
+        lines << "- Kind: `#{gate.fetch("kind")}`"
+        lines << "- Eligible: `#{gate.fetch("eligible")}`"
+        lines << "- Passed: `#{gate.fetch("passed")}`" unless gate["passed"].nil?
+
+        gate_failures = Array(gate["failures"])
+        if gate_failures.any?
+          lines << "- Failures:"
+          gate_failures.each { |entry| lines << "  - #{entry}" }
+        else
+          lines << "- Failures: none"
+        end
+      else
+        lines << "- none"
+      end
+
+      lines << ""
       lines << "## Capacity Symptoms"
       lines << ""
 

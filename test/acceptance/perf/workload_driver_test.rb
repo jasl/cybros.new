@@ -21,7 +21,13 @@ module Acceptance
           runtime_slots.length
         end
       end
-      ManifestDouble = Struct.new(:conversation_count, :request_corpus, keyword_init: true)
+      ManifestDouble = Struct.new(
+        :conversation_count,
+        :request_corpus,
+        :turns_per_conversation,
+        :max_in_flight_per_conversation,
+        keyword_init: true
+      )
 
       def test_runtime_registration_matrix_builds_one_registration_per_runtime_slot
         topology = build_topology
@@ -59,6 +65,8 @@ module Acceptance
       def test_workload_driver_distributes_requests_round_robin
         manifest = ManifestDouble.new(
           conversation_count: 4,
+          turns_per_conversation: 1,
+          max_in_flight_per_conversation: 1,
           request_corpus: [
             { "content" => "one", "mode" => "deterministic_tool", "extra_payload" => { "expression" => "1 + 1" } },
             { "content" => "two", "mode" => "deterministic_tool", "extra_payload" => { "expression" => "2 + 2" } },
@@ -102,7 +110,12 @@ module Acceptance
         execution_calls = []
 
         report = WorkloadDriver.call(
-          manifest: ManifestDouble.new(conversation_count: 2, request_corpus: [{ "content" => "one", "mode" => "deterministic_tool" }]),
+          manifest: ManifestDouble.new(
+            conversation_count: 2,
+            turns_per_conversation: 1,
+            max_in_flight_per_conversation: 1,
+            request_corpus: [{ "content" => "one", "mode" => "deterministic_tool" }]
+          ),
           registration_matrix: broken_matrix,
           create_conversation: lambda do |**kwargs|
             create_calls << kwargs
@@ -123,6 +136,8 @@ module Acceptance
       def test_workload_driver_executes_workload_items_concurrently
         manifest = ManifestDouble.new(
           conversation_count: 4,
+          turns_per_conversation: 1,
+          max_in_flight_per_conversation: 1,
           request_corpus: [
             { "content" => "one", "mode" => "deterministic_tool", "extra_payload" => { "expression" => "1 + 1" } },
           ]
@@ -158,6 +173,27 @@ module Acceptance
 
         assert_equal 4, report.fetch("completed_workload_items")
         assert_operator max_running, :>, 1
+      end
+
+      def test_workload_driver_reports_structural_failure_for_unsupported_per_conversation_parallelism
+        manifest = ManifestDouble.new(
+          conversation_count: 2,
+          turns_per_conversation: 1,
+          max_in_flight_per_conversation: 2,
+          request_corpus: [
+            { "content" => "one", "mode" => "deterministic_tool" },
+          ]
+        )
+
+        report = WorkloadDriver.call(
+          manifest: manifest,
+          registration_matrix: registration_matrix,
+          create_conversation: ->(**) { raise "should not create conversations" },
+          execute_workload_item: ->(**) { raise "should not execute workload" }
+        )
+
+        assert_equal "structural_failure", report.dig("outcome", "classification")
+        assert_includes report.fetch("structural_failures").first, "max_in_flight_per_conversation"
       end
 
       private

@@ -49,6 +49,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     turn = ReloadableDouble.new("turn")
     conversation = ReloadableDouble.new("conversation")
     captured_catalog = nil
+    captured_inline_if_queued = nil
 
     with_redefined_singleton_method(
       ManualAcceptanceSupport,
@@ -64,8 +65,9 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       with_redefined_singleton_method(
         ManualAcceptanceSupport,
         :execute_provider_workflow!,
-        lambda do |workflow_run:, timeout_seconds: 3600, catalog: nil|
+        lambda do |workflow_run:, timeout_seconds: 3600, catalog: nil, inline_if_queued: true|
           captured_catalog = catalog
+          captured_inline_if_queued = inline_if_queued
         end
       ) do
         result = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
@@ -73,7 +75,8 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           agent_program_version: "apv",
           content: "Benchmark input",
           selector: "role:mock",
-          catalog: :catalog_override
+          catalog: :catalog_override,
+          inline_if_queued: false
         )
 
         assert_equal workflow_run, result.fetch(:workflow_run)
@@ -82,6 +85,38 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     end
 
     assert_equal :catalog_override, captured_catalog
+    assert_equal false, captured_inline_if_queued
+  end
+
+  test "execute_provider_workflow! can skip inline queued execution for real queue pressure runs" do
+    workflow_run = WorkflowRunDouble.new(ExecutionSnapshot.new({ "messages" => [] }))
+    dispatched_node = Struct.new(:public_id).new("node-public-id")
+    wait_called = false
+    inline_calls = 0
+
+    with_redefined_singleton_method(Workflows::ExecuteRun, :call, ->(*) { dispatched_node }) do
+      with_redefined_singleton_method(
+        ManualAcceptanceSupport,
+        :wait_for_workflow_run_terminal!,
+        ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1) { wait_called = true }
+      ) do
+        with_redefined_singleton_method(
+          ManualAcceptanceSupport,
+          :execute_inline_if_queued!,
+          lambda do |**_kwargs|
+            inline_calls += 1
+          end
+        ) do
+          ManualAcceptanceSupport.execute_provider_workflow!(
+            workflow_run: workflow_run,
+            inline_if_queued: false
+          )
+        end
+      end
+    end
+
+    assert_equal true, wait_called
+    assert_equal 0, inline_calls
   end
 
   test "execute_inline_if_queued! forwards catalog overrides into execute node" do

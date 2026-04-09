@@ -47,9 +47,7 @@ module Fenix
             stderr_tail: +""
           )
 
-          synchronize do
-            entries[process_run_id] = entry
-          end
+          registry.store(entry)
 
           start_monitoring!(entry) if start_monitoring
           entry
@@ -77,16 +75,11 @@ module Fenix
         end
 
         def lookup(process_run_id:)
-          synchronize do
-            entries[process_run_id]
-          end
+          registry.lookup(key: process_run_id)
         end
 
         def append_output(process_run_id:, stream:, text:)
-          synchronize do
-            entry = entries[process_run_id]
-            return if entry.blank?
-
+          registry.mutate(key: process_run_id) do |entry|
             bytes = text.to_s.bytesize
             case stream
             when "stdout"
@@ -104,20 +97,14 @@ module Fenix
         end
 
         def list(runtime_owner_id: nil)
-          synchronize do
-            entries.values
-              .select { |entry| runtime_owner_id.blank? || entry.runtime_owner_id == runtime_owner_id }
-              .sort_by(&:process_run_id)
-              .map { |entry| snapshot_for(entry) }
-          end
+          registry.project_list(runtime_owner_id: runtime_owner_id) { |entry| snapshot_for(entry) }
         end
 
         def output_snapshot(process_run_id:)
-          synchronize do
-            entry = entries[process_run_id]
-            entry.exit_status ||= exit_status_for(entry) if entry.present? && !entry.wait_thread&.alive?
-            snapshot_for(entry) || released_snapshots[process_run_id]
-          end
+          registry.project_entry(key: process_run_id) do |entry|
+            entry.exit_status ||= exit_status_for(entry) if !entry.wait_thread&.alive?
+            snapshot_for(entry)
+          end || registry.released_snapshot(process_run_id)
         end
 
         def proxy_info(process_run_id:)
@@ -141,7 +128,7 @@ module Fenix
           strictness = mailbox_item.dig("payload", "strictness").presence || "graceful"
           client = control_client || entry.control_client
 
-          synchronize do
+          registry.synchronize do
             entry.control_client = client if client.present?
             entry.close_request_id = mailbox_item.fetch("item_id")
             entry.strictness = strictness
@@ -153,11 +140,9 @@ module Fenix
         end
 
         def prune_terminated_handles!
-          stale_entries = synchronize do
-            entries.values.select do |entry|
-              wait_thread = entry.wait_thread
-              wait_thread.nil? || !wait_thread.alive?
-            end
+          stale_entries = registry.values.select do |entry|
+            wait_thread = entry.wait_thread
+            wait_thread.nil? || !wait_thread.alive?
           end
 
           stale_entries.each do |entry|
@@ -172,10 +157,7 @@ module Fenix
         end
 
         def reset!
-          current_entries = synchronize do
-            released_snapshots.clear
-            entries.values.tap { entries.clear }
-          end
+          current_entries = registry.clear!
 
           current_entries.each do |entry|
             terminate_process(entry, signal: "KILL")
@@ -255,7 +237,7 @@ module Fenix
 
         def report_terminal_close(entry, exit_status:)
           terminal_context =
-            synchronize do
+            registry.synchronize do
               next nil if entry.terminal_reported
 
               entry.terminal_reported = true
@@ -379,12 +361,12 @@ module Fenix
           join_thread(entry.stdout_thread)
           join_thread(entry.stderr_thread)
 
-          synchronize do
-            entry.exit_status ||= exit_status_for(entry)
-            released_snapshots[entry.process_run_id] = snapshot_for(entry)
-            current_entry = entries[entry.process_run_id]
-            entries.delete(entry.process_run_id) if current_entry.equal?(entry)
-          end
+          entry.exit_status ||= exit_status_for(entry)
+          registry.capture_and_remove(
+            key: entry.process_run_id,
+            entry: entry,
+            snapshot: snapshot_for(entry)
+          )
 
           Fenix::Processes::ProxyRegistry.unregister(process_run_id: entry.process_run_id) if defined?(Fenix::Processes::ProxyRegistry)
           close_io(entry.stdin)
@@ -431,20 +413,11 @@ module Fenix
           bytes.last(OUTPUT_TAIL_LIMIT_BYTES).pack("C*").force_encoding(combined.encoding)
         end
 
-        def entries
-          @entries ||= {}
-        end
-
-        def released_snapshots
-          @released_snapshots ||= {}
-        end
-
-        def mutex
-          @mutex ||= Mutex.new
-        end
-
-        def synchronize(&block)
-          mutex.synchronize(&block)
+        def registry
+          @registry ||= Fenix::Runtime::OwnedResourceRegistry.new(
+            key_attr: :process_run_id,
+            retain_released_snapshots: true
+          )
         end
 
         def exit_status_for(entry)
