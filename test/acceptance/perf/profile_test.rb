@@ -16,7 +16,11 @@ module Acceptance
         assert_equal 8, target.runtime_count
         assert_equal 8, stress.runtime_count
         assert_equal 1, smoke.max_in_flight_per_conversation
-        assert_equal 96, stress.expected_completed_workload_items
+        assert_equal 16, stress.expected_completed_workload_items
+        assert_equal true, smoke.inline_control_worker?
+        assert_equal false, target.inline_control_worker?
+        assert_equal "pressure", target.gate_contract.fetch("kind")
+        assert_includes target.gate_contract.fetch("required_metric_sample_paths"), "queue_pressure.total_sample_count"
         assert_equal "pressure", stress.gate_contract.fetch("kind")
         assert_includes stress.gate_contract.fetch("required_metric_sample_paths"), "database_checkout_pressure.checkout_wait.count"
       end

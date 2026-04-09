@@ -4,10 +4,7 @@ require "yaml"
 
 class TestDatabaseConfigTest < ActiveSupport::TestCase
   test "test sqlite databases are explicitly configured for solid queue worker tests" do
-    config = YAML.safe_load(
-      ERB.new(Rails.root.join("config/database.yml").read).result,
-      aliases: true
-    )
+    config = render_database_yml
     test_config = config.fetch("test")
 
     assert_equal "storage/test.sqlite3", test_config.dig("primary", "database")
@@ -15,5 +12,30 @@ class TestDatabaseConfigTest < ActiveSupport::TestCase
     assert_equal ["db/queue_migrate"], Array(test_config.dig("queue", "migrations_paths"))
     assert_equal 8, test_config.dig("primary", "max_connections")
     assert_equal 16, test_config.dig("queue", "max_connections")
+  end
+
+  test "test sqlite databases can be rooted under an explicit fenix storage directory" do
+    config = render_database_yml("FENIX_STORAGE_ROOT" => "/tmp/fenix-slot/storage")
+    test_config = config.fetch("test")
+
+    assert_equal "/tmp/fenix-slot/storage/test.sqlite3", test_config.dig("primary", "database")
+    assert_equal "/tmp/fenix-slot/storage/test_queue.sqlite3", test_config.dig("queue", "database")
+  end
+
+  private
+
+  def render_database_yml(env_overrides = {})
+    original_env = ENV.to_hash
+
+    env_overrides.each do |key, value|
+      ENV[key] = value
+    end
+
+    YAML.safe_load(
+      ERB.new(Rails.root.join("config/database.yml").read).result,
+      aliases: true
+    )
+  ensure
+    ENV.replace(original_env)
   end
 end

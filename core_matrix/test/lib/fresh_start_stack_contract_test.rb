@@ -159,9 +159,37 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, 'CORE_MATRIX_PERF_EVENTS_PATH="${ARTIFACT_DIR}/evidence/core-matrix-events.ndjson"'
     assert_includes script, 'export MULTI_FENIX_LOAD_STACK_ALREADY_RESET="true"'
     assert_includes script, 'bash "${SCRIPT_DIR}/fresh_start_stack.sh"'
-    assert_includes script, 'for index in $(seq 2 "${RUNTIME_COUNT}")'
+    assert_includes script, "for index in $(seq 2 \"\${RUNTIME_COUNT}\")"
+    assert_includes script, "bin/rails db:prepare"
     assert_includes script, 'bin/rails server -d -b 127.0.0.1 -p "${runtime_port}" -P "${pidfile}"'
     assert_includes script, 'bin/rails runner "${REPO_ROOT}/acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb"'
+  end
+
+  test "shared multi-fenix load harness only starts fenix jobs daemons for queued profiles" do
+    script = Rails.root.join("../acceptance/bin/run_multi_fenix_core_matrix_load.sh").read
+
+    assert_includes script, 'PROFILE_INLINE_CONTROL_WORKER="$('
+    assert_includes script, 'require File.join(ENV.fetch("REPO_ROOT"), "acceptance/lib/perf/profile")'
+    assert_includes script, 'START_FENIX_JOBS_DAEMONS="true"'
+    assert_includes script, 'if [[ "${PROFILE_INLINE_CONTROL_WORKER}" == "true" ]]; then'
+    assert_includes script, 'export FENIX_HOST_START_JOBS_DAEMON="${START_FENIX_JOBS_DAEMONS}"'
+    assert_includes script, 'if [[ "${START_FENIX_JOBS_DAEMONS}" == "true" ]]; then'
+    assert_includes script, 'exec("./bin/jobs", "start")'
+  end
+
+  test "shared multi-fenix load harness forwards a per-slot fenix storage root" do
+    script = Rails.root.join("../acceptance/bin/run_multi_fenix_core_matrix_load.sh").read
+
+    assert_includes script, 'FENIX_STORAGE_ROOT="${FIRST_STORAGE_ROOT}"'
+    assert_includes script, 'FENIX_STORAGE_ROOT="${slot_storage_root}"'
+  end
+
+  test "fresh start can start a fenix jobs daemon for queued host execution" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, 'FENIX_HOST_START_JOBS_DAEMON="${FENIX_HOST_START_JOBS_DAEMON:-false}"'
+    assert_includes script, 'bin/jobs", "start"'
+    assert_includes script, "timed out waiting for fenix-runtime jobs to become ready"
   end
 
   test "fresh start forwards core matrix perf event env into the server and jobs processes" do

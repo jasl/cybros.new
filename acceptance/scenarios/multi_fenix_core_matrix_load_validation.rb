@@ -111,16 +111,17 @@ def execute_program_exchange_task_on_conversation!(conversation:, agent_program_
   }
 end
 
-def with_runtime_control_workers!(registrations, index = 0, &block)
+def with_runtime_control_workers!(registrations, inline:, index: 0, &block)
   return yield if index >= registrations.length
 
   registration = registrations.fetch(index)
   ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
     registration: registration.runtime_registration,
     limit: 1,
+    inline: inline,
     env: registration.runtime_task_env
   ) do
-    with_runtime_control_workers!(registrations, index + 1, &block)
+    with_runtime_control_workers!(registrations, inline: inline, index: index + 1, &block)
   end
 end
 
@@ -204,7 +205,10 @@ registration_matrix = decorate_boot_states(registration_matrix, topology)
 
 driver_report =
   if registration_matrix.all_booted?
-    with_runtime_control_workers!(registration_matrix.runtime_registrations) do
+    with_runtime_control_workers!(
+      registration_matrix.runtime_registrations,
+      inline: profile.inline_control_worker?
+    ) do
       Acceptance::Perf::WorkloadDriver.call(
         manifest: manifest,
         registration_matrix: registration_matrix,

@@ -268,6 +268,7 @@ module Acceptance
       def runtime_task_env_for(slot)
         {
           'FENIX_HOME_ROOT' => slot.home_root.to_s,
+          'FENIX_STORAGE_ROOT' => slot.home_root.join('storage').to_s,
           'CYBROS_PERF_EVENTS_PATH' => slot.event_output_path.to_s,
           'CYBROS_PERF_INSTANCE_LABEL' => slot.label
         }

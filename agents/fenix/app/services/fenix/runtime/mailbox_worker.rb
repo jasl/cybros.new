@@ -159,7 +159,8 @@ module Fenix
           @mailbox_item,
           deliver_reports: @deliver_reports,
           enqueued_at_iso8601: Time.current.iso8601(6),
-          queue_name: Fenix::Runtime::MailboxExecutionJob.queue_name
+          queue_name: Fenix::Runtime::MailboxExecutionJob.queue_name,
+          control_plane_context: serialized_control_plane_context
         )
 
         QueuedMailboxExecution.new(
@@ -202,6 +203,15 @@ module Fenix
         return nil unless @deliver_reports
 
         @control_client = Fenix::Runtime::ControlPlane.client
+      end
+
+      def serialized_control_plane_context
+        return nil unless @deliver_reports
+
+        client = resolved_control_client_if_needed
+        return nil unless client.respond_to?(:connection_context)
+
+        client.connection_context.deep_stringify_keys
       end
 
       def base_close_report(method_id)

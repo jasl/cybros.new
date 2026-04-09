@@ -123,6 +123,17 @@ module Fenix
         }.compact)
       end
 
+      def connection_context
+        {
+          "base_url" => @base_url,
+          "machine_credential" => @machine_credential,
+          "execution_machine_credential" => @execution_machine_credential,
+          "open_timeout" => @open_timeout,
+          "read_timeout" => @read_timeout,
+          "write_timeout" => @write_timeout,
+        }
+      end
+
       private
 
       attr_reader :machine_credential, :execution_machine_credential

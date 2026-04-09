@@ -8,14 +8,16 @@ default: &default
   adapter: sqlite3
   timeout: 5000
 
+<% storage_root = ENV.fetch("FENIX_STORAGE_ROOT", "storage") %>
+
 development:
   primary:
     <<: *default
-    database: storage/development.sqlite3
+    database: <%= File.join(storage_root, "development.sqlite3") %>
     max_connections: <%= ENV.fetch("FENIX_PRIMARY_DB_POOL", 8) %>
   queue:
     <<: *default
-    database: storage/development_queue.sqlite3
+    database: <%= File.join(storage_root, "development_queue.sqlite3") %>
     migrations_paths: db/queue_migrate
     max_connections: <%= ENV.fetch("FENIX_QUEUE_DB_POOL", 16) %>
 
@@ -25,11 +27,11 @@ development:
 test:
   primary:
     <<: *default
-    database: storage/test.sqlite3
+    database: <%= File.join(storage_root, "test.sqlite3") %>
     max_connections: <%= ENV.fetch("FENIX_PRIMARY_DB_POOL", 8) %>
   queue:
     <<: *default
-    database: storage/test_queue.sqlite3
+    database: <%= File.join(storage_root, "test_queue.sqlite3") %>
     migrations_paths: db/queue_migrate
     max_connections: <%= ENV.fetch("FENIX_QUEUE_DB_POOL", 16) %>
 
@@ -42,14 +44,14 @@ test:
 production:
   primary:
     <<: *default
-    database: storage/production.sqlite3
+    database: <%= File.join(storage_root, "production.sqlite3") %>
     max_connections: <%= ENV.fetch("FENIX_PRIMARY_DB_POOL", 8) %>
   cache:
     <<: *default
-    database: storage/production_cache.sqlite3
+    database: <%= File.join(storage_root, "production_cache.sqlite3") %>
     migrations_paths: db/cache_migrate
   queue:
     <<: *default
-    database: storage/production_queue.sqlite3
+    database: <%= File.join(storage_root, "production_queue.sqlite3") %>
     migrations_paths: db/queue_migrate
     max_connections: <%= ENV.fetch("FENIX_QUEUE_DB_POOL", 16) %>

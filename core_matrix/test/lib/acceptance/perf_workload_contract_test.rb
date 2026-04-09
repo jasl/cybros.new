@@ -20,7 +20,19 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     assert_equal "execution_assignment", profile.workload_kind
     assert_equal 1, profile.turns_per_conversation
     assert_equal 1, profile.max_in_flight_per_conversation
+    assert_equal true, profile.inline_control_worker?
     assert_equal "correctness", profile.gate_contract.fetch("kind")
+  end
+
+  test "target 8 fenix profile runs queued control workers and requires queue pressure samples" do
+    profile = Acceptance::Perf::Profile.fetch("target_8_fenix")
+
+    assert_equal "execution_assignment", profile.workload_kind
+    assert_equal false, profile.inline_control_worker?
+    assert_equal "pressure", profile.gate_contract.fetch("kind")
+    assert_includes profile.gate_contract.fetch("required_metric_sample_paths"), "mailbox_lease_latency.count"
+    assert_includes profile.gate_contract.fetch("required_metric_sample_paths"), "queue_pressure.total_sample_count"
+    assert_includes profile.gate_contract.fetch("required_metric_sample_paths"), "database_checkout_pressure.checkout_wait.count"
   end
 
   test "stress profile declares a mock program-exchange workload with repeated turns per conversation" do
@@ -29,6 +41,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     assert_equal "program_exchange_mock", profile.workload_kind
     assert_operator profile.turns_per_conversation, :>, 1
     assert_equal 1, profile.max_in_flight_per_conversation
+    assert_equal true, profile.inline_control_worker?
     assert_operator profile.recommended_runner_db_pool, :>=, profile.conversation_count
     assert_equal "pressure", profile.gate_contract.fetch("kind")
   end
@@ -39,7 +52,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     )
 
     assert_equal "program_exchange_mock", manifest.workload_kind
-    assert_equal 3, manifest.turns_per_conversation
+    assert_equal 2, manifest.turns_per_conversation
     assert_equal 1, manifest.max_in_flight_per_conversation
 
     manifest.request_corpus.each do |entry|

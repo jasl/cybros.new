@@ -25,6 +25,8 @@ FENIX_DOCKER_ENV_FILE="${FENIX_DOCKER_ENV_FILE:-${FENIX_ROOT}/.env}"
 FENIX_DOCKER_STORAGE_VOLUME="${FENIX_DOCKER_STORAGE_VOLUME:-fenix_capstone_storage}"
 FENIX_DOCKER_PROXY_ROUTES_VOLUME="${FENIX_DOCKER_PROXY_ROUTES_VOLUME:-fenix_capstone_proxy_routes}"
 FENIX_HOME_ROOT="${FENIX_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-fenix-home}"
+FENIX_STORAGE_ROOT="${FENIX_STORAGE_ROOT:-${FENIX_HOME_ROOT}/storage}"
+FENIX_HOST_START_JOBS_DAEMON="${FENIX_HOST_START_JOBS_DAEMON:-false}"
 FENIX_DOCKER_HOME_ROOT="${FENIX_DOCKER_HOME_ROOT:-/rails/storage/fenix-home}"
 CYBROS_PERF_EVENTS_PATH="${CYBROS_PERF_EVENTS_PATH:-}"
 CYBROS_PERF_INSTANCE_LABEL="${CYBROS_PERF_INSTANCE_LABEL:-}"
@@ -32,7 +34,7 @@ RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
 
 mkdir -p "${LOG_DIR}"
 rm -f "${LOG_DIR}"/*.log
-mkdir -p "${FENIX_HOME_ROOT}"
+mkdir -p "${FENIX_HOME_ROOT}" "${FENIX_STORAGE_ROOT}"
 
 require_command() {
   local name="$1"
@@ -304,6 +306,68 @@ wait_for_solid_queue_ready() {
 
   return 1
 }
+
+fenix_worker_topology_ready() {
+  local project_root="$1"
+
+  (
+    cd "${project_root}"
+    "${RUBY_BIN}" bin/rails runner '
+      expected_queues = %w[runtime_control maintenance]
+      heartbeat_cutoff = 5.seconds.ago
+
+      live_pid = lambda do |pid|
+        next false unless pid
+
+        Process.kill(0, pid)
+        true
+      rescue Errno::ESRCH, Errno::EPERM
+        false
+      end
+
+      supervisor = SolidQueue::Process.find_by(kind: "Supervisor(fork)")
+      workers = SolidQueue::Process.where(kind: "Worker")
+      registered_queues =
+        workers.filter_map do |worker|
+          next unless worker.last_heartbeat_at && worker.last_heartbeat_at >= heartbeat_cutoff
+          next unless live_pid.call(worker.pid)
+
+          worker.metadata["queues"]
+        end.uniq
+
+      supervisor_ready =
+        supervisor &&
+        supervisor.last_heartbeat_at &&
+        supervisor.last_heartbeat_at >= heartbeat_cutoff &&
+        live_pid.call(supervisor.pid)
+
+      exit(supervisor_ready && expected_queues.all? { |queue| registered_queues.include?(queue) } ? 0 : 1)
+    ' >/dev/null 2>&1
+  )
+}
+
+fetch_fenix_jobs_supervisor_pid() {
+  local project_root="$1"
+
+  (
+    cd "${project_root}"
+    "${RUBY_BIN}" bin/rails runner '
+      heartbeat_cutoff = 5.seconds.ago
+      supervisor = SolidQueue::Process.find_by(kind: "Supervisor(fork)")
+
+      if supervisor&.last_heartbeat_at && supervisor.last_heartbeat_at >= heartbeat_cutoff
+        begin
+          Process.kill(0, supervisor.pid)
+          puts supervisor.pid
+        rescue Errno::ESRCH, Errno::EPERM
+          puts ""
+        end
+      else
+        puts ""
+      end
+    '
+  )
+}
 start_core_matrix_jobs_daemon() {
   local attempts="${1:-3}"
   local log_path="${LOG_DIR}/core-matrix-jobs.log"
@@ -337,6 +401,44 @@ RUBY
   done
 
   echo "timed out waiting for core-matrix jobs to become ready" >&2
+  return 1
+}
+
+start_fenix_jobs_daemon() {
+  local attempts="${1:-3}"
+  local log_path="${LOG_DIR}/fenix-runtime-jobs.log"
+
+  for _ in $(seq 1 "${attempts}"); do
+    (
+      cd "${FENIX_ROOT}"
+      "${RUBY_BIN}" - "${log_path}" <<'RUBY'
+log_path = ARGV.fetch(0)
+STDOUT.reopen(log_path, "a")
+STDERR.reopen(STDOUT)
+STDOUT.sync = true
+STDERR.sync = true
+Process.daemon(true, true)
+STDOUT.reopen(log_path, "a")
+STDERR.reopen(STDOUT)
+STDOUT.sync = true
+STDERR.sync = true
+exec("./bin/jobs", "start")
+RUBY
+    )
+
+    for _ in $(seq 1 30); do
+      if fenix_worker_topology_ready "${FENIX_ROOT}"; then
+        STARTED_PID="$(fetch_fenix_jobs_supervisor_pid "${FENIX_ROOT}")"
+        return 0
+      fi
+      sleep 0.2
+    done
+
+    stop_matching_process "${FENIX_ROOT}/bin/jobs" "start"
+    sleep 0.5
+  done
+
+  echo "timed out waiting for fenix-runtime jobs to become ready" >&2
   return 1
 }
 
@@ -511,15 +613,23 @@ wait_for_http_ok "${CORE_MATRIX_BASE_URL}/up"
 
 if [[ "${FENIX_RUNTIME_MODE}" == "host" ]]; then
   export FENIX_HOME_ROOT
+  export FENIX_STORAGE_ROOT
   export CYBROS_PERF_EVENTS_PATH
   export CYBROS_PERF_INSTANCE_LABEL
   stop_listening_port "${FENIX_RUNTIME_PORT}"
   stop_matching_process "${FENIX_ROOT}/bin/rails" "server"
+  stop_matching_process "${FENIX_ROOT}/bin/jobs" "start"
   clear_server_pidfile "${FENIX_ROOT}"
   reset_project_database "fenix-runtime" "${FENIX_ROOT}" "${LOG_DIR}/fenix-runtime-db-reset.log"
 
   start_rails_server_daemon "fenix-runtime-server" "${FENIX_ROOT}" "${FENIX_RUNTIME_HOST}" "${FENIX_RUNTIME_PORT}" "${LOG_DIR}/fenix-runtime-server.log"
   FENIX_RUNTIME_PID="${STARTED_PID}"
+  if [[ "${FENIX_HOST_START_JOBS_DAEMON}" == "true" ]]; then
+    start_fenix_jobs_daemon
+    FENIX_RUNTIME_JOBS_PID="${STARTED_PID}"
+  else
+    FENIX_RUNTIME_JOBS_PID="not_started"
+  fi
 
   wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/up"
   wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/runtime/manifest"
@@ -550,7 +660,9 @@ fenix_runtime_mode=${FENIX_RUNTIME_MODE}
 fenix_runtime_count=${FENIX_RUNTIME_COUNT}
 fenix_runtime_base_url=${FENIX_RUNTIME_BASE_URL}
 fenix_runtime_server_pid=${FENIX_RUNTIME_PID}
+fenix_runtime_jobs_pid=${FENIX_RUNTIME_JOBS_PID:-not_applicable}
 fenix_home_root=${FENIX_HOME_ROOT}
+fenix_storage_root=${FENIX_STORAGE_ROOT}
 fenix_docker_container=${FENIX_DOCKER_CONTAINER}
 fenix_docker_storage_volume=${FENIX_DOCKER_STORAGE_VOLUME}
 fenix_docker_status=${DOCKER_STATUS}

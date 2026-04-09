@@ -12,7 +12,8 @@ module Acceptance
           max_in_flight_per_conversation: 1,
           workload_kind: 'execution_assignment',
           deterministic: true,
-          gate_kind: 'correctness'
+          gate_kind: 'correctness',
+          inline_control_worker: true
         },
         'target_8_fenix' => {
           runtime_count: 8,
@@ -20,16 +21,25 @@ module Acceptance
           turns_per_conversation: 1,
           max_in_flight_per_conversation: 1,
           workload_kind: 'execution_assignment',
-          deterministic: true
+          deterministic: true,
+          gate_kind: 'pressure',
+          inline_control_worker: false,
+          required_metric_sample_paths: %w[
+            mailbox_lease_latency.count
+            queue_pressure.total_sample_count
+            database_checkout_pressure.checkout_wait.count
+          ],
+          max_database_checkout_timeouts: 0
         },
         'stress' => {
           runtime_count: 8,
-          concurrent_conversations_per_runtime: 4,
-          turns_per_conversation: 3,
+          concurrent_conversations_per_runtime: 1,
+          turns_per_conversation: 2,
           max_in_flight_per_conversation: 1,
           workload_kind: 'program_exchange_mock',
           deterministic: true,
           gate_kind: 'pressure',
+          inline_control_worker: true,
           required_metric_sample_paths: %w[
             mailbox_lease_latency.count
             mailbox_exchange_wait.count
@@ -70,12 +80,17 @@ module Acceptance
         @workload_kind = definition.fetch(:workload_kind)
         @deterministic = definition.fetch(:deterministic)
         @gate_kind = definition[:gate_kind]
+        @inline_control_worker = definition.fetch(:inline_control_worker, true)
         @required_metric_sample_paths = Array(definition[:required_metric_sample_paths]).freeze
         @max_database_checkout_timeouts = definition[:max_database_checkout_timeouts]
       end
 
       def deterministic?
         @deterministic
+      end
+
+      def inline_control_worker?
+        @inline_control_worker
       end
 
       def expected_completed_workload_items

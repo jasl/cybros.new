@@ -88,6 +88,35 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
     assert_operator events.first.fetch("queue_delay_ms"), :>=, 1500.0
   end
 
+  test "perform uses explicit control plane context when queued report delivery is enabled" do
+    ENV.delete("CORE_MATRIX_BASE_URL")
+    ENV.delete("CORE_MATRIX_MACHINE_CREDENTIAL")
+    ENV.delete("CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL")
+    Fenix::Runtime::ControlPlane.remove_instance_variable(:@client) if Fenix::Runtime::ControlPlane.instance_variable_defined?(:@client)
+
+    captured_client = nil
+    original_execute = Fenix::Runtime::ExecuteMailboxItem.method(:call)
+    Fenix::Runtime::ExecuteMailboxItem.singleton_class.define_method(:call) do |mailbox_item:, deliver_reports:, control_client:|
+      captured_client = control_client
+      { "status" => "ok", "mailbox_item_id" => mailbox_item.fetch("item_id"), "deliver_reports" => deliver_reports }
+    end
+
+    result = Fenix::Runtime::MailboxExecutionJob.perform_now(
+      execution_assignment_mailbox_item,
+      deliver_reports: true,
+      control_plane_context: {
+        "base_url" => "https://core-matrix.example.test",
+        "machine_credential" => "program-secret",
+        "execution_machine_credential" => "executor-secret",
+      }
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_instance_of Fenix::Runtime::ControlClient, captured_client
+  ensure
+    Fenix::Runtime::ExecuteMailboxItem.singleton_class.define_method(:call, original_execute) if original_execute
+  end
+
   private
 
   def execution_assignment_mailbox_item

@@ -155,6 +155,30 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal mailbox_item.fetch("item_id"), client.reported_payloads.last.fetch("mailbox_item_id")
   end
 
+  test "queued executable mailbox items serialize control plane context for out-of-process execution" do
+    client = Fenix::Runtime::ControlClient.new(
+      base_url: "https://core-matrix.example.test",
+      machine_credential: "program-secret",
+      execution_machine_credential: "executor-secret"
+    )
+    mailbox_item = execution_assignment_mailbox_item
+
+    assert_enqueued_with(job: Fenix::Runtime::MailboxExecutionJob) do
+      Fenix::Runtime::MailboxWorker.call(
+        mailbox_item: mailbox_item,
+        deliver_reports: true,
+        control_client: client,
+        inline: false
+      )
+    end
+
+    serialized_context = enqueued_jobs.last.fetch(:args).second.fetch("control_plane_context")
+
+    assert_equal "https://core-matrix.example.test", serialized_context.fetch("base_url")
+    assert_equal "program-secret", serialized_context.fetch("machine_credential")
+    assert_equal "executor-secret", serialized_context.fetch("execution_machine_credential")
+  end
+
   test "inline executable mailbox items emit terminal failure reports" do
     client = build_control_client
     mailbox_item = execution_assignment_mailbox_item

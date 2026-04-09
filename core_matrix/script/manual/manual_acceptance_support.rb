@@ -433,6 +433,7 @@ module ManualAcceptanceSupport
   def forwarded_fenix_env
     {}.tap do |env|
       env["FENIX_HOME_ROOT"] = ENV["FENIX_HOME_ROOT"] if ENV["FENIX_HOME_ROOT"].present?
+      env["FENIX_STORAGE_ROOT"] = ENV["FENIX_STORAGE_ROOT"] if ENV["FENIX_STORAGE_ROOT"].present?
     end
   end
 

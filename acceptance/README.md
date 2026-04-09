@@ -57,7 +57,7 @@ cd /Users/jasl/Workspaces/Ruby/cybros
 bash acceptance/bin/multi_fenix_core_matrix_load_target.sh
 ```
 
-Run the stress profile when validating the real queue plane and pressure metrics:
+Run the stress profile when validating provider-backed mailbox exchange pressure metrics:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
@@ -74,51 +74,58 @@ with the key outputs in:
 - `acceptance/artifacts/<artifact-stamp>/evidence/run-summary.json`
 - `acceptance/artifacts/<artifact-stamp>/evidence/core-matrix-events.ndjson`
 
-Current local benchmark baselines, captured on April 9, 2026:
+Current local benchmark baselines, captured on April 10, 2026:
 
-- `smoke` artifact `2026-04-09-task8-wrapper-smoke-v3`
+- `smoke` artifact `2026-04-10-002125-multi-fenix-core-matrix-load-smoke`
   - `runtime_count: 2`
   - `completed_workload_items: 4`
-  - `time_window.duration_seconds: 9.01`
-  - `turn_latency.p95_ms: 2020.631`
-  - `poll_latency.core_matrix_control_plane.p95_ms: 10.972`
-- `target_8_fenix` artifact `2026-04-09-task9-target-8-fenix-v1`
+  - `time_window.duration_seconds: 33.362`
+  - `turn_latency.p95_ms: 2088.111`
+  - `poll_latency.core_matrix_control_plane.p95_ms: 13.242`
+- `target_8_fenix` artifact `2026-04-10-002206-multi-fenix-core-matrix-load-target-8-fenix`
   - `runtime_count: 8`
   - `completed_workload_items: 16`
-  - `time_window.duration_seconds: 33.018`
-  - `throughput.completed_workload_items_per_minute: 29.075`
-  - `turn_latency.p95_ms: 6761.269`
-  - `poll_latency.fenix_control_plane.p95_ms: 149.401`
-  - `poll_latency.core_matrix_control_plane.p95_ms: 5.614`
+  - `time_window.duration_seconds: 103.871`
+  - `throughput.completed_workload_items_per_minute: 9.242`
+  - `turn_latency.p95_ms: 6915.602`
+  - `poll_latency.fenix_control_plane.p95_ms: 119.906`
+  - `poll_latency.core_matrix_control_plane.p95_ms: 17.268`
+  - `queue_pressure.max_queue_delay_ms: 151.357`
+- `stress` artifact `2026-04-10-001821-multi-fenix-core-matrix-load-stress`
+  - `runtime_count: 8`
+  - `completed_workload_items: 16`
+  - `time_window.duration_seconds: 164.524`
+  - `throughput.completed_workload_items_per_minute: 5.835`
+  - `turn_latency.p95_ms: 43223.04`
+  - `mailbox_exchange_wait.p95_ms: 775.873`
+  - `queue_pressure.max_queue_delay_ms: 32060.212`
 
 Current benchmark gate recommendations:
 
-- `smoke` is the candidate correctness gate
+- `smoke` is the fast correctness gate
   - require `structural_failures: []`
   - require `runtime_count: 2`
   - require `completed_workload_items: 4`
   - require `review/load-summary.md`, `evidence/aggregated-metrics.json`, and `evidence/core-matrix-events.ndjson` to exist
-- `target_8_fenix` remains a local descriptive benchmark, not a CI default
-  - investigate if `completed_workload_items < 16`
-  - investigate if `turn_latency.p95_ms > 10000`
-  - investigate if `poll_latency.fenix_control_plane.p95_ms > 300`
-  - investigate if `poll_latency.core_matrix_control_plane.p99_ms > 50`
-  - investigate any non-zero `database_checkout_pressure.timeout_count`
-- `stress` is the queue-plane pressure profile
+- `target_8_fenix` is the queued runtime pressure gate
+  - require non-zero `mailbox_lease_latency.count`
+  - require non-zero `queue_pressure.total_sample_count`
+  - require non-zero `database_checkout_pressure.checkout_wait.count`
+  - require `database_checkout_pressure.timeout_count: 0`
+  - investigate `queue_pressure.max_queue_delay_ms` regression against the latest local baseline
+- `stress` is the provider-backed mailbox exchange pressure gate
   - require non-zero `mailbox_lease_latency.count`
   - require non-zero `mailbox_exchange_wait.count`
   - require non-zero `queue_pressure.total_sample_count`
   - require non-zero `database_checkout_pressure.checkout_wait.count`
   - require `database_checkout_pressure.timeout_count: 0`
-  - investigate any `gate.outcome: failed`
+  - investigate `queue_pressure.max_queue_delay_ms` and `mailbox_exchange_wait.p95_ms` regression against the latest local baseline
 
 Current stabilization note:
 
-- `smoke` and `target_8_fenix` are the stable local reference profiles
-- `stress` now routes through the real queue plane and emits pressure metrics,
-  but it should still be treated as an active stabilization profile until the
-  local jobs daemon startup path proves consistently healthy across fresh-start
-  runs
+- `smoke` and `target_8_fenix` are the stable local reference gates
+- `target_8_fenix` is the only profile that intentionally starts host-side Fenix jobs daemons, because it validates queued runtime-control execution
+- `stress` stays local-only for now; it is useful when touching provider/exchange scheduling, queue topology, or perf telemetry, but its latency numbers are still descriptive rather than hard CI thresholds
 
 Replay the supervision review surfaces from an existing evaluation bundle:
 

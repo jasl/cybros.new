@@ -126,6 +126,26 @@ class Fenix::Runtime::ControlClientTest < ActiveSupport::TestCase
     assert_equal ["POST /agent_api/control/report"], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
   end
 
+  test "connection_context exports the settings needed by queued mailbox execution" do
+    client = Fenix::Runtime::ControlClient.new(
+      base_url: "https://core-matrix.example.test",
+      machine_credential: "secret",
+      execution_machine_credential: "execution-secret"
+    )
+
+    assert_equal(
+      {
+        "base_url" => "https://core-matrix.example.test",
+        "machine_credential" => "secret",
+        "execution_machine_credential" => "execution-secret",
+        "open_timeout" => Fenix::Runtime::ControlClient::DEFAULT_OPEN_TIMEOUT,
+        "read_timeout" => Fenix::Runtime::ControlClient::DEFAULT_READ_TIMEOUT,
+        "write_timeout" => Fenix::Runtime::ControlClient::DEFAULT_WRITE_TIMEOUT,
+      },
+      client.connection_context
+    )
+  end
+
   private
 
   def with_captured_requests(requests, responses: {})
