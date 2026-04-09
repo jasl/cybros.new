@@ -9,6 +9,7 @@ require "pathname"
 require "stringio"
 require "uri"
 require "timeout"
+require_relative "manual_acceptance_support/runtime_registration"
 require_relative "../../config/environment"
 
 module ManualAcceptanceSupport
@@ -349,8 +350,8 @@ module ManualAcceptanceSupport
 
   def run_fenix_control_loop_for_registration!(registration:, **kwargs)
     run_fenix_control_loop_once!(
-      machine_credential: registration_machine_credential(registration),
-      executor_machine_credential: registration_executor_machine_credential(registration),
+      machine_credential: registration.machine_credential,
+      executor_machine_credential: registration.executor_machine_credential,
       **kwargs
     )
   end
@@ -418,8 +419,8 @@ module ManualAcceptanceSupport
 
   def with_fenix_control_worker_for_registration!(registration:, **kwargs, &block)
     with_fenix_control_worker!(
-      machine_credential: registration_machine_credential(registration),
-      executor_machine_credential: registration_executor_machine_credential(registration),
+      machine_credential: registration.machine_credential,
+      executor_machine_credential: registration.executor_machine_credential,
       **kwargs,
       &block
     )
@@ -433,24 +434,6 @@ module ManualAcceptanceSupport
     {}.tap do |env|
       env["FENIX_HOME_ROOT"] = ENV["FENIX_HOME_ROOT"] if ENV["FENIX_HOME_ROOT"].present?
     end
-  end
-
-  def registration_machine_credential(registration)
-    registration_fetch(registration, :machine_credential)
-  end
-
-  def registration_executor_machine_credential(registration)
-    registration_fetch(registration, :executor_machine_credential, default: registration_machine_credential(registration))
-  end
-
-  def registration_fetch(registration, key, default: :__manual_acceptance_support_missing__)
-    [key, key.to_s, key.to_sym].uniq.each do |candidate|
-      return registration.fetch(candidate) if registration.respond_to?(:key?) && registration.key?(candidate)
-    end
-
-    return default unless default == :__manual_acceptance_support_missing__
-
-    raise KeyError, "key not found: #{key}"
   end
 
   def disconnect_application_record!
@@ -637,7 +620,7 @@ module ManualAcceptanceSupport
     agent_program_version = AgentProgramVersion.find_by_public_id!(registration.fetch("agent_program_version_id"))
     executor_program = registration["executor_program_id"].present? ? ExecutorProgram.find_by_public_id!(registration.fetch("executor_program_id")) : nil
 
-    {
+    RuntimeRegistration.new(
       manifest: manifest,
       registration: registration,
       heartbeat: heartbeat,
@@ -645,8 +628,7 @@ module ManualAcceptanceSupport
       executor_machine_credential: executor_machine_credential,
       agent_program_version: agent_program_version,
       executor_program: executor_program,
-      deployment: agent_program_version,
-    }
+    )
   end
 
   def register_bundled_runtime_from_manifest!(
@@ -691,12 +673,14 @@ module ManualAcceptanceSupport
       }
     )
 
-    {
+    RuntimeRegistration.new(
       manifest: manifest,
       runtime: runtime,
       machine_credential: runtime.session_credential || session_credential,
       executor_machine_credential: runtime.executor_session_credential || executor_session_credential,
-    }
+      agent_program_version: runtime.deployment,
+      executor_program: runtime.executor_program,
+    )
   end
 
   def default_executor_connection_metadata(runtime_base_url:)

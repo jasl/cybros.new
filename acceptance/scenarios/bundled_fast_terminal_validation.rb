@@ -16,9 +16,9 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 )
 
 run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  deployment: bundled.fetch(:runtime).deployment,
-  machine_credential: bundled.fetch(:machine_credential),
-  executor_machine_credential: bundled.fetch(:executor_machine_credential),
+  deployment: bundled.deployment,
+  machine_credential: bundled.machine_credential,
+  executor_machine_credential: bundled.executor_machine_credential,
   runtime_base_url: runtime_base_url,
   content: "Bundled Fenix deterministic tool turn",
   mode: "deterministic_tool",
@@ -50,9 +50,9 @@ ManualAcceptanceSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
+      "deployment_id" => bundled.deployment.public_id,
       "delivery_mode" => delivery_mode,
-      "executor_program_id" => bundled.fetch(:runtime).executor_program.public_id,
+      "executor_program_id" => bundled.executor_program.public_id,
       "conversation_id" => run.fetch(:conversation).public_id,
       "turn_id" => run.fetch(:turn).public_id,
       "workflow_run_id" => run.fetch(:workflow_run).public_id,

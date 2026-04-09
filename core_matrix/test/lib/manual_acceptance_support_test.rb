@@ -322,8 +322,14 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     ENV["FENIX_HOME_ROOT"] = previous_home_root
   end
 
-  test "run_fenix_control_loop_for_registration! forwards string-keyed executor credentials" do
+  test "run_fenix_control_loop_for_registration! forwards executor credentials from runtime registration" do
     captured = nil
+    registration = ManualAcceptanceSupport::RuntimeRegistration.new(
+      manifest: {},
+      machine_credential: "program-secret",
+      executor_machine_credential: "execution-secret",
+      agent_program_version: "apv"
+    )
 
     with_redefined_singleton_method(
       ManualAcceptanceSupport,
@@ -334,10 +340,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       end
     ) do
       result = ManualAcceptanceSupport.run_fenix_control_loop_for_registration!(
-        registration: {
-          "machine_credential" => "program-secret",
-          "executor_machine_credential" => "execution-secret",
-        },
+        registration: registration,
         limit: 3
       )
 
@@ -352,6 +355,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
   test "with_fenix_control_worker_for_registration! falls back to the program credential when executor credential is absent" do
     captured = nil
     yielded = nil
+    registration = ManualAcceptanceSupport::RuntimeRegistration.new(
+      manifest: {},
+      machine_credential: "program-secret",
+      agent_program_version: "apv"
+    )
 
     with_redefined_singleton_method(
       ManualAcceptanceSupport,
@@ -362,9 +370,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       end
     ) do
       ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
-        registration: {
-          machine_credential: "program-secret",
-        },
+        registration: registration,
         limit: 2
       ) do |pid|
         yielded = pid
@@ -437,10 +443,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
               fingerprint: "program-fingerprint"
             )
 
-            assert_equal "program-secret", result.fetch(:machine_credential)
-            assert_equal "execution-secret", result.fetch(:executor_machine_credential)
-            assert_equal "apv_123", result.fetch(:agent_program_version)
-            assert_equal "rt_123", result.fetch(:executor_program)
+            assert_instance_of ManualAcceptanceSupport::RuntimeRegistration, result
+            assert_equal "program-secret", result.machine_credential
+            assert_equal "execution-secret", result.executor_machine_credential
+            assert_equal "apv_123", result.agent_program_version
+            assert_equal "rt_123", result.executor_program
             assert_equal 1, registration_calls.length
             assert_equal 1, heartbeat_calls.length
             registration_payload = registration_calls.first.fetch(1)
@@ -473,9 +480,16 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         :call,
         lambda do |installation:, session_credential:, executor_session_credential:, configuration:|
           captured_configuration = configuration
-          Struct.new(:session_credential, :executor_session_credential).new(
+          Struct.new(
+            :session_credential,
+            :executor_session_credential,
+            :deployment,
+            :executor_program
+          ).new(
             session_credential,
-            executor_session_credential
+            executor_session_credential,
+            "apv_123",
+            "rt_123"
           )
         end
       ) do
@@ -486,9 +500,10 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           fingerprint: "program-fingerprint"
         )
 
+        assert_instance_of ManualAcceptanceSupport::RuntimeRegistration, result
         assert_equal manifest.fetch("executor_connection_metadata"), captured_configuration.fetch(:connection_metadata)
-        assert result.fetch(:machine_credential).present?
-        assert result.fetch(:executor_machine_credential).present?
+        assert result.machine_credential.present?
+        assert result.executor_machine_credential.present?
       end
     end
   end
@@ -503,9 +518,16 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         :call,
         lambda do |installation:, session_credential:, executor_session_credential:, configuration:|
           captured_configuration = configuration
-          Struct.new(:session_credential, :executor_session_credential).new(
+          Struct.new(
+            :session_credential,
+            :executor_session_credential,
+            :deployment,
+            :executor_program
+          ).new(
             session_credential,
-            executor_session_credential
+            executor_session_credential,
+            "apv_123",
+            "rt_123"
           )
         end
       ) do

@@ -20,9 +20,9 @@ registration = ManualAcceptanceSupport.register_external_runtime!(
   fingerprint: "acceptance-external-fenix-v1"
 )
 run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
-  agent_program_version: registration.fetch(:agent_program_version),
-  machine_credential: registration.fetch(:machine_credential),
-  executor_machine_credential: registration.fetch(:executor_machine_credential),
+  agent_program_version: registration.agent_program_version,
+  machine_credential: registration.machine_credential,
+  executor_machine_credential: registration.executor_machine_credential,
   runtime_base_url: runtime_base_url,
   content: "External Fenix deterministic tool turn",
   mode: "deterministic_tool",
@@ -54,13 +54,13 @@ ManualAcceptanceSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "agent_program_version_id" => registration.fetch(:agent_program_version).public_id,
+      "agent_program_version_id" => registration.agent_program_version.public_id,
       "delivery_mode" => delivery_mode,
-      "executor_program_id" => registration.fetch(:executor_program)&.public_id,
-      "agent_session_id" => registration.fetch(:registration).fetch("agent_session_id"),
-      "executor_session_id" => registration.fetch(:registration)["executor_session_id"],
-      "heartbeat_lifecycle_state" => registration.fetch(:heartbeat).fetch("lifecycle_state"),
-      "heartbeat_health_status" => registration.fetch(:heartbeat).fetch("health_status"),
+      "executor_program_id" => registration.executor_program&.public_id,
+      "agent_session_id" => registration.registration.fetch("agent_session_id"),
+      "executor_session_id" => registration.registration["executor_session_id"],
+      "heartbeat_lifecycle_state" => registration.heartbeat.fetch("lifecycle_state"),
+      "heartbeat_health_status" => registration.heartbeat.fetch("health_status"),
       "conversation_id" => run.fetch(:conversation).public_id,
       "turn_id" => run.fetch(:turn).public_id,
       "workflow_run_id" => run.fetch(:workflow_run).public_id,

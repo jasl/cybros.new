@@ -620,13 +620,13 @@ when "bootstrap"
     fingerprint: program_fingerprint
   )
 
-  machine_credential = bundled.fetch(:machine_credential)
-  executor_machine_credential = bundled.fetch(:executor_machine_credential)
-  agent_program = bundled.fetch(:runtime).agent_program
-  agent_program_version = bundled.fetch(:runtime).deployment
-  executor_program = bundled.fetch(:runtime).executor_program
-  agent_session = bundled.fetch(:runtime).agent_session
-  executor_session = bundled.fetch(:runtime).executor_session
+  machine_credential = bundled.machine_credential
+  executor_machine_credential = bundled.executor_machine_credential
+  agent_program = bundled.agent_program
+  agent_program_version = bundled.deployment
+  executor_program = bundled.executor_program
+  agent_session = bundled.agent_session
+  executor_session = bundled.executor_session
 
   bootstrap_state = Acceptance::CapstoneAppApiRoundtrip.bootstrap_state(
     scenario_date: scenario_date,

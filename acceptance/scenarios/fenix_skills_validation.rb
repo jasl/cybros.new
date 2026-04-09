@@ -157,8 +157,8 @@ registration_b = ManualAcceptanceSupport.register_external_runtime!(
   fingerprint: 'acceptance-fenix-skills-b-v1'
 )
 
-agent_program_version_a = registration_a.fetch(:agent_program_version)
-agent_program_version_b = registration_b.fetch(:agent_program_version)
+agent_program_version_a = registration_a.agent_program_version
+agent_program_version_b = registration_b.agent_program_version
 
 source_root = Rails.root.join('tmp/acceptance-portable-notes-src/portable-notes')
 FileUtils.rm_rf(source_root.parent)
@@ -284,15 +284,15 @@ ManualAcceptanceSupport.write_json(
     'registrations' => {
       'program_a' => {
         'agent_program_version_id' => agent_program_version_a.public_id,
-        'executor_program_id' => registration_a.fetch(:executor_program)&.public_id,
-        'agent_session_id' => registration_a.fetch(:registration).fetch('agent_session_id'),
-        'executor_session_id' => registration_a.fetch(:registration)['executor_session_id']
+        'executor_program_id' => registration_a.executor_program&.public_id,
+        'agent_session_id' => registration_a.registration.fetch('agent_session_id'),
+        'executor_session_id' => registration_a.registration['executor_session_id']
       },
       'program_b' => {
         'agent_program_version_id' => agent_program_version_b.public_id,
-        'executor_program_id' => registration_b.fetch(:executor_program)&.public_id,
-        'agent_session_id' => registration_b.fetch(:registration).fetch('agent_session_id'),
-        'executor_session_id' => registration_b.fetch(:registration)['executor_session_id']
+        'executor_program_id' => registration_b.executor_program&.public_id,
+        'agent_session_id' => registration_b.registration.fetch('agent_session_id'),
+        'executor_session_id' => registration_b.registration['executor_session_id']
       }
     },
     'conversation_a' => {

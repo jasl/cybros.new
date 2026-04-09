@@ -19,10 +19,10 @@ conversation_context = nil
 baseline = nil
 
 ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: v1) do
-  conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: v1.fetch(:runtime).deployment)
+  conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: v1.deployment)
   baseline = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation),
-    deployment: v1.fetch(:runtime).deployment,
+    deployment: v1.deployment,
     content: "Bundled rotation baseline turn",
     selector: "candidate:dev/mock-model"
   )
@@ -36,14 +36,14 @@ v2 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   sdk_version: "fenix-0.2.0"
 )
 
-upgrade_previous_state = v1.fetch(:runtime).deployment.reload.bootstrap_state
-upgrade_new_state = v2.fetch(:runtime).deployment.reload.bootstrap_state
+upgrade_previous_state = v1.deployment.reload.bootstrap_state
+upgrade_new_state = v2.deployment.reload.bootstrap_state
 upgrade = nil
 
 ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: v2) do
   upgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation).reload,
-    deployment: v2.fetch(:runtime).deployment,
+    deployment: v2.deployment,
     content: "Bundled rotation upgrade turn",
     selector: "candidate:dev/mock-model"
   )
@@ -57,14 +57,14 @@ v0 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   sdk_version: "fenix-0.0.9"
 )
 
-downgrade_previous_state = v2.fetch(:runtime).deployment.reload.bootstrap_state
-downgrade_new_state = v0.fetch(:runtime).deployment.reload.bootstrap_state
+downgrade_previous_state = v2.deployment.reload.bootstrap_state
+downgrade_new_state = v0.deployment.reload.bootstrap_state
 downgrade = nil
 
 ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: v0) do
   downgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation).reload,
-    deployment: v0.fetch(:runtime).deployment,
+    deployment: v0.deployment,
     content: "Bundled rotation downgrade turn",
     selector: "candidate:dev/mock-model"
   )
@@ -107,10 +107,10 @@ ManualAcceptanceSupport.write_json(
     ].all? { |dag_shape, state| dag_shape == expected_dag_shape && state == expected_conversation_state },
     "proof_artifact_path" => nil,
     "conversation_id" => conversation_context.fetch(:conversation).public_id,
-    "executor_program_id" => v1.fetch(:runtime).executor_program.public_id,
+    "executor_program_id" => v1.executor_program.public_id,
     "baseline" => {
       "passed" => baseline_dag_shape == expected_dag_shape && baseline_state == expected_conversation_state,
-      "deployment_id" => v1.fetch(:runtime).deployment.public_id,
+      "deployment_id" => v1.deployment.public_id,
       "turn_id" => baseline.fetch(:turn).public_id,
       "workflow_run_id" => baseline.fetch(:workflow_run).public_id,
       "selected_output_message_id" => baseline.fetch(:turn).selected_output_message.public_id,
@@ -122,10 +122,10 @@ ManualAcceptanceSupport.write_json(
     "expected_conversation_state" => expected_conversation_state,
     "upgrade" => {
       "passed" => upgrade_dag_shape == expected_dag_shape && upgrade_state == expected_conversation_state,
-      "previous_deployment_id" => v1.fetch(:runtime).deployment.public_id,
-      "new_deployment_id" => v2.fetch(:runtime).deployment.public_id,
-      "previous_fingerprint" => v1.fetch(:runtime).deployment.fingerprint,
-      "new_fingerprint" => v2.fetch(:runtime).deployment.fingerprint,
+      "previous_deployment_id" => v1.deployment.public_id,
+      "new_deployment_id" => v2.deployment.public_id,
+      "previous_fingerprint" => v1.deployment.fingerprint,
+      "new_fingerprint" => v2.deployment.fingerprint,
       "previous_sdk_version" => "fenix-0.1.0",
       "new_sdk_version" => "fenix-0.2.0",
       "previous_bootstrap_state_after_cutover" => upgrade_previous_state,
@@ -140,10 +140,10 @@ ManualAcceptanceSupport.write_json(
     },
     "downgrade" => {
       "passed" => downgrade_dag_shape == expected_dag_shape && downgrade_state == expected_conversation_state,
-      "previous_deployment_id" => v2.fetch(:runtime).deployment.public_id,
-      "new_deployment_id" => v0.fetch(:runtime).deployment.public_id,
-      "previous_fingerprint" => v2.fetch(:runtime).deployment.fingerprint,
-      "new_fingerprint" => v0.fetch(:runtime).deployment.fingerprint,
+      "previous_deployment_id" => v2.deployment.public_id,
+      "new_deployment_id" => v0.deployment.public_id,
+      "previous_fingerprint" => v2.deployment.fingerprint,
+      "new_fingerprint" => v0.deployment.fingerprint,
       "previous_sdk_version" => "fenix-0.2.0",
       "new_sdk_version" => "fenix-0.0.9",
       "previous_bootstrap_state_after_cutover" => downgrade_previous_state,

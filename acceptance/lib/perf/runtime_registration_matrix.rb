@@ -53,10 +53,10 @@ module Acceptance
             "CYBROS_PERF_INSTANCE_LABEL" => slot.label,
           },
           "agent_program" => external_program.fetch(:agent_program),
-          "agent_program_version" => registration.fetch(:agent_program_version),
-          "deployment" => registration.fetch(:deployment),
-          "machine_credential" => registration.fetch(:machine_credential),
-          "executor_machine_credential" => registration.fetch(:executor_machine_credential),
+          "agent_program_version" => registration.agent_program_version,
+          "deployment" => registration.deployment,
+          "machine_credential" => registration.machine_credential,
+          "executor_machine_credential" => registration.executor_machine_credential,
           "boot_status" => "ready",
         }
       end

@@ -274,8 +274,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "bundled fast terminal validation passes both agent and executor credentials" do
     scenario = Rails.root.join("../acceptance/scenarios/bundled_fast_terminal_validation.rb").read
 
-    assert_includes scenario, "machine_credential: bundled.fetch(:machine_credential)"
-    assert_includes scenario, "executor_machine_credential: bundled.fetch(:executor_machine_credential)"
+    assert_includes scenario, "machine_credential: bundled.machine_credential"
+    assert_includes scenario, "executor_machine_credential: bundled.executor_machine_credential"
   end
 
   test "acceptance scenario uses shared review artifacts helper" do

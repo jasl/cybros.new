@@ -22,10 +22,10 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
   realtime_timeout_seconds: delivery_mode == "realtime" ? 5 : 0
 ) do
   result = begin
-    conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
+    conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.deployment)
     run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
       conversation: conversation_context.fetch(:conversation),
-      deployment: bundled.fetch(:runtime).deployment,
+      deployment: bundled.deployment,
       content: "Start a long-running background service and then close it gracefully.",
       root_node_key: "turn_step",
       root_node_type: "turn_step",
@@ -48,7 +48,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
       },
       round_bindings: round_bindings,
       program_exchange: ProviderExecution::ProgramMailboxExchange.new(
-        agent_program_version: bundled.fetch(:runtime).deployment
+        agent_program_version: bundled.deployment
       )
     )
     process_run = ProcessRun.find_by_public_id!(tool_result.result.fetch("process_run_id"))
@@ -122,9 +122,9 @@ ManualAcceptanceSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "deployment_id" => bundled.fetch(:runtime).deployment.public_id,
+      "deployment_id" => bundled.deployment.public_id,
       "delivery_mode" => delivery_mode,
-      "executor_program_id" => bundled.fetch(:runtime).executor_program.public_id,
+      "executor_program_id" => bundled.executor_program.public_id,
       "conversation_id" => result.fetch(:conversation).public_id,
       "turn_id" => turn.public_id,
       "workflow_run_id" => workflow_run.public_id,
