@@ -255,6 +255,59 @@ That split is intentional:
 - `Fenix` owns the managed Python runtime under `FENIX_HOME_ROOT/python`
 - agent-executed commands see both layers through the process `PATH`
 
+## Workspace Env Overlay
+
+`Fenix` now supports one workspace-scoped execution overlay file:
+
+- `.fenix/workspace.env`
+
+The overlay is intentionally narrow:
+
+- it applies only to `exec_command`
+- it applies only to `process_exec`
+- it merges over the runtime baseline `ENV` for that child process only
+- it does not mutate the Rails/Fenix process `ENV`
+- it does not apply to Rails boot, mailbox workers, browser sessions, or skill
+  repository scope
+
+Parsing rules are strict:
+
+- blank lines are ignored
+- `#` comments are ignored
+- `export KEY=value` is accepted
+- only `KEY=VALUE` assignments are accepted
+- keys must match `\A[A-Z][A-Z0-9_]*\z`
+- no shell evaluation, interpolation, or multiline values
+
+Reserved runtime-owned keys are rejected instead of silently ignored. The first
+cut blocks overlays for:
+
+- `CORE_MATRIX_*`
+- `ACTIVE_RECORD_ENCRYPTION__*`
+- `SECRET_KEY_BASE`
+- `RAILS_ENV`
+- `DATABASE_URL`
+- `BUNDLE_GEMFILE`
+- `BUNDLE_PATH`
+- `FENIX_HOME_ROOT`
+- `FENIX_PYTHON_ROOT`
+- `FENIX_PYTHON_INSTALL_ROOT`
+- `UV_PYTHON_INSTALL_DIR`
+- `PLAYWRIGHT_BROWSERS_PATH`
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
+- `PATH`
+
+Example:
+
+```dotenv
+HELLO=workspace
+FEATURE_FLAG=enabled
+```
+
+From that workspace, `exec_command` and `process_exec` child processes see
+those values. If the file is invalid, the execution request fails with the
+normal tool validation error envelope.
+
 ## Operator Surface
 
 The current runtime surface is organized around five operator object families:

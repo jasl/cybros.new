@@ -2,9 +2,7 @@
 
 ## Status
 
-This is an accepted follow-up design for `agents/fenix`. It is not active work
-yet, but it is intended to be implementation-ready once promoted into an
-execution plan.
+Implemented on `2026-04-09` in `agents/fenix`.
 
 ## Why This Exists
 
@@ -146,24 +144,23 @@ The goal is to allow project execution settings, not runtime rewiring.
 
 ## Runtime Shape
 
-The clean internal shape is:
+The implemented internal shape is:
 
-- `PayloadContext`
-  - resolves `workspace_root`
-  - resolves `workspace_env_overlay`
 - `WorkspaceEnvOverlay`
   - loads and validates `.fenix/workspace.env`
 - execution tool runners
+  - resolve `workspace_root` from execution context
   - build `merged_env = ENV.to_h.merge(workspace_env_overlay)`
-  - pass `merged_env` explicitly into `Open3.popen3`
+  - pass `merged_env` explicitly into subprocess launch APIs
 
-Do not make other services reach into the overlay file directly.
+The first cut keeps overlay resolution inside the execution tool boundary so an
+invalid workspace overlay does not break unrelated runtime paths such as
+`prepare_round`.
 
 ## Expected File Touches
 
-When this work is activated, the likely implementation surface is:
+The implementation surface is:
 
-- `agents/fenix/app/services/fenix/runtime/payload_context.rb`
 - a new
   `agents/fenix/app/services/fenix/runtime/workspace_env_overlay.rb`
   service
@@ -179,12 +176,11 @@ The goal is to keep the feature self-contained inside `agents/fenix`.
 ## Implementation Order
 
 1. Add `WorkspaceEnvOverlay` parsing and validation with unit tests.
-2. Extend `PayloadContext` so execution receives `workspace_env_overlay`.
-3. Inject merged env into `exec_command` child processes.
-4. Inject merged env into `process_exec` child processes.
-5. Add regression coverage proving global `ENV` stays unchanged.
-6. Add negative coverage for invalid files and reserved keys.
-7. Run focused tests, full `agents/fenix` verification, then review/repair.
+2. Inject merged env into `exec_command` child processes.
+3. Inject merged env into `process_exec` child processes.
+4. Add regression coverage proving global `ENV` stays unchanged.
+5. Add negative coverage for invalid files and reserved keys.
+6. Run focused tests, full `agents/fenix` verification, then review/repair.
 
 ## Error Handling
 

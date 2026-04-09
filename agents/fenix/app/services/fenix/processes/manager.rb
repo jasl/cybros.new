@@ -53,8 +53,13 @@ module Fenix
           entry
         end
 
-        def spawn!(process_run_id:, runtime_owner_id:, command_line:, control_client: nil)
-          stdin, stdout, stderr, wait_thread = Open3.popen3("/bin/sh", "-lc", command_line.to_s)
+        def spawn!(process_run_id:, runtime_owner_id:, command_line:, control_client: nil, environment: nil)
+          stdin, stdout, stderr, wait_thread = Open3.popen3(
+            (environment || ENV.to_h),
+            "/bin/sh",
+            "-lc",
+            command_line.to_s
+          )
           entry = register(
             process_run_id: process_run_id,
             runtime_owner_id: runtime_owner_id,

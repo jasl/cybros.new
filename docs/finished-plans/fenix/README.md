@@ -15,6 +15,7 @@ Current archived records:
 - [2026-04-09-fenix-process-run-restoration-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-fenix-process-run-restoration-design.md)
 - [2026-04-09-fenix-process-run-restoration.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-fenix-process-run-restoration.md)
 - [2026-04-09-fenix-skills-scope-isolation-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-fenix-skills-scope-isolation-implementation.md)
+- [2026-04-09-fenix-workspace-env-overlay-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-fenix-workspace-env-overlay-follow-up.md)
 - [2026-04-09-multi-fenix-core-matrix-load-harness-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-multi-fenix-core-matrix-load-harness-design.md)
 - [2026-04-09-multi-fenix-core-matrix-load-harness.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-multi-fenix-core-matrix-load-harness.md)
 - [2026-04-09-supervision-guidance-durable-state.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/2026-04-09-supervision-guidance-durable-state.md)

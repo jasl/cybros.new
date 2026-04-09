@@ -4,6 +4,7 @@ class FenixProcessesLauncherTest < ActiveSupport::TestCase
   test "launch! spawns the process and registers a proxy route when proxy_port is provided" do
     spawned = nil
     registered = nil
+    environment = { "HELLO" => "workspace" }
 
     manager = Module.new do
       define_singleton_method(:spawn!) do |**kwargs|
@@ -29,6 +30,7 @@ class FenixProcessesLauncherTest < ActiveSupport::TestCase
       },
       command_line: "bin/dev",
       proxy_port: 4100,
+      environment: environment,
       manager: manager,
       proxy_registry: proxy_registry
     )
@@ -36,6 +38,7 @@ class FenixProcessesLauncherTest < ActiveSupport::TestCase
     assert_equal "process-run-1", spawned.fetch(:process_run_id)
     assert_equal "task-1", spawned.fetch(:runtime_owner_id)
     assert_equal "bin/dev", spawned.fetch(:command_line)
+    assert_equal environment, spawned.fetch(:environment)
     assert_equal "process-run-1", registered.fetch(:process_run_id)
     assert_equal 4100, registered.fetch(:target_port)
     assert_equal "/dev/process-run-1", result.fetch("proxy_path")

@@ -60,6 +60,73 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     end
   end
 
+  test "exec_command applies the workspace env overlay without mutating global ENV" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      root = Pathname.new(workspace_root)
+      FileUtils.mkdir_p(root.join(".fenix"))
+      root.join(".fenix", "workspace.env").write("HELLO=workspace\n")
+      original_hello = ENV["HELLO"]
+      ENV["HELLO"] = "runtime"
+
+      executor = build_executor(
+        allowed_tool_names: ["exec_command"],
+        workspace_root: workspace_root
+      )
+
+      result = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-env-overlay-1",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "printf '%s' \"$HELLO\"",
+            "timeout_seconds" => 5,
+            "pty" => false,
+          },
+        },
+        command_run: {
+          "command_run_id" => "command-run-env-overlay-1",
+        }
+      )
+
+      assert_equal "workspace", result.tool_result.fetch("stdout")
+      assert_equal "runtime", ENV["HELLO"]
+    ensure
+      original_hello.nil? ? ENV.delete("HELLO") : ENV["HELLO"] = original_hello
+    end
+  end
+
+  test "exec_command rejects invalid workspace env overlays as validation errors" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      root = Pathname.new(workspace_root)
+      FileUtils.mkdir_p(root.join(".fenix"))
+      root.join(".fenix", "workspace.env").write("PATH=/tmp/fake\n")
+      executor = build_executor(
+        allowed_tool_names: ["exec_command"],
+        workspace_root: workspace_root
+      )
+
+      error = assert_raises(Fenix::Runtime::ToolExecutors::ExecCommand::ValidationError) do
+        executor.call(
+          tool_call: {
+            "call_id" => "tool-call-env-overlay-invalid-1",
+            "tool_name" => "exec_command",
+            "arguments" => {
+              "command_line" => "printf 'hello\\n'",
+              "timeout_seconds" => 5,
+              "pty" => false,
+            },
+          },
+          command_run: {
+            "command_run_id" => "command-run-env-overlay-invalid-1",
+          }
+        )
+      end
+
+      assert_match(/reserved workspace env key/i, error.message)
+      assert_equal "validation_error", Fenix::Runtime::ProgramToolExecutor.error_payload_for(error).fetch("code")
+    end
+  end
+
   test "attached command runs stay reusable across executor calls" do
     starting_executor = build_executor(allowed_tool_names: %w[exec_command write_stdin])
 
@@ -452,6 +519,89 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
     end
   end
 
+  test "process_exec applies the workspace env overlay to the child process" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      root = Pathname.new(workspace_root)
+      FileUtils.mkdir_p(root.join(".fenix"))
+      root.join(".fenix", "workspace.env").write("HELLO=workspace\n")
+      original_hello = ENV["HELLO"]
+      ENV["HELLO"] = "runtime"
+      executor = build_executor(
+        allowed_tool_names: %w[process_exec process_read_output],
+        workspace_root: workspace_root
+      )
+
+      started = executor.call(
+        tool_call: {
+          "call_id" => "tool-call-process-env-1",
+          "tool_name" => "process_exec",
+          "arguments" => {
+            "command_line" => "printf '%s\\n' \"$HELLO\"",
+            "kind" => "background_service",
+          },
+        },
+        process_run: {
+          "process_run_id" => "process-run-env-1",
+          "runtime_owner_id" => "turn-1",
+        }
+      )
+
+      assert_equal "process-run-env-1", started.tool_result.fetch("process_run_id")
+
+      output = nil
+      assert_eventually do
+        output = executor.call(
+          tool_call: {
+            "call_id" => "tool-call-process-env-2",
+            "tool_name" => "process_read_output",
+            "arguments" => {
+              "process_run_id" => "process-run-env-1",
+            },
+          }
+        )
+
+        output.tool_result.fetch("stdout_tail").include?("workspace")
+      end
+
+      assert_includes output.tool_result.fetch("stdout_tail"), "workspace"
+      assert_equal "runtime", ENV["HELLO"]
+    ensure
+      original_hello.nil? ? ENV.delete("HELLO") : ENV["HELLO"] = original_hello
+    end
+  end
+
+  test "process_exec rejects invalid workspace env overlays as validation errors" do
+    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
+      root = Pathname.new(workspace_root)
+      FileUtils.mkdir_p(root.join(".fenix"))
+      root.join(".fenix", "workspace.env").write("PATH=/tmp/fake\n")
+      executor = build_executor(
+        allowed_tool_names: ["process_exec"],
+        workspace_root: workspace_root
+      )
+
+      error = assert_raises(Fenix::Runtime::ToolExecutors::Process::ValidationError) do
+        executor.call(
+          tool_call: {
+            "call_id" => "tool-call-process-env-invalid-1",
+            "tool_name" => "process_exec",
+            "arguments" => {
+              "command_line" => "printf 'hello\\n'",
+              "kind" => "background_service",
+            },
+          },
+          process_run: {
+            "process_run_id" => "process-run-env-invalid-1",
+            "runtime_owner_id" => "turn-1",
+          }
+        )
+      end
+
+      assert_match(/reserved workspace env key/i, error.message)
+      assert_equal "validation_error", Fenix::Runtime::ProgramToolExecutor.error_payload_for(error).fetch("code")
+    end
+  end
+
   test "maps browser validation failures to semantic error payloads" do
     executor = build_executor(allowed_tool_names: ["browser_session_info"])
 
@@ -558,5 +708,15 @@ class Fenix::Runtime::ProgramToolExecutorTest < ActiveSupport::TestCase
         "workspace_context" => { "workspace_root" => workspace_root },
       }
     )
+  end
+
+  def assert_eventually(timeout_seconds: 2)
+    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+    until yield
+      raise "condition was not met before timeout" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+
+      sleep(0.01)
+    end
   end
 end

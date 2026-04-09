@@ -43,6 +43,27 @@ class FenixProcessesManagerTest < ActiveSupport::TestCase
     assert_equal 0, terminal.fetch("exit_status")
   end
 
+  test "spawn! passes the provided environment into the child process" do
+    control_client = FakeControlClient.new(payloads: [])
+    process_run_id = "process-#{SecureRandom.uuid}"
+
+    Fenix::Processes::Manager.spawn!(
+      process_run_id: process_run_id,
+      runtime_owner_id: "task-1",
+      command_line: "printf '%s\\n' \"$HELLO\"",
+      control_client: control_client,
+      environment: ENV.to_h.merge("HELLO" => "workspace")
+    )
+
+    assert_eventually do
+      snapshot = Fenix::Processes::Manager.output_snapshot(process_run_id: process_run_id)
+      snapshot.present? && snapshot.fetch("stdout_tail").include?("workspace")
+    end
+
+    snapshot = Fenix::Processes::Manager.output_snapshot(process_run_id: process_run_id)
+    assert_includes snapshot.fetch("stdout_tail"), "workspace"
+  end
+
   test "registered processes settle graceful close through close reports" do
     control_client = FakeControlClient.new(payloads: [])
     stdin = nil

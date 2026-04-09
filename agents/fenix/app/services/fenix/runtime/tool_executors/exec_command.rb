@@ -218,6 +218,7 @@ module Fenix
             check_canceled!
             command_run_id = normalized_command_run_id
             stdin, stdout, stderr, wait_thread = Open3.popen3(
+              command_environment,
               "/bin/sh",
               "-lc",
               command_line.to_s,
@@ -249,6 +250,7 @@ module Fenix
             preserve_snapshot = false
             command_run_id = normalized_command_run_id
             stdin, command_stdout, command_stderr, wait_thr = Open3.popen3(
+              command_environment,
               "/bin/sh",
               "-lc",
               command_line.to_s,
@@ -443,6 +445,18 @@ module Fenix
               ENV["FENIX_WORKSPACE_ROOT"].presence ||
               "/workspace"
             Pathname.new(root).expand_path.to_s
+          end
+
+          def command_environment
+            ENV.to_h.merge(workspace_env_overlay)
+          end
+
+          def workspace_env_overlay
+            @workspace_env_overlay ||= Fenix::Runtime::WorkspaceEnvOverlay.call(
+              workspace_root: @workspace_root
+            )
+          rescue Fenix::Runtime::WorkspaceEnvOverlay::ValidationError => error
+            raise ValidationError, error.message
           end
 
           def terminate_subprocess!(pid:)

@@ -5,11 +5,12 @@ module Fenix
         new(...).call
       end
 
-      def initialize(process_run:, command_line:, proxy_port: nil, control_client: nil, manager: Fenix::Processes::Manager, proxy_registry: Fenix::Processes::ProxyRegistry)
+      def initialize(process_run:, command_line:, proxy_port: nil, control_client: nil, environment: nil, manager: Fenix::Processes::Manager, proxy_registry: Fenix::Processes::ProxyRegistry)
         @process_run = process_run.deep_stringify_keys
         @command_line = command_line
         @proxy_port = proxy_port
         @control_client = control_client
+        @environment = environment
         @manager = manager
         @proxy_registry = proxy_registry
       end
@@ -19,7 +20,8 @@ module Fenix
           process_run_id: @process_run.fetch("process_run_id"),
           runtime_owner_id: @process_run.fetch("runtime_owner_id"),
           command_line: @command_line,
-          control_client: @control_client
+          control_client: @control_client,
+          environment: @environment
         )
 
         proxy_entry =

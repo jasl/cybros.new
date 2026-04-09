@@ -37,7 +37,7 @@ module Fenix
         def default_versions_candidates
           [
             Pathname.new(__dir__).join("../../../../../images/nexus/versions.env").expand_path,
-            Pathname.new("/usr/local/share/nexus/versions.env")
+            Pathname.new("/usr/local/share/nexus/versions.env"),
           ]
         end
 

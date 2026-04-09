@@ -5,24 +5,26 @@ module Fenix
         class ValidationError < StandardError; end
 
         class << self
-          def call(tool_call:, control_client:, current_runtime_owner_id:, process_run: nil, launcher: Fenix::Processes::Launcher, **)
+          def call(tool_call:, control_client:, current_runtime_owner_id:, process_run: nil, launcher: Fenix::Processes::Launcher, context: {}, **)
             Runtime.new(
               tool_call: tool_call,
               process_run: process_run,
               control_client: control_client,
               launcher: launcher,
-              current_runtime_owner_id: current_runtime_owner_id
+              current_runtime_owner_id: current_runtime_owner_id,
+              context: context
             ).call
           end
         end
 
         class Runtime
-          def initialize(tool_call:, process_run:, control_client:, launcher:, current_runtime_owner_id:)
+          def initialize(tool_call:, process_run:, control_client:, launcher:, current_runtime_owner_id:, context:)
             @tool_call = tool_call.deep_stringify_keys
             @process_run = process_run&.deep_stringify_keys
             @control_client = control_client
             @launcher = launcher
             @current_runtime_owner_id = current_runtime_owner_id
+            @context = context.deep_stringify_keys
           end
 
           def call
@@ -34,7 +36,8 @@ module Fenix
                 process_run: @process_run,
                 command_line: @tool_call.dig("arguments", "command_line"),
                 proxy_port: @tool_call.dig("arguments", "proxy_port"),
-                control_client: @control_client
+                control_client: @control_client,
+                environment: merged_environment
               )
             when "process_list"
               { "entries" => Fenix::Processes::Manager.list(runtime_owner_id: @current_runtime_owner_id) }
@@ -68,6 +71,24 @@ module Fenix
             raise ValidationError, "process run #{process_run_id} is not owned by this execution" unless entry.runtime_owner_id == @current_runtime_owner_id
 
             entry
+          end
+
+          def merged_environment
+            ENV.to_h.merge(workspace_env_overlay)
+          end
+
+          def workspace_env_overlay
+            @workspace_env_overlay ||= Fenix::Runtime::WorkspaceEnvOverlay.call(
+              workspace_root: workspace_root
+            )
+          rescue Fenix::Runtime::WorkspaceEnvOverlay::ValidationError => error
+            raise ValidationError, error.message
+          end
+
+          def workspace_root
+            @context.dig("workspace_context", "workspace_root").presence ||
+              ENV["FENIX_WORKSPACE_ROOT"].presence ||
+              "/workspace"
           end
         end
       end
