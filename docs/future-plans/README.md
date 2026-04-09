@@ -11,6 +11,7 @@ the April 2026 reset.
 
 Remaining future-oriented records:
 
+- [2026-04-09-fenix-workspace-env-overlay-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-04-09-fenix-workspace-env-overlay-follow-up.md)
 - [2026-04-09-multi-fenix-core-matrix-load-harness-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-04-09-multi-fenix-core-matrix-load-harness-follow-up.md)
 - [2026-03-31-fenix-plugin-ecosystem-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-31-fenix-plugin-ecosystem-follow-up.md)
 - [2026-03-31-fenix-approval-and-governance-follow-up.md](/Users/jasl/Workspaces/Ruby/cybros/docs/future-plans/2026-03-31-fenix-approval-and-governance-follow-up.md)
