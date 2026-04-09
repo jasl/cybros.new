@@ -2,6 +2,7 @@ require "test_helper"
 require "action_cable/test_helper"
 
 class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
   include ActionCable::TestHelper
 
   class RateLimitedAdapter < SimpleInference::HTTPAdapter
@@ -602,6 +603,63 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       broadcasts.map { |payload| payload.fetch("event_kind") }
     )
     assert_equal "provider_round_limit_exceeded", broadcasts.second.fetch("payload").fetch("failure_kind")
+  end
+
+  test "returns the workflow node in a waiting state when prepare_round is deferred to an agent program receipt" do
+    catalog = build_mock_chat_catalog
+    adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
+      response_body: {
+        id: "chatcmpl-should-not-run",
+        choices: [
+          {
+            message: { role: "assistant", content: "should not execute" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 1,
+          completion_tokens: 1,
+          total_tokens: 2,
+        },
+      }
+    )
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+
+    result = nil
+
+    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [workflow_run.public_id]) do
+      with_stubbed_provider_catalog(catalog) do
+        result = ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_node,
+          messages: turn_step_messages_for(workflow_run),
+          adapter: adapter,
+          program_exchange: ProviderExecution::ProgramMailboxExchange.new(
+            agent_program_version: workflow_run.turn.agent_program_version,
+            timeout: 0.001,
+            poll_interval: 0.0,
+            sleeper: ->(_duration) { },
+          )
+        )
+      end
+    end
+
+    mailbox_item = AgentControlMailboxItem.find_by!(
+      workflow_node: workflow_node,
+      item_type: "agent_program_request",
+      logical_work_id: "prepare-round:#{workflow_node.public_id}"
+    )
+
+    assert_equal workflow_node.public_id, result.public_id
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
+    assert_equal "waiting", workflow_run.reload.wait_state
+    assert_equal "agent_program_request", workflow_run.wait_reason_kind
+    assert_equal mailbox_item.public_id, workflow_run.wait_reason_payload.fetch("mailbox_item_id")
   end
 
   private

@@ -65,7 +65,7 @@ class ProviderExecution::ProgramMailboxExchangePerfTest < ActiveSupport::TestCas
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call, original_creator) if original_creator
   end
 
-  test "publishes mailbox exchange wait event on timeout" do
+  test "publishes mailbox exchange wait event when a deferred request times out on rerun" do
     context = build_agent_control_context!
     original_creator = AgentControl::CreateAgentProgramRequest.method(:call)
     events = []
@@ -73,6 +73,25 @@ class ProviderExecution::ProgramMailboxExchangePerfTest < ActiveSupport::TestCas
 
     AgentControl::CreateAgentProgramRequest.singleton_class.define_method(:call) do |**kwargs|
       created_mailbox_item = original_creator.call(**kwargs)
+    end
+
+    assert_raises(ProviderExecution::ProgramMailboxExchange::PendingResponse) do
+      ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.provider_execution.program_mailbox_exchange_wait") do
+        ProviderExecution::ProgramMailboxExchange.new(
+          agent_program_version: context.fetch(:deployment),
+          prepare_round_timeout: 0.001.seconds,
+          sleeper: ->(_duration) { },
+        ).prepare_round(
+          payload: {
+            "task" => {
+              "conversation_id" => context.fetch(:workflow_node).conversation.public_id,
+              "workflow_node_id" => context.fetch(:workflow_node).public_id,
+              "turn_id" => context.fetch(:workflow_node).turn.public_id,
+              "kind" => "turn_step",
+            },
+          }
+        )
+      end
     end
 
     error = assert_raises(ProviderExecution::ProgramMailboxExchange::TimeoutError) do

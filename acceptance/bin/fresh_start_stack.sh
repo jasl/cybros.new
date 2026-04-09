@@ -150,7 +150,7 @@ core_matrix_worker_topology_ready() {
   (
     cd "${project_root}"
     "${RUBY_BIN}" bin/rails runner '
-      expected_queues = %w[llm_dev workflow_default tool_calls]
+      expected_queues = %w[llm_dev workflow_default workflow_resume tool_calls]
       heartbeat_cutoff = 5.seconds.ago
 
       live_pid = lambda do |pid|

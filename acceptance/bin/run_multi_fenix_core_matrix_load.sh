@@ -367,6 +367,25 @@ fi
 
 mkdir -p "${ARTIFACT_DIR}/evidence" "${ARTIFACT_DIR}/review" "${LOG_DIR}" "${RUN_ROOT}/pids"
 
+PROVIDER_CATALOG_OVERRIDE_DIR="${RUN_ROOT}/core-matrix-config.d"
+export PROVIDER_CATALOG_OVERRIDE_DIR
+
+ruby - "${REPO_ROOT}" "${MULTI_FENIX_LOAD_PROFILE}" "${PROVIDER_CATALOG_OVERRIDE_DIR}" <<'RUBY'
+repo_root = File.expand_path(ARGV.fetch(0))
+profile_name = ARGV.fetch(1)
+override_dir = File.expand_path(ARGV.fetch(2))
+
+require File.join(repo_root, "acceptance/lib/perf/profile")
+require File.join(repo_root, "acceptance/lib/perf/provider_catalog_override")
+
+profile = Acceptance::Perf::Profile.fetch(profile_name)
+Acceptance::Perf::ProviderCatalogOverride.write(
+  profile: profile,
+  override_dir: override_dir,
+  env: "development"
+)
+RUBY
+
 IFS=$'\t' read -r _ FIRST_SLOT_INDEX FIRST_SLOT_LABEL FIRST_RUNTIME_BASE_URL FIRST_RUNTIME_PORT FIRST_HOME_ROOT FIRST_STORAGE_ROOT FIRST_EVENT_OUTPUT_PATH <<< "${SLOT_ROWS[0]}"
 
 CORE_MATRIX_PERF_EVENTS_PATH="${ARTIFACT_DIR}/evidence/core-matrix-events.ndjson"

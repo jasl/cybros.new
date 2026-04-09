@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Workflows::ResumeBlockedStepJobTest < ActiveJob::TestCase
+  test "uses workflow_resume as the dedicated resume queue" do
+    assert_equal "workflow_resume", Workflows::ResumeBlockedStepJob.queue_name
+  end
+
   test "resumes a waiting workflow node when the run is still blocked" do
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")

@@ -18,15 +18,15 @@ module AgentControl
       return publish_for_executor_session! if @executor_session.present?
       return unless @mailbox_item.present?
 
-      resolution = routing_resolution_for(@mailbox_item)
-      target_deployment = connected_target_for(@mailbox_item, resolution)
+      delivery_endpoint = resolved_delivery_endpoint_for(@mailbox_item)
+      target_deployment = connected_target_for(delivery_endpoint)
       return if target_deployment.blank?
 
       prior_delivery_no = @mailbox_item.delivery_no
       leased_item = LeaseMailboxItem.call(
         mailbox_item: @mailbox_item,
         deployment: target_deployment,
-        resolved_delivery_endpoint: resolution.delivery_endpoint,
+        resolved_delivery_endpoint: delivery_endpoint,
         occurred_at: @occurred_at
       )
       return if leased_item.blank?
@@ -34,7 +34,7 @@ module AgentControl
       publish_mailbox_lease_event!(
         mailbox_item: leased_item,
         target_deployment: target_deployment,
-        delivery_endpoint: resolution.delivery_endpoint,
+        delivery_endpoint: delivery_endpoint,
         prior_delivery_no: prior_delivery_no
       )
       broadcast(mailbox_item: leased_item, deployment: target_deployment)
@@ -61,8 +61,7 @@ module AgentControl
       end
     end
 
-    def connected_target_for(mailbox_item, resolution)
-      delivery_endpoint = @resolved_delivery_endpoint || resolution.delivery_endpoint
+    def connected_target_for(delivery_endpoint)
       return if delivery_endpoint.blank? || !delivery_endpoint.realtime_link_connected?
 
       case delivery_endpoint
@@ -75,8 +74,19 @@ module AgentControl
       end
     end
 
-    def routing_resolution_for(mailbox_item)
-      ResolveTargetRuntime.call(mailbox_item: mailbox_item)
+    def resolved_delivery_endpoint_for(mailbox_item)
+      return @resolved_delivery_endpoint if @resolved_delivery_endpoint.present?
+
+      if mailbox_item.executor_plane?
+        return if mailbox_item.target_executor_program.blank?
+
+        return ExecutorSessions::ResolveActiveSession.call(executor_program: mailbox_item.target_executor_program)
+      end
+
+      target_agent_program_version = mailbox_item.target_agent_program_version
+      return target_agent_program_version.active_agent_session || target_agent_program_version.most_recent_agent_session if target_agent_program_version.present?
+
+      AgentSession.find_by(agent_program: mailbox_item.target_agent_program, lifecycle_state: "active")
     end
 
     def broadcast(mailbox_item:, deployment:, serialized_item: nil)

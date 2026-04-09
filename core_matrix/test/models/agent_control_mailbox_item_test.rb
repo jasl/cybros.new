@@ -8,6 +8,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     envelope = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
     assert_equal "program", mailbox_item.attributes["control_plane"]
+    assert_equal context[:deployment].id, mailbox_item.attributes["target_agent_program_version_id"]
     assert_nil mailbox_item.attributes["target_executor_program_id"]
     assert_equal "program", envelope.fetch("control_plane")
     refute envelope.key?("target_kind")

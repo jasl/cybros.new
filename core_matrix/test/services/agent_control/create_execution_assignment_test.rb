@@ -1,6 +1,26 @@
 require "test_helper"
 
 class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
+  test "materializes deployment-targeted routing for execution assignments" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      task_payload: { "mode" => "deterministic_tool", "expression" => "2 + 2" }
+    )
+
+    mailbox_item = AgentControl::CreateExecutionAssignment.call(
+      agent_task_run: agent_task_run,
+      payload: {
+        "task_payload" => agent_task_run.task_payload,
+      },
+      dispatch_deadline_at: 5.minutes.from_now,
+      execution_hard_deadline_at: 10.minutes.from_now
+    )
+
+    assert_equal context[:deployment], mailbox_item.target_agent_program_version
+    assert_equal context[:agent_program], mailbox_item.target_agent_program
+  end
+
   test "does not reinterpret top-level envelope extras as task payload" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(

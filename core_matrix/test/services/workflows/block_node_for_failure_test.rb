@@ -9,7 +9,7 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
 
     result = nil
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [workflow_run.public_id]) do
+    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, queue: "workflow_resume", args: [workflow_run.public_id]) do
       result = Workflows::BlockNodeForFailure.call(
         workflow_node: workflow_node,
         failure_category: "external_dependency_blocked",
@@ -114,7 +114,7 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
     workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
 
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [workflow_run.public_id]) do
+    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, queue: "workflow_resume", args: [workflow_run.public_id]) do
       result = Workflows::BlockNodeForFailure.call(
         workflow_node: workflow_node,
         failure_category: "contract_error",

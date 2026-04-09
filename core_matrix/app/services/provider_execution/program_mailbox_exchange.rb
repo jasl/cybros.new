@@ -22,6 +22,16 @@ module ProviderExecution
 
     class ProtocolError < ExchangeError; end
     class TimeoutError < ExchangeError; end
+    class PendingResponse < StandardError
+      attr_reader :mailbox_item_public_id, :logical_work_id, :request_kind
+
+      def initialize(mailbox_item_public_id:, logical_work_id:, request_kind:)
+        @mailbox_item_public_id = mailbox_item_public_id
+        @logical_work_id = logical_work_id
+        @request_kind = request_kind
+        super("agent program request #{request_kind} is pending for mailbox item #{mailbox_item_public_id}")
+      end
+    end
     class RequestFailed < ExchangeError
       attr_reader :error_payload
 
@@ -83,9 +93,25 @@ module ProviderExecution
     private
 
     TERMINAL_METHODS = %w[agent_program_completed agent_program_failed].freeze
+    PENDING_METADATA_KEY = Workflows::BlockNodeForProgramRequest::METADATA_KEY
 
     def perform_request!(request_kind:, payload:, logical_work_id:, timeout:, allow_failure_response: false)
       timeout = timeout.to_f.seconds
+      workflow_node = resolved_workflow_node_for(payload)
+      raise ProtocolError.new(code: "missing_workflow_node_id", message: "agent program requests must target a workflow node") if workflow_node.blank?
+
+      pending_state = pending_exchange_state_for(workflow_node, request_kind:, logical_work_id:)
+      if pending_state.present?
+        mailbox_item = pending_mailbox_item_for!(workflow_node, pending_state)
+        return resolve_pending_request!(
+          workflow_node: workflow_node,
+          mailbox_item: mailbox_item,
+          request_kind: request_kind,
+          logical_work_id: logical_work_id,
+          allow_failure_response: allow_failure_response
+        )
+      end
+
       request_started_at = Time.current
       mailbox_item = AgentControl::CreateAgentProgramRequest.call(
         agent_program_version: @agent_program_version,
@@ -97,17 +123,81 @@ module ProviderExecution
         execution_hard_deadline_at: request_started_at + timeout,
         lease_timeout_seconds: [timeout.to_f.ceil + @lease_grace.to_i, 1].max
       )
-      wait_payload = {
-        "agent_program_public_id" => @agent_program_version.agent_program.public_id,
-        "mailbox_item_public_id" => mailbox_item.public_id,
-        "request_kind" => request_kind,
-        "success" => false,
-      }
-      receipt = ActiveSupport::Notifications.instrument("perf.provider_execution.program_mailbox_exchange_wait", wait_payload) do
-        waited_receipt = wait_for_terminal_receipt!(mailbox_item, timeout:, event_payload: wait_payload)
-        wait_payload["success"] = true
-        waited_receipt
+      receipt = terminal_receipt_for(mailbox_item)
+      return terminal_response_for(
+        workflow_node: workflow_node,
+        mailbox_item: mailbox_item,
+        receipt: receipt,
+        request_kind: request_kind,
+        allow_failure_response: allow_failure_response
+      ) if receipt.present?
+
+      Workflows::BlockNodeForProgramRequest.call(
+        workflow_node: workflow_node,
+        mailbox_item: mailbox_item,
+        request_kind: request_kind,
+        logical_work_id: logical_work_id,
+        deadline_at: mailbox_item.dispatch_deadline_at,
+        occurred_at: request_started_at
+      )
+      raise PendingResponse.new(
+        mailbox_item_public_id: mailbox_item.public_id,
+        logical_work_id: logical_work_id,
+        request_kind: request_kind
+      )
+    end
+
+    def resolve_pending_request!(workflow_node:, mailbox_item:, request_kind:, logical_work_id:, allow_failure_response:)
+      receipt = terminal_receipt_for(mailbox_item)
+      return terminal_response_for(
+        workflow_node: workflow_node,
+        mailbox_item: mailbox_item,
+        receipt: receipt,
+        request_kind: request_kind,
+        allow_failure_response: allow_failure_response
+      ) if receipt.present?
+
+      if request_timed_out?(mailbox_item)
+        clear_pending_exchange_state!(workflow_node)
+        publish_wait_event!(
+          mailbox_item: mailbox_item,
+          request_kind: request_kind,
+          success: false,
+          started_at: mailbox_item.created_at || mailbox_item.available_at || Time.current,
+          finished_at: Time.current
+        )
+        raise TimeoutError.new(
+          code: "mailbox_timeout",
+          message: "timed out waiting for agent program report",
+          details: { "mailbox_item_id" => mailbox_item.public_id },
+          retryable: true
+        )
       end
+
+      Workflows::BlockNodeForProgramRequest.call(
+        workflow_node: workflow_node,
+        mailbox_item: mailbox_item,
+        request_kind: request_kind,
+        logical_work_id: logical_work_id,
+        deadline_at: mailbox_item.dispatch_deadline_at,
+        occurred_at: Time.current
+      )
+      raise PendingResponse.new(
+        mailbox_item_public_id: mailbox_item.public_id,
+        logical_work_id: logical_work_id,
+        request_kind: request_kind
+      )
+    end
+
+    def terminal_response_for(workflow_node:, mailbox_item:, receipt:, request_kind:, allow_failure_response:)
+      clear_pending_exchange_state!(workflow_node)
+      publish_wait_event!(
+        mailbox_item: mailbox_item,
+        request_kind: request_kind,
+        success: receipt.payload.fetch("method_id") == "agent_program_completed",
+        started_at: mailbox_item.created_at || mailbox_item.available_at || Time.current,
+        finished_at: receipt.created_at || Time.current
+      )
       report_payload = receipt.payload.deep_stringify_keys
 
       return report_payload.fetch("response_payload") if report_payload.fetch("method_id") == "agent_program_completed"
@@ -117,6 +207,75 @@ module ProviderExecution
         error_payload: report_payload.fetch("error_payload"),
         details: { "mailbox_item_id" => mailbox_item.public_id, "request_kind" => request_kind }
       )
+    end
+
+    def resolved_workflow_node_for(payload)
+      workflow_node_public_id = payload.dig("task", "workflow_node_id")
+      return if workflow_node_public_id.blank?
+
+      WorkflowNode.find_by!(
+        installation_id: @agent_program_version.installation_id,
+        public_id: workflow_node_public_id
+      )
+    end
+
+    def pending_exchange_state_for(workflow_node, request_kind:, logical_work_id:)
+      state = workflow_node.metadata.fetch(PENDING_METADATA_KEY, nil)
+      return unless state.is_a?(Hash)
+      return unless state["request_kind"] == request_kind
+      return unless state["logical_work_id"] == logical_work_id
+
+      state
+    end
+
+    def pending_mailbox_item_for!(workflow_node, pending_state)
+      AgentControlMailboxItem.find_by!(
+        installation_id: workflow_node.installation_id,
+        workflow_node: workflow_node,
+        public_id: pending_state.fetch("mailbox_item_id"),
+        item_type: "agent_program_request"
+      )
+    rescue ActiveRecord::RecordNotFound
+      clear_pending_exchange_state!(workflow_node)
+      raise ProtocolError.new(
+        code: "missing_mailbox_request",
+        message: "pending agent program request is missing its mailbox item",
+        details: { "workflow_node_id" => workflow_node.public_id }
+      )
+    end
+
+    def terminal_receipt_for(mailbox_item)
+      AgentControlReportReceipt.uncached do
+        AgentControlReportReceipt.find_by(mailbox_item_id: mailbox_item.id, method_id: TERMINAL_METHODS)
+      end
+    end
+
+    def request_timed_out?(mailbox_item)
+      deadline_at = mailbox_item.dispatch_deadline_at || mailbox_item.execution_hard_deadline_at
+      deadline_at.present? && Time.current >= deadline_at
+    end
+
+    def clear_pending_exchange_state!(workflow_node)
+      metadata = workflow_node.metadata
+      return unless metadata.key?(PENDING_METADATA_KEY)
+
+      workflow_node.update!(metadata: metadata.except(PENDING_METADATA_KEY))
+    end
+
+    def publish_wait_event!(mailbox_item:, request_kind:, success:, started_at:, finished_at:)
+      event = ActiveSupport::Notifications::Event.new(
+        "perf.provider_execution.program_mailbox_exchange_wait",
+        started_at,
+        finished_at,
+        SecureRandom.uuid,
+        {
+          "agent_program_public_id" => @agent_program_version.agent_program.public_id,
+          "mailbox_item_public_id" => mailbox_item.public_id,
+          "request_kind" => request_kind,
+          "success" => success,
+        }
+      )
+      ActiveSupport::Notifications.publish_event(event)
     end
 
     def wait_for_terminal_receipt!(mailbox_item, timeout:, event_payload: nil)

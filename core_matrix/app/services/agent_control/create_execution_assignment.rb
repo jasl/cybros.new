@@ -32,6 +32,7 @@ module AgentControl
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @agent_task_run.installation,
         target_agent_program: @agent_task_run.agent_program,
+        target_agent_program_version: @agent_task_run.turn.agent_program_version,
         agent_task_run: @agent_task_run,
         execution_contract: @agent_task_run.turn.execution_contract,
         item_type: "execution_assignment",

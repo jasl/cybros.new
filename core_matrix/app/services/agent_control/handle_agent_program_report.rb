@@ -36,6 +36,7 @@ module AgentControl
           completed_at: @occurred_at
         )
         complete_linked_conversation_control_request!("completed")
+        resume_blocked_workflow!
       when "agent_program_failed"
         mailbox_item.update!(
           status: "failed",
@@ -43,6 +44,7 @@ module AgentControl
           failed_at: @occurred_at
         )
         complete_linked_conversation_control_request!("failed")
+        resume_blocked_workflow!
       else
         raise ArgumentError, "unsupported agent program report #{@method_id}"
       end
@@ -87,6 +89,19 @@ module AgentControl
         installation_id: mailbox_item.installation_id,
         public_id: control_request_public_id
       )
+    end
+
+    def resume_blocked_workflow!
+      workflow_node = mailbox_item.workflow_node
+      return if workflow_node.blank?
+
+      workflow_run = workflow_node.workflow_run
+      return unless workflow_run.waiting?
+      return unless workflow_run.wait_reason_kind == "agent_program_request"
+      return unless workflow_run.blocking_resource_type == "WorkflowNode"
+      return unless workflow_run.blocking_resource_id == workflow_node.public_id
+
+      Workflows::ResumeBlockedStepJob.perform_later(workflow_run.public_id)
     end
   end
 end

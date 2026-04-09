@@ -86,6 +86,16 @@ module ProviderExecution
         )
         result
       end
+    rescue ProviderExecution::ProgramMailboxExchange::PendingResponse => pending
+      broadcast_workflow_node_event!(
+        "runtime.workflow_node.waiting",
+        state: "waiting",
+        wait_reason_kind: "agent_program_request",
+        mailbox_item_id: pending.mailbox_item_public_id,
+        logical_work_id: pending.logical_work_id,
+        request_kind: pending.request_kind
+      )
+      @workflow_node.reload
     rescue ProviderExecution::ProviderRequestGovernor::AdmissionRefused => error
       if @workflow_run.reload.canceled? || @turn.reload.canceled?
         raise StaleExecutionError, "provider execution result is stale"

@@ -15,5 +15,6 @@ class RuntimeTopology::CoreMatrixTest < ActiveSupport::TestCase
     assert_equal "llm_openai", RuntimeTopology::CoreMatrix.llm_queue_name("openai")
     assert_equal "tool_calls", RuntimeTopology::CoreMatrix.shared_queue_name("tool_calls")
     assert_equal "workflow_default", RuntimeTopology::CoreMatrix.shared_queue_name("workflow_default")
+    assert_equal "workflow_resume", RuntimeTopology::CoreMatrix.shared_queue_name("workflow_resume")
   end
 end

@@ -157,6 +157,10 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     script = Rails.root.join("../acceptance/bin/run_multi_fenix_core_matrix_load.sh").read
 
     assert_includes script, 'CORE_MATRIX_PERF_EVENTS_PATH="${ARTIFACT_DIR}/evidence/core-matrix-events.ndjson"'
+    assert_includes script, 'PROVIDER_CATALOG_OVERRIDE_DIR="${RUN_ROOT}/core-matrix-config.d"'
+    assert_includes script, "export PROVIDER_CATALOG_OVERRIDE_DIR"
+    assert_includes script, 'require File.join(repo_root, "acceptance/lib/perf/provider_catalog_override")'
+    assert_includes script, "Acceptance::Perf::ProviderCatalogOverride.write("
     assert_includes script, 'export MULTI_FENIX_LOAD_STACK_ALREADY_RESET="true"'
     assert_includes script, 'bash "${SCRIPT_DIR}/fresh_start_stack.sh"'
     assert_includes script, "for index in $(seq 2 \"\${RUNTIME_COUNT}\")"
@@ -206,7 +210,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
 
     assert_includes script, "wait_for_solid_queue_ready()"
     assert_includes script, "start_core_matrix_jobs_daemon()"
-    assert_includes script, "expected_queues = %w[llm_dev workflow_default tool_calls]"
+    assert_includes script, "expected_queues = %w[llm_dev workflow_default workflow_resume tool_calls]"
     refute_includes script, "SolidQueue::Process.count.positive?"
     assert_includes script, "timed out waiting for core-matrix jobs to become ready"
   end

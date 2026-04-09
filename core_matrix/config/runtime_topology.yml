@@ -29,7 +29,7 @@ llm_queues:
   dev:
     queue: llm_dev
     threads_env: SQ_THREADS_LLM_DEV
-    default_threads: 2
+    default_threads: 4
     processes_env: SQ_PROCESSES_LLM_DEV
     default_processes: 1
     polling_interval: 0.1
@@ -52,8 +52,15 @@ shared_queues:
   workflow_default:
     queue: workflow_default
     threads_env: SQ_THREADS_WORKFLOW_DEFAULT
-    default_threads: 6
+    default_threads: 4
     processes_env: SQ_PROCESSES_WORKFLOW_DEFAULT
+    default_processes: 1
+    polling_interval: 0.1
+  workflow_resume:
+    queue: workflow_resume
+    threads_env: SQ_THREADS_WORKFLOW_RESUME
+    default_threads: 2
+    processes_env: SQ_PROCESSES_WORKFLOW_RESUME
     default_processes: 1
     polling_interval: 0.1
   maintenance:

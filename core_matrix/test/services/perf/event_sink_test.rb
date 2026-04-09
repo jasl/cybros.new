@@ -86,4 +86,34 @@ class Perf::EventSinkTest < ActiveSupport::TestCase
       assert_equal "core_matrix", payload.fetch("source_app")
     end
   end
+
+  test "enabled sink records event objects published through publish_event" do
+    Dir.mktmpdir("core-matrix-perf-") do |tmpdir|
+      output_path = File.join(tmpdir, "events.ndjson")
+
+      Perf::EventSink.install!(
+        env: {
+          "CYBROS_PERF_EVENTS_PATH" => output_path,
+          "CYBROS_PERF_INSTANCE_LABEL" => "core-matrix-01",
+        },
+        source_app: "core_matrix"
+      )
+
+      event = ActiveSupport::Notifications::Event.new(
+        "perf.test",
+        1.25,
+        2.75,
+        "txn-1",
+        "conversation_public_id" => "conv_public"
+      )
+
+      ActiveSupport::Notifications.publish_event(event)
+
+      payload = JSON.parse(File.readlines(output_path, chomp: true).first)
+      assert_equal "perf.test", payload.fetch("event_name")
+      assert_equal "conv_public", payload.fetch("conversation_public_id")
+      assert_equal 1500.0, payload.fetch("duration_ms")
+      assert_match(/\A1970-01-01T00:00:02\.750000Z\z/, payload.fetch("recorded_at"))
+    end
+  end
 end

@@ -22,7 +22,7 @@ module ProviderExecution
           provider_format: @tool_call["provider_format"]
         )
         invocation = provision.tool_invocation
-        return existing_result(invocation) unless provision.created
+        return existing_result(invocation) unless provision.created || invocation.running?
 
         runtime_resource_refs = { command_run: nil, process_run: nil, payload: {} }
 
@@ -70,6 +70,8 @@ module ProviderExecution
               result: { "error" => response.fetch("failure") }
             )
           end
+        rescue ProviderExecution::ProgramMailboxExchange::PendingResponse
+          raise
         rescue StandardError => error
           ToolInvocations::Fail.call(
             tool_invocation: invocation,

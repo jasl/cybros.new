@@ -82,12 +82,15 @@ module Perf
     private
 
     def append_event(name:, started:, finished:, payload:)
+      started_at = normalize_timestamp(started)
+      finished_at = normalize_timestamp(finished)
+
       event = {
-        "recorded_at" => finished.utc.iso8601(6),
+        "recorded_at" => finished_at.utc.iso8601(6),
         "source_app" => @source_app,
         "instance_label" => @instance_label,
         "event_name" => name,
-        "duration_ms" => ((finished - started) * 1000.0).round(3),
+        "duration_ms" => ((finished_at - started_at) * 1000.0).round(3),
       }.merge(sanitize_hash(payload))
 
       FileUtils.mkdir_p(File.dirname(@output_path))
@@ -107,6 +110,19 @@ module Perf
         next if sanitized_value.nil?
 
         sanitized[normalized_key] = sanitized_value
+      end
+    end
+
+    def normalize_timestamp(value)
+      case value
+      when Time
+        value
+      when DateTime
+        value.to_time
+      when Numeric
+        Time.at(value).utc
+      else
+        raise ArgumentError, "unsupported perf timestamp: #{value.inspect}"
       end
     end
 

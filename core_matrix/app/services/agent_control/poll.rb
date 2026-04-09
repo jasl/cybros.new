@@ -12,10 +12,6 @@ module AgentControl
       @executor_session = executor_session
       @limit = [limit.to_i, 1].max
       @occurred_at = occurred_at
-      @resolution_cache = ResolveTargetRuntime::SessionCache.new(
-        agent_session: @agent_session,
-        executor_session: @executor_session
-      )
     end
 
     def call
@@ -29,8 +25,7 @@ module AgentControl
 
         candidate_scope.limit(@limit * 10).each do |mailbox_item|
           break if deliveries.size >= @limit
-          resolution = resolution_for(mailbox_item)
-          next unless delivery_candidate?(mailbox_item, resolution)
+          next unless delivery_candidate?(mailbox_item)
 
           if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
             deliveries << mailbox_item
@@ -40,7 +35,7 @@ module AgentControl
           leased_item = LeaseMailboxItem.call(
             mailbox_item: mailbox_item,
             deployment: lease_owner,
-            resolved_delivery_endpoint: resolution.delivery_endpoint,
+            resolved_delivery_endpoint: resolved_delivery_endpoint_for(mailbox_item),
             occurred_at: @occurred_at
           )
           next unless leased_item.present?
@@ -94,29 +89,40 @@ module AgentControl
 
     def candidate_scope_relation(relation)
       if execution_poll?
-        ResolveTargetRuntime.candidate_scope_for_executor_session(
-          executor_session: @executor_session,
-          relation: relation
+        relation.where(
+          control_plane: "executor",
+          target_executor_program_id: @executor_session.executor_program_id
         )
       else
-        ResolveTargetRuntime.candidate_scope_for(
-          deployment: @deployment,
-          relation: relation
+        relation.where(
+          control_plane: "program"
+        ).where(
+          <<~SQL.squish,
+            target_agent_program_version_id = :deployment_id
+            OR (
+              target_agent_program_version_id IS NULL
+              AND target_agent_program_id = :agent_program_id
+            )
+          SQL
+          deployment_id: @deployment.id,
+          agent_program_id: @deployment.agent_program_id
         )
       end
     end
 
-    def delivery_candidate?(mailbox_item, resolution)
+    def delivery_candidate?(mailbox_item)
       return false unless mailbox_item_deliverable?(mailbox_item)
       return true if execution_poll?
-
-      return false if resolution.blank?
 
       if mailbox_item.leased? && mailbox_item.leased_to?(lease_owner) && !mailbox_item.lease_stale?(at: @occurred_at)
         return true
       end
 
-      resolution.matches?(lease_owner)
+      mailbox_item.target_agent_program_version_id == @deployment.id ||
+        (
+          mailbox_item.target_agent_program_version_id.blank? &&
+          mailbox_item.target_agent_program_id == @deployment.agent_program_id
+        )
     end
 
     def mailbox_item_deliverable?(mailbox_item)
@@ -131,21 +137,14 @@ module AgentControl
       @executor_session.present?
     end
 
-    def resolution_for(mailbox_item)
-      return execution_resolution if execution_poll?
+    def resolved_delivery_endpoint_for(mailbox_item)
+      return @executor_session if execution_poll?
+      return @agent_session if @agent_session&.agent_program_version_id == mailbox_item.target_agent_program_version_id
 
-      ResolveTargetRuntime.call(
-        mailbox_item: mailbox_item,
-        session_cache: @resolution_cache
-      )
-    end
+      target_agent_program_version = mailbox_item.target_agent_program_version
+      return target_agent_program_version.active_agent_session || target_agent_program_version.most_recent_agent_session if target_agent_program_version.present?
 
-    def execution_resolution
-      @execution_resolution ||= ResolveTargetRuntime::Result.new(
-        control_plane: ResolveTargetRuntime::EXECUTOR_PLANE,
-        executor_program: @executor_session.executor_program,
-        delivery_endpoint: @executor_session
-      )
+      @agent_session || @deployment&.active_agent_session || @deployment&.most_recent_agent_session
     end
 
     def lease_owner

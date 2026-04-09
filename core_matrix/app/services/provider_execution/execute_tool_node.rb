@@ -34,6 +34,8 @@ module ProviderExecution
       Workflows::RefreshRunLifecycle.call(workflow_run: current_node.workflow_run)
       Workflows::DispatchRunnableNodes.call(workflow_run: current_node.workflow_run)
       result
+    rescue ProviderExecution::ProgramMailboxExchange::PendingResponse
+      current_node.reload
     rescue StandardError => error
       failure_result = fail_node!(current_node || @workflow_node, error)
       raise if failure_result.terminal?

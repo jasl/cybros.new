@@ -101,6 +101,43 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     assert_equal context[:agent_session].public_id, lease_events.first.fetch("agent_session_public_id")
   end
 
+  test "publishes a materialized program-plane mailbox item without runtime re-resolution" do
+    context = build_agent_control_context!
+    context[:agent_session].update!(endpoint_metadata: { "realtime_link_connected" => true })
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+        },
+      },
+      logical_work_id: "prepare-round:materialized-publish",
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+    original_call = AgentControl::ResolveTargetRuntime.method(:call)
+
+    AgentControl::ResolveTargetRuntime.singleton_class.define_method(:call) do |**|
+      raise "ResolveTargetRuntime.call should not be used for materialized single-item publish"
+    end
+
+    broadcasts = []
+
+    with_captured_broadcasts(broadcasts) do
+      AgentControl::PublishPending.call(mailbox_item: mailbox_item)
+    end
+
+    assert_equal [[AgentControl::StreamName.for_deployment(context[:deployment]), mailbox_item.public_id]],
+      broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
+    assert_equal context[:agent_session], mailbox_item.reload.leased_to_agent_session
+  ensure
+    AgentControl::ResolveTargetRuntime.singleton_class.define_method(:call, original_call) if original_call
+  end
+
   test "does not publish a duplicate mailbox lease event when a realtime-connected mailbox item is already leased" do
     context = build_agent_control_context!
     context[:agent_session].update!(endpoint_metadata: { "realtime_link_connected" => true })

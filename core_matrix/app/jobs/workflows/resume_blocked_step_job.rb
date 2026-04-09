@@ -1,6 +1,6 @@
 module Workflows
   class ResumeBlockedStepJob < ApplicationJob
-    queue_as :workflow_default
+    queue_as :workflow_resume
 
     def perform(workflow_run_id)
       workflow_run = WorkflowRun.find_by_public_id!(workflow_run_id)

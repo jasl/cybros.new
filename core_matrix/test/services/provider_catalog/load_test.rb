@@ -123,6 +123,33 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
     end
   end
 
+  test "defaults override_dir from PROVIDER_CATALOG_OVERRIDE_DIR when present" do
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      override_dir = File.join(dir, "override-config.d")
+      FileUtils.mkdir_p(override_dir)
+
+      File.write(
+        File.join(dir, "config", "llm_catalog.yml"),
+        test_provider_catalog_definition.deep_stringify_keys.to_yaml
+      )
+      File.write(File.join(override_dir, "llm_catalog.test.yml"), <<~YAML)
+        providers:
+          openai:
+            display_name: OpenAI Override
+      YAML
+
+      with_modified_env("PROVIDER_CATALOG_OVERRIDE_DIR" => override_dir) do
+        catalog = ProviderCatalog::Load.call(
+          path: File.join(dir, "config", "llm_catalog.yml"),
+          env: "test"
+        )
+
+        assert_equal "OpenAI Override", catalog.provider("openai").fetch(:display_name)
+      end
+    end
+  end
+
   test "deep merges model enabled and request defaults across config.d overrides" do
     Dir.mktmpdir do |dir|
       FileUtils.mkdir_p(File.join(dir, "config"))

@@ -249,6 +249,71 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal "automatic", root_node.workflow_run.wait_retry_strategy
   end
 
+  test "leaves the tool invocation running while waiting on an agent program receipt" do
+    context = build_governed_tool_context!
+    root_node = context.fetch(:workflow_node)
+    source_binding = ProviderExecution::MaterializeRoundTools.call(
+      workflow_node: root_node,
+      tool_catalog: [calculator_tool_entry]
+    ).includes(:tool_definition, :tool_implementation).sole
+
+    Workflows::Mutate.call(
+      workflow_run: root_node.workflow_run,
+      nodes: [
+        {
+          node_key: "provider_round_1_tool_pending",
+          node_type: "tool_call",
+          decision_source: "llm",
+          yielding_node_key: root_node.node_key,
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-pending-1",
+            "tool_name" => "calculator",
+            "arguments" => { "expression" => "2 + 2" },
+            "provider_format" => "chat_completions",
+          },
+        },
+      ],
+      edges: [
+        {
+          from_node_key: root_node.node_key,
+          to_node_key: "provider_round_1_tool_pending",
+        },
+      ]
+    )
+
+    tool_node = root_node.workflow_run.reload.workflow_nodes.find_by!(node_key: "provider_round_1_tool_pending")
+
+    ToolBinding.create!(
+      installation: tool_node.installation,
+      workflow_node: tool_node,
+      tool_definition: source_binding.tool_definition,
+      tool_implementation: source_binding.tool_implementation,
+      binding_reason: "snapshot_default",
+      runtime_state: source_binding.runtime_state,
+      round_scoped: source_binding.round_scoped,
+      parallel_safe: source_binding.parallel_safe
+    )
+
+    result = ProviderExecution::ExecuteToolNode.call(
+      workflow_node: tool_node,
+      program_exchange: ProviderExecution::ProgramMailboxExchange.new(
+        agent_program_version: context.fetch(:deployment),
+        timeout: 0.001,
+        poll_interval: 0.0,
+        sleeper: ->(_duration) { },
+      )
+    )
+
+    invocation = tool_node.tool_invocations.sole
+
+    assert_equal tool_node.public_id, result.public_id
+    assert_equal "waiting", tool_node.reload.lifecycle_state
+    assert_equal "waiting", root_node.workflow_run.reload.wait_state
+    assert_equal "agent_program_request", root_node.workflow_run.wait_reason_kind
+    assert_equal "running", invocation.reload.status
+  end
+
   private
 
   def calculator_tool_entry

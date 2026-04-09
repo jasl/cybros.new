@@ -6,6 +6,7 @@ class WorkflowRun < ApplicationRecord
     manual_recovery_required
     human_interaction
     agent_unavailable
+    agent_program_request
   ].freeze
 
   WAIT_DETAIL_ATTRIBUTE_NAMES = Workflows::WaitState::DETAIL_ATTRIBUTE_NAMES.map(&:to_s).freeze
@@ -33,6 +34,7 @@ class WorkflowRun < ApplicationRecord
       policy_gate: "policy_gate",
       retryable_failure: "retryable_failure",
       external_dependency_blocked: "external_dependency_blocked",
+      agent_program_request: "agent_program_request",
     },
     validate: { allow_nil: true }
   enum :cancellation_reason_kind,

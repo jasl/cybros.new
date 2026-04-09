@@ -37,12 +37,17 @@ module AgentControl
     def create_mailbox_item!
       requested_at = Time.current
       target_session = delivery_endpoint
-      target_deployment = target_session.agent_program_version if target_session.is_a?(AgentSession)
       target_agent_program =
         if target_session.is_a?(AgentSession)
           target_session.agent_program
         else
           ClosableResourceRouting.owning_agent_program_for(@resource)
+        end
+      target_deployment =
+        if executor_plane?
+          nil
+        else
+          resolved_target_deployment(target_session:, target_agent_program:)
         end
 
       resource_updates = {
@@ -86,6 +91,16 @@ module AgentControl
 
       mailbox_item.update!(payload: mailbox_item.payload.merge("close_request_id" => mailbox_item.public_id))
       mailbox_item
+    end
+
+    def resolved_target_deployment(target_session:, target_agent_program:)
+      return target_session.agent_program_version if target_session.is_a?(AgentSession)
+      return if target_agent_program.blank?
+
+      target_agent_program.current_agent_program_version ||
+        AgentSession.where(agent_program: target_agent_program).order(created_at: :desc, id: :desc).limit(1).pick(:agent_program_version_id)&.yield_self do |agent_program_version_id|
+          AgentProgramVersion.find_by(id: agent_program_version_id)
+        end
     end
 
     def validate_supported_resource!

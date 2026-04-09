@@ -111,4 +111,40 @@ class AgentControlPollTest < ActiveSupport::TestCase
 
     assert_operator queries.length, :<=, 15, "Expected mixed program poll to stay under 15 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
+
+  test "program poll leases materialized program-plane work without calling ResolveTargetRuntime" do
+    context = build_agent_control_context!
+    scenario_builder = MailboxScenarioBuilder.new(self)
+    assignment = scenario_builder.execution_assignment!(context: context).fetch(:mailbox_item)
+    request = scenario_builder.agent_program_request!(
+      context: context,
+      request_kind: "prepare_round",
+      logical_work_id: "prepare-round-materialized",
+      payload: {
+        "request_kind" => "prepare_round",
+        "task" => {
+          "workflow_node_id" => context[:workflow_node].public_id,
+          "workflow_run_id" => context[:workflow_run].public_id,
+          "conversation_id" => context[:conversation].public_id,
+          "turn_id" => context[:turn].public_id,
+          "kind" => context[:workflow_node].node_type,
+        },
+      }
+    ).fetch(:mailbox_item)
+    original_call = AgentControl::ResolveTargetRuntime.method(:call)
+
+    AgentControl::ResolveTargetRuntime.singleton_class.define_method(:call) do |**|
+      raise "ResolveTargetRuntime.call should not be used on the program poll hot path"
+    end
+
+    deliveries = AgentControl::Poll.call(
+      deployment: context[:deployment],
+      agent_session: context[:agent_session],
+      limit: 10
+    )
+
+    assert_equal [assignment.id, request.id].sort, deliveries.map(&:id).sort
+  ensure
+    AgentControl::ResolveTargetRuntime.singleton_class.define_method(:call, original_call) if original_call
+  end
 end

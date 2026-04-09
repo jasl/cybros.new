@@ -52,4 +52,38 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
 
     assert_includes error.message, "unsupported close resource Conversation"
   end
+
+  test "materializes the active deployment for program-plane close requests without a direct lease holder" do
+    context = build_agent_control_context!
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: context[:conversation],
+      kind: "fork",
+      agent_program: context[:agent_program],
+      addressability: "agent_addressable"
+    )
+    subagent_session = SubagentSession.create!(
+      installation: context[:installation],
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      observed_status: "running"
+    )
+
+    mailbox_item = AgentControl::CreateResourceCloseRequest.call(
+      resource: subagent_session,
+      request_kind: "turn_interrupt",
+      reason_kind: "operator_stop",
+      strictness: "graceful",
+      grace_deadline_at: 30.seconds.from_now,
+      force_deadline_at: 60.seconds.from_now
+    )
+
+    assert_equal "program", mailbox_item.control_plane
+    assert_equal context[:deployment], mailbox_item.target_agent_program_version
+    assert_equal context[:agent_program], mailbox_item.target_agent_program
+  end
 end

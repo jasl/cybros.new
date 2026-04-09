@@ -15,6 +15,7 @@ class QueueConfigurationTest < ActiveSupport::TestCase
     assert_includes queue_names, "llm_local"
     assert_includes queue_names, "tool_calls"
     assert_includes queue_names, "workflow_default"
+    assert_includes queue_names, "workflow_resume"
     assert_includes queue_names, "maintenance"
   end
 
@@ -35,10 +36,11 @@ class QueueConfigurationTest < ActiveSupport::TestCase
     assert_equal 4, workers.fetch("llm_codex_subscription").fetch("threads")
     assert_equal 6, workers.fetch("llm_openai").fetch("threads")
     assert_equal 4, workers.fetch("llm_openrouter").fetch("threads")
-    assert_equal 2, workers.fetch("llm_dev").fetch("threads")
+    assert_equal 4, workers.fetch("llm_dev").fetch("threads")
     assert_equal 2, workers.fetch("llm_local").fetch("threads")
     assert_equal 12, workers.fetch("tool_calls").fetch("threads")
-    assert_equal 6, workers.fetch("workflow_default").fetch("threads")
+    assert_equal 4, workers.fetch("workflow_default").fetch("threads")
+    assert_equal 2, workers.fetch("workflow_resume").fetch("threads")
     assert_equal 1, workers.fetch("maintenance").fetch("threads")
   end
 

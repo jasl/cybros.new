@@ -10,7 +10,12 @@ module ProviderCatalog
       new(...).call
     end
 
-    def initialize(path: DEFAULT_PATH, env: Rails.env, override_dir: DEFAULT_OVERRIDE_DIR)
+    def self.default_override_dir
+      override_dir = ENV["PROVIDER_CATALOG_OVERRIDE_DIR"].presence || DEFAULT_OVERRIDE_DIR
+      Pathname(override_dir)
+    end
+
+    def initialize(path: DEFAULT_PATH, env: Rails.env, override_dir: self.class.default_override_dir)
       @path = Pathname(path)
       @env = env
       @override_dir = Pathname(override_dir)

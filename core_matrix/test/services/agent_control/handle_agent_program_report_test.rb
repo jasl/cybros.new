@@ -1,6 +1,8 @@
 require "test_helper"
 
 class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "accepts terminal agent program reports for a leased mailbox item" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).agent_program_request!(
@@ -231,5 +233,68 @@ class AgentControl::HandleAgentProgramReportTest < ActiveSupport::TestCase
 
     assert_equal control_request.public_id, projection.dig("latest_guidance", "conversation_control_request_id")
     assert_equal "Stop and summarize the blocker before coding.", projection.dig("latest_guidance", "content")
+  end
+
+  test "enqueues a blocked workflow resume when a terminal agent program report arrives" do
+    context = build_agent_control_context!
+    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "kind" => "turn_step",
+        },
+      },
+      logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+    AgentControl::Poll.call(deployment: context.fetch(:deployment), limit: 10)
+
+    context.fetch(:workflow_node).update!(
+      lifecycle_state: "waiting",
+      started_at: 1.minute.ago,
+      metadata: {
+        "program_mailbox_exchange" => {
+          "mailbox_item_id" => mailbox_item.public_id,
+          "logical_work_id" => mailbox_item.logical_work_id,
+          "request_kind" => "prepare_round",
+        },
+      }
+    )
+    context.fetch(:turn).update!(lifecycle_state: "waiting")
+    context.fetch(:workflow_run).update!(
+      wait_state: "waiting",
+      wait_reason_kind: "agent_program_request",
+      wait_reason_payload: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "logical_work_id" => mailbox_item.logical_work_id,
+        "request_kind" => "prepare_round",
+      },
+      waiting_since_at: Time.current,
+      blocking_resource_type: "WorkflowNode",
+      blocking_resource_id: context.fetch(:workflow_node).public_id
+    )
+
+    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [context.fetch(:workflow_run).public_id]) do
+      AgentControl::HandleAgentProgramReport.call(
+        deployment: context.fetch(:deployment),
+        method_id: "agent_program_completed",
+        payload: {
+          "mailbox_item_id" => mailbox_item.public_id,
+          "logical_work_id" => mailbox_item.logical_work_id,
+          "attempt_no" => mailbox_item.attempt_no,
+          "response_payload" => {
+            "status" => "ok",
+            "messages" => [],
+            "visible_tool_names" => [],
+            "summary_artifacts" => [],
+            "trace" => [],
+          },
+        }
+      )
+    end
   end
 end

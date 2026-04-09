@@ -51,7 +51,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    assert_operator queries.length, :<=, 71, "Expected execution_started report to stay under 71 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_operator queries.length, :<=, 72, "Expected execution_started report to stay under 72 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
   test "execution_progress and execution_complete update durable task state through the public report api" do
