@@ -132,6 +132,94 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
     assert_includes status_markdown, "Runtime evidence"
   end
 
+  test "supervision markdown runtime evidence summary does not expose raw command previews" do
+    supervision_trace = {
+      "polls" => [
+        {
+          "machine_status" => {
+            "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+            "overall_state" => "running",
+            "board_lane" => "active",
+            "runtime_evidence" => {
+              "active_command" => {
+                "command_run_public_id" => "22222222-2222-2222-2222-222222222222",
+                "cwd" => "/workspace/game-2048",
+                "command_preview" => "cat > src/game.ts <<'EOF' 334155",
+                "lifecycle_state" => "running",
+              },
+            },
+            "control" => {
+              "supervision_enabled" => true,
+              "side_chat_enabled" => true,
+              "control_enabled" => true,
+              "available_control_verbs" => ["request_status_refresh"],
+            },
+            "proof_debug" => {},
+            "conversation_context" => {},
+            "primary_turn_todo_plan_view" => {},
+            "active_subagent_turn_todo_plan_views" => [],
+            "turn_feed" => [],
+            "activity_feed" => [],
+          },
+          "human_sidechat" => {
+            "content" => "I am currently monitoring a running shell command.",
+          },
+          "user_message" => {
+            "content" => "What are you doing?",
+          },
+        },
+      ],
+      "final_response" => {
+        "machine_status" => {
+          "supervision_session_id" => "33333333-3333-3333-3333-333333333333",
+          "supervision_snapshot_id" => "11111111-1111-1111-1111-111111111111",
+          "overall_state" => "running",
+          "board_lane" => "active",
+          "runtime_evidence" => {
+            "active_command" => {
+              "command_run_public_id" => "22222222-2222-2222-2222-222222222222",
+              "cwd" => "/workspace/game-2048",
+              "command_preview" => "cat > src/game.ts <<'EOF' 334155",
+              "lifecycle_state" => "running",
+            },
+          },
+          "control" => {
+            "supervision_enabled" => true,
+            "side_chat_enabled" => true,
+            "control_enabled" => true,
+            "available_control_verbs" => ["request_status_refresh"],
+          },
+          "proof_debug" => {},
+          "conversation_context" => {},
+          "primary_turn_todo_plan_view" => {},
+          "active_subagent_turn_todo_plan_views" => [],
+          "turn_feed" => [],
+          "activity_feed" => [],
+        },
+      },
+      "session" => {
+        "conversation_supervision_session" => {
+          "supervision_session_id" => "33333333-3333-3333-3333-333333333333",
+        },
+      },
+    }
+
+    sidechat_markdown = Acceptance::ConversationArtifacts.supervision_sidechat_markdown(
+      supervision_trace: supervision_trace,
+      prompt: "Please tell me what you are doing right now."
+    )
+    status_markdown = Acceptance::ConversationArtifacts.supervision_status_markdown(
+      supervision_trace: supervision_trace
+    )
+
+    assert_includes sidechat_markdown, "running command in /workspace/game-2048"
+    assert_includes status_markdown, "running command in /workspace/game-2048"
+    refute_includes sidechat_markdown, "cat > src/game.ts"
+    refute_includes status_markdown, "cat > src/game.ts"
+    refute_includes sidechat_markdown, "334155"
+    refute_includes status_markdown, "334155"
+  end
+
   test "supervision markdown keeps unmapped control actions visible as humanized fallback labels" do
     supervision_trace = {
       "polls" => [

@@ -18,18 +18,23 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
   executor_fingerprint: "acceptance-provider-backed-environment",
   fingerprint: fingerprint
 )
-conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
-run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
-  conversation: conversation_context.fetch(:conversation),
-  deployment: bundled.fetch(:runtime).deployment,
-  content: content,
-  root_node_key: "turn_step",
-  root_node_type: "turn_step",
-  decision_source: "system",
-  selector_source: "manual",
-  selector: selector
-)
-ManualAcceptanceSupport.execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
+conversation_context = nil
+run = nil
+
+ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
+  conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.fetch(:runtime).deployment)
+  run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+    conversation: conversation_context.fetch(:conversation),
+    deployment: bundled.fetch(:runtime).deployment,
+    content: content,
+    root_node_key: "turn_step",
+    root_node_type: "turn_step",
+    decision_source: "system",
+    selector_source: "manual",
+    selector: selector
+  )
+  ManualAcceptanceSupport.execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
+end
 
 workflow_run = run.fetch(:workflow_run).reload
 turn = run.fetch(:turn).reload

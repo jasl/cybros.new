@@ -263,6 +263,21 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     refute_includes scenario, '"mode" => "deterministic_tool"'
   end
 
+  test "provider-backed turn validation runs the bundled runtime control worker" do
+    scenario = Rails.root.join("../acceptance/scenarios/provider_backed_turn_validation.rb").read
+
+    assert_includes scenario, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
+    assert_includes scenario, "registration: bundled"
+    assert_includes scenario, "ManualAcceptanceSupport.execute_provider_workflow!"
+  end
+
+  test "bundled fast terminal validation passes both agent and executor credentials" do
+    scenario = Rails.root.join("../acceptance/scenarios/bundled_fast_terminal_validation.rb").read
+
+    assert_includes scenario, "machine_credential: bundled.fetch(:machine_credential)"
+    assert_includes scenario, "executor_machine_credential: bundled.fetch(:executor_machine_credential)"
+  end
+
   test "acceptance scenario uses shared review artifacts helper" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/review_artifacts.rb")
@@ -354,6 +369,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes helper, "sdk_version: resolved_sdk_version"
     assert_includes rotation, 'sdk_version: "fenix-0.2.0"'
     assert_includes rotation, 'sdk_version: "fenix-0.0.9"'
+    assert_includes rotation, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
+    refute_includes rotation, "Conversations::SwitchAgentProgramVersion"
   end
 
   test "acceptance docs no longer prescribe staged workflow skills for the fenix capstone" do

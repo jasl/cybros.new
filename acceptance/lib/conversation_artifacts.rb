@@ -675,11 +675,9 @@ module Acceptance
       return if item.empty?
 
       lifecycle_state = item["lifecycle_state"].presence || "observed"
-      command_preview = item["command_preview"].presence
       cwd = item["cwd"].presence
 
       summary = +"#{lifecycle_state} #{noun}"
-      summary << " `#{command_preview}`" if command_preview
       summary << " in #{cwd}" if cwd
       summary
     end

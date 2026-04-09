@@ -23,7 +23,8 @@ register the new projects in root docs and CI.
 ## Tech Stack
 
 - Ruby on Rails 8 API app: `agents/fenix`
-- reference runtime source: `agents/fenix.old`
+- historical reference runtime source: `agents/fenix.old` from the migration
+  period, not from the live repository
 - runtime base image project: `images/nexus`
 - Ruby on Rails 8 platform app: `core_matrix`
 - Ubuntu 24.04 LTS Docker base

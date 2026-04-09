@@ -18,6 +18,7 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
   deployment: bundled.fetch(:runtime).deployment,
   machine_credential: bundled.fetch(:machine_credential),
+  executor_machine_credential: bundled.fetch(:executor_machine_credential),
   runtime_base_url: runtime_base_url,
   content: "Bundled Fenix deterministic tool turn",
   mode: "deterministic_tool",

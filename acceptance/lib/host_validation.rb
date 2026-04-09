@@ -263,7 +263,7 @@ module Acceptance
         "cd #{generated_app_dir}/dist",
         "python3 -m http.server #{preview_port} --bind 127.0.0.1",
         "npm install --no-save @playwright/test@#{DEFAULT_PLAYWRIGHT_VERSION}",
-        "npx playwright install chromium",
+        "playwright install chromium",
         "npx playwright test host-playability.spec.cjs --workers=1 --reporter=line",
         "```",
         "",

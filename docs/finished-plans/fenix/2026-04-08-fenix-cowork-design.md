@@ -16,8 +16,8 @@ acceptance capstone through native plan, delegation, and delivery behavior.
 - `agents/fenix`
   - the new cowork-first Rails app
 - `agents/fenix.old`
-  - the previous product and runtime implementation
-  - useful as a runtime/executor reference, not as the target architecture
+  - historical migration-era reference only
+  - no longer present in the live repository
 - `core_matrix`
   - the neutral orchestration kernel
 - `references/claude-code-sourcemap/restored-src`

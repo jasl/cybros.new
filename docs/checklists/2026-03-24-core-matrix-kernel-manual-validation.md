@@ -652,9 +652,7 @@ jq '.' /tmp/phase2_external_fenix_validation.json
 
 ```bash
 AGENT_FENIX_PORT=3102 \
-FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
-FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
-FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
+FENIX_HOME_ROOT=/tmp/phase2-acceptance-fenix-home \
 bin/dev -P tmp/pids/server-3102.pid
 ```
 
@@ -662,10 +660,8 @@ bin/dev -P tmp/pids/server-3102.pid
 
 ```bash
 FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3102 \
-FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
-FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
-FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
-bundle exec ruby script/manual/acceptance/fenix_skills_validation.rb \
+FENIX_HOME_ROOT=/tmp/phase2-acceptance-fenix-home \
+bundle exec ruby acceptance/scenarios/fenix_skills_validation.rb \
   > /tmp/phase2_fenix_skills_validation.json
 
 jq '{deployment_id, execution_environment_id, heartbeat_bootstrap_state, scenario_12}' \
@@ -688,9 +684,9 @@ jq '{deployment_id, execution_environment_id, heartbeat_bootstrap_state, scenari
 - proof artifact path:
   - `docs/reports/phase-2/2026-03-30-system-skill-deploy-flow/`
 - operator note:
-  - the dedicated `3102` runtime keeps the live, staging, and backup skill
-    roots under `/tmp` so the repo-local skill tree stays clean and the catalog
-    result remains reproducible
+  - the dedicated `3102` runtime keeps one disposable `FENIX_HOME_ROOT` under
+    `/tmp` so installed skills and managed Python state remain isolated from
+    the operator's real `~/.fenix` tree
 - cleanup steps:
   - none; the script resets and seeds the development database itself, and it
     cleans the `/tmp/phase2-fenix-*` roots before running
@@ -711,10 +707,8 @@ jq '{deployment_id, execution_environment_id, heartbeat_bootstrap_state, scenari
 ```bash
 test -f /tmp/phase2_fenix_skills_validation.json || \
   FENIX_RUNTIME_BASE_URL=http://127.0.0.1:3102 \
-  FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
-  FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
-  FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
-  bundle exec ruby script/manual/acceptance/fenix_skills_validation.rb \
+  FENIX_HOME_ROOT=/tmp/phase2-acceptance-fenix-home \
+  bundle exec ruby acceptance/scenarios/fenix_skills_validation.rb \
     > /tmp/phase2_fenix_skills_validation.json
 
 jq '{deployment_id, execution_environment_id, scenario_13}' \
@@ -824,9 +818,7 @@ AGENT_FENIX_PORT=3101 bin/dev
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
 AGENT_FENIX_PORT=3102 \
-FENIX_LIVE_SKILLS_ROOT=/tmp/phase2-fenix-live-skills \
-FENIX_STAGING_SKILLS_ROOT=/tmp/phase2-fenix-staging \
-FENIX_BACKUP_SKILLS_ROOT=/tmp/phase2-fenix-backups \
+FENIX_HOME_ROOT=/tmp/phase2-acceptance-fenix-home \
 bin/dev -P tmp/pids/server-3102.pid
 ```
 

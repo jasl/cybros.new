@@ -193,6 +193,44 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal "missing_skill_scope", client.reported_payloads.last.dig("terminal_payload", "code")
   end
 
+  test "raise_error execution assignments emit started before a terminal runtime failure" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execution_assignment_mailbox_item(mode: "raise_error"),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "failed", result.fetch("status")
+    assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
+    assert_equal "runtime_error", client.reported_payloads.last.dig("terminal_payload", "code")
+    assert_match(/requested execution assignment failure/i, client.reported_payloads.last.dig("terminal_payload", "message"))
+  end
+
+  test "unsupported execution assignment dispatch kinds fail with a configuration terminal payload" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    original_call = Fenix::Runtime::Assignments::DispatchMode.method(:call)
+
+    Fenix::Runtime::Assignments::DispatchMode.define_singleton_method(:call) do |**|
+      { "kind" => "unsupported_kind" }
+    end
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execution_assignment_mailbox_item(mode: "deterministic_tool"),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "failed", result.fetch("status")
+    assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "unsupported_execution_assignment_dispatch_kind", client.reported_payloads.last.dig("terminal_payload", "code")
+    assert_match(/unsupported execution assignment dispatch kind/i, client.reported_payloads.last.dig("terminal_payload", "message"))
+  ensure
+    Fenix::Runtime::Assignments::DispatchMode.define_singleton_method(:call, original_call) if original_call
+  end
+
   private
 
   def execution_assignment_mailbox_item(mode:, task_payload: {}, runtime_context: {})

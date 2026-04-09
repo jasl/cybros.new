@@ -45,8 +45,10 @@ module Fenix
             ),
             reports: reports
           )
+        when "raise_error"
+          raise RuntimeError, "requested execution assignment failure"
         else
-          fail_execution_assignment!(reports: reports)
+          fail_unsupported_execution_assignment_dispatch!(dispatch_kind: dispatch.fetch("kind"), reports: reports)
         end
 
       rescue StandardError => error
@@ -88,11 +90,11 @@ module Fenix
         emit_result(report: report, reports: reports, error_payload: error_payload)
       end
 
-      def fail_execution_assignment!(reports:)
+      def fail_unsupported_execution_assignment_dispatch!(dispatch_kind:, reports:)
         error_payload = {
-          "classification" => "runtime",
-          "code" => "executor_tool_slice_not_ready",
-          "message" => "executor tool slice is not implemented yet in this runtime build",
+          "classification" => "configuration",
+          "code" => "unsupported_execution_assignment_dispatch_kind",
+          "message" => "unsupported execution assignment dispatch kind #{dispatch_kind.inspect}",
           "retryable" => false,
         }
         emit_execution_failure(error_payload, reports: reports)
