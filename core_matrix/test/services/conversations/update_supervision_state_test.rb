@@ -669,6 +669,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "idle", state.board_lane
     assert_equal "completed", state.last_terminal_state
     assert_equal agent_task_run.finished_at.to_i, state.last_terminal_at.to_i
+    assert_equal "The turn completed.", state.recent_progress_summary
   end
 
   test "clears stale runtime focus summaries once completed workflow work is idle" do
@@ -705,7 +706,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_nil state.current_focus_summary
     assert_nil state.waiting_summary
     assert_nil state.status_payload["runtime_evidence"]
-    assert_equal "A process stopped in /workspace/game-2048.", state.recent_progress_summary
+    assert_equal "The turn completed.", state.recent_progress_summary
   end
 
   test "projects idle with last terminal failed when the previous run failed and nothing is active" do
@@ -733,6 +734,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "idle", state.board_lane
     assert_equal "failed", state.last_terminal_state
     assert_equal agent_task_run.finished_at.to_i, state.last_terminal_at.to_i
+    assert_equal "The turn failed.", state.recent_progress_summary
   end
 
   test "prefers an active conversation subagent session over a historical terminal task" do

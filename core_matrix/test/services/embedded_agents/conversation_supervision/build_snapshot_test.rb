@@ -180,7 +180,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
 
     assert_equal "idle", snapshot.machine_status_payload.fetch("overall_state")
     assert_nil snapshot.machine_status_payload["current_focus_summary"]
-    assert_equal "A shell command finished in /workspace/game-2048.",
+    assert_equal "The turn completed.",
       snapshot.machine_status_payload.fetch("recent_progress_summary")
     assert_equal({}, snapshot.machine_status_payload.fetch("runtime_evidence"))
     assert_equal({}, snapshot.bundle_payload.fetch("runtime_evidence"))

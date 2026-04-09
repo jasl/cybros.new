@@ -189,8 +189,9 @@ module Conversations
         current_task_progress_entry_summary ||
         active_conversation_subagent_session&.recent_progress_summary ||
         active_owned_subagent_sessions.filter_map(&:recent_progress_summary).first ||
-        generic_runtime_recent_progress_summary ||
-        latest_progress_entry_summary
+        latest_progress_entry_summary ||
+        terminal_recent_progress_summary ||
+        generic_runtime_recent_progress_summary
     end
 
     def waiting_summary
@@ -402,6 +403,17 @@ module Conversations
       return summarize_terminal_command(runtime_evidence["recent_command"]) if runtime_evidence["recent_command"].present?
 
       nil
+    end
+
+    def terminal_recent_progress_summary
+      return unless overall_state == "idle"
+      return if last_terminal_state.blank?
+
+      case last_terminal_state
+      when "completed" then "The turn completed."
+      when "failed" then "The turn failed."
+      when "interrupted" then "The turn was interrupted."
+      end
     end
 
     def generic_runtime_waiting_summary
@@ -809,7 +821,7 @@ module Conversations
     def terminal_feed_summary(current_attributes)
       current_attributes["recent_progress_summary"].presence ||
         case current_attributes["last_terminal_state"]
-        when "completed" then "Completed the turn."
+        when "completed" then "The turn completed."
         when "failed" then "The turn failed."
         else "The turn was interrupted."
         end
