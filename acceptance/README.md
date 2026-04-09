@@ -74,32 +74,33 @@ with the key outputs in:
 - `acceptance/artifacts/<artifact-stamp>/evidence/run-summary.json`
 - `acceptance/artifacts/<artifact-stamp>/evidence/core-matrix-events.ndjson`
 
-Current local benchmark baselines, captured on April 10, 2026:
+Current local benchmark baselines, captured on April 10, 2026 after the pooled
+provider transport + `llm_dev` retuning wave:
 
-- `smoke` artifact `2026-04-10-023428-multi-fenix-core-matrix-load-smoke`
+- `smoke` artifact `2026-04-10-035552-multi-fenix-core-matrix-load-smoke`
   - `runtime_count: 2`
   - `completed_workload_items: 4`
-  - `time_window.duration_seconds: 32.904`
-  - `throughput.completed_workload_items_per_minute: 7.294`
-  - `turn_latency.p95_ms: 2183.479`
-  - `poll_latency.core_matrix_control_plane.p95_ms: 14.879`
-- `target_8_fenix` artifact `2026-04-10-022952-multi-fenix-core-matrix-load-target-8-fenix`
+  - `time_window.duration_seconds: 37.214`
+  - `throughput.completed_workload_items_per_minute: 6.449`
+  - `turn_latency.p95_ms: 2348.858`
+  - `poll_latency.core_matrix_control_plane.p95_ms: 8.257`
+- `target_8_fenix` artifact `2026-04-10-035640-multi-fenix-core-matrix-load-target-8-fenix`
   - `runtime_count: 8`
   - `completed_workload_items: 16`
-  - `time_window.duration_seconds: 104.877`
-  - `throughput.completed_workload_items_per_minute: 9.154`
-  - `turn_latency.p95_ms: 7220.285`
-  - `poll_latency.fenix_control_plane.p95_ms: 118.946`
-  - `poll_latency.core_matrix_control_plane.p95_ms: 6.476`
-  - `queue_pressure.max_queue_delay_ms: 162.49`
-- `stress` artifact `2026-04-10-022610-multi-fenix-core-matrix-load-stress`
+  - `time_window.duration_seconds: 100.125`
+  - `throughput.completed_workload_items_per_minute: 9.588`
+  - `turn_latency.p95_ms: 7417.038`
+  - `poll_latency.fenix_control_plane.p95_ms: 150.661`
+  - `poll_latency.core_matrix_control_plane.p95_ms: 7.044`
+  - `queue_pressure.max_queue_delay_ms: 172.107`
+- `stress` artifact `2026-04-10-035835-multi-fenix-core-matrix-load-stress`
   - `runtime_count: 8`
   - `completed_workload_items: 16`
-  - `time_window.duration_seconds: 147.132`
-  - `throughput.completed_workload_items_per_minute: 6.525`
-  - `turn_latency.p95_ms: 43172.621`
-  - `mailbox_exchange_wait.p95_ms: 256.235`
-  - `queue_pressure.max_queue_delay_ms: 11349.827`
+  - `time_window.duration_seconds: 134.323`
+  - `throughput.completed_workload_items_per_minute: 7.147`
+  - `turn_latency.p95_ms: 43317.272`
+  - `mailbox_exchange_wait.p95_ms: 240.289`
+  - `queue_pressure.max_queue_delay_ms: 10824.105`
 
 Current benchmark gate recommendations:
 
@@ -127,6 +128,7 @@ Current stabilization note:
 - `smoke`, `target_8_fenix`, and `stress` are all local gates now
 - `target_8_fenix` is the only profile that intentionally starts host-side Fenix jobs daemons, because it validates queued runtime-control execution
 - `stress` stays local-only for now; it is useful when touching provider/exchange scheduling, queue topology, or perf telemetry, but its latency numbers are still local descriptive baselines rather than hard CI thresholds
+- `stress` currently drives the `role:mock` / `llm_dev` path, so it is a good local pressure gate for provider queueing and exchange behavior, but it is not a pure benchmark for OpenAI/OpenRouter HTTP transport changes by itself
 
 Replay the supervision review surfaces from an existing evaluation bundle:
 

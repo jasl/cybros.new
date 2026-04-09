@@ -29,7 +29,7 @@ llm_queues:
   dev:
     queue: llm_dev
     threads_env: SQ_THREADS_LLM_DEV
-    default_threads: 4
+    default_threads: 6
     processes_env: SQ_PROCESSES_LLM_DEV
     default_processes: 1
     polling_interval: 0.1

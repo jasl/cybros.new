@@ -1,14 +1,14 @@
 module ProviderExecution
   class BuildHttpAdapter
     DEFAULT_ADAPTER_KEYS = %w[
-      codex_subscription_responses
-      local_openai_compatible_chat_completions
       mock_llm_chat_completions
       mock_llm_responses
-      openai_responses
-      openrouter_chat_completions
     ].freeze
     HTTPX_ADAPTER_KEYS = %w[
+      codex_subscription_responses
+      local_openai_compatible_chat_completions
+      openai_responses
+      openrouter_chat_completions
       httpx_chat_completions
       httpx_responses
     ].freeze

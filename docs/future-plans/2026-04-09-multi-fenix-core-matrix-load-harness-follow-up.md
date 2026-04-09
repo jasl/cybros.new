@@ -10,41 +10,47 @@ latency baselines rather than hardened threshold budgets.
 
 ## Verified Baselines
 
+The latest local baselines below reflect the April 10 transport-pooling and
+`llm_dev` retuning wave. One important caveat remains: the current `stress`
+profile uses the `role:mock` workload and therefore measures `llm_dev` queue
+pressure and mailbox exchange behavior, not a pure OpenAI/OpenRouter transport
+throughput path.
+
 ### Smoke
 
-- artifact stamp: `2026-04-10-023428-multi-fenix-core-matrix-load-smoke`
+- artifact stamp: `2026-04-10-035552-multi-fenix-core-matrix-load-smoke`
 - runtime count: `2`
 - completed workload items: `4`
-- duration seconds: `32.904`
-- throughput items per minute: `7.294`
-- turn latency `p95_ms`: `2183.479`
-- CoreMatrix poll latency `p95_ms`: `14.879`
+- duration seconds: `37.214`
+- throughput items per minute: `6.449`
+- turn latency `p95_ms`: `2348.858`
+- CoreMatrix poll latency `p95_ms`: `8.257`
 
 ### Target 8 Fenix
 
-- artifact stamp: `2026-04-10-022952-multi-fenix-core-matrix-load-target-8-fenix`
+- artifact stamp: `2026-04-10-035640-multi-fenix-core-matrix-load-target-8-fenix`
 - runtime count: `8`
 - completed workload items: `16`
-- duration seconds: `104.877`
-- throughput items per minute: `9.154`
-- turn latency `p95_ms`: `7220.285`
-- Fenix poll latency `p95_ms`: `118.946`
-- CoreMatrix poll latency `p95_ms`: `6.476`
+- duration seconds: `100.125`
+- throughput items per minute: `9.588`
+- turn latency `p95_ms`: `7417.038`
+- Fenix poll latency `p95_ms`: `150.661`
+- CoreMatrix poll latency `p95_ms`: `7.044`
 - mailbox lease latency `count`: `16`
 - queue pressure sample count: `16`
-- database checkout sample count: `57389`
+- database checkout sample count: `56806`
 
 ### Stress
 
-- artifact stamp: `2026-04-10-022610-multi-fenix-core-matrix-load-stress`
+- artifact stamp: `2026-04-10-035835-multi-fenix-core-matrix-load-stress`
 - runtime count: `8`
 - completed workload items: `16`
-- duration seconds: `147.132`
-- throughput items per minute: `6.525`
-- turn latency `p95_ms`: `43172.621`
-- mailbox exchange wait `p95_ms`: `256.235`
+- duration seconds: `134.323`
+- throughput items per minute: `7.147`
+- turn latency `p95_ms`: `43317.272`
+- mailbox exchange wait `p95_ms`: `240.289`
 - queue pressure sample count: `32`
-- database checkout sample count: `78739`
+- database checkout sample count: `71575`
 
 ## Residual Risks
 
@@ -55,17 +61,18 @@ latency baselines rather than hardened threshold budgets.
   execution; `stress` intentionally validates provider-backed mailbox exchange
   pressure. Their latency signatures are different and should not share one
   generic regression threshold.
-- `stress` remains the best profile for catching provider-backed mailbox
-  exchange regressions, but its queue delay and turn latency numbers are still
-  useful local capacity signals rather than default CI budgets.
+- `stress` remains the best local profile for catching `llm_dev` queue pressure
+  and mailbox-exchange regressions, but it is not yet the right benchmark if we
+  want to isolate transport-level wins for OpenAI/OpenRouter requests.
 
 ## Recommended Next Threshold Work
 
 1. Run repeated local batches for `target_8_fenix` and `stress`, then derive
    per-profile p95/p99 regression budgets instead of using sample presence alone.
 2. Split queue-delay budgeting by queue family:
-   `runtime_control` for `target_8_fenix`, `llm_dev` or later provider queues
-   for `stress`.
+   `runtime_control` for `target_8_fenix`, `llm_dev` for the current `stress`
+   profile, and add a separate real-provider profile before setting transport
+   budgets for OpenAI/OpenRouter.
 3. Decide whether `target_8_fenix` should become a non-default CI gate or stay
    local-only with a nightly schedule once repeated latency baselines stabilize.
 4. Keep `stress` local-only until queue-delay and turn-latency variance narrow

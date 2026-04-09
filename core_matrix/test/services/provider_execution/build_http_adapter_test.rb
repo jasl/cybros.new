@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ProviderExecution::BuildHttpAdapterTest < ActiveSupport::TestCase
-  test "builds the default adapter for configured production provider keys" do
+  test "builds the pooled httpx adapter for configured real provider keys" do
     %w[
       codex_subscription_responses
       openai_responses
@@ -10,7 +10,7 @@ class ProviderExecution::BuildHttpAdapterTest < ActiveSupport::TestCase
     ].each do |adapter_key|
       adapter = ProviderExecution::BuildHttpAdapter.call(provider_definition: { adapter_key: adapter_key })
 
-      assert_instance_of SimpleInference::HTTPAdapters::Default, adapter
+      assert_instance_of SimpleInference::HTTPAdapters::HTTPX, adapter
     end
   end
 
