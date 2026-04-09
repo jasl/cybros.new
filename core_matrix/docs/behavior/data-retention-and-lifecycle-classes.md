@@ -5,9 +5,14 @@
 This document defines lifecycle classes and retention boundaries for persisted
 data in `core_matrix`.
 
-Cleanup jobs are not implemented yet. The purpose of these classes is to make
-future cleanup safe by making ownership, missing-data behavior, and retention
-intent explicit now.
+Automatic cleanup is implemented for:
+
+- `bounded_audit` rows through daily retention maintenance
+- closed `ephemeral_observability` supervision artifacts through daily
+  retention maintenance
+
+The lifecycle classes below define the invariants those cleanup jobs must keep
+preserving.
 
 ## Principles
 
@@ -194,8 +199,18 @@ Representative models:
 
 ## Current Scope
 
-These lifecycle kinds are declared in model code and used to shape behavior
-and future cleanup work.
+These lifecycle kinds are declared in model code and shape both behavior and
+cleanup work.
 
-This document does not promise that any automatic cleanup is currently running.
-It defines the rules the system must continue to satisfy when cleanup is added.
+Current automatic cleanup:
+
+- `UsageEvent` rows older than `DATA_RETENTION_BOUNDED_AUDIT_DAYS`
+- terminal `ConversationControlRequest` rows older than
+  `DATA_RETENTION_BOUNDED_AUDIT_DAYS`
+- closed `ConversationSupervisionSession` rows older than
+  `DATA_RETENTION_SUPERVISION_CLOSED_DAYS`, along with their associated
+  `ConversationSupervisionSnapshot`, `ConversationSupervisionMessage`, and
+  `ConversationControlRequest` rows
+
+Cleanup runs through `DataRetention::RunMaintenanceJob` on the `maintenance`
+queue according to `config/recurring.yml`.

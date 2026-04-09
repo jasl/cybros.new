@@ -69,6 +69,10 @@ It is not an audit log.
 `ConversationSupervisionSession` and `ConversationSupervisionMessage` remain an
 ephemeral side-channel and must not mutate the target transcript.
 
+Clients are expected to close supervision sessions when the side chat is no
+longer needed. Closed sessions remain readable only through their already
+materialized artifacts until retention maintenance removes them.
+
 ## Side Chat
 
 Side chat is a human interaction surface over frozen supervision snapshots.

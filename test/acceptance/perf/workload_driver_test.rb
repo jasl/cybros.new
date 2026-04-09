@@ -28,6 +28,13 @@ module Acceptance
         :max_in_flight_per_conversation,
         keyword_init: true
       )
+      RuntimeRegistrationDouble = Struct.new(
+        :agent_program_version,
+        :machine_credential,
+        :executor_machine_credential,
+        :deployment,
+        keyword_init: true
+      )
 
       def test_runtime_registration_matrix_builds_one_registration_per_runtime_slot
         topology = build_topology
@@ -44,12 +51,12 @@ module Acceptance
           end,
           register_external_runtime: lambda do |enrollment_token:, runtime_base_url:, executor_fingerprint:, fingerprint:|
             runtime_registrations << { enrollment_token:, runtime_base_url:, executor_fingerprint:, fingerprint: }
-            {
+            RuntimeRegistrationDouble.new(
               agent_program_version: "deployment-#{fingerprint}",
               machine_credential: "machine-#{fingerprint}",
               executor_machine_credential: "executor-#{fingerprint}",
-              deployment: "deployment-#{fingerprint}",
-            }
+              deployment: "deployment-#{fingerprint}"
+            )
           end
         )
 
@@ -58,6 +65,7 @@ module Acceptance
         assert_equal %w[fenix-01 fenix-02], matrix.fetch("runtime_registrations").map { |entry| entry.fetch("slot_label") }
         assert_equal topology.runtime_slots.map { |slot| slot.event_output_path.to_s }, matrix.fetch("runtime_registrations").map { |entry| entry.fetch("event_output_path") }
         assert_equal topology.runtime_slots.map(&:runtime_task_env), matrix.fetch("runtime_registrations").map { |entry| entry.fetch("runtime_task_env") }
+        assert_equal %w[machine-fenix-01 machine-fenix-02], matrix.fetch("runtime_registrations").map { |entry| entry.fetch("runtime_registration").machine_credential }
         assert_equal 2, created_programs.length
         assert_equal 2, runtime_registrations.length
       end

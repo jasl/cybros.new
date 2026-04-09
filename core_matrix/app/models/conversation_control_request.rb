@@ -3,6 +3,7 @@ class ConversationControlRequest < ApplicationRecord
   include DataLifecycle
 
   LIFECYCLE_STATES = %w[queued dispatched acknowledged completed failed rejected].freeze
+  TERMINAL_LIFECYCLE_STATES = %w[completed failed rejected].freeze
 
   data_lifecycle_kind! :bounded_audit
 

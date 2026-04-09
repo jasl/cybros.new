@@ -47,6 +47,7 @@ module Acceptance
           "slot_label" => slot.label,
           "runtime_base_url" => slot.runtime_base_url,
           "event_output_path" => slot.event_output_path.to_s,
+          "runtime_registration" => registration,
           "runtime_task_env" => {
             "FENIX_HOME_ROOT" => slot.home_root.to_s,
             "CYBROS_PERF_EVENTS_PATH" => slot.event_output_path.to_s,

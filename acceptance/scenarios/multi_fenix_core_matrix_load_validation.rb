@@ -108,7 +108,7 @@ def with_runtime_control_workers!(registrations, index = 0, &block)
 
   registration = registrations.fetch(index)
   ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
-    registration: registration,
+    registration: registration.fetch("runtime_registration"),
     limit: 1,
     env: registration.fetch("runtime_task_env")
   ) do

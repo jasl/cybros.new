@@ -32,6 +32,23 @@ module AppAPI
       }
     end
 
+    def close
+      session = find_supervision_session!(params.fetch(:id))
+      target_conversation = session.target_conversation
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
+
+      session = EmbeddedAgents::ConversationSupervision::CloseSession.call(
+        actor: session.initiator,
+        conversation_supervision_session: session
+      )
+
+      render json: {
+        method_id: "conversation_supervision_session_close",
+        conversation_id: target_conversation.public_id,
+        conversation_supervision_session: serialize_supervision_session(session),
+      }
+    end
+
     private
 
     def find_supervision_session!(session_id)
@@ -54,6 +71,7 @@ module AppAPI
         "responder_strategy" => session.responder_strategy,
         "capability_policy_snapshot" => session.capability_policy_snapshot,
         "last_snapshot_at" => session.last_snapshot_at&.iso8601(6),
+        "closed_at" => session.closed_at&.iso8601(6),
         "created_at" => session.created_at&.iso8601(6),
       }.compact
     end

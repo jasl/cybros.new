@@ -12,9 +12,9 @@ Within the lifecycle model:
 - `UsageRollup` is `retained_aggregate`
 
 That means detailed provider usage is not modeled as forever-retained business
-truth. The current system does not implement cleanup jobs yet, but future raw
-event retention may be bounded while rollups remain available for long-horizon
-reporting.
+truth. The system prunes raw `UsageEvent` rows through retention maintenance
+after `DATA_RETENTION_BOUNDED_AUDIT_DAYS`, while rollups remain available for
+long-horizon reporting.
 
 ## Usage Event Behavior
 

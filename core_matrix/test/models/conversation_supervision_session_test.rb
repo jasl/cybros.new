@@ -53,6 +53,34 @@ class ConversationSupervisionSessionTest < ActiveSupport::TestCase
     assert_includes session.errors[:target_conversation], "must belong to the same installation"
   end
 
+  test "stamps closed_at when the session closes and clears it when reopened" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      executor_program: context[:executor_program],
+      agent_program: context[:agent_program]
+    )
+    session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {}
+    )
+
+    travel_to(Time.utc(2026, 4, 9, 13, 0, 0)) do
+      session.update!(lifecycle_state: "closed")
+    end
+
+    assert_equal Time.utc(2026, 4, 9, 13, 0, 0), session.closed_at
+
+    session.update!(lifecycle_state: "open")
+
+    assert_nil session.closed_at
+  end
+
   private
 
   def create_raw_installation!

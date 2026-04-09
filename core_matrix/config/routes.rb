@@ -76,6 +76,9 @@ Rails.application.routes.draw do
     resources :conversation_turn_feeds, only: :index
     resources :conversation_turn_runtime_events, only: :index
     resources :conversation_supervision_sessions, only: [:create, :show] do
+      member do
+        post :close
+      end
       resources :conversation_supervision_messages, path: "messages", only: [:index, :create]
     end
     resources :conversation_export_requests, only: [:create, :show] do

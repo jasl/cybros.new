@@ -103,4 +103,30 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "close transitions the session to closed using public ids only" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+
+    post "/app_api/conversation_supervision_sessions/#{session.public_id}/close",
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "conversation_supervision_session_close", response_body.fetch("method_id")
+    assert_equal session.public_id, response_body.dig("conversation_supervision_session", "supervision_session_id")
+    assert_equal "closed", response_body.dig("conversation_supervision_session", "lifecycle_state")
+    assert response_body.dig("conversation_supervision_session", "closed_at").present?
+    assert_equal "closed", session.reload.lifecycle_state
+    assert session.closed_at.present?
+
+    post "/app_api/conversation_supervision_sessions/#{session.id}/close",
+      headers: app_api_headers(registration[:machine_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
 end

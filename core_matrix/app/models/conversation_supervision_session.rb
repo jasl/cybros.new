@@ -31,6 +31,8 @@ class ConversationSupervisionSession < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :conversation_supervision_session
 
+  before_validation :sync_closed_at
+
   validate :target_conversation_installation_match
   validate :initiator_installation_match
   validate :capability_policy_snapshot_must_be_hash
@@ -54,5 +56,13 @@ class ConversationSupervisionSession < ApplicationRecord
 
   def capability_policy_snapshot_must_be_hash
     errors.add(:capability_policy_snapshot, "must be a hash") unless capability_policy_snapshot.is_a?(Hash)
+  end
+
+  def sync_closed_at
+    if closed?
+      self.closed_at ||= Time.current
+    else
+      self.closed_at = nil
+    end
   end
 end
