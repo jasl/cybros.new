@@ -1,11 +1,13 @@
 require "test_helper"
 require "tmpdir"
+require Rails.root.join("../acceptance/lib/perf/runtime_registration_matrix")
 require Rails.root.join("../acceptance/lib/perf/workload_executor")
 
 class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
   AgentProgramDouble = Struct.new(:public_id)
   AgentProgramVersionDouble = Struct.new(:agent_program)
   ConversationDouble = Struct.new(:public_id)
+  RuntimeRegistrationDouble = Struct.new(:machine_credential, keyword_init: true)
 
   test "routes execution-assignment tasks through the mailbox runner" do
     mailbox_calls = []
@@ -38,7 +40,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
     result = executor.call(
       conversation: { "public_id" => "conversation-1" },
-      registration: { "slot_label" => "fenix-01", "agent_program_version" => AgentProgramVersionDouble.new(AgentProgramDouble.new("program-1")) },
+      registration: perf_registration("fenix-01", "program-1"),
       task: { "content" => "mailbox", "mode" => "deterministic_tool", "workload_kind" => "execution_assignment" },
       slot_index: 1,
       event_output_path: "/tmp/fenix-01.ndjson"
@@ -83,7 +85,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
     result = executor.call(
       conversation: { "public_id" => "conversation-2" },
-      registration: { "slot_label" => "fenix-02", "agent_program_version" => AgentProgramVersionDouble.new(AgentProgramDouble.new("program-2")) },
+      registration: perf_registration("fenix-02", "program-2"),
       task: { "content" => "3", "selector_source" => "manual", "selector" => "role:mock", "workload_kind" => "program_exchange_mock" },
       slot_index: 2,
       event_output_path: "/tmp/fenix-02.ndjson"
@@ -108,7 +110,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     error = assert_raises(ArgumentError) do
       executor.call(
         conversation: { "public_id" => "conversation-3" },
-        registration: { "slot_label" => "fenix-03", "agent_program_version" => AgentProgramVersionDouble.new(AgentProgramDouble.new("program-3")) },
+        registration: perf_registration("fenix-03", "program-3"),
         task: { "content" => "oops", "workload_kind" => "unknown" },
         slot_index: 3,
         event_output_path: "/tmp/fenix-03.ndjson"
@@ -138,12 +140,29 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
     executor.call(
       conversation: ConversationDouble.new("conversation-ar"),
-      registration: { "slot_label" => "fenix-01", "agent_program_version" => AgentProgramVersionDouble.new(AgentProgramDouble.new("program-1")) },
+      registration: perf_registration("fenix-01", "program-1"),
       task: { "content" => "mailbox", "mode" => "deterministic_tool", "workload_kind" => "execution_assignment" },
       slot_index: 1,
       event_output_path: "/tmp/fenix-01.ndjson"
     )
 
     assert_equal "conversation-ar", events.first.dig(:payload, "conversation_public_id")
+  end
+
+  private
+
+  def perf_registration(slot_label, program_public_id)
+    Acceptance::Perf::RuntimeRegistrationMatrix::Registration.new(
+      slot_label: slot_label,
+      runtime_base_url: "http://127.0.0.1:3101",
+      event_output_path: "/tmp/#{slot_label}.ndjson",
+      runtime_registration: RuntimeRegistrationDouble.new(machine_credential: "machine-#{slot_label}"),
+      runtime_task_env: {},
+      agent_program: "program-#{slot_label}",
+      agent_program_version: AgentProgramVersionDouble.new(AgentProgramDouble.new(program_public_id)),
+      deployment: "deployment-#{slot_label}",
+      machine_credential: "machine-#{slot_label}",
+      executor_machine_credential: "executor-#{slot_label}"
+    )
   end
 end

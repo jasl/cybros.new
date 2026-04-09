@@ -285,14 +285,14 @@ ManualAcceptanceSupport.write_json(
       'program_a' => {
         'agent_program_version_id' => agent_program_version_a.public_id,
         'executor_program_id' => registration_a.executor_program&.public_id,
-        'agent_session_id' => registration_a.registration.fetch('agent_session_id'),
-        'executor_session_id' => registration_a.registration['executor_session_id']
+        'agent_session_id' => registration_a.agent_session_id,
+        'executor_session_id' => registration_a.executor_session_id
       },
       'program_b' => {
         'agent_program_version_id' => agent_program_version_b.public_id,
         'executor_program_id' => registration_b.executor_program&.public_id,
-        'agent_session_id' => registration_b.registration.fetch('agent_session_id'),
-        'executor_session_id' => registration_b.registration['executor_session_id']
+        'agent_session_id' => registration_b.agent_session_id,
+        'executor_session_id' => registration_b.executor_session_id
       }
     },
     'conversation_a' => {

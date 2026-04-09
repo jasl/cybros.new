@@ -85,7 +85,7 @@ module Acceptance
         {
           'recorded_at' => finished_at.utc.iso8601(6),
           'source_app' => 'acceptance',
-          'instance_label' => registration.fetch('slot_label'),
+          'instance_label' => registration.slot_label,
           'event_name' => 'benchmark.workload.item_completed',
           'workload_kind' => task.fetch('workload_kind'),
           'duration_ms' => ((finished_at - started_at) * 1000.0).round(3),
@@ -106,7 +106,7 @@ module Acceptance
       end
 
       def extract_agent_program_public_id(registration)
-        agent_program_version = registration.fetch('agent_program_version')
+        agent_program_version = registration.agent_program_version
         return agent_program_version.agent_program.public_id if agent_program_version.respond_to?(:agent_program)
 
         agent_program_version.fetch('agent_program_public_id')

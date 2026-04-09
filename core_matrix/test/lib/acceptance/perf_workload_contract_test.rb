@@ -1,13 +1,16 @@
 require "test_helper"
 require Rails.root.join("../acceptance/lib/perf/profile")
+require Rails.root.join("../acceptance/lib/perf/runtime_registration_matrix")
 require Rails.root.join("../acceptance/lib/perf/workload_manifest")
 require Rails.root.join("../acceptance/lib/perf/workload_driver")
 
 class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
+  RuntimeRegistrationDouble = Struct.new(:machine_credential, keyword_init: true)
+
   test "multi-fenix load scenario skips backend reset when the wrapper already provisioned a fresh stack" do
     scenario = Rails.root.join("../acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb").read
 
-    assert_includes scenario, 'ENV.fetch("MULTI_FENIX_LOAD_STACK_ALREADY_RESET", "false")'
+    assert_match(/ENV\.fetch\(['"]MULTI_FENIX_LOAD_STACK_ALREADY_RESET['"], ['"]false['"]\)/, scenario)
     assert_includes scenario, "ManualAcceptanceSupport.reset_backend_state! unless stack_already_reset"
   end
 
@@ -85,32 +88,34 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
         { "content" => "task-b", "workload_kind" => "execution_assignment" },
       ]
     )
-    registration_matrix = {
-      "runtime_registrations" => [
-        { "slot_label" => "fenix-01", "boot_status" => "ready", "agent_program_version" => "deployment-1", "event_output_path" => "/tmp/fenix-01.ndjson" },
-        { "slot_label" => "fenix-02", "boot_status" => "ready", "agent_program_version" => "deployment-2", "event_output_path" => "/tmp/fenix-02.ndjson" },
-      ],
-    }
+    registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.new(
+      runtime_count: 2,
+      core_matrix_events_path: "/tmp/core-matrix.ndjson",
+      runtime_registrations: [
+        perf_registration("fenix-01", "deployment-1", "/tmp/fenix-01.ndjson"),
+        perf_registration("fenix-02", "deployment-2", "/tmp/fenix-02.ndjson"),
+      ]
+    )
     created_conversations = []
     execution_calls = []
 
     Acceptance::Perf::WorkloadDriver.call(
       manifest: manifest,
       registration_matrix: registration_matrix,
-      create_conversation: lambda do |agent_program_version:|
-        conversation = { "public_id" => "conversation-#{created_conversations.length + 1}", "agent_program_version" => agent_program_version }
-        created_conversations << conversation
-        { "conversation" => conversation }
-      end,
-      execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
-        execution_calls << {
-          conversation_id: conversation.fetch("public_id"),
-          slot_label: registration.fetch("slot_label"),
-          task_content: task.fetch("content"),
-          slot_index: slot_index,
-        }
-        {
-          "status" => "completed",
+          create_conversation: lambda do |agent_program_version:|
+            conversation = { "public_id" => "conversation-#{created_conversations.length + 1}", "agent_program_version" => agent_program_version }
+            created_conversations << conversation
+            { "conversation" => conversation }
+          end,
+          execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+            execution_calls << {
+              conversation_id: conversation.fetch("public_id"),
+              slot_label: registration.slot_label,
+              task_content: task.fetch("content"),
+              slot_index: slot_index,
+            }
+            {
+              "status" => "completed",
           "conversation_public_id" => conversation.fetch("public_id"),
         }
       end
@@ -135,12 +140,16 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
         { "content" => "task-b", "workload_kind" => "execution_assignment" },
       ]
     )
-    registration = { "slot_label" => "fenix-01", "boot_status" => "ready", "agent_program_version" => "deployment-1", "event_output_path" => "/tmp/fenix-01.ndjson" }
+    registration = perf_registration("fenix-01", "deployment-1", "/tmp/fenix-01.ndjson")
     connection_calls = 0
     clear_calls = 0
     driver = Acceptance::Perf::WorkloadDriver.new(
       manifest: manifest,
-      registration_matrix: { "runtime_registrations" => [registration] },
+      registration_matrix: Acceptance::Perf::RuntimeRegistrationMatrix.new(
+        runtime_count: 1,
+        core_matrix_events_path: "/tmp/core-matrix.ndjson",
+        runtime_registrations: [registration]
+      ),
       create_conversation: lambda do |agent_program_version:|
         { "conversation" => { "public_id" => "conversation-1", "agent_program_version" => agent_program_version } }
       end,
@@ -148,12 +157,11 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
         { "status" => "completed", "conversation_public_id" => conversation.fetch("public_id") }
       end
     )
-    assignment = {
-      "slot_index" => 1,
-      "slot_label" => "fenix-01",
-      "registration" => registration,
-      "tasks" => manifest.request_corpus,
-    }
+    assignment = Acceptance::Perf::WorkloadDriver::Assignment.new(
+      slot_index: 1,
+      registration: registration,
+      tasks: manifest.request_corpus,
+    )
 
     pool = ActiveRecord::Base.connection_pool
     handler = ActiveRecord::Base.connection_handler
@@ -176,5 +184,22 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
   ensure
     pool.singleton_class.define_method(:with_connection, original_with_connection) if original_with_connection
     handler.singleton_class.define_method(:clear_active_connections!, original_clear_active_connections) if original_clear_active_connections
+  end
+
+  private
+
+  def perf_registration(slot_label, agent_program_version, event_output_path)
+    Acceptance::Perf::RuntimeRegistrationMatrix::Registration.new(
+      slot_label: slot_label,
+      runtime_base_url: "http://127.0.0.1:3101",
+      event_output_path: event_output_path,
+      runtime_registration: RuntimeRegistrationDouble.new(machine_credential: "machine-#{slot_label}"),
+      runtime_task_env: {},
+      agent_program: "program-#{slot_label}",
+      agent_program_version: agent_program_version,
+      deployment: agent_program_version,
+      machine_credential: "machine-#{slot_label}",
+      executor_machine_credential: "executor-#{slot_label}"
+    )
   end
 end

@@ -383,6 +383,24 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     assert_equal "pid-123", yielded
   end
 
+  test "runtime registration exposes session ids without reaching into raw registration payloads" do
+    registration = ManualAcceptanceSupport::RuntimeRegistration.new(
+      manifest: {},
+      machine_credential: "program-secret",
+      executor_machine_credential: "execution-secret",
+      agent_program_version: "apv",
+      registration: {
+        "agent_session_id" => "agent-session-public-id",
+        "executor_session_id" => "executor-session-public-id",
+      }
+    )
+
+    assert_equal "agent-session-public-id", registration.agent_session_id
+    assert_equal "executor-session-public-id", registration.executor_session_id
+    assert_equal "agent-session-public-id", registration.fetch(:agent_session_id)
+    assert_equal "executor-session-public-id", registration.fetch(:executor_session_id)
+  end
+
   test "reconnect_application_record! re-establishes and checks out through with_connection" do
     calls = []
 

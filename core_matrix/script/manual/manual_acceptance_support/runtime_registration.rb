@@ -12,7 +12,9 @@ module ManualAcceptanceSupport
       runtime: :runtime,
       agent_program: :agent_program,
       agent_session: :agent_session,
+      agent_session_id: :agent_session_id,
       executor_session: :executor_session,
+      executor_session_id: :executor_session_id,
     }.freeze
 
     attr_reader :manifest,
@@ -56,8 +58,16 @@ module ManualAcceptanceSupport
       runtime&.agent_session
     end
 
+    def agent_session_id
+      agent_session&.public_id || registration&.fetch("agent_session_id", nil)
+    end
+
     def executor_session
       runtime&.executor_session
+    end
+
+    def executor_session_id
+      executor_session&.public_id || registration&.fetch("executor_session_id", nil)
     end
 
     def fetch(key)
