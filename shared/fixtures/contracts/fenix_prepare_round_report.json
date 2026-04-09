@@ -28,13 +28,6 @@
       "calculator"
     ],
     "summary_artifacts": [],
-    "trace": [
-      {
-        "hook": "prepare_turn"
-      },
-      {
-        "hook": "compact_context"
-      }
-    ]
+    "trace": []
   }
 }

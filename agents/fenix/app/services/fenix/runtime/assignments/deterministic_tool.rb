@@ -22,28 +22,7 @@ module Fenix
         private
 
         def arithmetic_output
-          match = expression.match(/\A\s*(-?\d+)\s*(\S+)\s*(-?\d+)\s*\z/)
-          raise InvalidRequestError, "invalid arithmetic expression #{expression.inspect}" unless match
-
-          left = Integer(match[1], 10)
-          operator = match[2]
-          right = Integer(match[3], 10)
-
-          result = case operator
-          when "+"
-            left + right
-          when "-"
-            left - right
-          when "*"
-            left * right
-          when "/"
-            raise InvalidRequestError, "division by zero is not supported" if right.zero?
-
-            quotient = left.fdiv(right)
-            quotient == quotient.to_i ? quotient.to_i : quotient
-          else
-            raise InvalidRequestError, "unsupported arithmetic operator #{operator}"
-          end
+          result = Fenix::Hooks::Calculator.call(expression: expression)
 
           {
             "kind" => "calculator",
@@ -51,6 +30,8 @@ module Fenix
             "result" => result,
             "content" => "The calculator returned #{result}.",
           }
+        rescue Fenix::Hooks::Calculator::InvalidExpressionError => error
+          raise InvalidRequestError, error.message
         end
 
         def echo_output

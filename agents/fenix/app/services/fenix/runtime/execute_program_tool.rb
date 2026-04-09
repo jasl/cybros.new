@@ -37,6 +37,16 @@ module Fenix
 
       def execute_tool
         case tool_call.fetch("tool_name")
+        when "calculator"
+          {
+            "result" => {
+              "value" => Fenix::Hooks::Calculator.call(
+                expression: tool_call.dig("arguments", "expression")
+              ),
+            },
+            "output_chunks" => [],
+            "summary_artifacts" => [],
+          }
         when "compact_context"
           {
             "result" => Fenix::Hooks::CompactContext.call(

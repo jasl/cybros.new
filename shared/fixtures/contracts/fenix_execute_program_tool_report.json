@@ -17,7 +17,9 @@
         "expression": "2 + 2"
       }
     },
-    "result": 4,
+    "result": {
+      "value": 4
+    },
     "output_chunks": [],
     "summary_artifacts": []
   }

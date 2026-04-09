@@ -29,6 +29,24 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     end
   end
 
+  test "prepare_round terminal report matches the shared contract fixture" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    mailbox_item = JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "core_matrix_fenix_prepare_round_mailbox_item.json")
+      )
+    )
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal prepare_round_report_contract_fixture, normalize_prepare_round_report(client.reported_payloads.last)
+  end
+
   test "execute_program_tool agent program requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
@@ -49,6 +67,24 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       assert_equal "exec_command", client.reported_payloads.last.dig("response_payload", "program_tool_call", "tool_name")
       assert_equal 0, client.reported_payloads.last.dig("response_payload", "result", "exit_status")
     end
+  end
+
+  test "execute_program_tool terminal report matches the shared contract fixture" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    mailbox_item = JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "core_matrix_fenix_execute_program_tool_mailbox_item.json")
+      )
+    )
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal execute_program_tool_report_contract_fixture, normalize_execute_program_tool_report(client.reported_payloads.last)
   end
 
   test "execute_program_tool failures emit a failed terminal report" do
@@ -363,5 +399,37 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         },
       },
     }
+  end
+
+  def prepare_round_report_contract_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "fenix_prepare_round_report.json")
+      )
+    )
+  end
+
+  def execute_program_tool_report_contract_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "fenix_execute_program_tool_report.json")
+      )
+    )
+  end
+
+  def normalize_prepare_round_report(report)
+    normalized = report.deep_dup
+    normalized.delete("protocol_message_id")
+    normalized["response_payload"] = normalized.fetch("response_payload").merge(
+      "messages" => normalized.dig("response_payload", "messages").map { |message| { "role" => message.fetch("role") } },
+      "trace" => normalized.dig("response_payload", "trace").map { |entry| { "hook" => entry.fetch("hook") } }
+    )
+    normalized
+  end
+
+  def normalize_execute_program_tool_report(report)
+    normalized = report.deep_dup
+    normalized.delete("protocol_message_id")
+    normalized
   end
 end
