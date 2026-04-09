@@ -16,8 +16,8 @@ because Docker cannot read `versions.env` before `FROM`.
 - Node LTS with `npm`, `corepack`, `pnpm`
 - `vite` and `create-vite`
 - Playwright with Chromium and Linux browser dependencies
-- Python 3.12 with `uv`
-- Ruby 4.0.2 with Bundler 4.0.8 and native extension build prerequisites
+- `uv` plus a managed Python 3.12 runtime contract rooted at `FENIX_HOME_ROOT/python`
+- Ruby 4.0.2 with Bundler 4.0.10 and native extension build prerequisites
 - Go
 - Rust
 - common CLI/build tools: `git`, `curl`, `jq`, `unzip`, `zip`, `ripgrep`,

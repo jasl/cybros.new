@@ -58,7 +58,7 @@ pnpm_version_with_fresh_home() {
 
 for command_name in \
   bash bundle cargo corepack create-vite curl fd gcc g++ git go jq make \
-  node npm pip3 playwright pnpm python python3 rg ruby rustc sqlite3 uv vite zip unzip
+  node npm playwright pnpm rg ruby rustc sqlite3 uv vite zip unzip
 do
   require_command "${command_name}"
 done
@@ -70,8 +70,6 @@ assert_eq "${PNPM_VERSION}" "$(pnpm_version_with_fresh_home)" "pnpm fresh-home r
 assert_eq "${VITE_VERSION}" "$(global_npm_version vite)" "vite version"
 assert_eq "${CREATE_VITE_VERSION}" "$(global_npm_version create-vite)" "create-vite version"
 assert_eq "${PLAYWRIGHT_VERSION}" "$(global_npm_version playwright)" "playwright version"
-assert_prefix "Python ${PYTHON_MAJOR_MINOR}" "$(python3 --version)" "python3 version"
-assert_prefix "Python ${PYTHON_MAJOR_MINOR}" "$(python --version)" "python version"
 assert_prefix "uv ${UV_VERSION}" "$(uv --version)" "uv version"
 assert_prefix "ruby ${RUBY_VERSION}" "$(ruby --version)" "ruby version"
 assert_eq "${BUNDLER_VERSION}" "$(bundle --version | awk '{print $NF}')" "bundler version"
@@ -83,5 +81,15 @@ browser_path="$(browser_executable)"
 [[ -n "${browser_path}" ]] || fail "chromium browser binary not found under ${PLAYWRIGHT_BROWSERS_PATH}"
 [[ -x "${browser_path}" ]] || fail "chromium browser binary is not executable: ${browser_path}"
 "${browser_path}" --version >/dev/null 2>&1 || fail "chromium browser failed to start: ${browser_path}"
+
+python_runtime_root="$(mktemp -d)"
+python_install_root="${python_runtime_root}/toolchains/python"
+python_venv_root="${python_runtime_root}/python"
+mkdir -p "${python_install_root}"
+UV_PYTHON_INSTALL_DIR="${python_install_root}" uv venv --python "${PYTHON_MAJOR_MINOR}" --seed "${python_venv_root}" >/dev/null 2>&1 || \
+  fail "uv could not provision Python ${PYTHON_MAJOR_MINOR}.x under a runtime root"
+assert_prefix "Python ${PYTHON_MAJOR_MINOR}" "$("${python_venv_root}/bin/python3" --version)" "managed python3 version"
+assert_prefix "Python ${PYTHON_MAJOR_MINOR}" "$("${python_venv_root}/bin/python" --version)" "managed python version"
+rm -rf "${python_runtime_root}"
 
 echo "nexus verify: ok"

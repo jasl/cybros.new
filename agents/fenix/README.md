@@ -218,6 +218,18 @@ operators can override the browser executable path with:
 
 - `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
 
+Bare-metal hosts also need a globally installed Playwright package that matches
+the Nexus matrix. `Fenix` then uses `uv` to provision a managed Python runtime
+under `FENIX_HOME_ROOT/python`, defaulting to `~/.fenix/python` when
+`FENIX_HOME_ROOT` is unset. A typical host bootstrap looks like:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+npm install -g "playwright@$(awk -F= '/^PLAYWRIGHT_VERSION=/{print $2}' images/nexus/versions.env)"
+playwright install chromium
+bin/check-runtime-host
+```
+
 ## Operator Surface
 
 The current runtime surface is organized around five operator object families:
@@ -352,12 +364,16 @@ That surface is sufficient to:
 - read additional files relative to an active skill root
 - stage and promote a third-party skill into the scoped live root
 
-The default writable skills home is `~/.fenix`. In host mode, `Fenix` stores
-runtime skill state under `~/.fenix/skills-scopes/...`.
+The default writable runtime home is `~/.fenix`. In host mode, `Fenix` stores:
+
+- runtime skill state under `~/.fenix/skills-scopes/...`
+- uv-managed Python under `~/.fenix/python`
+- downloaded managed Python toolchains under `~/.fenix/toolchains/python`
 
 In Docker or any other ephemeral runtime environment, set `FENIX_HOME_ROOT`
 to a persistent volume-backed path such as `/rails/storage/fenix-home` so
-installed skills survive container replacement.
+installed skills, the managed Python runtime, and downloaded Python toolchains
+survive container replacement.
 
 The current runtime keeps two explicit rules:
 

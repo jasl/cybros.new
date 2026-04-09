@@ -10,13 +10,13 @@ class CheckRuntimeHostTest < ActiveSupport::TestCase
       FileUtils.mkdir_p(fake_bin)
 
       stub_command(fake_bin, "ruby", "ruby 4.0.2p0 (2026-03-15 revision abc123) [arm64-darwin]")
-      stub_command(fake_bin, "bundle", "Bundler version 4.0.8")
-      stub_command(fake_bin, "node", "v22.22.2")
+      stub_command(fake_bin, "bundle", "Bundler version 4.0.10")
+      stub_command(fake_bin, "node", "v24.14.1")
       stub_command(fake_bin, "npm", "11.12.1")
       stub_command(fake_bin, "corepack", "0.34.1")
       stub_command(fake_bin, "pnpm", "10.33.0")
-      stub_command(fake_bin, "python3", "Python 3.12.8")
-      stub_command(fake_bin, "uv", "uv 0.11.4 (aarch64-apple-darwin)")
+      stub_command(fake_bin, "playwright", "Version 1.59.1")
+      stub_uv(fake_bin)
       stub_command(fake_bin, "git", "git version 2.51.0")
       stub_command(fake_bin, "curl", "curl 8.17.0")
       stub_command(fake_bin, "jq", "jq-1.8.1")
@@ -30,14 +30,93 @@ class CheckRuntimeHostTest < ActiveSupport::TestCase
 
       stdout, stderr, status = Open3.capture3(
         {
-          "FENIX_HOST_CHECK_PATH" => fake_bin,
+          "FENIX_HOST_CHECK_PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
           "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" => browser_path,
+          "FENIX_HOST_CHECK_RUNTIME_ROOT" => File.join(tmpdir, "fenix-home"),
         },
         "bash",
         check_runtime_host.to_s
       )
 
       assert status.success?, "expected success, got exit #{status.exitstatus}: #{stderr.presence || stdout}"
+      assert_equal "", stderr
+      assert_match(/host contract satisfied/i, stdout)
+    end
+  end
+
+  test "requires a globally installed playwright package" do
+    Dir.mktmpdir("fenix-host-check-playwright") do |tmpdir|
+      fake_bin = File.join(tmpdir, "bin")
+      FileUtils.mkdir_p(fake_bin)
+
+      stub_command(fake_bin, "ruby", "ruby 4.0.2p0 (2026-03-15 revision abc123) [arm64-darwin]")
+      stub_command(fake_bin, "bundle", "Bundler version 4.0.10")
+      stub_command(fake_bin, "node", "v24.14.1")
+      stub_command(fake_bin, "npm", "11.12.1")
+      stub_command(fake_bin, "corepack", "0.34.1")
+      stub_command(fake_bin, "pnpm", "10.33.0")
+      stub_uv(fake_bin)
+      stub_command(fake_bin, "git", "git version 2.51.0")
+      stub_command(fake_bin, "curl", "curl 8.17.0")
+      stub_command(fake_bin, "jq", "jq-1.8.1")
+      stub_command(fake_bin, "rg", "ripgrep 14.1.1")
+      stub_command(fake_bin, "fd", "fd 10.3.0")
+      stub_command(fake_bin, "sqlite3", "3.50.4 2025-07-30")
+
+      browser_path = File.join(tmpdir, "chrome")
+      File.write(browser_path, "#!/usr/bin/env bash\necho 'Chromium 145.0.7632.6'\n")
+      FileUtils.chmod("+x", browser_path)
+
+      _stdout, stderr, status = Open3.capture3(
+        {
+          "FENIX_HOST_CHECK_PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
+          "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" => browser_path,
+          "FENIX_HOST_CHECK_RUNTIME_ROOT" => File.join(tmpdir, "fenix-home"),
+        },
+        "bash",
+        check_runtime_host.to_s
+      )
+
+      assert_not status.success?, "expected failure without playwright on the host"
+      assert_match(/playwright 1\.59\.1 is required/i, stderr)
+    end
+  end
+
+  test "does not require a system python3 binary when uv can provision the managed runtime" do
+    Dir.mktmpdir("fenix-host-check-managed-python") do |tmpdir|
+      fake_bin = File.join(tmpdir, "bin")
+      FileUtils.mkdir_p(fake_bin)
+
+      stub_command(fake_bin, "ruby", "ruby 4.0.2p0 (2026-03-15 revision abc123) [arm64-darwin]")
+      stub_command(fake_bin, "bundle", "Bundler version 4.0.10")
+      stub_command(fake_bin, "node", "v24.14.1")
+      stub_command(fake_bin, "npm", "11.12.1")
+      stub_command(fake_bin, "corepack", "0.34.1")
+      stub_command(fake_bin, "pnpm", "10.33.0")
+      stub_command(fake_bin, "playwright", "Version 1.59.1")
+      stub_uv(fake_bin)
+      stub_command(fake_bin, "git", "git version 2.51.0")
+      stub_command(fake_bin, "curl", "curl 8.17.0")
+      stub_command(fake_bin, "jq", "jq-1.8.1")
+      stub_command(fake_bin, "rg", "ripgrep 14.1.1")
+      stub_command(fake_bin, "fd", "fd 10.3.0")
+      stub_command(fake_bin, "sqlite3", "3.50.4 2025-07-30")
+
+      browser_path = File.join(tmpdir, "chrome")
+      File.write(browser_path, "#!/usr/bin/env bash\necho 'Chromium 145.0.7632.6'\n")
+      FileUtils.chmod("+x", browser_path)
+
+      stdout, stderr, status = Open3.capture3(
+        {
+          "FENIX_HOST_CHECK_PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
+          "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" => browser_path,
+          "FENIX_HOST_CHECK_RUNTIME_ROOT" => File.join(tmpdir, "fenix-home"),
+        },
+        "bash",
+        check_runtime_host.to_s
+      )
+
+      assert status.success?, "expected uv-managed python to satisfy the host contract: #{stderr.presence || stdout}"
       assert_equal "", stderr
       assert_match(/host contract satisfied/i, stdout)
     end
@@ -75,6 +154,34 @@ class CheckRuntimeHostTest < ActiveSupport::TestCase
     File.write(path, <<~SH)
       #!/usr/bin/env bash
       echo #{output.inspect}
+    SH
+    FileUtils.chmod("+x", path)
+  end
+
+  def stub_uv(bin_dir)
+    path = File.join(bin_dir, "uv")
+    File.write(path, <<~SH)
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      if [[ "${1:-}" == "--version" ]]; then
+        echo "uv 0.11.5 (stub)"
+        exit 0
+      fi
+
+      if [[ "${1:-}" == "venv" ]]; then
+        target="${@: -1}"
+        mkdir -p "${target}/bin"
+        cat > "${target}/bin/python" <<'PY'
+#!/usr/bin/env bash
+echo "Python 3.12.0"
+PY
+        cp "${target}/bin/python" "${target}/bin/python3"
+        chmod +x "${target}/bin/python" "${target}/bin/python3"
+        exit 0
+      fi
+
+      exit 1
     SH
     FileUtils.chmod("+x", path)
   end

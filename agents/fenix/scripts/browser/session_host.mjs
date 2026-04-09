@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline";
-import { chromium } from "playwright";
+import { pathToFileURL } from "node:url";
 
 let browser = null;
 let page = null;
+let playwrightModulePromise = null;
 
 function configuredExecutablePath() {
   return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || findChromiumExecutablePath();
@@ -32,6 +35,7 @@ function findChromiumExecutablePath() {
 async function ensurePage() {
   if (page) return page;
 
+  const { chromium } = await resolvePlaywrightModule();
   const configuration = {
     headless: true,
   };
@@ -45,7 +49,7 @@ async function ensurePage() {
   } catch (error) {
     if (!executablePath) {
       throw new Error(
-        `could not launch Playwright Chromium; install Chromium on the host, run 'pnpm exec playwright install chromium', or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH (${error.message})`
+        `could not launch Playwright Chromium; install the global Playwright package, run 'playwright install chromium', install Chromium on the host, or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH (${error.message})`
       );
     }
 
@@ -54,6 +58,87 @@ async function ensurePage() {
 
   page = await browser.newPage();
   return page;
+}
+
+async function resolvePlaywrightModule() {
+  playwrightModulePromise ||= loadPlaywrightModule();
+  return playwrightModulePromise;
+}
+
+async function loadPlaywrightModule() {
+  try {
+    return await import("playwright");
+  } catch (localError) {
+    if (!playwrightModuleMissing(localError)) {
+      throw localError;
+    }
+
+    const globalModuleUrl = globalPlaywrightModuleUrl();
+
+    if (globalModuleUrl) {
+      try {
+        return await import(globalModuleUrl);
+      } catch (globalError) {
+        throw new Error(
+          `could not load Playwright from the global npm root (${globalError.message}); install it globally with 'npm install -g playwright'`
+        );
+      }
+    }
+
+    throw new Error(
+      `could not load Playwright (${localError.message}); install it globally with 'npm install -g playwright'`
+    );
+  }
+}
+
+function playwrightModuleMissing(error) {
+  return error?.code === "ERR_MODULE_NOT_FOUND" &&
+    error.message.includes("Cannot find package 'playwright'");
+}
+
+function globalPlaywrightModuleUrl() {
+  const packageJsonPath = resolveGlobalPackageJsonPath("playwright");
+  if (!packageJsonPath) return null;
+
+  const importEntry = packageImportEntry(packageJsonPath);
+  if (!importEntry) return null;
+
+  const modulePath = path.resolve(path.dirname(packageJsonPath), importEntry);
+  if (!fs.existsSync(modulePath)) return null;
+
+  return pathToFileURL(modulePath).href;
+}
+
+function resolveGlobalPackageJsonPath(packageName) {
+  const globalNodeModulesRoot = globalNodeModulesPath();
+  if (!globalNodeModulesRoot) return null;
+
+  const packageJsonPath = path.join(globalNodeModulesRoot, packageName, "package.json");
+  return fs.existsSync(packageJsonPath) ? packageJsonPath : null;
+}
+
+function packageImportEntry(packageJsonPath) {
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    const exportsRoot = packageJson.exports?.["."];
+
+    if (typeof exportsRoot === "string") return exportsRoot;
+    if (typeof exportsRoot?.import === "string") return exportsRoot.import;
+    if (typeof packageJson.module === "string") return packageJson.module;
+    if (typeof packageJson.main === "string") return packageJson.main;
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function globalNodeModulesPath() {
+  try {
+    return execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 async function dispatch(command, argumentsPayload) {

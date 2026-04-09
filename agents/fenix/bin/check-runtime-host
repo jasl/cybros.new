@@ -10,6 +10,8 @@ source "${versions_file}"
 lookup_path="${FENIX_HOST_CHECK_PATH:-$PATH}"
 host_os="${FENIX_HOST_CHECK_OS:-$(uname -s)}"
 browser_path="${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}"
+host_check_runtime_root="${FENIX_HOST_CHECK_RUNTIME_ROOT:-}"
+created_runtime_root=""
 
 declare -a missing=()
 declare -a warnings=()
@@ -105,7 +107,7 @@ require_version_value "node" "v${NODE_VERSION}" "node ${NODE_VERSION} is require
 require_version_value "npm" "${NPM_VERSION}" "npm ${NPM_VERSION} is required" --version
 require_command "corepack" "corepack is required" >/dev/null || true
 require_version_value "pnpm" "${PNPM_VERSION}" "pnpm ${PNPM_VERSION} is required" --version
-require_version_prefix "python3" "Python ${PYTHON_MAJOR_MINOR}" "python3 ${PYTHON_MAJOR_MINOR}.x is required" --version
+require_last_field_value "playwright" "${PLAYWRIGHT_VERSION}" "playwright ${PLAYWRIGHT_VERSION} is required" --version
 require_version_prefix "uv" "uv ${UV_VERSION}" "uv ${UV_VERSION} is required" --version
 
 for tool_name in git curl jq rg fd sqlite3; do
@@ -122,6 +124,38 @@ else
 
   [[ -n "${browser_path}" ]] || missing+=("install Chromium/Chrome or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
 fi
+
+cleanup() {
+  if [[ -n "${created_runtime_root}" ]]; then
+    rm -rf "${created_runtime_root}"
+  fi
+}
+
+trap cleanup EXIT
+
+verify_managed_python_runtime() {
+  local runtime_root="${host_check_runtime_root}"
+  if [[ -z "${runtime_root}" ]]; then
+    runtime_root="$(mktemp -d "${TMPDIR:-/tmp}/fenix-host-check.XXXXXX")"
+    created_runtime_root="${runtime_root}"
+  fi
+
+  local python_root="${runtime_root}/python"
+  local install_root="${runtime_root}/toolchains/python"
+  mkdir -p "${runtime_root}" "${install_root}"
+
+  if ! PATH="${lookup_path}" UV_PYTHON_INSTALL_DIR="${install_root}" uv venv --python "${PYTHON_MAJOR_MINOR}" --seed "${python_root}" >/dev/null 2>&1; then
+    missing+=("uv must be able to provision Python ${PYTHON_MAJOR_MINOR}.x under FENIX_HOME_ROOT/python")
+    return
+  fi
+
+  local python_output
+  python_output="$("${python_root}/bin/python" --version 2>/dev/null | head -n 1 | tr -d '\r')"
+  [[ "${python_output}" == "Python ${PYTHON_MAJOR_MINOR}"* ]] || \
+    missing+=("managed python runtime is not Python ${PYTHON_MAJOR_MINOR}.x (found '${python_output}')")
+}
+
+verify_managed_python_runtime
 
 if (( ${#missing[@]} > 0 )); then
   {

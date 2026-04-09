@@ -2,6 +2,13 @@ require "test_helper"
 require Rails.root.join("../acceptance/lib/host_validation")
 
 class AcceptanceHostValidationTest < ActiveSupport::TestCase
+  test "default playwright version stays aligned with the nexus toolchain matrix" do
+    versions = File.read(Rails.root.join("../images/nexus/versions.env"))
+    expected_version = versions[/^PLAYWRIGHT_VERSION=(.+)$/, 1]
+
+    assert_equal expected_version, Acceptance::HostValidation::DEFAULT_PLAYWRIGHT_VERSION
+  end
+
   test "runtime and host validation predicates require the expected success conditions" do
     runtime_validation = {
       "runtime_test_passed" => true,

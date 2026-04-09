@@ -9,7 +9,13 @@ module Acceptance
   module HostValidation
     module_function
 
-    DEFAULT_PLAYWRIGHT_VERSION = "1.59.1".freeze
+    NEXUS_VERSIONS_ENV_PATH = File.expand_path("../../images/nexus/versions.env", __dir__)
+    DEFAULT_PLAYWRIGHT_VERSION = begin
+      version = File.read(NEXUS_VERSIONS_ENV_PATH)[/^PLAYWRIGHT_VERSION=(.+)$/, 1]
+      raise "missing PLAYWRIGHT_VERSION in #{NEXUS_VERSIONS_ENV_PATH}" if version.nil? || version.empty?
+
+      version
+    end.freeze
 
     def run!(generated_app_dir:, artifact_dir:, preview_port:, runtime_validation:, persist_artifacts: true)
       host_validation_notes = []

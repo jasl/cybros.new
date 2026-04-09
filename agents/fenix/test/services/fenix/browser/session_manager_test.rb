@@ -1,5 +1,7 @@
 require "test_helper"
 require "fileutils"
+require "json"
+require "open3"
 require "stringio"
 require "tmpdir"
 
@@ -207,11 +209,176 @@ class Fenix::Browser::SessionManagerTest < ActiveSupport::TestCase
     end
   end
 
+  test "browser host can resolve a globally installed playwright package" do
+    Dir.mktmpdir("fenix-global-playwright") do |tmpdir|
+      script_path = write_session_host_copy(tmpdir)
+      fake_bin = File.join(tmpdir, "bin")
+      global_root = File.join(tmpdir, "node_modules")
+      playwright_root = File.join(global_root, "playwright")
+      FileUtils.mkdir_p(fake_bin)
+      FileUtils.mkdir_p(playwright_root)
+
+      File.write(
+        File.join(playwright_root, "package.json"),
+        JSON.pretty_generate(
+          name: "playwright",
+          version: "1.59.1",
+          exports: {
+            "." => {
+              import: "./index.mjs",
+            },
+          }
+        )
+      )
+      File.write(
+        File.join(playwright_root, "index.mjs"),
+        <<~JAVASCRIPT
+          export const chromium = {
+            async launch() {
+              let currentUrl = "about:blank";
+
+              return {
+                async newPage() {
+                  return {
+                    async goto(url) {
+                      currentUrl = url;
+                    },
+                    url() {
+                      return currentUrl;
+                    },
+                  };
+                },
+                async close() {},
+              };
+            },
+          };
+        JAVASCRIPT
+      )
+      File.write(
+        File.join(fake_bin, "npm"),
+        <<~SH
+          #!/usr/bin/env bash
+          if [[ "$1" == "root" && "$2" == "-g" ]]; then
+            echo #{global_root.inspect}
+            exit 0
+          fi
+
+          exit 1
+        SH
+      )
+      FileUtils.chmod("+x", File.join(fake_bin, "npm"))
+
+      stdout, stderr, status = Open3.capture3(
+        {
+          "PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
+        },
+        "node",
+        script_path,
+        stdin_data: <<~JSONL
+          {"command":"open","arguments":{"url":"https://example.com"}}
+        JSONL
+      )
+
+      assert status.success?, "expected global playwright fallback to work: #{stderr.presence || stdout}"
+      responses = stdout.lines.map { |line| JSON.parse(line) }
+      assert_equal "https://example.com", responses.first.fetch("payload").fetch("current_url")
+      assert_equal 1, responses.length
+    end
+  end
+
+  test "browser host does not hide broken local playwright packages behind the global fallback" do
+    Dir.mktmpdir("fenix-global-playwright-broken-local") do |tmpdir|
+      script_path = write_session_host_copy(tmpdir)
+      fake_bin = File.join(tmpdir, "bin")
+      global_root = File.join(tmpdir, "global_node_modules")
+      playwright_root = File.join(global_root, "playwright")
+      local_playwright_root = File.join(tmpdir, "node_modules", "playwright")
+      FileUtils.mkdir_p(fake_bin)
+      FileUtils.mkdir_p(playwright_root)
+      FileUtils.mkdir_p(local_playwright_root)
+
+      File.write(
+        File.join(playwright_root, "package.json"),
+        JSON.pretty_generate(
+          name: "playwright",
+          version: "1.59.1",
+          exports: {
+            "." => {
+              import: "./index.mjs",
+            },
+          }
+        )
+      )
+      File.write(
+        File.join(playwright_root, "index.mjs"),
+        <<~JAVASCRIPT
+          export const chromium = {
+            async launch() {
+              throw new Error("global fallback should not run");
+            },
+          };
+        JAVASCRIPT
+      )
+      File.write(
+        File.join(local_playwright_root, "package.json"),
+        JSON.pretty_generate(
+          name: "playwright",
+          version: "1.59.1",
+          exports: {
+            "." => {
+              import: "./index.mjs",
+            },
+          }
+        )
+      )
+      File.write(
+        File.join(local_playwright_root, "index.mjs"),
+        <<~JAVASCRIPT
+          throw new Error("local playwright is broken");
+        JAVASCRIPT
+      )
+      File.write(
+        File.join(fake_bin, "npm"),
+        <<~SH
+          #!/usr/bin/env bash
+          if [[ "$1" == "root" && "$2" == "-g" ]]; then
+            echo #{global_root.inspect}
+            exit 0
+          fi
+
+          exit 1
+        SH
+      )
+      FileUtils.chmod("+x", File.join(fake_bin, "npm"))
+
+      stdout, stderr, status = Open3.capture3(
+        {
+          "PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
+        },
+        "node",
+        script_path,
+        stdin_data: <<~JSONL
+          {"command":"open","arguments":{"url":"https://example.com"}}
+        JSONL
+      )
+
+      assert status.success?, "browser host should report JSON errors instead of crashing: #{stderr.presence || stdout}"
+      response = JSON.parse(stdout.lines.first)
+      assert_match(/local playwright is broken/, response.fetch("error"))
+    end
+  end
+
   private
 
   def write_executable(path)
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, "#!/usr/bin/env bash\nexit 0\n")
     FileUtils.chmod("+x", path)
+  end
+
+  def write_session_host_copy(tmpdir)
+    path = File.join(tmpdir, "session_host.mjs")
+    FileUtils.cp(Rails.root.join("scripts", "browser", "session_host.mjs"), path)
+    path
   end
 end

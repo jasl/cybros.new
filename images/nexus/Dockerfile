@@ -40,10 +40,6 @@ RUN set -a && \
       libssl-dev \
       libyaml-dev \
       pkg-config \
-      python-is-python3 \
-      python3 \
-      python3-pip \
-      python3-venv \
       ripgrep \
       sqlite3 \
       unzip \
