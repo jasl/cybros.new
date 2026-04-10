@@ -9,12 +9,16 @@ class CreateConversationObservationSessions < ActiveRecord::Migration[8.2]
       t.string :responder_strategy, null: false, default: "summary_model"
       t.jsonb :capability_policy_snapshot, null: false, default: {}
       t.datetime :last_snapshot_at
+      t.datetime :closed_at
       t.timestamps
     end
 
     add_index :conversation_supervision_sessions, :public_id, unique: true
     add_index :conversation_supervision_sessions,
-      [:target_conversation_id, :created_at],
-      name: "idx_conversation_supervision_sessions_target_created"
+              [:lifecycle_state, :closed_at],
+              name: "idx_css_lifecycle_closed_at"
+    add_index :conversation_supervision_sessions,
+              [:target_conversation_id, :created_at],
+              name: "idx_conversation_supervision_sessions_target_created"
   end
 end
