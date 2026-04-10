@@ -15,6 +15,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     ActiveJob::Base.queue_adapter = :test
     clear_enqueued_jobs
     clear_performed_jobs
+    Fenix::Shared::Values::MailboxDeliveryTracker.reset!
     @original_control_plane_client =
       if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
         Fenix::Shared::ControlPlane.instance_variable_get(:@client)

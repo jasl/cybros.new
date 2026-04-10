@@ -83,25 +83,29 @@ class Fenix::Runtime::PythonBootstrapTest < ActiveSupport::TestCase
   def stub_uv(bin_dir, log_path: nil)
     path = File.join(bin_dir, "uv")
     File.write(path, <<~SH)
-      #!/usr/bin/env bash
-      set -euo pipefail
+      #!/bin/sh
+      set -eu
 
-      if [[ "${1:-}" == "--version" ]]; then
+      if [ "${1:-}" = "--version" ]; then
         echo "uv 0.11.5 (stub)"
         exit 0
       fi
 
-      if [[ "${1:-}" == "venv" ]]; then
+      if [ "${1:-}" = "venv" ]; then
         #{log_path ? "echo \"$*\" >> #{log_path.to_s.inspect}" : ":"}
 
-        target="${@: -1}"
+        target=""
+        for arg in "$@"; do
+          target="$arg"
+        done
+
         mkdir -p "${target}/bin"
         cat > "${target}/bin/python" <<'PY'
-#!/usr/bin/env bash
+#!/bin/sh
 echo "Python 3.12.0"
 PY
         cat > "${target}/bin/pip" <<'PIP'
-#!/usr/bin/env bash
+#!/bin/sh
 echo "pip 25.0 from ${0%/*}/../lib/python3.12/site-packages/pip (python 3.12)"
 PIP
         cp "${target}/bin/python" "${target}/bin/python3"
@@ -117,7 +121,7 @@ PIP
 
   def write_python_stub(path, output)
     File.write(path, <<~SH)
-      #!/usr/bin/env bash
+      #!/bin/sh
       echo #{output.inspect}
     SH
     FileUtils.chmod("+x", path)
