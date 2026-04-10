@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'zip'
 
 module Acceptance
   module ReviewArtifacts
@@ -263,12 +264,26 @@ module Acceptance
           generated_app_dir: generated_app_dir,
           host_validation_notes: host_validation_notes,
           preview_port: preview_port,
-          relative_files: relative_files
+          relative_files: relative_files,
+          source_bundle_relative_path: "exports/game-2048-source.zip"
         )
       )
     end
 
-    def workspace_artifacts_markdown(workspace_root:, generated_app_dir:, host_validation_notes:, preview_port:, relative_files:)
+    def write_workspace_source_bundle!(path:, generated_app_dir:)
+      raise ArgumentError, "generated_app_dir does not exist: #{generated_app_dir}" unless generated_app_dir.exist?
+
+      FileUtils.mkdir_p(File.dirname(path))
+      FileUtils.rm_f(path)
+
+      Zip::File.open(path.to_s, create: true) do |zip_file|
+        workspace_source_entries(generated_app_dir).each do |relative_path|
+          zip_file.add(relative_path, generated_app_dir.join(relative_path).to_s)
+        end
+      end
+    end
+
+    def workspace_artifacts_markdown(workspace_root:, generated_app_dir:, host_validation_notes:, preview_port:, relative_files:, source_bundle_relative_path: "exports/game-2048-source.zip")
       unless generated_app_dir.exist?
         return <<~MD
           # Workspace Artifacts
@@ -289,11 +304,15 @@ module Acceptance
         "  - `#{workspace_root}`",
         "- Final application path:",
         "  - `#{generated_app_dir}`",
+        "- Workspace source bundle:",
+        "  - `#{source_bundle_relative_path}`",
         "- Final source tree includes:",
       ]
       Array(relative_files).each { |entry| lines << "  - `#{entry}`" }
       lines << ""
       lines << "## Host-Side Commands"
+      lines << ""
+      lines << "The canonical exported source snapshot lives at `#{source_bundle_relative_path}` and excludes large reinstallable directories such as `node_modules/` and `coverage/`."
       lines << ""
       lines << "Primary host usability verification uses the exported `dist/` output:"
       lines << ""
@@ -335,6 +354,26 @@ module Acceptance
       lines << ""
 
       lines.join("\n")
+    end
+
+    private_class_method def workspace_source_entries(generated_app_dir)
+      Dir.chdir(generated_app_dir) do
+        Dir.glob("**/*", File::FNM_DOTMATCH)
+          .reject do |entry|
+            entry == "." ||
+              entry == ".." ||
+              entry.start_with?("node_modules/") ||
+              entry == "node_modules" ||
+              entry.start_with?("coverage/") ||
+              entry == "coverage" ||
+              entry.start_with?(".git/") ||
+              entry == ".git" ||
+              entry.start_with?(".fenix/") ||
+              entry == ".fenix"
+          end
+          .select { |entry| File.file?(entry) }
+          .sort
+      end
     end
 
     private_class_method def write_text(path, contents)

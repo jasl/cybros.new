@@ -1,5 +1,6 @@
 require "test_helper"
 require Rails.root.join("../acceptance/lib/review_artifacts")
+require "zip"
 
 class AcceptanceReviewArtifactsTest < ActiveSupport::TestCase
   test "workspace artifacts markdown points readers to canonical review, evidence, logs, and playable paths" do
@@ -20,6 +21,35 @@ class AcceptanceReviewArtifactsTest < ActiveSupport::TestCase
       assert_includes markdown, "`review/capability-activation.md`"
       assert_includes markdown, "`review/failure-classification.md`"
       assert_includes markdown, "`logs/phase-events.jsonl`"
+      assert_includes markdown, "`exports/game-2048-source.zip`"
+    end
+  end
+
+  test "workspace source bundle exports the generated app tree as a zip artifact" do
+    Dir.mktmpdir do |dir|
+      app_dir = Pathname(dir).join("game-2048")
+      export_path = Pathname(dir).join("game-2048-source.zip")
+
+      FileUtils.mkdir_p(app_dir.join("src"))
+      FileUtils.mkdir_p(app_dir.join("public"))
+      File.write(app_dir.join("package.json"), %({"name":"game-2048"}))
+      File.write(app_dir.join("src", "App.tsx"), "export const App = () => null;\n")
+      File.write(app_dir.join("public", "favicon.ico"), "icon")
+
+      Acceptance::ReviewArtifacts.write_workspace_source_bundle!(
+        path: export_path,
+        generated_app_dir: app_dir
+      )
+
+      assert export_path.exist?, "expected workspace source bundle to be written"
+
+      Zip::File.open(export_path.to_s) do |zip_file|
+        entry_names = zip_file.entries.map(&:name)
+
+        assert_includes entry_names, "package.json"
+        assert_includes entry_names, "src/App.tsx"
+        assert_includes entry_names, "public/favicon.ico"
+      end
     end
   end
 

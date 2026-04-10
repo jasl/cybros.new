@@ -302,6 +302,16 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::ReviewArtifacts.write_collaboration_notes!"
     assert_includes scenario, "Acceptance::ReviewArtifacts.write_runtime_and_bindings!"
     assert_includes scenario, "Acceptance::ReviewArtifacts.write_workspace_artifacts!"
+    assert_includes scenario, "Acceptance::ReviewArtifacts.write_workspace_source_bundle!"
+  end
+
+  test "acceptance scenario exports the completed game source into the artifact bundle" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    artifact_bundle = Rails.root.join("../acceptance/lib/artifact_bundle.rb").read
+
+    assert_includes scenario, 'workspace_source_bundle_path = artifact_dir.join("exports", "game-2048-source.zip")'
+    assert_includes scenario, '"workspace_source_bundle_path" => workspace_source_bundle_path.to_s'
+    assert_includes artifact_bundle, "exports/game-2048-source.zip"
   end
 
   test "acceptance scenario sends the executor credential to runtime bindings review output only" do

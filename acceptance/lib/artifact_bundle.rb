@@ -42,6 +42,7 @@ module Acceptance
         "- [Conversation Debug Export](../exports/conversation-debug-export.zip)",
         "- [Playable Outputs](../playable/)",
       ]
+      lines.insert(-1, "- [Workspace Source Bundle](../exports/game-2048-source.zip)") unless load_bundle
       if load_bundle
         lines.insert(21, "- [Load Summary](load-summary.md)")
         lines.insert(-1, "- [Aggregated Metrics](../evidence/aggregated-metrics.json)")
@@ -83,6 +84,7 @@ module Acceptance
         "Canonical machine-readable entrypoints live under `review/`, `evidence/`, and `logs/`.",
         "- `evidence/artifact-manifest.json` lists the preferred paths for callers.",
       ]
+      lines.insert(13, "- [Workspace source bundle](exports/game-2048-source.zip)") unless load_bundle
       if load_bundle
         lines.insert(9, "- [Load summary](review/load-summary.md)")
         lines.insert(10, "- [Aggregated metrics](evidence/aggregated-metrics.json)")
@@ -106,6 +108,7 @@ module Acceptance
         "live_progress_feed" => "logs/live-progress-events.jsonl",
         "playable_outputs" => "playable/",
       }
+      entry_points["workspace_source_bundle"] = "exports/game-2048-source.zip" unless summary["benchmark_mode"] == "multi_fenix_core_matrix_load"
       if summary["benchmark_mode"] == "multi_fenix_core_matrix_load"
         entry_points["load_summary"] = "review/load-summary.md"
         entry_points["aggregated_metrics"] = "evidence/aggregated-metrics.json"

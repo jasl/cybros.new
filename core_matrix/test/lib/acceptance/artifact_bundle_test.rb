@@ -24,6 +24,7 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
       assert_includes body, "[Turn Runtime Evidence](../evidence/turn-runtime-evidence.json)"
       assert_includes body, "[Subagent Runtime Snapshots](../evidence/subagent-runtime-snapshots.json)"
       assert_includes body, "[Live Progress Feed](../logs/live-progress-events.jsonl)"
+      assert_includes body, "[Workspace Source Bundle](../exports/game-2048-source.zip)"
       assert_includes body, "[Playable Outputs](../playable/)"
     end
   end
@@ -45,6 +46,7 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
       body = path.read
       assert_includes body, "[Review index](review/index.md)"
       assert_includes body, "[Benchmark summary](evidence/run-summary.json)"
+      assert_includes body, "[Workspace source bundle](exports/game-2048-source.zip)"
       refute_includes body, "compatibility"
       refute_includes body, "legacy root-level duplicates"
     end
@@ -71,6 +73,7 @@ class AcceptanceArtifactBundleTest < ActiveSupport::TestCase
       assert_equal "evidence/run-summary.json", payload.dig("entry_points", "benchmark_summary")
       assert_equal "evidence/subagent-runtime-snapshots.json", payload.dig("entry_points", "subagent_runtime_snapshots")
       assert_equal "logs/live-progress-events.jsonl", payload.dig("entry_points", "live_progress_feed")
+      assert_equal "exports/game-2048-source.zip", payload.dig("entry_points", "workspace_source_bundle")
     end
   end
 end

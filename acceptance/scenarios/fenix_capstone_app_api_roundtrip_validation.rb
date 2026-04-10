@@ -38,6 +38,7 @@ end
 artifact_dir = repo_root.join("acceptance", "artifacts", artifact_stamp)
 workspace_root = Pathname.new(ENV.fetch("CAPSTONE_WORKSPACE_ROOT", repo_root.join("tmp", "fenix").to_s)).expand_path
 generated_app_dir = workspace_root.join("game-2048")
+workspace_source_bundle_path = artifact_dir.join("exports", "game-2048-source.zip")
 runtime_workspace_root = Pathname.new(ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace"))
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 docker_container = ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
@@ -213,6 +214,10 @@ def assert_2048_bundle_quality_contract!(artifact_dir:)
     if goal_summary.present? && !status_markdown.include?(goal_summary)
       errors << "supervision-status.md is missing primary turn todo plan goal #{goal_summary.inspect}"
     end
+  end
+
+  unless artifact_dir.join("exports", "game-2048-source.zip").exist?
+    errors << "workspace source bundle is missing at exports/game-2048-source.zip"
   end
 
   canonical_feed_entries.each do |entry|
@@ -1024,6 +1029,7 @@ Acceptance::ReviewArtifacts.write_turns!(
     "review/supervision-eval-bundle.json",
     "review/workspace-validation.md",
     "review/playability-verification.md",
+    "exports/game-2048-source.zip",
     "review/export-roundtrip.md",
     "review/capability-activation.md",
     "review/failure-classification.md",
@@ -1074,6 +1080,10 @@ Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
   runtime_base_url: runtime_base_url,
   runtime_worker_boot: runtime_worker_boot
 )
+Acceptance::ReviewArtifacts.write_workspace_source_bundle!(
+  path: workspace_source_bundle_path,
+  generated_app_dir: generated_app_dir
+)
 Acceptance::ReviewArtifacts.write_workspace_artifacts!(
   path: artifact_dir.join("review", "workspace-artifacts.md"),
   workspace_root: workspace_root,
@@ -1111,6 +1121,7 @@ capability_report = Acceptance::CapabilityActivation.build(
     "conversation_export" => user_bundle_path,
     "conversation_debug_export" => debug_bundle_path,
     "transcript_roundtrip" => artifact_dir.join("exports", "transcript-roundtrip-compare.json"),
+    "workspace_source_bundle" => workspace_source_bundle_path,
     "host_npm_install" => artifact_dir.join("playable", "host-npm-install.json"),
     "host_npm_test" => artifact_dir.join("playable", "host-npm-test.json"),
     "host_npm_build" => artifact_dir.join("playable", "host-npm-build.json"),
@@ -1214,6 +1225,7 @@ summary = {
   "evidence_run_summary_path" => artifact_dir.join("evidence", "run-summary.json").to_s,
   "evidence_turn_runtime_path" => artifact_dir.join("evidence", "turn-runtime-evidence.json").to_s,
   "subagent_runtime_snapshots_path" => artifact_dir.join("evidence", "subagent-runtime-snapshots.json").to_s,
+  "workspace_source_bundle_path" => workspace_source_bundle_path.to_s,
   "host_playability_artifact" => (artifact_dir.join("playable", "host-playwright-verification.json").to_s if Acceptance::HostValidation.playwright_result_available?(playwright_validation)),
   "control_intent_matrix_path" => (artifact_dir.join("evidence", "control-intent-matrix.json").to_s if control_intent_matrix.present?),
   "benchmark_outcome" => failure_report.fetch("outcome"),

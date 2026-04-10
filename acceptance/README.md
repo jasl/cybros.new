@@ -22,6 +22,7 @@ Each bundle includes:
 
 - `review/index.md` as the human-readable entry point
 - `evidence/artifact-manifest.json` as the canonical machine-readable entry point
+- `exports/game-2048-source.zip` as the exported final application source snapshot
 
 Run acceptance scenarios through `Core Matrix`'s Rails environment:
 
