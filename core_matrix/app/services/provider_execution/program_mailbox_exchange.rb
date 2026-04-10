@@ -179,7 +179,7 @@ module ProviderExecution
         mailbox_item: mailbox_item,
         request_kind: request_kind,
         logical_work_id: logical_work_id,
-        deadline_at: mailbox_item.dispatch_deadline_at,
+        deadline_at: mailbox_item.dispatch_deadline_at || mailbox_item.execution_hard_deadline_at,
         occurred_at: Time.current
       )
       raise PendingResponse.new(

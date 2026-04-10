@@ -11,6 +11,7 @@ module ProviderExecution
 
     def call
       current_node = WorkflowNode.find_by_public_id!(@workflow_node.public_id)
+      return current_node if current_node.waiting?
       return current_node if current_node.terminal? || current_node.running?
 
       raise_invalid!(current_node, :node_type, "must be a tool_call workflow node") unless current_node.node_type == "tool_call"

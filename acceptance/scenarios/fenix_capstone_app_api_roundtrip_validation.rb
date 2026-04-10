@@ -720,7 +720,6 @@ seen_live_progress_event_keys = Set.new
   )
   run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
-    agent_program_version: agent_program_version,
     content: repair_prompt,
     root_node_key: "turn_step",
     root_node_type: "turn_step",

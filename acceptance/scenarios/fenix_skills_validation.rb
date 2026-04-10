@@ -17,19 +17,17 @@ def mailbox_task(content:, mode:, extra_payload: {})
   { content:, mode:, extra_payload: }
 end
 
-def run_mailbox_task_on_conversation!(conversation:, agent_program_version:, registration:, task:)
+def run_mailbox_task_on_conversation!(conversation:, registration:, task:)
   run = start_mailbox_turn_workflow!(
     conversation: conversation,
-    agent_program_version: agent_program_version,
     task: task
   )
   finalize_mailbox_task_run(run:, conversation:, registration:)
 end
 
-def start_mailbox_turn_workflow!(conversation:, agent_program_version:, task:)
+def start_mailbox_turn_workflow!(conversation:, task:)
   Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
-    agent_program_version: agent_program_version,
     content: task.fetch(:content),
     root_node_key: 'agent_turn_step',
     root_node_type: 'turn_step',
@@ -184,7 +182,6 @@ conversation_c = Acceptance::ManualSupport.create_conversation!(agent_program_ve
 
 install_run = run_mailbox_task_on_conversation!(
   conversation: conversation_a.fetch(:conversation),
-  agent_program_version: agent_program_version_a,
   registration: registration_a,
   task: mailbox_task(
     content: 'Install portable-notes in conversation A.',
@@ -194,7 +191,6 @@ install_run = run_mailbox_task_on_conversation!(
 )
 same_program_load_run = run_mailbox_task_on_conversation!(
   conversation: conversation_b.fetch(:conversation),
-  agent_program_version: agent_program_version_a,
   registration: registration_a,
   task: mailbox_task(
     content: 'Load portable-notes from conversation B.',
@@ -204,7 +200,6 @@ same_program_load_run = run_mailbox_task_on_conversation!(
 )
 same_program_read_run = run_mailbox_task_on_conversation!(
   conversation: conversation_b.fetch(:conversation),
-  agent_program_version: agent_program_version_a,
   registration: registration_a,
   task: mailbox_task(
     content: 'Read portable-notes checklist from conversation B.',
@@ -217,7 +212,6 @@ same_program_read_run = run_mailbox_task_on_conversation!(
 )
 different_program_load_run = run_mailbox_task_on_conversation!(
   conversation: conversation_c.fetch(:conversation),
-  agent_program_version: agent_program_version_b,
   registration: registration_b,
   task: mailbox_task(
     content: 'Load portable-notes from conversation C on a different program.',

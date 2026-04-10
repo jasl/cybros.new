@@ -105,7 +105,10 @@ module Workflows
     def schedule_resume!(result)
       return if result.blank? || result.deadline_at.blank?
 
-      Workflows::ResumeBlockedStepJob.set(wait_until: result.deadline_at).perform_later(result.workflow_run.public_id)
+      Workflows::ResumeBlockedStepJob.set(wait_until: result.deadline_at).perform_later(
+        result.workflow_run.public_id,
+        expected_waiting_since_at_iso8601: result.workflow_run.waiting_since_at&.utc&.iso8601(6)
+      )
     end
   end
 end

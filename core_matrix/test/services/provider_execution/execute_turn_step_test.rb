@@ -633,7 +633,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     result = nil
 
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [workflow_run.public_id]) do
+    assert_enqueued_with(
+      job: Workflows::ResumeBlockedStepJob,
+      args: ->(job_args) do
+        job_args.first == workflow_run.public_id &&
+          job_args.second.is_a?(Hash) &&
+          job_args.second[:expected_waiting_since_at_iso8601] == workflow_run.reload.waiting_since_at&.utc&.iso8601(6)
+      end
+    ) do
       with_stubbed_provider_catalog(catalog) do
         result = ProviderExecution::ExecuteTurnStep.call(
           workflow_node: workflow_node,

@@ -350,6 +350,47 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
     assert_equal "mailbox_timeout", error.code
   end
 
+  test "rerun while pending re-blocks the workflow node to preserve the pending wait state" do
+    context = build_agent_control_context!
+    workflow_node = context.fetch(:workflow_node)
+    original_blocker = Workflows::BlockNodeForProgramRequest.method(:call)
+    block_calls = []
+    payload = {
+      "task" => {
+        "conversation_id" => workflow_node.conversation.public_id,
+        "workflow_node_id" => workflow_node.public_id,
+        "turn_id" => workflow_node.turn.public_id,
+        "kind" => "turn_step",
+      },
+    }
+
+    Workflows::BlockNodeForProgramRequest.singleton_class.define_method(:call) do |**kwargs|
+      block_calls << kwargs.slice(:request_kind, :logical_work_id)
+      original_blocker.call(**kwargs)
+    end
+
+    exchange = ProviderExecution::ProgramMailboxExchange.new(
+      agent_program_version: context.fetch(:deployment),
+      timeout: 30.seconds,
+      poll_interval: 0.0,
+      sleeper: ->(_duration) { },
+    )
+
+    assert_raises(ProviderExecution::ProgramMailboxExchange::PendingResponse) do
+      exchange.prepare_round(payload: payload)
+    end
+    assert_equal 1, block_calls.length
+
+    assert_raises(ProviderExecution::ProgramMailboxExchange::PendingResponse) do
+      exchange.prepare_round(payload: payload)
+    end
+    assert_equal 2, block_calls.length
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
+    assert_equal "waiting", workflow_node.workflow_run.reload.wait_state
+  ensure
+    Workflows::BlockNodeForProgramRequest.singleton_class.define_method(:call, original_blocker) if original_blocker
+  end
+
   test "blocks the workflow node and resumes from a terminal receipt instead of synchronously polling" do
     context = build_agent_control_context!
     workflow_node = context.fetch(:workflow_node)
@@ -373,7 +414,14 @@ class ProviderExecution::ProgramMailboxExchangeTest < ActiveSupport::TestCase
       )
     end
 
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, args: [workflow_run.public_id])
+    assert_enqueued_with(
+      job: Workflows::ResumeBlockedStepJob,
+      args: ->(job_args) do
+        job_args.first == workflow_run.public_id &&
+          job_args.second.is_a?(Hash) &&
+          job_args.second[:expected_waiting_since_at_iso8601] == workflow_run.reload.waiting_since_at&.utc&.iso8601(6)
+      end
+    )
 
     mailbox_item = AgentControlMailboxItem.find_by!(
       workflow_node: workflow_node,

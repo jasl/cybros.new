@@ -244,6 +244,22 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "'agent_task_run_state' => 'failed'"
   end
 
+  test "acceptance scenarios do not pass removed agent program version arguments into start turn workflow helper" do
+    skills = Rails.root.join("../acceptance/scenarios/fenix_skills_validation.rb").read
+    capstone = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+    removed_argument_pattern = /
+      start_turn_workflow_on_conversation!\(
+      (?:
+        [^)]|
+        \)(?!\s*do)
+      ){0,240}
+      agent_program_version:
+    /mx
+
+    refute_match removed_argument_pattern, skills
+    refute_match removed_argument_pattern, capstone
+  end
+
   test "skills validation docs stay aligned with the active acceptance runtime port" do
     readme = Rails.root.join("../agents/fenix/README.md").read
 

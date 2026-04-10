@@ -235,7 +235,10 @@ module Workflows
       return unless result.retry_strategy == "automatic"
       return if result.next_retry_at.blank?
 
-      Workflows::ResumeBlockedStepJob.set(wait_until: result.next_retry_at).perform_later(result.workflow_run.public_id)
+      Workflows::ResumeBlockedStepJob.set(wait_until: result.next_retry_at).perform_later(
+        result.workflow_run.public_id,
+        expected_waiting_since_at_iso8601: result.workflow_run.waiting_since_at&.utc&.iso8601(6)
+      )
     end
   end
 end

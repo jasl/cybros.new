@@ -28,6 +28,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     clear_performed_jobs
     Fenix::Executor::Processes::Manager.reset!
     Fenix::Executor::Processes::ProxyRegistry.reset!
+    Fenix::Shared::Values::MailboxDeliveryTracker.reset!
 
     if @original_control_plane_client == :__undefined__
       Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
@@ -153,6 +154,29 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
     assert_equal mailbox_item.fetch("item_id"), client.reported_payloads.last.fetch("mailbox_item_id")
+  end
+
+  test "non-inline executable mailbox items ignore duplicate deliveries for the same mailbox item" do
+    Fenix::Shared::ControlPlane.client = build_control_client
+    mailbox_item = execution_assignment_mailbox_item
+
+    assert_enqueued_jobs 1 do
+      Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item, inline: false)
+      Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item.deep_dup, inline: false)
+    end
+  end
+
+  test "non-inline executable mailbox items allow redelivery when delivery number increases" do
+    Fenix::Shared::ControlPlane.client = build_control_client
+    mailbox_item = execution_assignment_mailbox_item
+
+    assert_enqueued_jobs 2 do
+      Fenix::Runtime::MailboxWorker.call(mailbox_item: mailbox_item, inline: false)
+      Fenix::Runtime::MailboxWorker.call(
+        mailbox_item: mailbox_item.deep_dup.merge("delivery_no" => 2),
+        inline: false
+      )
+    end
   end
 
   test "queued executable mailbox items serialize control plane context for out-of-process execution" do

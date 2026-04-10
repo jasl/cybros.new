@@ -150,6 +150,8 @@ module Fenix
       end
 
       def enqueue_execution!
+        return queued_result if duplicate_delivery?
+
         Fenix::Runtime::MailboxExecutionJob.perform_later(
           @mailbox_item,
           deliver_reports: @deliver_reports,
@@ -157,7 +159,10 @@ module Fenix
           queue_name: Fenix::Runtime::MailboxExecutionJob.queue_name,
           control_plane_context: serialized_control_plane_context
         )
+        queued_result
+      end
 
+      def queued_result
         QueuedMailboxExecution.new(
           mailbox_item_id: @mailbox_item.fetch("item_id"),
           logical_work_id: @mailbox_item.fetch("logical_work_id"),
@@ -165,6 +170,13 @@ module Fenix
           control_plane: @mailbox_item.fetch("control_plane"),
           status: "queued"
         )
+      end
+
+      def duplicate_delivery?
+        Fenix::Shared::Values::MailboxDeliveryTracker.claim(
+          mailbox_item_id: @mailbox_item.fetch("item_id"),
+          delivery_no: @mailbox_item.fetch("delivery_no", 0)
+        ) == false
       end
 
       def report_close_lifecycle!

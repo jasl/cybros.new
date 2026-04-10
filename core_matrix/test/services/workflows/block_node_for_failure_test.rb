@@ -9,7 +9,15 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
 
     result = nil
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, queue: "workflow_resume", args: [workflow_run.public_id]) do
+    assert_enqueued_with(
+      job: Workflows::ResumeBlockedStepJob,
+      queue: "workflow_resume",
+      args: ->(job_args) do
+        job_args.first == workflow_run.public_id &&
+          job_args.second.is_a?(Hash) &&
+          job_args.second[:expected_waiting_since_at_iso8601] == workflow_run.reload.waiting_since_at&.utc&.iso8601(6)
+      end
+    ) do
       result = Workflows::BlockNodeForFailure.call(
         workflow_node: workflow_node,
         failure_category: "external_dependency_blocked",
@@ -114,7 +122,15 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
     workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
 
-    assert_enqueued_with(job: Workflows::ResumeBlockedStepJob, queue: "workflow_resume", args: [workflow_run.public_id]) do
+    assert_enqueued_with(
+      job: Workflows::ResumeBlockedStepJob,
+      queue: "workflow_resume",
+      args: ->(job_args) do
+        job_args.first == workflow_run.public_id &&
+          job_args.second.is_a?(Hash) &&
+          job_args.second[:expected_waiting_since_at_iso8601] == workflow_run.reload.waiting_since_at&.utc&.iso8601(6)
+      end
+    ) do
       result = Workflows::BlockNodeForFailure.call(
         workflow_node: workflow_node,
         failure_category: "contract_error",
