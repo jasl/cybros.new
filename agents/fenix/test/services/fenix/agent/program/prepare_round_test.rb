@@ -116,6 +116,46 @@ class Fenix::Agent::Program::PrepareRoundTest < ActiveSupport::TestCase
     end
   end
 
+  test "prepare_round recalls root memory and conversation summary into the system prompt" do
+    Dir.mktmpdir("fenix-memory-workspace-") do |workspace_root|
+      root = Pathname.new(workspace_root)
+      root.join("MEMORY.md").write("Project memory: prefer acceptance-driven validation.\n")
+      summary_path = root.join(".fenix", "conversations", "conversation-1", "context", "summary.md")
+      FileUtils.mkdir_p(summary_path.dirname)
+      summary_path.write("Conversation memory: Docker daemon was flaky earlier.\n")
+
+      response = Fenix::Agent::Program::PrepareRound.call(
+        payload: {
+          "task" => {
+            "workflow_node_id" => "workflow-node-1",
+            "conversation_id" => "conversation-1",
+            "turn_id" => "turn-1",
+            "kind" => "turn_step",
+          },
+          "round_context" => {
+            "messages" => [
+              { "role" => "user", "content" => "What should we remember before continuing?" },
+            ],
+            "context_imports" => [],
+          },
+          "runtime_context" => {
+            "agent_program_version_id" => "agent-program-version-1",
+          },
+          "workspace_context" => {
+            "workspace_root" => workspace_root,
+          },
+        }
+      )
+
+      prompt = response.fetch("messages").first.fetch("content")
+
+      assert_equal "ok", response.fetch("status")
+      assert_includes prompt, "## Execution-Local Fenix Context"
+      assert_includes prompt, "Project memory: prefer acceptance-driven validation."
+      assert_includes prompt, "Conversation memory: Docker daemon was flaky earlier."
+    end
+  end
+
   test "prepare_round raises a deterministic scope error when a requested skill lacks runtime scope ids" do
     error = assert_raises(Fenix::Agent::Skills::Repository::MissingScopeError) do
       Fenix::Agent::Program::PrepareRound.call(
