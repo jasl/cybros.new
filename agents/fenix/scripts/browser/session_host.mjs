@@ -196,31 +196,44 @@ async function closeBrowser() {
 
 const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
 
-process.on("SIGINT", async () => {
+let stopping = false;
+
+async function stop() {
+  if (stopping) return;
+
+  stopping = true;
+  readline.close();
   await closeBrowser();
+}
+
+process.on("SIGINT", async () => {
+  await stop();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
-  await closeBrowser();
+  await stop();
   process.exit(0);
 });
 
-readline.on("close", async () => {
-  await closeBrowser();
-  process.exit(0);
-});
-
-readline.on("line", async line => {
+async function main() {
   try {
-    const payload = JSON.parse(line);
-    const responsePayload = await dispatch(payload.command, payload.arguments || {});
-    process.stdout.write(`${JSON.stringify({ payload: responsePayload })}\n`);
+    for await (const line of readline) {
+      try {
+        const payload = JSON.parse(line);
+        const responsePayload = await dispatch(payload.command, payload.arguments || {});
+        process.stdout.write(`${JSON.stringify({ payload: responsePayload })}\n`);
 
-    if (payload.command === "close") {
-      process.exit(0);
+        if (payload.command === "close") {
+          break;
+        }
+      } catch (error) {
+        process.stdout.write(`${JSON.stringify({ error: error.message })}\n`);
+      }
     }
-  } catch (error) {
-    process.stdout.write(`${JSON.stringify({ error: error.message })}\n`);
+  } finally {
+    await closeBrowser();
   }
-});
+}
+
+await main();
