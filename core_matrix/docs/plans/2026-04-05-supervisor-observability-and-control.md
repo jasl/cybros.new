@@ -44,8 +44,8 @@ shape execution order:
   behavior docs. Treat this as a domain replacement, not a wording pass.
 - The most likely hidden blockers for an otherwise-correct implementation are
   the manual acceptance harness and capstone scenario:
-  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/manual_acceptance_support.rb`
-  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/manual_acceptance_support_test.rb`
+  - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/manual_support.rb`
+  - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/acceptance/manual_support_test.rb`
   - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb`
   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/fresh_start_stack_contract_test.rb`
 - Purge and lifecycle ownership are also first-order work, not cleanup:
@@ -1230,8 +1230,8 @@ git commit -m "feat: rebuild sidechat on conversation supervision snapshots"
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/embedded_agents/registry.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/embedded_agents/invoke.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/manual_acceptance_support.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/manual_acceptance_support_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/manual_support.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/acceptance/manual_support_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/embedded_agents/invoke_test.rb`
 
 **Step 1: Write failing helper and registry tests**
@@ -1257,7 +1257,7 @@ without scraping transcript internals.
 Run:
 
 ```bash
-bin/rails test test/lib/manual_acceptance_support_test.rb test/services/embedded_agents/invoke_test.rb
+bin/rails test test/lib/acceptance/manual_support_test.rb test/services/embedded_agents/invoke_test.rb
 ```
 
 Commit:

@@ -324,7 +324,8 @@ git commit -m "Make purge aware of derived lifecycle rows"
 
 - explain the lifecycle classes
 - explain `kind` vs `type`
-- explain that cleanup jobs are not implemented yet
+- explain that recurring cleanup runs through `DataRetention::RunMaintenanceJob`
+  and the recurring schedule in `config/recurring.yml`
 - explain `UsageEvent` vs `UsageRollup` retention roles
 - explain observation/export expiration semantics
 

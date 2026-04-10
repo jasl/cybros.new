@@ -293,7 +293,7 @@ git -C /Users/jasl/Workspaces/Ruby/cybros/core_matrix commit -m "refactor: renam
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_runtime_resource_api_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/dummy_agent_runtime_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/bundled_default_agent_bootstrap_flow_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/manual_acceptance_support.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/manual_support.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/script/manual/dummy_agent_runtime.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/README.md`
 
@@ -332,7 +332,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git -C /Users/jasl/Workspaces/Ruby/cybros/core_matrix add test/test_helper.rb test/support/fake_agent_runtime_harness.rb test/integration/agent_registration_contract_test.rb test/integration/agent_runtime_resource_api_test.rb test/integration/dummy_agent_runtime_test.rb test/integration/bundled_default_agent_bootstrap_flow_test.rb script/manual/manual_acceptance_support.rb script/manual/dummy_agent_runtime.rb README.md
+git -C /Users/jasl/Workspaces/Ruby/cybros add core_matrix/test/test_helper.rb core_matrix/test/support/fake_agent_runtime_harness.rb core_matrix/test/integration/agent_registration_contract_test.rb core_matrix/test/integration/agent_runtime_resource_api_test.rb core_matrix/test/integration/dummy_agent_runtime_test.rb core_matrix/test/integration/bundled_default_agent_bootstrap_flow_test.rb acceptance/lib/manual_support.rb core_matrix/script/manual/dummy_agent_runtime.rb core_matrix/README.md
 git -C /Users/jasl/Workspaces/Ruby/cybros/core_matrix commit -m "refactor: rename executor integration surface"
 ```
 
