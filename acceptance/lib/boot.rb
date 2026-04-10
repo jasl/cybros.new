@@ -18,7 +18,7 @@ module AcceptanceHarness
   end
 end
 
-require_relative '../../core_matrix/script/manual/manual_acceptance_support'
+require_relative 'manual_support'
 require_relative 'artifact_bundle'
 require_relative 'benchmark_reporting'
 require_relative 'capability_activation'

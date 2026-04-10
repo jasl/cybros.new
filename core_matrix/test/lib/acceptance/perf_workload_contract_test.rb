@@ -11,7 +11,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     scenario = Rails.root.join("../acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb").read
 
     assert_match(/ENV\.fetch\(['"]MULTI_FENIX_LOAD_STACK_ALREADY_RESET['"], ['"]false['"]\)/, scenario)
-    assert_includes scenario, "ManualAcceptanceSupport.reset_backend_state! unless stack_already_reset"
+    assert_includes scenario, "Acceptance::ManualSupport.reset_backend_state! unless stack_already_reset"
   end
 
   test "smoke profile declares an execution-assignment workload with one turn per conversation" do

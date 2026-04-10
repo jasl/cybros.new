@@ -86,7 +86,7 @@ claims real loop behavior, validation must include:
   database through `bin/rails db:reset` before reapplying the acceptance seed
   baseline.
 - The reusable manual-validation harness now lives in
-  `script/manual/manual_acceptance_support.rb`.
+  `../acceptance/lib/manual_support.rb`.
 - Acceptance operator scenario scripts now live under
   `../acceptance/scenarios/*`, with shell orchestration under
   `../acceptance/bin/*`, and are intended to be run through

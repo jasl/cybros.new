@@ -325,7 +325,7 @@ def supervise_conversation_progress!(
   poll_interval_seconds:,
   stall_threshold_ms:
 )
-  session_payload = ManualAcceptanceSupport.create_conversation_supervision_session!(
+  session_payload = Acceptance::ManualSupport.create_conversation_supervision_session!(
     conversation_id: conversation_id,
     actor: actor
   )
@@ -335,7 +335,7 @@ def supervise_conversation_progress!(
   last_progress_signature = nil
 
   loop do
-    response = ManualAcceptanceSupport.append_conversation_supervision_message!(
+    response = Acceptance::ManualSupport.append_conversation_supervision_message!(
       supervision_session_id: supervision_session_id,
       content: prompt,
       actor: actor
@@ -416,7 +416,7 @@ def supervise_conversation_progress!(
 end
 
 def evaluate_control_intent_case!(category:, entry:, supervision_session_id:, actor:, conversation:)
-  response = ManualAcceptanceSupport.append_conversation_supervision_message!(
+  response = Acceptance::ManualSupport.append_conversation_supervision_message!(
     supervision_session_id: supervision_session_id,
     actor: actor,
     content: entry.fetch("utterance")
@@ -610,10 +610,10 @@ when "bootstrap"
   FileUtils.rm_rf(generated_app_dir)
 
   unless ActiveModel::Type::Boolean.new.cast(ENV["CAPSTONE_SKIP_BACKEND_RESET"])
-    ManualAcceptanceSupport.reset_backend_state!
+    Acceptance::ManualSupport.reset_backend_state!
   end
-  bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-  bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+  bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+  bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
     installation: bootstrap.installation,
     runtime_base_url: runtime_base_url,
     executor_fingerprint: executor_fingerprint,
@@ -684,7 +684,7 @@ write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), Accepta
 write_json(artifact_dir.join("evidence", "attempt-history.json"), [])
 write_json(artifact_dir.join("evidence", "rescue-history.json"), [])
 
-conversation_context = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
+conversation_context = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version)
 conversation = conversation_context.fetch(:conversation).reload
 log_capstone_phase(
   artifact_dir: artifact_dir,
@@ -718,7 +718,7 @@ seen_live_progress_event_keys = Set.new
       "max_turn_attempts" => max_turn_attempts,
     }
   )
-  run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+  run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
     agent_program_version: agent_program_version,
     content: repair_prompt,
@@ -729,7 +729,7 @@ seen_live_progress_event_keys = Set.new
     selector: selector
   )
   dispatched_node = Workflows::ExecuteRun.call(workflow_run: run.fetch(:workflow_run))
-  ManualAcceptanceSupport.execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
+  Acceptance::ManualSupport.execute_inline_if_queued!(workflow_node: dispatched_node) if dispatched_node.present?
 
   supervision_trace = supervise_conversation_progress!(
     artifact_dir: artifact_dir,
@@ -755,7 +755,7 @@ seen_live_progress_event_keys = Set.new
   )
 
   turn = run.fetch(:turn).reload
-  workflow_run = ManualAcceptanceSupport.wait_for_workflow_run_terminal!(
+  workflow_run = Acceptance::ManualSupport.wait_for_workflow_run_terminal!(
     workflow_run: run.fetch(:workflow_run),
     timeout_seconds: 30
   )

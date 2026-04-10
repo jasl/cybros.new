@@ -43,7 +43,7 @@ and the retained acceptance operator path.
   - one-time manual resume override
   - drift-triggered manual retry
 - The current agent-loop acceptance baseline now additionally relies on the
-  reusable harness in `script/manual/manual_acceptance_support.rb` plus
+  reusable harness in `../acceptance/lib/manual_support.rb` plus
   concrete operator scripts under `../../acceptance/scenarios/*`, run through
   `bin/rails runner ../../acceptance/scenarios/...`, to cover:
   - bundled `Fenix` fast terminal

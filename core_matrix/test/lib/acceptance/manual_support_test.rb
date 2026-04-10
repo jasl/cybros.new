@@ -1,8 +1,8 @@
 require "test_helper"
-require Rails.root.join("script/manual/manual_acceptance_support")
+require Rails.root.join("../acceptance/lib/manual_support")
 require "tmpdir"
 
-class ManualAcceptanceSupportTest < ActiveSupport::TestCase
+class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   ExecutionSnapshot = Struct.new(:conversation_projection)
   WorkflowRunDouble = Struct.new(:execution_snapshot)
   InlineWorkflowRunDouble = Struct.new(:public_id, :lifecycle_state) do
@@ -19,11 +19,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
     with_redefined_singleton_method(Workflows::ExecuteRun, :call, ->(*) { nil }) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :wait_for_workflow_run_terminal!,
         ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil) { captured_timeout = timeout_seconds }
       ) do
-        ManualAcceptanceSupport.execute_provider_workflow!(workflow_run:)
+        Acceptance::ManualSupport.execute_provider_workflow!(workflow_run:)
       end
     end
 
@@ -36,11 +36,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
     with_redefined_singleton_method(Workflows::ExecuteRun, :call, ->(*) { nil }) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :wait_for_workflow_run_terminal!,
         ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil) { captured_timeout = timeout_seconds }
       ) do
-        ManualAcceptanceSupport.execute_provider_workflow!(workflow_run:, timeout_seconds: 42)
+        Acceptance::ManualSupport.execute_provider_workflow!(workflow_run:, timeout_seconds: 42)
       end
     end
 
@@ -55,7 +55,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     captured_inline_if_queued = nil
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
+      Acceptance::ManualSupport,
       :start_turn_workflow_on_conversation!,
       lambda do |**_kwargs|
         {
@@ -66,16 +66,15 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       end
     ) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :execute_provider_workflow!,
         lambda do |workflow_run:, timeout_seconds: 3600, catalog: nil, inline_if_queued: true|
           captured_catalog = catalog
           captured_inline_if_queued = inline_if_queued
         end
       ) do
-        result = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+        result = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
           conversation: conversation,
-          agent_program_version: "apv",
           content: "Benchmark input",
           selector: "role:mock",
           catalog: :catalog_override,
@@ -122,7 +121,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         result
       end
     ) do
-      returned = ManualAcceptanceSupport.execute_program_tool_call!(
+      returned = Acceptance::ManualSupport.execute_program_tool_call!(
         workflow_node: workflow_node,
         tool_call: tool_call,
         round_bindings: round_bindings,
@@ -151,18 +150,18 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
     with_redefined_singleton_method(Workflows::ExecuteRun, :call, ->(*) { dispatched_node }) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :wait_for_workflow_run_terminal!,
         ->(workflow_run:, timeout_seconds:, poll_interval_seconds: 0.1, inline_if_queued: false, catalog: nil) { wait_called = true }
       ) do
         with_redefined_singleton_method(
-          ManualAcceptanceSupport,
+          Acceptance::ManualSupport,
           :execute_inline_if_queued!,
           lambda do |**_kwargs|
             inline_calls += 1
           end
         ) do
-          ManualAcceptanceSupport.execute_provider_workflow!(
+          Acceptance::ManualSupport.execute_provider_workflow!(
             workflow_run: workflow_run,
             inline_if_queued: false
           )
@@ -180,21 +179,21 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     executed = []
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
+      Acceptance::ManualSupport,
       :next_inline_workflow_node,
       lambda do |current_workflow_run|
         current_workflow_run.lifecycle_state == "active" ? queued_node : nil
       end
     ) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :execute_inline_if_queued!,
         lambda do |workflow_node:, catalog: nil|
           executed << [workflow_node.public_id, catalog]
           workflow_run.lifecycle_state = "completed"
         end
       ) do
-        result = ManualAcceptanceSupport.wait_for_workflow_run_terminal!(
+        result = Acceptance::ManualSupport.wait_for_workflow_run_terminal!(
           workflow_run: workflow_run,
           timeout_seconds: 1,
           poll_interval_seconds: 0.0,
@@ -227,7 +226,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           captured = kwargs
         end
       ) do
-        ManualAcceptanceSupport.execute_inline_if_queued!(
+        Acceptance::ManualSupport.execute_inline_if_queued!(
           workflow_node: Struct.new(:public_id).new("node-public-id"),
           catalog: :catalog_override
         )
@@ -241,10 +240,10 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
   test "reset_backend_state! disconnects, rebuilds, and reconnects the database" do
     calls = []
 
-    with_redefined_singleton_method(ManualAcceptanceSupport, :disconnect_application_record!, -> { calls << :disconnect }) do
-      with_redefined_singleton_method(ManualAcceptanceSupport, :run_database_reset_command!, -> { calls << :reset }) do
-        with_redefined_singleton_method(ManualAcceptanceSupport, :reconnect_application_record!, -> { calls << :reconnect }) do
-          ManualAcceptanceSupport.reset_backend_state!
+    with_redefined_singleton_method(Acceptance::ManualSupport, :disconnect_application_record!, -> { calls << :disconnect }) do
+      with_redefined_singleton_method(Acceptance::ManualSupport, :run_database_reset_command!, -> { calls << :reset }) do
+        with_redefined_singleton_method(Acceptance::ManualSupport, :reconnect_application_record!, -> { calls << :reconnect }) do
+          Acceptance::ManualSupport.reset_backend_state!
         end
       end
     end
@@ -256,13 +255,13 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     calls = []
     error = RuntimeError.new("database reset failed")
 
-    with_redefined_singleton_method(ManualAcceptanceSupport, :disconnect_application_record!, -> { calls << :disconnect }) do
-      with_redefined_singleton_method(ManualAcceptanceSupport, :run_database_reset_command!, lambda {
+    with_redefined_singleton_method(Acceptance::ManualSupport, :disconnect_application_record!, -> { calls << :disconnect }) do
+      with_redefined_singleton_method(Acceptance::ManualSupport, :run_database_reset_command!, lambda {
         calls << :reset
         raise error
       }) do
-        with_redefined_singleton_method(ManualAcceptanceSupport, :reconnect_application_record!, -> { calls << :reconnect }) do
-          raised = assert_raises(RuntimeError) { ManualAcceptanceSupport.reset_backend_state! }
+        with_redefined_singleton_method(Acceptance::ManualSupport, :reconnect_application_record!, -> { calls << :reconnect }) do
+          raised = assert_raises(RuntimeError) { Acceptance::ManualSupport.reset_backend_state! }
 
           assert_same error, raised
         end
@@ -280,7 +279,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         captured = { args:, kwargs: }
         ["reset stdout", "", Struct.new(:success?, :exitstatus).new(true, 0)]
       }) do
-        result = ManualAcceptanceSupport.run_database_reset_command!
+        result = Acceptance::ManualSupport.run_database_reset_command!
 
         assert_equal "reset stdout", result.fetch(:stdout)
       end
@@ -305,11 +304,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         ['{"items":[]}', "", Struct.new(:success?, :exitstatus).new(true, 0)]
       }) do
         with_redefined_singleton_method(
-          ManualAcceptanceSupport,
+          Acceptance::ManualSupport,
           :fenix_project_root,
           -> { Pathname.new("/tmp/fenix-project") }
         ) do
-          result = ManualAcceptanceSupport.run_fenix_runtime_task!(
+          result = Acceptance::ManualSupport.run_fenix_runtime_task!(
             task_name: "runtime:control_loop_once",
             machine_credential: "program-secret",
             executor_machine_credential: "execution-secret",
@@ -342,11 +341,11 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         ['{"items":[]}', "", Struct.new(:success?, :exitstatus).new(true, 0)]
       }) do
         with_redefined_singleton_method(
-          ManualAcceptanceSupport,
+          Acceptance::ManualSupport,
           :fenix_project_root,
           -> { Pathname.new("/tmp/fenix-project") }
         ) do
-          ManualAcceptanceSupport.run_fenix_runtime_task!(
+          Acceptance::ManualSupport.run_fenix_runtime_task!(
             task_name: "runtime:control_loop_once",
             machine_credential: "program-secret",
             executor_machine_credential: "execution-secret",
@@ -379,14 +378,14 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         captured = { args:, kwargs: }
         43_210
       }) do
-        with_redefined_singleton_method(ManualAcceptanceSupport, :wait_for_worker_ready!, ->(reader:, pid:, timeout_seconds: 15) { nil }) do
-          with_redefined_singleton_method(ManualAcceptanceSupport, :stop_fenix_control_worker!, ->(pid) { nil }) do
+        with_redefined_singleton_method(Acceptance::ManualSupport, :wait_for_worker_ready!, ->(reader:, pid:, timeout_seconds: 15) { nil }) do
+          with_redefined_singleton_method(Acceptance::ManualSupport, :stop_fenix_control_worker!, ->(pid) { nil }) do
             with_redefined_singleton_method(
-              ManualAcceptanceSupport,
+              Acceptance::ManualSupport,
               :fenix_project_root,
               -> { Pathname.new("/tmp/fenix-project") }
             ) do
-              ManualAcceptanceSupport.with_fenix_control_worker!(
+              Acceptance::ManualSupport.with_fenix_control_worker!(
                 machine_credential: "program-secret",
                 executor_machine_credential: "execution-secret",
                 env: {
@@ -414,7 +413,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
 
   test "run_fenix_control_loop_for_registration! forwards executor credentials from runtime registration" do
     captured = nil
-    registration = ManualAcceptanceSupport::RuntimeRegistration.new(
+    registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
       machine_credential: "program-secret",
       executor_machine_credential: "execution-secret",
@@ -422,14 +421,14 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     )
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
+      Acceptance::ManualSupport,
       :run_fenix_control_loop_once!,
       lambda do |**kwargs|
         captured = kwargs
         { "items" => [] }
       end
     ) do
-      result = ManualAcceptanceSupport.run_fenix_control_loop_for_registration!(
+      result = Acceptance::ManualSupport.run_fenix_control_loop_for_registration!(
         registration: registration,
         limit: 3
       )
@@ -445,21 +444,21 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
   test "with_fenix_control_worker_for_registration! falls back to the program credential when executor credential is absent" do
     captured = nil
     yielded = nil
-    registration = ManualAcceptanceSupport::RuntimeRegistration.new(
+    registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
       machine_credential: "program-secret",
       agent_program_version: "apv"
     )
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
+      Acceptance::ManualSupport,
       :with_fenix_control_worker!,
       lambda do |**kwargs, &block|
         captured = kwargs
         block.call("pid-123")
       end
     ) do
-      ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
+      Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
         registration: registration,
         limit: 2
       ) do |pid|
@@ -474,7 +473,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
   end
 
   test "runtime registration exposes session ids without reaching into raw registration payloads" do
-    registration = ManualAcceptanceSupport::RuntimeRegistration.new(
+    registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
       machine_credential: "program-secret",
       executor_machine_credential: "execution-secret",
@@ -499,7 +498,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         calls << :with_connection
         block.call(Struct.new(:active?).new(true))
       }) do
-        ManualAcceptanceSupport.reconnect_application_record!
+        Acceptance::ManualSupport.reconnect_application_record!
       end
     end
 
@@ -523,9 +522,9 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       "executor_tool_catalog" => [],
     }
 
-    with_redefined_singleton_method(ManualAcceptanceSupport, :live_manifest, ->(base_url:) { manifest }) do
+    with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :http_post_json,
         lambda do |url, payload, headers: {}|
           if url.end_with?("/agent_api/registrations")
@@ -544,14 +543,14 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
       ) do
         with_redefined_singleton_method(AgentProgramVersion, :find_by_public_id!, ->(public_id) { public_id }) do
           with_redefined_singleton_method(ExecutorProgram, :find_by_public_id!, ->(public_id) { public_id }) do
-            result = ManualAcceptanceSupport.register_external_runtime!(
+            result = Acceptance::ManualSupport.register_external_runtime!(
               enrollment_token: "enrollment-token",
               runtime_base_url: "http://127.0.0.1:3101",
               executor_fingerprint: "runtime-fingerprint",
               fingerprint: "program-fingerprint"
             )
 
-            assert_instance_of ManualAcceptanceSupport::RuntimeRegistration, result
+            assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
             assert_equal "program-secret", result.machine_credential
             assert_equal "execution-secret", result.executor_machine_credential
             assert_equal "apv_123", result.agent_program_version
@@ -582,7 +581,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     )
     captured_configuration = nil
 
-    with_redefined_singleton_method(ManualAcceptanceSupport, :live_manifest, ->(base_url:) { manifest }) do
+    with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
         Installations::RegisterBundledAgentRuntime,
         :call,
@@ -601,14 +600,14 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           )
         end
       ) do
-        result = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+        result = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
           installation: "installation",
           runtime_base_url: "http://127.0.0.1:3101",
           executor_fingerprint: "runtime-fingerprint",
           fingerprint: "program-fingerprint"
         )
 
-        assert_instance_of ManualAcceptanceSupport::RuntimeRegistration, result
+        assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
         assert_equal manifest.fetch("executor_connection_metadata"), captured_configuration.fetch(:connection_metadata)
         assert result.machine_credential.present?
         assert result.executor_machine_credential.present?
@@ -620,7 +619,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     manifest = bundled_runtime_manifest.except("executor_connection_metadata")
     captured_configuration = nil
 
-    with_redefined_singleton_method(ManualAcceptanceSupport, :live_manifest, ->(base_url:) { manifest }) do
+    with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
         Installations::RegisterBundledAgentRuntime,
         :call,
@@ -639,7 +638,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           )
         end
       ) do
-        ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+        Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
           installation: "installation",
           runtime_base_url: "http://127.0.0.1:3101",
           executor_fingerprint: "runtime-fingerprint",
@@ -669,12 +668,12 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
     captured_executor_machine_credential = nil
 
     with_redefined_singleton_method(
-      ManualAcceptanceSupport,
+      Acceptance::ManualSupport,
       :create_conversation!,
       ->(agent_program_version:) { { conversation: conversation } }
     ) do
       with_redefined_singleton_method(
-        ManualAcceptanceSupport,
+        Acceptance::ManualSupport,
         :start_turn_workflow_on_conversation!,
         lambda do |**_kwargs|
           {
@@ -686,7 +685,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
         end
       ) do
         with_redefined_singleton_method(
-          ManualAcceptanceSupport,
+          Acceptance::ManualSupport,
           :run_fenix_control_loop_once!,
           lambda do |machine_credential:, executor_machine_credential:, **_kwargs|
             captured_executor_machine_credential = executor_machine_credential
@@ -705,12 +704,12 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           end
         ) do
           with_redefined_singleton_method(
-            ManualAcceptanceSupport,
+            Acceptance::ManualSupport,
             :wait_for_agent_task_terminal!,
             ->(agent_task_run:) { agent_task_run }
           ) do
-            with_redefined_singleton_method(ManualAcceptanceSupport, :report_results_for, ->(agent_task_run:) { [] }) do
-              result = ManualAcceptanceSupport.run_fenix_mailbox_task!(
+            with_redefined_singleton_method(Acceptance::ManualSupport, :report_results_for, ->(agent_task_run:) { [] }) do
+              result = Acceptance::ManualSupport.run_fenix_mailbox_task!(
                 agent_program_version: "apv",
                 machine_credential: "program-secret",
                 executor_machine_credential: "execution-secret",
@@ -767,7 +766,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           session_double
         end
       ) do
-        result = ManualAcceptanceSupport.create_conversation_supervision_session!(
+        result = Acceptance::ManualSupport.create_conversation_supervision_session!(
           conversation_id: "conversation_123",
           actor: actor
         )
@@ -843,7 +842,7 @@ class ManualAcceptanceSupportTest < ActiveSupport::TestCase
           }
         end
       ) do
-        result = ManualAcceptanceSupport.append_conversation_supervision_message!(
+        result = Acceptance::ManualSupport.append_conversation_supervision_message!(
           supervision_session_id: "obs_session_123",
           actor: actor,
           content: "Summarize current progress"

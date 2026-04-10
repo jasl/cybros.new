@@ -10,9 +10,9 @@ content = ENV.fetch(
   "Reply with ACCEPTED-PHASE2 exactly. Do not add any other words or punctuation."
 )
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+Acceptance::ManualSupport.reset_backend_state!
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-provider-backed-environment",
@@ -21,11 +21,10 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 conversation_context = nil
 run = nil
 
-ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
-  conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.deployment)
-  run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
+  conversation_context = Acceptance::ManualSupport.create_conversation!(deployment: bundled.deployment)
+  run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation_context.fetch(:conversation),
-    deployment: bundled.deployment,
     content: content,
     root_node_key: "turn_step",
     root_node_type: "turn_step",
@@ -33,7 +32,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration
     selector_source: "manual",
     selector: selector
   )
-  ManualAcceptanceSupport.execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
+  Acceptance::ManualSupport.execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
 end
 
 workflow_run = run.fetch(:workflow_run).reload
@@ -41,14 +40,14 @@ turn = run.fetch(:turn).reload
 model_context = workflow_run.execution_snapshot.model_context
 
 expected_dag_shape = ["turn_step"]
-observed_dag_shape = ManualAcceptanceSupport.workflow_node_keys(workflow_run)
+observed_dag_shape = Acceptance::ManualSupport.workflow_node_keys(workflow_run)
 expected_conversation_state = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
   "workflow_wait_state" => "ready",
   "turn_lifecycle_state" => "completed",
 }
-observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
+observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
   conversation: conversation_context.fetch(:conversation),
   workflow_run: workflow_run,
   turn: turn,
@@ -58,8 +57,8 @@ observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
   }
 )
 
-ManualAcceptanceSupport.write_json(
-  ManualAcceptanceSupport.scenario_result(
+Acceptance::ManualSupport.write_json(
+  Acceptance::ManualSupport.scenario_result(
     scenario: "provider_backed_turn_validation",
     expected_dag_shape: expected_dag_shape,
     observed_dag_shape: observed_dag_shape,

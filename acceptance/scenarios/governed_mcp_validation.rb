@@ -94,8 +94,8 @@ begin
     workflow_run: task_context.fetch(:workflow_run)
   )
 
-  ManualAcceptanceSupport.write_json(
-    ManualAcceptanceSupport.scenario_result(
+  Acceptance::ManualSupport.write_json(
+    Acceptance::ManualSupport.scenario_result(
       scenario: "governed_mcp_validation",
       expected_dag_shape: expected_dag_shape,
       observed_dag_shape: observed_dag_shape,

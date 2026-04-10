@@ -103,8 +103,8 @@ bundled_configuration = {
   },
 }.freeze
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!(bundled_agent_configuration: { enabled: false })
+Acceptance::ManualSupport.reset_backend_state!
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!(bundled_agent_configuration: { enabled: false })
 registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
@@ -369,4 +369,4 @@ payload["passed"] =
   payload.dig("observed_conversation_state_after", "workflow_wait_state") == "ready" &&
   payload.dig("observed_conversation_state_after", "successor_task_lifecycle_state") == "queued"
 
-ManualAcceptanceSupport.write_json(payload)
+Acceptance::ManualSupport.write_json(payload)

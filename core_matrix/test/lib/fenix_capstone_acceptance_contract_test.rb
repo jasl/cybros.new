@@ -255,9 +255,9 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "process run close validation uses the real program tool mailbox exchange path" do
     scenario = Rails.root.join("../acceptance/scenarios/process_run_close_validation.rb").read
 
-    assert_includes scenario, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
+    assert_includes scenario, "Acceptance::ManualSupport.with_fenix_control_worker_for_registration!("
     assert_includes scenario, "registration: bundled"
-    assert_includes scenario, "ManualAcceptanceSupport.execute_program_tool_call!("
+    assert_includes scenario, "Acceptance::ManualSupport.execute_program_tool_call!("
     assert_includes scenario, '"tool_name" => "process_exec"'
     refute_includes scenario, '"mode" => "deterministic_tool"'
   end
@@ -265,9 +265,9 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "provider-backed turn validation runs the bundled runtime control worker" do
     scenario = Rails.root.join("../acceptance/scenarios/provider_backed_turn_validation.rb").read
 
-    assert_includes scenario, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
+    assert_includes scenario, "Acceptance::ManualSupport.with_fenix_control_worker_for_registration!("
     assert_includes scenario, "registration: bundled"
-    assert_includes scenario, "ManualAcceptanceSupport.execute_provider_workflow!"
+    assert_includes scenario, "Acceptance::ManualSupport.execute_provider_workflow!"
   end
 
   test "bundled fast terminal validation passes both agent and executor credentials" do
@@ -349,26 +349,26 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   end
 
   test "manual acceptance support derives bundled runtime identity from the live manifest" do
-    helper = Rails.root.join("../core_matrix/script/manual/manual_acceptance_support.rb").read
+    helper = Rails.root.join("../acceptance/lib/manual_support.rb").read
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes helper, 'agent_key: manifest.fetch("agent_key")'
-    assert_includes helper, 'display_name: manifest.fetch("display_name")'
-    assert_includes helper, 'sdk_version: manifest.fetch("sdk_version")'
+    assert_includes helper, "agent_key: manifest.fetch('agent_key')"
+    assert_includes helper, "display_name: manifest.fetch('display_name')"
+    assert_includes helper, "sdk_version: manifest.fetch('sdk_version')"
     refute_includes helper, 'agent_key: "fenix"'
     refute_includes helper, 'display_name: "Bundled Fenix"'
     refute_includes scenario, 'sdk_version: "fenix-0.1.0"'
   end
 
   test "manual acceptance support still allows explicit sdk version override for rotation validations" do
-    helper = Rails.root.join("../core_matrix/script/manual/manual_acceptance_support.rb").read
+    helper = Rails.root.join("../acceptance/lib/manual_support.rb").read
     rotation = Rails.root.join("../acceptance/scenarios/bundled_rotation_validation.rb").read
 
-    assert_includes helper, 'resolved_sdk_version = sdk_version || manifest.fetch("sdk_version")'
+    assert_includes helper, "resolved_sdk_version = sdk_version || manifest.fetch('sdk_version')"
     assert_includes helper, "sdk_version: resolved_sdk_version"
     assert_includes rotation, 'sdk_version: "fenix-0.2.0"'
     assert_includes rotation, 'sdk_version: "fenix-0.0.9"'
-    assert_includes rotation, "ManualAcceptanceSupport.with_fenix_control_worker_for_registration!("
+    assert_includes rotation, "Acceptance::ManualSupport.with_fenix_control_worker_for_registration!("
     refute_includes rotation, "Conversations::SwitchAgentProgramVersion"
   end
 

@@ -37,16 +37,16 @@ module Acceptance
     }.freeze
 
     def capture_export_roundtrip!(artifact_dir:, conversation:, machine_credential:, supervision_trace:, prompt:)
-      source_transcript = ManualAcceptanceSupport.app_api_conversation_transcript!(
+      source_transcript = Acceptance::ManualSupport.app_api_conversation_transcript!(
         conversation_id: conversation.public_id,
         machine_credential: machine_credential,
         limit: 200
       )
-      source_diagnostics_show = ManualAcceptanceSupport.app_api_conversation_diagnostics_show!(
+      source_diagnostics_show = Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
         conversation_id: conversation.public_id,
         machine_credential: machine_credential
       )
-      source_diagnostics_turns = ManualAcceptanceSupport.app_api_conversation_diagnostics_turns!(
+      source_diagnostics_turns = Acceptance::ManualSupport.app_api_conversation_diagnostics_turns!(
         conversation_id: conversation.public_id,
         machine_credential: machine_credential
       )
@@ -54,29 +54,29 @@ module Acceptance
       user_bundle_path = artifact_dir.join("exports", "conversation-export.zip")
       debug_bundle_path = artifact_dir.join("exports", "conversation-debug-export.zip")
 
-      export_result = ManualAcceptanceSupport.app_api_export_conversation!(
+      export_result = Acceptance::ManualSupport.app_api_export_conversation!(
         conversation_id: conversation.public_id,
         machine_credential: machine_credential,
         destination_path: user_bundle_path.to_s
       )
-      debug_export_result = ManualAcceptanceSupport.app_api_debug_export_conversation!(
+      debug_export_result = Acceptance::ManualSupport.app_api_debug_export_conversation!(
         conversation_id: conversation.public_id,
         machine_credential: machine_credential,
         destination_path: debug_bundle_path.to_s
       )
-      import_result = ManualAcceptanceSupport.app_api_import_conversation_bundle!(
+      import_result = Acceptance::ManualSupport.app_api_import_conversation_bundle!(
         workspace_id: conversation.workspace.public_id,
         zip_path: user_bundle_path.to_s,
         machine_credential: machine_credential
       )
       imported_conversation_id = import_result.dig("show", "import_request", "imported_conversation_id")
 
-      imported_transcript = ManualAcceptanceSupport.app_api_conversation_transcript!(
+      imported_transcript = Acceptance::ManualSupport.app_api_conversation_transcript!(
         conversation_id: imported_conversation_id,
         machine_credential: machine_credential,
         limit: 200
       )
-      imported_diagnostics_show = ManualAcceptanceSupport.app_api_conversation_diagnostics_show!(
+      imported_diagnostics_show = Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
         conversation_id: imported_conversation_id,
         machine_credential: machine_credential
       )
@@ -157,7 +157,7 @@ module Acceptance
         next if conversation_id.blank?
 
         debug_bundle_path = artifact_dir.join("tmp", "subagent-debug-exports", "#{subagent_session_id}.zip")
-        debug_export_result = ManualAcceptanceSupport.app_api_debug_export_conversation!(
+        debug_export_result = Acceptance::ManualSupport.app_api_debug_export_conversation!(
           conversation_id: conversation_id,
           machine_credential: machine_credential,
           destination_path: debug_bundle_path.to_s

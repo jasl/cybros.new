@@ -4,10 +4,10 @@ require_relative "../lib/boot"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+Acceptance::ManualSupport.reset_backend_state!
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 
-v1 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+v1 = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-bundled-rotation-environment",
@@ -18,17 +18,16 @@ v1 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 conversation_context = nil
 baseline = nil
 
-ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: v1) do
-  conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: v1.deployment)
-  baseline = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: v1) do
+  conversation_context = Acceptance::ManualSupport.create_conversation!(deployment: v1.deployment)
+  baseline = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation),
-    deployment: v1.deployment,
     content: "Bundled rotation baseline turn",
     selector: "candidate:dev/mock-model"
   )
 end
 
-v2 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+v2 = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-bundled-rotation-environment",
@@ -40,16 +39,15 @@ upgrade_previous_state = v1.deployment.reload.bootstrap_state
 upgrade_new_state = v2.deployment.reload.bootstrap_state
 upgrade = nil
 
-ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: v2) do
-  upgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: v2) do
+  upgrade = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation).reload,
-    deployment: v2.deployment,
     content: "Bundled rotation upgrade turn",
     selector: "candidate:dev/mock-model"
   )
 end
 
-v0 = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+v0 = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-bundled-rotation-environment",
@@ -61,10 +59,9 @@ downgrade_previous_state = v2.deployment.reload.bootstrap_state
 downgrade_new_state = v0.deployment.reload.bootstrap_state
 downgrade = nil
 
-ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(registration: v0) do
-  downgrade = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: v0) do
+  downgrade = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation).reload,
-    deployment: v0.deployment,
     content: "Bundled rotation downgrade turn",
     selector: "candidate:dev/mock-model"
   )
@@ -78,26 +75,26 @@ expected_conversation_state = {
   "turn_lifecycle_state" => "completed",
 }.freeze
 
-baseline_state = ManualAcceptanceSupport.workflow_state_hash(
+baseline_state = Acceptance::ManualSupport.workflow_state_hash(
   conversation: conversation_context.fetch(:conversation),
   workflow_run: baseline.fetch(:workflow_run),
   turn: baseline.fetch(:turn)
 )
-upgrade_state = ManualAcceptanceSupport.workflow_state_hash(
+upgrade_state = Acceptance::ManualSupport.workflow_state_hash(
   conversation: conversation_context.fetch(:conversation),
   workflow_run: upgrade.fetch(:workflow_run),
   turn: upgrade.fetch(:turn)
 )
-downgrade_state = ManualAcceptanceSupport.workflow_state_hash(
+downgrade_state = Acceptance::ManualSupport.workflow_state_hash(
   conversation: conversation_context.fetch(:conversation),
   workflow_run: downgrade.fetch(:workflow_run),
   turn: downgrade.fetch(:turn)
 )
-baseline_dag_shape = ManualAcceptanceSupport.workflow_node_keys(baseline.fetch(:workflow_run))
-upgrade_dag_shape = ManualAcceptanceSupport.workflow_node_keys(upgrade.fetch(:workflow_run))
-downgrade_dag_shape = ManualAcceptanceSupport.workflow_node_keys(downgrade.fetch(:workflow_run))
+baseline_dag_shape = Acceptance::ManualSupport.workflow_node_keys(baseline.fetch(:workflow_run))
+upgrade_dag_shape = Acceptance::ManualSupport.workflow_node_keys(upgrade.fetch(:workflow_run))
+downgrade_dag_shape = Acceptance::ManualSupport.workflow_node_keys(downgrade.fetch(:workflow_run))
 
-ManualAcceptanceSupport.write_json(
+Acceptance::ManualSupport.write_json(
   {
     "scenario" => "bundled_rotation_validation",
     "passed" => [

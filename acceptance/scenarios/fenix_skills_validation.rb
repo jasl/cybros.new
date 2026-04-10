@@ -27,7 +27,7 @@ def run_mailbox_task_on_conversation!(conversation:, agent_program_version:, reg
 end
 
 def start_mailbox_turn_workflow!(conversation:, agent_program_version:, task:)
-  ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+  Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
     agent_program_version: agent_program_version,
     content: task.fetch(:content),
@@ -41,7 +41,7 @@ end
 
 def finalize_mailbox_task_run(run:, conversation:, registration:)
   pump_result = run_fenix_control_loop!(registration:)
-  agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
+  agent_task_run = Acceptance::ManualSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
   mailbox_item = latest_mailbox_item_for!(agent_task_run)
 
   run.merge(
@@ -53,18 +53,18 @@ def finalize_mailbox_task_run(run:, conversation:, registration:)
 end
 
 def execution_summary_for!(pump_result:, mailbox_item:)
-  ManualAcceptanceSupport.mailbox_execution_result_for!(
+  Acceptance::ManualSupport.mailbox_execution_result_for!(
     pump_result: pump_result,
     mailbox_item_id: mailbox_item.public_id
   )
 end
 
 def report_results_for(agent_task_run:)
-  ManualAcceptanceSupport.report_results_for(agent_task_run: agent_task_run)
+  Acceptance::ManualSupport.report_results_for(agent_task_run: agent_task_run)
 end
 
 def run_fenix_control_loop!(registration:)
-  ManualAcceptanceSupport.run_fenix_control_loop_for_registration!(registration:)
+  Acceptance::ManualSupport.run_fenix_control_loop_for_registration!(registration:)
 end
 
 def latest_mailbox_item_for!(agent_task_run)
@@ -76,7 +76,7 @@ end
 
 def serialize_run(run)
   serialize_run_identity(run)
-    .merge('dag_shape' => ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run)))
+    .merge('dag_shape' => Acceptance::ManualSupport.workflow_node_keys(run.fetch(:workflow_run)))
     .merge('conversation_state' => serialize_run_conversation_state(run))
     .merge(serialize_run_execution(run))
     .merge('report_results' => run.fetch(:report_results))
@@ -92,7 +92,7 @@ def serialize_run_identity(run)
 end
 
 def serialize_run_conversation_state(run)
-  ManualAcceptanceSupport.workflow_state_hash(
+  Acceptance::ManualSupport.workflow_state_hash(
     conversation: run.fetch(:conversation),
     workflow_run: run.fetch(:workflow_run),
     turn: run.fetch(:turn),
@@ -128,29 +128,29 @@ ENV['FENIX_HOME_ROOT'] = fenix_home_root.to_s
 FileUtils.rm_rf(fenix_home_root)
 FileUtils.mkdir_p(fenix_home_root)
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+Acceptance::ManualSupport.reset_backend_state!
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 
-external_program_a = ManualAcceptanceSupport.create_external_agent_program!(
+external_program_a = Acceptance::ManualSupport.create_external_agent_program!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: 'fenix-skills-program-a',
   display_name: 'Fenix Skills Runtime A'
 )
-external_program_b = ManualAcceptanceSupport.create_external_agent_program!(
+external_program_b = Acceptance::ManualSupport.create_external_agent_program!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: 'fenix-skills-program-b',
   display_name: 'Fenix Skills Runtime B'
 )
 
-registration_a = ManualAcceptanceSupport.register_external_runtime!(
+registration_a = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external_program_a.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
   executor_fingerprint: 'acceptance-fenix-skills-environment-a',
   fingerprint: 'acceptance-fenix-skills-a-v1'
 )
-registration_b = ManualAcceptanceSupport.register_external_runtime!(
+registration_b = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external_program_b.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
   executor_fingerprint: 'acceptance-fenix-skills-environment-b',
@@ -178,9 +178,9 @@ File.write(
 )
 File.write(source_root.join('references', 'checklist.md'), "# Checklist\n")
 
-conversation_a = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version_a)
-conversation_b = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version_a)
-conversation_c = ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version_b)
+conversation_a = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version_a)
+conversation_b = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version_a)
+conversation_c = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version_b)
 
 install_run = run_mailbox_task_on_conversation!(
   conversation: conversation_a.fetch(:conversation),
@@ -272,7 +272,7 @@ passed = run_passed?(serialized_install_run, expected_conversation_state) &&
          shared_conversation_success.fetch('passed') &&
          different_program_failure.fetch('passed')
 
-ManualAcceptanceSupport.write_json(
+Acceptance::ManualSupport.write_json(
   {
     'scenario' => 'fenix_skills_validation',
     'passed' => passed,

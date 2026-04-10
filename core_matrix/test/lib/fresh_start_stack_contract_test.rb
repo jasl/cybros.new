@@ -118,8 +118,8 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
     assert_includes scenario, 'SUPERVISION_PROMPT = "Please tell me what you are doing right now and what changed most recently."'
-    assert_includes scenario, "ManualAcceptanceSupport.create_conversation_supervision_session!("
-    assert_includes scenario, "ManualAcceptanceSupport.append_conversation_supervision_message!("
+    assert_includes scenario, "Acceptance::ManualSupport.create_conversation_supervision_session!("
+    assert_includes scenario, "Acceptance::ManualSupport.append_conversation_supervision_message!("
     assert_includes scenario, 'response.fetch("machine_status")'
     refute_includes scenario, "conversation_observation"
     refute_includes scenario, "supervisor_status"

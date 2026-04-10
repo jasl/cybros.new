@@ -5,21 +5,21 @@ require_relative "../lib/boot"
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-external = ManualAcceptanceSupport.create_external_agent_program!(
+Acceptance::ManualSupport.reset_backend_state!
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+external = Acceptance::ManualSupport.create_external_agent_program!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: "fenix-external",
   display_name: "External Fenix"
 )
-registration = ManualAcceptanceSupport.register_external_runtime!(
+registration = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-external-fenix-environment",
   fingerprint: "acceptance-external-fenix-v1"
 )
-run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
+run = Acceptance::ManualSupport.run_fenix_mailbox_task!(
   agent_program_version: registration.agent_program_version,
   machine_credential: registration.machine_credential,
   executor_machine_credential: registration.executor_machine_credential,
@@ -31,7 +31,7 @@ run = ManualAcceptanceSupport.run_fenix_mailbox_task!(
 )
 
 expected_dag_shape = ["agent_turn_step"]
-observed_dag_shape = ManualAcceptanceSupport.workflow_node_keys(run.fetch(:workflow_run))
+observed_dag_shape = Acceptance::ManualSupport.workflow_node_keys(run.fetch(:workflow_run))
 expected_conversation_state = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
@@ -39,15 +39,15 @@ expected_conversation_state = {
   "turn_lifecycle_state" => "active",
   "agent_task_run_state" => "completed",
 }
-observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
+observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
   conversation: run.fetch(:conversation),
   workflow_run: run.fetch(:workflow_run),
   turn: run.fetch(:turn),
   agent_task_run: run.fetch(:agent_task_run)
 )
 
-ManualAcceptanceSupport.write_json(
-  ManualAcceptanceSupport.scenario_result(
+Acceptance::ManualSupport.write_json(
+  Acceptance::ManualSupport.scenario_result(
     scenario: "external_fenix_validation",
     expected_dag_shape: expected_dag_shape,
     observed_dag_shape: observed_dag_shape,

@@ -58,10 +58,9 @@ rescue JSON::ParserError => e
   )
 end
 
-def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:, task:)
-  run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+def execute_mailbox_task_on_conversation!(conversation:, task:)
+  run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
-    agent_program_version: agent_program_version,
     content: task.fetch('content'),
     root_node_key: 'agent_turn_step',
     root_node_type: 'turn_step',
@@ -69,7 +68,7 @@ def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:,
     initial_kind: 'turn_step',
     initial_payload: { 'mode' => task.fetch('mode') }.merge(task.fetch('extra_payload', {}))
   )
-  agent_task_run = ManualAcceptanceSupport.wait_for_agent_task_terminal!(
+  agent_task_run = Acceptance::ManualSupport.wait_for_agent_task_terminal!(
     agent_task_run: run.fetch(:agent_task_run),
     timeout_seconds: 30
   )
@@ -87,10 +86,9 @@ def execute_mailbox_task_on_conversation!(conversation:, agent_program_version:,
   }
 end
 
-def execute_program_exchange_task_on_conversation!(conversation:, agent_program_version:, task:, catalog: nil)
-  run = ManualAcceptanceSupport.execute_provider_turn_on_conversation!(
+def execute_program_exchange_task_on_conversation!(conversation:, _agent_program_version: nil, task:, catalog: nil)
+  run = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation,
-    agent_program_version: agent_program_version,
     content: task.fetch('content'),
     selector_source: task.fetch('selector_source', 'manual'),
     selector: task.fetch('selector'),
@@ -115,7 +113,7 @@ def with_runtime_control_workers!(registrations, inline:, index: 0, &block)
   return yield if index >= registrations.length
 
   registration = registrations.fetch(index)
-  ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
+  Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
     registration: registration.runtime_registration,
     limit: 1,
     inline: inline,
@@ -171,14 +169,13 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
   run_execution_assignment: lambda do |conversation:, registration:, task:, slot_index:|
     execute_mailbox_task_on_conversation!(
       conversation: conversation,
-      agent_program_version: registration.agent_program_version,
       task: task
     ).merge('slot_index' => slot_index)
   end,
   run_program_exchange: lambda do |conversation:, registration:, task:, slot_index:|
     execute_program_exchange_task_on_conversation!(
       conversation: conversation,
-      agent_program_version: registration.agent_program_version,
+      _agent_program_version: registration.agent_program_version,
       task: task,
       catalog: provider_catalog_override&.catalog
     ).merge('slot_index' => slot_index)
@@ -191,15 +188,15 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
 stack_already_reset = ActiveModel::Type::Boolean.new.cast(
   ENV.fetch('MULTI_FENIX_LOAD_STACK_ALREADY_RESET', 'false')
 )
-ManualAcceptanceSupport.reset_backend_state! unless stack_already_reset
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
+Acceptance::ManualSupport.reset_backend_state! unless stack_already_reset
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 
 registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   topology: topology,
-  create_external_agent_program: ManualAcceptanceSupport.method(:create_external_agent_program!),
-  register_external_runtime: ManualAcceptanceSupport.method(:register_external_runtime!)
+  create_external_agent_program: Acceptance::ManualSupport.method(:create_external_agent_program!),
+  register_external_runtime: Acceptance::ManualSupport.method(:register_external_runtime!)
 )
 registration_matrix = decorate_boot_states(registration_matrix, topology)
 
@@ -213,7 +210,7 @@ driver_report =
         manifest: manifest,
         registration_matrix: registration_matrix,
         create_conversation: lambda do |agent_program_version:|
-          ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
+          Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version)
         end,
         execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
           workload_executor.call(
@@ -231,7 +228,7 @@ driver_report =
       manifest: manifest,
       registration_matrix: registration_matrix,
       create_conversation: lambda do |agent_program_version:|
-        ManualAcceptanceSupport.create_conversation!(agent_program_version: agent_program_version)
+        Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version)
       end,
       execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
         workload_executor.call(

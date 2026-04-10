@@ -6,9 +6,9 @@ runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 fingerprint = "acceptance-process-run-runtime"
 
-ManualAcceptanceSupport.reset_backend_state!
-bootstrap = ManualAcceptanceSupport.bootstrap_and_seed!
-bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
+Acceptance::ManualSupport.reset_backend_state!
+bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   executor_fingerprint: "acceptance-process-run-environment",
@@ -17,15 +17,14 @@ bundled = ManualAcceptanceSupport.register_bundled_runtime_from_manifest!(
 
 result = nil
 
-ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
+Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
   registration: bundled,
   realtime_timeout_seconds: delivery_mode == "realtime" ? 5 : 0
 ) do
   result = begin
-    conversation_context = ManualAcceptanceSupport.create_conversation!(deployment: bundled.deployment)
-    run = ManualAcceptanceSupport.start_turn_workflow_on_conversation!(
+    conversation_context = Acceptance::ManualSupport.create_conversation!(deployment: bundled.deployment)
+    run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
       conversation: conversation_context.fetch(:conversation),
-      deployment: bundled.deployment,
       content: "Start a long-running background service and then close it gracefully.",
       root_node_key: "turn_step",
       root_node_type: "turn_step",
@@ -35,7 +34,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    tool_result = ManualAcceptanceSupport.execute_program_tool_call!(
+    tool_result = Acceptance::ManualSupport.execute_program_tool_call!(
       workflow_node: workflow_node,
       tool_call: {
         "call_id" => "acceptance-process-exec-1",
@@ -50,7 +49,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
       agent_program_version: bundled.deployment
     )
     process_run = ProcessRun.find_by_public_id!(tool_result.result.fetch("process_run_id"))
-    ManualAcceptanceSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
+    Acceptance::ManualSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
 
     run.merge(
       conversation: conversation_context.fetch(:conversation).reload,
@@ -76,7 +75,7 @@ ManualAcceptanceSupport.with_fenix_control_worker_for_registration!(
     protocol_message_id: "acceptance-process-run-close"
   )
 
-  ManualAcceptanceSupport.wait_for_process_run_state!(
+  Acceptance::ManualSupport.wait_for_process_run_state!(
     process_run: process_run,
     lifecycle_states: "stopped",
     close_states: "closed",
@@ -93,14 +92,14 @@ process_run = result.fetch(:process_run).reload
 close_request = result.fetch(:close_request)
 
 expected_dag_shape = ["turn_step"]
-observed_dag_shape = ManualAcceptanceSupport.workflow_node_keys(workflow_run)
+observed_dag_shape = Acceptance::ManualSupport.workflow_node_keys(workflow_run)
 expected_conversation_state = {
   "conversation_state" => "active",
   "process_lifecycle_state" => "stopped",
   "process_close_state" => "closed",
   "process_close_outcome_kind" => "graceful",
 }
-observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
+observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
   conversation: result.fetch(:conversation),
   workflow_run: workflow_run,
   turn: turn,
@@ -112,8 +111,8 @@ observed_conversation_state = ManualAcceptanceSupport.workflow_state_hash(
   }
 )
 
-ManualAcceptanceSupport.write_json(
-  ManualAcceptanceSupport.scenario_result(
+Acceptance::ManualSupport.write_json(
+  Acceptance::ManualSupport.scenario_result(
     scenario: "process_run_close_validation",
     expected_dag_shape: expected_dag_shape,
     observed_dag_shape: observed_dag_shape,
