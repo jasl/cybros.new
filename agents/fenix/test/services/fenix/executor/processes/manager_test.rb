@@ -126,7 +126,76 @@ class FenixProcessesManagerTest < ActiveSupport::TestCase
     nil
   end
 
+  test "graceful close terminal report matches the shared contract fixture" do
+    control_client = FakeControlClient.new(payloads: [])
+    stdin = nil
+    stdout = nil
+    stderr = nil
+    wait_thread = nil
+
+    begin
+      stdin, stdout, stderr, wait_thread = Open3.popen3(
+        "/bin/sh",
+        "-lc",
+        "trap 'exit 0' TERM; while :; do sleep 1; done"
+      )
+
+      Fenix::Executor::Processes::Manager.register(
+        process_run_id: "process-run-public-id",
+        runtime_owner_id: "task-1",
+        stdin: stdin,
+        stdout: stdout,
+        stderr: stderr,
+        wait_thread: wait_thread,
+        control_client: control_client
+      )
+
+      result = Fenix::Executor::Processes::Manager.close!(
+        mailbox_item: {
+          "item_id" => "mailbox-item-close-public-id",
+          "payload" => {
+            "resource_type" => "ProcessRun",
+            "resource_id" => "process-run-public-id",
+            "strictness" => "graceful",
+          },
+        },
+        deliver_reports: true,
+        control_client: control_client
+      )
+
+      assert_equal :handled, result
+
+      assert_eventually do
+        control_client.payloads.any? { |payload| payload["method_id"] == "resource_closed" && payload["resource_id"] == "process-run-public-id" }
+      end
+
+      terminal = control_client.payloads.reverse.find { |payload| payload["method_id"] == "resource_closed" }
+      assert_equal resource_closed_report_contract_fixture, normalize_resource_closed_report(terminal)
+    ensure
+      stdin&.close unless stdin.nil? || stdin.closed?
+      stdout&.close unless stdout.nil? || stdout.closed?
+      stderr&.close unless stderr.nil? || stderr.closed?
+      Process.kill("KILL", wait_thread.pid) if wait_thread&.alive?
+    end
+  rescue Errno::ESRCH
+    nil
+  end
+
   private
+
+  def resource_closed_report_contract_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "fenix_resource_closed_report.json")
+      )
+    )
+  end
+
+  def normalize_resource_closed_report(report)
+    normalized = report.deep_dup
+    normalized.delete("protocol_message_id")
+    normalized
+  end
 
   def assert_eventually(timeout_seconds: 2)
     deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds

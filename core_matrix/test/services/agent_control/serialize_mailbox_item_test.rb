@@ -96,6 +96,44 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     refute serialized.fetch("payload").key?("task")
   end
 
+  test "serializes supervision guidance mailbox requests matching the shared contract fixture" do
+    context = build_agent_control_context!
+    supervision_session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "supervision_enabled" => true, "side_chat_enabled" => true, "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: supervision_session,
+      target_conversation: context[:conversation],
+      request_kind: "send_guidance_to_active_agent",
+      target_kind: "conversation",
+      target_public_id: context[:conversation].public_id,
+      lifecycle_state: "queued",
+      request_payload: { "content" => "Stop and summarize." },
+      result_payload: {}
+    )
+
+    mailbox_item = travel_to(Time.zone.parse("2026-04-10 08:00:00 UTC")) do
+      AgentControl::CreateConversationControlRequest.call(
+        conversation_control_request: control_request,
+        agent_program_version: context.fetch(:deployment),
+        request_kind: "supervision_guidance",
+        payload: { "content" => "Stop and summarize." },
+        dispatch_deadline_at: Time.zone.parse("2026-04-10 08:05:00 UTC")
+      )
+    end
+
+    serialized = AgentControl::SerializeMailboxItem.call(mailbox_item)
+
+    assert_equal supervision_guidance_mailbox_contract_fixture, normalize_supervision_guidance_for_contract(serialized)
+  end
+
   test "serializes execute_program_tool mailbox requests with the full tool envelope and scoped runtime context" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentProgramRequest.call(
@@ -129,5 +167,83 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     assert_equal context.fetch(:workflow_node).public_id, serialized.dig("payload", "task", "workflow_node_id")
     assert_equal context.fetch(:agent_program).public_id, serialized.dig("payload", "runtime_context", "agent_program_id")
     assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
+  end
+
+  test "serializes process close requests matching the shared contract fixture" do
+    context = build_agent_control_context!
+    occurred_at = Time.zone.parse("2026-04-10 09:00:00 UTC")
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      executor_program: context[:executor_program]
+    )
+
+    mailbox_item = travel_to(occurred_at) do
+      AgentControl::CreateResourceCloseRequest.call(
+        resource: process_run,
+        request_kind: "turn_interrupt",
+        reason_kind: "operator_stop",
+        strictness: "graceful",
+        grace_deadline_at: occurred_at + 30.seconds,
+        force_deadline_at: occurred_at + 60.seconds,
+        protocol_message_id: "kernel-close-message-id"
+      )
+    end
+
+    serialized = AgentControl::SerializeMailboxItem.call(mailbox_item)
+
+    assert_equal process_close_request_contract_fixture, normalize_process_close_for_contract(serialized)
+  end
+
+  private
+
+  def supervision_guidance_mailbox_contract_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_fenix_supervision_guidance_mailbox_item.json")
+      )
+    )
+  end
+
+  def process_close_request_contract_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_fenix_process_run_close_request_mailbox_item.json")
+      )
+    )
+  end
+
+  def normalize_supervision_guidance_for_contract(serialized)
+    payload = serialized.fetch("payload").deep_dup
+    payload["conversation_control"] = payload.fetch("conversation_control").merge(
+      "conversation_control_request_id" => "conversation-control-request-public-id",
+      "conversation_id" => "conversation-public-id",
+      "target_public_id" => "conversation-public-id"
+    )
+    payload["runtime_context"] = payload.fetch("runtime_context").merge(
+      "agent_program_id" => "agent-program-public-id",
+      "user_id" => "user-public-id",
+      "logical_work_id" => "conversation-control:conversation-control-request-public-id:supervision_guidance",
+      "agent_program_version_id" => "agent-program-version-public-id"
+    )
+
+    serialized.merge(
+      "item_id" => "mailbox-item-supervision-public-id",
+      "logical_work_id" => "conversation-control:conversation-control-request-public-id:supervision_guidance",
+      "protocol_message_id" => "kernel-program-request-supervision-message-id",
+      "payload" => payload
+    )
+  end
+
+  def normalize_process_close_for_contract(serialized)
+    payload = serialized.fetch("payload").deep_dup
+    payload["resource_id"] = "process-run-public-id"
+    payload["close_request_id"] = "mailbox-item-close-public-id"
+
+    serialized.merge(
+      "item_id" => "mailbox-item-close-public-id",
+      "logical_work_id" => "close:ProcessRun:process-run-public-id",
+      "protocol_message_id" => "kernel-close-message-id",
+      "payload" => payload
+    )
   end
 end

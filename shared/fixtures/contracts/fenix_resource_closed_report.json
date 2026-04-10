@@ -1,0 +1,11 @@
+{
+  "method_id": "resource_closed",
+  "mailbox_item_id": "mailbox-item-close-public-id",
+  "close_request_id": "mailbox-item-close-public-id",
+  "resource_type": "ProcessRun",
+  "resource_id": "process-run-public-id",
+  "close_outcome_kind": "graceful",
+  "close_outcome_payload": {
+    "source": "fenix_process_manager"
+  }
+}

@@ -496,6 +496,62 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal "stale", JSON.parse(response.body).fetch("result")
   end
 
+  test "agent_program_completed accepts the shared supervision guidance report fixture through the public report api" do
+    context = build_agent_control_context!
+    supervision_session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: context[:conversation],
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: { "supervision_enabled" => true, "side_chat_enabled" => true, "control_enabled" => true },
+      last_snapshot_at: Time.current
+    )
+    control_request = ConversationControlRequest.create!(
+      installation: context[:installation],
+      conversation_supervision_session: supervision_session,
+      target_conversation: context[:conversation],
+      request_kind: "send_guidance_to_active_agent",
+      target_kind: "conversation",
+      target_public_id: context[:conversation].public_id,
+      lifecycle_state: "queued",
+      request_payload: { "content" => "Stop and summarize." },
+      result_payload: {}
+    )
+    mailbox_item = AgentControl::CreateConversationControlRequest.call(
+      conversation_control_request: control_request,
+      agent_program_version: context.fetch(:deployment),
+      request_kind: "supervision_guidance",
+      payload: { "content" => "Stop and summarize." },
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+
+    report = supervision_guidance_report_fixture.deep_dup.merge(
+      "mailbox_item_id" => mailbox_item.public_id,
+      "logical_work_id" => mailbox_item.logical_work_id,
+      "workflow_node_id" => nil,
+      "conversation_id" => nil,
+      "turn_id" => nil
+    )
+    report.fetch("response_payload").fetch("control_outcome").merge!(
+      "conversation_control_request_id" => control_request.public_id,
+      "conversation_id" => context[:conversation].public_id,
+      "target_public_id" => context[:conversation].public_id
+    )
+
+    post "/agent_api/control/report",
+      params: report.merge("protocol_message_id" => "supervision-guidance-contract-#{next_test_sequence}"),
+      headers: agent_api_headers(context[:machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "completed", control_request.reload.lifecycle_state
+    assert_equal "guidance_acknowledged",
+      control_request.result_payload.dig("response_payload", "control_outcome", "outcome_kind")
+  end
+
   test "deployment_health_report refreshes control activity and piggybacks pending mailbox items" do
     context = build_agent_control_context!
     MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -518,5 +574,15 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal "active_control", deployment.control_activity_state
     assert_equal "healthy", deployment.health_status
     assert_equal 1, response_body.fetch("mailbox_items").size
+  end
+
+  private
+
+  def supervision_guidance_report_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "shared", "fixtures", "contracts", "fenix_supervision_guidance_report.json")
+      )
+    )
   end
 end

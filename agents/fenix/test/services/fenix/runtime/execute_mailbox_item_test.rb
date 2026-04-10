@@ -177,6 +177,24 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal "Stop and summarize.", client.reported_payloads.last.dig("response_payload", "control_outcome", "content")
   end
 
+  test "supervision_guidance terminal report matches the shared contract fixture" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+    mailbox_item = JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "core_matrix_fenix_supervision_guidance_mailbox_item.json")
+      )
+    )
+
+    result = Fenix::Runtime::ExecuteMailboxItem.call(
+      mailbox_item: mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal supervision_guidance_report_contract_fixture, normalize_supervision_guidance_report(client.reported_payloads.last)
+  end
+
   test "supervision_guidance without content emits a failed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
     mailbox_item = supervision_mailbox_item(request_kind: "supervision_guidance")
@@ -456,6 +474,14 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
   end
 
+  def supervision_guidance_report_contract_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "fenix_supervision_guidance_report.json")
+      )
+    )
+  end
+
   def normalize_prepare_round_report(report)
     normalized = report.deep_dup
     normalized.delete("protocol_message_id")
@@ -467,6 +493,12 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
   end
 
   def normalize_execute_program_tool_report(report)
+    normalized = report.deep_dup
+    normalized.delete("protocol_message_id")
+    normalized
+  end
+
+  def normalize_supervision_guidance_report(report)
     normalized = report.deep_dup
     normalized.delete("protocol_message_id")
     normalized

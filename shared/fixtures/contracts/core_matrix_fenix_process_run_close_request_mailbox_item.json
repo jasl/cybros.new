@@ -1,0 +1,25 @@
+{
+  "item_id": "mailbox-item-close-public-id",
+  "item_type": "resource_close_request",
+  "control_plane": "executor",
+  "logical_work_id": "close:ProcessRun:process-run-public-id",
+  "attempt_no": 1,
+  "delivery_no": 0,
+  "protocol_message_id": "kernel-close-message-id",
+  "priority": 0,
+  "status": "queued",
+  "available_at": "2026-04-10T09:00:00Z",
+  "dispatch_deadline_at": "2026-04-10T09:01:00Z",
+  "lease_timeout_seconds": 30,
+  "payload": {
+    "resource_type": "ProcessRun",
+    "resource_id": "process-run-public-id",
+    "agent_task_run_id": null,
+    "request_kind": "turn_interrupt",
+    "reason_kind": "operator_stop",
+    "strictness": "graceful",
+    "grace_deadline_at": "2026-04-10T09:00:30Z",
+    "force_deadline_at": "2026-04-10T09:01:00Z",
+    "close_request_id": "mailbox-item-close-public-id"
+  }
+}

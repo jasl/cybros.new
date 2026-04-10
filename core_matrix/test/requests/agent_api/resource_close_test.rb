@@ -413,7 +413,50 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     assert_equal "residual_abandoned", process_run.close_outcome_kind
   end
 
+  test "resource_closed accepts the shared process close report fixture through the public report api" do
+    context = build_agent_control_context!
+    process_run = create_process_run!(
+      workflow_node: context[:workflow_node],
+      executor_program: context[:executor_program]
+    )
+    Leases::Acquire.call(
+      leased_resource: process_run,
+      holder_key: context[:deployment].public_id,
+      heartbeat_timeout_seconds: 30
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: process_run
+    ).fetch(:mailbox_item)
+    AgentControl::Poll.call(executor_session: context[:executor_session], limit: 10)
+
+    report = resource_closed_report_fixture.deep_dup.merge(
+      "mailbox_item_id" => mailbox_item.public_id,
+      "close_request_id" => mailbox_item.public_id,
+      "resource_id" => process_run.public_id
+    )
+
+    post "/executor_api/control/report",
+      params: report.merge("protocol_message_id" => "resource-close-contract-#{next_test_sequence}"),
+      headers: executor_api_headers(context[:executor_machine_credential]),
+      as: :json
+
+    assert_response :success
+    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "closed", process_run.reload.close_state
+    assert_equal "graceful", process_run.close_outcome_kind
+    assert_equal "completed", mailbox_item.reload.status
+  end
+
   private
+
+  def resource_closed_report_fixture
+    JSON.parse(
+      File.read(
+        Rails.root.join("..", "shared", "fixtures", "contracts", "fenix_resource_closed_report.json")
+      )
+    )
+  end
 
   def build_exec_command_runtime_context!
     build_governed_tool_context!(
