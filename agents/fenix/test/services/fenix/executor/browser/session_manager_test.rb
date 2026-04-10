@@ -257,8 +257,8 @@ class Fenix::Executor::Browser::SessionManagerTest < ActiveSupport::TestCase
       File.write(
         File.join(fake_bin, "npm"),
         <<~SH
-          #!/usr/bin/env bash
-          if [[ "$1" == "root" && "$2" == "-g" ]]; then
+          #!/bin/sh
+          if [ "${1:-}" = "root" ] && [ "${2:-}" = "-g" ]; then
             echo #{global_root.inspect}
             exit 0
           fi
@@ -340,8 +340,8 @@ class Fenix::Executor::Browser::SessionManagerTest < ActiveSupport::TestCase
       File.write(
         File.join(fake_bin, "npm"),
         <<~SH
-          #!/usr/bin/env bash
-          if [[ "$1" == "root" && "$2" == "-g" ]]; then
+          #!/bin/sh
+          if [ "${1:-}" = "root" ] && [ "${2:-}" = "-g" ]; then
             echo #{global_root.inspect}
             exit 0
           fi
@@ -372,7 +372,7 @@ class Fenix::Executor::Browser::SessionManagerTest < ActiveSupport::TestCase
 
   def write_executable(path)
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, "#!/usr/bin/env bash\nexit 0\n")
+    File.write(path, "#!/bin/sh\nexit 0\n")
     FileUtils.chmod("+x", path)
   end
 

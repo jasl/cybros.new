@@ -191,7 +191,7 @@ class CheckRuntimeHostTest < ActiveSupport::TestCase
   def stub_command(bin_dir, name, output)
     path = File.join(bin_dir, name)
     File.write(path, <<~SH)
-      #!/usr/bin/env bash
+      #!/bin/sh
       echo #{output.inspect}
     SH
     FileUtils.chmod("+x", path)
@@ -200,25 +200,29 @@ class CheckRuntimeHostTest < ActiveSupport::TestCase
   def stub_uv(bin_dir, with_pip: true)
     path = File.join(bin_dir, "uv")
     File.write(path, <<~SH)
-      #!/usr/bin/env bash
-      set -euo pipefail
+      #!/bin/sh
+      set -eu
 
-      if [[ "${1:-}" == "--version" ]]; then
+      if [ "${1:-}" = "--version" ]; then
         echo "uv 0.11.5 (stub)"
         exit 0
       fi
 
-      if [[ "${1:-}" == "venv" ]]; then
-        target="${@: -1}"
+      if [ "${1:-}" = "venv" ]; then
+        target=""
+        for arg in "$@"; do
+          target="$arg"
+        done
+
         mkdir -p "${target}/bin"
         cat > "${target}/bin/python" <<'PY'
-#!/usr/bin/env bash
+#!/bin/sh
 echo "Python 3.12.0"
 PY
         cp "${target}/bin/python" "${target}/bin/python3"
         #{with_pip ? <<~'PIP'.strip : ":"}
         cat > "${target}/bin/pip" <<'SCRIPT'
-#!/usr/bin/env bash
+#!/bin/sh
 echo "pip 25.0 from ${0%/*}/../lib/python3.12/site-packages/pip (python 3.12)"
 SCRIPT
         cp "${target}/bin/pip" "${target}/bin/pip3"
