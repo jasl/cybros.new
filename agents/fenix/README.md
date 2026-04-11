@@ -480,6 +480,7 @@ For local container runs:
    - keep runtime secrets in the env file for container deployments, or
    - leave them blank and mount Rails credentials intentionally
 3. Start the app image with `docker run --env-file ./.env -p 3101:80 fenix-local`
+   - the Docker image defaults to `RAILS_ENV=production`
 
 The app image intentionally owns only app-local responsibilities:
 

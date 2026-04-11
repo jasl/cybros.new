@@ -481,16 +481,17 @@ Build the cowork runtime base first, then build the app image on top of it:
 
 ```bash
 docker build -f images/nexus/Dockerfile -t nexus-local .
-docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f agents/nexus/Dockerfile -t nexus-local agents/nexus
+docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f execution_runtimes/nexus/Dockerfile -t nexus-local execution_runtimes/nexus
 ```
 
 For local container runs:
 
-1. Copy [env.sample](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/env.sample) to `.env`
+1. Copy [env.sample](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/env.sample) to `.env`
 2. Fill in `CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL` and either:
    - keep runtime secrets in the env file for container deployments, or
    - leave them blank and mount Rails credentials intentionally
 3. Start the app image with `docker run --env-file ./.env -p 3101:80 nexus-local`
+   - the Docker image defaults to `RAILS_ENV=production`
 
 The app image intentionally owns only app-local responsibilities:
 

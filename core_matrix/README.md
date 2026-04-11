@@ -125,6 +125,7 @@ bundle exec ruby script/manual/workflow_proof_export.rb export ...
 
 - Host-side Rails commands load local `.env*` files via `dotenv-rails`,
   including bare-metal production boots.
+- Docker and Compose deployment paths default to `RAILS_ENV=production`.
 - Leave `RAILS_DB_URL_BASE` unset on macOS to use bare-metal PostgreSQL over
   the default Unix socket.
 - Set `RAILS_DB_URL_BASE=postgresql://postgres:postgres@127.0.0.1:5432` on
