@@ -248,8 +248,8 @@ governance stay separate concerns:
 
 ## Invariants
 
-- provider governance rows stay installation-scoped and `global`; they are not
-  user-private records
+- provider governance rows stay installation-scoped and shared at the
+  installation level; they are not user-private records
 - governance models stay independent from YAML loading and only enforce SQL and
   structural invariants
 - known provider handles are validated at the application write boundary against

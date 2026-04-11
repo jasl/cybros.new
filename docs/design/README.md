@@ -9,9 +9,13 @@ it matches the current code. For current implementation truth, use:
 
 - [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
 - [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
-- [docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md)
+- [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
 
-- [2026-03-24-core-matrix-kernel-greenfield-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md)
+Superseded design baselines that still encode pre-reset resource visibility or
+bundled-runtime assumptions belong in
+[docs/archived](/Users/jasl/Workspaces/Ruby/cybros/docs/archived/README.md),
+not in this index.
+
 - [2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md)
 - [2026-03-24-core-matrix-model-role-resolution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-model-role-resolution-design.md)
 - [2026-03-24-core-matrix-kernel-phase-shaping-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md)

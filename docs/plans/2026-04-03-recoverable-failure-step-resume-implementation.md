@@ -198,7 +198,7 @@
 
 **Files:**
 - Modify: `core_matrix/docs/behavior/*` as needed
-- Modify: `docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md` only if acceptance wording needs blocked-state semantics
+- Modify: `acceptance/README.md` only if acceptance wording needs blocked-state semantics
 
 **Step 1: Update behavior docs**
 

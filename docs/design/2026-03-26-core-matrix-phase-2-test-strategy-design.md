@@ -121,7 +121,7 @@ Purpose:
 
 This layer continues to use:
 
-- `docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+- `acceptance/README.md`
 - committed proof artifacts under `docs/reports/phase-2/`
 
 ## Protocol E2E Infrastructure

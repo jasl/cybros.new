@@ -10,6 +10,7 @@
 - [research-notes](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/README.md): technical investigations and retained conclusions
 - [finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md): completed plans that passed their verification gates
 - [archived-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/README.md): superseded or historical material kept for traceability
+- [archived](/Users/jasl/Workspaces/Ruby/cybros/docs/archived/README.md): superseded design and checklist documents that no longer match the current codebase
 - [checklists](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/README.md): manual validation and verification checklists
 - [operations](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/queue-topology-and-provider-governor.md): runtime queue topology, scaling knobs, and durable provider admission guidance
 
@@ -20,15 +21,15 @@ For the current implementation state, start here:
 - active execution work:
   [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
 - current manual/product acceptance:
-  [docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md)
+  [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
 - runtime-generated acceptance outputs:
   [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
 - completed, verified reset and product-shape changes:
   [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
 
 Many older design, research, report, and checklist records are intentionally
-kept for traceability. Those records may preserve superseded naming from before
-the April 2026 reset. The current codebase uses `Agent`,
+kept for traceability. Superseded non-plan documents that preserve pre-reset
+naming now live under `docs/archived/`. The current codebase uses `Agent`,
 `AgentSnapshot`, `AgentConnection`, `ExecutionRuntime`, and
 `ExecutionRuntimeConnection`.
 
@@ -46,6 +47,7 @@ Rules:
 - keep active execution documents in `docs/plans`
 - move completed execution material into `docs/finished-plans`
 - move replaced or obsolete material into `docs/archived-plans`
+- move replaced or obsolete non-plan documents into `docs/archived`
 
 ## Reference Handling
 

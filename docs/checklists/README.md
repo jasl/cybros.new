@@ -2,12 +2,14 @@
 
 Manual validation and verification checklists live here.
 
-Current product acceptance should use:
+Current product acceptance should use the top-level acceptance harness:
 
-- [2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md)
+- [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
+- [acceptance/bin/run_active_suite.sh](/Users/jasl/Workspaces/Ruby/cybros/acceptance/bin/run_active_suite.sh)
 
-The March 24 checklist is preserved as historical backend validation evidence
-and intentionally keeps older commands, paths, and naming.
+Superseded operator checklists that preserve old commands, old topology, or
+pre-reset naming have been moved to
+[docs/archived](/Users/jasl/Workspaces/Ruby/cybros/docs/archived/README.md).
 
-- [2026-03-24-core-matrix-kernel-manual-validation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md)
-- [2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md)
+This directory is reserved for future active operator checklists when a
+checklist is still part of the supported product surface.

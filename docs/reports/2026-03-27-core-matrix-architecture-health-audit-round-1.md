@@ -5,8 +5,8 @@
 > implementation context of that date. For the current code state, use
 > [docs/plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md),
 > [docs/finished-plans/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md),
-> and the active acceptance checklist at
-> [docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md](/Users/jasl/Workspaces/Ruby/cybros/docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md).
+> and the active acceptance harness at
+> [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md).
 
 ## Scope For This Round
 

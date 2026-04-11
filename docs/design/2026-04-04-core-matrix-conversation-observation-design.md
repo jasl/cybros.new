@@ -36,7 +36,8 @@ That gap shows up in two places:
 
 - humans need a side-channel to inspect long-running work
 - automated supervisors such as
-  [`acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb`](/Users/jasl/Workspaces/Ruby/cybros/acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb)
+  the active acceptance harness described in
+  [`acceptance/README.md`](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
   need a supported path for progress inspection instead of reading database rows
   and filesystem artifacts directly
 
@@ -596,7 +597,8 @@ New direction:
    browser validation
 
 This means
-[`acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb`](/Users/jasl/Workspaces/Ruby/cybros/acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb)
+the active acceptance harness
+[`acceptance/README.md`](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
 acts as a supported supervisor client rather than as an implementation-aware
 database and filesystem observer for in-flight progress.
 

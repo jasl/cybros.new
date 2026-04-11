@@ -26,14 +26,13 @@ the April 2026 supervision/runtime rebuild:
 - canonical turn runtime event streams for app/review surfaces
 - plan-first supervision fallbacks plus replayable supervision evaluation dumps
 
-The baseline operator checklist for the manual acceptance pass is:
+The baseline product acceptance path now lives in the top-level harness:
 
-- `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
-- `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
+- `../acceptance/README.md`
+- `../acceptance/bin/run_active_suite.sh`
 
 Current authoritative project documents:
 
-- Greenfield design: `../docs/design/2026-03-24-core-matrix-kernel-greenfield-design.md`
 - Phase shaping: `../docs/design/2026-03-24-core-matrix-kernel-phase-shaping-design.md`
 - Platform phases and validation: `../docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md`
 - Phase 1 implementation record: `../docs/finished-plans/2026-03-24-core-matrix-phase-1-kernel-greenfield-implementation-plan.md`
@@ -43,8 +42,8 @@ Current authoritative project documents:
 - Active plan index: `../docs/plans/README.md`
 - App-facing UI contract: `../docs/finished-plans/2026-04-06-fenix-app-ui-contract.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
-- Manual validation checklist: `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
-- Provider-backed capstone checklist: `../docs/checklists/2026-03-31-fenix-provider-backed-agent-capstone-acceptance.md`
+- Acceptance harness and active suite: `../acceptance/README.md`
+- Archived pre-reset docs: `../docs/archived/README.md`
 - Behavior notes for landed backend modules: `docs/behavior/`
 
 ## What Core Matrix Owns
@@ -71,32 +70,19 @@ claims real loop behavior, validation must include:
 - unit and integration coverage
 - `bin/dev`
 - a real LLM API
-- manual flows from `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`
+- the current active acceptance suite from `../acceptance/README.md`
 
-## Manual Validation Baseline
+## Acceptance Baseline
 
-- Phase 1 backend manual validation was rerun on `2026-03-25` against
-  `bin/dev` and the checklist at
-  `../docs/checklists/2026-03-24-core-matrix-kernel-manual-validation.md`.
-- Acceptance runs now use the top-level harness in `../acceptance/`. Generated
-  logs and artifacts are written under `../acceptance/logs/` and
+- Acceptance runs use the top-level harness in `../acceptance/`.
+- The canonical gate is `bash ../acceptance/bin/run_active_suite.sh`.
+- Generated logs and artifacts are written under `../acceptance/logs/` and
   `../acceptance/artifacts/` and are intentionally not committed.
-- The checklist now standardizes on a reusable
-  `core_matrix_reset_backend_state` helper that rebuilds the development
-  database through `bin/rails db:reset` before reapplying the acceptance seed
-  baseline.
-- The reusable manual-validation harness now lives in
-  `../acceptance/lib/manual_support.rb`.
-- Acceptance operator scenario scripts now live under
-  `../acceptance/scenarios/*`, with shell orchestration under
-  `../acceptance/bin/*`, and are intended to be run through
-  `bin/rails runner ../acceptance/scenarios/...`.
-- `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
-  stable `execution_runtime_fingerprint`; the manual checklist currently exports that
-  through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
-  `CORE_MATRIX_ENROLLMENT_TOKEN`.
-- Publication verification remains service-level in phase 1 because public
-  publication HTTP routes have not been introduced yet.
+- The reusable harness lives in `../acceptance/lib/manual_support.rb`.
+- Ruby scenario entrypoints live under `../acceptance/scenarios/*`, with shell
+  orchestration under `../acceptance/bin/*`.
+- Historical pre-reset checklists and bundled-runtime closeout documents were
+  moved to `../docs/archived/`.
 
 ## Useful Commands
 
@@ -108,7 +94,7 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
-bin/rails runner ../acceptance/scenarios/bundled_fast_terminal_validation.rb
+../acceptance/bin/run_active_suite.sh
 bin/rails runner ../acceptance/scenarios/provider_backed_turn_validation.rb
 bundle exec ruby script/manual/workflow_proof_export.rb export ...
 ```

@@ -2,8 +2,8 @@
 
 ## Scope
 
-This note captures the backend verification baseline for the phase 1 substrate
-and the retained acceptance operator path.
+This note captures the current verification baseline for the retained
+acceptance operator path.
 
 ## Current Behavior
 
@@ -46,25 +46,19 @@ and the retained acceptance operator path.
   reusable harness in `../acceptance/lib/manual_support.rb` plus
   concrete operator scripts under `../../acceptance/scenarios/*`, run through
   `bin/rails runner ../../acceptance/scenarios/...`, to cover:
-  - bundled `Fenix` fast terminal
-  - real provider-backed bundled turn using `.env`-materialized
-    `OPENROUTER_API_KEY`
-  - during-generation steering, feature-disabled rejection, and stale-work
-    fencing
-  - human-interaction wait/resume
-  - subagent `wait_all`
-  - `process_run` close handling
-  - governed tool invocation
-  - governed Streamable HTTP MCP invocation
-  - bundled agent snapshot rotation upgrade and downgrade
+  - during-generation steering
   - independent external `Fenix`
   - built-in system skill and third-party skill activation flows
-  - workflow proof export
-- The checklist at
-  `../checklists/2026-03-24-core-matrix-kernel-manual-validation.md` is the
-  historical backend operator baseline, while the current product acceptance
-  harness lives under `../../acceptance/`. Generated run logs and artifacts now
-  live under `../../acceptance/logs/` and `../../acceptance/artifacts/`.
+  - governed tool invocation
+  - governed Streamable HTTP MCP invocation
+  - human-interaction wait/resume
+  - provider-backed turn execution
+  - subagent `wait_all`
+  - Shared-Fenix / Multi-Nexus smoke, target, and stress load profiles
+- Historical backend operator baselines now live under `../../docs/archived/`.
+  The current product acceptance harness lives under `../../acceptance/`.
+  Generated run logs and artifacts now live under `../../acceptance/logs/` and
+  `../../acceptance/artifacts/`.
 
 ## Validation Notes
 
@@ -76,8 +70,8 @@ and the retained acceptance operator path.
   seed baseline, credential lifecycle, selector resolution, conversation
   structure and rewrite flows, human forms and tasks, open-request projection,
   and publication access logging through Rails runner scripts.
-- The `2026-03-30` acceptance run exercised real bundled/external
-  `Fenix`, real provider-backed OpenRouter execution, wait/resume and
-  subagent orchestration, governed tool/MCP paths, agent snapshot rotation,
-  skill activation, and proof export. Current runs keep their generated
-  evidence under `../../acceptance/artifacts/` instead of committing it.
+- Current acceptance runs exercise external `Fenix`, provider-backed or mock
+  execution through `Nexus`, wait/resume and subagent orchestration, governed
+  tool and MCP paths, skill activation, and shared-agent / multi-runtime load
+  profiles. Generated evidence stays under `../../acceptance/artifacts/`
+  instead of being committed.
