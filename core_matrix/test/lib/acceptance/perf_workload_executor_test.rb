@@ -154,14 +154,15 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
   def perf_registration(slot_label, program_public_id)
     Acceptance::Perf::RuntimeRegistrationMatrix::Registration.new(
       slot_label: slot_label,
+      agent_label: "fenix-01",
       runtime_base_url: "http://127.0.0.1:3101",
       event_output_path: "/tmp/#{slot_label}.ndjson",
       runtime_registration: RuntimeRegistrationDouble.new(agent_connection_credential: "machine-#{slot_label}"),
       runtime_task_env: {},
-      agent: "program-#{slot_label}",
       agent_snapshot: AgentSnapshotDouble.new(AgentDouble.new(program_public_id)),
       agent_connection_credential: "machine-#{slot_label}",
-      execution_runtime_connection_credential: "executor-#{slot_label}"
+      execution_runtime_connection_credential: "executor-#{slot_label}",
+      execution_runtime: "runtime-#{slot_label}"
     )
   end
 end

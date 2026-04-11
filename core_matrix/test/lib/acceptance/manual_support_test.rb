@@ -372,6 +372,85 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     ENV["FENIX_HOME_ROOT"] = previous_home_root
   end
 
+  test "run_nexus_runtime_task! forwards NEXUS_HOME_ROOT into the spawned nexus task" do
+    captured = nil
+    previous_home_root = ENV["NEXUS_HOME_ROOT"]
+    ENV["NEXUS_HOME_ROOT"] = "/tmp/acceptance-nexus-home"
+
+    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
+      with_redefined_singleton_method(Open3, :capture3, lambda { |*args, **kwargs|
+        captured = { args:, kwargs: }
+        ['{"items":[]}', "", Struct.new(:success?, :exitstatus).new(true, 0)]
+      }) do
+        with_redefined_singleton_method(
+          Acceptance::ManualSupport,
+          :nexus_project_root,
+          -> { Pathname.new("/tmp/nexus-project") }
+        ) do
+          result = Acceptance::ManualSupport.run_nexus_runtime_task!(
+            task_name: "runtime:control_loop_once",
+            execution_runtime_connection_credential: "execution-secret",
+            env: {}
+          )
+
+          assert_equal({ "items" => [] }, result)
+        end
+      end
+    end
+
+    env, command, task_name = captured.fetch(:args)
+    assert_equal "bin/rails", command
+    assert_equal "runtime:control_loop_once", task_name
+    assert_equal "/tmp/acceptance-nexus-home", env.fetch("NEXUS_HOME_ROOT")
+    assert_equal "/tmp/nexus-project/Gemfile", env.fetch("BUNDLE_GEMFILE")
+    assert_equal "/tmp/nexus-project", captured.fetch(:kwargs).fetch(:chdir)
+  ensure
+    ENV["NEXUS_HOME_ROOT"] = previous_home_root
+  end
+
+  test "with_nexus_control_worker! lets explicit runtime env override the forwarded nexus home root" do
+    captured = nil
+    yielded_pid = nil
+    previous_home_root = ENV["NEXUS_HOME_ROOT"]
+    ENV["NEXUS_HOME_ROOT"] = "/tmp/acceptance-nexus-home"
+
+    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
+      with_redefined_singleton_method(Process, :spawn, lambda { |*args, **kwargs|
+        captured = { args:, kwargs: }
+        43_211
+      }) do
+        with_redefined_singleton_method(Acceptance::ManualSupport, :wait_for_worker_ready!, ->(reader:, pid:, timeout_seconds: 15) { nil }) do
+          with_redefined_singleton_method(Acceptance::ManualSupport, :stop_fenix_control_worker!, ->(pid) { nil }) do
+            with_redefined_singleton_method(
+              Acceptance::ManualSupport,
+              :nexus_project_root,
+              -> { Pathname.new("/tmp/nexus-project") }
+            ) do
+              Acceptance::ManualSupport.with_nexus_control_worker!(
+                execution_runtime_connection_credential: "execution-secret",
+                env: {
+                  "NEXUS_HOME_ROOT" => "/tmp/nexus-slot-home",
+                  "CYBROS_PERF_EVENTS_PATH" => "/tmp/nexus-slot-events.ndjson",
+                  "CYBROS_PERF_INSTANCE_LABEL" => "nexus-03",
+                }
+              ) do |pid|
+                yielded_pid = pid
+              end
+            end
+          end
+        end
+      end
+    end
+
+    env = captured.fetch(:args).first
+    assert_equal 43_211, yielded_pid
+    assert_equal "/tmp/nexus-slot-home", env.fetch("NEXUS_HOME_ROOT")
+    assert_equal "/tmp/nexus-slot-events.ndjson", env.fetch("CYBROS_PERF_EVENTS_PATH")
+    assert_equal "nexus-03", env.fetch("CYBROS_PERF_INSTANCE_LABEL")
+  ensure
+    ENV["NEXUS_HOME_ROOT"] = previous_home_root
+  end
+
   test "with_fenix_control_worker! lets explicit runtime env override the forwarded fenix home root" do
     captured = nil
     yielded_pid = nil
@@ -572,6 +651,93 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
               registration_payload.fetch(:execution_runtime_connection_metadata)
             )
           end
+        end
+      end
+    end
+  end
+
+  test "register_external_agent_from_manifest! registers the agent plane and heartbeats it" do
+    registration_calls = []
+    heartbeat_calls = []
+    manifest = {
+      "endpoint_metadata" => { "runtime_manifest_path" => "/runtime/manifest" },
+      "protocol_version" => "agent-runtime/2026-04-01",
+      "sdk_version" => "fenix-0.2.0",
+      "protocol_methods" => [],
+      "tool_catalog" => [],
+      "profile_catalog" => {},
+      "config_schema_snapshot" => {},
+      "conversation_override_schema_snapshot" => {},
+      "default_config_snapshot" => {},
+    }
+
+    with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :http_post_json,
+        lambda do |url, payload, headers: {}|
+          if url.end_with?("/agent_api/registrations")
+            registration_calls << [url, payload, headers]
+            {
+              "agent_connection_credential" => "program-secret",
+              "agent_snapshot_id" => "apv_456",
+            }
+          else
+            heartbeat_calls << [url, payload, headers]
+            { "bootstrap_state" => "ready" }
+          end
+        end
+      ) do
+        with_redefined_singleton_method(AgentSnapshot, :find_by_public_id!, ->(public_id) { public_id }) do
+          result = Acceptance::ManualSupport.register_external_agent_from_manifest!(
+            enrollment_token: "enrollment-token",
+            agent_base_url: "http://127.0.0.1:3101",
+            fingerprint: "agent-fingerprint"
+          )
+
+          assert_equal "program-secret", result.fetch(:agent_connection_credential)
+          assert_equal "apv_456", result.fetch(:agent_snapshot)
+          assert_equal 1, registration_calls.length
+          assert_equal 1, heartbeat_calls.length
+        end
+      end
+    end
+  end
+
+  test "register_external_execution_runtime! registers the execution runtime plane only" do
+    registration_calls = []
+    manifest = {
+      "execution_runtime_kind" => "local",
+      "execution_runtime_connection_metadata" => { "transport" => "http", "base_url" => "http://127.0.0.1:3201" },
+      "execution_runtime_capability_payload" => {},
+      "execution_runtime_tool_catalog" => [],
+    }
+
+    with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :http_post_json,
+        lambda do |url, payload, headers: {}|
+          registration_calls << [url, payload, headers]
+          {
+            "execution_runtime_connection_credential" => "runtime-secret",
+            "execution_runtime_id" => "rt_456",
+            "execution_runtime_connection_id" => "rtc_456",
+          }
+        end
+      ) do
+        with_redefined_singleton_method(ExecutionRuntime, :find_by_public_id!, ->(public_id) { public_id }) do
+          result = Acceptance::ManualSupport.register_external_execution_runtime!(
+            enrollment_token: "enrollment-token",
+            runtime_base_url: "http://127.0.0.1:3201",
+            execution_runtime_fingerprint: "runtime-fingerprint"
+          )
+
+          assert_equal "runtime-secret", result.fetch(:execution_runtime_connection_credential)
+          assert_equal "rt_456", result.fetch(:execution_runtime)
+          assert_equal "rtc_456", result.fetch(:execution_runtime_connection_id)
+          assert_equal 1, registration_calls.length
+          assert_match(%r{/execution_runtime_api/registrations\z}, registration_calls.first.fetch(0))
         end
       end
     end

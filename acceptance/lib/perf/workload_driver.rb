@@ -5,7 +5,7 @@ module Acceptance
   module Perf
     # Drives one benchmark run across runtime registrations and conversations.
     class WorkloadDriver
-      BENCHMARK_MODE = 'multi_fenix_core_matrix_load'
+      BENCHMARK_MODE = 'multi_agent_runtime_core_matrix_load'
 
       Assignment = Struct.new(:slot_index, :registration, :tasks, keyword_init: true) do
         # rubocop:disable Rails/Delegate

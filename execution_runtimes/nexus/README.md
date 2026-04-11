@@ -9,9 +9,9 @@ Nexus has two jobs:
 
 ## Monorepo Role
 
-`executors/nexus` is the active execution-runtime app in this monorepo.
+`execution_runtimes/nexus` is the active execution-runtime app in this monorepo.
 
-- active runtime work lands in `executors/nexus`
+- active runtime work lands in `execution_runtimes/nexus`
 - the default Docker runtime base lives in `images/nexus`
 
 ## Verification
@@ -81,8 +81,8 @@ current baseline is:
 
 - canonical Docker base: [images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus) on Ubuntu 24.04
 - installable tool versions pinned in [versions.env](/Users/jasl/Workspaces/Ruby/cybros/images/nexus/versions.env)
-- Ruby pinned by [.ruby-version](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/.ruby-version)
-- bare-metal host validator: [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/bin/check-runtime-host)
+- Ruby pinned by [.ruby-version](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/.ruby-version)
+- bare-metal host validator: [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/bin/check-runtime-host)
 
 The manifest now declares runtime-owned profile and subagent defaults:
 
@@ -151,16 +151,16 @@ Detached long-lived services therefore follow this contract:
 
 Detached process tools are implemented directly in the runtime service layer:
 
-- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/app/services/nexus/execution_runtime/tool_executors/process.rb)
-- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/app/services/nexus/execution_runtime/processes/launcher.rb)
-- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/app/services/nexus/execution_runtime/processes/manager.rb)
-- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/app/services/nexus/execution_runtime/processes/proxy_registry.rb)
+- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/tool_executors/process.rb)
+- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/processes/launcher.rb)
+- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/processes/manager.rb)
+- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/processes/proxy_registry.rb)
 
 When a tool call passes `proxy_port`, `Nexus` also registers a stable fixed-port
 proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy
 routes into `tmp/dev-proxy/routes.caddy`, and
-[bin/nexus-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/bin/nexus-dev-proxy)
-boots Caddy with [config/caddy/Caddyfile](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/config/caddy/Caddyfile)
+[bin/nexus-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/bin/nexus-dev-proxy)
+boots Caddy with [config/caddy/Caddyfile](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/config/caddy/Caddyfile)
 to expose those paths on the external proxy port.
 
 ## Web Tool Surface
@@ -202,7 +202,7 @@ Firecrawl-backed tools use:
 
 Browser sessions remain runtime-local handles rather than kernel-owned
 resources. The first cut uses Playwright-managed Chromium through
-[session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/scripts/browser/session_host.mjs).
+[session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/scripts/browser/session_host.mjs).
 
 Internally, `Nexus` is now split into:
 

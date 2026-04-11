@@ -52,6 +52,8 @@ module Acceptance
         def for_profile(profile)
           new(
             profile_name: profile.name,
+            agent_count: profile.agent_count,
+            execution_runtime_count: profile.execution_runtime_count,
             conversation_count: profile.conversation_count,
             turns_per_conversation: profile.turns_per_conversation,
             max_in_flight_per_conversation: profile.max_in_flight_per_conversation,
@@ -95,14 +97,18 @@ module Acceptance
       end
 
       attr_reader :conversation_count,
+                  :agent_count,
+                  :execution_runtime_count,
                   :turns_per_conversation,
                   :max_in_flight_per_conversation,
                   :profile_name,
                   :request_corpus,
                   :workload_kind
 
-      def initialize(profile_name:, conversation_count:, turns_per_conversation:, max_in_flight_per_conversation:, workload_kind:, deterministic:, request_corpus:)
+      def initialize(profile_name:, agent_count:, execution_runtime_count:, conversation_count:, turns_per_conversation:, max_in_flight_per_conversation:, workload_kind:, deterministic:, request_corpus:)
         @profile_name = profile_name
+        @agent_count = agent_count
+        @execution_runtime_count = execution_runtime_count
         @conversation_count = conversation_count
         @turns_per_conversation = turns_per_conversation
         @max_in_flight_per_conversation = max_in_flight_per_conversation
@@ -118,6 +124,8 @@ module Acceptance
       def artifact_payload
         {
           "profile_name" => profile_name,
+          "agent_count" => agent_count,
+          "execution_runtime_count" => execution_runtime_count,
           "conversation_count" => conversation_count,
           "turns_per_conversation" => turns_per_conversation,
           "max_in_flight_per_conversation" => max_in_flight_per_conversation,

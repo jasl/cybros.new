@@ -5,8 +5,9 @@ module Acceptance
         new(...).call
       end
 
-      def initialize(profile_name:, runtime_count:, metrics:, structural_failures: [], artifact_paths: {}, gate_result: nil)
+      def initialize(profile_name:, agent_count:, runtime_count:, metrics:, structural_failures: [], artifact_paths: {}, gate_result: nil)
         @profile_name = profile_name
+        @agent_count = agent_count
         @runtime_count = runtime_count
         @metrics = metrics
         @structural_failures = Array(structural_failures)
@@ -16,9 +17,10 @@ module Acceptance
 
       def call
         {
-          "benchmark_mode" => "multi_fenix_core_matrix_load",
+          "benchmark_mode" => "multi_agent_runtime_core_matrix_load",
           "benchmark_configuration" => {
             "profile_name" => @profile_name,
+            "agent_count" => @agent_count,
             "runtime_count" => @runtime_count,
           },
           "outcome" => {

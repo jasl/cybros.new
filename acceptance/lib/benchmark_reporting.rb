@@ -115,12 +115,13 @@ module Acceptance
 
     def load_summary_markdown(report)
       lines = [
-        "# Multi-Fenix Load Summary",
+        "# Shared-Fenix / Multi-Nexus Load Summary",
         "",
         "## Configuration",
         "",
         "- Profile: `#{report.dig("benchmark_configuration", "profile_name")}`",
-        "- Runtime count: `#{report.dig("benchmark_configuration", "runtime_count")}`",
+        "- Agent count: `#{report.dig("benchmark_configuration", "agent_count")}`",
+        "- Execution runtime count: `#{report.dig("benchmark_configuration", "runtime_count")}`",
         "- Outcome: `#{report.dig("outcome", "classification")}`",
         "",
         "## Structural Failures",

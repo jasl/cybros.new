@@ -16,9 +16,11 @@ module Acceptance
           "event_count" => @events.length,
           "time_window" => time_window,
           "throughput" => throughput_metrics,
+          "event_breakdown" => event_breakdown,
           "turn_latency" => percentile_summary(workload_completion_events.map { |event| event.fetch("duration_ms").to_f }),
           "poll_latency" => {
             "fenix_control_plane" => percentile_summary(events_named("perf.runtime.control_plane_poll").map { |event| event.fetch("duration_ms").to_f }),
+            "nexus_control_plane" => percentile_summary(events_named("perf.runtime.control_plane_poll").select { |event| event["source_app"] == "nexus" }.map { |event| event.fetch("duration_ms").to_f }),
             "core_matrix_control_plane" => percentile_summary(events_named("perf.agent_control.poll").map { |event| event.fetch("duration_ms").to_f }),
           },
           "mailbox_lease_latency" => percentile_summary(events_named("perf.agent_control.mailbox_item_leased").filter_map { |event| float_or_nil(event["lease_latency_ms"]) }),
@@ -42,7 +44,8 @@ module Acceptance
       end
 
       def throughput_metrics
-        runtime_counts = workload_completion_events.group_by { |event| event.fetch("instance_label") }
+        instance_counts = workload_completion_events.group_by { |event| event.fetch("instance_label") }
+        source_app_counts = workload_completion_events.group_by { |event| event.fetch("source_app", "unknown") }
 
         {
           "completed_workload_items" => workload_completion_events.count,
@@ -51,13 +54,30 @@ module Acceptance
           "completed_turns_per_minute" => per_minute(workload_completion_events.count),
           "completed_mailbox_items" => successful_mailbox_execution_events.count,
           "completed_mailbox_items_per_minute" => per_minute(successful_mailbox_execution_events.count),
-          "per_runtime" => runtime_counts.transform_values do |events|
+          "per_instance" => instance_counts.transform_values do |events|
             {
               "completed_workload_items" => events.count,
               "completed_workload_items_per_minute" => per_minute(events.count),
             }
           end,
+          "per_source_app" => source_app_counts.transform_values do |events|
+            {
+              "completed_workload_items" => events.count,
+              "completed_workload_items_per_minute" => per_minute(events.count)
+            }
+          end
         }
+      end
+
+      def event_breakdown
+        @events
+          .group_by { |event| event.fetch("source_app", "unknown") }
+          .transform_values do |events|
+            {
+              "event_count" => events.count,
+              "instances" => events.group_by { |event| event.fetch("instance_label", "unknown") }.transform_values(&:count)
+            }
+          end
       end
 
       def successful_mailbox_execution_events

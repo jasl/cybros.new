@@ -12,7 +12,7 @@ Fenix has two jobs:
 `agents/fenix` is the active cowork app in this monorepo.
 
 - active agent/product work lands in `agents/fenix`
-- the default Docker runtime base lives in `images/nexus`
+- the default bundled execution runtime lives in `execution_runtimes/nexus`
 
 ## Verification
 
@@ -98,7 +98,7 @@ through the control plane:
 
 The manifest therefore exists for registration and capability advertisement,
 not for direct execution dispatch. Execution resources, filesystem-backed skill
-assets, and filesystem-backed memory now belong to `executors/nexus`.
+assets, and filesystem-backed memory now belong to `execution_runtimes/nexus`.
 
 Long-lived runtime resources also require a persistent mailbox worker.
 `Fenix` ships:

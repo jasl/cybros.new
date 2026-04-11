@@ -375,13 +375,114 @@ module Acceptance
     end
 
     def run_fenix_runtime_task!(task_name:, agent_connection_credential:, env:, execution_runtime_connection_credential: agent_connection_credential)
-      project_root = fenix_project_root
+      run_runtime_task!(
+        project_root: fenix_project_root,
+        task_name: task_name,
+        env: {
+          'CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL' => agent_connection_credential,
+          'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential
+        }.merge(forwarded_fenix_env).merge(env),
+        failure_label: 'fenix mailbox pump'
+      )
+    end
+
+    def with_fenix_control_worker!(agent_connection_credential:, execution_runtime_connection_credential: agent_connection_credential, limit: 10,
+                                   inline: true, realtime_timeout_seconds: 5, env: {})
+      worker_pid = nil
+      with_runtime_control_worker!(
+        project_root: fenix_project_root,
+        env: {
+          'CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL' => agent_connection_credential,
+          'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
+          'LIMIT' => limit.to_s,
+          'INLINE' => inline ? 'true' : 'false',
+          'REALTIME_TIMEOUT_SECONDS' => realtime_timeout_seconds.to_s
+        }.merge(forwarded_fenix_env).merge(env)
+      ) do |pid|
+        worker_pid = pid
+        yield pid
+      end
+    ensure
+      stop_fenix_control_worker!(worker_pid) if worker_pid.present?
+    end
+
+    def with_fenix_control_worker_for_registration!(registration:, **kwargs, &block)
+      with_fenix_control_worker!(
+        agent_connection_credential: registration.agent_connection_credential,
+        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
+        **kwargs,
+        &block
+      )
+    end
+
+    def fenix_project_root
+      Pathname.new(ENV.fetch('FENIX_PROJECT_ROOT', Rails.root.join('../agents/fenix').to_s))
+    end
+
+    def nexus_project_root
+      Pathname.new(ENV.fetch('NEXUS_PROJECT_ROOT', Rails.root.join('../execution_runtimes/nexus').to_s))
+    end
+
+    def forwarded_fenix_env
+      {}.tap do |env|
+        env['FENIX_HOME_ROOT'] = ENV['FENIX_HOME_ROOT'] if ENV['FENIX_HOME_ROOT'].present?
+        env['FENIX_STORAGE_ROOT'] = ENV['FENIX_STORAGE_ROOT'] if ENV['FENIX_STORAGE_ROOT'].present?
+      end
+    end
+
+    def forwarded_nexus_env
+      {}.tap do |env|
+        env['NEXUS_HOME_ROOT'] = ENV['NEXUS_HOME_ROOT'] if ENV['NEXUS_HOME_ROOT'].present?
+        env['NEXUS_STORAGE_ROOT'] = ENV['NEXUS_STORAGE_ROOT'] if ENV['NEXUS_STORAGE_ROOT'].present?
+      end
+    end
+
+    def run_nexus_runtime_task!(task_name:, execution_runtime_connection_credential:, env: {})
+      run_runtime_task!(
+        project_root: nexus_project_root,
+        task_name: task_name,
+        env: {
+          'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential
+        }.merge(forwarded_nexus_env).merge(env),
+        failure_label: 'nexus mailbox pump'
+      )
+    end
+
+    def with_nexus_control_worker!(execution_runtime_connection_credential:, limit: 10, inline: true, realtime_timeout_seconds: 5, env: {})
+      worker_pid = nil
+      with_runtime_control_worker!(
+        project_root: nexus_project_root,
+        env: {
+          'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
+          'LIMIT' => limit.to_s,
+          'INLINE' => inline ? 'true' : 'false',
+          'REALTIME_TIMEOUT_SECONDS' => realtime_timeout_seconds.to_s
+        }.merge(forwarded_nexus_env).merge(env)
+      ) do |pid|
+        worker_pid = pid
+        yield pid
+      end
+    ensure
+      stop_nexus_control_worker!(worker_pid) if worker_pid.present?
+    end
+
+    def with_nexus_control_worker_for_registration!(registration:, **kwargs, &block)
+      with_nexus_control_worker!(
+        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
+        **kwargs,
+        &block
+      )
+    end
+
+    def stop_nexus_control_worker!(pid)
+      stop_fenix_control_worker!(pid)
+    end
+
+    def run_runtime_task!(project_root:, task_name:, env:, failure_label:)
       task_env = {
         'CORE_MATRIX_BASE_URL' => CONTROL_BASE_URL,
-        'CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL' => agent_connection_credential,
-        'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
         'BUNDLE_GEMFILE' => project_root.join('Gemfile').to_s
-      }.merge(forwarded_fenix_env).merge(env)
+      }.merge(env)
 
       stdout = nil
       stderr = nil
@@ -396,23 +497,16 @@ module Acceptance
         )
       end
 
-      raise "fenix mailbox pump failed: #{stderr.presence || stdout}" unless status.success?
+      raise "#{failure_label} failed: #{stderr.presence || stdout}" unless status.success?
 
       JSON.parse(stdout)
     end
 
-    def with_fenix_control_worker!(agent_connection_credential:, execution_runtime_connection_credential: agent_connection_credential, limit: 10,
-                                   inline: true, realtime_timeout_seconds: 5, env: {})
-      project_root = fenix_project_root
+    def with_runtime_control_worker!(project_root:, env:)
       task_env = {
         'CORE_MATRIX_BASE_URL' => CONTROL_BASE_URL,
-        'CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL' => agent_connection_credential,
-        'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
-        'BUNDLE_GEMFILE' => project_root.join('Gemfile').to_s,
-        'LIMIT' => limit.to_s,
-        'INLINE' => inline ? 'true' : 'false',
-        'REALTIME_TIMEOUT_SECONDS' => realtime_timeout_seconds.to_s
-      }.merge(forwarded_fenix_env).merge(env)
+        'BUNDLE_GEMFILE' => project_root.join('Gemfile').to_s
+      }.merge(env)
 
       reader, writer = IO.pipe
       pid = nil
@@ -433,27 +527,6 @@ module Acceptance
       yield pid
     ensure
       reader&.close unless reader.nil? || reader.closed?
-      stop_fenix_control_worker!(pid) if pid.present?
-    end
-
-    def with_fenix_control_worker_for_registration!(registration:, **kwargs, &block)
-      with_fenix_control_worker!(
-        agent_connection_credential: registration.agent_connection_credential,
-        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
-        **kwargs,
-        &block
-      )
-    end
-
-    def fenix_project_root
-      Pathname.new(ENV.fetch('FENIX_PROJECT_ROOT', Rails.root.join('../agents/fenix').to_s))
-    end
-
-    def forwarded_fenix_env
-      {}.tap do |env|
-        env['FENIX_HOME_ROOT'] = ENV['FENIX_HOME_ROOT'] if ENV['FENIX_HOME_ROOT'].present?
-        env['FENIX_STORAGE_ROOT'] = ENV['FENIX_STORAGE_ROOT'] if ENV['FENIX_STORAGE_ROOT'].present?
-      end
     end
 
     def disconnect_application_record!
@@ -665,6 +738,75 @@ module Acceptance
         agent_snapshot: agent_snapshot,
         execution_runtime: execution_runtime
       )
+    end
+
+    def register_external_agent_from_manifest!(enrollment_token:, agent_base_url:, fingerprint:)
+      manifest = live_manifest(base_url: agent_base_url)
+      registration = http_post_json(
+        "#{CONTROL_BASE_URL}/agent_api/registrations",
+        {
+          enrollment_token: enrollment_token,
+          fingerprint: fingerprint,
+          endpoint_metadata: manifest.fetch('endpoint_metadata'),
+          protocol_version: manifest.fetch('protocol_version'),
+          sdk_version: manifest.fetch('sdk_version'),
+          protocol_methods: manifest.fetch('protocol_methods', []),
+          tool_catalog: manifest.fetch('tool_catalog', []),
+          profile_catalog: manifest.fetch('profile_catalog', {}),
+          config_schema_snapshot: manifest.fetch('config_schema_snapshot', {}),
+          conversation_override_schema_snapshot: manifest.fetch('conversation_override_schema_snapshot', {}),
+          default_config_snapshot: manifest.fetch('default_config_snapshot', {})
+        }
+      )
+
+      agent_connection_credential = registration.fetch('agent_connection_credential')
+      heartbeat = http_post_json(
+        "#{CONTROL_BASE_URL}/agent_api/heartbeats",
+        {
+          health_status: 'healthy',
+          health_metadata: { 'release' => manifest.fetch('sdk_version') },
+          auto_resume_eligible: true
+        },
+        headers: token_headers(agent_connection_credential)
+      )
+      agent_snapshot = AgentSnapshot.find_by_public_id!(registration.fetch('agent_snapshot_id'))
+
+      {
+        manifest: manifest,
+        registration: registration,
+        heartbeat: heartbeat,
+        agent_connection_credential: agent_connection_credential,
+        agent_snapshot: agent_snapshot,
+        agent_connection_id: registration['agent_connection_id']
+      }
+    end
+
+    def register_external_execution_runtime!(enrollment_token:, runtime_base_url:, execution_runtime_fingerprint:)
+      manifest = live_manifest(base_url: runtime_base_url)
+      registration = http_post_json(
+        "#{CONTROL_BASE_URL}/execution_runtime_api/registrations",
+        {
+          enrollment_token: enrollment_token,
+          execution_runtime_fingerprint: execution_runtime_fingerprint,
+          execution_runtime_kind: manifest.fetch('execution_runtime_kind', 'local'),
+          execution_runtime_connection_metadata: manifest.fetch(
+            'execution_runtime_connection_metadata',
+            default_execution_runtime_connection_metadata(runtime_base_url:)
+          ),
+          execution_runtime_capability_payload: manifest.fetch('execution_runtime_capability_payload', {}),
+          execution_runtime_tool_catalog: manifest.fetch('execution_runtime_tool_catalog', [])
+        }
+      )
+
+      execution_runtime = ExecutionRuntime.find_by_public_id!(registration.fetch('execution_runtime_id'))
+
+      {
+        manifest: manifest,
+        registration: registration,
+        execution_runtime: execution_runtime,
+        execution_runtime_connection_id: registration['execution_runtime_connection_id'],
+        execution_runtime_connection_credential: registration.fetch('execution_runtime_connection_credential')
+      }
     end
 
     def register_bundled_runtime_from_manifest!(

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-target_8_fenix}"
+MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-baseline_1_fenix_4_nexus}"
 
 export MULTI_FENIX_LOAD_PROFILE
 

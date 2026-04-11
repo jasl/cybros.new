@@ -6,8 +6,9 @@ module Acceptance
     class Profile
       DEFINITIONS = {
         'smoke' => {
-          runtime_count: 2,
-          concurrent_conversations_per_runtime: 2,
+          agent_count: 1,
+          execution_runtime_count: 2,
+          concurrent_conversations_per_execution_runtime: 2,
           turns_per_conversation: 1,
           max_in_flight_per_conversation: 1,
           workload_kind: 'execution_assignment',
@@ -15,9 +16,10 @@ module Acceptance
           gate_kind: 'correctness',
           inline_control_worker: true
         },
-        'target_8_fenix' => {
-          runtime_count: 8,
-          concurrent_conversations_per_runtime: 2,
+        'baseline_1_fenix_4_nexus' => {
+          agent_count: 1,
+          execution_runtime_count: 4,
+          concurrent_conversations_per_execution_runtime: 2,
           turns_per_conversation: 1,
           max_in_flight_per_conversation: 1,
           workload_kind: 'execution_assignment',
@@ -32,8 +34,9 @@ module Acceptance
           max_database_checkout_timeouts: 0
         },
         'stress' => {
-          runtime_count: 8,
-          concurrent_conversations_per_runtime: 1,
+          agent_count: 1,
+          execution_runtime_count: 4,
+          concurrent_conversations_per_execution_runtime: 1,
           turns_per_conversation: 2,
           max_in_flight_per_conversation: 1,
           workload_kind: 'agent_request_exchange_mock',
@@ -65,16 +68,18 @@ module Acceptance
       end
 
       attr_reader :name,
-                  :runtime_count,
-                  :concurrent_conversations_per_runtime,
+                  :agent_count,
+                  :execution_runtime_count,
+                  :concurrent_conversations_per_execution_runtime,
                   :turns_per_conversation,
                   :max_in_flight_per_conversation,
                   :workload_kind
 
       def initialize(name:, definition:)
         @name = name
-        @runtime_count = definition.fetch(:runtime_count)
-        @concurrent_conversations_per_runtime = definition.fetch(:concurrent_conversations_per_runtime)
+        @agent_count = definition.fetch(:agent_count)
+        @execution_runtime_count = definition.fetch(:execution_runtime_count)
+        @concurrent_conversations_per_execution_runtime = definition.fetch(:concurrent_conversations_per_execution_runtime)
         @turns_per_conversation = definition.fetch(:turns_per_conversation)
         @max_in_flight_per_conversation = definition.fetch(:max_in_flight_per_conversation)
         @workload_kind = definition.fetch(:workload_kind)
@@ -109,11 +114,15 @@ module Acceptance
       end
 
       def conversation_count
-        runtime_count * concurrent_conversations_per_runtime
+        execution_runtime_count * concurrent_conversations_per_execution_runtime
       end
 
       def recommended_runner_db_pool
-        [conversation_count + runtime_count, 16].max
+        [conversation_count + execution_runtime_count + agent_count, 16].max
+      end
+
+      def runtime_count
+        execution_runtime_count
       end
     end
   end

@@ -61,6 +61,7 @@ end
 def execute_mailbox_task_on_conversation!(conversation:, task:)
   run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
+    execution_runtime: task.fetch('execution_runtime'),
     content: task.fetch('content'),
     root_node_key: 'agent_turn_step',
     root_node_type: 'turn_step',
@@ -89,6 +90,7 @@ end
 def execute_agent_request_exchange_task_on_conversation!(conversation:, _agent_snapshot: nil, task:, catalog: nil)
   run = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation,
+    execution_runtime: task.fetch('execution_runtime'),
     content: task.fetch('content'),
     selector_source: task.fetch('selector_source', 'manual'),
     selector: task.fetch('selector'),
@@ -113,8 +115,8 @@ def with_runtime_control_workers!(registrations, inline:, index: 0, &block)
   return yield if index >= registrations.length
 
   registration = registrations.fetch(index)
-  Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
-    registration: registration.runtime_registration,
+  Acceptance::ManualSupport.with_nexus_control_worker_for_registration!(
+    registration: registration,
     limit: 1,
     inline: inline,
     env: registration.runtime_task_env
@@ -123,9 +125,23 @@ def with_runtime_control_workers!(registrations, inline:, index: 0, &block)
   end
 end
 
+def with_agent_control_workers!(agent_registrations, inline:, index: 0, &block)
+  return yield if index >= agent_registrations.length
+
+  registration = agent_registrations.fetch(index)
+  Acceptance::ManualSupport.with_fenix_control_worker!(
+    agent_connection_credential: registration.fetch(:agent_connection_credential),
+    limit: 1,
+    inline: inline
+  ) do
+    with_agent_control_workers!(agent_registrations, inline: inline, index: index + 1, &block)
+  end
+end
+
 def summary_for(profile:, registration_matrix:, metrics:, driver_report:, gate_result:)
   summary = Acceptance::Perf::ReportBuilder.call(
     profile_name: profile.name,
+    agent_count: registration_matrix.agent_count,
     runtime_count: registration_matrix.runtime_count,
     metrics: metrics,
     structural_failures: driver_report.fetch('structural_failures'),
@@ -137,6 +153,7 @@ def summary_for(profile:, registration_matrix:, metrics:, driver_report:, gate_r
     }
   ).merge(
     'completed_workload_items' => driver_report.fetch('completed_workload_items'),
+    'agent_count' => registration_matrix.agent_count,
     'runtime_count' => registration_matrix.runtime_count
   )
   return summary unless gate_result['eligible']
@@ -148,9 +165,10 @@ end
 
 repo_root = AcceptanceHarness.repo_root
 acceptance_root = AcceptanceHarness.acceptance_root
+agent_base_url = ENV.fetch('FENIX_AGENT_BASE_URL', 'http://127.0.0.1:3101')
 profile = Acceptance::Perf::Profile.fetch(ENV.fetch('MULTI_FENIX_LOAD_PROFILE', 'smoke'))
 artifact_stamp = ENV.fetch('MULTI_FENIX_LOAD_ARTIFACT_STAMP') do
-  "#{Time.now.utc.strftime('%Y-%m-%d-%H%M%S')}-multi-fenix-core-matrix-load-#{profile.name}"
+  "#{Time.now.utc.strftime('%Y-%m-%d-%H%M%S')}-multi-agent-runtime-core-matrix-load-#{profile.name}"
 end
 topology = Acceptance::Perf::Topology.build(
   profile: profile,
@@ -169,14 +187,14 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
   run_execution_assignment: lambda do |conversation:, registration:, task:, slot_index:|
     execute_mailbox_task_on_conversation!(
       conversation: conversation,
-      task: task
+      task: task.merge('execution_runtime' => registration.execution_runtime)
     ).merge('slot_index' => slot_index)
   end,
   run_agent_request_exchange: lambda do |conversation:, registration:, task:, slot_index:|
     execute_agent_request_exchange_task_on_conversation!(
       conversation: conversation,
       _agent_snapshot: registration.agent_snapshot,
-      task: task,
+      task: task.merge('execution_runtime' => registration.execution_runtime),
       catalog: provider_catalog_override&.catalog
     ).merge('slot_index' => slot_index)
   end,
@@ -195,33 +213,41 @@ registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   topology: topology,
+  agent_count: profile.agent_count,
+  agent_base_url: agent_base_url,
   create_external_agent: Acceptance::ManualSupport.method(:create_external_agent!),
-  register_external_runtime: Acceptance::ManualSupport.method(:register_external_runtime!)
+  register_external_agent: Acceptance::ManualSupport.method(:register_external_agent_from_manifest!),
+  register_external_execution_runtime: Acceptance::ManualSupport.method(:register_external_execution_runtime!)
 )
 registration_matrix = decorate_boot_states(registration_matrix, topology)
 
 driver_report =
   if registration_matrix.all_booted?
-    with_runtime_control_workers!(
-      registration_matrix.runtime_registrations,
+    with_agent_control_workers!(
+      registration_matrix.agent_registrations,
       inline: profile.inline_control_worker?
     ) do
-      Acceptance::Perf::WorkloadDriver.call(
-        manifest: manifest,
-        registration_matrix: registration_matrix,
-        create_conversation: lambda do |agent_snapshot:|
-          Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
-        end,
-        execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
-          workload_executor.call(
-            conversation: conversation,
-            registration: registration,
-            task: task,
-            slot_index: slot_index,
-            event_output_path: registration.event_output_path
-          )
-        end
-      )
+      with_runtime_control_workers!(
+        registration_matrix.runtime_registrations,
+        inline: profile.inline_control_worker?
+      ) do
+        Acceptance::Perf::WorkloadDriver.call(
+          manifest: manifest,
+          registration_matrix: registration_matrix,
+          create_conversation: lambda do |agent_snapshot:|
+            Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
+          end,
+          execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+            workload_executor.call(
+              conversation: conversation,
+              registration: registration,
+              task: task,
+              slot_index: slot_index,
+              event_output_path: registration.event_output_path
+            )
+          end
+        )
+      end
     end
   else
     Acceptance::Perf::WorkloadDriver.call(
@@ -242,8 +268,10 @@ driver_report =
     )
   end
 
-event_paths = [registration_matrix.core_matrix_events_path] +
-              registration_matrix.runtime_registrations.map(&:event_output_path)
+event_paths = [registration_matrix.core_matrix_events_path]
+agent_event_path = ENV['FENIX_AGENT_EVENTS_PATH']
+event_paths << agent_event_path if agent_event_path.present?
+event_paths.concat(registration_matrix.runtime_registrations.map(&:event_output_path))
 existing_event_paths = event_paths.map { |path| Pathname(path) }.select(&:exist?)
 metrics = Acceptance::Perf::MetricsAggregator.call(event_paths: existing_event_paths)
 gate_result = Acceptance::Perf::GateEvaluator.call(

@@ -18,16 +18,20 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     profile = Acceptance::Perf::Profile.fetch("smoke")
 
     assert_equal "execution_assignment", profile.workload_kind
+    assert_equal 1, profile.agent_count
+    assert_equal 2, profile.execution_runtime_count
     assert_equal 1, profile.turns_per_conversation
     assert_equal 1, profile.max_in_flight_per_conversation
     assert_equal true, profile.inline_control_worker?
     assert_equal "correctness", profile.gate_contract.fetch("kind")
   end
 
-  test "target 8 fenix profile runs queued control workers and requires queue pressure samples" do
-    profile = Acceptance::Perf::Profile.fetch("target_8_fenix")
+  test "baseline 1 fenix 4 nexus profile runs queued control workers and requires queue pressure samples" do
+    profile = Acceptance::Perf::Profile.fetch("baseline_1_fenix_4_nexus")
 
     assert_equal "execution_assignment", profile.workload_kind
+    assert_equal 1, profile.agent_count
+    assert_equal 4, profile.execution_runtime_count
     assert_equal false, profile.inline_control_worker?
     assert_equal "pressure", profile.gate_contract.fetch("kind")
     assert_includes profile.gate_contract.fetch("required_metric_sample_paths"), "mailbox_lease_latency.count"
@@ -39,6 +43,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     profile = Acceptance::Perf::Profile.fetch("stress")
 
     assert_equal "agent_request_exchange_mock", profile.workload_kind
+    assert_equal 1, profile.agent_count
+    assert_equal 4, profile.execution_runtime_count
     assert_operator profile.turns_per_conversation, :>, 1
     assert_equal 1, profile.max_in_flight_per_conversation
     assert_equal true, profile.inline_control_worker?
@@ -67,6 +73,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
   test "workload manifest artifact payload exposes the new turns and workload fields" do
     manifest = Acceptance::Perf::WorkloadManifest.new(
       profile_name: "contract",
+      agent_count: 1,
+      execution_runtime_count: 2,
       conversation_count: 4,
       turns_per_conversation: 2,
       max_in_flight_per_conversation: 1,
@@ -78,6 +86,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     assert_equal(
       {
         "profile_name" => "contract",
+        "agent_count" => 1,
+        "execution_runtime_count" => 2,
         "conversation_count" => 4,
         "turns_per_conversation" => 2,
         "max_in_flight_per_conversation" => 1,
@@ -91,6 +101,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
   test "workload driver executes turns_per_conversation items against the same conversation" do
     manifest = Acceptance::Perf::WorkloadManifest.new(
       profile_name: "contract",
+      agent_count: 1,
+      execution_runtime_count: 2,
       conversation_count: 2,
       turns_per_conversation: 3,
       max_in_flight_per_conversation: 1,
@@ -102,8 +114,10 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       ]
     )
     registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.new(
+      agent_count: 1,
       runtime_count: 2,
       core_matrix_events_path: "/tmp/core-matrix.ndjson",
+      agent_registrations: [],
       runtime_registrations: [
         perf_registration("fenix-01", "agent_snapshot-1", "/tmp/fenix-01.ndjson"),
         perf_registration("fenix-02", "agent_snapshot-2", "/tmp/fenix-02.ndjson"),
@@ -143,6 +157,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
   test "workload driver clears active db connections between conversation setup and workload items" do
     manifest = Acceptance::Perf::WorkloadManifest.new(
       profile_name: "contract",
+      agent_count: 1,
+      execution_runtime_count: 1,
       conversation_count: 1,
       turns_per_conversation: 2,
       max_in_flight_per_conversation: 1,
@@ -159,8 +175,10 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     driver = Acceptance::Perf::WorkloadDriver.new(
       manifest: manifest,
       registration_matrix: Acceptance::Perf::RuntimeRegistrationMatrix.new(
+        agent_count: 1,
         runtime_count: 1,
         core_matrix_events_path: "/tmp/core-matrix.ndjson",
+        agent_registrations: [],
         runtime_registrations: [registration]
       ),
       create_conversation: lambda do |agent_snapshot:|
@@ -204,14 +222,15 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
   def perf_registration(slot_label, agent_snapshot, event_output_path)
     Acceptance::Perf::RuntimeRegistrationMatrix::Registration.new(
       slot_label: slot_label,
+      agent_label: "fenix-01",
       runtime_base_url: "http://127.0.0.1:3101",
       event_output_path: event_output_path,
       runtime_registration: RuntimeRegistrationDouble.new(agent_connection_credential: "machine-#{slot_label}"),
       runtime_task_env: {},
-      agent: "program-#{slot_label}",
       agent_snapshot: agent_snapshot,
       agent_connection_credential: "machine-#{slot_label}",
-      execution_runtime_connection_credential: "executor-#{slot_label}"
+      execution_runtime_connection_credential: "executor-#{slot_label}",
+      execution_runtime: "runtime-#{slot_label}"
     )
   end
 end

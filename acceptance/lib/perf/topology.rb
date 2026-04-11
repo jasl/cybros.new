@@ -7,7 +7,7 @@ module Acceptance
   module Perf
     class Topology
       class << self
-        def build(profile:, repo_root:, acceptance_root:, artifact_stamp:, runtime_host: "127.0.0.1", runtime_scheme: "http", runtime_base_port: 3101, proxy_base_port: 3310, container_prefix: "fenix-load")
+        def build(profile:, repo_root:, acceptance_root:, artifact_stamp:, runtime_host: "127.0.0.1", runtime_scheme: "http", runtime_base_port: 3201, proxy_base_port: 3410, container_prefix: "nexus-load")
           new(
             profile: profile,
             repo_root: Pathname.new(repo_root.to_s),
@@ -28,7 +28,7 @@ module Acceptance
         @profile_name = profile.name
         @artifact_root = acceptance_root.join("artifacts", artifact_stamp)
         @run_slug = sanitize_run_slug(artifact_stamp)
-        @run_root = repo_root.join("tmp", "multi-fenix-core-matrix-load", @run_slug)
+        @run_root = repo_root.join("tmp", "multi-agent-runtime-core-matrix-load", @run_slug)
         @slots = build_slots(
           profile: profile,
           repo_root: repo_root,

@@ -1,17 +1,15 @@
 require "test_helper"
 
 class FreshStartStackContractTest < ActiveSupport::TestCase
-  test "docker fresh start rebuilds nexus before the fenix app image" do
+  test "docker fresh start rebuilds the fenix app image directly from the app dockerfile" do
     script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
-    base_build_index = script.index("docker build -t \"${NEXUS_DOCKER_IMAGE}\" -f \"${NEXUS_ROOT}/Dockerfile\" \"${REPO_ROOT}\"")
-    app_build_index = script.index("docker build --build-arg \"NEXUS_BASE_IMAGE=${NEXUS_DOCKER_IMAGE}\" -t \"${FENIX_DOCKER_IMAGE}\" -f \"${FENIX_ROOT}/Dockerfile\" \"${FENIX_ROOT}\"")
+    app_build_index = script.index("docker build -t \"${FENIX_DOCKER_IMAGE}\" -f \"${FENIX_ROOT}/Dockerfile\" \"${FENIX_ROOT}\"")
     run_index = script.index("docker run -d \\")
 
-    assert base_build_index.present?, "expected fresh_start_stack.sh to build the shared nexus base image"
-    assert app_build_index.present?, "expected fresh_start_stack.sh to rebuild the fenix app image against the shared nexus base image"
+    assert app_build_index.present?, "expected fresh_start_stack.sh to rebuild the fenix app image from the local app Dockerfile"
     assert run_index.present?, "expected fresh_start_stack.sh to run the Docker container"
-    assert_operator base_build_index, :<, app_build_index
     assert_operator app_build_index, :<, run_index
+    refute_includes script, 'NEXUS_BASE_IMAGE='
   end
 
   test "docker fresh start waits for old container names to disappear before reuse" do
@@ -142,7 +140,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
   test "multi-fenix load target wrapper delegates through the shared load harness with the target profile" do
     script = Rails.root.join("../acceptance/bin/multi_fenix_core_matrix_load_target.sh").read
 
-    assert_includes script, 'MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-target_8_fenix}"'
+    assert_includes script, 'MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-baseline_1_fenix_4_nexus}"'
     assert_includes script, "run_multi_fenix_core_matrix_load.sh"
   end
 
@@ -163,7 +161,8 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "Acceptance::Perf::ProviderCatalogOverride.write("
     assert_includes script, 'export MULTI_FENIX_LOAD_STACK_ALREADY_RESET="true"'
     assert_includes script, 'bash "${SCRIPT_DIR}/fresh_start_stack.sh"'
-    assert_includes script, "for index in $(seq 2 \"\${RUNTIME_COUNT}\")"
+    assert_includes script, 'for row in "${SLOT_ROWS[@]}"'
+    assert_includes script, 'prepare_nexus_slot_database'
     assert_includes script, "bin/rails db:prepare"
     assert_includes script, 'bin/rails server -d -b 127.0.0.1 -p "${runtime_port}" -P "${pidfile}"'
     assert_includes script, 'bin/rails runner "${REPO_ROOT}/acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb"'
@@ -181,11 +180,11 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, 'exec("./bin/jobs", "start")'
   end
 
-  test "shared multi-fenix load harness forwards a per-slot fenix storage root" do
+  test "shared multi-fenix load harness keeps a shared fenix storage root and per-slot nexus storage roots" do
     script = Rails.root.join("../acceptance/bin/run_multi_fenix_core_matrix_load.sh").read
 
-    assert_includes script, 'FENIX_STORAGE_ROOT="${FIRST_STORAGE_ROOT}"'
-    assert_includes script, 'FENIX_STORAGE_ROOT="${slot_storage_root}"'
+    assert_includes script, 'FENIX_STORAGE_ROOT="${FENIX_HOME_ROOT}/storage"'
+    assert_includes script, 'NEXUS_STORAGE_ROOT="${slot_storage_root}"'
   end
 
   test "fresh start can start a fenix jobs daemon for queued host execution" do
@@ -252,5 +251,6 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes readme, "bash acceptance/bin/multi_fenix_core_matrix_load_stress.sh"
     assert_includes readme, "acceptance/artifacts/<artifact-stamp>/review/load-summary.md"
     assert_includes readme, "acceptance/artifacts/<artifact-stamp>/evidence/aggregated-metrics.json"
+    assert_includes readme, "Shared-Fenix / Multi-Nexus"
   end
 end
