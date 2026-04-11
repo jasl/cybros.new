@@ -113,7 +113,7 @@ begin
         "tool_invocation_statuses" => task_run.reload.tool_invocations.order(:attempt_no).pluck(:status),
         "failure_classification" => second.error_payload.fetch("classification"),
         "failure_code" => second.error_payload.fetch("code"),
-        "binding_payload" => binding.reload.binding_payload,
+        "runtime_state" => binding.reload.runtime_state,
         "issued_session_ids" => server.issued_session_ids,
         "final_response_payload" => third.response_payload,
       }

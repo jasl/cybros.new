@@ -6,12 +6,14 @@ ACCEPTANCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${ACCEPTANCE_ROOT}/.." && pwd)"
 CORE_MATRIX_ROOT="${REPO_ROOT}/core_matrix"
 FENIX_ROOT="${FENIX_PROJECT_ROOT:-${REPO_ROOT}/agents/fenix}"
+NEXUS_ROOT="${NEXUS_PROJECT_ROOT:-${REPO_ROOT}/execution_runtimes/nexus}"
 LOG_DIR="${ACCEPTANCE_ROOT}/logs"
 
 CORE_MATRIX_BASE_URL="${CORE_MATRIX_BASE_URL:-http://127.0.0.1:3000}"
 CORE_MATRIX_PERF_EVENTS_PATH="${CORE_MATRIX_PERF_EVENTS_PATH:-}"
 CORE_MATRIX_PERF_INSTANCE_LABEL="${CORE_MATRIX_PERF_INSTANCE_LABEL:-}"
 FENIX_RUNTIME_BASE_URL="${FENIX_RUNTIME_BASE_URL:-http://127.0.0.1:3101}"
+NEXUS_RUNTIME_BASE_URL="${NEXUS_RUNTIME_BASE_URL:-http://127.0.0.1:3301}"
 FENIX_RUNTIME_COUNT="${FENIX_RUNTIME_COUNT:-1}"
 FENIX_RUNTIME_MODE="${FENIX_RUNTIME_MODE:-host}"
 FENIX_DOCKER_CONTAINER="${FENIX_DOCKER_CONTAINER:-fenix-capstone}"
@@ -26,6 +28,8 @@ FENIX_HOME_ROOT="${FENIX_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-fenix-home}"
 FENIX_STORAGE_ROOT="${FENIX_STORAGE_ROOT:-${FENIX_HOME_ROOT}/storage}"
 FENIX_HOST_START_JOBS_DAEMON="${FENIX_HOST_START_JOBS_DAEMON:-false}"
 FENIX_DOCKER_HOME_ROOT="${FENIX_DOCKER_HOME_ROOT:-/rails/storage/fenix-home}"
+NEXUS_HOME_ROOT="${NEXUS_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-nexus-home}"
+NEXUS_STORAGE_ROOT="${NEXUS_STORAGE_ROOT:-${NEXUS_HOME_ROOT}/storage}"
 CYBROS_PERF_EVENTS_PATH="${CYBROS_PERF_EVENTS_PATH:-}"
 CYBROS_PERF_INSTANCE_LABEL="${CYBROS_PERF_INSTANCE_LABEL:-}"
 RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
@@ -33,6 +37,7 @@ RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
 mkdir -p "${LOG_DIR}"
 rm -f "${LOG_DIR}"/*.log
 mkdir -p "${FENIX_HOME_ROOT}" "${FENIX_STORAGE_ROOT}"
+mkdir -p "${NEXUS_HOME_ROOT}" "${NEXUS_STORAGE_ROOT}"
 
 require_command() {
   local name="$1"
@@ -582,6 +587,8 @@ CORE_MATRIX_HOST="$(parse_url_field "${CORE_MATRIX_BASE_URL}" host)"
 CORE_MATRIX_PORT="$(parse_url_field "${CORE_MATRIX_BASE_URL}" port)"
 FENIX_RUNTIME_HOST="$(parse_url_field "${FENIX_RUNTIME_BASE_URL}" host)"
 FENIX_RUNTIME_PORT="$(parse_url_field "${FENIX_RUNTIME_BASE_URL}" port)"
+NEXUS_RUNTIME_HOST="$(parse_url_field "${NEXUS_RUNTIME_BASE_URL}" host)"
+NEXUS_RUNTIME_PORT="$(parse_url_field "${NEXUS_RUNTIME_BASE_URL}" port)"
 
 if [[ -z "${CORE_MATRIX_HOST}" || -z "${CORE_MATRIX_PORT}" ]]; then
   echo "invalid CORE_MATRIX_BASE_URL: ${CORE_MATRIX_BASE_URL}" >&2
@@ -590,6 +597,11 @@ fi
 
 if [[ -z "${FENIX_RUNTIME_HOST}" || -z "${FENIX_RUNTIME_PORT}" ]]; then
   echo "invalid FENIX_RUNTIME_BASE_URL: ${FENIX_RUNTIME_BASE_URL}" >&2
+  exit 1
+fi
+
+if [[ -z "${NEXUS_RUNTIME_HOST}" || -z "${NEXUS_RUNTIME_PORT}" ]]; then
+  echo "invalid NEXUS_RUNTIME_BASE_URL: ${NEXUS_RUNTIME_BASE_URL}" >&2
   exit 1
 fi
 
@@ -607,6 +619,21 @@ start_core_matrix_jobs_daemon
 CORE_MATRIX_JOBS_PID="${STARTED_PID}"
 
 wait_for_http_ok "${CORE_MATRIX_BASE_URL}/up"
+
+export NEXUS_HOME_ROOT
+export NEXUS_STORAGE_ROOT
+export CYBROS_PERF_EVENTS_PATH
+export CYBROS_PERF_INSTANCE_LABEL
+stop_listening_port "${NEXUS_RUNTIME_PORT}"
+stop_matching_process "${NEXUS_ROOT}/bin/rails" "server"
+clear_server_pidfile "${NEXUS_ROOT}"
+reset_project_database "nexus-runtime" "${NEXUS_ROOT}" "${LOG_DIR}/nexus-runtime-db-reset.log"
+
+start_rails_server_daemon "nexus-runtime-server" "${NEXUS_ROOT}" "${NEXUS_RUNTIME_HOST}" "${NEXUS_RUNTIME_PORT}" "${LOG_DIR}/nexus-runtime-server.log"
+NEXUS_RUNTIME_PID="${STARTED_PID}"
+
+wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/up"
+wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/runtime/manifest"
 
 if [[ "${FENIX_RUNTIME_MODE}" == "host" ]]; then
   export FENIX_HOME_ROOT
@@ -660,6 +687,10 @@ fenix_runtime_server_pid=${FENIX_RUNTIME_PID}
 fenix_runtime_jobs_pid=${FENIX_RUNTIME_JOBS_PID:-not_applicable}
 fenix_home_root=${FENIX_HOME_ROOT}
 fenix_storage_root=${FENIX_STORAGE_ROOT}
+nexus_runtime_base_url=${NEXUS_RUNTIME_BASE_URL}
+nexus_runtime_server_pid=${NEXUS_RUNTIME_PID}
+nexus_home_root=${NEXUS_HOME_ROOT}
+nexus_storage_root=${NEXUS_STORAGE_ROOT}
 fenix_docker_container=${FENIX_DOCKER_CONTAINER}
 fenix_docker_storage_volume=${FENIX_DOCKER_STORAGE_VOLUME}
 fenix_docker_status=${DOCKER_STATUS}

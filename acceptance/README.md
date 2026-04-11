@@ -25,25 +25,20 @@ Each bundle includes:
 - `evidence/artifact-manifest.json` as the canonical machine-readable entry point
 - `exports/game-2048-source.zip` as the exported final application source snapshot
 
-Run acceptance scenarios through `Core Matrix`'s Rails environment:
+Run the canonical active acceptance suite:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/run_active_suite.sh
+```
+
+Run one active Ruby scenario through `Core Matrix`'s Rails environment:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
 cd core_matrix
 bin/rails runner ../acceptance/scenarios/<scenario>.rb
 ```
-
-Run the 2048 capstone with a fresh stack:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
-```
-
-That wrapper rebuilds the `agents/fenix` app image, performs bootstrap
-registration, and then activates the Dockerized agent through the generic
-`acceptance/bin/activate_agent_docker_runtime.sh` entrypoint via the thin
-Fenix-specific wrapper.
 
 Run the Shared-Fenix / Multi-Nexus load harness locally with the smoke profile:
 
@@ -148,3 +143,12 @@ bash acceptance/bin/replay_supervision_eval.sh /absolute/path/to/review/supervis
 `acceptance/Gemfile` reserves a dedicated top-level home for the harness, but
 the supported execution path currently goes through `core_matrix/bin/rails`
 so the acceptance scripts reuse the product Rails environment directly.
+
+Archived entrypoints stay in-tree for reference, but they are not part of the
+active suite and should not be treated as release gates:
+
+- `acceptance/scenarios/bundled_fast_terminal_validation.rb`
+- `acceptance/scenarios/bundled_rotation_validation.rb`
+- `acceptance/scenarios/process_run_close_validation.rb`
+- `acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb`
+- `acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh`

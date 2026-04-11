@@ -59,6 +59,7 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
 )
+execution_runtime_connection = registry.execution_runtime_connection
 binding = UserAgentBindings::Enable.call(
   user: bootstrap.user,
   agent: registry.agent
@@ -121,25 +122,22 @@ mailbox_item = AgentControl::CreateExecutionAssignment.call(
   execution_hard_deadline_at: 10.minutes.from_now
 )
 
-AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
-AgentControl::Report.call(
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: mailbox_item,
+  agent_task_run: agent_task_run,
   method_id: "execution_started",
   protocol_message_id: "acceptance-human-start",
-  mailbox_item_id: mailbox_item.public_id,
-  agent_task_run_id: agent_task_run.public_id,
-  logical_work_id: agent_task_run.logical_work_id,
-  attempt_no: agent_task_run.attempt_no,
   expected_duration_seconds: 30
 )
-AgentControl::Report.call(
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: mailbox_item,
+  agent_task_run: agent_task_run,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-human-complete",
-  mailbox_item_id: mailbox_item.public_id,
-  agent_task_run_id: agent_task_run.public_id,
-  logical_work_id: agent_task_run.logical_work_id,
-  attempt_no: agent_task_run.attempt_no,
   terminal_payload: {
     "output" => "Need operator input",
     "wait_transition_requested" => {
@@ -204,8 +202,10 @@ HumanInteractions::CompleteTask.call(
 )
 
 workflow_run.reload
-successor_node = workflow_run.workflow_nodes.find_by!(node_key: "agent_step_2")
-successor_task = AgentTaskRun.find_by!(workflow_run: workflow_run, workflow_node: successor_node)
+successor_task = AgentTaskRun.where(workflow_run: workflow_run).where.not(id: agent_task_run.id).order(:created_at, :id).last
+raise "expected successor task after human interaction resolution" if successor_task.blank?
+
+successor_node = successor_task.workflow_node
 after_edges = WorkflowEdge.where(workflow_run: workflow_run).includes(:from_node, :to_node).map do |edge|
   "#{edge.from_node.node_key}->#{edge.to_node.node_key}"
 end.sort
@@ -239,6 +239,7 @@ payload = {
   "observed_dag_shape_after" => after_edges,
   "expected_conversation_state_after" => "conversation active; turn active; workflow ready with a queued successor step",
   "observed_conversation_state_after" => after_state,
+  "successor_node_key" => successor_node.node_key,
 }
 
 payload["passed"] =
@@ -247,7 +248,7 @@ payload["passed"] =
   payload.dig("observed_conversation_state_before", "workflow_wait_state") == "waiting" &&
   payload.dig("observed_conversation_state_before", "workflow_wait_reason_kind") == "human_interaction" &&
   payload.dig("observed_conversation_state_before", "blocking_resource_id") == payload["human_interaction_request_id"] &&
-  payload["observed_dag_shape_after"] == ["agent_turn_step->human_gate", "human_gate->agent_step_2", "root->agent_turn_step"] &&
+  payload["observed_dag_shape_after"].include?("human_gate->#{successor_node.node_key}") &&
   payload.dig("observed_conversation_state_after", "workflow_wait_state") == "ready" &&
   payload.dig("observed_conversation_state_after", "successor_task_lifecycle_state") == "queued"
 

@@ -6,7 +6,7 @@ ACCEPTANCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${ACCEPTANCE_ROOT}/.." && pwd)"
 CORE_MATRIX_ROOT="${REPO_ROOT}/core_matrix"
 
-TARGET_SCRIPT="${1:-acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb}"
+TARGET_SCRIPT="${1:-acceptance/scenarios/provider_backed_turn_validation.rb}"
 shift || true
 
 if [[ "${TARGET_SCRIPT}" == "acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb" ]]; then

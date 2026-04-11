@@ -272,30 +272,35 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   end
 
   test "run_database_reset_command! rebuilds the schema from migrations before db:reset" do
-    captured = nil
+    captured = []
 
     with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
       with_redefined_singleton_method(Open3, :capture3, lambda { |*args, **kwargs|
-        captured = { args:, kwargs: }
+        captured << { args:, kwargs: }
         ["reset stdout", "", Struct.new(:success?, :exitstatus).new(true, 0)]
       }) do
         result = Acceptance::ManualSupport.run_database_reset_command!
 
-        assert_equal "reset stdout", result.fetch(:stdout)
+        assert_includes result.fetch(:stdout), "$ bin/rails db:drop\nreset stdout"
+        assert_includes result.fetch(:stdout), "$ bin/rails db:reset\nreset stdout"
       end
     end
 
-    env, command, shell_flag, script = captured.fetch(:args)
-    assert_equal "bash", command
-    assert_equal "-lc", shell_flag
-    assert_includes script, "bin/rails db:drop"
-    assert_includes script, "rm -f db/schema.rb"
-    assert_includes script, "bin/rails db:create"
-    assert_includes script, "bin/rails db:migrate"
-    assert_includes script, "bin/rails db:reset"
-    assert_equal ENV.fetch("RAILS_ENV", "development"), env.fetch("RAILS_ENV")
-    assert_equal "1", env.fetch("DISABLE_DATABASE_ENVIRONMENT_CHECK")
-    assert_equal Rails.root.to_s, captured.fetch(:kwargs).fetch(:chdir)
+    commands = captured.map do |invocation|
+      env, *command = invocation.fetch(:args)
+      assert_equal ENV.fetch("RAILS_ENV", "development"), env.fetch("RAILS_ENV")
+      assert_equal "1", env.fetch("DISABLE_DATABASE_ENVIRONMENT_CHECK")
+      assert_equal Rails.root.to_s, invocation.fetch(:kwargs).fetch(:chdir)
+      command
+    end
+
+    assert_equal [
+      ["bin/rails", "db:drop"],
+      ["rm", "-f", "db/schema.rb"],
+      ["bin/rails", "db:create"],
+      ["bin/rails", "db:migrate"],
+      ["bin/rails", "db:reset"]
+    ], commands
   end
 
   test "run_fenix_runtime_task! forwards FENIX_HOME_ROOT into the spawned fenix task" do
@@ -590,7 +595,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   end
 
   test "register_external_runtime! returns the execution runtime connection credential from the registration payload" do
-    registration_calls = []
+    agent_registration_calls = []
+    execution_registration_calls = []
     heartbeat_calls = []
     manifest = {
       "endpoint_metadata" => { "runtime_manifest_path" => "/runtime/manifest" },
@@ -611,13 +617,17 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         Acceptance::ManualSupport,
         :http_post_json,
         lambda do |url, payload, headers: {}|
-          if url.end_with?("/agent_api/registrations")
-            registration_calls << [url, payload, headers]
+          if url.end_with?("/execution_runtime_api/registrations")
+            execution_registration_calls << [url, payload, headers]
+            {
+              "execution_runtime_connection_credential" => "execution-secret",
+              "execution_runtime_id" => "rt_123",
+            }
+          elsif url.end_with?("/agent_api/registrations")
+            agent_registration_calls << [url, payload, headers]
             {
               "agent_connection_credential" => "program-secret",
-              "execution_runtime_connection_credential" => "execution-secret",
               "agent_snapshot_id" => "apv_123",
-              "execution_runtime_id" => "rt_123",
             }
           else
             heartbeat_calls << [url, payload, headers]
@@ -626,7 +636,11 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         end
       ) do
         with_redefined_singleton_method(AgentSnapshot, :find_by_public_id!, ->(public_id) { public_id }) do
-          with_redefined_singleton_method(ExecutionRuntime, :find_by_public_id!, ->(public_id) { public_id }) do
+          with_redefined_singleton_method(
+            ExecutionRuntime,
+            :find_by_public_id!,
+            ->(public_id) { Struct.new(:public_id).new(public_id) }
+          ) do
             result = Acceptance::ManualSupport.register_external_runtime!(
               enrollment_token: "enrollment-token",
               runtime_base_url: "http://127.0.0.1:3101",
@@ -638,10 +652,11 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
             assert_equal "program-secret", result.agent_connection_credential
             assert_equal "execution-secret", result.execution_runtime_connection_credential
             assert_equal "apv_123", result.agent_snapshot
-            assert_equal "rt_123", result.execution_runtime
-            assert_equal 1, registration_calls.length
+            assert_equal "rt_123", result.execution_runtime.public_id
+            assert_equal 1, agent_registration_calls.length
+            assert_equal 1, execution_registration_calls.length
             assert_equal 1, heartbeat_calls.length
-            registration_payload = registration_calls.first.fetch(1)
+            registration_payload = execution_registration_calls.first.fetch(1)
 
             assert_equal(
               {

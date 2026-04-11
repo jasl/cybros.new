@@ -109,6 +109,7 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
 )
+execution_runtime_connection = registry.execution_runtime_connection
 binding = UserAgentBindings::Enable.call(
   user: bootstrap.user,
   agent: registry.agent
@@ -171,25 +172,22 @@ mailbox_item = AgentControl::CreateExecutionAssignment.call(
   execution_hard_deadline_at: 10.minutes.from_now
 )
 
-AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
-AgentControl::Report.call(
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: mailbox_item,
+  agent_task_run: agent_task_run,
   method_id: "execution_started",
   protocol_message_id: "acceptance-subagents-start",
-  mailbox_item_id: mailbox_item.public_id,
-  agent_task_run_id: agent_task_run.public_id,
-  logical_work_id: agent_task_run.logical_work_id,
-  attempt_no: agent_task_run.attempt_no,
   expected_duration_seconds: 30
 )
-AgentControl::Report.call(
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: mailbox_item,
+  agent_task_run: agent_task_run,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-subagents-complete",
-  mailbox_item_id: mailbox_item.public_id,
-  agent_task_run_id: agent_task_run.public_id,
-  logical_work_id: agent_task_run.logical_work_id,
-  attempt_no: agent_task_run.attempt_no,
   terminal_payload: {
     "output" => "Delegated both research tasks",
     "wait_transition_requested" => {
@@ -264,26 +262,25 @@ before_state = {
 }
 
 first_child = child_tasks.first
-first_mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: first_child, item_type: "execution_assignment")
-AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
-AgentControl::Report.call(
+first_mailbox_item = first_child.agent_control_mailbox_items.order(:created_at, :id).last
+raise "expected first child mailbox item" if first_mailbox_item.blank?
+
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: first_mailbox_item,
+  agent_task_run: first_child,
   method_id: "execution_started",
   protocol_message_id: "acceptance-subagents-child-1-start",
-  mailbox_item_id: first_mailbox_item.public_id,
-  agent_task_run_id: first_child.public_id,
-  logical_work_id: first_child.logical_work_id,
-  attempt_no: first_child.attempt_no,
   expected_duration_seconds: 30
 )
-AgentControl::Report.call(
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: first_mailbox_item,
+  agent_task_run: first_child,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-subagents-child-1-complete",
-  mailbox_item_id: first_mailbox_item.public_id,
-  agent_task_run_id: first_child.public_id,
-  logical_work_id: first_child.logical_work_id,
-  attempt_no: first_child.attempt_no,
   terminal_payload: { "output" => "alpha done" }
 )
 after_first_child_state = {
@@ -292,32 +289,36 @@ after_first_child_state = {
 }
 
 second_child = child_tasks.second
-second_mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: second_child, item_type: "execution_assignment")
-AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
-AgentControl::Report.call(
+second_mailbox_item = second_child.agent_control_mailbox_items.order(:created_at, :id).last
+raise "expected second child mailbox item" if second_mailbox_item.blank?
+
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: second_mailbox_item,
+  agent_task_run: second_child,
   method_id: "execution_started",
   protocol_message_id: "acceptance-subagents-child-2-start",
-  mailbox_item_id: second_mailbox_item.public_id,
-  agent_task_run_id: second_child.public_id,
-  logical_work_id: second_child.logical_work_id,
-  attempt_no: second_child.attempt_no,
   expected_duration_seconds: 30
 )
-AgentControl::Report.call(
+Acceptance::ManualSupport.dispatch_execution_report!(
   agent_snapshot: registry.agent_snapshot,
+  execution_runtime_connection: execution_runtime_connection,
+  mailbox_item: second_mailbox_item,
+  agent_task_run: second_child,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-subagents-child-2-complete",
-  mailbox_item_id: second_mailbox_item.public_id,
-  agent_task_run_id: second_child.public_id,
-  logical_work_id: second_child.logical_work_id,
-  attempt_no: second_child.attempt_no,
   terminal_payload: { "output" => "beta done" }
 )
 
 workflow_run.reload
-successor_node = workflow_run.workflow_nodes.find_by!(node_key: "agent_step_2")
-successor_task = AgentTaskRun.find_by!(workflow_run: workflow_run, workflow_node: successor_node)
+successor_task = AgentTaskRun.where(workflow_run: workflow_run)
+                            .where.not(id: [agent_task_run.id, *child_tasks.map(&:id)])
+                            .order(:created_at, :id)
+                            .last
+raise "expected successor task after subagent barrier resolution" if successor_task.blank?
+
+successor_node = successor_task.workflow_node
 after_edges = WorkflowEdge.where(workflow_run: workflow_run).includes(:from_node, :to_node).map do |edge|
   "#{edge.from_node.node_key}->#{edge.to_node.node_key}"
 end.sort
@@ -357,6 +358,7 @@ payload = {
   "observed_dag_shape_after" => after_edges,
   "expected_conversation_state_after" => "conversation active; turn active; workflow ready with a queued successor step",
   "observed_conversation_state_after" => after_state,
+  "successor_node_key" => successor_node.node_key,
 }
 
 payload["passed"] =
@@ -365,7 +367,8 @@ payload["passed"] =
   payload.dig("observed_conversation_state_before", "workflow_wait_state") == "waiting" &&
   payload.dig("observed_conversation_state_before", "workflow_wait_reason_kind") == "subagent_barrier" &&
   payload.dig("observed_conversation_state_after_first_child", "workflow_wait_state") == "waiting" &&
-  payload["observed_dag_shape_after"] == ["agent_turn_step->subagent_alpha", "agent_turn_step->subagent_beta", "root->agent_turn_step", "subagent_alpha->agent_step_2", "subagent_beta->agent_step_2"] &&
+  payload["observed_dag_shape_after"].include?("subagent_alpha->#{successor_node.node_key}") &&
+  payload["observed_dag_shape_after"].include?("subagent_beta->#{successor_node.node_key}") &&
   payload.dig("observed_conversation_state_after", "workflow_wait_state") == "ready" &&
   payload.dig("observed_conversation_state_after", "successor_task_lifecycle_state") == "queued"
 

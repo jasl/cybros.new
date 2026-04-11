@@ -28,7 +28,13 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, "remove_volume_if_present \"fenix_capstone_proxy_routes\""
   end
 
-  test "capstone wrapper routes through the shell orchestrator" do
+  test "run_with_fresh_start defaults to an active host-side scenario" do
+    script = Rails.root.join("../acceptance/bin/run_with_fresh_start.sh").read
+
+    assert_includes script, 'TARGET_SCRIPT="${1:-acceptance/scenarios/provider_backed_turn_validation.rb}"'
+  end
+
+  test "capstone wrapper routes through the shell orchestrator when explicitly requested" do
     script = Rails.root.join("../acceptance/bin/run_with_fresh_start.sh").read
 
     assert_includes script, "exec bash \"${SCRIPT_DIR}/fenix_capstone_app_api_roundtrip_validation.sh\" \"$@\""
@@ -202,6 +208,18 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, 'CORE_MATRIX_PERF_INSTANCE_LABEL="${CORE_MATRIX_PERF_INSTANCE_LABEL:-}"'
     assert_includes script, "export CORE_MATRIX_PERF_EVENTS_PATH"
     assert_includes script, "export CORE_MATRIX_PERF_INSTANCE_LABEL"
+  end
+
+  test "fresh start boots a separate nexus host runtime for split acceptance scenarios" do
+    script = Rails.root.join("../acceptance/bin/fresh_start_stack.sh").read
+
+    assert_includes script, 'NEXUS_ROOT="${NEXUS_PROJECT_ROOT:-${REPO_ROOT}/execution_runtimes/nexus}"'
+    assert_includes script, 'NEXUS_RUNTIME_BASE_URL="${NEXUS_RUNTIME_BASE_URL:-http://127.0.0.1:3301}"'
+    assert_includes script, 'NEXUS_HOME_ROOT="${NEXUS_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-nexus-home}"'
+    assert_includes script, 'reset_project_database "nexus-runtime" "${NEXUS_ROOT}" "${LOG_DIR}/nexus-runtime-db-reset.log"'
+    assert_includes script, 'start_rails_server_daemon "nexus-runtime-server" "${NEXUS_ROOT}" "${NEXUS_RUNTIME_HOST}" "${NEXUS_RUNTIME_PORT}" "${LOG_DIR}/nexus-runtime-server.log"'
+    assert_includes script, 'wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/runtime/manifest"'
+    assert_includes script, 'nexus_runtime_base_url=${NEXUS_RUNTIME_BASE_URL}'
   end
 
   test "fresh start waits for the expected core matrix worker topology instead of any solid queue process" do

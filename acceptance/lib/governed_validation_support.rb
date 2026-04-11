@@ -137,18 +137,8 @@ module GovernedValidationSupport
       )
     )
 
-    turn.update!(
-      execution_snapshot_payload: {
-        "agent_context" => {
-          "profile" => "main",
-          "allowed_tool_names" => allowed_tool_names,
-        },
-      }
-    )
-
     workflow_run = WorkflowRun.create!(
       installation: conversation.installation,
-      workspace: workspace,
       conversation: conversation,
       turn: turn,
       lifecycle_state: "active"
@@ -199,6 +189,8 @@ module GovernedValidationSupport
       progress_payload: {},
       terminal_payload: {}
     )
+
+    ToolBindings::FreezeForTask.call(agent_task_run: agent_task_run)
 
     {
       conversation: conversation,

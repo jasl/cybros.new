@@ -448,6 +448,37 @@ module Acceptance
       )
     end
 
+    def run_nexus_mailbox_pump_once!(execution_runtime_connection_credential:, limit: 10, inline: true, env: {})
+      run_nexus_runtime_task!(
+        task_name: 'runtime:mailbox_pump_once',
+        execution_runtime_connection_credential:,
+        env: {
+          'LIMIT' => limit.to_s,
+          'INLINE' => inline ? 'true' : 'false'
+        }.merge(env)
+      )
+    end
+
+    def run_nexus_control_loop_once!(execution_runtime_connection_credential:, limit: 10, inline: true,
+                                     realtime_timeout_seconds: 5, env: {})
+      run_nexus_runtime_task!(
+        task_name: 'runtime:control_loop_once',
+        execution_runtime_connection_credential:,
+        env: {
+          'LIMIT' => limit.to_s,
+          'INLINE' => inline ? 'true' : 'false',
+          'REALTIME_TIMEOUT_SECONDS' => realtime_timeout_seconds.to_s
+        }.merge(env)
+      )
+    end
+
+    def run_nexus_control_loop_for_registration!(registration:, **kwargs)
+      run_nexus_control_loop_once!(
+        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
+        **kwargs
+      )
+    end
+
     def with_nexus_control_worker!(execution_runtime_connection_credential:, limit: 10, inline: true, realtime_timeout_seconds: 5, env: {})
       worker_pid = nil
       with_runtime_control_worker!(
@@ -534,26 +565,36 @@ module Acceptance
     end
 
     def run_database_reset_command!
-      stdout = nil
-      stderr = nil
-      status = nil
+      task_env = {
+        'RAILS_ENV' => ENV.fetch('RAILS_ENV', 'development'),
+        'DISABLE_DATABASE_ENVIRONMENT_CHECK' => '1'
+      }
+      stdout_chunks = []
+      stderr_chunks = []
+      commands = [
+        ['bin/rails', 'db:drop'],
+        ['rm', '-f', 'db/schema.rb'],
+        ['bin/rails', 'db:create'],
+        ['bin/rails', 'db:migrate'],
+        ['bin/rails', 'db:reset']
+      ]
 
       Bundler.with_unbundled_env do
-        stdout, stderr, status = Open3.capture3(
-          {
-            'RAILS_ENV' => ENV.fetch('RAILS_ENV', 'development'),
-            'DISABLE_DATABASE_ENVIRONMENT_CHECK' => '1'
-          },
-          'bash',
-          '-lc',
-          'bin/rails db:drop && rm -f db/schema.rb && bin/rails db:create && bin/rails db:migrate && bin/rails db:reset',
-          chdir: Rails.root.to_s
-        )
+        commands.each do |command|
+          stdout, stderr, status = Open3.capture3(
+            task_env,
+            *command,
+            chdir: Rails.root.to_s
+          )
+
+          stdout_chunks << "$ #{command.join(' ')}\n#{stdout}".strip if stdout.present?
+          stderr_chunks << "$ #{command.join(' ')}\n#{stderr}".strip if stderr.present?
+
+          raise "database reset failed: #{stderr.presence || stdout}" unless status.success?
+        end
       end
 
-      raise "database reset failed: #{stderr.presence || stdout}" unless status.success?
-
-      { stdout:, stderr: }
+      { stdout: stdout_chunks.join("\n"), stderr: stderr_chunks.join("\n") }
     end
 
     def reconnect_application_record!
@@ -683,60 +724,32 @@ module Acceptance
       enrollment_token:,
       runtime_base_url:,
       execution_runtime_fingerprint:,
-      fingerprint:
+      fingerprint:,
+      agent_base_url: runtime_base_url
     )
-      manifest = live_manifest(base_url: runtime_base_url)
-      registration = http_post_json(
-        "#{CONTROL_BASE_URL}/agent_api/registrations",
-        {
-          enrollment_token: enrollment_token,
-          execution_runtime_fingerprint: execution_runtime_fingerprint,
-          execution_runtime_kind: 'local',
-          execution_runtime_connection_metadata: manifest.fetch(
-            'execution_runtime_connection_metadata',
-            default_execution_runtime_connection_metadata(runtime_base_url:)
-          ),
-          fingerprint: fingerprint,
-          endpoint_metadata: manifest.fetch('endpoint_metadata'),
-          protocol_version: manifest.fetch('protocol_version'),
-          sdk_version: manifest.fetch('sdk_version'),
-          execution_runtime_capability_payload: manifest.fetch('execution_runtime_capability_payload', {}),
-          execution_runtime_tool_catalog: manifest.fetch('execution_runtime_tool_catalog', []),
-          protocol_methods: manifest.fetch('protocol_methods'),
-          tool_catalog: manifest.fetch('tool_catalog'),
-          profile_catalog: manifest.fetch('profile_catalog'),
-          config_schema_snapshot: manifest.fetch('config_schema_snapshot'),
-          conversation_override_schema_snapshot: manifest.fetch('conversation_override_schema_snapshot'),
-          default_config_snapshot: manifest.fetch('default_config_snapshot')
-        }
+      execution_runtime_registration = register_external_execution_runtime!(
+        enrollment_token:,
+        runtime_base_url: runtime_base_url,
+        execution_runtime_fingerprint: execution_runtime_fingerprint
       )
-      agent_connection_credential = registration.fetch('agent_connection_credential')
-      execution_runtime_connection_credential = registration.fetch(
-        'execution_runtime_connection_credential',
-        agent_connection_credential
+      agent_registration = register_external_agent_from_manifest!(
+        enrollment_token:,
+        agent_base_url: agent_base_url,
+        fingerprint: fingerprint
       )
-      heartbeat = http_post_json(
-        "#{CONTROL_BASE_URL}/agent_api/heartbeats",
-        {
-          health_status: 'healthy',
-          health_metadata: { 'release' => manifest.fetch('sdk_version') },
-          auto_resume_eligible: true
-        },
-        headers: token_headers(agent_connection_credential)
-      )
-      agent_snapshot = AgentSnapshot.find_by_public_id!(registration.fetch('agent_snapshot_id'))
-      execution_runtime = if registration['execution_runtime_id'].present?
-                            ExecutionRuntime.find_by_public_id!(registration.fetch('execution_runtime_id'))
-                          end
 
       RuntimeRegistration.new(
-        manifest: manifest,
-        registration: registration,
-        heartbeat: heartbeat,
-        agent_connection_credential: agent_connection_credential,
-        execution_runtime_connection_credential: execution_runtime_connection_credential,
-        agent_snapshot: agent_snapshot,
-        execution_runtime: execution_runtime
+        manifest: agent_registration.fetch(:manifest),
+        registration: agent_registration.fetch(:registration).merge(
+          'execution_runtime_id' => execution_runtime_registration.fetch(:execution_runtime).public_id,
+          'execution_runtime_connection_id' => execution_runtime_registration.fetch(:execution_runtime_connection_id),
+          'execution_runtime_fingerprint' => execution_runtime_fingerprint
+        ),
+        heartbeat: agent_registration.fetch(:heartbeat),
+        agent_connection_credential: agent_registration.fetch(:agent_connection_credential),
+        execution_runtime_connection_credential: execution_runtime_registration.fetch(:execution_runtime_connection_credential),
+        agent_snapshot: agent_registration.fetch(:agent_snapshot),
+        execution_runtime: execution_runtime_registration.fetch(:execution_runtime)
       )
     end
 
@@ -991,6 +1004,28 @@ module Acceptance
 
         sleep(poll_interval_seconds)
       end
+    end
+
+    def dispatch_execution_report!(agent_snapshot:, mailbox_item:, agent_task_run:, method_id:, protocol_message_id:,
+                                   execution_runtime_connection:, occurred_at: Time.current, **payload)
+      AgentControl::Poll.call(
+        execution_runtime_connection: execution_runtime_connection,
+        limit: 10,
+        occurred_at: occurred_at
+      ) if method_id == 'execution_started'
+
+      AgentControl::Report.call(
+        agent_snapshot: agent_snapshot,
+        execution_runtime_connection: execution_runtime_connection,
+        method_id: method_id,
+        protocol_message_id: protocol_message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        occurred_at: occurred_at,
+        **payload
+      )
     end
 
     def run_fenix_mailbox_task!(

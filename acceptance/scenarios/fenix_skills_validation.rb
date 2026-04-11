@@ -4,12 +4,12 @@
 require 'fileutils'
 require_relative '../lib/boot'
 
-def ensure_disposable_fenix_home_root!(path)
-  return path if path.basename.to_s.start_with?('acceptance-fenix-home')
+def ensure_disposable_nexus_home_root!(path)
+  return path if path.basename.to_s.start_with?('acceptance-nexus-home')
 
   raise(
-    'FENIX_HOME_ROOT must point to a disposable acceptance root ' \
-    "(basename must start with acceptance-fenix-home): #{path}"
+    'NEXUS_HOME_ROOT must point to a disposable acceptance root ' \
+    "(basename must start with acceptance-nexus-home): #{path}"
   )
 end
 
@@ -20,14 +20,16 @@ end
 def run_mailbox_task_on_conversation!(conversation:, registration:, task:)
   run = start_mailbox_turn_workflow!(
     conversation: conversation,
+    execution_runtime: registration.execution_runtime,
     task: task
   )
   finalize_mailbox_task_run(run:, conversation:, registration:)
 end
 
-def start_mailbox_turn_workflow!(conversation:, task:)
+def start_mailbox_turn_workflow!(conversation:, execution_runtime:, task:)
   Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation,
+    execution_runtime: execution_runtime,
     content: task.fetch(:content),
     root_node_key: 'agent_turn_step',
     root_node_type: 'turn_step',
@@ -38,38 +40,31 @@ def start_mailbox_turn_workflow!(conversation:, task:)
 end
 
 def finalize_mailbox_task_run(run:, conversation:, registration:)
-  pump_result = run_fenix_control_loop!(registration:)
   agent_task_run = Acceptance::ManualSupport.wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))
-  mailbox_item = latest_mailbox_item_for!(agent_task_run)
+  terminal_payload = agent_task_run.terminal_payload || {}
 
   run.merge(
     conversation: conversation.reload,
-    mailbox_item: mailbox_item,
-    execution: execution_summary_for!(pump_result:, mailbox_item:),
+    execution: execution_summary_for(agent_task_run:, terminal_payload:),
     report_results: report_results_for(agent_task_run:)
   )
 end
 
-def execution_summary_for!(pump_result:, mailbox_item:)
-  Acceptance::ManualSupport.mailbox_execution_result_for!(
-    pump_result: pump_result,
-    mailbox_item_id: mailbox_item.public_id
-  )
+def execution_summary_for(agent_task_run:, terminal_payload:)
+  execution_output =
+    if agent_task_run.lifecycle_state == 'completed'
+      terminal_payload['output'].presence || terminal_payload.except('terminal_method_id')
+    end
+
+  {
+    'status' => agent_task_run.lifecycle_state == 'completed' ? 'completed' : 'failed',
+    'output' => execution_output,
+    'error' => agent_task_run.lifecycle_state == 'completed' ? nil : terminal_payload
+  }
 end
 
 def report_results_for(agent_task_run:)
   Acceptance::ManualSupport.report_results_for(agent_task_run: agent_task_run)
-end
-
-def run_fenix_control_loop!(registration:)
-  Acceptance::ManualSupport.run_fenix_control_loop_for_registration!(registration:)
-end
-
-def latest_mailbox_item_for!(agent_task_run)
-  mailbox_item = agent_task_run.agent_control_mailbox_items.order(:created_at, :id).last
-  raise "expected mailbox item for task run #{agent_task_run.public_id}" if mailbox_item.blank?
-
-  mailbox_item
 end
 
 def serialize_run(run)
@@ -115,16 +110,17 @@ def run_passed?(serialized_run, expected_conversation_state)
     end
 end
 
-runtime_base_url = ENV.fetch('FENIX_RUNTIME_BASE_URL', 'http://127.0.0.1:3101')
-fenix_home_root = ensure_disposable_fenix_home_root!(
+agent_base_url = ENV.fetch('FENIX_RUNTIME_BASE_URL', 'http://127.0.0.1:3101')
+runtime_base_url = ENV.fetch('NEXUS_RUNTIME_BASE_URL', 'http://127.0.0.1:3301')
+nexus_home_root = ensure_disposable_nexus_home_root!(
   Pathname.new(
-    ENV.fetch('FENIX_HOME_ROOT', Rails.root.join('tmp/acceptance-fenix-home').to_s)
+    ENV.fetch('NEXUS_HOME_ROOT', Rails.root.join('tmp/acceptance-nexus-home').to_s)
   ).expand_path
 )
-ENV['FENIX_HOME_ROOT'] = fenix_home_root.to_s
+ENV['NEXUS_HOME_ROOT'] = nexus_home_root.to_s
 
-FileUtils.rm_rf(fenix_home_root)
-FileUtils.mkdir_p(fenix_home_root)
+FileUtils.rm_rf(nexus_home_root)
+FileUtils.mkdir_p(nexus_home_root)
 
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
@@ -145,12 +141,14 @@ external_program_b = Acceptance::ManualSupport.create_external_agent!(
 registration_a = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external_program_a.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
+  agent_base_url: agent_base_url,
   execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-a',
   fingerprint: 'acceptance-fenix-skills-a-v1'
 )
 registration_b = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external_program_b.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
+  agent_base_url: agent_base_url,
   execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-b',
   fingerprint: 'acceptance-fenix-skills-b-v1'
 )
@@ -180,45 +178,76 @@ conversation_a = Acceptance::ManualSupport.create_conversation!(agent_snapshot: 
 conversation_b = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_a)
 conversation_c = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_b)
 
-install_run = run_mailbox_task_on_conversation!(
-  conversation: conversation_a.fetch(:conversation),
-  registration: registration_a,
-  task: mailbox_task(
-    content: 'Install portable-notes in conversation A.',
-    mode: 'skills_install',
-    extra_payload: { 'source_path' => source_root.to_s }
-  )
-)
-same_program_load_run = run_mailbox_task_on_conversation!(
-  conversation: conversation_b.fetch(:conversation),
-  registration: registration_a,
-  task: mailbox_task(
-    content: 'Load portable-notes from conversation B.',
-    mode: 'skills_load',
-    extra_payload: { 'skill_name' => 'portable-notes' }
-  )
-)
-same_program_read_run = run_mailbox_task_on_conversation!(
-  conversation: conversation_b.fetch(:conversation),
-  registration: registration_a,
-  task: mailbox_task(
-    content: 'Read portable-notes checklist from conversation B.',
-    mode: 'skills_read_file',
-    extra_payload: {
-      'skill_name' => 'portable-notes',
-      'relative_path' => 'references/checklist.md'
-    }
-  )
-)
-different_program_load_run = run_mailbox_task_on_conversation!(
-  conversation: conversation_c.fetch(:conversation),
-  registration: registration_b,
-  task: mailbox_task(
-    content: 'Load portable-notes from conversation C on a different program.',
-    mode: 'skills_load',
-    extra_payload: { 'skill_name' => 'portable-notes' }
-  )
-)
+install_run = nil
+same_program_load_run = nil
+same_program_read_run = nil
+different_program_load_run = nil
+
+Acceptance::ManualSupport.with_fenix_control_worker!(
+  agent_connection_credential: registration_a.agent_connection_credential,
+  limit: 1,
+  inline: true
+) do
+  Acceptance::ManualSupport.with_fenix_control_worker!(
+    agent_connection_credential: registration_b.agent_connection_credential,
+    limit: 1,
+    inline: true
+  ) do
+    Acceptance::ManualSupport.with_nexus_control_worker_for_registration!(
+      registration: registration_a,
+      limit: 1,
+      inline: true,
+      env: { 'NEXUS_HOME_ROOT' => nexus_home_root.to_s }
+    ) do
+      Acceptance::ManualSupport.with_nexus_control_worker_for_registration!(
+        registration: registration_b,
+        limit: 1,
+        inline: true,
+        env: { 'NEXUS_HOME_ROOT' => nexus_home_root.to_s }
+      ) do
+        install_run = run_mailbox_task_on_conversation!(
+          conversation: conversation_a.fetch(:conversation),
+          registration: registration_a,
+          task: mailbox_task(
+            content: 'Install portable-notes in conversation A.',
+            mode: 'skills_install',
+            extra_payload: { 'source_path' => source_root.to_s }
+          )
+        )
+        same_program_load_run = run_mailbox_task_on_conversation!(
+          conversation: conversation_b.fetch(:conversation),
+          registration: registration_a,
+          task: mailbox_task(
+            content: 'Load portable-notes from conversation B.',
+            mode: 'skills_load',
+            extra_payload: { 'skill_name' => 'portable-notes' }
+          )
+        )
+        same_program_read_run = run_mailbox_task_on_conversation!(
+          conversation: conversation_b.fetch(:conversation),
+          registration: registration_a,
+          task: mailbox_task(
+            content: 'Read portable-notes checklist from conversation B.',
+            mode: 'skills_read_file',
+            extra_payload: {
+              'skill_name' => 'portable-notes',
+              'relative_path' => 'references/checklist.md'
+            }
+          )
+        )
+        different_program_load_run = run_mailbox_task_on_conversation!(
+          conversation: conversation_c.fetch(:conversation),
+          registration: registration_b,
+          task: mailbox_task(
+            content: 'Load portable-notes from conversation C on a different program.',
+            mode: 'skills_load',
+            extra_payload: { 'skill_name' => 'portable-notes' }
+          )
+        )
+      end
+    end
+  end
+end
 
 expected_conversation_state = {
   'conversation_state' => 'active',
@@ -271,7 +300,9 @@ Acceptance::ManualSupport.write_json(
     'scenario' => 'fenix_skills_validation',
     'passed' => passed,
     'proof_artifact_path' => nil,
-    'fenix_home_root' => fenix_home_root.to_s,
+    'agent_base_url' => agent_base_url,
+    'runtime_base_url' => runtime_base_url,
+    'nexus_home_root' => nexus_home_root.to_s,
     'install_scope_root' => install_scope_root,
     'shared_conversation_success' => shared_conversation_success,
     'different_program_failure' => different_program_failure,
