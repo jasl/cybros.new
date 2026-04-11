@@ -705,8 +705,9 @@ module Acceptance
         installation: installation,
         key: key,
         display_name: display_name,
-        visibility: 'global',
-        lifecycle_state: 'active'
+        visibility: "public",
+        provisioning_origin: "system",
+        lifecycle_state: "active"
       )
       enrollment = AgentEnrollments::Issue.call(
         agent: agent,
@@ -841,8 +842,9 @@ module Acceptance
           enabled: true,
           agent_key: manifest.fetch('agent_key'),
           display_name: manifest.fetch('display_name'),
-          visibility: 'global',
-          lifecycle_state: 'active',
+          visibility: "public",
+          provisioning_origin: "system",
+          lifecycle_state: "active",
           execution_runtime_kind: manifest.fetch('execution_runtime_kind', manifest.fetch('execution_runtime_kind', 'local')),
           execution_runtime_fingerprint: execution_runtime_fingerprint,
           connection_metadata: manifest.fetch(
